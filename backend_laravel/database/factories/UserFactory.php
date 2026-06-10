@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\User;
+use App\Models\Role;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -17,6 +18,8 @@ class UserFactory extends Factory
      */
     protected static ?string $password;
 
+    protected static ?int $customerRoleId = null;
+
     /**
      * Define the model's default state.
      *
@@ -24,11 +27,23 @@ class UserFactory extends Factory
      */
     public function definition(): array
     {
+        self::$customerRoleId ??= Role::query()->firstOrCreate(
+            ['name' => 'customer'],
+            ['description' => 'Khách hàng']
+        )->id;
+
+        $fullName = fake()->name();
+
         return [
-            'name' => fake()->name(),
+            'role_id' => self::$customerRoleId,
+            'name' => $fullName,
+            'full_name' => $fullName,
             'email' => fake()->unique()->safeEmail(),
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
+            'phone' => fake()->numerify('09########'),
+            'avatar_url' => null,
+            'status' => 'active',
             'remember_token' => Str::random(10),
         ];
     }
