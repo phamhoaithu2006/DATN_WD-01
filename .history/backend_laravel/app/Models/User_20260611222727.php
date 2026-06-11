@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Models\Booking;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 
 class User extends Authenticatable
@@ -24,9 +23,9 @@ class User extends Authenticatable
         'remember_token',
     ];
 
-public function bookings()
+    public function bookings()
 {
-    // Bảng bookings có cột user_id làm khóa ngoại
-    return $this->hasMany(Booking::class, 'user_id', 'id');
+    // Giả sử 1 User có nhiều Booking thông qua cột user_id
+    return $this->hasMany(Booking::class, 'user_id');
 }
 }

@@ -27,6 +27,6 @@ class User extends Authenticatable
 public function bookings()
 {
     // Bảng bookings có cột user_id làm khóa ngoại
-    return $this->hasMany(Booking::class, 'user_id', 'id');
+    return $this->hasMany(\App\Models\Booking::class, 'user_id', 'id');
 }
 }
