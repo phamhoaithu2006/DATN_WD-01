@@ -34,8 +34,4 @@ Route::put('/customers/{id}', [CustomerController::class, 'update']);
 Route::patch('/customers/{id}/lock', [CustomerController::class, 'lock']);
 //Khôi phục tài khoản 
 Route::patch('/customers/{id}/unlock', [CustomerController::class, 'unlock']);
-//==========================================================================================
-
-
-
 
