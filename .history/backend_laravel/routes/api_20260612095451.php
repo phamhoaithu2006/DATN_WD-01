@@ -18,6 +18,8 @@ Route::prefix('auth')->group(function () {
 
 
 //============================================Quản lý user==================================
+// Định nghĩa route GET để lấy danh sách khách hàng
+// Khi client gọi tới: /api/customers, nó sẽ chạy hàm index trong CustomerController
 //Tính tổng số lượng tài khoảng 
 Route::get('/customers/count', [CustomerController::class, 'count']);
 //lấy danh sách user

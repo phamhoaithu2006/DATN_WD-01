@@ -29,7 +29,6 @@ class User extends Authenticatable
         'avatar_url',
         'status',
     ];
-    protected $guarded = [];
 
     /**
      * Các thuộc tính bị ẩn khi trả về JSON.

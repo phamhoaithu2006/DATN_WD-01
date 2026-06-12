@@ -1,0 +1,262 @@
+.admin-shell {
+  min-height: 100svh;
+  display: grid;
+  grid-template-columns: 296px minmax(0, 1fr);
+  background: #f6f8fb;
+  color: #0f172a;
+  transition: grid-template-columns 180ms ease;
+}
+
+.admin-shell.sidebar-collapsed {
+  grid-template-columns: 88px minmax(0, 1fr);
+}
+
+.admin-sidebar {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border-right: 1px solid #d9e1ec;
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04);
+  overflow: hidden;
+}
+
+.admin-brand {
+  min-height: 97px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 22px 17px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.admin-brand-mark {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #0ea5e9;
+  color: #ffffff;
+}
+
+.admin-brand-mark svg {
+  width: 25px;
+  height: 25px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.admin-brand-copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.admin-brand-copy strong {
+  color: #0f172a;
+  font-size: 1.4rem;
+  line-height: 1;
+  font-weight: 850;
+  letter-spacing: 0;
+}
+
+.admin-brand-copy strong span {
+  color: #0ea5e9;
+}
+
+.admin-brand-copy small {
+  color: #526886;
+  font-size: 0.82rem;
+  line-height: 1.15;
+  font-weight: 600;
+}
+
+.admin-nav {
+  display: grid;
+  gap: 7px;
+  padding: 17px 8px 20px;
+}
+
+.admin-nav-link {
+  min-height: 48px;
+  position: relative;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px 0 14px;
+  border-radius: 14px;
+  color: #64748b;
+  text-decoration: none;
+  font-size: 1rem;
+  font-weight: 650;
+  letter-spacing: 0;
+  transition:
+    background 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.admin-nav-link:hover {
+  color: #0ea5e9;
+  background: #f4f9ff;
+}
+
+.admin-nav-link.active {
+  color: #0ea5e9;
+  background: #eaf4ff;
+  font-weight: 800;
+}
+
+.admin-nav-link.active::after {
+  content: '';
+  width: 5px;
+  height: 22px;
+  position: absolute;
+  right: 13px;
+  top: 50%;
+  border-radius: 999px;
+  background: #0ea5e9;
+  transform: translateY(-50%);
+}
+
+.admin-nav-icon {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.collapse-button {
+  min-height: 54px;
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border: 0;
+  border-top: 1px solid #d9e1ec;
+  color: #526886;
+  background: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+}
+
+.collapse-button:hover {
+  color: #0ea5e9;
+  background: #f8fbff;
+}
+
+.collapse-button svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.2;
+  transition: transform 180ms ease;
+}
+
+.collapse-button:focus-visible,
+.admin-nav-link:focus-visible {
+  outline: 3px solid rgba(14, 165, 233, 0.22);
+  outline-offset: 2px;
+}
+
+.admin-main {
+  min-width: 0;
+  padding: 32px;
+}
+
+.admin-page-header {
+  max-width: 960px;
+}
+
+.admin-page-header p {
+  margin: 0 0 8px;
+  color: #0ea5e9;
+  font-weight: 800;
+}
+
+.admin-page-header h1 {
+  margin: 0;
+  color: #0f172a;
+  font-size: clamp(2rem, 4vw, 3rem);
+  line-height: 1.05;
+  letter-spacing: 0;
+}
+
+.admin-sidebar.collapsed .admin-brand {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.admin-sidebar.collapsed .admin-brand-copy,
+.admin-sidebar.collapsed .admin-nav-link span,
+.admin-sidebar.collapsed .collapse-button span {
+  display: none;
+}
+
+.admin-sidebar.collapsed .admin-nav {
+  padding-inline: 12px;
+}
+
+.admin-sidebar.collapsed .admin-nav-link {
+  grid-template-columns: 1fr;
+  justify-items: center;
+  padding: 0;
+}
+
+.admin-sidebar.collapsed .admin-nav-link.active::after {
+  right: 6px;
+}
+
+.admin-sidebar.collapsed .collapse-button svg {
+  transform: rotate(180deg);
+}
+
+@media (max-width: 760px) {
+  .admin-shell,
+  .admin-shell.sidebar-collapsed {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-sidebar {
+    min-height: auto;
+    border-right: 0;
+    border-bottom: 1px solid #d9e1ec;
+  }
+
+  .admin-brand {
+    min-height: auto;
+  }
+
+  .admin-nav {
+    grid-auto-flow: column;
+    grid-auto-columns: max-content;
+    overflow-x: auto;
+    padding: 12px;
+  }
+
+  .admin-nav-link {
+    min-width: 190px;
+  }
+
+  .collapse-button {
+    display: none;
+  }
+
+  .admin-main {
+    padding: 24px;
+  }
+}
