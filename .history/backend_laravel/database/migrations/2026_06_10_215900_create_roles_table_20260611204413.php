@@ -22,7 +22,7 @@ return new class extends Migration
         $now = now();
 
         DB::table('roles')->insertOrIgnore([
-            ['name' => 'support staff', 'description' => 'Nhân viên hỗ trợ', 'created_at' => $now, 'updated_at' => $now],
+            ['name' => 'support staff', 'description' => 'nhân ', 'created_at' => $now, 'updated_at' => $now],
             ['name' => 'customer', 'description' => 'Khách hàng', 'created_at' => $now, 'updated_at' => $now],
             ['name' => 'tour guide', 'description' => 'Hướng dẫn viên', 'created_at' => $now, 'updated_at' => $now],
             ['name' => 'admin', 'description' => 'Quản trị viên', 'created_at' => $now, 'updated_at' => $now],

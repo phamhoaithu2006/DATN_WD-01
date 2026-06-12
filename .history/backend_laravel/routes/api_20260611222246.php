@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\Admin\CustomerController;
+use App\Http\Controllers\Api\CustomerController;
 
 
 //============================================Quản lý user==================================
