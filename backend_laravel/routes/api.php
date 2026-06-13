@@ -2,6 +2,7 @@
 
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\Admin\CategoryController;
 use App\Http\Controllers\Api\Admin\CustomerController;
 use App\Http\Controllers\Api\AuthController;
 
@@ -35,3 +36,11 @@ Route::patch('/customers/{id}/lock', [CustomerController::class, 'lock']);
 //Khôi phục tài khoản 
 Route::patch('/customers/{id}/unlock', [CustomerController::class, 'unlock']);
 
+//============================================Quản lý danh mục tour=========================
+Route::get('/categories', [CategoryController::class, 'index']);
+Route::get('/categories/search', [CategoryController::class, 'search']);
+Route::post('/categories', [CategoryController::class, 'store']);
+Route::put('/categories/{id}', [CategoryController::class, 'update']);
+Route::delete('/categories/{id}', [CategoryController::class, 'destroy']);
+Route::get('/categories-trashed', [CategoryController::class, 'trashed']);
+Route::patch('/categories/{id}/restore', [CategoryController::class, 'restore']);
