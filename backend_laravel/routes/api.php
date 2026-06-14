@@ -2,12 +2,15 @@
 
 
 use Illuminate\Support\Facades\Route;
+
 use App\Http\Controllers\Api\Admin\AdminProfileController;
 use App\Http\Controllers\Api\Admin\CategoryController;
-use App\Http\Controllers\Api\Admin\CustomerController;
+use App\Http\Controllers\Api\Admin\CustomerManagerController;
+use App\Http\Controllers\Api\Customer\CustomerController;
 use App\Http\Controllers\Api\Admin\PaymentController;
 use App\Http\Controllers\Api\Admin\SettingController;
 use App\Http\Controllers\Api\Admin\WidgetController;
+
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\PublicSettingController;
 use App\Http\Controllers\Api\PublicWidgetController;
@@ -26,21 +29,40 @@ Route::prefix('auth')->group(function () {
 
 //============================================Quản lý user==================================
 //Tính tổng số lượng tài khoảng 
-Route::get('/customers/count', [CustomerController::class, 'count']);
+Route::get('/customers/count', [CustomerManagerController::class, 'count']);
 //lấy danh sách user
-Route::get('/customers', [CustomerController::class, 'index']);
+Route::get('/customers', [CustomerManagerController::class, 'index']);
 //Chức năng search
-Route::get('/customers/search', [CustomerController::class, 'search']);
+Route::get('/customers/search', [CustomerManagerController::class, 'search']);
 //Thêm user
-Route::post('/customers', [CustomerController::class, 'store']);
+Route::post('/customers', [CustomerManagerController::class, 'store']);
 //Xem chi tiết
-Route::get('/customers/{id}', [CustomerController::class, 'show']);
+Route::get('/customers/{id}', [CustomerManagerController::class, 'show']);
 // Edit
-Route::put('/customers/{id}', [CustomerController::class, 'update']);
+Route::put('/customers/{id}', [CustomerManagerController::class, 'update']);
 // Khóa tk
-Route::patch('/customers/{id}/lock', [CustomerController::class, 'lock']);
+Route::patch('/customers/{id}/lock', [CustomerManagerController::class, 'lock']);
 //Khôi phục tài khoản 
-Route::patch('/customers/{id}/unlock', [CustomerController::class, 'unlock']);
+Route::patch('/customers/{id}/unlock', [CustomerManagerController::class, 'unlock']);
+//==========================================================================================
+
+//=============================Lấy thông tin khách hàng khi đăng nhập ==========================
+//Lấy thông tin user khi đăng nhập
+Route::middleware('auth:sanctum')->get('/user', [AuthController::class, 'me']);
+//Edit
+Route::middleware('auth:sanctum')->group(function () {
+    //Edit thông tin (ko bao gồm pass)
+    Route::put('/profile/update', [CustomerController::class, 'updateProfile']);
+    //Edit pass (TH: nhớ pass cũ)
+    Route::put('/profile/change-password', [CustomerController::class, 'changePassword']);
+});
+//Edit pass (không nhớ mật khẩu - cho xác nhận email or sdt -> gửi otp -> đổi pass)
+//Gửi OTP
+Route::post('/forgot-password', [CustomerController::class, 'forgotPassword']);
+//Xác nhận OTP và Đổi pass
+Route::post('/reset-password', [CustomerController::class, 'resetPassword']);
+//===============================================================================================
+
 
 //============================================Quản lý danh mục tour=========================
 Route::get('/categories', [CategoryController::class, 'index']);
@@ -59,6 +81,7 @@ Route::get('/widgets', [PublicWidgetController::class, 'index']);
 Route::prefix('admin')->group(function () {
     Route::get('/settings', [SettingController::class, 'index']);
     Route::put('/settings', [SettingController::class, 'update']);
+
 
     Route::get('/widgets', [WidgetController::class, 'index']);
     Route::post('/widgets', [WidgetController::class, 'store']);
