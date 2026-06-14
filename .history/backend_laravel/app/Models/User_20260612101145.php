@@ -28,9 +28,8 @@ class User extends Authenticatable
         'phone',
         'avatar_url',
         'status',
-        'otp',
-        'otp_expires_at'
     ];
+    protected $guarded = [];
 
     /**
      * Các thuộc tính bị ẩn khi trả về JSON.

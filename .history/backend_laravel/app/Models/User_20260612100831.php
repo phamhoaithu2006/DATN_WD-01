@@ -28,8 +28,6 @@ class User extends Authenticatable
         'phone',
         'avatar_url',
         'status',
-        'otp',
-        'otp_expires_at'
     ];
 
     /**
