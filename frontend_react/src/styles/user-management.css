@@ -1,0 +1,39 @@
+.user-page { display: grid; gap: 22px; }
+.user-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.user-header h1 { margin: 0 0 6px; color: #020617; font-size: 1.8rem; }
+.user-header p { margin: 0; color: #64748b; font-weight: 600; }
+.user-add-button, .user-submit-button { border: 0; border-radius: 18px; background: #0ea5e9; color: white; padding: 13px 20px; font-weight: 800; cursor: pointer; }
+.user-stat-grid { display: grid; grid-template-columns: repeat(4, minmax(180px, 1fr)); gap: 18px; }
+.user-stat-card { min-height: 82px; display: flex; align-items: center; gap: 18px; padding: 14px 18px; background: #fff; border: 1px solid #dbe4ef; border-radius: 16px; box-shadow: 0 2px 7px rgba(15,23,42,.1); }
+.user-stat-icon { width: 52px; height: 52px; display: grid; place-items: center; border-radius: 16px; background: #e0f2fe; font-size: 1.3rem; }
+.user-stat-icon.role-admin { background: #ede9fe; }
+.user-stat-icon.role-support-staff { background: #d1fae5; }
+.user-stat-icon.role-tour-guide { background: #fef3c7; }
+.user-stat-card strong { display: block; font-size: 2rem; color: #020617; }
+.user-stat-card p { margin: 2px 0 0; color: #526886; font-weight: 650; }
+.user-toolbar { display: grid; grid-template-columns: minmax(280px, 1fr) 180px 190px; gap: 14px; padding: 18px; background: #fff; border: 1px solid #dbe4ef; border-radius: 18px; box-shadow: 0 2px 7px rgba(15,23,42,.08); }
+.user-search { display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 0 14px; border: 1px solid #dbe4ef; border-radius: 16px; background: #f8fbff; color: #8aa0bc; }
+.user-search input, .user-toolbar select, .user-modal input, .user-modal select { width: 100%; border: 1px solid #dbe4ef; border-radius: 14px; min-height: 46px; padding: 0 14px; font: inherit; color: #0f172a; background: #fff; }
+.user-search input { border: 0; background: transparent; outline: 0; }
+.user-table-card { overflow: auto; background: #fff; border: 1px solid #dbe4ef; border-radius: 18px; box-shadow: 0 2px 7px rgba(15,23,42,.08); }
+.user-table { width: 100%; border-collapse: collapse; min-width: 1020px; }
+.user-table th { text-align: left; padding: 16px 20px; color: #526886; font-size: .88rem; background: #f8fbff; border-bottom: 1px solid #dbe4ef; }
+.user-table td { padding: 18px 20px; color: #526886; border-bottom: 1px solid #eef2f7; vertical-align: middle; }
+.user-table td strong { display: block; color: #020617; margin-bottom: 4px; }
+.user-table td small { display: block; color: #526886; }
+.user-avatar { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; background: #0ea5e9; color: #fff; font-weight: 900; }
+.user-role-badge { display: inline-block; max-width: 95px; padding: 4px 10px; border-radius: 12px; background: #dff2ff; color: #0369a1; font-weight: 800; }
+.status-badge { display: inline-block; padding: 5px 10px; border-radius: 12px; font-weight: 850; }
+.status-badge.active { background: #bbf7d0; color: #059669; }
+.status-badge.locked { background: #fee2e2; color: #dc2626; }
+.booking-count { color: #0ea5e9; }
+.user-actions { display: flex; align-items: center; gap: 10px; }
+.user-actions button { border: 0; background: transparent; cursor: pointer; font-size: 1rem; }
+.user-actions select { width: 118px; min-height: 34px; border: 1px solid #dbe4ef; border-radius: 10px; color: #526886; }
+.user-empty { text-align: center; padding: 34px !important; }
+.user-modal-backdrop { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 20px; background: rgba(15,23,42,.35); }
+.user-modal { position: relative; width: min(460px, 100%); display: grid; gap: 12px; padding: 24px; border-radius: 20px; background: #fff; box-shadow: 0 24px 80px rgba(15,23,42,.25); }
+.user-modal h2 { margin: 0 0 8px; color: #020617; }
+.user-modal p { margin: 0; color: #526886; }
+.modal-close { position: absolute; top: 10px; right: 12px; border: 0; background: transparent; font-size: 1.7rem; cursor: pointer; color: #64748b; }
+@media (max-width: 900px) { .user-stat-grid { grid-template-columns: repeat(2, 1fr); } .user-toolbar { grid-template-columns: 1fr; } .user-header { flex-direction: column; } }
