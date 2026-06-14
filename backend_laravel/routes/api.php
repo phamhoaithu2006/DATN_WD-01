@@ -2,9 +2,15 @@
 
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\Admin\AdminProfileController;
 use App\Http\Controllers\Api\Admin\CategoryController;
 use App\Http\Controllers\Api\Admin\CustomerController;
+use App\Http\Controllers\Api\Admin\PaymentController;
+use App\Http\Controllers\Api\Admin\SettingController;
+use App\Http\Controllers\Api\Admin\WidgetController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\PublicSettingController;
+use App\Http\Controllers\Api\PublicWidgetController;
 
 //===================================đk, login, logout======================================
 Route::prefix('auth')->group(function () {
@@ -44,3 +50,32 @@ Route::put('/categories/{id}', [CategoryController::class, 'update']);
 Route::delete('/categories/{id}', [CategoryController::class, 'destroy']);
 Route::get('/categories-trashed', [CategoryController::class, 'trashed']);
 Route::patch('/categories/{id}/restore', [CategoryController::class, 'restore']);
+
+//============================================Cài đặt hệ thống public========================
+Route::get('/settings/public', [PublicSettingController::class, 'show']);
+Route::get('/widgets', [PublicWidgetController::class, 'index']);
+
+//============================================Cài đặt hệ thống admin=========================
+Route::prefix('admin')->group(function () {
+    Route::get('/settings', [SettingController::class, 'index']);
+    Route::put('/settings', [SettingController::class, 'update']);
+
+    Route::get('/widgets', [WidgetController::class, 'index']);
+    Route::post('/widgets', [WidgetController::class, 'store']);
+    Route::get('/widgets/{id}', [WidgetController::class, 'show']);
+    Route::put('/widgets/{id}', [WidgetController::class, 'update']);
+    Route::delete('/widgets/{id}', [WidgetController::class, 'destroy']);
+    Route::patch('/widgets/{id}/toggle-status', [WidgetController::class, 'toggleStatus']);
+
+    Route::get('/payments', [PaymentController::class, 'index']);
+    Route::get('/payments/{id}', [PaymentController::class, 'show']);
+    Route::patch('/payments/{id}/confirm', [PaymentController::class, 'confirm']);
+    Route::patch('/payments/{id}/fail', [PaymentController::class, 'fail']);
+    Route::patch('/payments/{id}/refund', [PaymentController::class, 'refund']);
+
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::get('/profile', [AdminProfileController::class, 'show']);
+        Route::put('/profile', [AdminProfileController::class, 'update']);
+        Route::put('/profile/password', [AdminProfileController::class, 'changePassword']);
+    });
+});
