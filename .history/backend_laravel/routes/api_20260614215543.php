@@ -1,18 +1,19 @@
 <?php
 
 
+use Illuminate\Support\Facades\Route;
+
 use App\Http\Controllers\Api\Admin\AdminProfileController;
 use App\Http\Controllers\Api\Admin\CategoryController;
 use App\Http\Controllers\Api\Admin\CustomerManagerController;
-use App\Http\Controllers\Api\Admin\DestinationController;
+use App\Http\Controllers\Api\Customer\CustomerController;
 use App\Http\Controllers\Api\Admin\PaymentController;
 use App\Http\Controllers\Api\Admin\SettingController;
 use App\Http\Controllers\Api\Admin\WidgetController;
+
 use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\Customer\CustomerController;
 use App\Http\Controllers\Api\PublicSettingController;
 use App\Http\Controllers\Api\PublicWidgetController;
-use Illuminate\Support\Facades\Route;
 
 //===================================đk, login, logout======================================
 Route::prefix('auth')->group(function () {
@@ -45,7 +46,6 @@ Route::patch('/customers/{id}/lock', [CustomerManagerController::class, 'lock'])
 Route::patch('/customers/{id}/unlock', [CustomerManagerController::class, 'unlock']);
 //==========================================================================================
 
-
 //=============================Lấy thông tin khách hàng khi đăng nhập ==========================
 //Lấy thông tin user khi đăng nhập
 Route::middleware('auth:sanctum')->get('/user', [AuthController::class, 'me']);
@@ -63,24 +63,6 @@ Route::post('/forgot-password', [CustomerController::class, 'forgotPassword']);
 Route::post('/reset-password', [CustomerController::class, 'resetPassword']);
 //===============================================================================================
 
-
-//====================================Quản lý địa chỉ tour ======================================
-//Tìm kiếm
-Route::get('destinations/search', [DestinationController::class, 'search']);
-//Lấy danh sách |  GET        |  http://127.0.0.1:8000/api/destinations
-//Xem chi tiết  |  GET        |  http://127.0.0.1:8000/api/destinations/{id}
-//Thêm mới      |  POST       |  http://127.0.0.1:8000/api/destinations
-//Cập nhật      |  PUT/PATCH  |  http://127.0.0.1:8000/api/destinations/{id}
-//Xóa mềm       |  DELETE     |  http://127.0.0.1:8000/api/destinations/{id}
-//Router tích hợp cả 5 chức năng
-Route::apiResource('destinations', DestinationController::class);
-//Lấy danh sách xóa mềm
-Route::get('destinations/trash/list', [DestinationController::class, 'trashed']);
-//Khôi phục bản ghi đã xóa mềm
-Route::post('destinations/{id}/restore', [DestinationController::class, 'restore']);
-//xóa vĩnh viễn bản ghi
-Route::delete('destinations/{id}/force-delete', [DestinationController::class, 'forceDelete']);
-//===============================================================================================
 
 
 //============================================Quản lý danh mục tour=========================

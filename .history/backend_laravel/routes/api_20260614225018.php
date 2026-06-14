@@ -65,8 +65,6 @@ Route::post('/reset-password', [CustomerController::class, 'resetPassword']);
 
 
 //====================================Quản lý địa chỉ tour ======================================
-//Tìm kiếm
-Route::get('destinations/search', [DestinationController::class, 'search']);
 //Lấy danh sách |  GET        |  http://127.0.0.1:8000/api/destinations
 //Xem chi tiết  |  GET        |  http://127.0.0.1:8000/api/destinations/{id}
 //Thêm mới      |  POST       |  http://127.0.0.1:8000/api/destinations
