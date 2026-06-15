@@ -32,24 +32,6 @@ Route::prefix('auth')->group(function () {
 
 Route::middleware('auth:sanctum')->prefix('admin')->group(function () { //middleware('auth:sanctum') là lớp bảo vệ (authentication middleware) của Laravel Sanctum.
 
-    //============================================Quản lý user==================================
-    //Tính tổng số lượng tài khoảng
-    Route::get('/customers/count', [CustomerController::class, 'count']);
-    //lấy danh sách user
-    Route::get('/customers', [CustomerController::class, 'index']);
-    //Chức năng search
-    Route::get('/customers/search', [CustomerController::class, 'search']);
-    //Thêm user
-    Route::post('/customers', [CustomerController::class, 'store']);
-    //Xem chi tiết
-    Route::get('/customers/{id}', [CustomerController::class, 'show']);
-    // Edit
-    Route::put('/customers/{id}', [CustomerController::class, 'update']);
-    // Khóa tk
-    Route::patch('/customers/{id}/lock', [CustomerController::class, 'lock']);
-    //Khôi phục tài khoản
-    Route::patch('/customers/{id}/unlock', [CustomerController::class, 'unlock']);
-
     //==========================================Quản lý HDV==========================================
     //Tính tổng số lượng HDV
     Route::get('/guides/statistics', [GuideController::class, 'statistics']);
@@ -63,7 +45,8 @@ Route::middleware('auth:sanctum')->prefix('admin')->group(function () { //middle
     Route::put('/guides/{id}', [GuideController::class, 'update']);
     //Xóa HDV
     Route::delete('/guides/{id}', [GuideController::class, 'destroy']);
-=======
+ });
+ 
 //============================================Quản lý user==================================
 //Tính tổng số lượng tài khoảng 
 Route::get('/customers/count', [CustomerManagerController::class, 'count']);
@@ -82,7 +65,6 @@ Route::patch('/customers/{id}/lock', [CustomerManagerController::class, 'lock'])
 //Khôi phục tài khoản 
 Route::patch('/customers/{id}/unlock', [CustomerManagerController::class, 'unlock']);
 //==========================================================================================
-
 
 //=============================Lấy thông tin khách hàng khi đăng nhập ==========================
 //Lấy thông tin user khi đăng nhập
@@ -119,7 +101,6 @@ Route::post('destinations/{id}/restore', [DestinationController::class, 'restore
 //xóa vĩnh viễn bản ghi
 Route::delete('destinations/{id}/force-delete', [DestinationController::class, 'forceDelete']);
 //===============================================================================================
-
 
 //============================================Quản lý danh mục tour=========================
 Route::get('/categories', [CategoryController::class, 'index']);
