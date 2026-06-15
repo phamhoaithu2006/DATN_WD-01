@@ -11,8 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('bookings', function (Blueprint $table) {
+        Schema::create('guide_languages', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('guide_id')->constrained('guides')->onDelete('cascade');
+            $table->string('language', 100); // Tiếng Anh, Tiếng Pháp...
+            $table->enum('level', ['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'Native'])->nullable();
             $table->timestamps();
         });
     }
@@ -22,6 +25,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('bookings');
+        Schema::dropIfExists('guide_languages');
     }
 };
