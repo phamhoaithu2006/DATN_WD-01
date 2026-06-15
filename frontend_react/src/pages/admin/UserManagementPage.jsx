@@ -1,58 +1,39 @@
 import { useEffect, useMemo, useState } from 'react'
 import AdminLayout from '../../layouts/AdminLayout'
 import {
-  changeUserRole,
   createUser,
-  getRoles,
+  getUserCount,
   getUserDetail,
-  getUserStats,
   getUsers,
   lockUser,
   unlockUser,
+  updateUser,
 } from '../../services/adminUserService'
 import '../../styles/user-management.css'
-
-const roleLabels = {
-  admin: 'Admin',
-  customer: 'Khách Hàng',
-  'support staff': 'NV Hỗ Trợ',
-  'tour guide': 'Hướng Dẫn Viên',
-}
-
-const roleIcons = {
-  admin: '🛡️',
-  customer: '👥',
-  'support staff': '🎧',
-  'tour guide': '🧭',
-}
-
-const statusLabels = {
-  active: 'Hoạt Động',
-  locked: 'Bị Khóa',
-  inactive: 'Không Hoạt Động',
-}
 
 const defaultForm = {
   full_name: '',
   email: '',
   phone: '',
   password: '',
-  role_id: '',
   status: 'active',
 }
 
-function getRoleLabel(role) {
-  return role?.description || roleLabels[role?.name] || role?.name || 'Chưa phân quyền'
+const statusLabels = {
+  active: 'Hoạt Động',
+  inactive: 'Bị Khóa',
 }
 
 function getInitials(name = '') {
-  return name
-    .split(' ')
-    .filter(Boolean)
-    .slice(-2)
-    .map((part) => part[0])
-    .join('')
-    .toUpperCase() || 'ND'
+  return (
+    name
+      .split(' ')
+      .filter(Boolean)
+      .slice(-2)
+      .map((part) => part[0])
+      .join('')
+      .toUpperCase() || 'ND'
+  )
 }
 
 function formatDate(date) {
@@ -61,47 +42,50 @@ function formatDate(date) {
 
 function UserManagementPage() {
   const [users, setUsers] = useState([])
-  const [roles, setRoles] = useState([])
-  const [stats, setStats] = useState([])
+  const [totalUsers, setTotalUsers] = useState(0)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+
   const [search, setSearch] = useState('')
-  const [roleId, setRoleId] = useState('')
   const [status, setStatus] = useState('')
+
   const [selectedUser, setSelectedUser] = useState(null)
-  const [showCreateForm, setShowCreateForm] = useState(false)
+  const [editingUser, setEditingUser] = useState(null)
+  const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(defaultForm)
 
-  const queryParams = useMemo(
-    () => ({
-      search: search || undefined,
-      role_id: roleId || undefined,
-      status: status || undefined,
-    }),
-    [search, roleId, status],
-  )
+  const filteredUsers = useMemo(() => {
+    return users.filter((user) => {
+      const keyword = search.toLowerCase().trim()
+
+      const matchSearch =
+        !keyword ||
+        user.full_name?.toLowerCase().includes(keyword) ||
+        user.name?.toLowerCase().includes(keyword) ||
+        user.email?.toLowerCase().includes(keyword) ||
+        user.phone?.includes(keyword)
+
+      const matchStatus = !status || user.status === status
+
+      return matchSearch && matchStatus
+    })
+  }, [users, search, status])
 
   async function loadData() {
     setLoading(true)
     setError('')
 
     try {
-      const [userList, roleList, statList] = await Promise.all([
-        getUsers(queryParams),
-        getRoles(),
-        getUserStats(),
+      const [userList, count] = await Promise.all([
+        getUsers(),
+        getUserCount(),
       ])
 
       setUsers(userList)
-      setRoles(roleList)
-      setStats(statList)
-      setForm((current) => ({
-        ...current,
-        role_id: current.role_id || roleList[0]?.id || '',
-      }))
+      setTotalUsers(count)
     } catch (err) {
-      setError(err?.response?.data?.message || 'Không thể tải dữ liệu người dùng.')
+      setError(err?.response?.data?.message || 'Không thể tải danh sách người dùng.')
     } finally {
       setLoading(false)
     }
@@ -109,22 +93,39 @@ function UserManagementPage() {
 
   useEffect(() => {
     loadData()
-  }, [queryParams])
-
-  function openCreateForm() {
-    setError('')
-    setForm({
-      ...defaultForm,
-      role_id: roles[0]?.id || '',
-    })
-    setShowCreateForm(true)
-  }
+  }, [])
 
   function updateForm(field, value) {
     setForm((current) => ({
       ...current,
       [field]: value,
     }))
+  }
+
+  function openCreateForm() {
+    setError('')
+    setEditingUser(null)
+    setForm(defaultForm)
+    setShowForm(true)
+  }
+
+  function openEditForm(user) {
+    setError('')
+    setEditingUser(user)
+    setForm({
+      full_name: user.full_name || '',
+      email: user.email || '',
+      phone: user.phone || '',
+      password: '',
+      status: user.status || 'active',
+    })
+    setShowForm(true)
+  }
+
+  function closeForm() {
+    setShowForm(false)
+    setEditingUser(null)
+    setForm(defaultForm)
   }
 
   async function handleView(userId) {
@@ -142,7 +143,7 @@ function UserManagementPage() {
     setError('')
 
     try {
-      if (user.status === 'locked') {
+      if (user.status === 'inactive') {
         await unlockUser(user.id)
       } else {
         await lockUser(user.id)
@@ -154,37 +155,31 @@ function UserManagementPage() {
     }
   }
 
-  async function handleRoleChange(userId, nextRoleId) {
-    setError('')
-
-    try {
-      await changeUserRole(userId, nextRoleId)
-      await loadData()
-    } catch (err) {
-      setError(err?.response?.data?.message || 'Không thể phân quyền người dùng.')
-    }
-  }
-
-  async function handleCreateSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault()
     setSaving(true)
     setError('')
 
     try {
-      await createUser(form)
+      const payload = { ...form }
 
-      setForm({
-        ...defaultForm,
-        role_id: roles[0]?.id || '',
-      })
+      if (editingUser && !payload.password) {
+        delete payload.password
+      }
 
-      setShowCreateForm(false)
+      if (editingUser) {
+        await updateUser(editingUser.id, payload)
+      } else {
+        await createUser(payload)
+      }
+
+      closeForm()
       await loadData()
     } catch (err) {
       const validationErrors = err?.response?.data?.errors
       const firstMessage = validationErrors ? Object.values(validationErrors).flat()[0] : null
 
-      setError(firstMessage || err?.response?.data?.message || 'Không thể thêm người dùng mới.')
+      setError(firstMessage || err?.response?.data?.message || 'Không thể lưu người dùng.')
     } finally {
       setSaving(false)
     }
@@ -195,9 +190,9 @@ function UserManagementPage() {
       <section className="user-page">
         <div className="user-header">
           <div>
-            <span className="user-eyebrow">VivuGo Admin</span>
+            <span className="user-eyebrow">VivuGo</span>
             <h1>Quản Lý Người Dùng</h1>
-            <p>Quản lý tài khoản, trạng thái hoạt động và phân quyền người dùng trong hệ thống.</p>
+            <p>Quản lý tài khoản người dùng theo dữ liệu backend.</p>
           </div>
 
           <button className="user-add-button" type="button" onClick={openCreateForm}>
@@ -206,32 +201,24 @@ function UserManagementPage() {
           </button>
         </div>
 
-        {error && (
-          <div className="user-alert">
-            {error}
-          </div>
-        )}
+        {error && <div className="user-alert">{error}</div>}
 
         <div className="user-stat-grid">
-          <article className="user-stat-card user-stat-card-total">
-            <span className="user-stat-icon role-all">✨</span>
+          <article className="user-stat-card">
+            <span className="user-stat-icon role-all">👥</span>
             <div>
-              <strong>{users.length}</strong>
-              <p>Người dùng đang hiển thị</p>
+              <strong>{totalUsers}</strong>
+              <p>Tổng người dùng</p>
             </div>
           </article>
 
-          {stats.map((item) => (
-            <article className="user-stat-card" key={item.id}>
-              <span className={`user-stat-icon role-${item.name?.replaceAll(' ', '-')}`}>
-                {roleIcons[item.name] || '👤'}
-              </span>
-              <div>
-                <strong>{item.total}</strong>
-                <p>{roleLabels[item.name] || item.description || item.name}</p>
-              </div>
-            </article>
-          ))}
+          <article className="user-stat-card">
+            <span className="user-stat-icon role-customer">📋</span>
+            <div>
+              <strong>{filteredUsers.length}</strong>
+              <p>Đang hiển thị</p>
+            </div>
+          </article>
         </div>
 
         <div className="user-toolbar">
@@ -244,20 +231,10 @@ function UserManagementPage() {
             />
           </label>
 
-          <select value={roleId} onChange={(e) => setRoleId(e.target.value)}>
-            <option value="">Tất cả vai trò</option>
-            {roles.map((role) => (
-              <option key={role.id} value={role.id}>
-                {getRoleLabel(role)}
-              </option>
-            ))}
-          </select>
-
           <select value={status} onChange={(e) => setStatus(e.target.value)}>
             <option value="">Tất cả trạng thái</option>
             <option value="active">Hoạt Động</option>
-            <option value="locked">Bị Khóa</option>
-            <option value="inactive">Không Hoạt Động</option>
+            <option value="inactive">Bị Khóa</option>
           </select>
         </div>
 
@@ -265,14 +242,14 @@ function UserManagementPage() {
           <table className="user-table">
             <thead>
               <tr>
-                <th>Người dùng</th>
-                <th>Liên hệ</th>
-                <th>Ngày đăng ký</th>
-                <th>Vai trò</th>
+                <th>Avatar</th>
+                <th>Họ Tên</th>
+                <th>Email</th>
+                <th>Số Điện Thoại</th>
+                <th>Ngày Đăng Ký</th>
                 <th>Booking</th>
-                <th>Trạng thái</th>
-                <th>Cập nhật</th>
-                <th>Hành động</th>
+                <th>Trạng Thái</th>
+                <th>Hành Động</th>
               </tr>
             </thead>
 
@@ -283,46 +260,34 @@ function UserManagementPage() {
                     Đang tải dữ liệu...
                   </td>
                 </tr>
-              ) : users.length === 0 ? (
+              ) : filteredUsers.length === 0 ? (
                 <tr>
                   <td colSpan="8" className="user-empty">
                     Không có người dùng phù hợp
                   </td>
                 </tr>
               ) : (
-                users.map((user) => (
+                filteredUsers.map((user) => (
                   <tr key={user.id}>
                     <td>
-                      <div className="user-profile-cell">
-                        <span className="user-avatar">
-                          {getInitials(user.full_name || user.name)}
-                        </span>
-                        <div>
-                          <strong>{user.full_name || user.name}</strong>
-                          <small>ID: U{String(user.id).padStart(3, '0')}</small>
-                        </div>
-                      </div>
-                    </td>
-
-                    <td>
-                      <div className="user-contact-cell">
-                        <span>{user.email}</span>
-                        <small>{user.phone || 'Chưa cập nhật SĐT'}</small>
-                      </div>
-                    </td>
-
-                    <td>{formatDate(user.created_at)}</td>
-
-                    <td>
-                      <span className="user-role-badge">
-                        {getRoleLabel(user.role)}
+                      <span className="user-avatar">
+                        {getInitials(user.full_name || user.name)}
                       </span>
                     </td>
 
                     <td>
-                      <b className="booking-count">
-                        {user.bookings_count || 0}
-                      </b>
+                      <strong>{user.full_name || user.name}</strong>
+                      <small>ID: U{String(user.id).padStart(3, '0')}</small>
+                    </td>
+
+                    <td>{user.email}</td>
+
+                    <td>{user.phone || '---'}</td>
+
+                    <td>{formatDate(user.created_at)}</td>
+
+                    <td>
+                      <b className="booking-count">{user.bookings_count || 0}</b>
                     </td>
 
                     <td>
@@ -331,37 +296,23 @@ function UserManagementPage() {
                       </span>
                     </td>
 
-                    <td>{formatDate(user.updated_at)}</td>
-
                     <td>
                       <div className="user-actions">
-                        <button
-                          type="button"
-                          title="Xem chi tiết"
-                          onClick={() => handleView(user.id)}
-                        >
+                        <button type="button" title="Xem" onClick={() => handleView(user.id)}>
                           👁
                         </button>
 
-                        <button
-                          type="button"
-                          title={user.status === 'locked' ? 'Mở khóa' : 'Khóa'}
-                          onClick={() => handleToggleStatus(user)}
-                        >
-                          {user.status === 'locked' ? '🔓' : '🔒'}
+                        <button type="button" title="Sửa" onClick={() => openEditForm(user)}>
+                          ✏️
                         </button>
 
-                        <select
-                          title="Phân quyền"
-                          value={user.role_id || ''}
-                          onChange={(e) => handleRoleChange(user.id, e.target.value)}
+                        <button
+                          type="button"
+                          title={user.status === 'inactive' ? 'Mở khóa' : 'Khóa'}
+                          onClick={() => handleToggleStatus(user)}
                         >
-                          {roles.map((role) => (
-                            <option key={role.id} value={role.id}>
-                              {getRoleLabel(role)}
-                            </option>
-                          ))}
-                        </select>
+                          {user.status === 'inactive' ? '🔓' : '🔒'}
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -403,38 +354,34 @@ function UserManagementPage() {
                 <span>{selectedUser.phone || '---'}</span>
               </p>
               <p>
-                <b>Vai trò:</b>
-                <span>{getRoleLabel(selectedUser.role)}</span>
+                <b>Số booking:</b>
+                <span>{selectedUser.bookings_count || 0}</span>
               </p>
               <p>
                 <b>Trạng thái:</b>
                 <span>{statusLabels[selectedUser.status] || 'Hoạt Động'}</span>
-              </p>
-              <p>
-                <b>Số booking:</b>
-                <span>{selectedUser.bookings_count || 0}</span>
               </p>
             </div>
           </div>
         </div>
       )}
 
-      {showCreateForm && (
-        <div className="user-modal-backdrop" onClick={() => setShowCreateForm(false)}>
+      {showForm && (
+        <div className="user-modal-backdrop" onClick={closeForm}>
           <form
             className="user-modal create-user-modal"
-            onSubmit={handleCreateSubmit}
+            onSubmit={handleSubmit}
             onClick={(event) => event.stopPropagation()}
           >
-            <button className="modal-close" type="button" onClick={() => setShowCreateForm(false)}>
+            <button className="modal-close" type="button" onClick={closeForm}>
               ×
             </button>
 
             <div className="create-form-header">
               <span className="create-form-icon">👤</span>
               <div>
-                <h2>Thêm người dùng mới</h2>
-                <p>Nhập thông tin tài khoản và phân quyền người dùng.</p>
+                <h2>{editingUser ? 'Cập Nhật Người Dùng' : 'Thêm Người Dùng'}</h2>
+                <p>Nhập thông tin tài khoản người dùng.</p>
               </div>
             </div>
 
@@ -443,7 +390,6 @@ function UserManagementPage() {
                 <span>Họ tên</span>
                 <input
                   required
-                  placeholder="Ví dụ: Nguyễn Văn An"
                   value={form.full_name}
                   onChange={(e) => updateForm('full_name', e.target.value)}
                 />
@@ -454,7 +400,6 @@ function UserManagementPage() {
                 <input
                   required
                   type="email"
-                  placeholder="example@email.com"
                   value={form.email}
                   onChange={(e) => updateForm('email', e.target.value)}
                 />
@@ -463,7 +408,6 @@ function UserManagementPage() {
               <label>
                 <span>Số điện thoại</span>
                 <input
-                  placeholder="0901234567"
                   value={form.phone}
                   onChange={(e) => updateForm('phone', e.target.value)}
                 />
@@ -472,46 +416,30 @@ function UserManagementPage() {
               <label>
                 <span>Mật khẩu</span>
                 <input
-                  required
+                  required={!editingUser}
                   type="password"
-                  placeholder="Tối thiểu 8 ký tự"
+                  placeholder={editingUser ? 'Để trống nếu không đổi' : 'Tối thiểu 6 ký tự'}
                   value={form.password}
                   onChange={(e) => updateForm('password', e.target.value)}
                 />
               </label>
 
               <label>
-                <span>Vai trò</span>
-                <select value={form.role_id} onChange={(e) => updateForm('role_id', e.target.value)}>
-                  {roles.map((role) => (
-                    <option key={role.id} value={role.id}>
-                      {getRoleLabel(role)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label>
                 <span>Trạng thái</span>
                 <select value={form.status} onChange={(e) => updateForm('status', e.target.value)}>
                   <option value="active">Hoạt Động</option>
-                  <option value="locked">Bị Khóa</option>
-                  <option value="inactive">Không Hoạt Động</option>
+                  <option value="inactive">Bị Khóa</option>
                 </select>
               </label>
             </div>
 
             <div className="form-actions">
-              <button
-                className="secondary-button"
-                type="button"
-                onClick={() => setShowCreateForm(false)}
-              >
+              <button className="secondary-button" type="button" onClick={closeForm}>
                 Hủy
               </button>
 
               <button className="user-submit-button" type="submit" disabled={saving}>
-                {saving ? 'Đang lưu...' : 'Lưu người dùng'}
+                {saving ? 'Đang lưu...' : 'Lưu'}
               </button>
             </div>
           </form>

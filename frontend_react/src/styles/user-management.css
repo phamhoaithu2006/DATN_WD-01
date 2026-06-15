@@ -526,3 +526,225 @@
     width: 100%;
   }
 }
+/* Giao diện quản lý người dùng theo mẫu admin */
+.user-page-modern {
+  padding: 6px 2px 26px;
+  gap: 20px;
+}
+
+.user-header-modern {
+  align-items: center;
+}
+
+.user-header-modern h1 {
+  font-size: 1.7rem;
+  margin-bottom: 4px;
+}
+
+.user-header-modern p {
+  color: #526886;
+  font-weight: 500;
+}
+
+.user-stat-grid-modern {
+  grid-template-columns: repeat(4, minmax(170px, 1fr));
+  gap: 16px;
+}
+
+.user-stat-grid-modern .user-stat-card {
+  min-height: 94px;
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+}
+
+.user-stat-grid-modern .user-stat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+}
+
+.user-stat-grid-modern .user-stat-card strong {
+  font-size: 1.8rem;
+}
+
+.user-toolbar-modern {
+  grid-template-columns: minmax(360px, 1fr) 162px 162px;
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.1);
+}
+
+.user-toolbar-modern .user-search,
+.user-toolbar-modern select {
+  border-radius: 14px;
+  background: #f8fbff;
+}
+
+.user-table-card {
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.1);
+}
+
+.user-table-modern {
+  min-width: 1100px;
+}
+
+.user-table-modern th {
+  padding: 15px 18px;
+  background: #f8fbff;
+  color: #5b6f8d;
+  font-size: 0.73rem;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.user-table-modern td {
+  padding: 17px 18px;
+  color: #526886;
+}
+
+.user-table-modern td strong {
+  color: #020617;
+  font-size: 0.95rem;
+}
+
+.user-table-modern td small {
+  color: #526886;
+  font-size: 0.82rem;
+}
+
+.user-table-modern .user-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 0.86rem;
+  box-shadow: none;
+}
+
+.user-role-badge {
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  line-height: 1.2;
+  white-space: normal;
+}
+
+.user-role-badge.role-customer {
+  background: #dff2ff;
+  color: #0369a1;
+}
+
+.user-role-badge.role-admin {
+  background: #ede9fe;
+  color: #7c3aed;
+}
+
+.user-role-badge.role-support-staff {
+  background: #d1fae5;
+  color: #047857;
+}
+
+.user-role-badge.role-tour-guide {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.status-badge.locked {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+.status-badge.inactive {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.status-badge.active {
+  background: #d1fae5;
+  color: #059669;
+}
+
+.booking-count {
+  background: transparent;
+  color: #0284c7;
+  min-width: auto;
+  min-height: auto;
+  border-radius: 0;
+}
+
+.booking-empty {
+  color: #94a3b8;
+  font-weight: 900;
+}
+
+.icon-actions {
+  gap: 10px;
+  flex-wrap: nowrap;
+}
+
+.icon-actions button {
+  width: auto;
+  height: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: 1.05rem;
+}
+
+.icon-actions button:hover {
+  background: transparent;
+  border-color: transparent;
+  transform: translateY(-1px);
+}
+
+.action-view { color: #0ea5e9; }
+.action-lock { color: #ef4444; }
+.action-unlock { color: #10b981; }
+.action-role { color: #8b5cf6; }
+
+.inline-role-select {
+  width: 20px !important;
+  min-height: 24px !important;
+  border: 0 !important;
+  padding: 0 !important;
+  color: #64748b !important;
+  background: transparent !important;
+  font-size: 0;
+  cursor: pointer;
+}
+
+.inline-role-select:focus {
+  box-shadow: none !important;
+}
+
+.user-table-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 62px;
+  padding: 0 18px;
+  color: #526886;
+  font-weight: 500;
+  border-top: 1px solid #eef2f7;
+}
+
+.user-success {
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid #bbf7d0;
+  background: #f0fdf4;
+  color: #15803d;
+  font-weight: 750;
+}
+
+@media (max-width: 1100px) {
+  .user-stat-grid-modern {
+    grid-template-columns: repeat(2, minmax(170px, 1fr));
+  }
+
+  .user-toolbar-modern {
+    grid-template-columns: 1fr;
+  }
+}

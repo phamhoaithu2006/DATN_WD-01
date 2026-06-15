@@ -9,6 +9,7 @@ function AppRoutes() {
       <Route path="/auth" element={<AuthPage />} />
       <Route path="/admin" element={<AdminDashboardPage />} />
       <Route path="/admin/users" element={<UserManagementPage />} />
+      <Route path="/admin/customers" element={<Navigate to="/admin/users" replace />} />
       <Route path="*" element={<Navigate to="/admin" replace />} />
     </Routes>
   )
