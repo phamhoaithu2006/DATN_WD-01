@@ -25,7 +25,7 @@ class AuthController extends Controller
             'email'     => $request->email,
             'phone'     => $request->phone,
             'password'  => Hash::make($request->password),
-            'status'    => 1,
+            'status'    => 'active',
         ]);
 
         $token = $user->createToken('auth_token')->plainTextToken;
@@ -45,12 +45,18 @@ class AuthController extends Controller
             'password' => 'required|string',
         ]);
 
-        $user = User::where('email', $request->email)->first();
+        $user = User::with('role')->where('email', $request->email)->first();
 
         if (!$user || !Hash::check($request->password, $user->password)) {
             return response()->json([
                 'message' => 'Email hoặc mật khẩu không đúng'
             ], 401);
+        }
+
+        if ($user->status !== 'active') {
+            return response()->json([
+                'message' => 'Tai khoan dang bi khoa hoac chua kich hoat'
+            ], 403);
         }
 
         $token = $user->createToken('auth_token')->plainTextToken;

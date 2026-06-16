@@ -1,5 +1,6 @@
 export const USERS_KEY = 'skytrail_users'
 export const SESSION_KEY = 'skytrail_session'
+export const TOKEN_KEY = 'skytrail_token'
 
 export const demoUser = {
   name: 'Travel Explorer',
@@ -33,6 +34,15 @@ export function saveSession(user) {
   localStorage.setItem(SESSION_KEY, JSON.stringify(user))
 }
 
+export function readToken() {
+  return localStorage.getItem(TOKEN_KEY)
+}
+
+export function saveToken(token) {
+  localStorage.setItem(TOKEN_KEY, token)
+}
+
 export function clearSession() {
   localStorage.removeItem(SESSION_KEY)
+  localStorage.removeItem(TOKEN_KEY)
 }
