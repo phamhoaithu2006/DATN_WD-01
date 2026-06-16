@@ -11,12 +11,34 @@ class TourController extends Controller
 {
     /**
      * 1. API Quản lý danh sách tour (Admin)
-     * Yêu cầu: Không hiển thị tour bị ẩn.
+     * Yêu cầu: Không hiển thị tour bị ẩn + Tích hợp Lọc & Tìm kiếm
      */
-    public function index()
+    public function index(Request $request) 
     {
-        $tours = Tour::where('status', '!=', 'hidden')->orderBy('id', 'desc')->paginate(10);
-        
+        // Bắt đầu với query cơ bản: Lấy tất cả tour trừ những tour có trạng thái 'hidden'
+        $query = Tour::where('status', '!=', 'hidden');
+
+        // [MỚI] 1. ADMIN TÌM KIẾM: Theo tiêu đề tour (title)
+        if ($request->has('search') && $request->search != '') {
+            $query->where('title', 'LIKE', '%' . $request->search . '%');
+        }
+
+        // 2. ADMIN LỌC TRẠNG THÁI: Lọc nhanh theo 'draft', 'published', 'cancelled'
+        if ($request->has('status') && $request->status != '') {
+            $query->where('status', $request->status);
+        }
+
+        // 3. ADMIN LỌC KHOẢNG GIÁ: Lọc theo khoảng giá base_price
+        if ($request->has('price_from') && $request->price_from != '') {
+            $query->where('base_price', '>=', $request->price_from);
+        }
+        if ($request->has('price_to') && $request->price_to != '') {
+            $query->where('base_price', '<=', $request->price_to);
+        }
+
+        // 4. ADMIN LỌC THEO DANH MỤC: Lọc theo category_id
+        $tours = $query->orderBy('id', 'desc')->paginate(10);
+
         return response()->json([
             'status' => 'success',
             'message' => 'Lấy danh sách quản lý tour thành công',
@@ -26,11 +48,28 @@ class TourController extends Controller
 
     /**
      * 2. API Hiển thị tất cả danh sách tour (User)
-     * Chỉ lấy danh sách tour chưa ẩn và đã được published (xuất bản).
+     * Chỉ lấy danh sách tour chưa ẩn và đã được published + Tích hợp Lọc & Tìm kiếm
      */
-    public function publicIndex()
+    public function publicIndex(Request $request)
     {
-        $tours = Tour::where('status', 'published')->orderBy('id', 'desc')->paginate(10);
+        // Chỉ lấy các tour đã xuất bản (published)
+        $query = Tour::where('status', 'published');
+
+        //  1. USER TÌM KIẾM: Tìm theo tiêu đề tour
+        if ($request->has('search') && $request->search != '') {
+            $query->where('title', 'LIKE', '%' . $request->search . '%');
+        }
+
+        //  2. USER LỌC KHOẢNG GIÁ: Tìm theo ngân sách của khách
+        if ($request->has('price_from') && $request->price_from != '') {
+            $query->where('base_price', '>=', $request->price_from);
+        }
+        if ($request->has('price_to') && $request->price_to != '') {
+            $query->where('base_price', '<=', $request->price_to);
+        }
+
+        // Giữ nguyên logic sắp xếp và phân trang theo ID giảm dần của bạn
+        $tours = $query->orderBy('id', 'desc')->paginate(10);
         
         return response()->json([
             'status' => 'success',
@@ -137,7 +176,7 @@ class TourController extends Controller
     public function unhide($id)
     {
         $tour = Tour::findOrFail($id);
-        
+
         if ($tour->status !== 'hidden') {
             return response()->json([
                 'status' => 'error',
@@ -160,7 +199,7 @@ class TourController extends Controller
     public function hiddenTours()
     {
         $tours = Tour::where('status', 'hidden')->orderBy('id', 'desc')->paginate(10);
-        
+
         return response()->json([
             'status' => 'success',
             'message' => 'Lấy danh sách tour bị ẩn thành công',
