@@ -52,7 +52,7 @@ class TourManagerController extends Controller
      */
     public function publicIndex(Request $request) 
     {
-        // Gốc của bạn: Chỉ lấy các tour đã xuất bản (published)
+        //  Chỉ lấy các tour đã xuất bản (published)
         $query = Tour::where('status', 'published');
 
         //  1. USER TÌM KIẾM: Tìm theo tiêu đề tour
