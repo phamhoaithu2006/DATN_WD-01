@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -28,7 +29,6 @@ class DatabaseSeeder extends Seeder
             'email' => 'admin@vivugo.vn',
         ], [
             'role_id' => $adminRoleId,
-            'name' => 'ViVuGo Admin',
             'full_name' => 'ViVuGo Admin',
             'phone' => '0900000000',
             'password' => Hash::make('Admin@123'),
