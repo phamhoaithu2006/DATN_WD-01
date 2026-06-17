@@ -1,4 +1,5 @@
 <?php
+
 use App\Http\Controllers\Api\Admin\AdminProfileController;
 use App\Http\Controllers\Api\Admin\CategoryController;
 use App\Http\Controllers\Api\Admin\CustomerManagerController;
@@ -55,9 +56,9 @@ Route::prefix('tours')->group(function () {
     Route::get('/search', [TourController::class, 'search_gdkh']);
     // API lọc theo các tiêu chí (category, price, duration...)
     Route::get('/filter', [TourController::class, 'filter_gdkh']);
-    
+
     // Danh sách tour
-    Route::get('/', [TourController::class, 'index_gdkh']); 
+    Route::get('/', [TourController::class, 'index_gdkh']);
 
     // API yêu cầu đăng nhập
     Route::middleware('auth:sanctum')->group(function () {
@@ -65,17 +66,17 @@ Route::prefix('tours')->group(function () {
         Route::post('wishlist', [WishlistController::class, 'store']);
         Route::delete('wishlist/{tour_id}', [WishlistController::class, 'destroy']);
     });
-    
+
     // Chi tiết tour theo slug   
-    Route::get('/{slug}', [TourController::class, 'show_gdkh']); 
+    Route::get('/{slug}', [TourController::class, 'show_gdkh']);
 });
 //===============================================================================================
 
 
 
 //_______________________________________ ADMIN _____________________________________________________
-Route::middleware('auth:sanctum')->prefix('admin')->group(function () { 
-//middleware('auth:sanctum') là lớp bảo vệ (authentication middleware) của Laravel Sanctum.
+Route::middleware('auth:sanctum')->prefix('admin')->group(function () {
+    //middleware('auth:sanctum') là lớp bảo vệ (authentication middleware) của Laravel Sanctum.
 
     //============================================Quản lý user==================================
     //Tính tổng số lượng tài khoảng 
@@ -146,12 +147,12 @@ Route::middleware('auth:sanctum')->prefix('admin')->group(function () {
     Route::get('tours/public', [TourManagerController::class, 'publicIndex']); // Hiển thị danh sách tour cho user
 
     // Giao diện Quản lý (Admin)
-    Route::prefix('admin/tours')->group(function () {
+    Route::prefix('tours')->group(function () {
         Route::get('/', [TourManagerController::class, 'index']);                  // Quản lý tour (không hiện tour bị ẩn)
         Route::post('/', [TourManagerController::class, 'store']);                 // Thêm tour
         Route::put('/{id}', [TourManagerController::class, 'update']);             // Sửa tour
         Route::delete('/{id}', [TourManagerController::class, 'destroy']);         // Xóa tour (Soft delete)
-        
+
         Route::get('/hidden-list', [TourManagerController::class, 'hiddenTours']); // Lấy danh sách tour bị ẩn
         Route::patch('/{id}/hide', [TourManagerController::class, 'hide']);        // Ẩn tour
         Route::patch('/{id}/unhide', [TourManagerController::class, 'unhide']);    // Bỏ ẩn tour
@@ -159,36 +160,33 @@ Route::middleware('auth:sanctum')->prefix('admin')->group(function () {
     //===========================================================================================
 
 
-    //============================================Cài đặt hệ thống public========================
-    Route::get('/settings/public', [PublicSettingController::class, 'show']);
-    Route::get('/widgets', [PublicWidgetController::class, 'index']);
-    //===========================================================================================
+
 
 
     //============================================Cài đặt hệ thống admin=========================
-    Route::prefix('admin')->group(function () {
-        Route::get('/settings', [SettingController::class, 'index']);
-        Route::put('/settings', [SettingController::class, 'update']);
+    Route::get('/settings', [SettingController::class, 'index']);
+    Route::put('/settings', [SettingController::class, 'update']);
 
-        Route::get('/widgets', [WidgetController::class, 'index']);
-        Route::post('/widgets', [WidgetController::class, 'store']);
-        Route::get('/widgets/{id}', [WidgetController::class, 'show']);
-        Route::put('/widgets/{id}', [WidgetController::class, 'update']);
-        Route::delete('/widgets/{id}', [WidgetController::class, 'destroy']);
-        Route::patch('/widgets/{id}/toggle-status', [WidgetController::class, 'toggleStatus']);
+    Route::get('/widgets', [WidgetController::class, 'index']);
+    Route::post('/widgets', [WidgetController::class, 'store']);
+    Route::get('/widgets/{id}', [WidgetController::class, 'show']);
+    Route::put('/widgets/{id}', [WidgetController::class, 'update']);
+    Route::delete('/widgets/{id}', [WidgetController::class, 'destroy']);
+    Route::patch('/widgets/{id}/toggle-status', [WidgetController::class, 'toggleStatus']);
 
-        Route::get('/payments', [PaymentController::class, 'index']);
-        Route::get('/payments/{id}', [PaymentController::class, 'show']);
-        Route::patch('/payments/{id}/confirm', [PaymentController::class, 'confirm']);
-        Route::patch('/payments/{id}/fail', [PaymentController::class, 'fail']);
-        Route::patch('/payments/{id}/refund', [PaymentController::class, 'refund']);
+    Route::get('/payments', [PaymentController::class, 'index']);
+    Route::get('/payments/{id}', [PaymentController::class, 'show']);
+    Route::patch('/payments/{id}/confirm', [PaymentController::class, 'confirm']);
+    Route::patch('/payments/{id}/fail', [PaymentController::class, 'fail']);
+    Route::patch('/payments/{id}/refund', [PaymentController::class, 'refund']);
 
-        Route::middleware('auth:sanctum')->group(function () {
-            Route::get('/profile', [AdminProfileController::class, 'show']);
-            Route::put('/profile', [AdminProfileController::class, 'update']);
-            Route::put('/profile/password', [AdminProfileController::class, 'changePassword']);
-        });
-    });
+    Route::get('/profile', [AdminProfileController::class, 'show']);
+    Route::put('/profile', [AdminProfileController::class, 'update']);
+    Route::put('/profile/password', [AdminProfileController::class, 'changePassword']);
     //===========================================================================================
 
 });
+//============================================Cài đặt hệ thống public========================
+Route::get('/settings/public', [PublicSettingController::class, 'show']);
+Route::get('/widgets', [PublicWidgetController::class, 'index']);
+    //===========================================================================================
