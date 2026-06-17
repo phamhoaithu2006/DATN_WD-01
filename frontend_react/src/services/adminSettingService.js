@@ -11,11 +11,11 @@ const api = axios.create({
 })
 
 export async function getAdminSettings() {
-  const { data } = await api.get('/settings')
+  const { data } = await api.get('/admin/settings')
   return data.data || {}
 }
 
 export async function updateAdminSettings(payload) {
-  const { data } = await api.put('/settings', payload)
+  const { data } = await api.put('/admin/settings', payload)
   return data.data || {}
 }
