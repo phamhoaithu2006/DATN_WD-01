@@ -13,7 +13,7 @@ import { validateLogin, validateRegister } from '../../utils/authValidators'
 import '../../styles/auth.css'
 
 const emptyRegisterForm = {
-  name: '',
+  full_name: '',
   email: '',
   phone: '',
   password: '',
@@ -32,8 +32,8 @@ function AuthPage() {
   const [registerErrors, setRegisterErrors] = useState({})
 
   const welcomeName = useMemo(() => {
-    if (!currentUser?.name) return ''
-    return currentUser.name.split(' ')[0]
+    if (!currentUser?.full_name) return ''
+    return currentUser.full_name.split(' ')[0]
   }, [currentUser])
 
   function persistUsers(nextUsers) {
@@ -66,7 +66,7 @@ function AuthPage() {
     }
 
     const sessionUser = {
-      name: foundUser.name,
+      full_name: foundUser.full_name,
       email: foundUser.email,
       phone: foundUser.phone,
     }
@@ -84,7 +84,7 @@ function AuthPage() {
     if (Object.keys(errors).length > 0) return
 
     const nextUser = {
-      name: registerData.name.trim(),
+      full_name: registerData.full_name.trim(),
       email: registerData.email.trim().toLowerCase(),
       phone: registerData.phone.trim(),
       password: registerData.password,
