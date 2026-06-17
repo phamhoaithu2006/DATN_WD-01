@@ -24,7 +24,7 @@ function LoginForm({ values, errors, isSubmitting, onChange, onSubmit }) {
       </label>
 
       <button className="primary-button" type="submit" disabled={isSubmitting}>
-        {isSubmitting ? 'Đăng nhập...' : 'Đăng nhập'}
+        {isSubmitting ? 'Đang đăng nhập...' : 'Đăng nhập'}
       </button>
       <p className="helper-text">Tài khoản admin: admin@vivugo.vn / Admin@123</p>
     </form>

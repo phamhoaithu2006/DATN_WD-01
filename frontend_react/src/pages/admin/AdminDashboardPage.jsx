@@ -1,6 +1,6 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
-import AdminLayout from '../../layouts/AdminLayout'
-import GuideManagementPage from './GuideManagementPage'
+import { Navigate, Route, Routes } from "react-router-dom";
+import AdminLayout from "../../layouts/AdminLayout";
+import GuideManagementPage from "./GuideManagementPage";
 
 function AdminDashboardPage() {
   return (
@@ -11,7 +11,9 @@ function AdminDashboardPage() {
           element={
             <section className="admin-page-header">
               <p>Tổng quan vận hành</p>
-              <h1>Admin Dashboard</h1>
+              <h1>
+                <strong>Admin Dashboard</strong>
+              </h1>
             </section>
           }
         />
@@ -19,7 +21,7 @@ function AdminDashboardPage() {
         <Route path="*" element={<Navigate to="/admin" replace />} />
       </Routes>
     </AdminLayout>
-  )
+  );
 }
 
-export default AdminDashboardPage
+export default AdminDashboardPage;

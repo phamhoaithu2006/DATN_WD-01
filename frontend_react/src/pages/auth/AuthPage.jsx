@@ -67,8 +67,7 @@ function AuthPage() {
 
       if (roleName !== 'admin') {
         clearSession()
-        setNotice('Tai khoan nay khong co quyen vao trang admin.')
-        return
+        setNotice('Tài khoản này không có quyền truy cập admin.')
       }
 
       const sessionUser = {
@@ -82,12 +81,12 @@ function AuthPage() {
       saveToken(data.token)
       saveSession(sessionUser)
       setCurrentUser(sessionUser)
-      setNotice('Dang nhap thanh cong.')
+      setNotice('Đăng nhập thành công.')
       navigate('/admin', { replace: true })
     } catch (error) {
       setNotice(
         error.response?.data?.message ||
-          'Khong dang nhap duoc. Vui long kiem tra API Laravel.',
+          'Không đăng nhập được. Vui lòng kiểm tra lại thông tin đăng nhập',
       )
     } finally {
       setIsSubmitting(false)
@@ -113,7 +112,7 @@ function AuthPage() {
     setLoginData({ email: nextUser.email, password: '' })
     setRegisterData(emptyRegisterForm)
     setMode('login')
-    setNotice('Tao tai khoan thanh cong. Hay dang nhap de bat dau.')
+    setNotice('Tạo tài khoản thành công. Hãy bắt đầu để đăng nhập.')
   }
 
   async function handleLogout() {
@@ -125,7 +124,7 @@ function AuthPage() {
 
     setCurrentUser(null)
     clearSession()
-    setNotice('Ban da dang xuat.')
+    setNotice('Bạn đã đăng xuất thành công.')
     setMode('login')
   }
 
