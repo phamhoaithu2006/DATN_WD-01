@@ -3,30 +3,39 @@
 namespace Database\Seeders;
 
 use App\Models\Guide;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 
 class GuideSeeder extends Seeder
 {
     public function run(): void
     {
+        if (! Schema::hasTable('guides')) {
+            return;
+        }
+
+        $guideRole = Role::where('name', 'tour guide')->firstOrFail();
+
         $guides = [
             [
                 'user' => [
-                    'role_id'   => 3, // role hướng dẫn viên
+                    'role_id' => $guideRole->id,
                     'full_name' => 'Trần Văn Hùng',
-                    'email'     => 'hung.tv@vivugo.vn',
-                    'phone'     => '0912111222',
-                    'password'  => Hash::make('123456'),
-                    'status'    => 'active',
+                    'email' => 'hung.tv@vivugo.vn',
+                    'phone' => '0912111222',
+                    'password' => Hash::make('Guide@123'),
+                    'status' => 'active',
                 ],
                 'guide' => [
-                    'guide_code'       => 'HDV001',
+                    'guide_code' => 'HDV001',
                     'certificate_type' => 'Thẻ HDV Quốc Tế',
                     'experience_years' => 8,
-                    'average_rating'   => 4.9,
-                    'status'           => 'active',
+                    'average_rating' => 4.9,
+                    'review_count' => 42,
+                    'status' => 'active',
                 ],
                 'languages' => [
                     ['language' => 'Tiếng Anh', 'level' => 'C2'],
@@ -34,24 +43,25 @@ class GuideSeeder extends Seeder
                 ],
                 'experiences' => [
                     ['certificate_name' => 'Thẻ HDV Quốc Tế', 'issued_by' => 'Tổng Cục Du Lịch Việt Nam', 'issued_year' => 2016],
-                    ['certificate_name' => 'Chứng chỉ Sơ Cứu Khẩn Cấp', 'issued_by' => 'Hội Chữ Thập Đỏ VN', 'issued_year' => 2022],
+                    ['certificate_name' => 'Chứng chỉ Sơ Cứu Khẩn Cấp', 'issued_by' => 'Hội Chữ Thập Đỏ Việt Nam', 'issued_year' => 2022],
                 ],
             ],
             [
                 'user' => [
-                    'role_id'   => 3,
+                    'role_id' => $guideRole->id,
                     'full_name' => 'Nguyễn Thị Mai',
-                    'email'     => 'mai.nt@vivugo.vn',
-                    'phone'     => '0912111333',
-                    'password'  => Hash::make('123456'),
-                    'status'    => 'active',
+                    'email' => 'mai.nt@vivugo.vn',
+                    'phone' => '0912111333',
+                    'password' => Hash::make('Guide@123'),
+                    'status' => 'active',
                 ],
                 'guide' => [
-                    'guide_code'       => 'HDV002',
+                    'guide_code' => 'HDV002',
                     'certificate_type' => 'Thẻ HDV Nội Địa',
                     'experience_years' => 5,
-                    'average_rating'   => 4.8,
-                    'status'           => 'active',
+                    'average_rating' => 4.8,
+                    'review_count' => 31,
+                    'status' => 'active',
                 ],
                 'languages' => [
                     ['language' => 'Tiếng Anh', 'level' => 'C1'],
@@ -63,19 +73,20 @@ class GuideSeeder extends Seeder
             ],
             [
                 'user' => [
-                    'role_id'   => 3,
+                    'role_id' => $guideRole->id,
                     'full_name' => 'Hoàng Văn Đức',
-                    'email'     => 'duc.hv@vivugo.vn',
-                    'phone'     => '0912111444',
-                    'password'  => Hash::make('123456'),
-                    'status'    => 'active',
+                    'email' => 'duc.hv@vivugo.vn',
+                    'phone' => '0912111444',
+                    'password' => Hash::make('Guide@123'),
+                    'status' => 'active',
                 ],
                 'guide' => [
-                    'guide_code'       => 'HDV003',
+                    'guide_code' => 'HDV003',
                     'certificate_type' => 'Thẻ HDV Quốc Tế',
                     'experience_years' => 10,
-                    'average_rating'   => 5.0,
-                    'status'           => 'active',
+                    'average_rating' => 5.0,
+                    'review_count' => 56,
+                    'status' => 'active',
                 ],
                 'languages' => [
                     ['language' => 'Tiếng Anh', 'level' => 'C2'],
@@ -89,15 +100,25 @@ class GuideSeeder extends Seeder
         ];
 
         foreach ($guides as $data) {
-            $user  = User::create($data['user']);
-            $guide = Guide::create(array_merge($data['guide'], ['user_id' => $user->id]));
+            $user = User::updateOrCreate(
+                ['email' => $data['user']['email']],
+                $data['user']
+            );
 
-            foreach ($data['languages'] as $lang) {
-                $guide->languages()->create($lang);
+            $guide = Guide::updateOrCreate(
+                ['guide_code' => $data['guide']['guide_code']],
+                array_merge($data['guide'], ['user_id' => $user->id])
+            );
+
+            $guide->languages()->delete();
+            $guide->experiences()->delete();
+
+            foreach ($data['languages'] as $language) {
+                $guide->languages()->create($language);
             }
 
-            foreach ($data['experiences'] as $exp) {
-                $guide->experiences()->create($exp);
+            foreach ($data['experiences'] as $experience) {
+                $guide->experiences()->create($experience);
             }
         }
     }

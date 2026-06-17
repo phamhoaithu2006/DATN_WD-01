@@ -21,8 +21,8 @@ export function validateRegister(values, users) {
   const errors = {}
   const normalizedEmail = values.email.trim().toLowerCase()
 
-  if (values.name.trim().length < 2) {
-    errors.name = 'Họ tên cần ít nhất 2 ký tự.'
+  if (values.full_name.trim().length < 2) {
+    errors.full_name = 'Họ tên cần ít nhất 2 ký tự.'
   }
 
   if (!normalizedEmail) {

@@ -1,0 +1,6 @@
+.history/
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log
