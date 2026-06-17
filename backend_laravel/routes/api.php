@@ -1,9 +1,20 @@
 <?php
-
-
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\Admin\CustomerController;
+use App\Http\Controllers\Api\Admin\AdminProfileController;
+use App\Http\Controllers\Api\Admin\CategoryController;
+use App\Http\Controllers\Api\Admin\CustomerManagerController;
+use App\Http\Controllers\Api\Admin\DestinationController;
+use App\Http\Controllers\Api\Admin\GuideController;
+use App\Http\Controllers\Api\Admin\PaymentController;
+use App\Http\Controllers\Api\Admin\SettingController;
+use App\Http\Controllers\Api\Customer\TourController;
+use App\Http\Controllers\Api\Admin\TourManagerController;
+use App\Http\Controllers\Api\Admin\WidgetController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\Customer\CustomerController;
+use App\Http\Controllers\Api\Customer\WishlistController;
+use App\Http\Controllers\Api\PublicSettingController;
+use App\Http\Controllers\Api\PublicWidgetController;
+use Illuminate\Support\Facades\Route;
 
 //===================================đk, login, logout======================================
 Route::prefix('auth')->group(function () {

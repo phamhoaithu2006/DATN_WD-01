@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Booking extends Model
 {
@@ -37,4 +39,14 @@ protected $fillable = [
 
 // Khai báo các cột ngày tháng để Laravel tự động xử lý
 protected $dates = ['cancelled_at', 'created_at', 'updated_at'];
+
+public function user(): BelongsTo
+{
+    return $this->belongsTo(User::class);
+}
+
+public function payment(): HasOne
+{
+    return $this->hasOne(Payment::class);
+}
 }

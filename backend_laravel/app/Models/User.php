@@ -21,15 +21,15 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'role_id',
-        'name',
         'full_name',
         'email',
         'password',
         'phone',
         'avatar_url',
         'status',
+        'otp',
+        'otp_expires_at'
     ];
-    protected $guarded = [];
 
     /**
      * Các thuộc tính bị ẩn khi trả về JSON.
@@ -61,4 +61,8 @@ class User extends Authenticatable
     {
         return $this->hasMany(Booking::class, 'user_id', 'id');
     }
+
+    public function wishlists() {
+    return $this->belongsToMany(Tour::class, 'wishlists', 'user_id', 'tour_id')->withTimestamps();
+}
 }

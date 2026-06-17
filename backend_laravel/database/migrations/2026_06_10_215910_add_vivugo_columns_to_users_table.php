@@ -14,7 +14,7 @@ return new class extends Migration
     {
         Schema::table('users', function (Blueprint $table) {
             $table->foreignId('role_id')->nullable()->after('id');
-            $table->string('full_name', 150)->nullable()->after('name');
+            $table->string('full_name', 150)->nullable()->after('role_id');
             $table->string('phone', 20)->nullable()->after('email');
             $table->string('avatar_url', 500)->nullable()->after('password');
             $table->enum('status', ['active', 'locked', 'inactive'])->default('active')->after('avatar_url')->index();
@@ -27,7 +27,7 @@ return new class extends Migration
             DB::table('users')->whereNull('role_id')->update(['role_id' => $customerRoleId]);
         }
 
-        DB::statement('UPDATE users SET full_name = COALESCE(NULLIF(full_name, ""), NULLIF(name, ""), email) WHERE full_name IS NULL OR full_name = ""');
+        DB::statement('UPDATE users SET full_name = COALESCE(NULLIF(full_name, ""), email) WHERE full_name IS NULL OR full_name = ""');
         DB::statement('ALTER TABLE users MODIFY role_id BIGINT UNSIGNED NOT NULL');
         DB::statement('ALTER TABLE users MODIFY full_name VARCHAR(150) NOT NULL');
         DB::statement('ALTER TABLE users MODIFY email VARCHAR(150) NOT NULL');

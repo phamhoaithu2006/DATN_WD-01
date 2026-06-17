@@ -77,4 +77,20 @@ class AuthController extends Controller
             'message' => 'Đăng xuất thành công'
         ]);
     }
+
+    public function me(Request $request)
+    {
+        /**
+         * $request->user() là một phương thức tiện ích của Laravel.
+         * Khi đi qua middleware 'auth:sanctum', Laravel sẽ tự động tìm kiếm
+         * User tương ứng với token trong header Authorization và gán vào request.
+         */
+        $user = $request->user();
+
+        // Trả về phản hồi dạng JSON cho client (Frontend/Mobile)
+        return response()->json([
+            'success' => true,      // Trạng thái yêu cầu thành công
+            'data'    => $user      // Dữ liệu người dùng (tương ứng với các cột trong bảng users của bạn)
+        ]);
+    }
 }

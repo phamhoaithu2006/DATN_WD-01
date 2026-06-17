@@ -3,7 +3,7 @@ export const SESSION_KEY = 'skytrail_session'
 export const TOKEN_KEY = 'skytrail_token'
 
 export const demoUser = {
-  name: 'Travel Explorer',
+  full_name: 'Travel Explorer',
   email: 'demo@skytrail.vn',
   phone: '0901234567',
   password: 'Demo@123',
