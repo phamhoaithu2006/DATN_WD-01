@@ -1,16 +1,20 @@
 <?php
-
-
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\Admin\AdminProfileController;
 use App\Http\Controllers\Api\Admin\CategoryController;
-use App\Http\Controllers\Api\Admin\CustomerController;
+use App\Http\Controllers\Api\Admin\CustomerManagerController;
+use App\Http\Controllers\Api\Admin\DestinationController;
+use App\Http\Controllers\Api\Admin\GuideController;
 use App\Http\Controllers\Api\Admin\PaymentController;
 use App\Http\Controllers\Api\Admin\SettingController;
+use App\Http\Controllers\Api\Customer\TourController;
+use App\Http\Controllers\Api\Admin\TourManagerController;
 use App\Http\Controllers\Api\Admin\WidgetController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\Customer\CustomerController;
+use App\Http\Controllers\Api\Customer\WishlistController;
 use App\Http\Controllers\Api\PublicSettingController;
 use App\Http\Controllers\Api\PublicWidgetController;
+use Illuminate\Support\Facades\Route;
 
 //===================================đk, login, logout======================================
 Route::prefix('auth')->group(function () {
@@ -24,58 +28,28 @@ Route::prefix('auth')->group(function () {
 //==========================================================================================
 
 
-//============================================Quản lý user==================================
-//Tính tổng số lượng tài khoảng 
-Route::get('/customers/count', [CustomerController::class, 'count']);
-//lấy danh sách user
-Route::get('/customers', [CustomerController::class, 'index']);
-//Chức năng search
-Route::get('/customers/search', [CustomerController::class, 'search']);
-//Thêm user
-Route::post('/customers', [CustomerController::class, 'store']);
-//Xem chi tiết
-Route::get('/customers/{id}', [CustomerController::class, 'show']);
-// Edit
-Route::put('/customers/{id}', [CustomerController::class, 'update']);
-// Khóa tk
-Route::patch('/customers/{id}/lock', [CustomerController::class, 'lock']);
-//Khôi phục tài khoản 
-Route::patch('/customers/{id}/unlock', [CustomerController::class, 'unlock']);
-
-//============================================Quản lý danh mục tour=========================
-Route::get('/categories', [CategoryController::class, 'index']);
-Route::get('/categories/search', [CategoryController::class, 'search']);
-Route::post('/categories', [CategoryController::class, 'store']);
-Route::put('/categories/{id}', [CategoryController::class, 'update']);
-Route::delete('/categories/{id}', [CategoryController::class, 'destroy']);
-Route::get('/categories-trashed', [CategoryController::class, 'trashed']);
-Route::patch('/categories/{id}/restore', [CategoryController::class, 'restore']);
-
-//============================================Cài đặt hệ thống public========================
-Route::get('/settings/public', [PublicSettingController::class, 'show']);
-Route::get('/widgets', [PublicWidgetController::class, 'index']);
-
-//============================================Cài đặt hệ thống admin=========================
-Route::prefix('admin')->group(function () {
-    Route::get('/settings', [SettingController::class, 'index']);
-    Route::put('/settings', [SettingController::class, 'update']);
-
-    Route::get('/widgets', [WidgetController::class, 'index']);
-    Route::post('/widgets', [WidgetController::class, 'store']);
-    Route::get('/widgets/{id}', [WidgetController::class, 'show']);
-    Route::put('/widgets/{id}', [WidgetController::class, 'update']);
-    Route::delete('/widgets/{id}', [WidgetController::class, 'destroy']);
-    Route::patch('/widgets/{id}/toggle-status', [WidgetController::class, 'toggleStatus']);
-
-    Route::get('/payments', [PaymentController::class, 'index']);
-    Route::get('/payments/{id}', [PaymentController::class, 'show']);
-    Route::patch('/payments/{id}/confirm', [PaymentController::class, 'confirm']);
-    Route::patch('/payments/{id}/fail', [PaymentController::class, 'fail']);
-    Route::patch('/payments/{id}/refund', [PaymentController::class, 'refund']);
-
-    Route::middleware('auth:sanctum')->group(function () {
-        Route::get('/profile', [AdminProfileController::class, 'show']);
-        Route::put('/profile', [AdminProfileController::class, 'update']);
-        Route::put('/profile/password', [AdminProfileController::class, 'changePassword']);
+Route::middleware(['auth:sanctum', 'admin'])->group(function () {
+    Route::get('/auth/me', function () {
+        return response()->json([
+            'user' => request()->user()->load('role'),
+        ]);
     });
+
+    //============================================Quản lý user==================================
+    //Tính tổng số lượng tài khoảng 
+    Route::get('/customers/count', [CustomerController::class, 'count']);
+    //lấy danh sách user
+    Route::get('/customers', [CustomerController::class, 'index']);
+    //Chức năng search
+    Route::get('/customers/search', [CustomerController::class, 'search']);
+    //Thêm user
+    Route::post('/customers', [CustomerController::class, 'store']);
+    //Xem chi tiết
+    Route::get('/customers/{id}', [CustomerController::class, 'show']);
+    // Edit
+    Route::put('/customers/{id}', [CustomerController::class, 'update']);
+    // Khóa tk
+    Route::patch('/customers/{id}/lock', [CustomerController::class, 'lock']);
+    //Khôi phục tài khoản 
+    Route::patch('/customers/{id}/unlock', [CustomerController::class, 'unlock']);
 });

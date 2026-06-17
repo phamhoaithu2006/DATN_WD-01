@@ -21,4 +21,15 @@ class Category extends Model
     {
         return $this->status === 'active';
     }
+
+    /**
+     * Lấy danh sách các tour thuộc về danh mục/địa điểm này.
+     * Quan hệ: 1-N (1 Category/Destination có nhiều Tour)
+     */
+    public function tours()
+    {
+        // hasMany(Model_liên_kết, khóa_ngoại, khóa_chính)
+        // Mặc định Laravel sẽ tự hiểu khóa ngoại là category_id hoặc destination_id
+        return $this->hasMany(Tour::class);
+    }
 }

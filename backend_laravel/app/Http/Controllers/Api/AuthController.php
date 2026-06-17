@@ -20,7 +20,6 @@ class AuthController extends Controller
         ]);
 
         $user = User::create([
-            'name'      => $request->full_name,
             'role_id'   => 2,
             'full_name' => $request->full_name,
             'email'     => $request->email,
@@ -46,12 +45,18 @@ class AuthController extends Controller
             'password' => 'required|string',
         ]);
 
-        $user = User::where('email', $request->email)->first();
+        $user = User::with('role')->where('email', $request->email)->first();
 
         if (!$user || !Hash::check($request->password, $user->password)) {
             return response()->json([
                 'message' => 'Email hoặc mật khẩu không đúng'
             ], 401);
+        }
+
+        if ($user->status !== 'active') {
+            return response()->json([
+                'message' => 'Tai khoan dang bi khoa hoac chua kich hoat'
+            ], 403);
         }
 
         $token = $user->createToken('auth_token')->plainTextToken;
@@ -70,6 +75,22 @@ class AuthController extends Controller
 
         return response()->json([
             'message' => 'Đăng xuất thành công'
+        ]);
+    }
+
+    public function me(Request $request)
+    {
+        /**
+         * $request->user() là một phương thức tiện ích của Laravel.
+         * Khi đi qua middleware 'auth:sanctum', Laravel sẽ tự động tìm kiếm
+         * User tương ứng với token trong header Authorization và gán vào request.
+         */
+        $user = $request->user();
+
+        // Trả về phản hồi dạng JSON cho client (Frontend/Mobile)
+        return response()->json([
+            'success' => true,      // Trạng thái yêu cầu thành công
+            'data'    => $user      // Dữ liệu người dùng (tương ứng với các cột trong bảng users của bạn)
         ]);
     }
 }
