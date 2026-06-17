@@ -24,7 +24,6 @@ class AdminProfileController extends Controller
 
         $validated = $request->validate([
             'full_name' => ['sometimes', 'required', 'string', 'max:150'],
-            'name' => ['sometimes', 'nullable', 'string', 'max:255'],
             'email' => ['sometimes', 'required', 'email', 'max:150', 'unique:users,email,' . $user->id],
             'phone' => ['sometimes', 'nullable', 'string', 'max:20'],
             'avatar_url' => ['sometimes', 'nullable', 'string', 'max:500'],

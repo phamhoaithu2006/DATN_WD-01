@@ -36,7 +36,6 @@ class UserFactory extends Factory
 
         return [
             'role_id' => self::$customerRoleId,
-            'name' => $fullName,
             'full_name' => $fullName,
             'email' => fake()->unique()->safeEmail(),
             'email_verified_at' => now(),

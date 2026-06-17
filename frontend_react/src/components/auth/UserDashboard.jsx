@@ -10,7 +10,7 @@ function UserDashboard({ user, welcomeName, onLogout }) {
       <div className="profile-grid">
         <div>
           <span>Họ tên</span>
-          <strong>{user.name}</strong>
+          <strong>{user.full_name}</strong>
         </div>
         <div>
           <span>Số điện thoại</span>

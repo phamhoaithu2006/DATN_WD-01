@@ -1,19 +1,22 @@
 import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import AuthCard from '../../components/auth/AuthCard'
 import UserDashboard from '../../components/auth/UserDashboard'
 import AuthLayout from '../../layouts/AuthLayout'
+import { login as loginApi, logout as logoutApi } from '../../services/authApi'
 import {
   clearSession,
   readSession,
   readUsers,
   saveSession,
+  saveToken,
   saveUsers,
 } from '../../services/authStorage'
 import { validateLogin, validateRegister } from '../../utils/authValidators'
 import '../../styles/auth.css'
 
 const emptyRegisterForm = {
-  name: '',
+  full_name: '',
   email: '',
   phone: '',
   password: '',
@@ -22,18 +25,20 @@ const emptyRegisterForm = {
 }
 
 function AuthPage() {
+  const navigate = useNavigate()
   const [mode, setMode] = useState('login')
   const [users, setUsers] = useState(readUsers)
   const [currentUser, setCurrentUser] = useState(readSession)
   const [notice, setNotice] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [loginData, setLoginData] = useState({ email: '', password: '' })
   const [registerData, setRegisterData] = useState(emptyRegisterForm)
   const [loginErrors, setLoginErrors] = useState({})
   const [registerErrors, setRegisterErrors] = useState({})
 
   const welcomeName = useMemo(() => {
-    if (!currentUser?.name) return ''
-    return currentUser.name.split(' ')[0]
+    if (!currentUser?.full_name) return ''
+    return currentUser.full_name.split(' ')[0]
   }, [currentUser])
 
   function persistUsers(nextUsers) {
@@ -46,7 +51,7 @@ function AuthPage() {
     setNotice('')
   }
 
-  function handleLogin(event) {
+  async function handleLogin(event) {
     event.preventDefault()
     const errors = validateLogin(loginData)
     setLoginErrors(errors)
@@ -54,25 +59,39 @@ function AuthPage() {
 
     if (Object.keys(errors).length > 0) return
 
-    const foundUser = users.find(
-      (user) =>
-        user.email.toLowerCase() === loginData.email.trim().toLowerCase() &&
-        user.password === loginData.password,
-    )
+    setIsSubmitting(true)
 
-    if (!foundUser) {
-      setNotice('Email hoặc mật khẩu không đúng. Vui lòng kiểm tra lại.')
-      return
-    }
+    try {
+      const data = await loginApi(loginData.email.trim(), loginData.password)
+      const roleName = data.user?.role?.name
 
-    const sessionUser = {
-      name: foundUser.name,
-      email: foundUser.email,
-      phone: foundUser.phone,
+      if (roleName !== 'admin') {
+        clearSession()
+        setNotice('Tai khoan nay khong co quyen vao trang admin.')
+        return
+      }
+
+      const sessionUser = {
+        id: data.user.id,
+        name: data.user.full_name || data.user.name || data.user.email,
+        email: data.user.email,
+        phone: data.user.phone,
+        role: roleName,
+      }
+
+      saveToken(data.token)
+      saveSession(sessionUser)
+      setCurrentUser(sessionUser)
+      setNotice('Dang nhap thanh cong.')
+      navigate('/admin', { replace: true })
+    } catch (error) {
+      setNotice(
+        error.response?.data?.message ||
+          'Khong dang nhap duoc. Vui long kiem tra API Laravel.',
+      )
+    } finally {
+      setIsSubmitting(false)
     }
-    setCurrentUser(sessionUser)
-    saveSession(sessionUser)
-    setNotice('Đăng nhập thành công.')
   }
 
   function handleRegister(event) {
@@ -84,7 +103,7 @@ function AuthPage() {
     if (Object.keys(errors).length > 0) return
 
     const nextUser = {
-      name: registerData.name.trim(),
+      full_name: registerData.full_name.trim(),
       email: registerData.email.trim().toLowerCase(),
       phone: registerData.phone.trim(),
       password: registerData.password,
@@ -94,13 +113,19 @@ function AuthPage() {
     setLoginData({ email: nextUser.email, password: '' })
     setRegisterData(emptyRegisterForm)
     setMode('login')
-    setNotice('Tạo tài khoản thành công. Hãy đăng nhập để bắt đầu.')
+    setNotice('Tao tai khoan thanh cong. Hay dang nhap de bat dau.')
   }
 
-  function handleLogout() {
+  async function handleLogout() {
+    try {
+      await logoutApi()
+    } catch {
+      // Token may already be expired; local logout still needs to happen.
+    }
+
     setCurrentUser(null)
     clearSession()
-    setNotice('Bạn đã đăng xuất.')
+    setNotice('Ban da dang xuat.')
     setMode('login')
   }
 
@@ -120,6 +145,7 @@ function AuthPage() {
           loginErrors={loginErrors}
           registerData={registerData}
           registerErrors={registerErrors}
+          isSubmitting={isSubmitting}
           onModeChange={handleModeChange}
           onLoginChange={setLoginData}
           onRegisterChange={setRegisterData}
