@@ -3,6 +3,8 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
@@ -11,15 +13,26 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        $this->call([
-            RoleSeeder::class,
-            UserSeeder::class,
-            SettingSeeder::class,
-            BannerSeeder::class,
-            CategorySeeder::class,
-            DestinationSeeder::class,
-            TourSeeder::class,
-            GuideSeeder::class,
+        $now = now();
+
+        DB::table('roles')->insertOrIgnore([
+            ['name' => 'support staff', 'description' => 'Nhan vien ho tro', 'created_at' => $now, 'updated_at' => $now],
+            ['name' => 'customer', 'description' => 'Khach hang', 'created_at' => $now, 'updated_at' => $now],
+            ['name' => 'tour guide', 'description' => 'Huong dan vien', 'created_at' => $now, 'updated_at' => $now],
+            ['name' => 'admin', 'description' => 'Quan tri vien', 'created_at' => $now, 'updated_at' => $now],
+        ]);
+
+        $adminRoleId = DB::table('roles')->where('name', 'admin')->value('id');
+
+        User::updateOrCreate([
+            'email' => 'admin@vivugo.vn',
+        ], [
+            'role_id' => $adminRoleId,
+            'name' => 'ViVuGo Admin',
+            'full_name' => 'ViVuGo Admin',
+            'phone' => '0900000000',
+            'password' => Hash::make('Admin@123'),
+            'status' => 'active',
         ]);
     }
 }
