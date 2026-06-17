@@ -1,8 +1,8 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import ProtectedAdminRoute from '../components/admin/ProtectedAdminRoute'
-import AuthPage from '../pages/auth/AuthPage'
 import AdminDashboardPage from '../pages/admin/AdminDashboardPage'
 import SystemSettingPage from '../pages/admin/SystemSettingPage'
+import AuthPage from '../pages/auth/AuthPage'
 import CustomerPage from '../pages/customer/CustomerPage'
 
 function AppRoutes() {
@@ -20,11 +20,14 @@ function AppRoutes() {
       <Route path="/customer/bookings" element={<CustomerPage />} />
       <Route path="/customer/settings" element={<CustomerPage />} />
       <Route path="/auth" element={<AuthPage />} />
-<<<<<<< HEAD
-      <Route path="/admin" element={<AdminDashboardPage />} />
-      <Route path="/admin/settings" element={<SystemSettingPage />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
-=======
+      <Route
+        path="/admin/settings"
+        element={
+          <ProtectedAdminRoute>
+            <SystemSettingPage />
+          </ProtectedAdminRoute>
+        }
+      />
       <Route
         path="/admin/*"
         element={
@@ -33,8 +36,7 @@ function AppRoutes() {
           </ProtectedAdminRoute>
         }
       />
-      <Route path="*" element={<Navigate to="/admin" replace />} />
->>>>>>> 47d239848bd6f0a473d3b42c426758ca7eab8858
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
 }
