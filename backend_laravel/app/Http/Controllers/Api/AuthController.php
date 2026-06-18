@@ -20,7 +20,6 @@ class AuthController extends Controller
         ]);
 
         $user = User::create([
-            'name'      => $request->full_name,
             'role_id'   => 2,
             'full_name' => $request->full_name,
             'email'     => $request->email,
@@ -46,7 +45,7 @@ class AuthController extends Controller
             'password' => 'required|string',
         ]);
 
-        $user = User::where('email', $request->email)->first();
+        $user = User::with('role')->where('email', $request->email)->first();
 
         if (!$user || !Hash::check($request->password, $user->password)) {
             return response()->json([
@@ -54,10 +53,11 @@ class AuthController extends Controller
             ], 401);
         }
 
-        // Thêm kiểm tra trạng thái
-        if ($user->status !== 'active') { // Giả sử 'active' là chuỗi, nếu bạn dùng số thì thay bằng số tương ứng
-        return response()->json(['message' => 'Tài khoản của bạn chưa được kích hoạt hoặc đã bị khóa'], 403);
-}
+        if ($user->status !== 'active') {
+            return response()->json([
+                'message' => 'Tai khoan dang bi khoa hoac chua kich hoat'
+            ], 403);
+        }
 
         $token = $user->createToken('auth_token')->plainTextToken;
 

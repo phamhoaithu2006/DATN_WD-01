@@ -8,6 +8,7 @@ function AuthCard({
   loginErrors,
   registerData,
   registerErrors,
+  isSubmitting,
   onModeChange,
   onLoginChange,
   onRegisterChange,
@@ -43,6 +44,7 @@ function AuthCard({
         <LoginForm
           values={loginData}
           errors={loginErrors}
+          isSubmitting={isSubmitting}
           onChange={onLoginChange}
           onSubmit={onLoginSubmit}
         />

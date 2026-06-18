@@ -130,10 +130,12 @@ function AdminSidebar({ collapsed, onToggle }) {
         </span>
       </div>
 
-      <nav className="admin-nav" aria-label="Admin navigation">
+      <nav className="admin-nav" aria-label="Điều hướng quản trị">
         {menuItems.map((item) => (
           <NavLink
-            className={({ isActive }) => (isActive ? 'admin-nav-link active' : 'admin-nav-link')}
+            className={({ isActive }) =>
+              isActive ? 'admin-nav-link active' : 'admin-nav-link'
+            }
             end={item.path === '/admin'}
             key={item.path}
             to={item.path}

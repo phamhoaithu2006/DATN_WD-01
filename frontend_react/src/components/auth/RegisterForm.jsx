@@ -5,11 +5,11 @@ function RegisterForm({ values, errors, onChange, onSubmit }) {
         Họ và tên
         <input
           type="text"
-          value={values.name}
+          value={values.full_name}
           placeholder="Nguyễn Minh Anh"
-          onChange={(event) => onChange({ ...values, name: event.target.value })}
+          onChange={(event) => onChange({ ...values, full_name: event.target.value })}
         />
-        {errors.name ? <span>{errors.name}</span> : null}
+        {errors.full_name ? <span>{errors.full_name}</span> : null}
       </label>
 
       <label>
