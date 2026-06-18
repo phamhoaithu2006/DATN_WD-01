@@ -81,7 +81,7 @@ Route::prefix('tours')->group(function () {
 
 
 //_______________________________________ ADMIN _____________________________________________________
-Route::prefix('admin')->group(function () {
+Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function () {
     //middleware('auth:sanctum') là lớp bảo vệ (authentication middleware) của Laravel Sanctum.
 
     //============================================Quản lý user==================================
