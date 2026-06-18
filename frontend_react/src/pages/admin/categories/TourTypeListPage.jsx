@@ -164,6 +164,8 @@ function TourTypeListPage() {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [deleting, setDeleting] = useState(false)
 
   const navigate = useNavigate()
 
@@ -192,6 +194,17 @@ function TourTypeListPage() {
     fetchCategories()
   }, [])
 
+  useEffect(() => {
+    if (!message && !error) return
+
+    const timer = setTimeout(() => {
+      setMessage('')
+      setError('')
+    }, 3000)
+
+    return () => clearTimeout(timer)
+  }, [message, error])
+
   const handleSearch = async (event) => {
     event.preventDefault()
 
@@ -217,20 +230,32 @@ function TourTypeListPage() {
     }
   }
 
-  const handleDelete = async (id) => {
-    const confirmDelete = window.confirm('Bạn có chắc muốn xóa loại tour này không?')
-    if (!confirmDelete) return
+  const openDeleteModal = (category) => {
+    setDeleteTarget(category)
+  }
+
+  const closeDeleteModal = () => {
+    if (deleting) return
+    setDeleteTarget(null)
+  }
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return
 
     try {
+      setDeleting(true)
       setMessage('')
       setError('')
 
-      await categoryApi.remove(id)
+      await categoryApi.remove(deleteTarget.id)
       setMessage('Xóa loại tour thành công')
+      setDeleteTarget(null)
       await fetchCategories()
     } catch (err) {
       console.error(err)
       setError(err.response?.data?.message || 'Xóa loại tour thất bại')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -311,18 +336,6 @@ function TourTypeListPage() {
             tone="orange"
           />
         </div>
-
-        {message && (
-          <div className="rounded-md border border-emerald-100 bg-emerald-50 px-5 py-4 text-sm font-medium text-emerald-700">
-            {message}
-          </div>
-        )}
-
-        {error && (
-          <div className="rounded-md border border-red-100 bg-red-50 px-5 py-4 text-sm font-medium text-red-700">
-            {error}
-          </div>
-        )}
 
         <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <form onSubmit={handleSearch} className="grid gap-4 lg:grid-cols-[1fr_auto_auto]">
@@ -455,7 +468,7 @@ function TourTypeListPage() {
 
                           <button
                             type="button"
-                            onClick={() => handleDelete(category.id)}
+                            onClick={() => openDeleteModal(category)}
                             className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-red-300 bg-white px-4 text-sm font-medium text-red-600 transition hover:border-red-500 hover:bg-red-50"
                           >
                             <TrashIcon className="h-4 w-4" />
@@ -470,6 +483,98 @@ function TourTypeListPage() {
             </table>
           </div>
         </div>
+
+
+        {(message || error) && (
+          <div className="fixed right-6 top-6 z-50 w-full max-w-sm">
+            <div
+              className={`rounded-xl border bg-white p-4 shadow-2xl ${
+                message ? 'border-emerald-100' : 'border-red-100'
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                <div
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
+                    message ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'
+                  }`}
+                >
+                  {message ? <CheckIcon className="h-5 w-5" /> : <TrashIcon className="h-5 w-5" />}
+                </div>
+
+                <div className="flex-1">
+                  <p className="text-sm font-bold text-slate-900">
+                    {message ? 'Thành công' : 'Có lỗi xảy ra'}
+                  </p>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">
+                    {message || error}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMessage('')
+                    setError('')
+                  }}
+                  className="rounded-md px-2 py-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                  aria-label="Đóng thông báo"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {deleteTarget && (
+          <div
+            className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/50 px-4 backdrop-blur-sm"
+            onClick={closeDeleteModal}
+          >
+            <div
+              className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-50 text-red-600">
+                <TrashIcon className="h-7 w-7" />
+              </div>
+
+              <div className="mt-5 text-center">
+                <h2 className="text-xl font-bold text-slate-950">
+                  Xóa loại tour này?
+                </h2>
+
+                <p className="mt-3 text-sm leading-6 text-slate-500">
+                  Bạn có chắc muốn xóa loại tour{' '}
+                  <span className="font-semibold text-slate-900">
+                    {deleteTarget.name || deleteTarget.title || 'này'}
+                  </span>
+                  ? Dữ liệu sẽ được chuyển vào mục đã xóa.
+                </p>
+              </div>
+
+              <div className="mt-6 grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={closeDeleteModal}
+                  disabled={deleting}
+                  className="h-11 rounded-lg border border-slate-300 bg-white text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Hủy
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="h-11 rounded-lg bg-red-600 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {deleting ? 'Đang xóa...' : 'Xóa'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </section>
   )
