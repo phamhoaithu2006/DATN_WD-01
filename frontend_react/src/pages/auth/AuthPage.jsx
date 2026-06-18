@@ -70,6 +70,10 @@ function AuthPage() {
         setNotice('Tài khoản này không có quyền truy cập admin.')
       }
 
+      if (roleName !== 'admin') {
+        return
+      }
+
       const sessionUser = {
         id: data.user.id,
         name: data.user.full_name || data.user.name || data.user.email,

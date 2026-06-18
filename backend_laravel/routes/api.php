@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\Admin\AdminProfileController;
 use App\Http\Controllers\Api\Admin\CategoryController;
 use App\Http\Controllers\Api\Admin\CustomerManagerController;
+use App\Http\Controllers\Api\Admin\DatabaseBackupController;
 use App\Http\Controllers\Api\Admin\DestinationController;
 use App\Http\Controllers\Api\Admin\GuideController;
 use App\Http\Controllers\Api\Admin\PaymentController;
@@ -17,7 +18,7 @@ use App\Http\Controllers\Api\PublicSettingController;
 use App\Http\Controllers\Api\PublicWidgetController;
 use Illuminate\Support\Facades\Route;
 
-//=================================== đăng ký, login, logout =====================================
+// =================================== đăng ký, login, logout =====================================
 Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login', [AuthController::class, 'login']);
@@ -32,9 +33,9 @@ Route::prefix('auth')->group(function () {
         ]);
     });
 });
-//==============================================================================================
+// ==============================================================================================
 
-//======================================= CUSTOMER ==============================================
+// ======================================= CUSTOMER ==============================================
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'me']);
     Route::put('/profile/update', [CustomerController::class, 'updateProfile']);
@@ -56,14 +57,14 @@ Route::prefix('tours')->group(function () {
         Route::delete('wishlist/{tour_id}', [WishlistController::class, 'destroy']);
     });
 });
-//==============================================================================================
+// ==============================================================================================
 
 // Public system settings and widgets
 Route::get('/settings/public', [PublicSettingController::class, 'show']);
 Route::get('/widgets', [PublicWidgetController::class, 'index']);
-//==============================================================================================
+// ==============================================================================================
 
-//========================================= ADMIN ===============================================
+// ========================================= ADMIN ===============================================
 Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function () {
     // Quản lý khách hàng
     Route::get('/customers/count', [CustomerManagerController::class, 'count']);
@@ -115,6 +116,11 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     Route::get('/settings', [SettingController::class, 'index']);
     Route::put('/settings', [SettingController::class, 'update']);
 
+    Route::get('/backups', [DatabaseBackupController::class, 'index']);
+    Route::post('/backups', [DatabaseBackupController::class, 'store']);
+    Route::get('/backups/{filename}/download', [DatabaseBackupController::class, 'download']);
+    Route::delete('/backups/{filename}', [DatabaseBackupController::class, 'destroy']);
+
     Route::get('/widgets', [WidgetController::class, 'index']);
     Route::post('/widgets', [WidgetController::class, 'store']);
     Route::get('/widgets/{id}', [WidgetController::class, 'show']);
@@ -132,7 +138,7 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     Route::put('/profile', [AdminProfileController::class, 'update']);
     Route::put('/profile/password', [AdminProfileController::class, 'changePassword']);
 });
-//============================================Cài đặt hệ thống public========================
+// ============================================Cài đặt hệ thống public========================
 Route::get('/settings/public', [PublicSettingController::class, 'show']);
 Route::get('/widgets', [PublicWidgetController::class, 'index']);
-    //===========================================================================================
+// ===========================================================================================

@@ -12,6 +12,10 @@ class Setting extends Model
         'footer_hotline',
         'footer_email',
         'footer_address',
+        'auto_backup_enabled',
+        'backup_frequency',
+        'backup_time',
+        'backup_retention_days',
     ];
 
     protected $fillable = [
@@ -19,4 +23,9 @@ class Setting extends Model
         'value',
         'group',
     ];
+
+    public static function valueFor(string $key, mixed $default = null): mixed
+    {
+        return static::query()->where('key', $key)->value('value') ?? $default;
+    }
 }
