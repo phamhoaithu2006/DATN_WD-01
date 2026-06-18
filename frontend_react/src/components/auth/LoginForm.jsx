@@ -1,4 +1,4 @@
-function LoginForm({ values, errors, onChange, onSubmit }) {
+function LoginForm({ values, errors, isSubmitting, onChange, onSubmit }) {
   return (
     <form className="auth-form" onSubmit={onSubmit} noValidate>
       <label>
@@ -6,7 +6,7 @@ function LoginForm({ values, errors, onChange, onSubmit }) {
         <input
           type="email"
           value={values.email}
-          placeholder="demo@skytrail.vn"
+          placeholder="admin@vivugo.vn"
           onChange={(event) => onChange({ ...values, email: event.target.value })}
         />
         {errors.email ? <span>{errors.email}</span> : null}
@@ -17,16 +17,16 @@ function LoginForm({ values, errors, onChange, onSubmit }) {
         <input
           type="password"
           value={values.password}
-          placeholder="Demo@123"
+          placeholder="Admin@123"
           onChange={(event) => onChange({ ...values, password: event.target.value })}
         />
         {errors.password ? <span>{errors.password}</span> : null}
       </label>
 
-      <button className="primary-button" type="submit">
-        Đăng nhập
+      <button className="primary-button" type="submit" disabled={isSubmitting}>
+        {isSubmitting ? 'Đang đăng nhập...' : 'Đăng nhập'}
       </button>
-      <p className="helper-text">Tài khoản demo: demo@skytrail.vn / Demo@123</p>
+      <p className="helper-text">Tài khoản admin: admin@vivugo.vn / Admin@123</p>
     </form>
   )
 }

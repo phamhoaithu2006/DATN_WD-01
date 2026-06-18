@@ -1,12 +1,15 @@
 import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import AuthCard from '../../components/auth/AuthCard'
 import UserDashboard from '../../components/auth/UserDashboard'
 import AuthLayout from '../../layouts/AuthLayout'
+import { login as loginApi, logout as logoutApi } from '../../services/authApi'
 import {
   clearSession,
   readSession,
   readUsers,
   saveSession,
+  saveToken,
   saveUsers,
 } from '../../services/authStorage'
 import { validateLogin, validateRegister } from '../../utils/authValidators'
@@ -22,10 +25,12 @@ const emptyRegisterForm = {
 }
 
 function AuthPage() {
+  const navigate = useNavigate()
   const [mode, setMode] = useState('login')
   const [users, setUsers] = useState(readUsers)
   const [currentUser, setCurrentUser] = useState(readSession)
   const [notice, setNotice] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [loginData, setLoginData] = useState({ email: '', password: '' })
   const [registerData, setRegisterData] = useState(emptyRegisterForm)
   const [loginErrors, setLoginErrors] = useState({})
@@ -46,7 +51,7 @@ function AuthPage() {
     setNotice('')
   }
 
-  function handleLogin(event) {
+  async function handleLogin(event) {
     event.preventDefault()
     const errors = validateLogin(loginData)
     setLoginErrors(errors)
@@ -54,25 +59,38 @@ function AuthPage() {
 
     if (Object.keys(errors).length > 0) return
 
-    const foundUser = users.find(
-      (user) =>
-        user.email.toLowerCase() === loginData.email.trim().toLowerCase() &&
-        user.password === loginData.password,
-    )
+    setIsSubmitting(true)
 
-    if (!foundUser) {
-      setNotice('Email hoặc mật khẩu không đúng. Vui lòng kiểm tra lại.')
-      return
-    }
+    try {
+      const data = await loginApi(loginData.email.trim(), loginData.password)
+      const roleName = data.user?.role?.name
 
-    const sessionUser = {
-      full_name: foundUser.full_name,
-      email: foundUser.email,
-      phone: foundUser.phone,
+      if (roleName !== 'admin') {
+        clearSession()
+        setNotice('Tài khoản này không có quyền truy cập admin.')
+      }
+
+      const sessionUser = {
+        id: data.user.id,
+        name: data.user.full_name || data.user.name || data.user.email,
+        email: data.user.email,
+        phone: data.user.phone,
+        role: roleName,
+      }
+
+      saveToken(data.token)
+      saveSession(sessionUser)
+      setCurrentUser(sessionUser)
+      setNotice('Đăng nhập thành công.')
+      navigate('/admin', { replace: true })
+    } catch (error) {
+      setNotice(
+        error.response?.data?.message ||
+          'Không đăng nhập được. Vui lòng kiểm tra lại thông tin đăng nhập',
+      )
+    } finally {
+      setIsSubmitting(false)
     }
-    setCurrentUser(sessionUser)
-    saveSession(sessionUser)
-    setNotice('Đăng nhập thành công.')
   }
 
   function handleRegister(event) {
@@ -94,13 +112,19 @@ function AuthPage() {
     setLoginData({ email: nextUser.email, password: '' })
     setRegisterData(emptyRegisterForm)
     setMode('login')
-    setNotice('Tạo tài khoản thành công. Hãy đăng nhập để bắt đầu.')
+    setNotice('Tạo tài khoản thành công. Hãy bắt đầu để đăng nhập.')
   }
 
-  function handleLogout() {
+  async function handleLogout() {
+    try {
+      await logoutApi()
+    } catch {
+      // Token may already be expired; local logout still needs to happen.
+    }
+
     setCurrentUser(null)
     clearSession()
-    setNotice('Bạn đã đăng xuất.')
+    setNotice('Bạn đã đăng xuất thành công.')
     setMode('login')
   }
 
@@ -120,6 +144,7 @@ function AuthPage() {
           loginErrors={loginErrors}
           registerData={registerData}
           registerErrors={registerErrors}
+          isSubmitting={isSubmitting}
           onModeChange={handleModeChange}
           onLoginChange={setLoginData}
           onRegisterChange={setRegisterData}
