@@ -1,4 +1,4 @@
-import BrandLogo from '../components/auth/BrandLogo'
+import BrandLogo from "../components/BrandLogo";
 
 function AuthLayout({ children, currentUser, onLogout }) {
   return (
@@ -19,8 +19,8 @@ function AuthLayout({ children, currentUser, onLogout }) {
             Khởi hành nhẹ nhàng với tài khoản du lịch của bạn.
           </h1>
           <p className="hero-copy">
-            Quản lý hồ sơ, lưu hành trình yêu thích và đăng nhập an toàn trước mỗi
-            chuyến đi.
+            Quản lý hồ sơ, lưu hành trình yêu thích và đăng nhập an toàn trước
+            mỗi chuyến đi.
           </p>
 
           <div className="trip-strip" aria-label="Điểm nổi bật">
@@ -35,7 +35,7 @@ function AuthLayout({ children, currentUser, onLogout }) {
         {children}
       </section>
     </main>
-  )
+  );
 }
 
-export default AuthLayout
+export default AuthLayout;

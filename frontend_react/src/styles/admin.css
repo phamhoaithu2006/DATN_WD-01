@@ -30,50 +30,8 @@
   border-bottom: 1px solid #e2e8f0;
 }
 
-.admin-brand-mark {
-  width: 40px;
-  height: 40px;
-  flex: 0 0 40px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: #0ea5e9;
-  color: #ffffff;
-}
-
-.admin-brand-mark svg {
-  width: 25px;
-  height: 25px;
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 2;
-}
-
-.admin-brand-copy {
+.admin-brand .brand {
   min-width: 0;
-  display: grid;
-  gap: 3px;
-}
-
-.admin-brand-copy strong {
-  color: #0f172a;
-  font-size: 1.4rem;
-  line-height: 1;
-  font-weight: 850;
-  letter-spacing: 0;
-}
-
-.admin-brand-copy strong span {
-  color: #0ea5e9;
-}
-
-.admin-brand-copy small {
-  color: #526886;
-  font-size: 0.82rem;
-  line-height: 1.15;
-  font-weight: 600;
 }
 
 .admin-nav {
@@ -583,7 +541,7 @@
   padding-inline: 0;
 }
 
-.admin-sidebar.collapsed .admin-brand-copy,
+.admin-sidebar.collapsed .brand-name,
 .admin-sidebar.collapsed .admin-nav-link span,
 .admin-sidebar.collapsed .collapse-button span {
   display: none;

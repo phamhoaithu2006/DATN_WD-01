@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useState } from "react";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   categoryLabels,
   demoDestinations,
   demoTours,
   quickFilters,
-} from '../../data/customerDemoData'
+} from "../../data/customerDemoData";
 import {
   addWishlist,
   changePassword,
@@ -14,25 +14,26 @@ import {
   filterTours,
   removeWishlist,
   updateProfile,
-} from '../../services/customerApi'
-import { readSession, saveSession } from '../../services/authStorage'
-import '../../styles/customer.css'
+} from "../../services/customerApi";
+import { readSession, saveSession } from "../../services/authStorage";
+import BrandLogo from "../../components/BrandLogo";
+import "../../styles/customer.css";
 
-const currency = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
+const currency = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
   maximumFractionDigits: 0,
-})
+});
 
 const emptyProfile = {
-  full_name: 'Minh Anh Nguyen',
-  email: 'minhanh@example.com',
-  phone: '0901234567',
-  address: 'Hanoi, Vietnam',
-}
+  full_name: "Minh Anh Nguyen",
+  email: "minhanh@example.com",
+  phone: "0901234567",
+  address: "Hanoi, Vietnam",
+};
 
 function normalizeTour(tour, index = 0) {
-  const fallback = demoTours[index % demoTours.length]
+  const fallback = demoTours[index % demoTours.length];
 
   return {
     ...fallback,
@@ -43,53 +44,29 @@ function normalizeTour(tour, index = 0) {
     destination: tour.destination || fallback.destination,
     price: {
       base: tour.price?.base || tour.base_price || fallback.price.base,
-      discount: tour.price?.discount || tour.discount_price || fallback.price.discount,
+      discount:
+        tour.price?.discount || tour.discount_price || fallback.price.discount,
     },
     slots: {
       max: tour.slots?.max || tour.max_slots || fallback.slots.max,
-      available: tour.slots?.available || tour.available_slots || fallback.slots.available,
+      available:
+        tour.slots?.available ||
+        tour.available_slots ||
+        fallback.slots.available,
     },
     rating: {
-      average: tour.rating?.average || tour.average_rating || fallback.rating.average,
+      average:
+        tour.rating?.average || tour.average_rating || fallback.rating.average,
       count: tour.rating?.count || tour.review_count || fallback.rating.count,
     },
-  }
-}
-
-function BrandLogo({ asLink = true }) {
-  const content = (
-    <>
-      <span className="customer-brand-mark" aria-hidden="true">
-        <svg viewBox="0 0 48 48" role="img">
-          <path d="M42.1 7.2c1.4 1.4 1 4-.8 5.7L31.1 23l4.7 15.2-3.8 3.8-7.8-12.3-7 7-1.4 6.2-3.1 3.1-2.4-9.7-9.7-2.4 3.1-3.1 6.2-1.4 7-7L4.6 14.6l3.8-3.8 15.2 4.7L33.8 5.4c1.8-1.8 4.9-1.7 8.3 1.8Z" />
-        </svg>
-      </span>
-      <span className="customer-brand-name">
-        ViVu<span>Go</span>
-      </span>
-    </>
-  )
-
-  if (!asLink) {
-    return (
-      <div className="customer-brand" aria-label="ViVuGo">
-        {content}
-      </div>
-    )
-  }
-
-  return (
-    <Link className="customer-brand" to="/" aria-label="ViVuGo">
-      {content}
-    </Link>
-  )
+  };
 }
 
 function CategoryIcon({ type }) {
-  if (type === 'Flights') return <span aria-hidden="true">✈</span>
-  if (type === 'Hotels') return <span aria-hidden="true">▣</span>
-  if (type === 'Beach') return <span aria-hidden="true">☂</span>
-  return <span aria-hidden="true">△</span>
+  if (type === "Flights") return <span aria-hidden="true">✈</span>;
+  if (type === "Hotels") return <span aria-hidden="true">▣</span>;
+  if (type === "Beach") return <span aria-hidden="true">☂</span>;
+  return <span aria-hidden="true">△</span>;
 }
 
 function CustomerHeader({ user, onLogout }) {
@@ -116,12 +93,20 @@ function CustomerHeader({ user, onLogout }) {
           <NavLink to="/deals">Deals</NavLink>
         </nav>
         <div className="customer-actions">
-          <NavLink className="icon-link" to="/customer/favorites" title="Favorites">
+          <NavLink
+            className="icon-link"
+            to="/customer/favorites"
+            title="Favorites"
+          >
             ♡
           </NavLink>
           {user ? (
             <div className="account-menu">
-              <NavLink className="icon-link" to="/customer/profile" title="Account">
+              <NavLink
+                className="icon-link"
+                to="/customer/profile"
+                title="Account"
+              >
                 ♙
               </NavLink>
               <div className="account-dropdown">
@@ -142,11 +127,11 @@ function CustomerHeader({ user, onLogout }) {
         </div>
       </div>
     </header>
-  )
+  );
 }
 
 function TourCard({ tour, isFavorite, onFavorite }) {
-  const discountPrice = tour.price.discount || tour.price.base
+  const discountPrice = tour.price.discount || tour.price.base;
 
   return (
     <article className="tour-card">
@@ -157,7 +142,7 @@ function TourCard({ tour, isFavorite, onFavorite }) {
           {tour.discountLabel ? <strong>{tour.discountLabel}</strong> : null}
         </div>
         <button
-          className={`heart-button ${isFavorite ? 'is-active' : ''}`}
+          className={`heart-button ${isFavorite ? "is-active" : ""}`}
           type="button"
           onClick={() => onFavorite(tour)}
           aria-label="Save favorite tour"
@@ -170,7 +155,7 @@ function TourCard({ tour, isFavorite, onFavorite }) {
         <div className="tour-meta">
           <span>{tour.category}</span>
           <b>★ {tour.rating.average}</b>
-          <small>({tour.rating.count.toLocaleString('en-US')})</small>
+          <small>({tour.rating.count.toLocaleString("en-US")})</small>
         </div>
         <h3>{tour.title}</h3>
         <p>{tour.summary}</p>
@@ -181,37 +166,42 @@ function TourCard({ tour, isFavorite, onFavorite }) {
         <div className="tour-bottom">
           <div>
             <strong>{currency.format(discountPrice)}</strong>
-            {tour.price.base > discountPrice ? <del>{currency.format(tour.price.base)}</del> : null}
+            {tour.price.base > discountPrice ? (
+              <del>{currency.format(tour.price.base)}</del>
+            ) : null}
             <small>per person</small>
           </div>
           <button type="button">View Details</button>
         </div>
       </div>
     </article>
-  )
+  );
 }
 
 function ChatBox() {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([
-    { from: 'ai', text: 'Hi, I am your ViVuGo assistant. Which destination or travel style are you looking for?' },
-  ])
-  const [text, setText] = useState('')
+    {
+      from: "ai",
+      text: "Hi, I am your ViVuGo assistant. Which destination or travel style are you looking for?",
+    },
+  ]);
+  const [text, setText] = useState("");
 
   function sendMessage(event) {
-    event.preventDefault()
-    const value = text.trim()
-    if (!value) return
+    event.preventDefault();
+    const value = text.trim();
+    if (!value) return;
 
     setMessages((current) => [
       ...current,
-      { from: 'user', text: value },
+      { from: "user", text: value },
       {
-        from: 'ai',
-        text: 'Great. Try Flights, Hotels, Beach, or Adventure to load matching tours automatically.',
+        from: "ai",
+        text: "Great. Try Flights, Hotels, Beach, or Adventure to load matching tours automatically.",
       },
-    ])
-    setText('')
+    ]);
+    setText("");
   }
 
   return (
@@ -223,7 +213,11 @@ function ChatBox() {
               <strong>ViVuGo AI Assistant</strong>
               <span>Ready to help</span>
             </div>
-            <button type="button" onClick={() => setOpen(false)} aria-label="Close chat">
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              aria-label="Close chat"
+            >
               ×
             </button>
           </header>
@@ -244,30 +238,39 @@ function ChatBox() {
           </form>
         </section>
       ) : null}
-      <button className="chat-fab" type="button" onClick={() => setOpen((value) => !value)}>
+      <button
+        className="chat-fab"
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+      >
         ◌
       </button>
     </div>
-  )
+  );
 }
 
 function HomePage({ tours, favorites, onFavorite }) {
-  const navigate = useNavigate()
-  const [search, setSearch] = useState({ keyword: '', start_date: '', guests: 2 })
-  const featuredTours = tours.slice(0, 3)
+  const navigate = useNavigate();
+  const [search, setSearch] = useState({
+    keyword: "",
+    start_date: "",
+    guests: 2,
+  });
+  const featuredTours = tours.slice(0, 3);
 
   function submitSearch(event) {
-    event.preventDefault()
-    const params = new URLSearchParams()
-    if (search.keyword) params.set('q', search.keyword)
-    if (search.start_date) params.set('date', search.start_date)
-    if (search.guests) params.set('guests', search.guests)
-    navigate(`/tours?${params.toString()}`)
+    event.preventDefault();
+    const params = new URLSearchParams();
+    if (search.keyword) params.set("q", search.keyword);
+    if (search.start_date) params.set("date", search.start_date);
+    if (search.guests) params.set("guests", search.guests);
+    navigate(`/tours?${params.toString()}`);
   }
 
   function goToQuickFilter(value) {
-    const key = value === 'Beach' || value === 'Adventure' ? 'category' : 'style'
-    navigate(`/tours?${key}=${encodeURIComponent(value)}`)
+    const key =
+      value === "Beach" || value === "Adventure" ? "category" : "style";
+    navigate(`/tours?${key}=${encodeURIComponent(value)}`);
   }
 
   return (
@@ -279,15 +282,17 @@ function HomePage({ tours, favorites, onFavorite }) {
             Discover Your Next <span>Adventure</span>
           </h1>
           <p>
-            Explore breathtaking destinations, book amazing tours, and create unforgettable
-            memories with ViVuGo, your trusted travel companion.
+            Explore breathtaking destinations, book amazing tours, and create
+            unforgettable memories with ViVuGo, your trusted travel companion.
           </p>
           <form className="search-panel" onSubmit={submitSearch}>
             <label>
               <span>Destination</span>
               <input
                 value={search.keyword}
-                onChange={(event) => setSearch({ ...search, keyword: event.target.value })}
+                onChange={(event) =>
+                  setSearch({ ...search, keyword: event.target.value })
+                }
                 placeholder="Where are you going?"
               />
             </label>
@@ -296,7 +301,9 @@ function HomePage({ tours, favorites, onFavorite }) {
               <input
                 type="date"
                 value={search.start_date}
-                onChange={(event) => setSearch({ ...search, start_date: event.target.value })}
+                onChange={(event) =>
+                  setSearch({ ...search, start_date: event.target.value })
+                }
               />
             </label>
             <label>
@@ -305,24 +312,38 @@ function HomePage({ tours, favorites, onFavorite }) {
                 type="number"
                 min="1"
                 value={search.guests}
-                onChange={(event) => setSearch({ ...search, guests: event.target.value })}
+                onChange={(event) =>
+                  setSearch({ ...search, guests: event.target.value })
+                }
               />
             </label>
             <button type="submit">⌕ Search</button>
           </form>
           <div className="travel-tags" aria-label="Quick tour filters">
             {quickFilters.map((filter) => (
-              <button type="button" key={filter.value} onClick={() => goToQuickFilter(filter.value)}>
+              <button
+                type="button"
+                key={filter.value}
+                onClick={() => goToQuickFilter(filter.value)}
+              >
                 <CategoryIcon type={filter.value} />
                 {filter.label}
               </button>
             ))}
           </div>
           <div className="hero-stats">
-            <strong>50K+<span>Happy Travelers</span></strong>
-            <strong>200+<span>Tour Packages</span></strong>
-            <strong>50+<span>Destinations</span></strong>
-            <strong>4.9<span>Average Rating</span></strong>
+            <strong>
+              50K+<span>Happy Travelers</span>
+            </strong>
+            <strong>
+              200+<span>Tour Packages</span>
+            </strong>
+            <strong>
+              50+<span>Destinations</span>
+            </strong>
+            <strong>
+              4.9<span>Average Rating</span>
+            </strong>
           </div>
         </div>
       </section>
@@ -371,55 +392,65 @@ function HomePage({ tours, favorites, onFavorite }) {
 
       <section className="why-band">
         <div className="customer-shell why-grid">
-          {['Best Price Guarantee', '24/7 Support', 'Flexible Payment', 'Verified Tours'].map(
-            (item) => (
-              <article key={item}>
-                <span>◎</span>
-                <h3>{item}</h3>
-                <p>Clear, safe, and convenient service for every traveler.</p>
-              </article>
-            ),
-          )}
+          {[
+            "Best Price Guarantee",
+            "24/7 Support",
+            "Flexible Payment",
+            "Verified Tours",
+          ].map((item) => (
+            <article key={item}>
+              <span>◎</span>
+              <h3>{item}</h3>
+              <p>Clear, safe, and convenient service for every traveler.</p>
+            </article>
+          ))}
         </div>
       </section>
     </>
-  )
+  );
 }
 
 function ToursPage({ tours, favorites, onFavorite }) {
-  const location = useLocation()
-  const params = new URLSearchParams(location.search)
-  const [query, setQuery] = useState(params.get('q') || '')
-  const [category, setCategory] = useState(params.get('category') || 'All')
-  const [travelStyle, setTravelStyle] = useState(params.get('style') || 'All')
-  const [maxPrice, setMaxPrice] = useState(2500)
-  const [view, setView] = useState('grid')
-  const [sort, setSort] = useState('recommended')
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const [query, setQuery] = useState(params.get("q") || "");
+  const [category, setCategory] = useState(params.get("category") || "All");
+  const [travelStyle, setTravelStyle] = useState(params.get("style") || "All");
+  const [maxPrice, setMaxPrice] = useState(2500);
+  const [view, setView] = useState("grid");
+  const [sort, setSort] = useState("recommended");
 
   useEffect(() => {
-    const nextParams = new URLSearchParams(location.search)
-    setQuery(nextParams.get('q') || '')
-    setCategory(nextParams.get('category') || 'All')
-    setTravelStyle(nextParams.get('style') || 'All')
-  }, [location.search])
+    const nextParams = new URLSearchParams(location.search);
+    setQuery(nextParams.get("q") || "");
+    setCategory(nextParams.get("category") || "All");
+    setTravelStyle(nextParams.get("style") || "All");
+  }, [location.search]);
 
   const visibleTours = useMemo(() => {
     const result = tours.filter((tour) => {
-      const searchable = `${tour.title} ${tour.destination} ${tour.category} ${tour.travelStyle}`
-      const matchesQuery = searchable.toLowerCase().includes(query.toLowerCase())
-      const matchesCategory = category === 'All' || tour.category === category
-      const matchesStyle = travelStyle === 'All' || tour.travelStyle === travelStyle
-      const matchesPrice = (tour.price.discount || tour.price.base) <= maxPrice
+      const searchable = `${tour.title} ${tour.destination} ${tour.category} ${tour.travelStyle}`;
+      const matchesQuery = searchable
+        .toLowerCase()
+        .includes(query.toLowerCase());
+      const matchesCategory = category === "All" || tour.category === category;
+      const matchesStyle =
+        travelStyle === "All" || tour.travelStyle === travelStyle;
+      const matchesPrice = (tour.price.discount || tour.price.base) <= maxPrice;
 
-      return matchesQuery && matchesCategory && matchesStyle && matchesPrice
-    })
+      return matchesQuery && matchesCategory && matchesStyle && matchesPrice;
+    });
 
-    if (sort === 'price') {
-      return [...result].sort((a, b) => (a.price.discount || a.price.base) - (b.price.discount || b.price.base))
+    if (sort === "price") {
+      return [...result].sort(
+        (a, b) =>
+          (a.price.discount || a.price.base) -
+          (b.price.discount || b.price.base),
+      );
     }
 
-    return result
-  }, [category, maxPrice, query, sort, tours, travelStyle])
+    return result;
+  }, [category, maxPrice, query, sort, tours, travelStyle]);
 
   return (
     <>
@@ -436,15 +467,26 @@ function ToursPage({ tours, favorites, onFavorite }) {
                 placeholder="Search tours, destinations..."
               />
             </label>
-            <select value={sort} onChange={(event) => setSort(event.target.value)}>
+            <select
+              value={sort}
+              onChange={(event) => setSort(event.target.value)}
+            >
               <option value="recommended">Recommended</option>
               <option value="price">Lowest Price</option>
             </select>
             <div className="view-toggle">
-              <button className={view === 'grid' ? 'active' : ''} type="button" onClick={() => setView('grid')}>
+              <button
+                className={view === "grid" ? "active" : ""}
+                type="button"
+                onClick={() => setView("grid")}
+              >
                 ▦
               </button>
-              <button className={view === 'list' ? 'active' : ''} type="button" onClick={() => setView('list')}>
+              <button
+                className={view === "list" ? "active" : ""}
+                type="button"
+                onClick={() => setView("list")}
+              >
                 ☷
               </button>
             </div>
@@ -458,7 +500,7 @@ function ToursPage({ tours, favorites, onFavorite }) {
           <div className="filter-chips">
             {categoryLabels.map((label) => (
               <button
-                className={category === label ? 'active' : ''}
+                className={category === label ? "active" : ""}
                 key={label}
                 type="button"
                 onClick={() => setCategory(label)}
@@ -469,16 +511,18 @@ function ToursPage({ tours, favorites, onFavorite }) {
           </div>
           <h3>Travel Style</h3>
           <div className="filter-chips">
-            {['All', ...quickFilters.map((filter) => filter.value)].map((label) => (
-              <button
-                className={travelStyle === label ? 'active' : ''}
-                key={label}
-                type="button"
-                onClick={() => setTravelStyle(label)}
-              >
-                {label}
-              </button>
-            ))}
+            {["All", ...quickFilters.map((filter) => filter.value)].map(
+              (label) => (
+                <button
+                  className={travelStyle === label ? "active" : ""}
+                  key={label}
+                  type="button"
+                  onClick={() => setTravelStyle(label)}
+                >
+                  {label}
+                </button>
+              ),
+            )}
           </div>
           <h3>Price Range</h3>
           <input
@@ -494,14 +538,14 @@ function ToursPage({ tours, favorites, onFavorite }) {
             <span>{currency.format(maxPrice)}</span>
           </div>
           <h3>Duration</h3>
-          {['1-3 days', '4-6 days', '7+ days'].map((item) => (
+          {["1-3 days", "4-6 days", "7+ days"].map((item) => (
             <label className="check-row" key={item}>
               <input type="checkbox" />
               <span>{item}</span>
             </label>
           ))}
           <h3>Rating</h3>
-          {['4.5+ stars', '4+ stars', '3.5+ stars'].map((item) => (
+          {["4.5+ stars", "4+ stars", "3.5+ stars"].map((item) => (
             <label className="check-row" key={item}>
               <input type="checkbox" />
               <span>★ {item}</span>
@@ -510,7 +554,7 @@ function ToursPage({ tours, favorites, onFavorite }) {
         </aside>
         <main>
           <h2 className="result-count">{visibleTours.length} tours found</h2>
-          <div className={view === 'grid' ? 'tour-grid' : 'tour-list'}>
+          <div className={view === "grid" ? "tour-grid" : "tour-list"}>
             {visibleTours.map((tour) => (
               <TourCard
                 key={tour.id}
@@ -523,42 +567,50 @@ function ToursPage({ tours, favorites, onFavorite }) {
         </main>
       </section>
     </>
-  )
+  );
 }
 
 function ProfilePage({ profile, setProfile, mode }) {
-  const [form, setForm] = useState(profile)
-  const [notice, setNotice] = useState('')
+  const [form, setForm] = useState(profile);
+  const [notice, setNotice] = useState("");
 
   async function submitProfile(event) {
-    event.preventDefault()
-    setProfile(form)
-    saveSession({ ...readSession(), ...form, name: form.full_name })
-    setNotice('Your profile has been updated.')
+    event.preventDefault();
+    setProfile(form);
+    saveSession({ ...readSession(), ...form, name: form.full_name });
+    setNotice("Your profile has been updated.");
 
     try {
-      await updateProfile({ full_name: form.full_name, phone: form.phone })
+      await updateProfile({ full_name: form.full_name, phone: form.phone });
     } catch {
-      setNotice('Saved locally. The API will sync when the backend and token are available.')
+      setNotice(
+        "Saved locally. The API will sync when the backend and token are available.",
+      );
     }
   }
 
-  if (mode === 'password') {
-    return <PasswordPage />
+  if (mode === "password") {
+    return <PasswordPage />;
   }
 
   return (
     <section className="customer-shell account-page">
       <AccountSidebar />
       <main className="account-content">
-        <h1>{mode === 'edit' ? 'Edit Customer Information' : 'Customer Information'}</h1>
+        <h1>
+          {mode === "edit"
+            ? "Edit Customer Information"
+            : "Customer Information"}
+        </h1>
         <form className="profile-form" onSubmit={submitProfile}>
           <label>
             <span>Full Name</span>
             <input
-              readOnly={mode !== 'edit'}
+              readOnly={mode !== "edit"}
               value={form.full_name}
-              onChange={(event) => setForm({ ...form, full_name: event.target.value })}
+              onChange={(event) =>
+                setForm({ ...form, full_name: event.target.value })
+              }
             />
           </label>
           <label>
@@ -568,42 +620,52 @@ function ProfilePage({ profile, setProfile, mode }) {
           <label>
             <span>Phone</span>
             <input
-              readOnly={mode !== 'edit'}
+              readOnly={mode !== "edit"}
               value={form.phone}
-              onChange={(event) => setForm({ ...form, phone: event.target.value })}
+              onChange={(event) =>
+                setForm({ ...form, phone: event.target.value })
+              }
             />
           </label>
           <label>
             <span>Address</span>
             <input
-              readOnly={mode !== 'edit'}
+              readOnly={mode !== "edit"}
               value={form.address}
-              onChange={(event) => setForm({ ...form, address: event.target.value })}
+              onChange={(event) =>
+                setForm({ ...form, address: event.target.value })
+              }
             />
           </label>
-          {mode === 'edit' ? <button type="submit">Save Changes</button> : <Link to="/customer/profile/edit">Edit</Link>}
+          {mode === "edit" ? (
+            <button type="submit">Save Changes</button>
+          ) : (
+            <Link to="/customer/profile/edit">Edit</Link>
+          )}
           {notice ? <p className="form-notice">{notice}</p> : null}
         </form>
       </main>
     </section>
-  )
+  );
 }
 
 function PasswordPage() {
-  const [notice, setNotice] = useState('')
+  const [notice, setNotice] = useState("");
   const [form, setForm] = useState({
-    current_password: '',
-    new_password: '',
-    new_password_confirmation: '',
-  })
+    current_password: "",
+    new_password: "",
+    new_password_confirmation: "",
+  });
 
   async function submitPassword(event) {
-    event.preventDefault()
+    event.preventDefault();
     try {
-      await changePassword(form)
-      setNotice('Password changed successfully.')
+      await changePassword(form);
+      setNotice("Password changed successfully.");
     } catch {
-      setNotice('Could not sync with backend. Please check login/token when the API is running.')
+      setNotice(
+        "Could not sync with backend. Please check login/token when the API is running.",
+      );
     }
   }
 
@@ -618,7 +680,9 @@ function PasswordPage() {
             <input
               type="password"
               value={form.current_password}
-              onChange={(event) => setForm({ ...form, current_password: event.target.value })}
+              onChange={(event) =>
+                setForm({ ...form, current_password: event.target.value })
+              }
             />
           </label>
           <label>
@@ -626,7 +690,9 @@ function PasswordPage() {
             <input
               type="password"
               value={form.new_password}
-              onChange={(event) => setForm({ ...form, new_password: event.target.value })}
+              onChange={(event) =>
+                setForm({ ...form, new_password: event.target.value })
+              }
             />
           </label>
           <label>
@@ -634,7 +700,12 @@ function PasswordPage() {
             <input
               type="password"
               value={form.new_password_confirmation}
-              onChange={(event) => setForm({ ...form, new_password_confirmation: event.target.value })}
+              onChange={(event) =>
+                setForm({
+                  ...form,
+                  new_password_confirmation: event.target.value,
+                })
+              }
             />
           </label>
           <button type="submit">Update Password</button>
@@ -642,7 +713,7 @@ function PasswordPage() {
         </form>
       </main>
     </section>
-  )
+  );
 }
 
 function AccountSidebar() {
@@ -655,7 +726,7 @@ function AccountSidebar() {
       <NavLink to="/customer/search">Search</NavLink>
       <NavLink to="/customer/settings">Settings</NavLink>
     </aside>
-  )
+  );
 }
 
 function SimpleAccountPage({ title, children }) {
@@ -667,7 +738,7 @@ function SimpleAccountPage({ title, children }) {
         {children}
       </main>
     </section>
-  )
+  );
 }
 
 function Footer() {
@@ -675,7 +746,9 @@ function Footer() {
     <footer className="customer-footer">
       <div className="cta-band">
         <h2>Ready to Start Your Adventure?</h2>
-        <p>Join thousands of happy travelers and discover the world with ViVuGo.</p>
+        <p>
+          Join thousands of happy travelers and discover the world with ViVuGo.
+        </p>
         <div>
           <Link to="/tours">Explore Tours</Link>
           <Link to="/auth">Create Account</Link>
@@ -716,117 +789,133 @@ function Footer() {
         <span>Terms · Privacy · Cookies</span>
       </div>
     </footer>
-  )
+  );
 }
 
 function CustomerPage() {
-  const [tours, setTours] = useState(demoTours)
-  const [favorites, setFavorites] = useState([])
+  const [tours, setTours] = useState(demoTours);
+  const [favorites, setFavorites] = useState([]);
   const [profile, setProfile] = useState(() => {
-    const session = readSession()
+    const session = readSession();
 
     return {
       ...emptyProfile,
       full_name: session?.full_name || session?.name || emptyProfile.full_name,
       email: session?.email || emptyProfile.email,
       phone: session?.phone || emptyProfile.phone,
-    }
-  })
-  const [user, setUser] = useState(readSession)
-  const location = useLocation()
-  const authToken = user?.token || user?.accessToken
+    };
+  });
+  const [user, setUser] = useState(readSession);
+  const location = useLocation();
+  const authToken = user?.token || user?.accessToken;
 
   useEffect(() => {
-    let active = true
+    let active = true;
 
     async function loadTours() {
       try {
-        const query = new URLSearchParams(location.search)
-        const apiTours = query.get('category')
-          ? await filterTours({ category: query.get('category') })
+        const query = new URLSearchParams(location.search);
+        const apiTours = query.get("category")
+          ? await filterTours({ category: query.get("category") })
           : await fetchTours({
-              keyword: query.get('q') || undefined,
-              start_date: query.get('date') || undefined,
-              guests: query.get('guests') || undefined,
-            })
+              keyword: query.get("q") || undefined,
+              start_date: query.get("date") || undefined,
+              guests: query.get("guests") || undefined,
+            });
 
         if (active && apiTours.length > 0) {
-          setTours(apiTours.map(normalizeTour))
+          setTours(apiTours.map(normalizeTour));
         }
       } catch {
-        if (active) setTours(demoTours)
+        if (active) setTours(demoTours);
       }
     }
 
-    loadTours()
+    loadTours();
 
     return () => {
-      active = false
-    }
-  }, [location.search])
+      active = false;
+    };
+  }, [location.search]);
 
   useEffect(() => {
-    let active = true
+    let active = true;
 
     async function loadWishlist() {
-      const stored = JSON.parse(localStorage.getItem('vivugo_favorites') || '[]')
+      const stored = JSON.parse(
+        localStorage.getItem("vivugo_favorites") || "[]",
+      );
 
       if (!authToken) {
-        if (active) setFavorites(stored)
-        return
+        if (active) setFavorites(stored);
+        return;
       }
 
       try {
-        const items = await fetchWishlist()
+        const items = await fetchWishlist();
         if (active) {
-          setFavorites(items.map((item) => item.id))
+          setFavorites(items.map((item) => item.id));
         }
       } catch {
-        if (active) setFavorites(stored)
+        if (active) setFavorites(stored);
       }
     }
 
-    loadWishlist()
+    loadWishlist();
 
     return () => {
-      active = false
-    }
-  }, [authToken])
+      active = false;
+    };
+  }, [authToken]);
 
   async function toggleFavorite(tour) {
-    const exists = favorites.includes(tour.id)
-    const next = exists ? favorites.filter((id) => id !== tour.id) : [...favorites, tour.id]
-    setFavorites(next)
-    localStorage.setItem('vivugo_favorites', JSON.stringify(next))
+    const exists = favorites.includes(tour.id);
+    const next = exists
+      ? favorites.filter((id) => id !== tour.id)
+      : [...favorites, tour.id];
+    setFavorites(next);
+    localStorage.setItem("vivugo_favorites", JSON.stringify(next));
 
     if (!authToken) {
-      return
+      return;
     }
 
     try {
       if (exists) {
-        await removeWishlist(tour.id)
+        await removeWishlist(tour.id);
       } else {
-        await addWishlist(tour.id)
+        await addWishlist(tour.id);
       }
     } catch {
-      localStorage.setItem('vivugo_favorites', JSON.stringify(next))
+      localStorage.setItem("vivugo_favorites", JSON.stringify(next));
     }
   }
 
   function logout() {
-    localStorage.removeItem('skytrail_session')
-    setUser(null)
-    setFavorites(JSON.parse(localStorage.getItem('vivugo_favorites') || '[]'))
+    localStorage.removeItem("skytrail_session");
+    setUser(null);
+    setFavorites(JSON.parse(localStorage.getItem("vivugo_favorites") || "[]"));
   }
 
-  const favoriteTours = tours.filter((tour) => favorites.includes(tour.id))
-  const route = location.pathname
-  let content = <HomePage tours={tours} favorites={favorites} onFavorite={toggleFavorite} />
+  const favoriteTours = tours.filter((tour) => favorites.includes(tour.id));
+  const route = location.pathname;
+  let content = (
+    <HomePage tours={tours} favorites={favorites} onFavorite={toggleFavorite} />
+  );
 
-  if (route.startsWith('/tours') || route === '/customer/search' || route === '/deals') {
-    content = <ToursPage tours={tours} favorites={favorites} onFavorite={toggleFavorite} />
-  } else if (route === '/destinations') {
+  if (
+    route.startsWith("/tours") ||
+    route === "/customer/search" ||
+    route === "/deals"
+  ) {
+    content = (
+      <ToursPage
+        tours={tours}
+        favorites={favorites}
+        onFavorite={toggleFavorite}
+      />
+    );
+  } else if (route === "/destinations") {
     content = (
       <section className="destinations-band destinations-page">
         <div className="customer-shell">
@@ -847,28 +936,41 @@ function CustomerPage() {
           </div>
         </div>
       </section>
-    )
-  } else if (route === '/customer/profile') {
-    content = <ProfilePage profile={profile} setProfile={setProfile} mode="view" />
-  } else if (route === '/customer/profile/edit') {
-    content = <ProfilePage profile={profile} setProfile={setProfile} mode="edit" />
-  } else if (route === '/customer/password') {
-    content = <ProfilePage profile={profile} setProfile={setProfile} mode="password" />
-  } else if (route === '/customer/favorites') {
+    );
+  } else if (route === "/customer/profile") {
+    content = (
+      <ProfilePage profile={profile} setProfile={setProfile} mode="view" />
+    );
+  } else if (route === "/customer/profile/edit") {
+    content = (
+      <ProfilePage profile={profile} setProfile={setProfile} mode="edit" />
+    );
+  } else if (route === "/customer/password") {
+    content = (
+      <ProfilePage profile={profile} setProfile={setProfile} mode="password" />
+    );
+  } else if (route === "/customer/favorites") {
     content = (
       <SimpleAccountPage title="Favorite Tours">
         {favoriteTours.length > 0 ? (
           <div className="tour-grid compact">
             {favoriteTours.map((tour) => (
-              <TourCard key={tour.id} tour={tour} isFavorite onFavorite={toggleFavorite} />
+              <TourCard
+                key={tour.id}
+                tour={tour}
+                isFavorite
+                onFavorite={toggleFavorite}
+              />
             ))}
           </div>
         ) : (
-          <p className="empty-state">You have not saved any favorite tours yet.</p>
+          <p className="empty-state">
+            You have not saved any favorite tours yet.
+          </p>
         )}
       </SimpleAccountPage>
-    )
-  } else if (route === '/customer/bookings') {
+    );
+  } else if (route === "/customer/bookings") {
     content = (
       <SimpleAccountPage title="My Bookings">
         <div className="booking-list">
@@ -878,8 +980,8 @@ function CustomerPage() {
           </article>
         </div>
       </SimpleAccountPage>
-    )
-  } else if (route === '/customer/settings') {
+    );
+  } else if (route === "/customer/settings") {
     content = (
       <SimpleAccountPage title="Settings">
         <div className="settings-list">
@@ -897,7 +999,7 @@ function CustomerPage() {
           </label>
         </div>
       </SimpleAccountPage>
-    )
+    );
   }
 
   return (
@@ -907,7 +1009,7 @@ function CustomerPage() {
       <Footer />
       <ChatBox />
     </div>
-  )
+  );
 }
 
-export default CustomerPage
+export default CustomerPage;
