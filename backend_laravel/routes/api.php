@@ -32,6 +32,37 @@ Route::prefix('auth')->group(function () {
         ]);
     });
 });
+//___________________________________________ CUSTOMER ___________________________________________
+
+//=============================Lấy thông tin khách hàng khi đăng nhập ==========================
+//Lấy thông tin user khi đăng nhập
+Route::middleware('auth:sanctum')->get('/user', [AuthController::class, 'me']);
+//Edit
+Route::middleware('auth:sanctum')->group(function () {
+    //Edit thông tin (ko bao gồm pass)
+    Route::put('/profile/update', [CustomerController::class, 'updateProfile']);
+    //Edit pass (TH: nhớ pass cũ)
+    Route::put('/profile/change-password', [CustomerController::class, 'changePassword']);
+});
+//Edit pass (không nhớ mật khẩu - cho xác nhận email or sdt -> gửi otp -> đổi pass)
+//Gửi OTP
+Route::post('/forgot-password', [CustomerController::class, 'forgotPassword']);
+//Xác nhận OTP và Đổi pass
+Route::post('/reset-password', [CustomerController::class, 'resetPassword']);
+//===============================================================================================
+
+//============================== Api tour giao diện customer ====================================
+// Các API cho khách hàng (không cần bảo mật cao, ai cũng truy cập được)
+Route::prefix('tours')->group(function () {
+    //Tìm kiếm tour theo tên, điểm đến, ngày bắt đầu, số lượng 
+    Route::get('/search', [TourController::class, 'search_gdkh']);
+    // API lọc theo các tiêu chí (category, price, duration...)
+    Route::get('/filter', [TourController::class, 'filter_gdkh']);
+
+    // Danh sách tour
+    Route::get('/', [TourController::class, 'index_gdkh']);
+});
+// API yêu cầu đăng nhập
 //==============================================================================================
 
 //======================================= CUSTOMER ==============================================
@@ -55,42 +86,74 @@ Route::prefix('tours')->group(function () {
         Route::post('wishlist', [WishlistController::class, 'store']);
         Route::delete('wishlist/{tour_id}', [WishlistController::class, 'destroy']);
     });
+
+    // Chi tiết tour theo slug   
+    Route::get('/{slug}', [TourController::class, 'show_gdkh']);
 });
-//==============================================================================================
+//===============================================================================================
 
-// Public system settings and widgets
-Route::get('/settings/public', [PublicSettingController::class, 'show']);
-Route::get('/widgets', [PublicWidgetController::class, 'index']);
-//==============================================================================================
 
-//========================================= ADMIN ===============================================
-Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function () {
-    // Quản lý khách hàng
-    Route::get('/customers/count', [CustomerManagerController::class, 'count']);
-    Route::get('/customers', [CustomerManagerController::class, 'index']);
-    Route::get('/customers/search', [CustomerManagerController::class, 'search']);
-    Route::post('/customers', [CustomerManagerController::class, 'store']);
-    Route::get('/customers/{id}', [CustomerManagerController::class, 'show']);
-    Route::put('/customers/{id}', [CustomerManagerController::class, 'update']);
-    Route::patch('/customers/{id}/lock', [CustomerManagerController::class, 'lock']);
+
+//_______________________________________ ADMIN _____________________________________________________
+Route::prefix('admin')->group(function () {
+    //middleware('auth:sanctum') là lớp bảo vệ (authentication middleware) của Laravel Sanctum.
+
+    //============================================Quản lý user==================================
+    //Tính tổng số lượng tài khoảng 
+    Route::get('/customers/count', [CustomerController::class, 'count']);
+    //lấy danh sách user
+    Route::get('/customers', [CustomerController::class, 'index']);
+    //Chức năng search
+    Route::get('/customers/search', [CustomerController::class, 'search']);
+    //Thêm user
+    Route::post('/customers', [CustomerController::class, 'store']);
+    //Xem chi tiết
+    Route::get('/customers/{id}', [CustomerController::class, 'show']);
+    // Edit
+    Route::put('/customers/{id}', [CustomerController::class, 'update']);
+    // Khóa tk
+    Route::patch('/customers/{id}/lock', [CustomerController::class, 'lock']);
+    //Khôi phục tài khoản 
+
+
     Route::patch('/customers/{id}/unlock', [CustomerManagerController::class, 'unlock']);
+    //==========================================================================================
 
-    // Quản lý HDV
+    //==========================================Quản lý HDV==========================================
+    //Tính tổng số lượng HDV
     Route::get('/guides/statistics', [GuideController::class, 'statistics']);
+    //Lấy danh sách HDV
     Route::get('/guides', [GuideController::class, 'index']);
+    //Xem chi tiết HDV
     Route::get('/guides/{id}', [GuideController::class, 'show']);
+    //Thêm HDV
     Route::post('/guides', [GuideController::class, 'store']);
+    //Sửa HDV
     Route::put('/guides/{id}', [GuideController::class, 'update']);
+    //Xóa HDV
     Route::delete('/guides/{id}', [GuideController::class, 'destroy']);
 
-    // Quản lý địa điểm tour
-    Route::get('destinations/search', [DestinationController::class, 'search']);
-    Route::apiResource('destinations', DestinationController::class);
-    Route::get('destinations/trash/list', [DestinationController::class, 'trashed']);
-    Route::post('destinations/{id}/restore', [DestinationController::class, 'restore']);
-    Route::delete('destinations/{id}/force-delete', [DestinationController::class, 'forceDelete']);
 
-    // Quản lý danh mục tour
+    //====================================Quản lý địa chỉ tour ======================================
+    //Tìm kiếm
+    Route::get('destinations/search', [DestinationController::class, 'search']);
+    //Lấy danh sách |  GET        |  http://127.0.0.1:8000/api/destinations
+    //Xem chi tiết  |  GET        |  http://127.0.0.1:8000/api/destinations/{id}
+    //Thêm mới      |  POST       |  http://127.0.0.1:8000/api/destinations
+    //Cập nhật      |  PUT/PATCH  |  http://127.0.0.1:8000/api/destinations/{id}
+    //Xóa mềm       |  DELETE     |  http://127.0.0.1:8000/api/destinations/{id}
+    //Router tích hợp cả 5 chức năng
+    Route::apiResource('destinations', DestinationController::class);
+    //Lấy danh sách xóa mềm
+    Route::get('destinations/trash/list', [DestinationController::class, 'trashed']);
+    //Khôi phục bản ghi đã xóa mềm
+    Route::post('destinations/{id}/restore', [DestinationController::class, 'restore']);
+    //xóa vĩnh viễn bản ghi
+    Route::delete('destinations/{id}/force-delete', [DestinationController::class, 'forceDelete']);
+    //===============================================================================================
+
+
+    //============================================Quản lý danh mục tour=========================
     Route::get('/categories', [CategoryController::class, 'index']);
     Route::get('/categories/search', [CategoryController::class, 'search']);
     Route::post('/categories', [CategoryController::class, 'store']);
@@ -98,37 +161,57 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     Route::delete('/categories/{id}', [CategoryController::class, 'destroy']);
     Route::get('/categories-trashed', [CategoryController::class, 'trashed']);
     Route::patch('/categories/{id}/restore', [CategoryController::class, 'restore']);
+    //===========================================================================================
 
-    // Quản lý tour
-    Route::get('tours/public', [TourManagerController::class, 'publicIndex']);
+
+    //============================================Quản lý Tour==================================
+    // Giao diện User
+    Route::get('tours/public', [TourManagerController::class, 'publicIndex']); // Hiển thị danh sách tour cho user
+
+    // Giao diện Quản lý (Admin)
     Route::prefix('tours')->group(function () {
-        Route::get('/', [TourManagerController::class, 'index']);
-        Route::post('/', [TourManagerController::class, 'store']);
-        Route::put('/{id}', [TourManagerController::class, 'update']);
-        Route::delete('/{id}', [TourManagerController::class, 'destroy']);
-        Route::get('/hidden-list', [TourManagerController::class, 'hiddenTours']);
-        Route::patch('/{id}/hide', [TourManagerController::class, 'hide']);
-        Route::patch('/{id}/unhide', [TourManagerController::class, 'unhide']);
+        Route::get('/', [TourManagerController::class, 'index']);                  // Quản lý tour (không hiện tour bị ẩn)
+        Route::post('/', [TourManagerController::class, 'store']);                 // Thêm tour
+        Route::put('/{id}', [TourManagerController::class, 'update']);             // Sửa tour
+        Route::delete('/{id}', [TourManagerController::class, 'destroy']);         // Xóa tour (Soft delete)
+
+        Route::get('/hidden-list', [TourManagerController::class, 'hiddenTours']); // Lấy danh sách tour bị ẩn
+        Route::patch('/{id}/hide', [TourManagerController::class, 'hide']);        // Ẩn tour
+        Route::patch('/{id}/unhide', [TourManagerController::class, 'unhide']);    // Bỏ ẩn tour
     });
+    //===========================================================================================
 
-    // Quản lý cài đặt admin
-    Route::get('/settings', [SettingController::class, 'index']);
-    Route::put('/settings', [SettingController::class, 'update']);
 
-    Route::get('/widgets', [WidgetController::class, 'index']);
-    Route::post('/widgets', [WidgetController::class, 'store']);
-    Route::get('/widgets/{id}', [WidgetController::class, 'show']);
-    Route::put('/widgets/{id}', [WidgetController::class, 'update']);
-    Route::delete('/widgets/{id}', [WidgetController::class, 'destroy']);
-    Route::patch('/widgets/{id}/toggle-status', [WidgetController::class, 'toggleStatus']);
+    //============================================Cài đặt hệ thống public========================
+    Route::get('/settings/public', [PublicSettingController::class, 'show']);
+    Route::get('/widgets', [PublicWidgetController::class, 'index']);
+    //===========================================================================================
 
-    Route::get('/payments', [PaymentController::class, 'index']);
-    Route::get('/payments/{id}', [PaymentController::class, 'show']);
-    Route::patch('/payments/{id}/confirm', [PaymentController::class, 'confirm']);
-    Route::patch('/payments/{id}/fail', [PaymentController::class, 'fail']);
-    Route::patch('/payments/{id}/refund', [PaymentController::class, 'refund']);
 
-    Route::get('/profile', [AdminProfileController::class, 'show']);
-    Route::put('/profile', [AdminProfileController::class, 'update']);
-    Route::put('/profile/password', [AdminProfileController::class, 'changePassword']);
+    //============================================Cài đặt hệ thống admin=========================
+    Route::prefix('admin')->group(function () {
+        Route::get('/settings', [SettingController::class, 'index']);
+        Route::put('/settings', [SettingController::class, 'update']);
+
+        Route::get('/widgets', [WidgetController::class, 'index']);
+        Route::post('/widgets', [WidgetController::class, 'store']);
+        Route::get('/widgets/{id}', [WidgetController::class, 'show']);
+        Route::put('/widgets/{id}', [WidgetController::class, 'update']);
+        Route::delete('/widgets/{id}', [WidgetController::class, 'destroy']);
+        Route::patch('/widgets/{id}/toggle-status', [WidgetController::class, 'toggleStatus']);
+
+        Route::get('/payments', [PaymentController::class, 'index']);
+        Route::get('/payments/{id}', [PaymentController::class, 'show']);
+        Route::patch('/payments/{id}/confirm', [PaymentController::class, 'confirm']);
+        Route::patch('/payments/{id}/fail', [PaymentController::class, 'fail']);
+        Route::patch('/payments/{id}/refund', [PaymentController::class, 'refund']);
+
+        Route::middleware('auth:sanctum')->group(function () {
+            Route::get('/profile', [AdminProfileController::class, 'show']);
+            Route::put('/profile', [AdminProfileController::class, 'update']);
+            Route::put('/profile/password', [AdminProfileController::class, 'changePassword']);
+        });
+    });
+    //===========================================================================================
+
 });
