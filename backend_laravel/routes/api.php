@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\Customer\TourController;
 use App\Http\Controllers\Api\Customer\WishlistController;
 use App\Http\Controllers\Api\PublicSettingController;
 use App\Http\Controllers\Api\PublicWidgetController;
+use App\Http\Controllers\Api\Admin\ReportController;
 use Illuminate\Support\Facades\Route;
 
 //=================================== đăng ký, login, logout =====================================
@@ -65,6 +66,10 @@ Route::get('/widgets', [PublicWidgetController::class, 'index']);
 
 //========================================= ADMIN ===============================================
 Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function () {
+    // CHỨC NĂNG BÁO CÁO & THỐNG KÊ
+    Route::get('/reports/overview', [ReportController::class, 'getOverviewStatistics']);
+    Route::get('/reports/charts', [ReportController::class, 'getChartStatistics']);
+
     // Quản lý khách hàng
     Route::get('/customers/count', [CustomerManagerController::class, 'count']);
     Route::get('/customers', [CustomerManagerController::class, 'index']);
