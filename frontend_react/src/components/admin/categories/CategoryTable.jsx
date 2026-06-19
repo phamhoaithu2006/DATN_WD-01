@@ -1,4 +1,9 @@
-function CategoryTable({ categories, loading, onEdit, onDelete }) {
+function CategoryTable({
+   categories,
+    loading,
+     onEdit,
+      onDelete
+     }) {
   const formatDate = (date) => {
     if (!date) return '-'
     return new Date(date).toLocaleDateString('vi-VN')

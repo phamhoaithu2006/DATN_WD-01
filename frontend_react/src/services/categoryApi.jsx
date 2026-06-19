@@ -3,36 +3,42 @@
 
 import axios from 'axios'
 
-const API_URL = 'http://127.0.0.1:8000/api'
+const API_URL = 'http://127.0.0.1:8000/api/admin'
 
 export const categoryApi = {
-    // lấy tất cả danh sách Tour
+  // Lấy tất cả danh sách loại tour
   getAll() {
     return axios.get(`${API_URL}/categories`)
   },
-    // tìm kiếm Tour theo tên
+
+  // Tìm kiếm loại tour theo tên
   search(name) {
     return axios.get(`${API_URL}/categories/search`, {
       params: { name },
     })
   },
-   // thêm mới Tour
+
+  // Thêm mới loại tour
   create(data) {
     return axios.post(`${API_URL}/categories`, data)
   },
-  // cập nhật Tour
+
+  // Cập nhật loại tour
   update(id, data) {
     return axios.put(`${API_URL}/categories/${id}`, data)
   },
-   // xóa Tour
+
+  // Xóa loại tour
   remove(id) {
     return axios.delete(`${API_URL}/categories/${id}`)
   },
-   // Lấy danh sách Tour đã bị xóa (trong thùng rác)
+
+  // Lấy danh sách loại tour đã bị xóa mềm
   getTrashed() {
     return axios.get(`${API_URL}/categories-trashed`)
   },
-    // khôi phục Tour từ thùng rác theo ID
+
+  // Khôi phục loại tour từ thùng rác theo ID
   restore(id) {
     return axios.patch(`${API_URL}/categories/${id}/restore`)
   },

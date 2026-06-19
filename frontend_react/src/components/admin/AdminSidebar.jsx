@@ -1,9 +1,10 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink } from "react-router-dom";
+import BrandLogo from "../BrandLogo";
 
 const menuItems = [
   {
-    label: 'Tổng Quan',
-    path: '/admin',
+    label: "Tổng Quan",
+    path: "/admin",
     icon: (
       <>
         <rect x="4" y="4" width="6" height="6" rx="1.2" />
@@ -14,8 +15,8 @@ const menuItems = [
     ),
   },
   {
-    label: 'Quản Lý Tour',
-    path: '/admin/tours',
+    label: "Quản Lý Tour",
+    path: "/admin/tours",
     icon: (
       <>
         <path d="M9 18l-5 2V6l5-2 6 2 5-2v14l-5 2-6-2Z" />
@@ -25,8 +26,8 @@ const menuItems = [
     ),
   },
   {
-    label: 'Quản Lý Booking',
-    path: '/admin/bookings',
+    label: "Quản Lý Booking",
+    path: "/admin/bookings",
     icon: (
       <>
         <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 1 4 16.5v-11Z" />
@@ -36,8 +37,8 @@ const menuItems = [
     ),
   },
   {
-    label: 'Quản Lý Người Dùng',
-    path: '/admin/users',
+    label: "Quản Lý Người Dùng",
+    path: "/admin/users",
     icon: (
       <>
         <path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
@@ -48,8 +49,8 @@ const menuItems = [
     ),
   },
   {
-    label: 'Nhân Viên Hỗ Trợ',
-    path: '/admin/support',
+    label: "Nhân Viên Hỗ Trợ",
+    path: "/admin/support",
     icon: (
       <>
         <path d="M4 13a8 8 0 0 1 16 0" />
@@ -59,8 +60,8 @@ const menuItems = [
     ),
   },
   {
-    label: 'Hướng Dẫn Viên',
-    path: '/admin/guides',
+    label: "Hướng Dẫn Viên",
+    path: "/admin/guides",
     icon: (
       <>
         <circle cx="9" cy="7" r="4" />
@@ -71,8 +72,8 @@ const menuItems = [
     ),
   },
   {
-    label: 'Dịch Vụ Đối Tác',
-    path: '/admin/partners',
+    label: "Dịch Vụ Đối Tác",
+    path: "/admin/partners",
     icon: (
       <>
         <path d="M4 21V7a2 2 0 0 1 2-2h5v16" />
@@ -86,8 +87,8 @@ const menuItems = [
     ),
   },
   {
-    label: 'Báo Cáo & Thống Kê',
-    path: '/admin/reports',
+    label: "Báo Cáo & Thống Kê",
+    path: "/admin/reports",
     icon: (
       <>
         <path d="M4 19V5" />
@@ -99,8 +100,8 @@ const menuItems = [
     ),
   },
   {
-    label: 'Cài Đặt',
-    path: '/admin/settings',
+    label: "Cài Đặt",
+    path: "/admin/settings",
     icon: (
       <>
         <circle cx="12" cy="12" r="3" />
@@ -108,40 +109,31 @@ const menuItems = [
       </>
     ),
   },
-]
+];
 
 function AdminSidebar({ collapsed, onToggle }) {
   return (
-    <aside className={collapsed ? 'admin-sidebar collapsed' : 'admin-sidebar'}>
+    <aside className={collapsed ? "admin-sidebar collapsed" : "admin-sidebar"}>
       <div className="admin-brand">
-        <span className="admin-brand-mark" aria-hidden="true">
-          <svg viewBox="0 0 24 24">
-            <circle cx="12" cy="12" r="9" />
-            <path d="M3 12h18" />
-            <path d="M12 3a14 14 0 0 1 0 18" />
-            <path d="M12 3a14 14 0 0 0 0 18" />
-          </svg>
-        </span>
-        <span className="admin-brand-copy">
-          <strong>
-            ViVu<span>Go</span>
-          </strong>
-          <small>Admin Dashboard</small>
-        </span>
+        <BrandLogo asLink={false} />
       </div>
 
       <nav className="admin-nav" aria-label="Điều hướng quản trị">
         {menuItems.map((item) => (
           <NavLink
             className={({ isActive }) =>
-              isActive ? 'admin-nav-link active' : 'admin-nav-link'
+              isActive ? "admin-nav-link active" : "admin-nav-link"
             }
-            end={item.path === '/admin'}
+            end={item.path === "/admin"}
             key={item.path}
             to={item.path}
             title={collapsed ? item.label : undefined}
           >
-            <svg className="admin-nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <svg
+              className="admin-nav-icon"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
               {item.icon}
             </svg>
             <span>{item.label}</span>
@@ -153,10 +145,10 @@ function AdminSidebar({ collapsed, onToggle }) {
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M15 18l-6-6 6-6" />
         </svg>
-        <span>{collapsed ? 'Mở rộng' : 'Thu gọn'}</span>
+        <span>{collapsed ? "Mở rộng" : "Thu gọn"}</span>
       </button>
     </aside>
-  )
+  );
 }
 
-export default AdminSidebar
+export default AdminSidebar;
