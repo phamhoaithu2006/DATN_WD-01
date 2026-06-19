@@ -8,10 +8,12 @@ import {
 } from "../../data/customerDemoData";
 import {
   addWishlist,
+  askTravelAssistant,
   changePassword,
+  fetchBookings,
+  fetchProfileSummary,
   fetchTours,
   fetchWishlist,
-  filterTours,
   removeWishlist,
   updateProfile,
 } from "../../services/customerApi";
@@ -69,28 +71,33 @@ function CategoryIcon({ type }) {
   return <span aria-hidden="true">△</span>;
 }
 
-function CustomerHeader({ user, onLogout }) {
   return (
-    <header className="customer-header">
-      <div className="customer-shell customer-nav">
+    <header className="vg-header">
+      <div className="vg-container vg-navbar">
         <BrandLogo />
-        <nav className="customer-menu" aria-label="Customer navigation">
-          <NavLink to="/">Home</NavLink>
-          <div className="tour-menu-wrap">
-            <NavLink to="/tours" className="tour-menu-trigger">
-              Tours <span aria-hidden="true">⌄</span>
+        <button
+          className="vg-mobile-menu"
+          type="button"
+          onClick={() => setMobileOpen((value) => !value)}
+          aria-label="Mở menu"
+        >
+          <Icon name="menu" />
+        </button>
+        <nav className={mobileOpen ? "vg-nav-links is-open" : "vg-nav-links"}>
+          <NavLink to="/">Trang chủ</NavLink>
+          <div className="vg-tour-menu">
+            <NavLink to="/tours">
+              Tour <span>⌄</span>
             </NavLink>
-            <div className="tour-dropdown">
-              <Link to="/tours">All Tours</Link>
-              <Link to="/tours?category=Beach">Beach Tours</Link>
-              <Link to="/tours?category=Adventure">Adventure Tours</Link>
-              <Link to="/tours?category=Cultural">Cultural Tours</Link>
-              <Link to="/tours?category=Cruises">Cruises</Link>
-              <Link to="/tours?category=Luxury">Luxury Tours</Link>
+            <div className="vg-dropdown vg-tour-dropdown">
+              <Link to="/tours">Tất cả tour</Link>
+              <Link to="/tours?category=Biển đảo">Du lịch biển đảo</Link>
+              <Link to="/tours?category=Phiêu lưu">Tour phiêu lưu</Link>
+              <Link to="/tours?category=Văn hóa">Tour văn hóa</Link>
             </div>
           </div>
-          <NavLink to="/destinations">Destinations</NavLink>
-          <NavLink to="/deals">Deals</NavLink>
+          <NavLink to="/destinations">Điểm đến</NavLink>
+          <NavLink to="/deals">Ưu đãi</NavLink>
         </nav>
         <div className="customer-actions">
           <NavLink
@@ -115,13 +122,13 @@ function CustomerHeader({ user, onLogout }) {
                 <Link to="/customer/favorites">Favorite Tours</Link>
                 <Link to="/customer/settings">Settings</Link>
                 <button type="button" onClick={onLogout}>
-                  Log out
+                  Đăng xuất
                 </button>
               </div>
             </div>
           ) : (
-            <Link className="login-pill" to="/auth">
-              Sign in
+            <Link className="vg-login-link" to="/auth">
+              <Icon name="user" /> Đăng nhập
             </Link>
           )}
         </div>
@@ -134,36 +141,42 @@ function TourCard({ tour, isFavorite, onFavorite }) {
   const discountPrice = tour.price.discount || tour.price.base;
 
   return (
-    <article className="tour-card">
-      <div className="tour-image">
+    <article className="vg-tour-card">
+      <div className="vg-tour-photo">
         <img src={tour.image} alt={tour.title} />
-        <div className="tour-badges">
-          {tour.featured ? <span>Featured</span> : null}
+        <div className="vg-tour-badges">
+          {tour.featured ? <span>Nổi bật</span> : null}
           {tour.discountLabel ? <strong>{tour.discountLabel}</strong> : null}
         </div>
         <button
           className={`heart-button ${isFavorite ? "is-active" : ""}`}
           type="button"
           onClick={() => onFavorite(tour)}
-          aria-label="Save favorite tour"
+          aria-label="Thêm tour yêu thích"
         >
-          ♡
+          <Icon name="heart" size={19} />
         </button>
-        <span className="place-chip">⌖ {tour.destination}</span>
+        <span className="vg-place">
+          <Icon name="map" size={15} /> {tour.destination}
+        </span>
       </div>
-      <div className="tour-content">
-        <div className="tour-meta">
+      <div className="vg-tour-info">
+        <div className="vg-tour-meta">
           <span>{tour.category}</span>
           <b>★ {tour.rating.average}</b>
           <small>({tour.rating.count.toLocaleString("en-US")})</small>
         </div>
         <h3>{tour.title}</h3>
         <p>{tour.summary}</p>
-        <div className="tour-facts">
-          <span>◷ {tour.duration}</span>
-          <span>♙ Max {tour.slots.max}</span>
+        <div className="vg-tour-facts">
+          <span>
+            <Icon name="clock" size={16} /> {tour.duration}
+          </span>
+          <span>
+            <Icon name="users" size={16} /> Tối đa {tour.slots?.max || 12}
+          </span>
         </div>
-        <div className="tour-bottom">
+        <div className="vg-tour-footer">
           <div>
             <strong>{currency.format(discountPrice)}</strong>
             {tour.price.base > discountPrice ? (
@@ -171,7 +184,7 @@ function TourCard({ tour, isFavorite, onFavorite }) {
             ) : null}
             <small>per person</small>
           </div>
-          <button type="button">View Details</button>
+          <button type="button">Xem chi tiết</button>
         </div>
       </div>
     </article>
@@ -205,13 +218,18 @@ function ChatBox() {
   }
 
   return (
-    <div className="chat-widget">
+    <div className="vg-chat">
       {open ? (
-        <section className="chat-panel" aria-label="AI chat">
+        <section className="vg-chat-panel" aria-label="Trợ lý du lịch ViVuGo">
           <header>
+            <div className="vg-ai-avatar">
+              <Icon name="sparkle" />
+            </div>
             <div>
-              <strong>ViVuGo AI Assistant</strong>
-              <span>Ready to help</span>
+              <strong>Trợ lý ViVuGo AI</strong>
+              <span>
+                <i /> Đang trực tuyến
+              </span>
             </div>
             <button
               type="button"
@@ -221,21 +239,54 @@ function ChatBox() {
               ×
             </button>
           </header>
-          <div className="chat-messages">
+          <div className="vg-chat-content">
+            <p className="vg-chat-date">Hôm nay</p>
             {messages.map((message, index) => (
-              <p key={`${message.from}-${index}`} className={message.from}>
+              <div
+                key={`${message.from}-${index}`}
+                className={`vg-message ${message.from}`}
+              >
                 {message.text}
-              </p>
+              </div>
             ))}
+            {loading ? (
+              <div className="vg-message ai vg-typing">
+                <i />
+                <i />
+                <i />
+              </div>
+            ) : null}
           </div>
+          {messages.length === 1 ? (
+            <div className="vg-quick-prompts">
+              {[
+                "Gợi ý tour biển",
+                "Tour dưới 10 triệu",
+                "Đi đâu tháng này?",
+              ].map((prompt) => (
+                <button
+                  key={prompt}
+                  type="button"
+                  onClick={(event) => sendMessage(event, prompt)}
+                >
+                  {prompt}
+                </button>
+              ))}
+            </div>
+          ) : null}
           <form onSubmit={sendMessage}>
             <input
               value={text}
               onChange={(event) => setText(event.target.value)}
-              placeholder="Ask about a tour..."
+              placeholder="Nhập câu hỏi của bạn..."
             />
-            <button type="submit">Send</button>
+            <button type="submit" aria-label="Gửi tin nhắn">
+              <Icon name="send" />
+            </button>
           </form>
+          <small className="vg-chat-note">
+            ViVuGo AI có thể mắc lỗi. Hãy kiểm tra thông tin quan trọng.
+          </small>
         </section>
       ) : null}
       <button
@@ -275,19 +326,23 @@ function HomePage({ tours, favorites, onFavorite }) {
 
   return (
     <>
-      <section className="home-hero">
-        <div className="customer-shell hero-inner">
-          <p className="trust-pill">★ Trusted by 50,000+ travelers</p>
+      <section className="vg-hero">
+        <div className="vg-container vg-hero-content">
+          <span className="vg-trust">★ Được hơn 50.000 du khách tin tưởng</span>
           <h1>
-            Discover Your Next <span>Adventure</span>
+            Khám phá hành trình
+            <br />
+            <em>tuyệt vời tiếp theo</em>
           </h1>
           <p>
             Explore breathtaking destinations, book amazing tours, and create
             unforgettable memories with ViVuGo, your trusted travel companion.
           </p>
-          <form className="search-panel" onSubmit={submitSearch}>
+          <form className="vg-search-box" onSubmit={submitSearch}>
             <label>
-              <span>Destination</span>
+              <span>
+                <Icon name="map" size={18} /> Điểm đến
+              </span>
               <input
                 value={search.keyword}
                 onChange={(event) =>
@@ -297,7 +352,9 @@ function HomePage({ tours, favorites, onFavorite }) {
               />
             </label>
             <label>
-              <span>Travel Date</span>
+              <span>
+                <Icon name="calendar" size={18} /> Ngày khởi hành
+              </span>
               <input
                 type="date"
                 value={search.start_date}
@@ -307,7 +364,9 @@ function HomePage({ tours, favorites, onFavorite }) {
               />
             </label>
             <label>
-              <span>Guests</span>
+              <span>
+                <Icon name="users" size={18} /> Số khách
+              </span>
               <input
                 type="number"
                 min="1"
@@ -317,7 +376,9 @@ function HomePage({ tours, favorites, onFavorite }) {
                 }
               />
             </label>
-            <button type="submit">⌕ Search</button>
+            <button type="submit">
+              <Icon name="search" /> Tìm kiếm
+            </button>
           </form>
           <div className="travel-tags" aria-label="Quick tour filters">
             {quickFilters.map((filter) => (
@@ -348,43 +409,49 @@ function HomePage({ tours, favorites, onFavorite }) {
         </div>
       </section>
 
-      <section className="customer-section customer-shell">
-        <div className="section-heading">
+      <section className="vg-section vg-container">
+        <div className="vg-section-heading">
           <div>
-            <h2>Featured Tours</h2>
-            <p>Hand-picked destinations for your next adventure</p>
+            <span>HÀNH TRÌNH NỔI BẬT</span>
+            <h2>Tour được yêu thích nhất</h2>
+            <p>
+              Những hành trình được tuyển chọn dành riêng cho kỳ nghỉ của bạn.
+            </p>
           </div>
-          <Link className="outline-link" to="/tours">
-            View All Tours →
-          </Link>
+          <Link to="/tours">Xem tất cả tour →</Link>
         </div>
-        <div className="tour-grid">
-          {featuredTours.map((tour) => (
+        <div className="vg-tour-grid">
+          {tours.slice(0, 3).map((tour) => (
             <TourCard
               key={tour.id}
               tour={tour}
-              isFavorite={favorites.includes(tour.id)}
+              favorite={favorites.includes(tour.id)}
               onFavorite={onFavorite}
             />
           ))}
         </div>
       </section>
 
-      <section className="destinations-band">
-        <div className="customer-shell">
-          <div className="center-heading">
-            <h2>Popular Destinations</h2>
-            <p>Explore our most loved travel destinations around the world</p>
+      <section className="vg-destination-section">
+        <div className="vg-container">
+          <div className="vg-centered-heading">
+            <span>KHÁM PHÁ THẾ GIỚI</span>
+            <h2>Điểm đến phổ biến</h2>
+            <p>Đến những nơi được du khách ViVuGo yêu thích nhất.</p>
           </div>
-          <div className="destination-grid">
+          <div className="vg-destination-grid">
             {demoDestinations.map((destination) => (
-              <article className="destination-tile" key={destination.name}>
+              <Link
+                to={`/tours?q=${encodeURIComponent(destination.name)}`}
+                className="vg-destination-card"
+                key={destination.name}
+              >
                 <img src={destination.image} alt={destination.name} />
                 <div>
                   <h3>{destination.name}</h3>
-                  <span>{destination.tours} tours available</span>
+                  <span>{destination.tours} tour đang mở</span>
                 </div>
-              </article>
+              </Link>
             ))}
           </div>
         </div>
@@ -527,15 +594,15 @@ function ToursPage({ tours, favorites, onFavorite }) {
           <h3>Price Range</h3>
           <input
             type="range"
-            min="500"
-            max="2500"
-            step="100"
+            min="5000000"
+            max="70000000"
+            step="1000000"
             value={maxPrice}
             onChange={(event) => setMaxPrice(Number(event.target.value))}
           />
-          <div className="range-row">
-            <span>$500</span>
-            <span>{currency.format(maxPrice)}</span>
+          <div>
+            <span>5 triệu</span>
+            <strong>{money.format(maxPrice)}</strong>
           </div>
           <h3>Duration</h3>
           {["1-3 days", "4-6 days", "7+ days"].map((item) => (
@@ -559,12 +626,12 @@ function ToursPage({ tours, favorites, onFavorite }) {
               <TourCard
                 key={tour.id}
                 tour={tour}
-                isFavorite={favorites.includes(tour.id)}
+                favorite={favorites.includes(tour.id)}
                 onFavorite={onFavorite}
               />
             ))}
           </div>
-        </main>
+        </div>
       </section>
     </>
   );
@@ -750,43 +817,37 @@ function Footer() {
           Join thousands of happy travelers and discover the world with ViVuGo.
         </p>
         <div>
-          <Link to="/tours">Explore Tours</Link>
-          <Link to="/auth">Create Account</Link>
+          <Link to="/tours">Khám phá tour</Link>
+          <Link to="/auth">Tạo tài khoản</Link>
+        </div>
+      </section>
+      <div className="vg-container vg-footer-grid">
+        <div>
+          <BrandLogo footer />
+          <p>Người bạn đồng hành đáng tin cậy cho mọi chuyến đi đáng nhớ.</p>
+        </div>
+        <div>
+          <h3>Khám phá</h3>
+          <Link to="/tours">Tất cả tour</Link>
+          <Link to="/destinations">Điểm đến</Link>
+          <Link to="/deals">Ưu đãi</Link>
+        </div>
+        <div>
+          <h3>Hỗ trợ</h3>
+          <a>Trung tâm trợ giúp</a>
+          <a>Chính sách hủy</a>
+          <a>Điều khoản sử dụng</a>
+        </div>
+        <div>
+          <h3>Liên hệ</h3>
+          <p>123 Đường Du Lịch, Hà Nội</p>
+          <p>1900 1234</p>
+          <p>hello@vivugo.vn</p>
         </div>
       </div>
-      <div className="customer-shell footer-grid">
-        <div>
-          <BrandLogo asLink={false} />
-          <p>Your trusted travel companion for unforgettable trips.</p>
-        </div>
-        <div>
-          <h3>Quick Links</h3>
-          <Link to="/tours">All Tours</Link>
-          <Link to="/tours?category=Beach">Beach Tours</Link>
-          <Link to="/tours?category=Adventure">Adventure Tours</Link>
-          <Link to="/tours?category=Luxury">Luxury Tours</Link>
-        </div>
-        <div>
-          <h3>Support</h3>
-          <a>Help Center</a>
-          <a>Cancellation Policy</a>
-          <a>Travel Insurance</a>
-          <a>Terms & Conditions</a>
-        </div>
-        <div>
-          <h3>Contact Us</h3>
-          <p>123 Travel Street, Adventure City</p>
-          <p>+84 123 456 789</p>
-          <p>hello@vivugo.com</p>
-          <form className="subscribe-form">
-            <input placeholder="Enter your email" />
-            <button type="button">Subscribe</button>
-          </form>
-        </div>
-      </div>
-      <div className="customer-shell footer-bottom">
-        <span>© 2026 ViVuGo. All rights reserved.</span>
-        <span>Terms · Privacy · Cookies</span>
+      <div className="vg-container vg-copyright">
+        <span>© 2026 ViVuGo. Đã đăng ký bản quyền.</span>
+        <span>Điều khoản · Quyền riêng tư · Cookie</span>
       </div>
     </footer>
   );
@@ -1003,8 +1064,8 @@ function CustomerPage() {
   }
 
   return (
-    <div className="customer-app">
-      <CustomerHeader user={user} onLogout={logout} />
+    <div className="vg-app">
+      <Header user={user} onLogout={logout} />
       {content}
       <Footer />
       <ChatBox />
