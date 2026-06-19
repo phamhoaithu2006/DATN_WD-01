@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { readSession } from './authStorage'
+import { readToken } from './authStorage'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api',
@@ -9,8 +9,7 @@ const api = axios.create({
 })
 
 api.interceptors.request.use((config) => {
-  const session = readSession()
-  const token = session?.token || session?.accessToken
+  const token = readToken()
 
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
@@ -38,6 +37,24 @@ export async function fetchWishlist() {
   const response = await api.get('/tours/wishlist')
 
   return response.data?.data || []
+}
+
+export async function fetchProfileSummary() {
+  const response = await api.get('/profile/summary')
+
+  return response.data?.data
+}
+
+export async function fetchBookings() {
+  const response = await api.get('/profile/bookings')
+
+  return response.data?.data || []
+}
+
+export async function askTravelAssistant(message) {
+  const response = await api.post('/travel-assistant', { message })
+
+  return response.data?.data || response.data
 }
 
 export async function addWishlist(tourId) {
