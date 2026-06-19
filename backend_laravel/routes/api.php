@@ -7,30 +7,26 @@ use App\Http\Controllers\Api\Admin\DestinationController;
 use App\Http\Controllers\Api\Admin\GuideController;
 use App\Http\Controllers\Api\Admin\PaymentController;
 use App\Http\Controllers\Api\Admin\SettingController;
-use App\Http\Controllers\Api\Customer\TourController;
 use App\Http\Controllers\Api\Admin\TourManagerController;
 use App\Http\Controllers\Api\Admin\WidgetController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\Customer\CustomerController;
+use App\Http\Controllers\Api\Customer\TourController;
 use App\Http\Controllers\Api\Customer\WishlistController;
 use App\Http\Controllers\Api\PublicSettingController;
 use App\Http\Controllers\Api\PublicWidgetController;
 use Illuminate\Support\Facades\Route;
 
-//===================================đk, login, logout======================================
+//=================================== đăng ký, login, logout =====================================
 Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
-    Route::post('/login',    [AuthController::class, 'login']);
+    Route::post('/login', [AuthController::class, 'login']);
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
     });
-});
-//==========================================================================================
 
-
-Route::middleware(['auth:sanctum', 'admin'])->group(function () {
-    Route::get('/auth/me', function () {
+    Route::middleware(['auth:sanctum', 'admin'])->get('/me', function () {
         return response()->json([
             'user' => request()->user()->load('role'),
         ]);
@@ -65,8 +61,26 @@ Route::prefix('tours')->group(function () {
 
     // Danh sách tour
     Route::get('/', [TourController::class, 'index_gdkh']);
+});
+// API yêu cầu đăng nhập
+//==============================================================================================
 
-    // API yêu cầu đăng nhập
+//======================================= CUSTOMER ==============================================
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/user', [AuthController::class, 'me']);
+    Route::put('/profile/update', [CustomerController::class, 'updateProfile']);
+    Route::put('/profile/change-password', [CustomerController::class, 'changePassword']);
+});
+
+Route::post('/forgot-password', [CustomerController::class, 'forgotPassword']);
+Route::post('/reset-password', [CustomerController::class, 'resetPassword']);
+
+Route::prefix('tours')->group(function () {
+    Route::get('/search', [TourController::class, 'search_gdkh']);
+    Route::get('/filter', [TourController::class, 'filter_gdkh']);
+    Route::get('/', [TourController::class, 'index_gdkh']);
+    Route::get('/{slug}', [TourController::class, 'show_gdkh']);
+
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('wishlist', [WishlistController::class, 'index']);
         Route::post('wishlist', [WishlistController::class, 'store']);
@@ -81,7 +95,7 @@ Route::prefix('tours')->group(function () {
 
 
 //_______________________________________ ADMIN _____________________________________________________
-Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function () {
+Route::prefix('admin')->group(function () {
     //middleware('auth:sanctum') là lớp bảo vệ (authentication middleware) của Laravel Sanctum.
 
     //============================================Quản lý user==================================

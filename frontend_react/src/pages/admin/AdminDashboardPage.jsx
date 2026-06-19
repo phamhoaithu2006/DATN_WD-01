@@ -48,7 +48,7 @@ function AdminDashboardPage() {
         <Route path="*" element={<Navigate to="/admin" replace />} />
       </Routes>
     </AdminLayout>
-  )
+  );
 }
 
-export default AdminDashboardPage
+export default AdminDashboardPage;
