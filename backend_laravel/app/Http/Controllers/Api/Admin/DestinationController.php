@@ -8,7 +8,7 @@ use Illuminate\Http\Request;
 
 class DestinationController extends Controller
 {
-        /**
+    /**
      * 1. Lấy danh sách tất cả các điểm đến (Destinations).
      * * @return \Illuminate\Http\JsonResponse
      */
@@ -24,11 +24,11 @@ class DestinationController extends Controller
      * * @param  int  $id
      * @return \Illuminate\Http\JsonResponse
      */
-    public function show($id) 
+    public function show($id)
     {
         // Tìm địa điểm theo ID, nếu không thấy sẽ tự động bắn ra ModelNotFoundException (lỗi 404)
         $destination = Destination::findOrFail($id);
-        
+
         // Trả về dữ liệu dưới dạng JSON với cấu trúc rõ ràng
         return response()->json([
             'success' => true,
@@ -67,10 +67,10 @@ class DestinationController extends Controller
     {
         // Tìm kiếm bản ghi hoặc trả về lỗi 404 nếu không tìm thấy
         $destination = Destination::findOrFail($id);
-        
+
         // Cập nhật thông tin với toàn bộ dữ liệu từ request
         $destination->update($request->all());
-        
+
         return response()->json($destination, 200);
     }
 
@@ -84,10 +84,10 @@ class DestinationController extends Controller
     {
         // Tìm bản ghi cần xóa; nếu không thấy sẽ tự động trả về lỗi 404
         $destination = Destination::findOrFail($id);
-        
+
         // Thực hiện xóa mềm
-        $destination->delete(); 
-        
+        $destination->delete();
+
         return response()->json(['message' => 'Đã chuyển vào thùng rác'], 200);
     }
 
@@ -99,7 +99,7 @@ class DestinationController extends Controller
     {
         // Lọc danh sách chỉ lấy các bản ghi đã bị đánh dấu xóa
         $trashed = Destination::onlyTrashed()->get();
-        
+
         return response()->json($trashed, 200);
     }
 
@@ -111,10 +111,10 @@ class DestinationController extends Controller
     {
         // Phải tìm trong phạm vi các bản ghi đã xóa (onlyTrashed)
         $destination = Destination::onlyTrashed()->findOrFail($id);
-        
+
         // Khôi phục bản ghi
         $destination->restore();
-        
+
         return response()->json(['message' => 'Đã khôi phục thành công'], 200);
     }
 
@@ -126,10 +126,10 @@ class DestinationController extends Controller
     {
         // Phải tìm trong phạm vi các bản ghi đã xóa trước khi xóa vĩnh viễn
         $destination = Destination::onlyTrashed()->findOrFail($id);
-        
+
         // Xóa vật lý khỏi database
-        $destination->forceDelete(); 
-        
+        $destination->forceDelete();
+
         return response()->json(['message' => 'Đã xóa vĩnh viễn khỏi hệ thống'], 200);
     }
 
@@ -156,7 +156,7 @@ class DestinationController extends Controller
             $keyword = $request->input('keyword');
             $query->where(function ($q) use ($keyword) {
                 $q->where('name', 'LIKE', "%{$keyword}%")
-                ->orWhere('province_city', 'LIKE', "%{$keyword}%");
+                    ->orWhere('province_city', 'LIKE', "%{$keyword}%");
             });
         }
 

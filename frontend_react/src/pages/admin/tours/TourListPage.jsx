@@ -127,6 +127,21 @@ function TagIcon({ className = 'h-5 w-5' }) {
   )
 }
 
+function MapPinIcon({ className = 'h-5 w-5' }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <path d="M12 21s7-4.35 7-11a7 7 0 1 0-14 0c0 6.65 7 11 7 11Z" />
+      <circle cx="12" cy="10" r="2.5" />
+    </svg>
+  )
+}
+
 function CheckIcon({ className = 'h-5 w-5' }) {
   return (
     <svg
@@ -317,6 +332,14 @@ function TourListPage() {
           >
             <TagIcon className="h-4 w-4 text-sky-600" />
             Loại tour
+          </Link>
+
+          <Link
+            to="/admin/destinations"
+            className="inline-flex h-10 items-center gap-2 rounded-lg border border-emerald-100 bg-emerald-50 px-4 text-sm font-medium text-emerald-700 transition hover:border-emerald-200 hover:bg-emerald-100"
+          >
+            <MapPinIcon className="h-4 w-4 text-emerald-600" />
+            Địa chỉ tour
           </Link>
 
           <Link
