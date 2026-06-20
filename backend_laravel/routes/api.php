@@ -115,7 +115,7 @@ Route::prefix('admin')->group(function () {
     // Khóa tk
     Route::patch('/customers/{id}/lock', [CustomerController::class, 'lock']);
     //Khôi phục tài khoản 
-
+});
 
 
 //========================================= ADMIN ===============================================
