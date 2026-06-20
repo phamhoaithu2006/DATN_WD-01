@@ -2,33 +2,48 @@ import { useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import Icon from "../../components/customer/Icon";
 import TourCard from "../../components/customer/TourCard";
+import { useLocale } from "../../contexts/LocaleContext";
 
-const money = new Intl.NumberFormat("vi-VN", {
-  style: "currency",
-  currency: "VND",
-  maximumFractionDigits: 0,
-});
+const demoCurrencyScale = 25000;
+
+function toDisplayAmount(amount, currency) {
+  const value = Number(amount || 0);
+  if (currency === "VND" && value > 0 && value < 100000) {
+    return value * demoCurrencyScale;
+  }
+  return value;
+}
 
 function ToursPage({ tours, favorites, onFavorite }) {
   const location = useLocation();
+  const { currency, formatCurrency } = useLocale();
   const params = new URLSearchParams(location.search);
   const [query, setQuery] = useState(params.get("q") || "");
   const [category, setCategory] = useState(params.get("category") || "Tất cả");
-  const [maxPrice, setMaxPrice] = useState(70000000);
+  const [maxPrice, setMaxPrice] = useState(currency === "USD" ? 3000 : 70000000);
+  const [minPrice] = useState(currency === "USD" ? 0 : 5000000);
   const visibleTours = useMemo(
     () =>
       tours.filter((tour) => {
         const text =
           `${tour.title} ${tour.destination} ${tour.category}`.toLowerCase();
-        const price = Number(tour.price?.discount || tour.price?.base || 0);
+        const price = toDisplayAmount(
+          tour.price?.discount || tour.price?.base || 0,
+          currency,
+        );
         return (
           text.includes(query.toLowerCase()) &&
           (category === "Tất cả" || tour.category === category) &&
-          (price < 100000 ? price * 25000 : price) <= maxPrice
+          price >= minPrice &&
+          price <= maxPrice
         );
       }),
-    [category, maxPrice, query, tours],
+    [category, currency, maxPrice, minPrice, query, tours],
   );
+
+  const priceStep = currency === "USD" ? 50 : 1000000;
+  const priceMin = currency === "USD" ? 0 : 5000000;
+  const priceMax = currency === "USD" ? 3000 : 70000000;
 
   return (
     <main className="vg-listing-page">
@@ -73,15 +88,15 @@ function ToursPage({ tours, favorites, onFavorite }) {
           <h3>Ngân sách tối đa</h3>
           <input
             type="range"
-            min="5000000"
-            max="70000000"
-            step="1000000"
+            min={priceMin}
+            max={priceMax}
+            step={priceStep}
             value={maxPrice}
             onChange={(event) => setMaxPrice(Number(event.target.value))}
           />
           <div>
-            <span>5 triệu</span>
-            <strong>{money.format(maxPrice)}</strong>
+            <span>{formatCurrency(priceMin)}</span>
+            <strong>{formatCurrency(maxPrice)}</strong>
           </div>
         </aside>
         <div>

@@ -1,0 +1,197 @@
+{
+  "nav": {
+    "home": "Trang chủ",
+    "tours": "Tour du lịch",
+    "destinations": "Điểm đến",
+    "deals": "Ưu đãi",
+    "favorites": "Yêu thích",
+    "account": "Tài khoản",
+    "signIn": "Đăng nhập",
+    "logOut": "Đăng xuất"
+  },
+  "hero": {
+    "trustBadge": "★ Được 50.000+ du khách tin tưởng",
+    "title": "Khám Phá Chuyến Phiêu Lưu",
+    "titleHighlight": "Tiếp Theo",
+    "subtitle": "Khám phá những điểm đến tuyệt đẹp, đặt tour hấp dẫn và tạo nên những kỷ niệm khó quên cùng ViVuGo.",
+    "destination": "Điểm đến",
+    "destinationPlaceholder": "Bạn muốn đi đâu?",
+    "travelDate": "Ngày khởi hành",
+    "guests": "Số khách",
+    "search": "⌕ Tìm kiếm",
+    "happyTravelers": "Du khách hài lòng",
+    "tourPackages": "Gói tour",
+    "allDestinations": "Điểm đến",
+    "averageRating": "Đánh giá TB"
+  },
+  "home": {
+    "trustBadge": "★ Được hơn 50.000 du khách tin tưởng",
+    "heroTitleLine1": "Khám phá hành trình",
+    "heroTitleHighlight": "tuyệt vời tiếp theo",
+    "heroSubtitle": "Khám phá những điểm đến ngoạn mục, đặt tour dễ dàng và tạo nên những kỷ niệm không thể nào quên cùng ViVuGo.",
+    "searchDestination": "Điểm đến",
+    "searchDestinationPlaceholder": "Bạn muốn đi đâu?",
+    "searchTravelDate": "Ngày khởi hành",
+    "searchGuests": "Số khách",
+    "searchButton": "Tìm kiếm",
+    "quickCategories": {
+      "flights": "Vé máy bay",
+      "hotels": "Khách sạn",
+      "beach": "Biển đảo",
+      "adventure": "Phiêu lưu"
+    },
+    "stats": {
+      "happyTravelers": "Du khách hài lòng",
+      "tourPackages": "Gói tour hấp dẫn",
+      "destinations": "Điểm đến",
+      "averageRating": "Điểm đánh giá"
+    },
+    "featuredSectionLabel": "HÀNH TRÌNH NỔI BẬT",
+    "featuredSectionTitle": "Tour được yêu thích nhất",
+    "featuredSectionSubtitle": "Những hành trình được tuyển chọn dành riêng cho kỳ nghỉ của bạn.",
+    "viewAllTours": "Xem tất cả tour →",
+    "destinationsSectionLabel": "KHÁM PHÁ THẾ GIỚI",
+    "destinationsSectionTitle": "Điểm đến phổ biến",
+    "destinationsSectionSubtitle": "Đến những nơi được du khách ViVuGo yêu thích nhất.",
+    "toursOpen": "{{count}} tour đang mở",
+    "benefitsSectionLabel": "VÌ SAO CHỌN VIVUGO",
+    "benefitsSectionTitle": "Trải nghiệm du lịch trọn vẹn",
+    "benefitsSectionSubtitle": "Từ giá tốt đến hỗ trợ tận nơi, mọi chi tiết đều được tối ưu cho chuyến đi của bạn.",
+    "benefits": {
+      "bestPrice": {
+        "title": "Giá tốt nhất",
+        "description": "Cam kết mức giá cạnh tranh và minh bạch."
+      },
+      "support247": {
+        "title": "Hỗ trợ 24/7",
+        "description": "Luôn sẵn sàng đồng hành trong mọi chuyến đi."
+      },
+      "flexiblePayment": {
+        "title": "Thanh toán linh hoạt",
+        "description": "Nhiều phương thức an toàn và tiện lợi."
+      },
+      "verifiedTours": {
+        "title": "Tour đã xác thực",
+        "description": "Đối tác uy tín, chất lượng được kiểm duyệt."
+      }
+    }
+  },
+  "tours": {
+    "featured": "Tour nổi bật",
+    "featuredSub": "Điểm đến được chọn lọc cho chuyến phiêu lưu tiếp theo",
+    "viewAll": "Xem tất cả Tour →",
+    "explore": "Khám Phá Tour",
+    "exploreSub": "Khám phá những điểm đến và trải nghiệm tuyệt vời",
+    "searchPlaceholder": "Tìm tour, điểm đến...",
+    "recommended": "Đề xuất",
+    "lowestPrice": "Giá thấp nhất",
+    "filters": "Bộ lọc",
+    "categories": "Danh mục",
+    "travelStyle": "Phong cách du lịch",
+    "priceRange": "Khoảng giá",
+    "duration": "Thời gian",
+    "rating": "Đánh giá",
+    "toursFound": "{{count}} tour được tìm thấy",
+    "perPerson": "/ người",
+    "viewDetails": "Xem chi tiết",
+    "featured_badge": "Nổi bật",
+    "saveFavorite": "Lưu tour yêu thích",
+    "max": "Tối đa {{count}}"
+  },
+  "destinations": {
+    "title": "Điểm Đến Phổ Biến",
+    "subtitle": "Khám phá những điểm du lịch được yêu thích nhất trên thế giới",
+    "toursAvailable": "{{count}} tour khả dụng"
+  },
+  "why": {
+    "bestPrice": "Cam kết giá tốt nhất",
+    "support247": "Hỗ trợ 24/7",
+    "flexiblePayment": "Thanh toán linh hoạt",
+    "verifiedTours": "Tour đã xác minh",
+    "description": "Dịch vụ rõ ràng, an toàn và tiện lợi cho mọi du khách."
+  },
+  "footer": {
+    "cta": "Sẵn Sàng Bắt Đầu Cuộc Phiêu Lưu?",
+    "ctaSub": "Tham gia cùng hàng ngàn du khách hạnh phúc và khám phá thế giới cùng ViVuGo.",
+    "exploreTours": "Khám phá Tour",
+    "createAccount": "Tạo tài khoản",
+    "tagline": "Người bạn đồng hành đáng tin cậy cho những chuyến đi đáng nhớ.",
+    "quickLinks": "Liên kết nhanh",
+    "allTours": "Tất cả Tour",
+    "beachTours": "Tour biển",
+    "adventureTours": "Tour phiêu lưu",
+    "luxuryTours": "Tour sang trọng",
+    "support": "Hỗ trợ",
+    "helpCenter": "Trung tâm trợ giúp",
+    "cancellation": "Chính sách hủy",
+    "insurance": "Bảo hiểm du lịch",
+    "terms": "Điều khoản & Điều kiện",
+    "contactUs": "Liên hệ",
+    "subscribe": "Đăng ký",
+    "emailPlaceholder": "Nhập email của bạn",
+    "copyright": "© 2026 ViVuGo. Mọi quyền được bảo lưu.",
+    "legalLinks": "Điều khoản · Bảo mật · Cookie"
+  },
+  "profile": {
+    "title": "Thông tin cá nhân",
+    "editTitle": "Chỉnh sửa thông tin",
+    "fullName": "Họ và tên",
+    "email": "Email",
+    "phone": "Số điện thoại",
+    "address": "Địa chỉ",
+    "saveChanges": "Lưu thay đổi",
+    "edit": "Chỉnh sửa",
+    "updated": "Thông tin của bạn đã được cập nhật.",
+    "syncFailed": "Đã lưu cục bộ. API sẽ đồng bộ khi backend và token khả dụng."
+  },
+  "password": {
+    "title": "Đổi mật khẩu",
+    "current": "Mật khẩu hiện tại",
+    "new": "Mật khẩu mới",
+    "confirm": "Xác nhận mật khẩu mới",
+    "update": "Cập nhật mật khẩu",
+    "success": "Đổi mật khẩu thành công.",
+    "failed": "Không đồng bộ được với backend. Vui lòng kiểm tra đăng nhập/token khi API đang chạy."
+  },
+  "account": {
+    "personalInfo": "Thông tin cá nhân",
+    "editInfo": "Chỉnh sửa thông tin",
+    "changePassword": "Đổi mật khẩu",
+    "favoriteTours": "Tour yêu thích",
+    "search": "Tìm kiếm",
+    "settings": "Cài đặt",
+    "myBookings": "Đặt tour của tôi"
+  },
+  "chat": {
+    "title": "Trợ lý AI ViVuGo",
+    "status": "Sẵn sàng hỗ trợ",
+    "placeholder": "Hỏi về tour...",
+    "send": "Gửi",
+    "greeting": "Xin chào, tôi là trợ lý ViVuGo. Bạn đang tìm kiếm điểm đến hoặc phong cách du lịch nào?",
+    "reply": "Tuyệt vời. Hãy thử Biển, Khách sạn, Bãi biển, hoặc Phiêu lưu để tải các tour phù hợp tự động."
+  },
+  "admin": {
+    "dashboard": "Bảng điều khiển",
+    "overview": "Tổng quan vận hành",
+    "logout": "Đăng xuất",
+    "admin": "Admin"
+  },
+  "tourMenu": {
+    "allTours": "Tất cả Tour",
+    "beach": "Tour biển",
+    "adventure": "Tour phiêu lưu",
+    "cultural": "Tour văn hóa",
+    "cruises": "Du thuyền",
+    "luxury": "Tour sang trọng"
+  },
+  "common": {
+    "all": "Tất cả",
+    "days13": "1-3 ngày",
+    "days46": "4-6 ngày",
+    "days7plus": "7+ ngày",
+    "stars45": "4.5+ sao",
+    "stars4": "4+ sao",
+    "stars35": "3.5+ sao",
+    "close": "Đóng"
+  }
+}

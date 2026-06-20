@@ -1,11 +1,13 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import Icon from "../../components/customer/Icon";
 import TourCard from "../../components/customer/TourCard";
 import { demoDestinations } from "../../data/customerDemoData";
 
 function HomePage({ tours, favorites, onFavorite }) {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [search, setSearch] = useState({
     keyword: "",
     start_date: "",
@@ -21,36 +23,63 @@ function HomePage({ tours, favorites, onFavorite }) {
     navigate(`/tours?${params}`);
   }
 
+  const quickCategories = [
+    t("home.quickCategories.flights"),
+    t("home.quickCategories.hotels"),
+    t("home.quickCategories.beach"),
+    t("home.quickCategories.adventure"),
+  ]
+
+  const benefits = [
+    [
+      "shield",
+      t("home.benefits.bestPrice.title"),
+      t("home.benefits.bestPrice.description"),
+    ],
+    [
+      "headset",
+      t("home.benefits.support247.title"),
+      t("home.benefits.support247.description"),
+    ],
+    [
+      "wallet",
+      t("home.benefits.flexiblePayment.title"),
+      t("home.benefits.flexiblePayment.description"),
+    ],
+    [
+      "star",
+      t("home.benefits.verifiedTours.title"),
+      t("home.benefits.verifiedTours.description"),
+    ],
+  ]
+
   return (
     <>
       <section className="vg-hero">
         <div className="vg-container vg-hero-content">
-          <span className="vg-trust">★ Được hơn 50.000 du khách tin tưởng</span>
+          <span className="vg-trust">{t("home.trustBadge")}</span>
           <h1>
-            Khám phá hành trình
+            {t("home.heroTitleLine1")}
             <br />
-            <em>tuyệt vời tiếp theo</em>
+            <em>{t("home.heroTitleHighlight")}</em>
           </h1>
-          <p>
-            Khám phá những điểm đến ngoạn mục, đặt tour dễ dàng và tạo nên những
-            kỷ niệm không thể nào quên cùng ViVuGo.
-          </p>
+          <p>{t("home.heroSubtitle")}</p>
           <form className="vg-search-box" onSubmit={submitSearch}>
             <label>
               <span>
-                <Icon name="map" size={18} /> Điểm đến
+                <Icon name="map" size={18} /> {t("home.searchDestination")}
               </span>
               <input
                 value={search.keyword}
                 onChange={(event) =>
                   setSearch({ ...search, keyword: event.target.value })
                 }
-                placeholder="Bạn muốn đi đâu?"
+                placeholder={t("home.searchDestinationPlaceholder")}
               />
             </label>
             <label>
               <span>
-                <Icon name="calendar" size={18} /> Ngày khởi hành
+                <Icon name="calendar" size={18} /> {t("home.searchTravelDate")}
               </span>
               <input
                 type="date"
@@ -62,7 +91,7 @@ function HomePage({ tours, favorites, onFavorite }) {
             </label>
             <label>
               <span>
-                <Icon name="users" size={18} /> Số khách
+                <Icon name="users" size={18} /> {t("home.searchGuests")}
               </span>
               <input
                 type="number"
@@ -74,40 +103,36 @@ function HomePage({ tours, favorites, onFavorite }) {
               />
             </label>
             <button type="submit">
-              <Icon name="search" /> Tìm kiếm
+              <Icon name="search" /> {t("home.searchButton")}
             </button>
           </form>
           <div className="vg-quick-categories">
-            {["Vé máy bay", "Khách sạn", "Biển đảo", "Phiêu lưu"].map(
-              (item) => (
-                <button
-                  key={item}
-                  type="button"
-                  onClick={() =>
-                    navigate(`/tours?q=${encodeURIComponent(item)}`)
-                  }
-                >
-                  {item}
-                </button>
-              ),
-            )}
+            {quickCategories.map((item) => (
+              <button
+                key={item}
+                type="button"
+                onClick={() => navigate(`/tours?q=${encodeURIComponent(item)}`)}
+              >
+                {item}
+              </button>
+            ))}
           </div>
           <div className="vg-stats">
             <div>
               <b>50K+</b>
-              <span>Du khách hài lòng</span>
+              <span>{t("home.stats.happyTravelers")}</span>
             </div>
             <div>
               <b>200+</b>
-              <span>Gói tour hấp dẫn</span>
+              <span>{t("home.stats.tourPackages")}</span>
             </div>
             <div>
               <b>50+</b>
-              <span>Điểm đến</span>
+              <span>{t("home.stats.destinations")}</span>
             </div>
             <div>
               <b>4.9</b>
-              <span>Điểm đánh giá</span>
+              <span>{t("home.stats.averageRating")}</span>
             </div>
           </div>
         </div>
@@ -115,13 +140,11 @@ function HomePage({ tours, favorites, onFavorite }) {
       <section className="vg-section vg-container">
         <div className="vg-section-heading">
           <div>
-            <span>HÀNH TRÌNH NỔI BẬT</span>
-            <h2>Tour được yêu thích nhất</h2>
-            <p>
-              Những hành trình được tuyển chọn dành riêng cho kỳ nghỉ của bạn.
-            </p>
+            <span>{t("home.featuredSectionLabel")}</span>
+            <h2>{t("home.featuredSectionTitle")}</h2>
+            <p>{t("home.featuredSectionSubtitle")}</p>
           </div>
-          <Link to="/tours">Xem tất cả tour →</Link>
+          <Link to="/tours">{t("home.viewAllTours")}</Link>
         </div>
         <div className="vg-tour-grid">
           {tours.slice(0, 3).map((tour) => (
@@ -137,9 +160,9 @@ function HomePage({ tours, favorites, onFavorite }) {
       <section className="vg-destination-section">
         <div className="vg-container">
           <div className="vg-centered-heading">
-            <span>KHÁM PHÁ THẾ GIỚI</span>
-            <h2>Điểm đến phổ biến</h2>
-            <p>Đến những nơi được du khách ViVuGo yêu thích nhất.</p>
+            <span>{t("home.destinationsSectionLabel")}</span>
+            <h2>{t("home.destinationsSectionTitle")}</h2>
+            <p>{t("home.destinationsSectionSubtitle")}</p>
           </div>
           <div className="vg-destination-grid">
             {demoDestinations.map((destination) => (
@@ -151,7 +174,7 @@ function HomePage({ tours, favorites, onFavorite }) {
                 <img src={destination.image} alt={destination.name} />
                 <div>
                   <h3>{destination.name}</h3>
-                  <span>{destination.tours} tour đang mở</span>
+                  <span>{t("home.toursOpen", { count: destination.tours })}</span>
                 </div>
               </Link>
             ))}
@@ -159,39 +182,25 @@ function HomePage({ tours, favorites, onFavorite }) {
         </div>
       </section>
       <section className="vg-benefits">
-        <div className="vg-container vg-benefit-grid">
-          {[
-            [
-              "shield",
-              "Giá tốt nhất",
-              "Cam kết mức giá cạnh tranh và minh bạch.",
-            ],
-            [
-              "headset",
-              "Hỗ trợ 24/7",
-              "Luôn sẵn sàng đồng hành trong mọi chuyến đi.",
-            ],
-            [
-              "wallet",
-              "Thanh toán linh hoạt",
-              "Nhiều phương thức an toàn và tiện lợi.",
-            ],
-            [
-              "star",
-              "Tour đã xác thực",
-              "Đối tác uy tín, chất lượng được kiểm duyệt.",
-            ],
-          ].map(([icon, title, description]) => (
-            <article key={title}>
-              <span>
-                <Icon name={icon} size={26} />
-              </span>
-              <div>
-                <h3>{title}</h3>
-                <p>{description}</p>
-              </div>
-            </article>
-          ))}
+        <div className="vg-container">
+          <div className="vg-centered-heading">
+            <span>{t("home.benefitsSectionLabel")}</span>
+            <h2>{t("home.benefitsSectionTitle")}</h2>
+            <p>{t("home.benefitsSectionSubtitle")}</p>
+          </div>
+          <div className="vg-benefit-grid">
+            {benefits.map(([icon, title, description]) => (
+              <article key={title}>
+                <span>
+                  <Icon name={icon} size={26} />
+                </span>
+                <div>
+                  <h3>{title}</h3>
+                  <p>{description}</p>
+                </div>
+              </article>
+            ))}
+          </div>
         </div>
       </section>
     </>

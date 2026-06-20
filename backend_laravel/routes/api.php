@@ -206,7 +206,3 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     Route::put('/profile', [AdminProfileController::class, 'update']);
     Route::put('/profile/password', [AdminProfileController::class, 'changePassword']);
 });
-// ============================================Cài đặt hệ thống public========================
-Route::get('/settings/public', [PublicSettingController::class, 'show']);
-Route::get('/widgets', [PublicWidgetController::class, 'index']);
-// ===========================================================================================
