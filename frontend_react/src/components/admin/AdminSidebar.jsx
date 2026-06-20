@@ -37,7 +37,7 @@ const menuItems = [
   },
   {
     label: 'Quản Lý Người Dùng',
-    path: '/admin/customers',
+    path: '/admin/users',
     icon: (
       <>
         <path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
