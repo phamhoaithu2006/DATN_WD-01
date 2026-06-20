@@ -115,7 +115,6 @@ Route::prefix('admin')->group(function () {
     Route::patch('/customers/{id}/lock', [CustomerController::class, 'lock']);
     //Khôi phục tài khoản 
 
-
     Route::patch('/customers/{id}/unlock', [CustomerManagerController::class, 'unlock']);
     //==========================================================================================
 
