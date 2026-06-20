@@ -22,7 +22,7 @@ function Header({ user, onLogout }) {
           <NavLink to="/">Trang chủ</NavLink>
           <div className="vg-tour-menu">
             <NavLink to="/tours">
-              Tour <span>⌄</span>
+              Tour <span className="arrow"></span>
             </NavLink>
             <div className="vg-dropdown vg-tour-dropdown">
               <Link to="/tours">Tất cả tour</Link>
