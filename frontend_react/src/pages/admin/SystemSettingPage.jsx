@@ -129,7 +129,7 @@ function SystemSettingPage() {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
-  const { changeLanguage } = useLocale()
+  const { changeLanguage, reloadSettings } = useLocale()
 
   const activeInfo = useMemo(
     () => settingSections.find((section) => section.id === activeSection),
@@ -178,18 +178,30 @@ function SystemSettingPage() {
       if (normalized.default_language) {
         changeLanguage(normalized.default_language, { manual: false })
       }
-      localStorage.setItem('vivugo_locale_settings', JSON.stringify({
-        default_language: String(normalized.default_language || 'vi'),
-        timezone: String(normalized.timezone || 'Asia/Ho_Chi_Minh'),
-        date_format: String(normalized.date_format || 'dd/mm/yyyy'),
-        currency: String(normalized.currency || 'VND'),
-      }))
+      localStorage.setItem('vivugo_locale_settings', JSON.stringify(normalized))
+      window.dispatchEvent(new Event('vivugo-settings-updated'))
     } catch (err) {
       const validationErrors = err?.response?.data?.errors
       const firstMessage = validationErrors ? Object.values(validationErrors).flat()[0] : null
       setError(firstMessage || err?.response?.data?.message || 'Không thể lưu cài đặt.')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleReload() {
+    setLoading(true)
+    setError('')
+    setMessage('')
+
+    try {
+      await loadSettings()
+      await reloadSettings()
+      setMessage('Đã tải lại cấu hình từ hệ thống.')
+    } catch (err) {
+      setError(err?.response?.data?.message || 'Không thể tải lại cấu hình.')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -214,6 +226,15 @@ function SystemSettingPage() {
           </SettingField>
           <SettingField label="Nội dung footer">
             <textarea value={settings.footer_text} onChange={(event) => updateField('footer_text', event.target.value)} placeholder="Thông tin hiển thị ở footer" />
+          </SettingField>
+          <SettingField label="Địa chỉ footer">
+            <textarea value={settings.footer_address} onChange={(event) => updateField('footer_address', event.target.value)} placeholder="Địa chỉ hiển thị ở footer" />
+          </SettingField>
+          <SettingField label="Hotline footer">
+            <input value={settings.footer_hotline} onChange={(event) => updateField('footer_hotline', event.target.value)} placeholder="1900 0000" />
+          </SettingField>
+          <SettingField label="Email footer">
+            <input type="email" value={settings.footer_email} onChange={(event) => updateField('footer_email', event.target.value)} placeholder="support@vivugo.vn" />
           </SettingField>
         </div>
       )
@@ -354,8 +375,8 @@ function SystemSettingPage() {
             <h1>Cài Đặt Hệ Thống</h1>
             <p>Quản lý cấu hình và tùy chỉnh VivuGo Admin</p>
           </div>
-          <button className="setting-refresh-button" type="button" onClick={loadSettings} disabled={loading}>
-            {loading ? 'Đang tải...' : 'Tải lại'}
+          <button className="setting-refresh-button" type="button" onClick={handleReload} disabled={loading || saving}>
+            {loading ? 'Đang tải...' : 'Làm mới cấu hình'}
           </button>
         </div>
 

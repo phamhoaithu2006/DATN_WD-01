@@ -1,4 +1,4 @@
-/* eslint-disable react-refresh/only-export-components */
+﻿/* eslint-disable react-refresh/only-export-components */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import apiClient from '../services/apiClient'
@@ -14,6 +14,15 @@ const defaultLocaleSettings = {
   timezone: 'Asia/Ho_Chi_Minh',
   date_format: 'dd/mm/yyyy',
   currency: 'VND',
+  site_name: 'VivuGo',
+  logo_url: '',
+  contact_email: '',
+  hotline: '',
+  address: '',
+  footer_text: '',
+  footer_hotline: '',
+  footer_email: '',
+  footer_address: '',
 }
 
 function readStoredSettings() {
@@ -23,21 +32,27 @@ function readStoredSettings() {
 
     const parsed = JSON.parse(stored)
 
-    // Ép về string — phòng cache cũ bị object/array
     return {
+      ...defaultLocaleSettings,
       default_language: typeof parsed.default_language === 'string' ? parsed.default_language : defaultLocaleSettings.default_language,
       timezone: typeof parsed.timezone === 'string' ? parsed.timezone : defaultLocaleSettings.timezone,
       date_format: typeof parsed.date_format === 'string' ? parsed.date_format : defaultLocaleSettings.date_format,
       currency: typeof parsed.currency === 'string' ? parsed.currency : defaultLocaleSettings.currency,
+      site_name: typeof parsed.site_name === 'string' ? parsed.site_name : defaultLocaleSettings.site_name,
+      logo_url: typeof parsed.logo_url === 'string' ? parsed.logo_url : defaultLocaleSettings.logo_url,
+      contact_email: typeof parsed.contact_email === 'string' ? parsed.contact_email : defaultLocaleSettings.contact_email,
+      hotline: typeof parsed.hotline === 'string' ? parsed.hotline : defaultLocaleSettings.hotline,
+      address: typeof parsed.address === 'string' ? parsed.address : defaultLocaleSettings.address,
+      footer_text: typeof parsed.footer_text === 'string' ? parsed.footer_text : defaultLocaleSettings.footer_text,
+      footer_hotline: typeof parsed.footer_hotline === 'string' ? parsed.footer_hotline : defaultLocaleSettings.footer_hotline,
+      footer_email: typeof parsed.footer_email === 'string' ? parsed.footer_email : defaultLocaleSettings.footer_email,
+      footer_address: typeof parsed.footer_address === 'string' ? parsed.footer_address : defaultLocaleSettings.footer_address,
     }
   } catch {
     return defaultLocaleSettings
   }
 }
 
-/**
- * Ánh xạ date_format setting sang Intl.DateTimeFormat options
- */
 function dateFormatToIntlOptions(format) {
   switch (format) {
     case 'yyyy-mm-dd':
@@ -50,13 +65,10 @@ function dateFormatToIntlOptions(format) {
   }
 }
 
-/**
- * Ánh xạ date_format sang locale phù hợp cho Intl
- */
 function dateFormatToLocale(format, language) {
   switch (format) {
     case 'yyyy-mm-dd':
-      return 'sv-SE' // yyyy-mm-dd format
+      return 'sv-SE'
     case 'mm/dd/yyyy':
       return 'en-US'
     case 'dd/mm/yyyy':
@@ -70,50 +82,46 @@ export function LocaleProvider({ children }) {
   const [settings, setSettings] = useState(readStoredSettings)
   const [loaded, setLoaded] = useState(false)
 
-  // Fetch locale settings từ public API
-  useEffect(() => {
-    let active = true
+  const loadPublicSettings = useCallback(async () => {
+    try {
+      const { data } = await apiClient.get('/settings/public')
+      const publicSettings = data.data || data
 
-    async function loadPublicSettings() {
-      try {
-        const { data } = await apiClient.get('/settings/public')
-        const publicSettings = data.data || data
-
-        const localeSettings = {
-          default_language: publicSettings.default_language || defaultLocaleSettings.default_language,
-          timezone: publicSettings.timezone || defaultLocaleSettings.timezone,
-          date_format: publicSettings.date_format || defaultLocaleSettings.date_format,
-          currency: publicSettings.currency || defaultLocaleSettings.currency,
-        }
-
-        if (active) {
-          setSettings(localeSettings)
-          localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(localeSettings))
-
-          // Áp dụng ngôn ngữ từ server nếu user chưa từng chọn ngôn ngữ
-          const userChoseLanguage = localStorage.getItem(LANGUAGE_MANUAL_KEY) === '1'
-          if (!userChoseLanguage && localeSettings.default_language) {
-            i18n.changeLanguage(localeSettings.default_language)
-            localStorage.setItem(LOCALE_STORAGE_KEY, localeSettings.default_language)
-            localStorage.removeItem(LANGUAGE_MANUAL_KEY)
-          }
-
-          setLoaded(true)
-        }
-      } catch {
-        // Dùng settings đã cache hoặc default
-        if (active) setLoaded(true)
+      const nextSettings = {
+        ...defaultLocaleSettings,
+        ...publicSettings,
       }
-    }
 
-    loadPublicSettings()
+      setSettings(nextSettings)
+      localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(nextSettings))
 
-    return () => {
-      active = false
+      const userChoseLanguage = localStorage.getItem(LANGUAGE_MANUAL_KEY) === '1'
+      if (!userChoseLanguage && nextSettings.default_language) {
+        i18n.changeLanguage(nextSettings.default_language)
+        localStorage.setItem(LOCALE_STORAGE_KEY, nextSettings.default_language)
+        localStorage.removeItem(LANGUAGE_MANUAL_KEY)
+      }
+    } catch {
+      // Dùng settings đã cache hoặc mặc định.
+    } finally {
+      setLoaded(true)
     }
   }, [i18n])
 
-  // Đổi ngôn ngữ
+  useEffect(() => {
+    loadPublicSettings()
+
+    const handleRefresh = () => {
+      loadPublicSettings()
+    }
+
+    window.addEventListener('vivugo-settings-updated', handleRefresh)
+
+    return () => {
+      window.removeEventListener('vivugo-settings-updated', handleRefresh)
+    }
+  }, [loadPublicSettings])
+
   const changeLanguage = useCallback(
     (lang, options = {}) => {
       const manual = options.manual !== false
@@ -128,7 +136,6 @@ export function LocaleProvider({ children }) {
     [i18n],
   )
 
-  // Format ngày theo setting
   const formatDate = useCallback(
     (dateValue) => {
       if (!dateValue) return ''
@@ -151,7 +158,6 @@ export function LocaleProvider({ children }) {
     [settings.date_format, settings.timezone, i18n.language],
   )
 
-  // Format ngày + giờ theo setting
   const formatDateTime = useCallback(
     (dateValue) => {
       if (!dateValue) return ''
@@ -176,7 +182,6 @@ export function LocaleProvider({ children }) {
     [settings.date_format, settings.timezone, i18n.language],
   )
 
-  // Format tiền tệ theo setting
   const formatCurrency = useCallback(
     (amount) => {
       if (amount === null || amount === undefined) return ''
@@ -199,7 +204,6 @@ export function LocaleProvider({ children }) {
     [settings.currency],
   )
 
-  // Format số theo locale
   const formatNumber = useCallback(
     (number) => {
       if (number === null || number === undefined) return ''
@@ -214,7 +218,6 @@ export function LocaleProvider({ children }) {
     [i18n.language],
   )
 
-  // Lấy tên timezone hiển thị
   const getTimezoneName = useCallback(() => {
     try {
       return new Intl.DateTimeFormat(i18n.language === 'vi' ? 'vi-VN' : 'en-US', {
@@ -236,6 +239,7 @@ export function LocaleProvider({ children }) {
       currency: settings.currency,
       loaded,
       changeLanguage,
+      reloadSettings: loadPublicSettings,
       formatDate,
       formatDateTime,
       formatCurrency,
@@ -248,6 +252,7 @@ export function LocaleProvider({ children }) {
       settings,
       loaded,
       changeLanguage,
+      loadPublicSettings,
       formatDate,
       formatDateTime,
       formatCurrency,

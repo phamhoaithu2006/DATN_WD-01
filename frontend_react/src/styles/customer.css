@@ -1400,7 +1400,14 @@
     border-bottom: 1px solid #e3e9ed;
   }
 }
-
+.arrow {
+  width: 6px;
+  height: 6px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  margin-top: -2px;
+}
 @media (max-width: 620px) {
   .vg-container {
     width: min(100% - 28px, 1520px);

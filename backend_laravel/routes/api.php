@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 use App\Http\Controllers\Api\Admin\AdminProfileController;
 use App\Http\Controllers\Api\Admin\CategoryController;
@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\Admin\TourManagerController;
 use App\Http\Controllers\Api\Admin\WidgetController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\Customer\CustomerController;
+use App\Http\Controllers\Api\Customer\CustomerDashboardController;
 use App\Http\Controllers\Api\Customer\TourController;
 use App\Http\Controllers\Api\Customer\WishlistController;
 use App\Http\Controllers\Api\PublicSettingController;
@@ -39,12 +40,15 @@ Route::prefix('auth')->group(function () {
 // ======================================= CUSTOMER ==============================================
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'me']);
+    Route::get('/profile/summary', [CustomerDashboardController::class, 'summary']);
+    Route::get('/profile/bookings', [CustomerDashboardController::class, 'bookings']);
     Route::put('/profile/update', [CustomerController::class, 'updateProfile']);
     Route::put('/profile/change-password', [CustomerController::class, 'changePassword']);
 });
 
 Route::post('/forgot-password', [CustomerController::class, 'forgotPassword']);
 Route::post('/reset-password', [CustomerController::class, 'resetPassword']);
+Route::post('/travel-assistant', [CustomerDashboardController::class, 'travelAssistant']);
 
 Route::prefix('tours')->group(function () {
     Route::get('/search', [TourController::class, 'search_gdkh']);
@@ -68,13 +72,15 @@ Route::get('/settings/public', [PublicSettingController::class, 'show']);
 Route::get('/widgets', [PublicWidgetController::class, 'index']);
 // ==============================================================================================
 
-// ========================================= ADMIN ===============================================
+
+//_______________________________________ ADMIN _____________________________________________________
 Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function () {
     // CHỨC NĂNG BÁO CÁO & THỐNG KÊ
     Route::get('/reports/overview', [ReportController::class, 'getOverviewStatistics']);
     Route::get('/reports/charts', [ReportController::class, 'getChartStatistics']);
 
     // Quản lý khách hàng
+    Route::get('/customers/statistics', [CustomerManagerController::class, 'statistics']);
     Route::get('/customers/count', [CustomerManagerController::class, 'count']);
     Route::get('/customers', [CustomerManagerController::class, 'index']);
     Route::get('/customers/search', [CustomerManagerController::class, 'search']);
@@ -155,39 +161,8 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
 
 
     //============================================Cài đặt hệ thống admin=========================
-    Route::prefix('admin')->group(function () {
-        Route::get('/settings', [SettingController::class, 'index']);
-        Route::put('/settings', [SettingController::class, 'update']);
-
-        Route::get('/widgets', [WidgetController::class, 'index']);
-        Route::post('/widgets', [WidgetController::class, 'store']);
-        Route::get('/widgets/{id}', [WidgetController::class, 'show']);
-        Route::put('/widgets/{id}', [WidgetController::class, 'update']);
-        Route::delete('/widgets/{id}', [WidgetController::class, 'destroy']);
-        Route::patch('/widgets/{id}/toggle-status', [WidgetController::class, 'toggleStatus']);
-
-        Route::get('/payments', [PaymentController::class, 'index']);
-        Route::get('/payments/{id}', [PaymentController::class, 'show']);
-        Route::patch('/payments/{id}/confirm', [PaymentController::class, 'confirm']);
-        Route::patch('/payments/{id}/fail', [PaymentController::class, 'fail']);
-        Route::patch('/payments/{id}/refund', [PaymentController::class, 'refund']);
-
-        Route::middleware('auth:sanctum')->group(function () {
-            Route::get('/profile', [AdminProfileController::class, 'show']);
-            Route::put('/profile', [AdminProfileController::class, 'update']);
-            Route::put('/profile/password', [AdminProfileController::class, 'changePassword']);
-        });
-    });
-    //===========================================================================================
-
-    // Quản lý cài đặt admin
     Route::get('/settings', [SettingController::class, 'index']);
     Route::put('/settings', [SettingController::class, 'update']);
-
-    Route::get('/backups', [DatabaseBackupController::class, 'index']);
-    Route::post('/backups', [DatabaseBackupController::class, 'store']);
-    Route::get('/backups/{filename}/download', [DatabaseBackupController::class, 'download']);
-    Route::delete('/backups/{filename}', [DatabaseBackupController::class, 'destroy']);
 
     Route::get('/widgets', [WidgetController::class, 'index']);
     Route::post('/widgets', [WidgetController::class, 'store']);
@@ -202,7 +177,11 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     Route::patch('/payments/{id}/fail', [PaymentController::class, 'fail']);
     Route::patch('/payments/{id}/refund', [PaymentController::class, 'refund']);
 
-    Route::get('/profile', [AdminProfileController::class, 'show']);
-    Route::put('/profile', [AdminProfileController::class, 'update']);
-    Route::put('/profile/password', [AdminProfileController::class, 'changePassword']);
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::get('/profile', [AdminProfileController::class, 'show']);
+        Route::put('/profile', [AdminProfileController::class, 'update']);
+        Route::put('/profile/password', [AdminProfileController::class, 'changePassword']);
+    });
+    //===========================================================================================
+
 });
