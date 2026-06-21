@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, NavLink } from "react-router-dom";
 import BrandLogo from "../BrandLogo";
 import Icon from "./Icon";
+import LanguageSwitcher from "../common/LanguageSwitcher";
 
 function Header({ user, onLogout }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -35,6 +36,7 @@ function Header({ user, onLogout }) {
           <NavLink to="/deals">Ưu đãi</NavLink>
         </nav>
         <div className="vg-nav-actions">
+          <LanguageSwitcher className="vg-header-language-switcher" />
           <NavLink
             className="vg-icon-button"
             to={user ? "/customer/favorites" : "/auth"}

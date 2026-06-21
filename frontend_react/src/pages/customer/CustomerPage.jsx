@@ -10,6 +10,7 @@ import {
   fetchProfileSummary,
   fetchTours,
   fetchWishlist,
+  filterTours,
   removeWishlist,
 } from "../../services/customerApi";
 import { logout as logoutApi } from "../../services/authApi";
@@ -32,12 +33,57 @@ const fallbackProfile = {
   avatar_url: "",
 };
 
+
+function normalizeTour(tour, index = 0) {
+  const fallback = demoTours[index % demoTours.length];
+
+  return {
+    ...fallback,
+    ...tour,
+    image: tour.image || tour.thumbnail || fallback.image,
+    category: tour.category || fallback.category,
+    travelStyle:
+      tour.travelStyle || tour.travel_style || fallback.travelStyle,
+    destination: tour.destination || fallback.destination,
+    price: {
+      base: tour.price?.base || tour.base_price || fallback.price.base,
+      discount:
+        tour.price?.discount ||
+        tour.discount_price ||
+        fallback.price.discount,
+    },
+    slots: {
+      max: tour.slots?.max || tour.max_slots || fallback.slots.max,
+      available:
+        tour.slots?.available ||
+        tour.available_slots ||
+        fallback.slots.available,
+    },
+    rating: {
+      average:
+        tour.rating?.average ||
+        tour.average_rating ||
+        fallback.rating.average,
+      count:
+        tour.rating?.count || tour.review_count || fallback.rating.count,
+    },
+  };
+}
+
+function readStoredFavorites() {
+  try {
+    return JSON.parse(localStorage.getItem("vivugo_favorites") || "[]");
+  } catch {
+    return [];
+  }
+}
+
 function CustomerPage() {
   const location = useLocation();
   const token = readToken();
   const [user, setUser] = useState(readSession);
   const [tours, setTours] = useState(demoTours);
-  const [favorites, setFavorites] = useState([]);
+  const [favorites, setFavorites] = useState(readStoredFavorites);
   const [bookings, setBookings] = useState([]);
   const [summary, setSummary] = useState({
     bookings_count: 0,
@@ -50,29 +96,42 @@ function CustomerPage() {
 
   useEffect(() => {
     let active = true;
-    fetchTours()
-      .then((items) => {
-        if (active && items.length) {
-          setTours(
-            items.map((item, index) => ({
-              ...demoTours[index % demoTours.length],
-              ...item,
-              image: item.image || demoTours[index % demoTours.length].image,
-            })),
-          );
+
+    async function loadTours() {
+      const query = new URLSearchParams(location.search);
+      const category = query.get("category");
+      const searchParams = {
+        keyword: query.get("q") || undefined,
+        start_date: query.get("date") || undefined,
+        guests: query.get("guests") || undefined,
+      };
+      const hasFilters = category || Object.values(searchParams).some(Boolean);
+
+      try {
+        const items = category
+          ? await filterTours({ category })
+          : await fetchTours(searchParams);
+
+        if (!active) return;
+        if (items.length || hasFilters) {
+          setTours(items.map(normalizeTour));
+        } else {
+          setTours(demoTours);
         }
-      })
-      .catch(() => {});
+      } catch {
+        if (active) setTours(demoTours);
+      }
+    }
+
+    loadTours();
+
     return () => {
       active = false;
     };
-  }, []);
+  }, [location.search]);
 
   useEffect(() => {
     if (!token) {
-      setFavorites(
-        JSON.parse(localStorage.getItem("vivugo_favorites") || "[]"),
-      );
       return undefined;
     }
 
@@ -80,11 +139,15 @@ function CustomerPage() {
     Promise.all([fetchWishlist(), fetchProfileSummary(), fetchBookings()])
       .then(([wishlist, account, accountBookings]) => {
         if (!active) return;
-        setFavorites(wishlist.map((item) => item.id));
+        setFavorites(
+          wishlist
+            .map((item) => item.tour_id || item.tour?.id || item.id)
+            .filter(Boolean),
+        );
         setSummary(account || {});
         setBookings(accountBookings);
-        setProfile((current) => ({ ...current, ...account }));
-        setUser((current) => ({ ...current, ...account }));
+        setProfile((current) => ({ ...current, ...(account || {}) }));
+        setUser((current) => ({ ...current, ...(account || {}) }));
       })
       .catch(() => {});
     return () => {
@@ -116,6 +179,7 @@ function CustomerPage() {
     }
     clearSession();
     setUser(null);
+    setFavorites(readStoredFavorites());
   }
 
   const favoriteTours = tours.filter((tour) => favorites.includes(tour.id));

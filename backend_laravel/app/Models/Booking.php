@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use App\Models\Tour;
 
 class Booking extends Model
 {
@@ -43,6 +44,11 @@ protected $dates = ['cancelled_at', 'created_at', 'updated_at'];
 public function user(): BelongsTo
 {
     return $this->belongsTo(User::class);
+}
+
+public function tour(): BelongsTo
+{
+    return $this->belongsTo(Tour::class);
 }
 
 public function payment(): HasOne

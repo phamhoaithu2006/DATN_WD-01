@@ -1,12 +1,20 @@
-import { Link } from "react-router-dom";
+﻿import { Link } from "react-router-dom";
+import { useLocale } from "../../contexts/LocaleContext";
 import BrandLogo from "../BrandLogo";
 
 function Footer() {
+  const { settings } = useLocale();
+  const footerText = settings.footer_text || "";
+  const footerAddress = settings.footer_address || settings.address || "";
+  const footerHotline = settings.footer_hotline || settings.hotline || "";
+  const footerEmail = settings.footer_email || settings.contact_email || "";
+  const siteName = settings.site_name || "VivuGo";
+
   return (
     <footer className="vg-footer">
       <section className="vg-cta">
         <h2>Sẵn sàng cho hành trình mới?</h2>
-        <p>Khám phá thế giới theo cách của bạn cùng ViVuGo.</p>
+        <p>Khám phá thế giới theo cách của bạn cùng {siteName}.</p>
         <div>
           <Link to="/tours">Khám phá tour</Link>
           <Link to="/auth">Tạo tài khoản</Link>
@@ -15,7 +23,7 @@ function Footer() {
       <div className="vg-container vg-footer-grid">
         <div>
           <BrandLogo footer />
-          <p>Người bạn đồng hành đáng tin cậy cho mọi chuyến đi đáng nhớ.</p>
+          {footerText ? <p>{footerText}</p> : null}
         </div>
         <div>
           <h3>Khám phá</h3>
@@ -31,13 +39,13 @@ function Footer() {
         </div>
         <div>
           <h3>Liên hệ</h3>
-          <p>123 Đường Du Lịch, Hà Nội</p>
-          <p>1900 1234</p>
-          <p>hello@vivugo.vn</p>
+          {footerAddress ? <p>{footerAddress}</p> : null}
+          {footerHotline ? <p>{footerHotline}</p> : null}
+          {footerEmail ? <p>{footerEmail}</p> : null}
         </div>
       </div>
       <div className="vg-container vg-copyright">
-        <span>© 2026 ViVuGo. Đã đăng ký bản quyền.</span>
+        <span>© {new Date().getFullYear()} {siteName}. Đã đăng ký bản quyền.</span>
         <span>Điều khoản · Quyền riêng tư · Cookie</span>
       </div>
     </footer>

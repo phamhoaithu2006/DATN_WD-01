@@ -23,6 +23,15 @@ function LoginForm({ values, errors, isSubmitting, onChange, onSubmit }) {
         {errors.password ? <span>{errors.password}</span> : null}
       </label>
 
+      <label className="check-row">
+        <input
+          type="checkbox"
+          checked={values.remember}
+          onChange={(event) => onChange({ ...values, remember: event.target.checked })}
+        />
+        Ghi nhớ đăng nhập trên trình duyệt này
+      </label>
+
       <button className="primary-button" type="submit" disabled={isSubmitting}>
         {isSubmitting ? 'Đang đăng nhập...' : 'Đăng nhập'}
       </button>

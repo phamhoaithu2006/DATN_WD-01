@@ -1,17 +1,18 @@
+import { useLocale } from "../../contexts/LocaleContext";
 import Icon from "./Icon";
 
-const money = new Intl.NumberFormat("vi-VN", {
-  style: "currency",
-  currency: "VND",
-  maximumFractionDigits: 0,
-});
-
 function TourCard({ tour, favorite, onFavorite }) {
+  const { currency, formatCurrency } = useLocale();
   const salePrice = Number(tour.price?.discount || tour.price?.base || 0);
   const originalPrice = Number(tour.price?.base || salePrice);
-  const vietnamPrice = salePrice < 100000 ? salePrice * 25000 : salePrice;
-  const originalVietnamPrice =
-    originalPrice < 100000 ? originalPrice * 25000 : originalPrice;
+  const displayPrice =
+    currency === "VND" && salePrice > 0 && salePrice < 100000
+      ? salePrice * 25000
+      : salePrice;
+  const displayOriginalPrice =
+    currency === "VND" && originalPrice > 0 && originalPrice < 100000
+      ? originalPrice * 25000
+      : originalPrice;
 
   return (
     <article className="vg-tour-card">
@@ -51,9 +52,9 @@ function TourCard({ tour, favorite, onFavorite }) {
         </div>
         <div className="vg-tour-footer">
           <div>
-            <strong>{money.format(vietnamPrice)}</strong>
-            {originalVietnamPrice > vietnamPrice ? (
-              <del>{money.format(originalVietnamPrice)}</del>
+            <strong>{formatCurrency(displayPrice)}</strong>
+            {displayOriginalPrice > displayPrice ? (
+              <del>{formatCurrency(displayOriginalPrice)}</del>
             ) : null}
             <small>/ người</small>
           </div>

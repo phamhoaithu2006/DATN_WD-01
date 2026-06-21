@@ -1,12 +1,7 @@
 import { Link, NavLink } from "react-router-dom";
 import Icon from "../../components/customer/Icon";
 import TourCard from "../../components/customer/TourCard";
-
-const money = new Intl.NumberFormat("vi-VN", {
-  style: "currency",
-  currency: "VND",
-  maximumFractionDigits: 0,
-});
+import { useLocale } from "../../contexts/LocaleContext";
 
 function EmptyState({ icon, title, action }) {
   return (
@@ -26,6 +21,7 @@ function ProfileDashboard({
   favoriteTours,
   onFavorite,
 }) {
+  const { formatCurrency, formatDate } = useLocale();
   const active = route.includes("bookings")
     ? "bookings"
     : route.includes("favorites")
@@ -121,12 +117,12 @@ function ProfileDashboard({
                     <h3>{booking.tour?.title || "Tour ViVuGo"}</h3>
                     <p>
                       {booking.number_of_people} khách ·{" "}
-                      {new Date(booking.created_at).toLocaleDateString("vi-VN")}
+                      {formatDate(booking.created_at)}
                     </p>
                   </div>
                   <div>
                     <strong>
-                      {money.format(Number(booking.total_amount))}
+                      {formatCurrency(Number(booking.total_amount))}
                     </strong>
                     <span>{booking.status}</span>
                   </div>

@@ -26,7 +26,8 @@ class UserSeeder extends Seeder
             [
                 'role_id' => $customerRole->id,
                 'full_name' => 'Nguyễn Minh Anh',
-                'email' => 'customer@vivugo.vn',
+                'email' => '
+                customer@vivugo.vn',
                 'phone' => '0901000002',
                 'password' => Hash::make('Customer@123'),
                 'status' => 'active',
