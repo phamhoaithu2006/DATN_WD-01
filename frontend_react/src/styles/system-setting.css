@@ -132,11 +132,32 @@
   font-size: 0.94rem;
 }
 
+.setting-card em {
+  margin-top: 8px;
+  color: #0284c7;
+  font-size: 0.85rem;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.setting-back-button {
+  width: 42px;
+  height: 42px;
+  grid-row: 1 / 3;
+  border: 0;
+  border-radius: 12px;
+  color: #0284c7;
+  background: #eaf6ff;
+  cursor: pointer;
+  font-size: 1.3rem;
+  font-weight: 900;
+}
+
 .setting-panel {
   border: 1px solid #dbe5ef;
-  border-radius: 22px;
+  border-radius: 18px;
   background: #fff;
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
   overflow: hidden;
 }
 
@@ -145,7 +166,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 28px 28px;
+  padding: 22px 24px;
   border-bottom: 1px solid #e2e8f0;
 }
 
@@ -157,11 +178,11 @@
 }
 
 .setting-panel-head span {
-  width: 48px;
-  height: 48px;
+  width: 42px;
+  height: 42px;
   display: grid;
   place-items: center;
-  border-radius: 16px;
+  border-radius: 14px;
   background: #eff6ff;
   font-size: 1.35rem;
 }
@@ -181,7 +202,7 @@
 .setting-form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px;
+  gap: 18px;
   padding: 24px;
 }
 
@@ -196,10 +217,10 @@
 .setting-field select,
 .setting-field textarea {
   width: 100%;
-  min-height: 50px;
+  min-height: 44px;
   border: 1px solid #d8e2ee;
-  border-radius: 14px;
-  padding: 0 18px;
+  border-radius: 12px;
+  padding: 0 13px;
   color: #0f172a;
   background: #fff;
   font: inherit;
@@ -229,10 +250,10 @@
   align-items: center;
   justify-content: space-between;
   gap: 18px;
-  min-height: 100px;
+  min-height: 86px;
   border: 1px solid #dbe5ef;
   border-radius: 16px;
-  padding: 24px 22px;
+  padding: 18px;
   background: #f8fafc;
 }
 
@@ -251,8 +272,8 @@
 }
 
 .setting-switch-row input {
-  width: 28px;
-  height: 28px;
+  width: 44px;
+  height: 24px;
   flex: 0 0 auto;
   accent-color: #0ea5e9;
 }
