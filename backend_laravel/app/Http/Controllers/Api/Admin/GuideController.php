@@ -13,10 +13,22 @@ class GuideController extends Controller
     // DANH SÁCH HDV
     public function index(Request $request)
     {
+        $guides = Guide::with(['user', 'languages', 'experiences'])
+            ->whereHas('user')
+            ->paginate(10);
+
+        return response()->json([
+            'message' => 'Danh sách hướng dẫn viên',
+            'data'    => $guides,
+        ]);
+    }
+
+    // TÌM KIẾM HDV
+    public function search(Request $request)
+    {
         $query = Guide::with(['user', 'languages', 'experiences'])
             ->whereHas('user');
 
-        // Tìm kiếm
         if ($request->search) {
             $query->whereHas('user', function ($q) use ($request) {
                 $q->where('full_name', 'like', '%' . $request->search . '%')
@@ -24,6 +36,20 @@ class GuideController extends Controller
                     ->orWhere('phone', 'like', '%' . $request->search . '%');
             });
         }
+
+        $guides = $query->paginate(10);
+
+        return response()->json([
+            'message' => 'Kết quả tìm kiếm hướng dẫn viên',
+            'data'    => $guides,
+        ]);
+    }
+
+    // LỌC HDV
+    public function filter(Request $request)
+    {
+        $query = Guide::with(['user', 'languages', 'experiences'])
+            ->whereHas('user');
 
         // Lọc theo trạng thái
         if ($request->status) {
@@ -45,7 +71,7 @@ class GuideController extends Controller
         $guides = $query->paginate(10);
 
         return response()->json([
-            'message' => 'Danh sách hướng dẫn viên',
+            'message' => 'Kết quả lọc hướng dẫn viên',
             'data'    => $guides,
         ]);
     }

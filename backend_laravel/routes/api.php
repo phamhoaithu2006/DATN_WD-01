@@ -78,6 +78,8 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     // Quản lý HDV
     Route::get('/guides/statistics', [GuideController::class, 'statistics']);
     Route::get('/guides', [GuideController::class, 'index']);
+    Route::get('/guides/search', [GuideController::class, 'search']);
+    Route::get('/guides/filter', [GuideController::class, 'filter']);
     Route::get('/guides/{id}', [GuideController::class, 'show']);
     Route::post('/guides', [GuideController::class, 'store']);
     Route::put('/guides/{id}', [GuideController::class, 'update']);
