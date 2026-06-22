@@ -442,7 +442,7 @@ function GuideManagementApiPage() {
         <article className="guide-stat-card blue">
           <strong>{thongKeTheoTrangThai.locked || 0}</strong>
           <span>Tạm khóa</span>
-          <small>Chưa thể sử dụng</small>
+          <small>Chưa thể nhận tour</small>
         </article>
       </div>
 
