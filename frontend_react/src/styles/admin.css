@@ -319,7 +319,7 @@
 
 .guide-filter-bar {
   display: grid;
-  grid-template-columns: minmax(240px, 1fr) 170px;
+  grid-template-columns: minmax(240px, 1fr) 170px 160px 140px;
   gap: 12px;
   padding: 18px;
   border-bottom: 1px solid #e2e8f0;
@@ -328,7 +328,8 @@
 .guide-filter-bar input,
 .guide-filter-bar select,
 .guide-form-grid input,
-.guide-form-grid select {
+.guide-form-grid select,
+.guide-form-grid textarea {
   min-height: 48px;
   width: 100%;
   border: 1px solid #d7e0ec;
@@ -337,6 +338,12 @@
   color: #0f172a;
   font: inherit;
   padding: 0 14px;
+}
+
+.guide-form-grid textarea {
+  min-height: 104px;
+  padding-block: 12px;
+  resize: vertical;
 }
 
 .guide-table-wrap {
@@ -365,7 +372,7 @@
 
 .guide-table {
   width: 100%;
-  min-width: 1060px;
+  min-width: 1180px;
   border-collapse: collapse;
 }
 
@@ -411,6 +418,16 @@
   font-weight: 900;
 }
 
+.guide-avatar.image {
+  object-fit: cover;
+}
+
+.guide-avatar.large {
+  width: 64px;
+  height: 64px;
+  font-size: 1.25rem;
+}
+
 .guide-code,
 .guide-tour-count {
   color: #0ea5e9;
@@ -437,23 +454,27 @@
   font-weight: 750;
 }
 
-.guide-status.đang-dẫn-tour {
-  background: #e0f2fe;
-  color: #0369a1 !important;
-}
-
+.guide-status.active,
 .guide-status.sẵn-sàng {
   background: #dcfce7;
   color: #15803d !important;
 }
 
+.guide-status.inactive,
 .guide-status.nghỉ-phép {
   background: #fef3c7;
   color: #b45309 !important;
 }
 
+.guide-status.locked,
+.guide-status.đang-dẫn-tour {
+  background: #fee2e2;
+  color: #b91c1c !important;
+}
+
 .guide-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -545,6 +566,10 @@
   margin: 22px 0;
 }
 
+.guide-form-wide {
+  grid-column: 1 / -1;
+}
+
 .guide-form-grid label {
   display: grid;
   gap: 7px;
@@ -560,6 +585,96 @@
 
 .guide-modal-actions {
   justify-content: flex-end;
+}
+
+.guide-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 18px;
+  color: #64748b;
+  font-weight: 800;
+}
+
+.guide-pagination button {
+  min-height: 34px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #0f172a;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 800;
+  padding: 0 12px;
+}
+
+.guide-pagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.guide-detail-modal {
+  width: min(760px, 100%);
+}
+
+.guide-detail-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 22px 0;
+}
+
+.guide-detail-head h3,
+.guide-detail-section h3 {
+  margin: 0;
+  color: #020617;
+}
+
+.guide-detail-head p,
+.guide-empty-text {
+  margin: 4px 0 0;
+  color: #64748b;
+}
+
+.guide-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.guide-detail-grid div,
+.guide-certificate-list div {
+  display: grid;
+  gap: 5px;
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fbff;
+}
+
+.guide-detail-grid span,
+.guide-certificate-list span {
+  color: #64748b;
+  font-size: 0.86rem;
+  font-weight: 750;
+}
+
+.guide-detail-grid strong,
+.guide-certificate-list strong {
+  color: #0f172a;
+}
+
+.guide-detail-section {
+  display: grid;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.guide-certificate-list {
+  display: grid;
+  gap: 10px;
 }
 
 .admin-sidebar.collapsed .admin-brand {

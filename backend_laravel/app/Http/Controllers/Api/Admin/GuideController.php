@@ -30,10 +30,19 @@ class GuideController extends Controller
             ->whereHas('user');
 
         if ($request->search) {
-            $query->whereHas('user', function ($q) use ($request) {
-                $q->where('full_name', 'like', '%' . $request->search . '%')
-                    ->orWhere('email', 'like', '%' . $request->search . '%')
-                    ->orWhere('phone', 'like', '%' . $request->search . '%');
+            $search = $request->search;
+
+            $query->where(function ($guideQuery) use ($search) {
+                $guideQuery->where('guide_code', 'like', '%' . $search . '%')
+                    ->orWhere('certificate_type', 'like', '%' . $search . '%')
+                    ->orWhereHas('user', function ($q) use ($search) {
+                        $q->where('full_name', 'like', '%' . $search . '%')
+                            ->orWhere('email', 'like', '%' . $search . '%')
+                            ->orWhere('phone', 'like', '%' . $search . '%');
+                    })
+                    ->orWhereHas('languages', function ($q) use ($search) {
+                        $q->where('language', 'like', '%' . $search . '%');
+                    });
             });
         }
 
@@ -50,6 +59,23 @@ class GuideController extends Controller
     {
         $query = Guide::with(['user', 'languages', 'experiences'])
             ->whereHas('user');
+
+        if ($request->search) {
+            $search = $request->search;
+
+            $query->where(function ($guideQuery) use ($search) {
+                $guideQuery->where('guide_code', 'like', '%' . $search . '%')
+                    ->orWhere('certificate_type', 'like', '%' . $search . '%')
+                    ->orWhereHas('user', function ($q) use ($search) {
+                        $q->where('full_name', 'like', '%' . $search . '%')
+                            ->orWhere('email', 'like', '%' . $search . '%')
+                            ->orWhere('phone', 'like', '%' . $search . '%');
+                    })
+                    ->orWhereHas('languages', function ($q) use ($search) {
+                        $q->where('language', 'like', '%' . $search . '%');
+                    });
+            });
+        }
 
         // Lọc theo trạng thái
         if ($request->status) {
