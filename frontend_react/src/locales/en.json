@@ -1,0 +1,197 @@
+{
+  "nav": {
+    "home": "Home",
+    "tours": "Tours",
+    "destinations": "Destinations",
+    "deals": "Deals",
+    "favorites": "Favorites",
+    "account": "Account",
+    "signIn": "Sign in",
+    "logOut": "Log out"
+  },
+  "hero": {
+    "trustBadge": "★ Trusted by 50,000+ travelers",
+    "title": "Discover Your Next",
+    "titleHighlight": "Adventure",
+    "subtitle": "Explore breathtaking destinations, book amazing tours, and create unforgettable memories with ViVuGo, your trusted travel companion.",
+    "destination": "Destination",
+    "destinationPlaceholder": "Where are you going?",
+    "travelDate": "Travel Date",
+    "guests": "Guests",
+    "search": "⌕ Search",
+    "happyTravelers": "Happy Travelers",
+    "tourPackages": "Tour Packages",
+    "allDestinations": "Destinations",
+    "averageRating": "Average Rating"
+  },
+  "home": {
+    "trustBadge": "★ Trusted by more than 50,000 travelers",
+    "heroTitleLine1": "Discover your next",
+    "heroTitleHighlight": "great adventure",
+    "heroSubtitle": "Explore breathtaking destinations, book tours with ease, and create unforgettable memories with ViVuGo.",
+    "searchDestination": "Destination",
+    "searchDestinationPlaceholder": "Where are you going?",
+    "searchTravelDate": "Travel Date",
+    "searchGuests": "Guests",
+    "searchButton": "Search",
+    "quickCategories": {
+      "flights": "Flights",
+      "hotels": "Hotels",
+      "beach": "Beach",
+      "adventure": "Adventure"
+    },
+    "stats": {
+      "happyTravelers": "Happy Travelers",
+      "tourPackages": "Tour Packages",
+      "destinations": "Destinations",
+      "averageRating": "Average Rating"
+    },
+    "featuredSectionLabel": "FEATURED JOURNEYS",
+    "featuredSectionTitle": "Most Loved Tours",
+    "featuredSectionSubtitle": "Carefully selected journeys for your next holiday.",
+    "viewAllTours": "View all tours →",
+    "destinationsSectionLabel": "EXPLORE THE WORLD",
+    "destinationsSectionTitle": "Popular Destinations",
+    "destinationsSectionSubtitle": "Go to the places travelers love most on ViVuGo.",
+    "toursOpen": "{{count}} tours open",
+    "benefitsSectionLabel": "WHY CHOOSE VIVUGO",
+    "benefitsSectionTitle": "A complete travel experience",
+    "benefitsSectionSubtitle": "From great prices to hands-on support, every detail is tuned for your trip.",
+    "benefits": {
+      "bestPrice": {
+        "title": "Best Price",
+        "description": "Competitive and transparent pricing guaranteed."
+      },
+      "support247": {
+        "title": "24/7 Support",
+        "description": "Always ready to help on every trip."
+      },
+      "flexiblePayment": {
+        "title": "Flexible Payment",
+        "description": "Safe and convenient payment methods."
+      },
+      "verifiedTours": {
+        "title": "Verified Tours",
+        "description": "Trusted partners with quality checked carefully."
+      }
+    }
+  },
+  "tours": {
+    "featured": "Featured Tours",
+    "featuredSub": "Hand-picked destinations for your next adventure",
+    "viewAll": "View All Tours →",
+    "explore": "Explore Tours",
+    "exploreSub": "Discover amazing destinations and experiences",
+    "searchPlaceholder": "Search tours, destinations...",
+    "recommended": "Recommended",
+    "lowestPrice": "Lowest Price",
+    "filters": "Filters",
+    "categories": "Categories",
+    "travelStyle": "Travel Style",
+    "priceRange": "Price Range",
+    "duration": "Duration",
+    "rating": "Rating",
+    "toursFound": "{{count}} tours found",
+    "perPerson": "per person",
+    "viewDetails": "View Details",
+    "featured_badge": "Featured",
+    "saveFavorite": "Save favorite tour",
+    "max": "Max {{count}}"
+  },
+  "destinations": {
+    "title": "Popular Destinations",
+    "subtitle": "Explore our most loved travel destinations around the world",
+    "toursAvailable": "{{count}} tours available"
+  },
+  "why": {
+    "bestPrice": "Best Price Guarantee",
+    "support247": "24/7 Support",
+    "flexiblePayment": "Flexible Payment",
+    "verifiedTours": "Verified Tours",
+    "description": "Clear, safe, and convenient service for every traveler."
+  },
+  "footer": {
+    "cta": "Ready to Start Your Adventure?",
+    "ctaSub": "Join thousands of happy travelers and discover the world with ViVuGo.",
+    "exploreTours": "Explore Tours",
+    "createAccount": "Create Account",
+    "tagline": "Your trusted travel companion for unforgettable trips.",
+    "quickLinks": "Quick Links",
+    "allTours": "All Tours",
+    "beachTours": "Beach Tours",
+    "adventureTours": "Adventure Tours",
+    "luxuryTours": "Luxury Tours",
+    "support": "Support",
+    "helpCenter": "Help Center",
+    "cancellation": "Cancellation Policy",
+    "insurance": "Travel Insurance",
+    "terms": "Terms & Conditions",
+    "contactUs": "Contact Us",
+    "subscribe": "Subscribe",
+    "emailPlaceholder": "Enter your email",
+    "copyright": "© 2026 ViVuGo. All rights reserved.",
+    "legalLinks": "Terms · Privacy · Cookies"
+  },
+  "profile": {
+    "title": "Customer Information",
+    "editTitle": "Edit Customer Information",
+    "fullName": "Full Name",
+    "email": "Email",
+    "phone": "Phone",
+    "address": "Address",
+    "saveChanges": "Save Changes",
+    "edit": "Edit",
+    "updated": "Your profile has been updated.",
+    "syncFailed": "Saved locally. The API will sync when the backend and token are available."
+  },
+  "password": {
+    "title": "Change Password",
+    "current": "Current Password",
+    "new": "New Password",
+    "confirm": "Confirm New Password",
+    "update": "Update Password",
+    "success": "Password changed successfully.",
+    "failed": "Could not sync with backend. Please check login/token when the API is running."
+  },
+  "account": {
+    "personalInfo": "Personal Information",
+    "editInfo": "Edit Information",
+    "changePassword": "Change Password",
+    "favoriteTours": "Favorite Tours",
+    "search": "Search",
+    "settings": "Settings",
+    "myBookings": "My Bookings"
+  },
+  "chat": {
+    "title": "ViVuGo AI Assistant",
+    "status": "Ready to help",
+    "placeholder": "Ask about a tour...",
+    "send": "Send",
+    "greeting": "Hi, I am your ViVuGo assistant. Which destination or travel style are you looking for?",
+    "reply": "Great. Try Flights, Hotels, Beach, or Adventure to load matching tours automatically."
+  },
+  "admin": {
+    "dashboard": "Admin Dashboard",
+    "overview": "Operation overview",
+    "logout": "Log out",
+    "admin": "Admin"
+  },
+  "tourMenu": {
+    "allTours": "All Tours",
+    "beach": "Beach Tours",
+    "adventure": "Adventure Tours",
+    "cultural": "Cultural Tours",
+    "cruises": "Cruises",
+    "luxury": "Luxury Tours"
+  },
+  "common": {
+    "all": "All",
+    "days13": "1-3 days",
+    "days46": "4-6 days",
+    "days7plus": "7+ days",
+    "stars45": "4.5+ stars",
+    "stars4": "4+ stars",
+    "stars35": "3.5+ stars",
+    "close": "Close"
+  }
+}

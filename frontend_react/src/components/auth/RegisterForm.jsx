@@ -1,4 +1,4 @@
-function RegisterForm({ values, errors, onChange, onSubmit }) {
+function RegisterForm({ values, errors, isSubmitting, onChange, onSubmit }) {
   return (
     <form className="auth-form" onSubmit={onSubmit} noValidate>
       <label>
@@ -68,8 +68,8 @@ function RegisterForm({ values, errors, onChange, onSubmit }) {
       </label>
       {errors.terms ? <span className="field-error">{errors.terms}</span> : null}
 
-      <button className="primary-button" type="submit">
-        Tạo tài khoản
+      <button className="primary-button" type="submit" disabled={isSubmitting}>
+        {isSubmitting ? 'Đang tạo tài khoản...' : 'Tạo tài khoản'}
       </button>
     </form>
   )

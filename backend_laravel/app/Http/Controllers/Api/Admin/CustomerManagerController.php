@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Booking;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -27,6 +28,28 @@ public function count(): JsonResponse
     return response()->json([
         'status' => 'success',
         'total'  => $total // Trả về con số tổng để Frontend hiển thị lên Dashboard
+    ], 200);
+}
+
+public function statistics(): JsonResponse
+{
+    $baseQuery = User::where('role_id', 2);
+
+    $total = (clone $baseQuery)->count();
+    $active = (clone $baseQuery)->where('status', 'active')->count();
+    $locked = (clone $baseQuery)->where('status', 'inactive')->count();
+    $totalBookings = Booking::whereHas('user', function ($query) {
+        $query->where('role_id', 2);
+    })->count();
+
+    return response()->json([
+        'status' => 'success',
+        'data' => [
+            'total' => $total,
+            'active' => $active,
+            'locked' => $locked,
+            'total_bookings' => $totalBookings,
+        ],
     ], 200);
 }
 

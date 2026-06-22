@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import AdminSidebar from '../components/admin/AdminSidebar'
 import { logout as logoutApi } from '../services/authApi'
 import { clearSession, readSession } from '../services/authStorage'
 import '../styles/admin.css'
 
 function AdminLayout({ children }) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [collapsed, setCollapsed] = useState(false)
   const admin = readSession()
@@ -30,11 +32,11 @@ function AdminLayout({ children }) {
       <main className="admin-main">
         <div className="admin-topbar">
           <div>
-            <span>Admin</span>
+            <span>{t('admin.admin')}</span>
             <strong>{admin?.name || 'ViVuGo Admin'}</strong>
           </div>
           <button type="button" onClick={handleLogout}>
-            Đăng xuất
+            {t('admin.logout')}
           </button>
         </div>
         {children}
@@ -44,3 +46,4 @@ function AdminLayout({ children }) {
 }
 
 export default AdminLayout
+

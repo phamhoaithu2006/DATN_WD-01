@@ -52,6 +52,7 @@ function AuthCard({
         <RegisterForm
           values={registerData}
           errors={registerErrors}
+          isSubmitting={isSubmitting}
           onChange={onRegisterChange}
           onSubmit={onRegisterSubmit}
         />

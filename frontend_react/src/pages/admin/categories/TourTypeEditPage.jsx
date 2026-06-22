@@ -88,7 +88,7 @@ function TourTypeEditPage() {
         status: formData.status,
       })
 
-      navigate('/admin/tours')
+      navigate('/admin/categories')
     } catch (err) {
       console.error(err)
       setError(err.response?.data?.message || 'Cập nhật loại tour thất bại')

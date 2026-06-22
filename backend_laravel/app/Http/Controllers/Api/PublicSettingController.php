@@ -11,11 +11,11 @@ class PublicSettingController extends Controller
     public function show(): JsonResponse
     {
         $settings = Setting::query()
-            ->whereIn('key', Setting::ALLOWED_KEYS)
+            ->whereIn('key', Setting::PUBLIC_KEYS)
             ->pluck('value', 'key')
             ->toArray();
 
-        $data = collect(Setting::ALLOWED_KEYS)
+        $data = collect(Setting::PUBLIC_KEYS)
             ->mapWithKeys(fn (string $key) => [$key => $settings[$key] ?? null])
             ->toArray();
 

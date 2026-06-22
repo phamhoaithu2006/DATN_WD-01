@@ -24,25 +24,35 @@ export function saveUsers(users) {
 
 export function readSession() {
   try {
-    return JSON.parse(localStorage.getItem(SESSION_KEY))
+    return JSON.parse(localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY))
   } catch {
     return null
   }
 }
 
-export function saveSession(user) {
-  localStorage.setItem(SESSION_KEY, JSON.stringify(user))
+export function saveSession(user, remember = true) {
+  const storage = remember ? localStorage : sessionStorage
+  const otherStorage = remember ? sessionStorage : localStorage
+
+  otherStorage.removeItem(SESSION_KEY)
+  storage.setItem(SESSION_KEY, JSON.stringify(user))
 }
 
 export function readToken() {
-  return localStorage.getItem(TOKEN_KEY)
+  return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY)
 }
 
-export function saveToken(token) {
-  localStorage.setItem(TOKEN_KEY, token)
+export function saveToken(token, remember = true) {
+  const storage = remember ? localStorage : sessionStorage
+  const otherStorage = remember ? sessionStorage : localStorage
+
+  otherStorage.removeItem(TOKEN_KEY)
+  storage.setItem(TOKEN_KEY, token)
 }
 
 export function clearSession() {
   localStorage.removeItem(SESSION_KEY)
   localStorage.removeItem(TOKEN_KEY)
+  sessionStorage.removeItem(SESSION_KEY)
+  sessionStorage.removeItem(TOKEN_KEY)
 }
