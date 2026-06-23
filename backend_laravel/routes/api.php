@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\Customer\WishlistController;
 use App\Http\Controllers\Api\PublicSettingController;
 use App\Http\Controllers\Api\PublicWidgetController;
 use App\Http\Controllers\Api\Admin\ReportController;
+use App\Http\Controllers\Api\Admin\SupportStaffController;
 use Illuminate\Support\Facades\Route;
 
 // =================================== đăng ký, login, logout =====================================
@@ -106,6 +107,12 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     Route::put('/guides/{id}', [GuideController::class, 'update']);
     //Xóa HDV
     Route::delete('/guides/{id}', [GuideController::class, 'destroy']);
+
+    //=============================================Quản lý nhân viên hỗ trợ================================
+    Route::get('/support-staff', [SupportStaffController::class, 'index']);       // Xem danh sách + Lọc
+    Route::post('/support-staff', [SupportStaffController::class, 'store']);     // Thêm mới
+    Route::get('/support-staff/{id}', [SupportStaffController::class, 'show']);   // Xem chi tiết
+    Route::put('/support-staff/{id}', [SupportStaffController::class, 'update']); // Cập nhật
 
 
     //====================================Quản lý địa chỉ tour ======================================
