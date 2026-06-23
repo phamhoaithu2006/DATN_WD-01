@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\User;
+use App\Models\Role;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -174,6 +175,18 @@ class CustomerManagerController extends Controller
         ], 201);
     }
 
+
+    //hiển thị role
+    public function index_role()
+    {
+        // Lấy tất cả các role
+        $roles = Role::all(['id', 'name']); // Chỉ lấy những cột cần thiết
+        
+        return response()->json([
+            'status' => 'success',
+            'data'   => $roles
+        ], 200);
+    }
 
     /**
      * Xem chi tiết thông tin khách hàng dựa trên ID, kèm theo tổng số booking.
