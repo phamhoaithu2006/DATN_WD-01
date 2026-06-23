@@ -19,37 +19,53 @@ const messageFrom = (error) =>
   error.response?.data?.message ||
   "Không thể xử lý yêu cầu.";
 
+const cleanPayload = (form, isEditing) => {
+  const payload = {
+    ...form,
+    role_id: form.role_id ? Number(form.role_id) : "",
+  };
+
+  if (isEditing && !payload.password) {
+    delete payload.password;
+  }
+
+  return payload;
+};
+
 function UserManagementPage() {
-  const [accounts, setAccounts] = useState([]),
-    [roles, setRoles] = useState([]);
-  const [search, setSearch] = useState(""),
-    [roleId, setRoleId] = useState(""),
-    [status, setStatus] = useState("");
-  const [loading, setLoading] = useState(true),
-    [saving, setSaving] = useState(false);
-  const [editing, setEditing] = useState(undefined),
-    [detail, setDetail] = useState(null),
-    [notice, setNotice] = useState(null);
+  const [customers, setCustomers] = useState([]);
+  const [statistics, setStatistics] = useState({});
+  const [roles, setRoles] = useState([]);
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("");
+  const [roleId, setRoleId] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState(undefined);
+  const [detail, setDetail] = useState(null);
+  const [notice, setNotice] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [list, statistics] = await Promise.all([
+      const [list, statisticsData] = await Promise.all([
         getAccounts({
           search: search.trim() || undefined,
-          role_id: roleId || undefined,
           status: status || undefined,
+          role_id: roleId || undefined,
         }),
         getAccountStatistics(),
       ]);
-      setAccounts(list);
-      setRoles(statistics.roles || []);
+
+      setCustomers(list);
+      setStatistics(statisticsData || {});
+      setRoles(statisticsData?.roles || []);
     } catch (error) {
       setNotice({ type: "error", text: messageFrom(error) });
     } finally {
       setLoading(false);
     }
-  }, [search, roleId, status]);
+  }, [roleId, search, status]);
 
   useEffect(() => {
     const timer = setTimeout(load, 300);
@@ -60,8 +76,9 @@ function UserManagementPage() {
     setSaving(true);
     try {
       const response = editing
-        ? await updateAccount(editing.id, form)
-        : await createAccount(form);
+        ? await updateAccount(editing.id, cleanPayload(form, true))
+        : await createAccount(cleanPayload(form, false));
+
       setNotice({ type: "success", text: response.message });
       setEditing(undefined);
       await load();
@@ -79,14 +96,15 @@ function UserManagementPage() {
       setNotice({ type: "error", text: messageFrom(error) });
     }
   }
+
   async function toggleLock(account) {
     const nextStatus = account.status === "active" ? "inactive" : "active";
-    if (
-      !window.confirm(
-        `${nextStatus === "inactive" ? "Khóa" : "Mở khóa"} tài khoản của ${account.full_name}?`,
-      )
-    )
+    const actionLabel = nextStatus === "inactive" ? "Khóa" : "Mở khóa";
+
+    if (!window.confirm(`${actionLabel} tài khoản của ${account.full_name}?`)) {
       return;
+    }
+
     try {
       const response = await setAccountStatus(account.id, nextStatus);
       setNotice({ type: "success", text: response.message });
@@ -100,47 +118,51 @@ function UserManagementPage() {
     <section className="user-management-page">
       <header className="user-page-heading">
         <div>
-          <h1>Quản Lý Người Dùng</h1>
-          <p>Quản lý tài khoản và phân quyền người dùng</p>
+          <h1>Quản lý người dùng</h1>
+          <p>Quản lý tài khoản, vai trò và trạng thái hoạt động</p>
         </div>
         <button onClick={() => setEditing(null)}>
           <span>＋</span> Thêm Người Dùng
         </button>
       </header>
+
       {notice ? (
         <div className={`user-notice ${notice.type}`}>
           {notice.text}
           <button onClick={() => setNotice(null)}>×</button>
         </div>
       ) : null}
-      <UserStats roles={roles} />
+
+      <UserStats statistics={statistics} />
       <UserFilters
         search={search}
-        roleId={roleId}
         status={status}
+        roleId={roleId}
         roles={roles}
         onSearchChange={setSearch}
-        onRoleChange={setRoleId}
         onStatusChange={setStatus}
+        onRoleChange={setRoleId}
       />
       <UserTable
-        accounts={accounts}
+        customers={customers}
         loading={loading}
         onView={view}
         onEdit={setEditing}
         onToggleLock={toggleLock}
       />
+
       {editing !== undefined ? (
         <UserFormModal
-          account={editing}
+          customer={editing}
           roles={roles}
           saving={saving}
           onClose={() => setEditing(undefined)}
           onSave={save}
         />
       ) : null}
+
       {detail ? (
-        <UserDetailModal account={detail} onClose={() => setDetail(null)} />
+        <UserDetailModal customer={detail} onClose={() => setDetail(null)} />
       ) : null}
     </section>
   );

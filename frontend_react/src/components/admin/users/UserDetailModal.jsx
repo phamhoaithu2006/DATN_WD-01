@@ -1,9 +1,12 @@
+import { roleLabel } from "../../../utils/accountRoles";
+
 function UserDetailModal({ customer, onClose }) {
   const date = customer.created_at
     ? new Intl.DateTimeFormat("vi-VN", { dateStyle: "long" }).format(
         new Date(customer.created_at),
       )
     : "—";
+
   return (
     <div
       className="user-modal-backdrop"
@@ -16,8 +19,8 @@ function UserDetailModal({ customer, onClose }) {
       >
         <div className="user-modal-heading">
           <div>
-            <h2>Chi tiết khách hàng</h2>
-            <p>Mã tài khoản KH{String(customer.id).padStart(3, "0")}</p>
+            <h2>Chi tiết người dùng</h2>
+            <p>Mã tài khoản U{String(customer.id).padStart(3, "0")}</p>
           </div>
           <button type="button" onClick={onClose}>
             ×
@@ -47,6 +50,10 @@ function UserDetailModal({ customer, onClose }) {
           <div>
             <dt>Số điện thoại</dt>
             <dd>{customer.phone || "Chưa cập nhật"}</dd>
+          </div>
+          <div>
+            <dt>Vai trò</dt>
+            <dd>{roleLabel(customer.role)}</dd>
           </div>
           <div>
             <dt>Ngày đăng ký</dt>

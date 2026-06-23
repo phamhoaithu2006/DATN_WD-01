@@ -1,4 +1,14 @@
-function UserFilters({ search, status, onSearchChange, onStatusChange }) {
+import { roleLabel } from "../../../utils/accountRoles";
+
+function UserFilters({
+  search,
+  status,
+  roleId,
+  roles = [],
+  onSearchChange,
+  onStatusChange,
+  onRoleChange,
+}) {
   return (
     <div className="user-filter-bar">
       <label className="user-search">
@@ -19,6 +29,17 @@ function UserFilters({ search, status, onSearchChange, onStatusChange }) {
         <option value="">Tất cả trạng thái</option>
         <option value="active">Hoạt động</option>
         <option value="inactive">Bị khóa</option>
+      </select>
+      <select
+        value={roleId}
+        onChange={(event) => onRoleChange(event.target.value)}
+      >
+        <option value="">Tất cả vai trò</option>
+        {roles.map((role) => (
+          <option key={role.id} value={role.id}>
+            {roleLabel(role)}
+          </option>
+        ))}
       </select>
     </div>
   );

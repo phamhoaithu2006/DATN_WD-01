@@ -1,3 +1,5 @@
+import { roleClass, roleLabel } from "../../../utils/accountRoles";
+
 const colors = ["blue", "purple", "green", "amber", "red"];
 
 function initials(name = "") {
@@ -8,7 +10,7 @@ function initials(name = "") {
       .slice(-2)
       .map((word) => word[0])
       .join("")
-      .toUpperCase() || "KH"
+      .toUpperCase() || "ND"
   );
 }
 
@@ -43,6 +45,7 @@ function Icon({ name }) {
       </>
     ),
   };
+
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
       {paths[name]}
@@ -61,6 +64,7 @@ function UserTable({ customers, loading, onView, onEdit, onToggleLock }) {
             <th>Email</th>
             <th>Số điện thoại</th>
             <th>Ngày đăng ký</th>
+            <th>Vai trò</th>
             <th>Booking</th>
             <th>Trạng thái</th>
             <th>Hành động</th>
@@ -78,11 +82,16 @@ function UserTable({ customers, loading, onView, onEdit, onToggleLock }) {
               </td>
               <td>
                 <strong>{customer.full_name}</strong>
-                <small>ID: KH{String(customer.id).padStart(3, "0")}</small>
+                <small>ID: U{String(customer.id).padStart(3, "0")}</small>
               </td>
               <td>{customer.email}</td>
               <td>{customer.phone || "—"}</td>
               <td>{formatDate(customer.created_at)}</td>
+              <td>
+                <span className={`user-role ${roleClass(customer.role)}`}>
+                  {roleLabel(customer.role)}
+                </span>
+              </td>
               <td>
                 <strong className="booking-count">
                   {customer.bookings_count ?? 0}
@@ -122,14 +131,14 @@ function UserTable({ customers, loading, onView, onEdit, onToggleLock }) {
           ))}
           {!loading && customers.length === 0 ? (
             <tr>
-              <td className="user-empty" colSpan="8">
-                Không tìm thấy tài khoản khách hàng phù hợp.
+              <td className="user-empty" colSpan="9">
+                Không tìm thấy tài khoản người dùng phù hợp.
               </td>
             </tr>
           ) : null}
           {loading ? (
             <tr>
-              <td className="user-empty" colSpan="8">
+              <td className="user-empty" colSpan="9">
                 Đang tải dữ liệu...
               </td>
             </tr>
