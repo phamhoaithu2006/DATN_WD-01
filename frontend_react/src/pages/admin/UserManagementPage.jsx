@@ -8,6 +8,7 @@ import {
   createAccount,
   getAccount,
   getAccounts,
+  getAccountRoles,
   getAccountStatistics,
   setAccountStatus,
   updateAccount,
@@ -32,6 +33,38 @@ const cleanPayload = (form, isEditing) => {
   return payload;
 };
 
+const rolesFromAccounts = (accounts) => {
+  const roles = new Map();
+
+  accounts.forEach((account) => {
+    if (account.role?.id) {
+      roles.set(account.role.id, account.role);
+      return;
+    }
+
+    if (account.role_id) {
+      roles.set(account.role_id, {
+        id: account.role_id,
+        name: `role-${account.role_id}`,
+        description: `Vai trò ${account.role_id}`,
+      });
+    }
+  });
+
+  return Array.from(roles.values()).sort((a, b) => a.id - b.id);
+};
+
+const roleForAccount = (account, roles) =>
+  account.role ||
+  roles.find((role) => Number(role.id) === Number(account.role_id)) ||
+  null;
+
+const withResolvedRoles = (accounts, roles) =>
+  accounts.map((account) => ({
+    ...account,
+    role: roleForAccount(account, roles),
+  }));
+
 function UserManagementPage() {
   const [customers, setCustomers] = useState([]);
   const [statistics, setStatistics] = useState({});
@@ -48,18 +81,26 @@ function UserManagementPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [list, statisticsData] = await Promise.all([
+      const [list, statisticsData, roleList] = await Promise.all([
         getAccounts({
           search: search.trim() || undefined,
           status: status || undefined,
           role_id: roleId || undefined,
         }),
         getAccountStatistics(),
+        getAccountRoles().catch(() => []),
       ]);
 
-      setCustomers(list);
+      const resolvedRoles =
+        roleList?.length
+          ? roleList
+          : statisticsData?.roles?.length
+            ? statisticsData.roles
+            : rolesFromAccounts(list);
+
+      setCustomers(withResolvedRoles(list, resolvedRoles));
       setStatistics(statisticsData || {});
-      setRoles(statisticsData?.roles || []);
+      setRoles(resolvedRoles);
     } catch (error) {
       setNotice({ type: "error", text: messageFrom(error) });
     } finally {
@@ -91,7 +132,11 @@ function UserManagementPage() {
 
   async function view(account) {
     try {
-      setDetail(await getAccount(account.id));
+      const accountDetail = await getAccount(account.id);
+      setDetail({
+        ...accountDetail,
+        role: roleForAccount(accountDetail, roles),
+      });
     } catch (error) {
       setNotice({ type: "error", text: messageFrom(error) });
     }

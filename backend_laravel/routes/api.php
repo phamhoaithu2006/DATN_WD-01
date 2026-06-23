@@ -67,6 +67,9 @@ Route::prefix('tours')->group(function () {
 });
 // ==============================================================================================
 
+   //lấy dánh sách role
+    Route::get('/roles', [CustomerManagerController::class, 'index_role']);
+
 // Public system settings and widgets
 Route::get('/settings/public', [PublicSettingController::class, 'show']);
 Route::get('/widgets', [PublicWidgetController::class, 'index']);
