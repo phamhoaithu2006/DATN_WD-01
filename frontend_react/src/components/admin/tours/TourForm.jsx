@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 
+const API_BASE_URL = (
+  import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api'
+).replace(/\/$/, '')
+
 const getInitialFormData = (initialData = {}) => ({
   category_id: initialData.category_id ?? '',
   destination_id: initialData.destination_id ?? '',
@@ -16,6 +20,24 @@ const getInitialFormData = (initialData = {}) => ({
   status: initialData.status ?? 'published',
 })
 
+const normalizeList = (data) => {
+  if (Array.isArray(data)) return data
+  if (Array.isArray(data?.data)) return data.data
+  if (Array.isArray(data?.data?.data)) return data.data.data
+  return []
+}
+
+const getOptionName = (item, fallback) => {
+  return (
+    item.name ||
+    item.title ||
+    item.category_name ||
+    item.destination_name ||
+    item.destination ||
+    fallback
+  )
+}
+
 function TourForm({
   initialData = null,
   onSubmit,
@@ -31,9 +53,68 @@ function TourForm({
     getInitialFormData(initialData || {}),
   )
 
+  const [categories, setCategories] = useState([])
+  const [destinations, setDestinations] = useState([])
+  const [loadingOptions, setLoadingOptions] = useState(false)
+  const [optionError, setOptionError] = useState('')
+
   useEffect(() => {
     setFormData(getInitialFormData(initialData || {}))
   }, [initialDataKey])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadOptions = async () => {
+      try {
+        setLoadingOptions(true)
+        setOptionError('')
+
+        const [categoryRes, destinationRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/admin/categories`, {
+            headers: { Accept: 'application/json' },
+          }),
+          fetch(`${API_BASE_URL}/admin/destinations`, {
+            headers: { Accept: 'application/json' },
+          }),
+        ])
+
+        if (!categoryRes.ok) {
+          throw new Error(`Không tải được danh mục: ${categoryRes.status}`)
+        }
+
+        if (!destinationRes.ok) {
+          throw new Error(`Không tải được điểm đến: ${destinationRes.status}`)
+        }
+
+        const categoryData = await categoryRes.json()
+        const destinationData = await destinationRes.json()
+
+        if (!cancelled) {
+          setCategories(normalizeList(categoryData))
+          setDestinations(normalizeList(destinationData))
+        }
+      } catch (error) {
+        console.error('LOAD TOUR OPTIONS ERROR:', error)
+
+        if (!cancelled) {
+          setOptionError(
+            'Không tải được danh mục hoặc điểm đến. Kiểm tra API backend.',
+          )
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingOptions(false)
+        }
+      }
+    }
+
+    loadOptions()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const inputClass =
     'mt-1 h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100'
@@ -56,12 +137,12 @@ function TourForm({
     e.preventDefault()
 
     if (!formData.category_id) {
-      alert('Vui lòng nhập ID danh mục')
+      alert('Vui lòng chọn danh mục')
       return
     }
 
     if (!formData.destination_id) {
-      alert('Vui lòng nhập ID điểm đến')
+      alert('Vui lòng chọn điểm đến')
       return
     }
 
@@ -93,6 +174,16 @@ function TourForm({
     onSubmit(payload)
   }
 
+  const currentCategoryMissing =
+    formData.category_id &&
+    !categories.some((item) => String(item.id) === String(formData.category_id))
+
+  const currentDestinationMissing =
+    formData.destination_id &&
+    !destinations.some(
+      (item) => String(item.id) === String(formData.destination_id),
+    )
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_12px_35px_rgba(15,23,42,0.08)]">
@@ -103,31 +194,67 @@ function TourForm({
           <p className="mt-1 text-sm font-medium text-slate-500">
             Nhập thông tin cơ bản để tạo hoặc cập nhật tour.
           </p>
+
+          {optionError && (
+            <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-600">
+              {optionError}
+            </p>
+          )}
         </div>
 
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
           <div>
-            <label className={labelClass}>ID danh mục</label>
-            <input
-              type="number"
+            <label className={labelClass}>Danh mục</label>
+            <select
               name="category_id"
               value={formData.category_id}
               onChange={handleChange}
-              placeholder="Nhập ID danh mục"
+              disabled={loadingOptions}
               className={inputClass}
-            />
+            >
+              <option value="">
+                {loadingOptions ? 'Đang tải danh mục...' : 'Chọn danh mục'}
+              </option>
+
+              {currentCategoryMissing && (
+                <option value={formData.category_id}>
+                  Danh mục hiện tại #{formData.category_id}
+                </option>
+              )}
+
+              {categories.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {getOptionName(item, `Danh mục #${item.id}`)}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>
-            <label className={labelClass}>ID điểm đến</label>
-            <input
-              type="number"
+            <label className={labelClass}>Điểm đến</label>
+            <select
               name="destination_id"
               value={formData.destination_id}
               onChange={handleChange}
-              placeholder="Nhập ID điểm đến"
+              disabled={loadingOptions}
               className={inputClass}
-            />
+            >
+              <option value="">
+                {loadingOptions ? 'Đang tải điểm đến...' : 'Chọn điểm đến'}
+              </option>
+
+              {currentDestinationMissing && (
+                <option value={formData.destination_id}>
+                  Điểm đến hiện tại #{formData.destination_id}
+                </option>
+              )}
+
+              {destinations.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {getOptionName(item, `Điểm đến #${item.id}`)}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="md:col-span-2">

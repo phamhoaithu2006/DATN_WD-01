@@ -84,15 +84,15 @@ function EyeOffIcon({ className = 'h-6 w-6' }) {
 
 function StatCard({ icon, title, value, description, tone = 'blue' }) {
   const toneClasses = {
-    blue: 'bg-sky-50 text-sky-600',
-    green: 'bg-emerald-50 text-emerald-600',
-    orange: 'bg-orange-50 text-orange-500',
+    blue: 'bg-sky-100 text-sky-600 ring-sky-200/70',
+    green: 'bg-cyan-100 text-cyan-700 ring-cyan-200/70',
+    orange: 'bg-amber-100 text-amber-600 ring-amber-200/70',
   }
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+    <div className="rounded-[22px] border border-sky-100 bg-white p-6 shadow-[0_10px_30px_rgba(14,165,233,0.08)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_38px_rgba(14,165,233,0.13)]">
       <div className="flex items-center gap-4">
-        <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${toneClasses[tone]}`}>
+        <div className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-[18px] ring-1 ${toneClasses[tone]}`}>
           {icon}
         </div>
 
@@ -226,57 +226,49 @@ function DestinationListPage() {
   }
 
   return (
-    <section className="min-h-screen bg-[#f4f7fb] px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
+    <section className="min-h-screen bg-[#f3f8ff] px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-[1240px] space-y-6">
-        <div className="flex items-center gap-2 text-sm font-medium text-slate-500">
-          <span className="text-emerald-600">⌂</span>
-          <span>Quản lý tour</span>
-          <span className="text-slate-300">›</span>
-          <span className="font-semibold text-slate-800">Địa chỉ tour</span>
-        </div>
+        <div className="border-b border-sky-100 pb-6">
+          <div className="flex items-center gap-2 text-sm font-medium text-slate-500">
+            <span className="text-sky-600">⌂</span>
+            <span>Quản lý tour</span>
+            <span className="text-slate-300">›</span>
+            <span className="font-semibold text-slate-800">Địa chỉ tour</span>
+          </div>
 
-        <div className="overflow-hidden rounded-[28px] border border-white bg-gradient-to-br from-emerald-600 via-teal-600 to-sky-700 p-[1px] shadow-xl shadow-emerald-900/10">
-          <div className="rounded-[27px] bg-white/95 p-6 lg:p-7">
-            <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
-              <div className="max-w-3xl">
-                <div className="mb-4 inline-flex rounded-full bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700">
-                  Quản trị điểm đến du lịch
-                </div>
+          <div className="mt-14 grid gap-5 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
+            <div className="min-w-0">
+              <h1 className="text-3xl font-semibold tracking-tight text-slate-950 lg:text-4xl">
+                Quản lý địa chỉ tour
+              </h1>
+              <p className="mt-3 max-w-2xl text-base text-slate-500">
+                Theo dõi danh sách điểm đến, tỉnh thành, quốc gia, ảnh đại diện và trạng thái hiển thị trên hệ thống tour.
+              </p>
+            </div>
 
-                <h1 className="text-3xl font-black tracking-tight text-slate-950 lg:text-4xl">
-                  Quản lý địa chỉ tour
-                </h1>
+            <div className="flex shrink-0 flex-nowrap items-center gap-3">
+              <Link
+                to="/admin/destinations/create"
+                className="inline-flex h-12 whitespace-nowrap items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-cyan-500 px-5 text-sm font-bold text-white shadow-[0_10px_22px_rgba(14,165,233,0.25)] transition hover:-translate-y-0.5 hover:shadow-[0_14px_26px_rgba(14,165,233,0.32)]"
+              >
+                <PlusIcon className="h-4 w-4" />
+                Thêm điểm đến
+              </Link>
 
-                <p className="mt-3 max-w-2xl text-base leading-7 text-slate-500">
-                  Theo dõi danh sách điểm đến, tỉnh thành, quốc gia, ảnh đại diện và trạng thái hiển thị trên hệ thống tour.
-                </p>
-              </div>
+              <Link
+                to="/admin/destinations/trash"
+                className="inline-flex h-12 whitespace-nowrap items-center justify-center gap-2 rounded-xl border border-sky-200 bg-white px-5 text-sm font-bold text-sky-700 shadow-sm transition hover:border-sky-300 hover:bg-sky-50"
+              >
+                <TrashIcon className="h-4 w-4 text-sky-600" />
+                Đã xóa
+              </Link>
 
-              <div className="flex flex-wrap gap-3">
-                <Link
-                  to="/admin/destinations/create"
-                  style={{ backgroundColor: '#059669', color: '#ffffff' }}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl px-5 text-sm font-bold shadow-sm transition hover:opacity-90"
-                >
-                  <PlusIcon className="h-4 w-4" />
-                  Thêm điểm đến
-                </Link>
-
-                <Link
-                  to="/admin/destinations/trash"
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
-                >
-                  <TrashIcon className="h-4 w-4 text-slate-500" />
-                  Đã xóa
-                </Link>
-
-                <Link
-                  to="/admin/tours"
-                  className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
-                >
-                  Quay lại tour
-                </Link>
-              </div>
+              <Link
+                to="/admin/tours"
+                className="inline-flex h-12 whitespace-nowrap items-center justify-center rounded-xl border border-sky-200 bg-white px-5 text-sm font-bold text-sky-700 shadow-sm transition hover:border-sky-300 hover:bg-sky-50"
+              >
+                Quay lại tour
+              </Link>
             </div>
           </div>
         </div>
@@ -307,31 +299,24 @@ function DestinationListPage() {
           />
         </div>
 
-        <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="rounded-[22px] border border-sky-100 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
           <form onSubmit={handleSearch} className="flex flex-col gap-4 lg:flex-row lg:items-center">
-            <div className="min-w-0 flex-1">
-              <label className="mb-2 block text-sm font-bold text-slate-800">
-                Tìm kiếm điểm đến
-              </label>
+            <div className="relative min-w-0 flex-1">
+              <SearchIcon className="absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-sky-500" />
 
-              <div className="relative">
-                <SearchIcon className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-
-                <input
-                  type="text"
-                  placeholder="Nhập tên điểm đến, tỉnh thành hoặc quốc gia..."
-                  value={searchTerm}
-                  onChange={(event) => setSearchTerm(event.target.value)}
-                  className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-12 pr-4 text-sm font-medium text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
-                />
-              </div>
+              <input
+                type="text"
+                placeholder="Nhập tên điểm đến, tỉnh thành hoặc quốc gia..."
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                className="h-14 w-full rounded-xl border border-sky-100 bg-white pl-14 pr-4 text-sm font-medium text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
+              />
             </div>
 
-            <div className="flex gap-3 lg:pt-7">
+            <div className="flex gap-3">
               <button
                 type="submit"
-                style={{ backgroundColor: '#059669', color: '#ffffff' }}
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl px-6 text-sm font-bold shadow-sm transition hover:opacity-90"
+                className="inline-flex h-14 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-cyan-500 px-7 text-sm font-bold text-white shadow-[0_10px_22px_rgba(14,165,233,0.25)] transition hover:-translate-y-0.5 hover:shadow-[0_14px_26px_rgba(14,165,233,0.32)]"
               >
                 <SearchIcon className="h-4 w-4" />
                 Tìm kiếm
@@ -340,41 +325,41 @@ function DestinationListPage() {
               <button
                 type="button"
                 onClick={handleRefresh}
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-slate-50"
+                className="inline-flex h-14 items-center justify-center gap-2 rounded-xl border border-sky-200 bg-white px-6 text-sm font-bold text-sky-700 shadow-sm transition hover:border-sky-300 hover:bg-sky-50"
               >
-                <RefreshIcon className="h-4 w-4 text-slate-500" />
+                <RefreshIcon className="h-4 w-4 text-sky-600" />
                 Làm mới
               </button>
             </div>
           </form>
         </div>
 
-        <div className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
-          <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-lg font-black text-slate-950">
+        <div className="overflow-hidden rounded-[22px] border border-sky-100 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
+          <div className="flex flex-col gap-3 px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap items-center gap-3">
+              <h2 className="text-xl font-bold text-slate-950">
                 Danh sách điểm đến
               </h2>
-              <p className="mt-1 text-sm text-slate-500">
-                Hiển thị {filteredDestinations.length} / {destinations.length} điểm đến
-              </p>
+              <span className="rounded-full bg-sky-50 px-3 py-1 text-sm font-bold text-sky-600">
+                {filteredDestinations.length} / {destinations.length} điểm đến
+              </span>
             </div>
 
             {searchTerm && (
               <button
                 type="button"
                 onClick={() => setSearchTerm('')}
-                className="w-fit rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-200"
+                className="w-fit rounded-xl border border-sky-100 bg-sky-50 px-4 py-2 text-sm font-bold text-sky-700 transition hover:border-sky-200 hover:bg-sky-100"
               >
                 Xóa bộ lọc
               </button>
             )}
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] text-sm">
+          <div className="overflow-x-auto px-5 pb-5">
+            <table className="w-full min-w-[900px] overflow-hidden rounded-xl text-sm">
               <thead>
-                <tr className="bg-slate-50 text-left text-xs font-black uppercase tracking-wide text-slate-500">
+                <tr className="bg-[#f6f9fd] text-left text-xs font-black uppercase tracking-wide text-slate-500">
                   <th className="w-[72px] px-5 py-4">STT</th>
                   <th className="px-5 py-4">Điểm đến</th>
                   <th className="px-5 py-4">Vị trí</th>
@@ -384,12 +369,12 @@ function DestinationListPage() {
                 </tr>
               </thead>
 
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-sky-50">
                 {loading ? (
                   <tr>
                     <td colSpan="6" className="px-5 py-16 text-center">
                       <div className="mx-auto flex max-w-xs flex-col items-center gap-3">
-                        <div className="h-11 w-11 animate-spin rounded-full border-4 border-emerald-100 border-t-emerald-600" />
+                        <div className="h-11 w-11 animate-spin rounded-full border-4 border-sky-100 border-t-sky-500" />
                         <p className="text-sm font-semibold text-slate-500">
                           Đang tải danh sách địa chỉ tour...
                         </p>
@@ -399,8 +384,8 @@ function DestinationListPage() {
                 ) : filteredDestinations.length === 0 ? (
                   <tr>
                     <td colSpan="6" className="px-5 py-16 text-center">
-                      <div className="mx-auto max-w-sm rounded-2xl bg-slate-50 px-6 py-8">
-                        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-white text-slate-400 shadow-sm">
+                      <div className="mx-auto max-w-sm rounded-2xl bg-sky-50 px-6 py-8">
+                        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-white text-sky-500 shadow-sm">
                           <SearchIcon />
                         </div>
                         <p className="text-lg font-black text-slate-800">
@@ -414,7 +399,7 @@ function DestinationListPage() {
                   </tr>
                 ) : (
                   filteredDestinations.map((destination, index) => (
-                    <tr key={destination.id} className="bg-white transition hover:bg-slate-50">
+                    <tr key={destination.id} className="bg-white transition hover:bg-sky-50/40">
                       <td className="px-5 py-4 font-bold text-slate-500">
                         {index + 1}
                       </td>
@@ -425,13 +410,13 @@ function DestinationListPage() {
                             <img
                               src={destination.thumbnail_url}
                               alt={destination.name}
-                              className="h-14 w-20 rounded-2xl object-cover shadow-sm"
+                              className="h-14 w-20 rounded-xl object-cover shadow-sm"
                               onError={(event) => {
                                 event.currentTarget.style.display = 'none'
                               }}
                             />
                           ) : (
-                            <div className="flex h-14 w-20 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
+                            <div className="flex h-14 w-20 items-center justify-center rounded-xl bg-sky-50 text-sky-600">
                               <MapPinIcon className="h-6 w-6" />
                             </div>
                           )}
@@ -467,15 +452,15 @@ function DestinationListPage() {
                           <span
                             className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-black ${
                               destination.status === 'active'
-                                ? 'bg-emerald-50 text-emerald-700'
-                                : 'bg-orange-50 text-orange-600'
+                                ? 'bg-cyan-50 text-cyan-700'
+                                : 'bg-amber-50 text-amber-600'
                             }`}
                           >
                             <span
                               className={`h-2 w-2 rounded-full ${
                                 destination.status === 'active'
-                                  ? 'bg-emerald-500'
-                                  : 'bg-orange-500'
+                                  ? 'bg-cyan-500'
+                                  : 'bg-amber-500'
                               }`}
                             />
                             {destination.status === 'active' ? 'Hoạt động' : 'Tạm ẩn'}
@@ -490,7 +475,7 @@ function DestinationListPage() {
                           <button
                             type="button"
                             onClick={() => handleEdit(destination)}
-                            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-blue-100 bg-blue-50 px-4 text-sm font-bold text-blue-600 transition hover:border-blue-200 hover:bg-blue-100"
+                            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-sky-100 bg-sky-50 px-4 text-sm font-bold text-sky-600 transition hover:border-sky-200 hover:bg-sky-100"
                           >
                             <EditIcon />
                             Sửa
@@ -518,13 +503,13 @@ function DestinationListPage() {
           <div className="fixed right-6 top-6 z-50 w-full max-w-sm">
             <div
               className={`rounded-2xl border bg-white p-4 shadow-2xl ${
-                message ? 'border-emerald-100' : 'border-red-100'
+                message ? 'border-sky-100' : 'border-red-100'
               }`}
             >
               <div className="flex items-start gap-3">
                 <div
                   className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
-                    message ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'
+                    message ? 'bg-sky-50 text-sky-600' : 'bg-red-50 text-red-600'
                   }`}
                 >
                   {message ? <CheckIcon className="h-5 w-5" /> : <TrashIcon className="h-5 w-5" />}
@@ -587,7 +572,7 @@ function DestinationListPage() {
                   type="button"
                   onClick={closeDeleteModal}
                   disabled={deleting}
-                  className="h-11 rounded-2xl border border-slate-200 bg-white text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="h-11 rounded-2xl border border-sky-200 bg-white text-sm font-bold text-sky-700 transition hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Hủy
                 </button>
