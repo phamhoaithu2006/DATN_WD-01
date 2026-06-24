@@ -1,12 +1,14 @@
 ﻿<?php
 
 use App\Http\Controllers\Api\Admin\AdminProfileController;
+use App\Http\Controllers\Api\Admin\BookingController;
 use App\Http\Controllers\Api\Admin\CategoryController;
 use App\Http\Controllers\Api\Admin\CustomerManagerController;
 use App\Http\Controllers\Api\Admin\DatabaseBackupController;
 use App\Http\Controllers\Api\Admin\DestinationController;
 use App\Http\Controllers\Api\Admin\GuideController;
 use App\Http\Controllers\Api\Admin\PaymentController;
+use App\Http\Controllers\Api\Admin\ReportController;
 use App\Http\Controllers\Api\Admin\SettingController;
 use App\Http\Controllers\Api\Admin\TourManagerController;
 use App\Http\Controllers\Api\Admin\WidgetController;
@@ -17,7 +19,6 @@ use App\Http\Controllers\Api\Customer\TourController;
 use App\Http\Controllers\Api\Customer\WishlistController;
 use App\Http\Controllers\Api\PublicSettingController;
 use App\Http\Controllers\Api\PublicWidgetController;
-use App\Http\Controllers\Api\Admin\ReportController;
 use Illuminate\Support\Facades\Route;
 
 // =================================== đăng ký, login, logout =====================================
@@ -62,7 +63,7 @@ Route::prefix('tours')->group(function () {
         Route::delete('wishlist/{tour_id}', [WishlistController::class, 'destroy']);
     });
 
-    // Chi tiết tour theo slug   
+    // Chi tiết tour theo slug
     Route::get('/{slug}', [TourController::class, 'show_gdkh']);
 });
 // ==============================================================================================
@@ -185,5 +186,14 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
         Route::put('/profile/password', [AdminProfileController::class, 'changePassword']);
     });
     //===========================================================================================
-
+    //============================================Booking ====================================
+    Route::prefix('bookings')->group(function () {
+        Route::get('/',            [BookingController::class, 'index']);
+        Route::get('/statistics',  [BookingController::class, 'statistics']);
+        Route::get('/{id}',        [BookingController::class, 'show']);
+        Route::post('/',           [BookingController::class, 'store']);
+        Route::put('/{id}',        [BookingController::class, 'update']);
+        Route::patch('/{id}/cancel', [BookingController::class, 'softDelete']);
+        Route::delete('/{id}',     [BookingController::class, 'destroy']);
+    });
 });
