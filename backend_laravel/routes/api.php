@@ -2,9 +2,11 @@
 
 use App\Http\Controllers\Api\Admin\AdminProfileController;
 use App\Http\Controllers\Api\Admin\CategoryController;
+use App\Http\Controllers\Api\Admin\CertificateController;
 use App\Http\Controllers\Api\Admin\CustomerManagerController;
 use App\Http\Controllers\Api\Admin\DestinationController;
 use App\Http\Controllers\Api\Admin\GuideController;
+use App\Http\Controllers\Api\Admin\LanguageController;
 use App\Http\Controllers\Api\Admin\PaymentController;
 use App\Http\Controllers\Api\Admin\SettingController;
 use App\Http\Controllers\Api\Admin\TourManagerController;
@@ -84,6 +86,10 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     Route::post('guides', [GuideController::class, 'store']);
     Route::put('guides/{id}', [GuideController::class, 'update']);
     Route::delete('guides/{id}', [GuideController::class, 'destroy']);
+
+    // Quản lý chứng chỉ và ngôn ngữ
+    Route::get('languages', [LanguageController::class, 'index']);
+    Route::get('certificates', [CertificateController::class, 'index']);
 
     // Quản lý địa điểm tour
     Route::get('destinations/search', [DestinationController::class, 'search']);
