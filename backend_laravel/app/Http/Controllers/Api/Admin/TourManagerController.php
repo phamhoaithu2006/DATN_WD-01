@@ -16,7 +16,8 @@ class TourManagerController extends Controller
     public function index(Request $request)
     {
         // Loại trừ tour bị ẩn
-        $query = Tour::where('status', '!=', 'hidden');
+        $query = Tour::with(['category', 'destination'])
+            ->where('status', '!=', 'hidden');
 
         //  1. ADMIN TÌM KIẾM: Theo tiêu đề tour (title)
         if ($request->has('search') && $request->search != '') {
@@ -53,7 +54,8 @@ class TourManagerController extends Controller
     public function publicIndex(Request $request)
     {
         //  Chỉ lấy các tour đã xuất bản (published)
-        $query = Tour::where('status', 'published');
+        $query = Tour::with(['category', 'destination'])
+            ->where('status', 'published');
 
         //  1. USER TÌM KIẾM: Tìm theo tiêu đề tour
         if ($request->has('search') && $request->search != '') {
@@ -107,7 +109,7 @@ class TourManagerController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Thêm tour thành công',
-            'data' => $tour
+            'data' => $tour->load(['category', 'destination'])
         ], 201);
     }
 
@@ -150,7 +152,7 @@ class TourManagerController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Cập nhật tour thành công',
-            'data' => $tour->fresh()
+            'data' => $tour->fresh(['category', 'destination'])
         ]);
     }
     /**
@@ -179,7 +181,7 @@ class TourManagerController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Đã ẩn tour thành công',
-            'data' => $tour
+            'data' => $tour->fresh(['category', 'destination'])
         ]);
     }
 
@@ -203,7 +205,7 @@ class TourManagerController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Đã bỏ ẩn tour thành công',
-            'data' => $tour
+            'data' => $tour->fresh(['category', 'destination'])
         ]);
     }
 
@@ -212,7 +214,10 @@ class TourManagerController extends Controller
      */
     public function hiddenTours()
     {
-        $tours = Tour::where('status', 'hidden')->orderBy('id', 'desc')->paginate(10);
+        $tours = Tour::with(['category', 'destination'])
+            ->where('status', 'hidden')
+            ->orderBy('id', 'desc')
+            ->paginate(10);
 
         return response()->json([
             'status' => 'success',
