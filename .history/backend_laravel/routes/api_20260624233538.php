@@ -208,10 +208,6 @@ Route::prefix('admin')->group(function () {
 
 
     //================================Chức năng gửi thông báo ====================================
-    //Tìm kiếm và lọc user
-    Route::get('/notifications/users', [NotificationController::class, 'getUsers']);
-    //Hiển thị danh sánh user đã chọn
-    Route::post('/notifications/preview-recipients', [NotificationController::class, 'previewRecipients']);
     //Tạo bản nháp thông báo
     Route::post('/notifications/draft', [NotificationController::class, 'saveDraft']);
     //Hiển thị danh sách bản nháp 
@@ -232,8 +228,5 @@ Route::prefix('admin')->group(function () {
     Route::post('/notifications/send/{id}', [NotificationController::class, 'sendNotification']);
     //Hiển thị thông báo đã gửi 
     Route::get('/notifications/get-all-send', [NotificationController::class, 'getAllSentNotifications']);
-    //Thu hồi lại thông báo đã gửi
-    Route::delete('/notifications/revoke/{draft_id}', [NotificationController::class, 'revoke']);
-
 
 });

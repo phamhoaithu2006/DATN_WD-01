@@ -6,11 +6,8 @@ use App\Http\Controllers\Api\Admin\CustomerManagerController;
 use App\Http\Controllers\Api\Admin\DatabaseBackupController;
 use App\Http\Controllers\Api\Admin\DestinationController;
 use App\Http\Controllers\Api\Admin\GuideController;
-use App\Http\Controllers\Api\Admin\NotificationController;
 use App\Http\Controllers\Api\Admin\PaymentController;
-use App\Http\Controllers\Api\Admin\ReportController;
 use App\Http\Controllers\Api\Admin\SettingController;
-use App\Http\Controllers\Api\Admin\SupportStaffController;
 use App\Http\Controllers\Api\Admin\TourManagerController;
 use App\Http\Controllers\Api\Admin\WidgetController;
 use App\Http\Controllers\Api\AuthController;
@@ -20,6 +17,7 @@ use App\Http\Controllers\Api\Customer\TourController;
 use App\Http\Controllers\Api\Customer\WishlistController;
 use App\Http\Controllers\Api\PublicSettingController;
 use App\Http\Controllers\Api\PublicWidgetController;
+use App\Http\Controllers\Api\Admin\ReportController;
 use Illuminate\Support\Facades\Route;
 
 // =================================== đăng ký, login, logout =====================================
@@ -67,10 +65,9 @@ Route::prefix('tours')->group(function () {
     // Chi tiết tour theo slug   
     Route::get('/{slug}', [TourController::class, 'show_gdkh']);
 });
+//lấy dánh sách role
+Route::get('/roles', [CustomerManagerController::class, 'index_role']);
 // ==============================================================================================
-
-   //lấy dánh sách role
-    Route::get('/roles', [CustomerManagerController::class, 'index_role']);
 
 // Public system settings and widgets
 Route::get('/settings/public', [PublicSettingController::class, 'show']);
@@ -78,30 +75,21 @@ Route::get('/widgets', [PublicWidgetController::class, 'index']);
 // ==============================================================================================
 
 
-
-//========================================= ADMIN ===============================================
-Route::prefix('admin')->group(function () {
+//_______________________________________ ADMIN _____________________________________________________
+Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function () {
     // CHỨC NĂNG BÁO CÁO & THỐNG KÊ
     Route::get('/reports/overview', [ReportController::class, 'getOverviewStatistics']);
     Route::get('/reports/charts', [ReportController::class, 'getChartStatistics']);
 
-    //============================================Quản lý user==================================
     // Quản lý khách hàng
     Route::get('/customers/statistics', [CustomerManagerController::class, 'statistics']);
     Route::get('/customers/count', [CustomerManagerController::class, 'count']);
-    //lấy danh sách user
     Route::get('/customers', [CustomerManagerController::class, 'index']);
-    //Chức năng search
     Route::get('/customers/search', [CustomerManagerController::class, 'search']);
-    //Thêm user
     Route::post('/customers', [CustomerManagerController::class, 'store']);
-    //Xem chi tiết
     Route::get('/customers/{id}', [CustomerManagerController::class, 'show']);
-    // Edit
     Route::put('/customers/{id}', [CustomerManagerController::class, 'update']);
-    // Khóa tk
     Route::patch('/customers/{id}/lock', [CustomerManagerController::class, 'lock']);
-    //Khôi phục tài khoản 
     Route::patch('/customers/{id}/unlock', [CustomerManagerController::class, 'unlock']);
     //==========================================================================================
 
@@ -120,12 +108,6 @@ Route::prefix('admin')->group(function () {
     Route::put('/guides/{id}', [GuideController::class, 'update']);
     //Xóa HDV
     Route::delete('/guides/{id}', [GuideController::class, 'destroy']);
-
-    //=============================================Quản lý nhân viên hỗ trợ================================
-    Route::get('/support-staff', [SupportStaffController::class, 'index']);       // Xem danh sách + Lọc
-    Route::post('/support-staff', [SupportStaffController::class, 'store']);     // Thêm mới
-    Route::get('/support-staff/{id}', [SupportStaffController::class, 'show']);   // Xem chi tiết
-    Route::put('/support-staff/{id}', [SupportStaffController::class, 'update']); // Cập nhật
 
 
     //====================================Quản lý địa chỉ tour ======================================
@@ -205,35 +187,5 @@ Route::prefix('admin')->group(function () {
         Route::put('/profile/password', [AdminProfileController::class, 'changePassword']);
     });
     //===========================================================================================
-
-
-    //================================Chức năng gửi thông báo ====================================
-    //Tìm kiếm và lọc user
-    Route::get('/notifications/users', [NotificationController::class, 'getUsers']);
-    //Hiển thị danh sánh user đã chọn
-    Route::post('/notifications/preview-recipients', [NotificationController::class, 'previewRecipients']);
-    //Tạo bản nháp thông báo
-    Route::post('/notifications/draft', [NotificationController::class, 'saveDraft']);
-    //Hiển thị danh sách bản nháp 
-    Route::get('/notifications/drafts', [NotificationController::class, 'listDrafts']);
-    //xem chi tiết bản nháp
-    Route::get('/notifications/draft/{id}', [NotificationController::class, 'showDraft']);
-    // Route cập nhật bản nháp (sử dụng ID trong URL)
-    Route::put('/notifications/draft/{id}', [NotificationController::class, 'updateDraft']);
-    //Xóa mềm bản nháp 
-    Route::delete('/notifications/draft/{id}', [NotificationController::class, 'destroy']);
-    //Danh sách bản nháp xóa mềm 
-    Route::get('/notifications/drafts/trashed', [NotificationController::class, 'listTrashedDrafts']);
-    //Khôi phục xóa mềm
-    Route::post('/notifications/draft/restore/{id}', [NotificationController::class, 'restoreDraft']);
-    //Xóa vĩnh viễn bản nháp
-    Route::delete('/notifications/draft/force-delete/{id}', [NotificationController::class, 'forceDeleteDraft']);
-    //Gửi thông báo 
-    Route::post('/notifications/send/{id}', [NotificationController::class, 'sendNotification']);
-    //Hiển thị thông báo đã gửi 
-    Route::get('/notifications/get-all-send', [NotificationController::class, 'getAllSentNotifications']);
-    //Thu hồi lại thông báo đã gửi
-    Route::delete('/notifications/revoke/{draft_id}', [NotificationController::class, 'revoke']);
-
 
 });

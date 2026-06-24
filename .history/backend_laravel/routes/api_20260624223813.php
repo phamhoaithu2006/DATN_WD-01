@@ -6,11 +6,8 @@ use App\Http\Controllers\Api\Admin\CustomerManagerController;
 use App\Http\Controllers\Api\Admin\DatabaseBackupController;
 use App\Http\Controllers\Api\Admin\DestinationController;
 use App\Http\Controllers\Api\Admin\GuideController;
-use App\Http\Controllers\Api\Admin\NotificationController;
 use App\Http\Controllers\Api\Admin\PaymentController;
-use App\Http\Controllers\Api\Admin\ReportController;
 use App\Http\Controllers\Api\Admin\SettingController;
-use App\Http\Controllers\Api\Admin\SupportStaffController;
 use App\Http\Controllers\Api\Admin\TourManagerController;
 use App\Http\Controllers\Api\Admin\WidgetController;
 use App\Http\Controllers\Api\AuthController;
@@ -20,6 +17,8 @@ use App\Http\Controllers\Api\Customer\TourController;
 use App\Http\Controllers\Api\Customer\WishlistController;
 use App\Http\Controllers\Api\PublicSettingController;
 use App\Http\Controllers\Api\PublicWidgetController;
+use App\Http\Controllers\Api\Admin\ReportController;
+use App\Http\Controllers\Api\Admin\SupportStaffController;
 use Illuminate\Support\Facades\Route;
 
 // =================================== đăng ký, login, logout =====================================
@@ -208,32 +207,6 @@ Route::prefix('admin')->group(function () {
 
 
     //================================Chức năng gửi thông báo ====================================
-    //Tìm kiếm và lọc user
-    Route::get('/notifications/users', [NotificationController::class, 'getUsers']);
-    //Hiển thị danh sánh user đã chọn
-    Route::post('/notifications/preview-recipients', [NotificationController::class, 'previewRecipients']);
-    //Tạo bản nháp thông báo
-    Route::post('/notifications/draft', [NotificationController::class, 'saveDraft']);
-    //Hiển thị danh sách bản nháp 
-    Route::get('/notifications/drafts', [NotificationController::class, 'listDrafts']);
-    //xem chi tiết bản nháp
-    Route::get('/notifications/draft/{id}', [NotificationController::class, 'showDraft']);
-    // Route cập nhật bản nháp (sử dụng ID trong URL)
-    Route::put('/notifications/draft/{id}', [NotificationController::class, 'updateDraft']);
-    //Xóa mềm bản nháp 
-    Route::delete('/notifications/draft/{id}', [NotificationController::class, 'destroy']);
-    //Danh sách bản nháp xóa mềm 
-    Route::get('/notifications/drafts/trashed', [NotificationController::class, 'listTrashedDrafts']);
-    //Khôi phục xóa mềm
-    Route::post('/notifications/draft/restore/{id}', [NotificationController::class, 'restoreDraft']);
-    //Xóa vĩnh viễn bản nháp
-    Route::delete('/notifications/draft/force-delete/{id}', [NotificationController::class, 'forceDeleteDraft']);
-    //Gửi thông báo 
-    Route::post('/notifications/send/{id}', [NotificationController::class, 'sendNotification']);
-    //Hiển thị thông báo đã gửi 
-    Route::get('/notifications/get-all-send', [NotificationController::class, 'getAllSentNotifications']);
-    //Thu hồi lại thông báo đã gửi
-    Route::delete('/notifications/revoke/{draft_id}', [NotificationController::class, 'revoke']);
-
+    
 
 });
