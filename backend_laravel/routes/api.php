@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\PublicSettingController;
 use App\Http\Controllers\Api\PublicWidgetController;
 use App\Http\Controllers\Api\Admin\ReportController;
 use App\Http\Controllers\Api\Admin\SupportStaffController;
+use App\Http\Controllers\Api\Guide\GuideHomeController;
 use Illuminate\Support\Facades\Route;
 
 // =================================== đăng ký, login, logout =====================================
@@ -45,6 +46,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/profile/bookings', [CustomerDashboardController::class, 'bookings']);
     Route::put('/profile/update', [CustomerController::class, 'updateProfile']);
     Route::put('/profile/change-password', [CustomerController::class, 'changePassword']);
+});
+
+Route::prefix('guide/home')->middleware(['auth:sanctum', 'guide'])->group(function () {
+    Route::get('/assigned-tours', [GuideHomeController::class, 'assignedTours']);
+    Route::get('/today-itinerary', [GuideHomeController::class, 'todayItinerary']);
+    Route::get('/upcoming-itineraries', [GuideHomeController::class, 'upcomingItineraries']);
+    Route::get('/statistics', [GuideHomeController::class, 'statistics']);
+    Route::get('/rating', [GuideHomeController::class, 'rating']);
+    Route::get('/clock', [GuideHomeController::class, 'clock']);
 });
 
 Route::post('/forgot-password', [CustomerController::class, 'forgotPassword']);

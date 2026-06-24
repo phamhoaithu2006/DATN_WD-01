@@ -3,9 +3,9 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use App\Models\GuideExperience;
 
 class Guide extends Model
 {
@@ -34,5 +34,10 @@ class Guide extends Model
     public function experiences()
     {
         return $this->hasMany(GuideExperience::class);
+    }
+
+    public function assignments(): HasMany
+    {
+        return $this->hasMany(GuideAssignment::class);
     }
 }

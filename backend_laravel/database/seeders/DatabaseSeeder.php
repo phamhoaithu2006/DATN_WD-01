@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
             GuideSeeder::class,
             TourSeeder::class,
+            GuideAssignmentSeeder::class,
         ]);
     }
 }

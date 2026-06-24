@@ -51,6 +51,11 @@ public function tour(): BelongsTo
     return $this->belongsTo(Tour::class);
 }
 
+public function tourDeparture(): BelongsTo
+{
+    return $this->belongsTo(TourDeparture::class);
+}
+
 public function payment(): HasOne
 {
     return $this->hasOne(Payment::class);

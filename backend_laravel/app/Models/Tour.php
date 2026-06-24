@@ -2,6 +2,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -47,6 +48,11 @@ class Tour extends Model
      */
     public function destination() {
         return $this->belongsTo(Destination::class);
+    }
+
+    public function departures(): HasMany
+    {
+        return $this->hasMany(TourDeparture::class);
     }
 
     /**
