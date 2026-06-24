@@ -21,15 +21,17 @@ use App\Http\Controllers\Api\PublicSettingController;
 use App\Http\Controllers\Api\PublicWidgetController;
 use Illuminate\Support\Facades\Route;
 
-// register, login, logout
+// Đăng ký và đăng nhập cho người dùng 
 Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login', [AuthController::class, 'login']);
 
+    // Đăng xuất (chỉ có thể thực hiện khi người dùng đã đăng nhập)
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
     });
 
+    // Lấy thông tin người dùng hiện tại (chỉ có thể thực hiện khi người dùng đã đăng nhập)
     Route::middleware(['auth:sanctum', 'admin'])->get('/me', function () {
         return response()->json([
             'user' => request()->user()->load('role'),
@@ -37,25 +39,28 @@ Route::prefix('auth')->group(function () {
     });
 });
 
-// Customer 
+// Khách hàng đã đăng nhập
 Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/user', [AuthController::class, 'me']);
-    Route::get('/profile/summary', [CustomerDashboardController::class, 'summary']);
-    Route::get('/profile/bookings', [CustomerDashboardController::class, 'bookings']);
-    Route::put('/profile/update', [CustomerController::class, 'updateProfile']);
-    Route::put('/profile/change-password', [CustomerController::class, 'changePassword']);
+    Route::get('/user', [AuthController::class, 'me']); 
+    Route::get('/profile/summary', [CustomerDashboardController::class, 'summary']); 
+    Route::get('/profile/bookings', [CustomerDashboardController::class, 'bookings']); 
+    Route::put('/profile/update', [CustomerController::class, 'updateProfile']); 
+    Route::put('/profile/change-password', [CustomerController::class, 'changePassword']); 
 });
 
+// Đặt lại mật khẩu cho khách hàng 
 Route::post('/forgot-password', [CustomerController::class, 'forgotPassword']);
 Route::post('/reset-password', [CustomerController::class, 'resetPassword']);
 Route::post('/travel-assistant', [CustomerDashboardController::class, 'travelAssistant']);
 
+// Quản lý tour cho khách hàng
 Route::prefix('tours')->group(function () {
     Route::get('/search', [TourController::class, 'search_gdkh']);
     Route::get('/filter', [TourController::class, 'filter_gdkh']);
     Route::get('/', [TourController::class, 'index_gdkh']);
     Route::get('/{slug}', [TourController::class, 'show_gdkh']);
 
+    // Quản lý danh sách yêu thích (wishlist) cho khách hàng
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('wishlist', [WishlistController::class, 'index']);
         Route::post('wishlist', [WishlistController::class, 'store']);
