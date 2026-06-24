@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\Customer\WishlistController;
 use App\Http\Controllers\Api\PublicSettingController;
 use App\Http\Controllers\Api\PublicWidgetController;
 use App\Http\Controllers\Api\Admin\ReportController;
+use App\Http\Controllers\Api\Admin\SupportStaffController;
 use Illuminate\Support\Facades\Route;
 
 // =================================== đăng ký, login, logout =====================================
@@ -66,6 +67,9 @@ Route::prefix('tours')->group(function () {
     Route::get('/{slug}', [TourController::class, 'show_gdkh']);
 });
 // ==============================================================================================
+
+   //lấy dánh sách role
+    Route::get('/roles', [CustomerManagerController::class, 'index_role']);
 
 // Public system settings and widgets
 Route::get('/settings/public', [PublicSettingController::class, 'show']);
@@ -119,6 +123,8 @@ Route::prefix('admin')->group(function () {
     Route::get('/guides/statistics', [GuideController::class, 'statistics']);
     //Lấy danh sách HDV
     Route::get('/guides', [GuideController::class, 'index']);
+    Route::get('/guides/search', [GuideController::class, 'search']);
+    Route::get('/guides/filter', [GuideController::class, 'filter']);
     //Xem chi tiết HDV
     Route::get('/guides/{id}', [GuideController::class, 'show']);
     //Thêm HDV
@@ -127,6 +133,12 @@ Route::prefix('admin')->group(function () {
     Route::put('/guides/{id}', [GuideController::class, 'update']);
     //Xóa HDV
     Route::delete('/guides/{id}', [GuideController::class, 'destroy']);
+
+    //=============================================Quản lý nhân viên hỗ trợ================================
+    Route::get('/support-staff', [SupportStaffController::class, 'index']);       // Xem danh sách + Lọc
+    Route::post('/support-staff', [SupportStaffController::class, 'store']);     // Thêm mới
+    Route::get('/support-staff/{id}', [SupportStaffController::class, 'show']);   // Xem chi tiết
+    Route::put('/support-staff/{id}', [SupportStaffController::class, 'update']); // Cập nhật
 
 
     //====================================Quản lý địa chỉ tour ======================================

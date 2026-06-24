@@ -5,28 +5,73 @@ import UserFormModal from "../../components/admin/users/UserFormModal";
 import UserStats from "../../components/admin/users/UserStats";
 import UserTable from "../../components/admin/users/UserTable";
 import {
-  createCustomer,
-  getCustomer,
-  getCustomers,
-  getCustomerStatistics,
-  setCustomerLocked,
-  updateCustomer,
-} from "../../services/adminCustomerApi";
+  createAccount,
+  getAccount,
+  getAccounts,
+  getAccountRoles,
+  getAccountStatistics,
+  setAccountStatus,
+  updateAccount,
+} from "../../services/adminAccountApi";
 import "../../styles/user-management.css";
 
-function messageFrom(error) {
-  const errors = error.response?.data?.errors;
-  return errors
-    ? Object.values(errors).flat()[0]
-    : error.response?.data?.message ||
-        "Không thể xử lý yêu cầu. Vui lòng thử lại.";
-}
+const messageFrom = (error) =>
+  Object.values(error.response?.data?.errors || {}).flat()[0] ||
+  error.response?.data?.message ||
+  "Không thể xử lý yêu cầu.";
+
+const cleanPayload = (form, isEditing) => {
+  const payload = {
+    ...form,
+    role_id: form.role_id ? Number(form.role_id) : "",
+  };
+
+  if (isEditing && !payload.password) {
+    delete payload.password;
+  }
+
+  return payload;
+};
+
+const rolesFromAccounts = (accounts) => {
+  const roles = new Map();
+
+  accounts.forEach((account) => {
+    if (account.role?.id) {
+      roles.set(account.role.id, account.role);
+      return;
+    }
+
+    if (account.role_id) {
+      roles.set(account.role_id, {
+        id: account.role_id,
+        name: `role-${account.role_id}`,
+        description: `Vai trò ${account.role_id}`,
+      });
+    }
+  });
+
+  return Array.from(roles.values()).sort((a, b) => a.id - b.id);
+};
+
+const roleForAccount = (account, roles) =>
+  account.role ||
+  roles.find((role) => Number(role.id) === Number(account.role_id)) ||
+  null;
+
+const withResolvedRoles = (accounts, roles) =>
+  accounts.map((account) => ({
+    ...account,
+    role: roleForAccount(account, roles),
+  }));
 
 function UserManagementPage() {
   const [customers, setCustomers] = useState([]);
   const [statistics, setStatistics] = useState({});
+  const [roles, setRoles] = useState([]);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
+  const [roleId, setRoleId] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(undefined);
@@ -36,21 +81,32 @@ function UserManagementPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [list, stats] = await Promise.all([
-        getCustomers({
+      const [list, statisticsData, roleList] = await Promise.all([
+        getAccounts({
           search: search.trim() || undefined,
           status: status || undefined,
+          role_id: roleId || undefined,
         }),
-        getCustomerStatistics(),
+        getAccountStatistics(),
+        getAccountRoles().catch(() => []),
       ]);
-      setCustomers(list);
-      setStatistics(stats);
+
+      const resolvedRoles =
+        roleList?.length
+          ? roleList
+          : statisticsData?.roles?.length
+            ? statisticsData.roles
+            : rolesFromAccounts(list);
+
+      setCustomers(withResolvedRoles(list, resolvedRoles));
+      setStatistics(statisticsData || {});
+      setRoles(resolvedRoles);
     } catch (error) {
       setNotice({ type: "error", text: messageFrom(error) });
     } finally {
       setLoading(false);
     }
-  }, [search, status]);
+  }, [roleId, search, status]);
 
   useEffect(() => {
     const timer = setTimeout(load, 300);
@@ -61,8 +117,9 @@ function UserManagementPage() {
     setSaving(true);
     try {
       const response = editing
-        ? await updateCustomer(editing.id, form)
-        : await createCustomer(form);
+        ? await updateAccount(editing.id, cleanPayload(form, true))
+        : await createAccount(cleanPayload(form, false));
+
       setNotice({ type: "success", text: response.message });
       setEditing(undefined);
       await load();
@@ -73,24 +130,28 @@ function UserManagementPage() {
     }
   }
 
-  async function view(customer) {
+  async function view(account) {
     try {
-      setDetail(await getCustomer(customer.id));
+      const accountDetail = await getAccount(account.id);
+      setDetail({
+        ...accountDetail,
+        role: roleForAccount(accountDetail, roles),
+      });
     } catch (error) {
       setNotice({ type: "error", text: messageFrom(error) });
     }
   }
 
-  async function toggleLock(customer) {
-    const locking = customer.status === "active";
-    if (
-      !window.confirm(
-        `${locking ? "Khóa" : "Mở khóa"} tài khoản của ${customer.full_name}?`,
-      )
-    )
+  async function toggleLock(account) {
+    const nextStatus = account.status === "active" ? "inactive" : "active";
+    const actionLabel = nextStatus === "inactive" ? "Khóa" : "Mở khóa";
+
+    if (!window.confirm(`${actionLabel} tài khoản của ${account.full_name}?`)) {
       return;
+    }
+
     try {
-      const response = await setCustomerLocked(customer.id, locking);
+      const response = await setAccountStatus(account.id, nextStatus);
       setNotice({ type: "success", text: response.message });
       await load();
     } catch (error) {
@@ -102,25 +163,30 @@ function UserManagementPage() {
     <section className="user-management-page">
       <header className="user-page-heading">
         <div>
-          <h1>Quản Lý Người Dùng</h1>
-          <p>Quản lý tài khoản khách hàng trên hệ thống ViVuGo</p>
+          <h1>Quản lý người dùng</h1>
+          <p>Quản lý tài khoản, vai trò và trạng thái hoạt động</p>
         </div>
         <button onClick={() => setEditing(null)}>
           <span>＋</span> Thêm Người Dùng
         </button>
       </header>
+
       {notice ? (
         <div className={`user-notice ${notice.type}`}>
           {notice.text}
           <button onClick={() => setNotice(null)}>×</button>
         </div>
       ) : null}
+
       <UserStats statistics={statistics} />
       <UserFilters
         search={search}
         status={status}
+        roleId={roleId}
+        roles={roles}
         onSearchChange={setSearch}
         onStatusChange={setStatus}
+        onRoleChange={setRoleId}
       />
       <UserTable
         customers={customers}
@@ -129,14 +195,17 @@ function UserManagementPage() {
         onEdit={setEditing}
         onToggleLock={toggleLock}
       />
+
       {editing !== undefined ? (
         <UserFormModal
           customer={editing}
+          roles={roles}
           saving={saving}
           onClose={() => setEditing(undefined)}
           onSave={save}
         />
       ) : null}
+
       {detail ? (
         <UserDetailModal customer={detail} onClose={() => setDetail(null)} />
       ) : null}

@@ -13,15 +13,67 @@ class GuideController extends Controller
     // DANH SÁCH HDV
     public function index(Request $request)
     {
+        $guides = Guide::with(['user', 'languages', 'experiences'])
+            ->whereHas('user')
+            ->paginate(10);
+
+        return response()->json([
+            'message' => 'Danh sách hướng dẫn viên',
+            'data'    => $guides,
+        ]);
+    }
+
+    // TÌM KIẾM HDV
+    public function search(Request $request)
+    {
         $query = Guide::with(['user', 'languages', 'experiences'])
             ->whereHas('user');
 
-        // Tìm kiếm
         if ($request->search) {
-            $query->whereHas('user', function ($q) use ($request) {
-                $q->where('full_name', 'like', '%' . $request->search . '%')
-                    ->orWhere('email', 'like', '%' . $request->search . '%')
-                    ->orWhere('phone', 'like', '%' . $request->search . '%');
+            $search = $request->search;
+
+            $query->where(function ($guideQuery) use ($search) {
+                $guideQuery->where('guide_code', 'like', '%' . $search . '%')
+                    ->orWhere('certificate_type', 'like', '%' . $search . '%')
+                    ->orWhereHas('user', function ($q) use ($search) {
+                        $q->where('full_name', 'like', '%' . $search . '%')
+                            ->orWhere('email', 'like', '%' . $search . '%')
+                            ->orWhere('phone', 'like', '%' . $search . '%');
+                    })
+                    ->orWhereHas('languages', function ($q) use ($search) {
+                        $q->where('language', 'like', '%' . $search . '%');
+                    });
+            });
+        }
+
+        $guides = $query->paginate(10);
+
+        return response()->json([
+            'message' => 'Kết quả tìm kiếm hướng dẫn viên',
+            'data'    => $guides,
+        ]);
+    }
+
+    // LỌC HDV
+    public function filter(Request $request)
+    {
+        $query = Guide::with(['user', 'languages', 'experiences'])
+            ->whereHas('user');
+
+        if ($request->search) {
+            $search = $request->search;
+
+            $query->where(function ($guideQuery) use ($search) {
+                $guideQuery->where('guide_code', 'like', '%' . $search . '%')
+                    ->orWhere('certificate_type', 'like', '%' . $search . '%')
+                    ->orWhereHas('user', function ($q) use ($search) {
+                        $q->where('full_name', 'like', '%' . $search . '%')
+                            ->orWhere('email', 'like', '%' . $search . '%')
+                            ->orWhere('phone', 'like', '%' . $search . '%');
+                    })
+                    ->orWhereHas('languages', function ($q) use ($search) {
+                        $q->where('language', 'like', '%' . $search . '%');
+                    });
             });
         }
 
@@ -45,7 +97,7 @@ class GuideController extends Controller
         $guides = $query->paginate(10);
 
         return response()->json([
-            'message' => 'Danh sách hướng dẫn viên',
+            'message' => 'Kết quả lọc hướng dẫn viên',
             'data'    => $guides,
         ]);
     }

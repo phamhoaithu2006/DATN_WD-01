@@ -5,12 +5,18 @@ const mauFormApiTrong = {
   user_id: '',
   certificate_type: '',
   experience_years: '',
-  average_rating: '',
-  review_count: '',
   status: 'active',
+  languages_text: '',
+  experiences_text: '',
 }
 
-const danhSachTrangThaiApi = ['Đang hoạt động', 'Ngừng hoạt động', 'Tạm khóa']
+const danhSachTrangThaiApi = ['active', 'inactive', 'locked']
+
+const nhanTrangThai = {
+  active: 'Đang hoạt động',
+  inactive: 'Ngừng hoạt động',
+  locked: 'Tạm khóa',
+}
 
 function layDanhSachGuideTuPhanHoi(phanHoi) {
   const duLieu = phanHoi?.data
@@ -40,13 +46,96 @@ function layThongBaoLoi(error, fallback) {
   return error.response?.data?.message || fallback
 }
 
+function layMetaTuPhanHoi(phanHoi) {
+  const duLieu = phanHoi?.data?.data
+
+  if (!duLieu || Array.isArray(duLieu)) {
+    return { currentPage: 1, lastPage: 1, total: 0 }
+  }
+
+  return {
+    currentPage: duLieu.current_page || 1,
+    lastPage: duLieu.last_page || 1,
+    total: duLieu.total || 0,
+  }
+}
+
+function layTenNguoiDung(hdv) {
+  return hdv.user?.full_name || hdv.user?.name || 'Chưa có tên'
+}
+
+function layChuCaiAvatar(hdv) {
+  return layTenNguoiDung(hdv)
+    .split(' ')
+    .filter(Boolean)
+    .slice(-2)
+    .map((phan) => phan[0])
+    .join('')
+    .toUpperCase()
+}
+
+function layNgoaiNgu(hdv) {
+  return Array.isArray(hdv.languages) ? hdv.languages : []
+}
+
+function laySoTourPhuTrach(hdv) {
+  return hdv.assigned_tours_count || hdv.tours_count || hdv.current_tours_count || 0
+}
+
+function chuyenNgoaiNguThanhText(languages = []) {
+  return languages
+    .map((item) => [item.language, item.level].filter(Boolean).join(' - '))
+    .join('\n')
+}
+
+function chuyenKinhNghiemThanhText(experiences = []) {
+  return experiences
+    .map((item) =>
+      [item.certificate_name, item.issued_by, item.issued_year].filter(Boolean).join(' | '),
+    )
+    .join('\n')
+}
+
+function tachNgoaiNgu(text) {
+  return text
+    .split('\n')
+    .map((dong) => dong.trim())
+    .filter(Boolean)
+    .map((dong) => {
+      const [language, level] = dong.split(/\s*-\s*/).map((phan) => phan.trim())
+
+      return {
+        language,
+        level: level || null,
+      }
+    })
+}
+
+function tachKinhNghiem(text) {
+  return text
+    .split('\n')
+    .map((dong) => dong.trim())
+    .filter(Boolean)
+    .map((dong) => {
+      const [certificateName, issuedBy, issuedYear] = dong
+        .split('|')
+        .map((phan) => phan.trim())
+
+      return {
+        certificate_name: certificateName,
+        issued_by: issuedBy || null,
+        issued_year: issuedYear ? Number(issuedYear) : null,
+      }
+    })
+}
+
 function taoGuidePayload(formHdv, dangSua) {
   const payload = {
     certificate_type: formHdv.certificate_type.trim() || null,
     experience_years: Number(formHdv.experience_years),
-    average_rating: Number(formHdv.average_rating) || 0,
-    review_count: Number(formHdv.review_count) || 0,
     status: formHdv.status,
+    languages: tachNgoaiNgu(formHdv.languages_text),
+    experiences: tachKinhNghiem(formHdv.experiences_text),
   }
 
   if (!dangSua) {
@@ -60,15 +149,13 @@ function validateGuideForm(formHdv, dangSua) {
   const loiMoi = {}
   const userId = Number(formHdv.user_id)
   const experienceYears = Number(formHdv.experience_years)
-  const averageRating = Number(formHdv.average_rating)
-  const reviewCount = Number(formHdv.review_count)
 
   if (!dangSua && (!Number.isInteger(userId) || userId <= 0)) {
     loiMoi.user_id = 'User ID phải là số nguyên lớn hơn 0.'
   }
 
   if (formHdv.certificate_type.trim().length > 100) {
-    loiMoi.certificate_type = 'Loại chứng chỉ tối đa 100 ký tự.'
+    loiMoi.certificate_type = 'Chuyên môn/chứng chỉ tối đa 100 ký tự.'
   }
 
   if (
@@ -79,23 +166,28 @@ function validateGuideForm(formHdv, dangSua) {
     loiMoi.experience_years = 'Số năm kinh nghiệm phải là số nguyên từ 0.'
   }
 
-  if (
-    formHdv.average_rating !== '' &&
-    (Number.isNaN(averageRating) || averageRating < 0 || averageRating > 5)
-  ) {
-    loiMoi.average_rating = 'Đánh giá trung bình phải từ 0 đến 5.'
-  }
-
-  if (
-    formHdv.review_count === '' ||
-    !Number.isInteger(reviewCount) ||
-    reviewCount < 0
-  ) {
-    loiMoi.review_count = 'Số lượt đánh giá phải là số nguyên từ 0.'
-  }
-
   if (!danhSachTrangThaiApi.includes(formHdv.status)) {
     loiMoi.status = 'Trạng thái không hợp lệ.'
+  }
+
+  const ngoaiNguKhongHopLe = tachNgoaiNgu(formHdv.languages_text).find(
+    (item) => !item.language || item.language.length > 100,
+  )
+
+  if (ngoaiNguKhongHopLe) {
+    loiMoi.languages_text = 'Mỗi ngoại ngữ cần có tên và tối đa 100 ký tự.'
+  }
+
+  const kinhNghiemKhongHopLe = tachKinhNghiem(formHdv.experiences_text).find(
+    (item) =>
+      !item.certificate_name ||
+      item.certificate_name.length > 150 ||
+      (item.issued_year !== null && !Number.isInteger(item.issued_year)),
+  )
+
+  if (kinhNghiemKhongHopLe) {
+    loiMoi.experiences_text =
+      'Mỗi dòng kinh nghiệm cần tên chứng chỉ, năm cấp nếu có phải là số nguyên.'
   }
 
   return loiMoi
@@ -103,10 +195,16 @@ function validateGuideForm(formHdv, dangSua) {
 
 function GuideManagementApiPage() {
   const [danhSachHdv, setDanhSachHdv] = useState([])
+  const [thongKeHdv, setThongKeHdv] = useState({ total: 0, active: 0, inactive: 0, locked: 0 })
   const [tuKhoa, setTuKhoa] = useState('')
-  const [locTrangThai, setLocTrangThai] = useState('Tất cả')
+  const [locTrangThai, setLocTrangThai] = useState('all')
+  const [locNgoaiNgu, setLocNgoaiNgu] = useState('')
+  const [locKinhNghiem, setLocKinhNghiem] = useState('')
+  const [phanTrang, setPhanTrang] = useState({ currentPage: 1, lastPage: 1, total: 0 })
   const [formHdv, setFormHdv] = useState(mauFormApiTrong)
   const [idDangSua, setIdDangSua] = useState(null)
+  const [hdvChiTiet, setHdvChiTiet] = useState(null)
+  const [dangTaiChiTiet, setDangTaiChiTiet] = useState(false)
   const [hienForm, setHienForm] = useState(false)
   const [dangTai, setDangTai] = useState(false)
   const [dangLuu, setDangLuu] = useState(false)
@@ -114,13 +212,56 @@ function GuideManagementApiPage() {
   const [loiForm, setLoiForm] = useState({})
   const [thongBao, setThongBao] = useState('')
 
-  async function taiDanhSachHdv() {
+  const coLoc = locTrangThai !== 'all' || locNgoaiNgu.trim() || locKinhNghiem
+
+  async function taiThongKeHdv() {
+    try {
+      const phanHoi = await apiClient.get('/admin/guides/statistics')
+      const thongKeMoi = { total: phanHoi.data?.total || 0, active: 0, inactive: 0, locked: 0 }
+
+      if (Array.isArray(phanHoi.data?.data)) {
+        phanHoi.data.data.forEach((item) => {
+          thongKeMoi[item.status] = item.total
+        })
+      }
+
+      setThongKeHdv(thongKeMoi)
+    } catch {
+      setThongKeHdv((hienTai) => ({ ...hienTai, total: danhSachHdv.length }))
+    }
+  }
+
+  async function taiDanhSachHdv(page = 1) {
     setDangTai(true)
     setLoi('')
 
     try {
-      const phanHoi = await apiClient.get('/admin/guides')
+      const params = { page }
+      let endpoint = '/admin/guides'
+
+      if (tuKhoa.trim() || coLoc) {
+        endpoint = coLoc ? '/admin/guides/filter' : '/admin/guides/search'
+      }
+
+      if (tuKhoa.trim()) {
+        params.search = tuKhoa.trim()
+      }
+
+      if (locTrangThai !== 'all') {
+        params.status = locTrangThai
+      }
+
+      if (locNgoaiNgu.trim()) {
+        params.language = locNgoaiNgu.trim()
+      }
+
+      if (locKinhNghiem) {
+        params.experience_years = locKinhNghiem
+      }
+
+      const phanHoi = await apiClient.get(endpoint, { params })
       setDanhSachHdv(layDanhSachGuideTuPhanHoi(phanHoi))
+      setPhanTrang(layMetaTuPhanHoi(phanHoi))
     } catch (error) {
       setLoi(layThongBaoLoi(error, 'Không tải được danh sách hướng dẫn viên.'))
     } finally {
@@ -129,44 +270,24 @@ function GuideManagementApiPage() {
   }
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      taiDanhSachHdv()
-    }, 0)
-
-    return () => window.clearTimeout(timer)
+    taiThongKeHdv()
   }, [])
 
-  const danhSachDaLoc = useMemo(() => {
-    const tuKhoaChuanHoa = tuKhoa.trim().toLowerCase()
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      taiDanhSachHdv(1)
+    }, 350)
 
-    return danhSachHdv.filter((hdv) => {
-      const userName = hdv.user?.name || hdv.user?.full_name || ''
-      const userEmail = hdv.user?.email || ''
-      const khopTuKhoa =
-        !tuKhoaChuanHoa ||
-        String(hdv.id).includes(tuKhoaChuanHoa) ||
-        String(hdv.user_id).includes(tuKhoaChuanHoa) ||
-        (hdv.guide_code || '').toLowerCase().includes(tuKhoaChuanHoa) ||
-        (hdv.certificate_type || '').toLowerCase().includes(tuKhoaChuanHoa) ||
-        userName.toLowerCase().includes(tuKhoaChuanHoa) ||
-        userEmail.toLowerCase().includes(tuKhoaChuanHoa)
-
-      const khopTrangThai =
-        locTrangThai === 'Tất cả' || hdv.status === locTrangThai
-
-      return khopTuKhoa && khopTrangThai
-    })
-  }, [danhSachHdv, locTrangThai, tuKhoa])
+    return () => window.clearTimeout(timer)
+  }, [tuKhoa, locTrangThai, locNgoaiNgu, locKinhNghiem])
 
   const thongKeTheoTrangThai = useMemo(
-    () =>
-      danhSachTrangThaiApi.reduce((ketQua, trangThai) => {
-        ketQua[trangThai] = danhSachHdv.filter(
-          (hdv) => hdv.status === trangThai,
-        ).length
-        return ketQua
-      }, {}),
-    [danhSachHdv],
+    () => ({
+      active: thongKeHdv.active || 0,
+      inactive: thongKeHdv.inactive || 0,
+      locked: thongKeHdv.locked || 0,
+    }),
+    [thongKeHdv],
   )
 
   function capNhatForm(truong, giaTri) {
@@ -194,9 +315,9 @@ function GuideManagementApiPage() {
       user_id: String(hdv.user_id || ''),
       certificate_type: hdv.certificate_type || '',
       experience_years: String(hdv.experience_years ?? ''),
-      average_rating: String(hdv.average_rating ?? 0),
-      review_count: String(hdv.review_count ?? 0),
       status: hdv.status || 'active',
+      languages_text: chuyenNgoaiNguThanhText(hdv.languages),
+      experiences_text: chuyenKinhNghiemThanhText(hdv.experiences),
     })
     setIdDangSua(hdv.id)
     setLoi('')
@@ -210,6 +331,21 @@ function GuideManagementApiPage() {
     setIdDangSua(null)
     setLoiForm({})
     setHienForm(false)
+  }
+
+  async function moChiTiet(hdv) {
+    setDangTaiChiTiet(true)
+    setLoi('')
+    setHdvChiTiet(hdv)
+
+    try {
+      const phanHoi = await apiClient.get(`/admin/guides/${hdv.id}`)
+      setHdvChiTiet(phanHoi.data?.data || hdv)
+    } catch (error) {
+      setLoi(layThongBaoLoi(error, 'Không tải được chi tiết hướng dẫn viên.'))
+    } finally {
+      setDangTaiChiTiet(false)
+    }
   }
 
   async function luuHuongDanVien(event) {
@@ -232,7 +368,8 @@ function GuideManagementApiPage() {
         ? await apiClient.put(`/admin/guides/${idDangSua}`, payload)
         : await apiClient.post('/admin/guides', payload)
 
-      await taiDanhSachHdv()
+      await taiDanhSachHdv(phanTrang.currentPage)
+      await taiThongKeHdv()
       dongForm()
       setThongBao(
         phanHoi.data?.message ||
@@ -257,7 +394,8 @@ function GuideManagementApiPage() {
 
     try {
       const phanHoi = await apiClient.delete(`/admin/guides/${id}`)
-      await taiDanhSachHdv()
+      await taiDanhSachHdv(phanTrang.currentPage)
+      await taiThongKeHdv()
       setThongBao(
         phanHoi.data?.message || 'Xóa hướng dẫn viên thành công.',
       )
@@ -272,7 +410,7 @@ function GuideManagementApiPage() {
         <div>
           <div className="guide-breadcrumb">ViVuGo / Hướng Dẫn Viên</div>
           <h1>Hướng Dẫn Viên</h1>
-          <p>Quản lý dữ liệu bảng guides và trạng thái hướng dẫn viên.</p>
+          <p>Quản lý và phân công hướng dẫn viên du lịch</p>
         </div>
         <button className="guide-add-button" type="button" onClick={moFormThemMoi}>
           <span aria-hidden="true">+</span>
@@ -287,24 +425,24 @@ function GuideManagementApiPage() {
 
       <div className="guide-stat-grid">
         <article className="guide-stat-card">
-          <strong>{danhSachHdv.length}</strong>
+          <strong>{thongKeHdv.total || phanTrang.total || danhSachHdv.length}</strong>
           <span>Tổng HDV</span>
           <small>Toàn hệ thống</small>
         </article>
         <article className="guide-stat-card green">
           <strong>{thongKeTheoTrangThai.active || 0}</strong>
-          <span>Active</span>
-          <small>Đang hoạt động</small>
+          <span>Đang hoạt động</span>
+          <small>Sẵn sàng nhận tour</small>
         </article>
         <article className="guide-stat-card amber">
           <strong>{thongKeTheoTrangThai.inactive || 0}</strong>
-          <span>Inactive</span>
-          <small>Ngừng hoạt động</small>
+          <span>Ngừng hoạt động</span>
+          <small>Tạm ngưng nhận tour</small>
         </article>
         <article className="guide-stat-card blue">
           <strong>{thongKeTheoTrangThai.locked || 0}</strong>
-          <span>Locked</span>
-          <small>Tạm khóa</small>
+          <span>Tạm khóa</span>
+          <small>Chưa thể nhận tour</small>
         </article>
       </div>
 
@@ -313,31 +451,45 @@ function GuideManagementApiPage() {
           <div className="guide-filter-bar">
             <input
               value={tuKhoa}
-              placeholder="Tìm theo ID, user ID, mã HDV, chứng chỉ..."
+              placeholder="Tìm hướng dẫn viên theo tên, email, SĐT, mã HDV..."
               onChange={(event) => setTuKhoa(event.target.value)}
             />
             <select
               value={locTrangThai}
               onChange={(event) => setLocTrangThai(event.target.value)}
             >
-              <option>Tất cả</option>
+              <option value="all">Tất cả trạng thái</option>
               {danhSachTrangThaiApi.map((trangThai) => (
-                <option key={trangThai}>{trangThai}</option>
+                <option key={trangThai} value={trangThai}>
+                  {nhanTrangThai[trangThai]}
+                </option>
               ))}
             </select>
+            <input
+              value={locNgoaiNgu}
+              placeholder="Lọc ngoại ngữ..."
+              onChange={(event) => setLocNgoaiNgu(event.target.value)}
+            />
+            <input
+              min="0"
+              type="number"
+              value={locKinhNghiem}
+              placeholder="KN tối thiểu"
+              onChange={(event) => setLocKinhNghiem(event.target.value)}
+            />
           </div>
 
           <div className="guide-table-wrap">
             <table className="guide-table">
               <thead>
                 <tr>
-                  <th>ID</th>
-                  <th>User ID</th>
+                  <th>Avatar</th>
                   <th>Mã HDV</th>
-                  <th>Chứng chỉ</th>
+                  <th>Họ Tên</th>
+                  <th>Chuyên Môn</th>
                   <th>Kinh nghiệm</th>
-                  <th>Đánh giá TB</th>
-                  <th>Lượt đánh giá</th>
+                  <th>Ngoại Ngữ</th>
+                  <th>Tour Phụ Trách</th>
                   <th>Trạng thái</th>
                   <th>Thao tác</th>
                 </tr>
@@ -349,33 +501,68 @@ function GuideManagementApiPage() {
                   </tr>
                 ) : null}
 
-                {!dangTai && danhSachDaLoc.length === 0 ? (
+                {!dangTai && danhSachHdv.length === 0 ? (
                   <tr>
                     <td colSpan="9">Chưa có hướng dẫn viên.</td>
                   </tr>
                 ) : null}
 
                 {!dangTai
-                  ? danhSachDaLoc.map((hdv) => (
+                  ? danhSachHdv.map((hdv) => (
                       <tr key={hdv.id}>
-                        <td>{hdv.id}</td>
-                        <td>{hdv.user_id}</td>
+                        <td>
+                          {hdv.user?.avatar_url ? (
+                            <img
+                              alt={layTenNguoiDung(hdv)}
+                              className="guide-avatar image"
+                              src={hdv.user.avatar_url}
+                            />
+                          ) : (
+                            <span className="guide-avatar">{layChuCaiAvatar(hdv)}</span>
+                          )}
+                        </td>
                         <td>
                           <strong className="guide-code">
                             {hdv.guide_code || '-'}
                           </strong>
                         </td>
+                        <td>
+                          <strong>{layTenNguoiDung(hdv)}</strong>
+                          <span>{hdv.certificate_type || 'Chưa cập nhật chuyên môn'}</span>
+                        </td>
                         <td>{hdv.certificate_type || '-'}</td>
                         <td>{hdv.experience_years ?? 0} năm</td>
-                        <td>{Number(hdv.average_rating || 0).toFixed(2)}</td>
-                        <td>{hdv.review_count ?? 0}</td>
+                        <td>
+                          <div className="guide-language-list">
+                            {layNgoaiNgu(hdv).length > 0 ? (
+                              layNgoaiNgu(hdv).slice(0, 3).map((ngoaiNgu) => (
+                                <span key={ngoaiNgu.id || ngoaiNgu.language}>
+                                  {[ngoaiNgu.language, ngoaiNgu.level].filter(Boolean).join(' ')}
+                                </span>
+                              ))
+                            ) : (
+                              <span>Chưa có</span>
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          <strong className="guide-tour-count">
+                            {laySoTourPhuTrach(hdv)} tour
+                          </strong>
+                        </td>
                         <td>
                           <span className={`guide-status ${hdv.status}`}>
-                            {hdv.status}
+                            {nhanTrangThai[hdv.status] || hdv.status}
                           </span>
                         </td>
                         <td>
                           <div className="guide-actions">
+                            <button
+                              type="button"
+                              onClick={() => moChiTiet(hdv)}
+                            >
+                              Chi tiết
+                            </button>
                             <button
                               type="button"
                               onClick={() => moFormChinhSua(hdv)}
@@ -396,13 +583,34 @@ function GuideManagementApiPage() {
               </tbody>
             </table>
           </div>
+          {phanTrang.lastPage > 1 ? (
+            <div className="guide-pagination">
+              <button
+                disabled={phanTrang.currentPage <= 1 || dangTai}
+                type="button"
+                onClick={() => taiDanhSachHdv(phanTrang.currentPage - 1)}
+              >
+                Trước
+              </button>
+              <span>
+                Trang {phanTrang.currentPage} / {phanTrang.lastPage}
+              </span>
+              <button
+                disabled={phanTrang.currentPage >= phanTrang.lastPage || dangTai}
+                type="button"
+                onClick={() => taiDanhSachHdv(phanTrang.currentPage + 1)}
+              >
+                Sau
+              </button>
+            </div>
+          ) : null}
         </div>
 
         <aside className="guide-side-panel">
           <h2>Tổng Theo Trạng Thái</h2>
           {danhSachTrangThaiApi.map((trangThai) => (
             <div className="guide-status-row" key={trangThai}>
-              <span>{trangThai}</span>
+              <span>{nhanTrangThai[trangThai]}</span>
               <strong>{thongKeTheoTrangThai[trangThai] || 0} HDV</strong>
             </div>
           ))}
@@ -415,7 +623,7 @@ function GuideManagementApiPage() {
             <div className="guide-modal-header">
               <div>
                 <h2>{idDangSua ? 'Sửa hướng dẫn viên' : 'Thêm hướng dẫn viên'}</h2>
-                <p>Guide code sẽ được backend tự tạo khi thêm mới.</p>
+                <p>Thông tin họ tên, email, SĐT lấy từ tài khoản user đã liên kết.</p>
               </div>
               <button type="button" onClick={dongForm}>
                 Đóng
@@ -438,7 +646,7 @@ function GuideManagementApiPage() {
                 ) : null}
               </label>
               <label>
-                Loại chứng chỉ
+                Chuyên môn
                 <input
                   maxLength="100"
                   value={formHdv.certificate_type}
@@ -470,52 +678,41 @@ function GuideManagementApiPage() {
                 ) : null}
               </label>
               <label>
-                Đánh giá trung bình
-                <input
-                  max="5"
-                  min="0"
-                  step="0.01"
-                  type="number"
-                  value={formHdv.average_rating}
-                  onChange={(event) =>
-                    capNhatForm('average_rating', event.target.value)
-                  }
-                />
-                {loiForm.average_rating ? (
-                  <span className="guide-field-error">
-                    {loiForm.average_rating}
-                  </span>
-                ) : null}
-              </label>
-              <label>
-                Lượt đánh giá
-                <input
-                  min="0"
-                  required
-                  type="number"
-                  value={formHdv.review_count}
-                  onChange={(event) =>
-                    capNhatForm('review_count', event.target.value)
-                  }
-                />
-                {loiForm.review_count ? (
-                  <span className="guide-field-error">
-                    {loiForm.review_count}
-                  </span>
-                ) : null}
-              </label>
-              <label>
                 Trạng thái
                 <select
                   value={formHdv.status}
                   onChange={(event) => capNhatForm('status', event.target.value)}
                 >
                   {danhSachTrangThaiApi.map((trangThai) => (
-                    <option key={trangThai}>{trangThai}</option>
+                    <option key={trangThai} value={trangThai}>
+                      {nhanTrangThai[trangThai]}
+                    </option>
                   ))}
                 </select>
                 {loiForm.status ? (
                   <span className="guide-field-error">{loiForm.status}</span>
+                ) : null}
+              </label>
+              <label className="guide-form-wide">
+                Ngoại ngữ
+                <textarea
+                  placeholder="Tiếng Anh - C1&#10;Tiếng Trung - B2"
+                  value={formHdv.languages_text}
+                  onChange={(event) => capNhatForm('languages_text', event.target.value)}
+                />
+                {loiForm.languages_text ? (
+                  <span className="guide-field-error">{loiForm.languages_text}</span>
+                ) : null}
+              </label>
+              <label className="guide-form-wide">
+                Chứng chỉ / kinh nghiệm
+                <textarea
+                  placeholder="Thẻ HDV Quốc Tế | Tổng Cục Du Lịch Việt Nam | 2020"
+                  value={formHdv.experiences_text}
+                  onChange={(event) => capNhatForm('experiences_text', event.target.value)}
+                />
+                {loiForm.experiences_text ? (
+                  <span className="guide-field-error">{loiForm.experiences_text}</span>
                 ) : null}
               </label>
             </div>
@@ -533,6 +730,100 @@ function GuideManagementApiPage() {
               </button>
             </div>
           </form>
+        </div>
+      ) : null}
+
+      {hdvChiTiet ? (
+        <div className="guide-modal-backdrop">
+          <div className="guide-modal guide-detail-modal">
+            <div className="guide-modal-header">
+              <div>
+                <h2>Chi tiết hướng dẫn viên</h2>
+                <p>{dangTaiChiTiet ? 'Đang tải dữ liệu mới nhất...' : hdvChiTiet.guide_code}</p>
+              </div>
+              <button type="button" onClick={() => setHdvChiTiet(null)}>
+                Đóng
+              </button>
+            </div>
+
+            <div className="guide-detail-head">
+              {hdvChiTiet.user?.avatar_url ? (
+                <img
+                  alt={layTenNguoiDung(hdvChiTiet)}
+                  className="guide-avatar image large"
+                  src={hdvChiTiet.user.avatar_url}
+                />
+              ) : (
+                <span className="guide-avatar large">{layChuCaiAvatar(hdvChiTiet)}</span>
+              )}
+              <div>
+                <h3>{layTenNguoiDung(hdvChiTiet)}</h3>
+                <p>{hdvChiTiet.certificate_type || 'Chưa cập nhật chuyên môn'}</p>
+              </div>
+            </div>
+
+            <div className="guide-detail-grid">
+              <div>
+                <span>Email</span>
+                <strong>{hdvChiTiet.user?.email || '-'}</strong>
+              </div>
+              <div>
+                <span>SĐT</span>
+                <strong>{hdvChiTiet.user?.phone || '-'}</strong>
+              </div>
+              <div>
+                <span>Kinh nghiệm</span>
+                <strong>{hdvChiTiet.experience_years ?? 0} năm</strong>
+              </div>
+              <div>
+                <span>Đánh giá</span>
+                <strong>{Number(hdvChiTiet.average_rating || 0).toFixed(2)}</strong>
+              </div>
+              <div>
+                <span>Lượt đánh giá</span>
+                <strong>{hdvChiTiet.review_count ?? 0}</strong>
+              </div>
+              <div>
+                <span>Tour phụ trách</span>
+                <strong>{laySoTourPhuTrach(hdvChiTiet)} tour</strong>
+              </div>
+            </div>
+
+            <div className="guide-detail-section">
+              <h3>Ngoại ngữ</h3>
+              <div className="guide-language-list">
+                {layNgoaiNgu(hdvChiTiet).length > 0 ? (
+                  layNgoaiNgu(hdvChiTiet).map((ngoaiNgu) => (
+                    <span key={ngoaiNgu.id || ngoaiNgu.language}>
+                      {[ngoaiNgu.language, ngoaiNgu.level].filter(Boolean).join(' ')}
+                    </span>
+                  ))
+                ) : (
+                  <span>Chưa có</span>
+                )}
+              </div>
+            </div>
+
+            <div className="guide-detail-section">
+              <h3>Chứng chỉ / kinh nghiệm</h3>
+              {Array.isArray(hdvChiTiet.experiences) && hdvChiTiet.experiences.length > 0 ? (
+                <div className="guide-certificate-list">
+                  {hdvChiTiet.experiences.map((kinhNghiem) => (
+                    <div key={kinhNghiem.id || kinhNghiem.certificate_name}>
+                      <strong>{kinhNghiem.certificate_name}</strong>
+                      <span>
+                        {[kinhNghiem.issued_by, kinhNghiem.issued_year]
+                          .filter(Boolean)
+                          .join(' - ') || 'Chưa cập nhật nơi cấp'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="guide-empty-text">Chưa có chứng chỉ / kinh nghiệm.</p>
+              )}
+            </div>
+          </div>
         </div>
       ) : null}
     </section>
