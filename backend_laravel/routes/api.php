@@ -74,7 +74,30 @@ Route::get('/widgets', [PublicWidgetController::class, 'index']);
 
 
 //_______________________________________ ADMIN _____________________________________________________
-Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function () {
+Route::prefix('admin')->group(function () {
+    //middleware('auth:sanctum') là lớp bảo vệ (authentication middleware) của Laravel Sanctum.
+
+    //============================================Quản lý user==================================
+    //Tính tổng số lượng tài khoảng 
+    Route::get('/customers/count', [CustomerController::class, 'count']);
+    //lấy danh sách user
+    Route::get('/customers', [CustomerController::class, 'index']);
+    //Chức năng search
+    Route::get('/customers/search', [CustomerController::class, 'search']);
+    //Thêm user
+    Route::post('/customers', [CustomerController::class, 'store']);
+    //Xem chi tiết
+    Route::get('/customers/{id}', [CustomerController::class, 'show']);
+    // Edit
+    Route::put('/customers/{id}', [CustomerController::class, 'update']);
+    // Khóa tk
+    Route::patch('/customers/{id}/lock', [CustomerController::class, 'lock']);
+    //Khôi phục tài khoản 
+});
+
+
+//========================================= ADMIN ===============================================
+Route::prefix('admin')->group(function () {
     // CHỨC NĂNG BÁO CÁO & THỐNG KÊ
     Route::get('/reports/overview', [ReportController::class, 'getOverviewStatistics']);
     Route::get('/reports/charts', [ReportController::class, 'getChartStatistics']);
