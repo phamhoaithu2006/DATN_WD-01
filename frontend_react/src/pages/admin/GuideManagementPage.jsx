@@ -155,7 +155,7 @@ function validateGuideForm(formHdv, dangSua) {
   }
 
   if (formHdv.certificate_type.trim().length > 100) {
-    loiMoi.certificate_type = 'Chuyên môn/chứng chỉ tối đa 100 ký tự.'
+    loiMoi.certificate_type = 'Chuyên môn/Chứng chỉ tối đa 100 ký tự.'
   }
 
   if (
@@ -474,7 +474,7 @@ function GuideManagementApiPage() {
               min="0"
               type="number"
               value={locKinhNghiem}
-              placeholder="KN tối thiểu"
+              placeholder="Kinh nghiệm tối thiểu"
               onChange={(event) => setLocKinhNghiem(event.target.value)}
             />
           </div>
@@ -487,11 +487,11 @@ function GuideManagementApiPage() {
                   <th>Mã HDV</th>
                   <th>Họ Tên</th>
                   <th>Chuyên Môn</th>
-                  <th>Kinh nghiệm</th>
+                  <th>Kinh Nghiệm</th>
                   <th>Ngoại Ngữ</th>
                   <th>Tour Phụ Trách</th>
-                  <th>Trạng thái</th>
-                  <th>Thao tác</th>
+                  <th>Trạng Thái</th>
+                  <th>Thao Tác</th>
                 </tr>
               </thead>
               <tbody>
@@ -705,7 +705,7 @@ function GuideManagementApiPage() {
                 ) : null}
               </label>
               <label className="guide-form-wide">
-                Chứng chỉ / kinh nghiệm
+                Chứng chỉ/Kinh nghiệm
                 <textarea
                   placeholder="Thẻ HDV Quốc Tế | Tổng Cục Du Lịch Việt Nam | 2020"
                   value={formHdv.experiences_text}
@@ -805,7 +805,7 @@ function GuideManagementApiPage() {
             </div>
 
             <div className="guide-detail-section">
-              <h3>Chứng chỉ / kinh nghiệm</h3>
+              <h3>Chứng chỉ/Kinh nghiệm</h3>
               {Array.isArray(hdvChiTiet.experiences) && hdvChiTiet.experiences.length > 0 ? (
                 <div className="guide-certificate-list">
                   {hdvChiTiet.experiences.map((kinhNghiem) => (
@@ -820,7 +820,7 @@ function GuideManagementApiPage() {
                   ))}
                 </div>
               ) : (
-                <p className="guide-empty-text">Chưa có chứng chỉ / kinh nghiệm.</p>
+                <p className="guide-empty-text">Chưa có chứng chỉ/kinh nghiệm.</p>
               )}
             </div>
           </div>
