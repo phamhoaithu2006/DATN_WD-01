@@ -18,6 +18,14 @@ class SupportStaff extends Model
         'role',
         'status',
         'performance_rating',
-        'hidden_at'
+        'hidden_at',
+    ];
+
+    protected $casts = [
+        'performance_rating' => 'decimal:2',
+        'hidden_at' => 'datetime',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+        'deleted_at' => 'datetime',
     ];
 }

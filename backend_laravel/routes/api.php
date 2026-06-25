@@ -74,7 +74,6 @@ Route::prefix('tours')->group(function () {
     // Chi tiết tour theo slug  
     Route::get('/{slug}', [TourController::class, 'show_gdkh']);
 });
-// ==============================================================================================
 
    //lấy dánh sách role
     Route::get('/roles', [CustomerManagerController::class, 'index_role']);
