@@ -47,7 +47,7 @@ function AppRoutes() {
     <Route path="/customer/settings" element={<CustomerPage />} />
     {/* Đăng ký, đăng nhập */}
     <Route path="/auth" element={<AuthPage />} />
-    {/* Chức năng quản trị */}
+    {/* Quản lý cài đặt */}
     <Route path="/admin/settings" element={protect(<SettingsHomePage />)} />
     <Route path="/admin/settings/system" element={protect(<SystemSettingsPage />)} />
     <Route path="/admin/settings/security" element={protect(<SecuritySettingsPage />)} />
@@ -57,7 +57,7 @@ function AppRoutes() {
     <Route path="/admin/settings/backup" element={protect(<BackupSettingsPage />)} />
     <Route path="/admin" element={adminPage(<AdminDashboardPage />)} />
     <Route path="/admin/users" element={adminPage(<UserManagementPage />)} />
-    {/* Danh mục tour / loại tour */}
+    {/* Danh mục tour/loại tour */}
     <Route path="/admin/categories" element={adminPage(<TourTypeListPage />)} />
     <Route path="/admin/categories/create" element={adminPage(<TourTypeCreatePage />)} />
     <Route path="/admin/categories/:id/edit" element={adminPage(<TourTypeEditPage />)} />
@@ -67,7 +67,7 @@ function AppRoutes() {
     <Route path="/admin/tours/create" element={adminPage(<TourCreatePage />)} />
     <Route path="/admin/tours/:id/edit" element={adminPage(<TourEditPage />)} />
     <Route path="/admin/tours/hidden" element={adminPage(<TourHiddenPage />)} />
-    {/* Router địa chỉ tour / điểm đến */}
+    {/* Quản lý điểm đến/địa chỉ tour */}
     <Route path="/admin/destinations" element={adminPage(<DestinationListPage />)} />
     <Route path="/admin/destinations/create" element={adminPage(<DestinationCreatePage />)} />
     <Route path="/admin/destinations/:id/edit" element={adminPage(<DestinationEditPage />)} />
