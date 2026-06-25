@@ -395,3 +395,40 @@ button {
     padding: 22px;
   }
 }
+
+/* Role Badge Styles */
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  width: fit-content;
+}
+
+.role-badge.admin {
+  color: #1e3a8a;
+  background: #dbeafe;
+}
+
+.role-badge.customer {
+  color: #065f46;
+  background: #d1fae5;
+}
+
+.role-badge.support-staff {
+  color: #92400e;
+  background: #fef3c7;
+}
+
+.role-badge.tour-guide {
+  color: #3730a3;
+  background: #e0e7ff;
+}
+
+.role-badge.unknown {
+  color: #374151;
+  background: #f3f4f6;
+}
+

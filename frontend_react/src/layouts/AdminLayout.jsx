@@ -27,13 +27,14 @@ function AdminLayout({ children }) {
     <div className={collapsed ? 'admin-shell sidebar-collapsed' : 'admin-shell'}>
       <AdminSidebar
         collapsed={collapsed}
+        role={admin?.role}
         onToggle={() => setCollapsed((current) => !current)}
       />
       <main className="admin-main">
         <div className="admin-topbar">
           <div>
             <span>{t('admin.admin')}</span>
-            <strong>{admin?.name || 'ViVuGo Admin'}</strong>
+            <strong>{admin?.full_name || admin?.name || 'ViVuGo Admin'}</strong>
           </div>
           <button type="button" onClick={handleLogout}>
             {t('admin.logout')}

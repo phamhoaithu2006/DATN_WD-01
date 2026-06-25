@@ -110,7 +110,9 @@ const menuItems = [
   },
 ]
 
-function AdminSidebar({ collapsed, onToggle }) {
+function AdminSidebar({ collapsed, onToggle, role = 'admin' }) {
+  const visibleMenuItems = role === 'admin' ? menuItems : []
+
   return (
     <aside className={collapsed ? 'admin-sidebar collapsed' : 'admin-sidebar'}>
       <div className="admin-brand">
@@ -131,7 +133,7 @@ function AdminSidebar({ collapsed, onToggle }) {
       </div>
 
       <nav className="admin-nav" aria-label="Điều hướng quản trị">
-        {menuItems.map((item) => (
+        {visibleMenuItems.map((item) => (
           <NavLink
             className={({ isActive }) =>
               isActive ? 'admin-nav-link active' : 'admin-nav-link'
