@@ -3,55 +3,88 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Booking;
 use App\Models\User;
+use App\Models\Role;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 class CustomerManagerController extends Controller
 {
 
-/**
- * Lấy tổng số lượng khách hàng hiện có trong hệ thống.
- * * * Cơ chế hoạt động:
- * - Thực hiện truy vấn đếm (COUNT) trên bảng 'users'.
- * - Chỉ lọc các tài khoản có 'role_id' bằng 2 (quy ước cho khách hàng).
- * * * @return JsonResponse Trả về đối tượng JSON chứa trạng thái và tổng số lượng.
- */
-public function count(): JsonResponse
-{
-    // Đếm số lượng bản ghi thỏa mãn điều kiện role_id = 2
-    $total = User::where('role_id', 2)->count();
+    /**
+     * Lấy tổng số lượng khách hàng hiện có trong hệ thống.
+     * * * Cơ chế hoạt động:
+     * - Thực hiện truy vấn đếm (COUNT) trên bảng 'users'.
+     * - Chỉ lọc các tài khoản có 'role_id' bằng 2 (quy ước cho khách hàng).
+     * * * @return JsonResponse Trả về đối tượng JSON chứa trạng thái và tổng số lượng.
+     */
+    public function count(): JsonResponse
+    {
+        // Sử dụng groupBy để lấy danh sách role_id và số lượng tương ứng
+        // Kết quả sẽ có dạng: [{role_id: 1, total: 5}, {role_id: 2, total: 20}, ...]
+        $data = User::select('role_id', DB::raw('count(*) as total'))
+            ->groupBy('role_id')
+            ->get();
 
-    // Trả về kết quả dưới dạng JSON với mã trạng thái HTTP 200 (OK)
-    return response()->json([
-        'status' => 'success',
-        'total'  => $total // Trả về con số tổng để Frontend hiển thị lên Dashboard
-    ], 200);
-}
+        return response()->json([
+            'status' => 'success',
+            'data'   => $data
+        ], 200);
+    }
+
+    public function statistics(): JsonResponse
+    {
+        // 1. THỐNG KÊ USER TOÀN HỆ THỐNG
+        // Đếm tổng số bản ghi hiện có trong bảng 'users' không phân biệt vai trò
+        $totalUsers = User::count();
+
+        // Đếm số lượng người dùng có trạng thái 'active' (đang hoạt động) trên toàn bộ bảng
+        $activeUsers = User::where('status', 'active')->count();
+
+        // Đếm số lượng người dùng có trạng thái 'inactive' (bị khóa/không hoạt động) trên toàn bộ bảng
+        $lockedUsers = User::where('status', 'inactive')->count();
 
 
-   /**
- * Hiển thị danh sách tất cả khách hàng kèm theo tổng số booking của mỗi người.
- * @return JsonResponse
- */
-public function index(): JsonResponse
-{
-    // 1. Truy vấn với withCount('bookings')
-    // Laravel sẽ tự động đếm số lượng bản ghi trong bảng bookings có user_id tương ứng
-    // và trả về kết quả trong trường 'bookings_count'
-    $customers = User::where('role_id', 2)
-                     ->withCount('bookings') 
-                     ->get();
+        // 2. THỐNG KÊ ĐẶT LỊCH (BOOKINGS)
+        // Kiểm tra và đếm các đơn đặt lịch trong bảng 'bookings'
+        // Sử dụng whereHas để lọc chỉ những đơn thuộc về user có role_id = 2 (Khách hàng)
+        $totalBookings = Booking::whereHas('user', function ($query) {
+            $query->where('role_id', 2);
+        })->count();
 
-    // 2. Trả về kết quả JSON
-    // Mỗi object trong mảng 'data' bây giờ sẽ có thêm trường 'bookings_count'
-    return response()->json([
-        'status' => 'success',
-        'message' => 'Lấy danh sách khách hàng thành công',
-        'data' => $customers
-    ], 200);
-}
+
+        // 3. TRẢ VỀ DỮ LIỆU
+        // Đóng gói các kết quả đã tính toán vào một mảng định dạng JSON
+        return response()->json([
+            'status' => 'success', // Trạng thái phản hồi thành công
+            'data' => [
+                'total_users'    => $totalUsers,    // Tổng số người dùng hệ thống
+                'active_users'   => $activeUsers,   // Số người dùng đang hoạt động
+                'locked_users'   => $lockedUsers,   // Số người dùng bị khóa
+                'total_bookings' => $totalBookings, // Tổng số lượt đặt lịch từ nhóm Khách hàng (role 2)
+            ],
+        ], 200); // Mã phản hồi HTTP 200 (OK)
+    }
+
+
+    /**
+     * Hiển thị danh sách tất cả khách hàng kèm theo tổng số booking của mỗi người.
+     * @return JsonResponse
+     */
+    public function index(): JsonResponse
+    {
+        // Sử dụng withCount('bookings') để đếm số lượng đặt chỗ của mỗi người
+        $users = User::withCount('bookings')->get();
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Lấy danh sách tất cả người dùng thành công',
+            'data'    => $users
+        ], 200);
+    }
 
 
     /**
@@ -65,37 +98,42 @@ public function index(): JsonResponse
      */
     public function search(Request $request): JsonResponse
     {
-        // Khởi tạo truy vấn: Chỉ lấy những User có role_id = 2 (tương ứng với khách hàng)
-        $query = User::where('role_id', 2);
+        // Khởi tạo truy vấn (Query Builder)
+        $query = User::query();
 
-        // 1. Tìm kiếm theo tên (Tìm gần đúng - Like)
+        // 1. Lọc theo role_id (Nếu có truyền lên thì mới lọc)
+        $query->when($request->role_id, function ($q) use ($request) {
+            return $q->where('role_id', $request->role_id);
+        });
+
+        // 2. Tìm kiếm theo tên (Tìm gần đúng - Like)
         $query->when($request->name, function ($q) use ($request) {
             return $q->where('full_name', 'like', '%' . $request->name . '%');
         });
 
-        // 2. Tìm kiếm theo email (Tìm chính xác)
+        // 3. Tìm kiếm theo email (Tìm chính xác)
         $query->when($request->email, function ($q) use ($request) {
             return $q->where('email', $request->email);
         });
 
-        // 3. Tìm kiếm theo số điện thoại (Tìm chính xác)
+        // 4. Tìm kiếm theo số điện thoại (Tìm chính xác)
         $query->when($request->phone, function ($q) use ($request) {
             return $q->where('phone', $request->phone);
         });
 
-        // 4. Lọc theo trạng thái tài khoản (VD: active, inactive)
+        // 5. Lọc theo trạng thái tài khoản
         $query->when($request->status, function ($q) use ($request) {
             return $q->where('status', $request->status);
         });
 
-        // Thực thi truy vấn và lấy kết quả
+        // Thực thi truy vấn 
+        // Nên sử dụng paginate() nếu dữ liệu lớn, ở đây dùng get() theo yêu cầu của bạn
         $customers = $query->get();
 
-        // Trả về kết quả JSON chuẩn hóa
         return response()->json([
-            'status' => 'success',
-            'count' => $customers->count(), // Trả về thêm số lượng bản ghi tìm thấy
-            'data' => $customers
+            'status'  => 'success',
+            'count'   => $customers->count(),
+            'data'    => $customers
         ], 200);
     }
 
@@ -108,68 +146,78 @@ public function index(): JsonResponse
      */
     public function store(Request $request): JsonResponse
     {
-        // 1. Kiểm tra dữ liệu đầu vào (Validation)
-        // Nếu dữ liệu không hợp lệ, Laravel sẽ tự động trả về lỗi 422
+        // 1. Validate dữ liệu đầu vào
         $validatedData = $request->validate([
-            'full_name' => 'required|string|max:255', // Bắt buộc có, là chuỗi, tối đa 255 ký tự
-            'email'     => 'required|email|unique:users,email', // Phải là email, và phải duy nhất trong bảng users
-            'password'  => 'required|min:6', // Bắt buộc có, tối thiểu 6 ký tự
-            'phone'     => 'nullable|string|max:15', // Có thể để trống, nếu có thì là chuỗi
+            'full_name' => 'required|string|max:255',
+            'email'     => 'required|email|unique:users,email',
+            'password'  => 'required|min:6',
+            'phone'     => 'nullable|string|max:15',
+            // Kiểm tra role_id có tồn tại trong bảng roles để đảm bảo tính toàn vẹn dữ liệu
+            'role_id'   => 'required|exists:roles,id',
         ]);
 
-        // 2. Tạo bản ghi User mới trong cơ sở dữ liệu
+        // 2. Tạo User mới với dữ liệu đã được xác thực
         $user = User::create([
             'full_name' => $validatedData['full_name'],
             'email'     => $validatedData['email'],
-            
-            // 3. Mã hóa mật khẩu: 
-            // Luôn luôn dùng Hash::make để đảm bảo mật khẩu được an toàn, không lưu text thuần
-            'password'  => Hash::make($validatedData['password']), 
-            
-            'phone'     => $validatedData['phone'] ?? null, // Lấy giá trị phone hoặc gán null nếu không có
-            'role_id'   => 2,  // Gán cố định quyền là 2 (Khách hàng) dựa theo bảng roles
-            'status'    => 'active', // Mặc định tài khoản được kích hoạt ngay khi tạo
+            // Mã hóa mật khẩu trước khi lưu vào cơ sở dữ liệu
+            'password'  => Hash::make($validatedData['password']),
+            'phone'     => $validatedData['phone'] ?? null,
+            'role_id'   => $validatedData['role_id'],
+            'status'    => 'active', // Mặc định trạng thái là active khi tạo mới
         ]);
 
-        // 4. Trả về phản hồi JSON cho client
-        // Mã 201 cho biết tài nguyên đã được tạo thành công trên server
+        // 3. Trả về kết quả JSON với mã trạng thái 201 (Created)
         return response()->json([
             'status'  => 'success',
             'message' => 'Tạo tài khoản thành công',
-            'data'    => $user // Trả về thông tin user vừa tạo (trừ các trường đã hidden trong Model)
+            'data'    => $user
         ], 201);
     }
 
 
-   /**
- * Xem chi tiết thông tin khách hàng dựa trên ID, kèm theo tổng số booking.
- * @param int $id
- * @return JsonResponse
- */
-public function show($id): JsonResponse
-{
-    // Tìm User theo ID, kiểm tra role và đếm số lượng booking
-    $customer = User::where('id', $id)
-                    ->where('role_id', 2)
-                    ->withCount('bookings') 
-                    ->first();
-
-    // Nếu không tìm thấy, trả về thông báo lỗi 404
-    if (!$customer) {
+    //hiển thị role
+    public function index_role()
+    {
+        // Lấy tất cả các role
+        $roles = Role::all(['id', 'name']); // Chỉ lấy những cột cần thiết
+        
         return response()->json([
-            'status' => 'error',
-            'message' => 'Không tìm thấy khách hàng'
-        ], 404);
+            'status' => 'success',
+            'data'   => $roles
+        ], 200);
     }
 
-    // Nếu tìm thấy, trả về dữ liệu khách hàng (bao gồm bookings_count)
-    return response()->json([
-        'status' => 'success',
-        'data' => $customer
-    ], 200);
-}
+    /**
+     * Xem chi tiết thông tin khách hàng dựa trên ID, kèm theo tổng số booking.
+     * @param int $id
+     * @return JsonResponse
+     */
+    public function show($id): JsonResponse
+    {
+        // Tìm User theo ID và kèm theo thông tin Role + số lượng Booking
+        // Sử dụng with để lấy quan hệ role (nếu trong model User đã định nghĩa function role())
+        $user = User::with('role')
+            ->withCount('bookings')
+            ->find($id);
 
-/**
+        // Kiểm tra nếu không tìm thấy người dùng
+        if (!$user) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Không tìm thấy người dùng'
+            ], 404);
+        }
+
+        // Trả về dữ liệu chi tiết của người dùng
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Lấy thông tin thành công',
+            'data'    => $user
+        ], 200);
+    }
+
+    /**
      * Cập nhật thông tin khách hàng (bao gồm cả mật khẩu).
      * @param Request $request
      * @param int $id
@@ -177,13 +225,13 @@ public function show($id): JsonResponse
      */
     public function update(Request $request, $id): JsonResponse
     {
-        // 1. Tìm kiếm khách hàng
-        $customer = User::where('id', $id)->where('role_id', 2)->first();
+        // 1. Tìm kiếm khách hàng (vẫn giữ điều kiện role_id nếu bạn muốn giới hạn đối tượng cập nhật)
+        $customer = User::find($id);
 
         if (!$customer) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Không tìm thấy khách hàng'
+                'message' => 'Không tìm thấy người dùng'
             ], 404);
         }
 
@@ -193,75 +241,96 @@ public function show($id): JsonResponse
             'email'     => 'sometimes|email|unique:users,email,' . $id,
             'phone'     => 'nullable|string|max:15',
             'status'    => 'sometimes|in:active,inactive',
-            'password'  => 'sometimes|string|min:6', 
+            'password'  => 'sometimes|string|min:6',
+            // Thêm rule để cho phép cập nhật role_id nếu nó có trong request
+            'role_id'   => 'sometimes|exists:roles,id',
         ]);
 
         // 3. Xử lý mật khẩu nếu có gửi lên
-        if ($request->has('password')) {
-            $validatedData['password'] = Hash::make($request->password);
+        if (isset($validatedData['password'])) {
+            $validatedData['password'] = Hash::make($validatedData['password']);
         }
 
         // 4. Cập nhật dữ liệu
+        // Laravel sẽ tự động cập nhật các field có trong $validatedData
         $customer->update($validatedData);
 
         return response()->json([
             'status' => 'success',
             'message' => 'Cập nhật thông tin thành công',
-            'data' => $customer // Trả về thông tin sau khi đã sửa
+            'data' => $customer
         ], 200);
     }
 
 
     /**
- * Khóa tài khoản khách hàng bằng cách cập nhật status thành 'inactive'.
- * * @param int $id
- * @return JsonResponse
- */
-public function lock($id): JsonResponse
-{
-    // 1. Tìm user và kiểm tra quyền
-    $customer = User::where('id', $id)->where('role_id', 2)->first();
+     * Khóa tài khoản khách hàng bằng cách cập nhật status thành 'inactive'.
+     * * @param int $id
+     * @return JsonResponse
+     */
+    public function lock($id): JsonResponse
+    {
+        // 1. Tìm kiếm người dùng bằng find() thay vì where()
+        $user = User::find($id);
 
-    if (!$customer) {
+        // 2. Kiểm tra sự tồn tại của người dùng
+        if (!$user) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Không tìm thấy tài khoản người dùng'
+            ], 404);
+        }
+
+        // 3. Kiểm tra nếu tài khoản đã bị khóa trước đó
+        if ($user->status === 'inactive') {
+            return response()->json([
+                'status'  => 'warning',
+                'message' => 'Tài khoản này đã bị khóa từ trước'
+            ], 422);
+        }
+
+        // 4. Cập nhật trạng thái thành 'inactive'
+        $user->update(['status' => 'inactive']);
+
         return response()->json([
-            'status' => 'error',
-            'message' => 'Không tìm thấy khách hàng'
-        ], 404);
+            'status'  => 'success',
+            'message' => 'Tài khoản đã bị khóa thành công'
+        ], 200);
     }
 
-    // 2. Cập nhật trạng thái thành 'inactive'
-    $customer->update(['status' => 'inactive']);
 
-    return response()->json([
-        'status' => 'success',
-        'message' => 'Tài khoản đã bị khóa thành công'
-    ], 200);
-}
+    /**
+     * Mở khóa tài khoản khách hàng bằng cách cập nhật status thành 'active'.
+     * * @param int $id
+     * @return JsonResponse
+     */
+    public function unlock($id): JsonResponse
+    {
+        // 1. Tìm kiếm người dùng bằng find() để áp dụng cho mọi tài khoản
+        $user = User::find($id);
 
+        // 2. Kiểm tra sự tồn tại của người dùng
+        if (!$user) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Không tìm thấy tài khoản người dùng'
+            ], 404);
+        }
 
-/**
- * Mở khóa tài khoản khách hàng bằng cách cập nhật status thành 'active'.
- * * @param int $id
- * @return JsonResponse
- */
-public function unlock($id): JsonResponse
-{
-    // 1. Tìm user theo ID và kiểm tra role là khách hàng (2)
-    $customer = User::where('id', $id)->where('role_id', 2)->first();
+        // 3. Kiểm tra nếu tài khoản đang ở trạng thái 'active' (không cần mở khóa nữa)
+        if ($user->status === 'active') {
+            return response()->json([
+                'status'  => 'warning',
+                'message' => 'Tài khoản này hiện đang hoạt động bình thường'
+            ], 422);
+        }
 
-    if (!$customer) {
+        // 4. Cập nhật trạng thái thành 'active'
+        $user->update(['status' => 'active']);
+
         return response()->json([
-            'status' => 'error',
-            'message' => 'Không tìm thấy khách hàng'
-        ], 404);
+            'status'  => 'success',
+            'message' => 'Tài khoản đã được mở khóa thành công'
+        ], 200);
     }
-
-    // 2. Cập nhật trạng thái về 'active' để mở khóa
-    $customer->update(['status' => 'active']);
-
-    return response()->json([
-        'status' => 'success',
-        'message' => 'Tài khoản đã được mở khóa thành công'
-    ], 200);
-}
 }

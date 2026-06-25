@@ -43,8 +43,8 @@ function TourTypeCreatePage() {
         description: formData.description.trim(),
         status: formData.status,
       })
-
-      navigate('/admin/tours')
+      
+      navigate('/admin/categories')
     } catch (err) {
       console.error(err)
       setError(err.response?.data?.message || 'Thêm loại tour thất bại')

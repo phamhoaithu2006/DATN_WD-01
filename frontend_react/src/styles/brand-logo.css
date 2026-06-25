@@ -1,0 +1,45 @@
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  color: #075985;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.brand-mark {
+  width: 46px;
+  height: 46px;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 46px;
+  border-radius: 8px;
+  color: #ffffff;
+  background: linear-gradient(135deg, #0ea5e9, #0284c7);
+  box-shadow: 0 16px 34px rgba(14, 165, 233, 0.28);
+}
+
+.brand-mark svg {
+  width: 27px;
+  height: 27px;
+  fill: currentColor;
+}
+
+.brand-mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+  display: block;
+}
+
+.brand-name {
+  font-size: clamp(1.35rem, 2vw, 1.7rem);
+  letter-spacing: 0;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.brand-name span {
+  color: #f59e0b;
+}

@@ -1,131 +1,182 @@
-import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import AuthCard from '../../components/auth/AuthCard'
-import UserDashboard from '../../components/auth/UserDashboard'
-import AuthLayout from '../../layouts/AuthLayout'
-import { login as loginApi, logout as logoutApi } from '../../services/authApi'
+import { useEffect, useState } from "react";
+import { Navigate, useNavigate } from "react-router-dom";
+import AuthCard from "../../components/auth/AuthCard";
+import UserDashboard from "../../components/auth/UserDashboard";
+import AuthLayout from "../../layouts/AuthLayout";
+import {
+  login as loginApi,
+  logout as logoutApi,
+  register as registerApi,
+} from "../../services/authApi";
 import {
   clearSession,
   readSession,
   readUsers,
   saveSession,
   saveToken,
-  saveUsers,
-} from '../../services/authStorage'
-import { validateLogin, validateRegister } from '../../utils/authValidators'
-import '../../styles/auth.css'
+} from "../../services/authStorage";
+import { validateLogin, validateRegister } from "../../utils/authValidators";
+import "../../styles/auth.css";
 
 const emptyRegisterForm = {
-  full_name: '',
-  email: '',
-  phone: '',
-  password: '',
-  confirmPassword: '',
+  full_name: "",
+  email: "",
+  phone: "",
+  password: "",
+  confirmPassword: "",
   terms: false,
+};
+
+function normalizeUser(user) {
+  if (!user) return null;
+
+  return {
+    ...user,
+    full_name: user.full_name || user.name || user.email || "",
+    email: user.email || "",
+    phone: user.phone || "",
+    role: user.role || "",
+  };
 }
 
 function AuthPage() {
-  const navigate = useNavigate()
-  const [mode, setMode] = useState('login')
-  const [users, setUsers] = useState(readUsers)
-  const [currentUser, setCurrentUser] = useState(readSession)
-  const [notice, setNotice] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [loginData, setLoginData] = useState({ email: '', password: '' })
-  const [registerData, setRegisterData] = useState(emptyRegisterForm)
-  const [loginErrors, setLoginErrors] = useState({})
-  const [registerErrors, setRegisterErrors] = useState({})
+  const navigate = useNavigate();
+  const [mode, setMode] = useState("login");
+  const [users] = useState(readUsers);
+  const [currentUser, setCurrentUser] = useState(() =>
+    normalizeUser(readSession()),
+  );
+  const [notice, setNotice] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loginData, setLoginData] = useState({ email: "", password: "",  remember: false });
+  const [registerData, setRegisterData] = useState(emptyRegisterForm);
+  const [loginErrors, setLoginErrors] = useState({});
+  const [registerErrors, setRegisterErrors] = useState({});
 
-  const welcomeName = useMemo(() => {
-    if (!currentUser?.full_name) return ''
-    return currentUser.full_name.split(' ')[0]
-  }, [currentUser])
-
-  function persistUsers(nextUsers) {
-    setUsers(nextUsers)
-    saveUsers(nextUsers)
+  useEffect(() => {
+    if (currentUser?.role === "admin") {
+      navigate("/admin", { replace: true });
+    }
+  }, [currentUser, navigate]);
+  if (currentUser?.role === "admin") {
+    return <Navigate to="/admin" replace />;
   }
+  const welcomeName = currentUser?.full_name
+    ? currentUser.full_name.split(" ")[0]
+    : "";
 
   function handleModeChange(nextMode) {
-    setMode(nextMode)
-    setNotice('')
+    setMode(nextMode);
+    setNotice("");
   }
 
   async function handleLogin(event) {
-    event.preventDefault()
-    const errors = validateLogin(loginData)
-    setLoginErrors(errors)
-    setNotice('')
+    event.preventDefault();
+    const errors = validateLogin(loginData);
+    setLoginErrors(errors);
+    setNotice("");
 
-    if (Object.keys(errors).length > 0) return
+    if (Object.keys(errors).length > 0) return;
 
-    setIsSubmitting(true)
+    setIsSubmitting(true);
 
     try {
-      const data = await loginApi(loginData.email.trim(), loginData.password)
+      const data = await loginApi(loginData.email.trim(), loginData.password, loginData.remember)
       const roleName = data.user?.role?.name
 
       if (roleName !== 'admin') {
         clearSession()
         setNotice('Tài khoản này không có quyền truy cập admin.')
+        return
       }
 
       const sessionUser = {
         id: data.user.id,
-        name: data.user.full_name || data.user.name || data.user.email,
+        full_name: data.user.full_name || data.user.name || data.user.email,
         email: data.user.email,
         phone: data.user.phone,
         role: roleName,
-      }
+      };
 
-      saveToken(data.token)
-      saveSession(sessionUser)
+      saveToken(data.token, loginData.remember)
+      saveSession(sessionUser, loginData.remember)
       setCurrentUser(sessionUser)
       setNotice('Đăng nhập thành công.')
       navigate('/admin', { replace: true })
     } catch (error) {
       setNotice(
         error.response?.data?.message ||
-          'Không đăng nhập được. Vui lòng kiểm tra lại thông tin đăng nhập',
+          'Không đăng nhập được. Vui lòng kiểm tra lại thông tin đăng nhập.',
       )
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
   }
 
-  function handleRegister(event) {
-    event.preventDefault()
-    const errors = validateRegister(registerData, users)
-    setRegisterErrors(errors)
-    setNotice('')
+  async function handleRegister(event) {
+    event.preventDefault();
+    const errors = validateRegister(registerData, users);
+    setRegisterErrors(errors);
+    setNotice("");
 
-    if (Object.keys(errors).length > 0) return
+    if (Object.keys(errors).length > 0) return;
 
-    const nextUser = {
-      full_name: registerData.full_name.trim(),
-      email: registerData.email.trim().toLowerCase(),
-      phone: registerData.phone.trim(),
-      password: registerData.password,
+    setIsSubmitting(true);
+
+    try {
+      const payload = {
+        full_name: registerData.full_name.trim(),
+        email: registerData.email.trim().toLowerCase(),
+        phone: registerData.phone.trim(),
+        password: registerData.password,
+        password_confirmation: registerData.confirmPassword,
+      };
+      const data = await registerApi(payload);
+      const sessionUser = normalizeUser({
+        id: data.user?.id,
+        full_name: data.user?.full_name || payload.full_name,
+        email: data.user?.email || payload.email,
+        phone: data.user?.phone || payload.phone,
+        role: data.user?.role?.name || data.user?.role || "customer",
+      });
+
+      saveToken(data.token, true);
+      saveSession(sessionUser, true);
+      setCurrentUser(sessionUser);
+      setLoginData({ email: payload.email, password: "", remember: false });
+      setRegisterData(emptyRegisterForm);
+      setRegisterErrors({});
+      setNotice("Đăng ký thành công.");
+    } catch (error) {
+      const apiErrors = error.response?.data?.errors || {};
+      const nextErrors = {};
+
+      if (apiErrors.full_name) nextErrors.full_name = apiErrors.full_name[0];
+      if (apiErrors.email) nextErrors.email = apiErrors.email[0];
+      if (apiErrors.phone) nextErrors.phone = apiErrors.phone[0];
+      if (apiErrors.password) nextErrors.password = apiErrors.password[0];
+
+      setRegisterErrors(nextErrors);
+      setNotice(
+        error.response?.data?.message ||
+          "Không tạo được tài khoản. Vui lòng kiểm tra lại thông tin.",
+      );
+    } finally {
+      setIsSubmitting(false);
     }
-
-    persistUsers([...users, nextUser])
-    setLoginData({ email: nextUser.email, password: '' })
-    setRegisterData(emptyRegisterForm)
-    setMode('login')
-    setNotice('Tạo tài khoản thành công. Hãy bắt đầu để đăng nhập.')
   }
 
   async function handleLogout() {
     try {
-      await logoutApi()
+      await logoutApi();
     } catch {
-      // Token may already be expired; local logout still needs to happen.
+      // Token có thể đã hết hạn; vẫn cần đăng xuất phía trình duyệt.
     }
 
-    setCurrentUser(null)
-    clearSession()
-    setNotice('Bạn đã đăng xuất thành công.')
-    setMode('login')
+    setCurrentUser(null);
+    clearSession();
+    setNotice("Bạn đã đăng xuất thành công.");
+    setMode("login");
   }
 
   return (
@@ -153,7 +204,7 @@ function AuthPage() {
         />
       )}
     </AuthLayout>
-  )
+  );
 }
 
-export default AuthPage
+export default AuthPage;

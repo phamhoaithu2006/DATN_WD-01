@@ -132,6 +132,27 @@
   font-size: 0.94rem;
 }
 
+.setting-card em {
+  margin-top: 8px;
+  color: #0284c7;
+  font-size: 0.85rem;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.setting-back-button {
+  width: 42px;
+  height: 42px;
+  grid-row: 1 / 3;
+  border: 0;
+  border-radius: 12px;
+  color: #0284c7;
+  background: #eaf6ff;
+  cursor: pointer;
+  font-size: 1.3rem;
+  font-weight: 900;
+}
+
 .setting-panel {
   border: 1px solid #dbe5ef;
   border-radius: 18px;
