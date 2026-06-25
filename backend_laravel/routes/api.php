@@ -1,6 +1,7 @@
 ﻿<?php
 
 use App\Http\Controllers\Api\Admin\AdminProfileController;
+use App\Http\Controllers\Api\Admin\BookingController;
 use App\Http\Controllers\Api\Admin\CategoryController;
 use App\Http\Controllers\Api\Admin\CustomerManagerController;
 use App\Http\Controllers\Api\Admin\DatabaseBackupController;
@@ -204,6 +205,16 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
         Route::put('/profile/password', [AdminProfileController::class, 'changePassword']);
     });
     //===========================================================================================
+    //============================================Booking ====================================
+    Route::prefix('bookings')->group(function () {
+        Route::get('/',            [BookingController::class, 'index']);
+        Route::get('/statistics',  [BookingController::class, 'statistics']);
+        Route::get('/{id}',        [BookingController::class, 'show']);
+        Route::post('/',           [BookingController::class, 'store']);
+        Route::put('/{id}',        [BookingController::class, 'update']);
+        Route::patch('/{id}/cancel', [BookingController::class, 'softDelete']);
+        Route::delete('/{id}',     [BookingController::class, 'destroy']);
+    });
 
 
     //================================Chức năng gửi thông báo ====================================
