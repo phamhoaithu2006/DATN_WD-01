@@ -3,10 +3,12 @@
 use App\Http\Controllers\Api\Admin\AdminProfileController;
 use App\Http\Controllers\Api\Admin\BookingController;
 use App\Http\Controllers\Api\Admin\CategoryController;
+use App\Http\Controllers\Api\Admin\CertificateController;
 use App\Http\Controllers\Api\Admin\CustomerManagerController;
 use App\Http\Controllers\Api\Admin\DatabaseBackupController;
 use App\Http\Controllers\Api\Admin\DestinationController;
 use App\Http\Controllers\Api\Admin\GuideController;
+use App\Http\Controllers\Api\Admin\LanguageController;
 use App\Http\Controllers\Api\Admin\NotificationController;
 use App\Http\Controllers\Api\Admin\PaymentController;
 use App\Http\Controllers\Api\Admin\ReportController;
@@ -105,20 +107,18 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     Route::patch('/customers/{id}/unlock', [CustomerManagerController::class, 'unlock']);
 
     // Quản lý HDV
-    // Tính tổng số lượng 
-    Route::get('/guides/statistics', [GuideController::class, 'statistics']);
-    //Lấy danh sách 
-    Route::get('/guides', [GuideController::class, 'index']);
-    Route::get('/guides/search', [GuideController::class, 'search']);
-    Route::get('/guides/filter', [GuideController::class, 'filter']);
-    //Xem chi tiết 
-    Route::get('/guides/{id}', [GuideController::class, 'show']);
-    //Thêm thông tin 
-    Route::post('/guides', [GuideController::class, 'store']);
-    //Sửa thông tin 
-    Route::put('/guides/{id}', [GuideController::class, 'update']);
-    //Xóa thông tin 
-    Route::delete('/guides/{id}', [GuideController::class, 'destroy']);
+    Route::get('guides', [GuideController::class, 'index']);
+    Route::get('guides/search', [GuideController::class, 'search']);
+    Route::get('guides/filter', [GuideController::class, 'filter']);
+    Route::get('guides/statistics', [GuideController::class, 'statistics']);
+    Route::get('guides/{id}', [GuideController::class, 'show']);
+    Route::post('guides', [GuideController::class, 'store']);
+    Route::put('guides/{id}', [GuideController::class, 'update']);
+    Route::delete('guides/{id}', [GuideController::class, 'destroy']);
+
+    // Quản lý chứng chỉ và ngôn ngữ
+    Route::get('languages', [LanguageController::class, 'index']);
+    Route::get('certificates', [CertificateController::class, 'index']);
 
     // Quản lý nhân viên hỗ trợ
     // Xem danh sách 

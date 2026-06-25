@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Guide;
-// use App\Models\User;
+use App\Models\Language;
+use App\Models\LanguageLevel;
+use App\Models\Certificate;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -13,7 +15,12 @@ class GuideController extends Controller
     // DANH SÁCH HDV
     public function index(Request $request)
     {
-        $guides = Guide::with(['user', 'languages', 'experiences'])
+        $guides = Guide::with([
+            'user',
+            'languages.language',
+            'languages.level',
+            'experiences.certificate',
+        ])
             ->whereHas('user')
             ->paginate(10);
 
@@ -26,7 +33,12 @@ class GuideController extends Controller
     // TÌM KIẾM HDV
     public function search(Request $request)
     {
-        $query = Guide::with(['user', 'languages', 'experiences'])
+        $query = Guide::with([
+            'user',
+            'languages.language',
+            'languages.level',
+            'experiences.certificate',
+        ])
             ->whereHas('user');
 
         if ($request->search) {
@@ -57,7 +69,12 @@ class GuideController extends Controller
     // LỌC HDV
     public function filter(Request $request)
     {
-        $query = Guide::with(['user', 'languages', 'experiences'])
+        $query = Guide::with([
+            'user',
+            'languages.language',
+            'languages.level',
+            'experiences.certificate',
+        ])
             ->whereHas('user');
 
         if ($request->search) {
@@ -82,15 +99,14 @@ class GuideController extends Controller
             $query->where('status', $request->status);
         }
 
-        // Lọc theo số năm kinh nghiệm
         if ($request->experience_years) {
             $query->where('experience_years', '>=', $request->experience_years);
         }
 
-        // Lọc theo ngoại ngữ
+        // Lọc theo tên ngôn ngữ (vd: "Tiếng Anh")
         if ($request->language) {
-            $query->whereHas('languages', function ($q) use ($request) {
-                $q->where('language', 'like', '%' . $request->language . '%');
+            $query->whereHas('languages.language', function ($q) use ($request) {
+                $q->where('name', 'like', '%' . $request->language . '%');
             });
         }
 
@@ -105,7 +121,12 @@ class GuideController extends Controller
     // CHI TIẾT HDV
     public function show($id)
     {
-        $guide = Guide::with(['user', 'languages', 'experiences'])->find($id);
+        $guide = Guide::with([
+            'user',
+            'languages.language',
+            'languages.level',
+            'experiences.certificate',
+        ])->find($id);
 
         if (!$guide) {
             return response()->json(['message' => 'Không tìm thấy hướng dẫn viên'], 404);
@@ -121,22 +142,22 @@ class GuideController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'user_id'          => 'required|exists:users,id|unique:guides,user_id',
-            'certificate_type' => 'nullable|string|max:100',
-            'experience_years' => 'required|integer|min:0',
-            'status'           => 'in:active,inactive,locked',
-            'languages'        => 'nullable|array',
-            'languages.*.language' => 'required|string|max:100',
-            'languages.*.level'    => 'nullable|in:A1,A2,B1,B2,C1,C2,Native',
-            'experiences'      => 'nullable|array',
-            'experiences.*.certificate_name' => 'required|string|max:150',
-            'experiences.*.issued_by'        => 'nullable|string|max:150',
-            'experiences.*.issued_year'      => 'nullable|integer',
+            'user_id'              => 'required|exists:users,id|unique:guides,user_id',
+            'certificate_type'     => 'nullable|string|max:100',
+            'experience_years'     => 'required|integer|min:0',
+            'status'               => 'in:active,inactive,locked',
+            // languages: truyền language_id và level_id (tùy chọn)
+            'languages'            => 'nullable|array',
+            'languages.*.language_id' => 'required|exists:languages,id',
+            'languages.*.level_id'    => 'nullable|exists:language_levels,id',
+            // experiences: truyền certificate_id và issued_year (tùy chọn)
+            'experiences'          => 'nullable|array',
+            'experiences.*.certificate_id' => 'required|exists:certificates,id',
+            'experiences.*.issued_year'    => 'nullable|integer',
         ]);
 
         DB::beginTransaction();
         try {
-            // Tạo mã HDV tự động
             $count = Guide::withTrashed()->count() + 1;
             $guideCode = 'HDV' . str_pad($count, 3, '0', STR_PAD_LEFT);
 
@@ -148,17 +169,21 @@ class GuideController extends Controller
                 'status'           => $request->status ?? 'active',
             ]);
 
-            // Thêm ngoại ngữ
             if ($request->languages) {
                 foreach ($request->languages as $lang) {
-                    $guide->languages()->create($lang);
+                    $guide->languages()->create([
+                        'language_id' => $lang['language_id'],
+                        'level_id'    => $lang['level_id'] ?? null,
+                    ]);
                 }
             }
 
-            // Thêm kinh nghiệm/chứng chỉ
             if ($request->experiences) {
                 foreach ($request->experiences as $exp) {
-                    $guide->experiences()->create($exp);
+                    $guide->experiences()->create([
+                        'certificate_id' => $exp['certificate_id'],
+                        'issued_year'    => $exp['issued_year'] ?? null,
+                    ]);
                 }
             }
 
@@ -166,7 +191,12 @@ class GuideController extends Controller
 
             return response()->json([
                 'message' => 'Thêm hướng dẫn viên thành công',
-                'data'    => $guide->load(['user', 'languages', 'experiences']),
+                'data'    => $guide->load([
+                    'user',
+                    'languages.language',
+                    'languages.level',
+                    'experiences.certificate',
+                ]),
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -184,16 +214,15 @@ class GuideController extends Controller
         }
 
         $request->validate([
-            'certificate_type' => 'nullable|string|max:100',
-            'experience_years' => 'integer|min:0',
-            'status'           => 'in:active,inactive,locked',
-            'languages'        => 'nullable|array',
-            'languages.*.language' => 'required|string|max:100',
-            'languages.*.level'    => 'nullable|in:A1,A2,B1,B2,C1,C2,Native',
-            'experiences'      => 'nullable|array',
-            'experiences.*.certificate_name' => 'required|string|max:150',
-            'experiences.*.issued_by'        => 'nullable|string|max:150',
-            'experiences.*.issued_year'      => 'nullable|integer',
+            'certificate_type'     => 'nullable|string|max:100',
+            'experience_years'     => 'integer|min:0',
+            'status'               => 'in:active,inactive,locked',
+            'languages'            => 'nullable|array',
+            'languages.*.language_id' => 'required|exists:languages,id',
+            'languages.*.level_id'    => 'nullable|exists:language_levels,id',
+            'experiences'          => 'nullable|array',
+            'experiences.*.certificate_id' => 'required|exists:certificates,id',
+            'experiences.*.issued_year'    => 'nullable|integer',
         ]);
 
         DB::beginTransaction();
@@ -201,22 +230,26 @@ class GuideController extends Controller
             $guide->update($request->only([
                 'certificate_type',
                 'experience_years',
-                'status'
+                'status',
             ]));
 
-            // Cập nhật ngoại ngữ
             if ($request->has('languages')) {
                 $guide->languages()->delete();
                 foreach ($request->languages as $lang) {
-                    $guide->languages()->create($lang);
+                    $guide->languages()->create([
+                        'language_id' => $lang['language_id'],
+                        'level_id'    => $lang['level_id'] ?? null,
+                    ]);
                 }
             }
 
-            // Cập nhật kinh nghiệm
             if ($request->has('experiences')) {
                 $guide->experiences()->delete();
                 foreach ($request->experiences as $exp) {
-                    $guide->experiences()->create($exp);
+                    $guide->experiences()->create([
+                        'certificate_id' => $exp['certificate_id'],
+                        'issued_year'    => $exp['issued_year'] ?? null,
+                    ]);
                 }
             }
 
@@ -224,7 +257,12 @@ class GuideController extends Controller
 
             return response()->json([
                 'message' => 'Cập nhật hướng dẫn viên thành công',
-                'data'    => $guide->load(['user', 'languages', 'experiences']),
+                'data'    => $guide->load([
+                    'user',
+                    'languages.language',
+                    'languages.level',
+                    'experiences.certificate',
+                ]),
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
