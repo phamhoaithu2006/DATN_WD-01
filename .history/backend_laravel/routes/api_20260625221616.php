@@ -52,7 +52,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/profile/update', [CustomerController::class, 'updateProfile']); 
     Route::put('/profile/change-password', [CustomerController::class, 'changePassword']); 
 
-    //======Thông báo khách hàng, hdv, nvht (dùng chung đc hết)======
+    //======Thông báo khách hàng, hdv, n======
     //hiển thị danh sách thông báo của khách hàng
     Route::get('/notifications/customers', [NotificationCustomerController::class, 'getMyNotifications']);
     //xem chi tiết thông báo
