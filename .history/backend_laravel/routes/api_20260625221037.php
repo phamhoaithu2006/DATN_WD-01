@@ -46,22 +46,16 @@ Route::prefix('auth')->group(function () {
 
 // Khách hàng đã đăng nhập
 Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/user', [AuthController::class, 'me']);
-    Route::get('/profile/summary', [CustomerDashboardController::class, 'summary']);
-    Route::get('/profile/bookings', [CustomerDashboardController::class, 'bookings']);
-    Route::put('/profile/update', [CustomerController::class, 'updateProfile']);
-    Route::put('/profile/change-password', [CustomerController::class, 'changePassword']);
     Route::get('/user', [AuthController::class, 'me']); 
     Route::get('/profile/summary', [CustomerDashboardController::class, 'summary']); 
     Route::get('/profile/bookings', [CustomerDashboardController::class, 'bookings']); 
     Route::put('/profile/update', [CustomerController::class, 'updateProfile']); 
     Route::put('/profile/change-password', [CustomerController::class, 'changePassword']); 
 
-    //======Thông báo khách hàng, hdv, nvht (dùng chung đc hết)======
+    //======Thông báo khách hàng======
     //hiển thị danh sách thông báo của khách hàng
     Route::get('/notifications/customers', [NotificationCustomerController::class, 'getMyNotifications']);
-    //xem chi tiết thông báo
-    Route::get('/notifications/customers/{id}', [NotificationCustomerController::class, 'getNotificationDetail']);
+    
     // API đếm số lượng thông báo chưa đọc
     Route::get('/notifications/customers/unread-count', [NotificationCustomerController::class, 'getUnreadCount']);
     // API đánh dấu đã đọc (sử dụng PATCH vì cập nhật một phần dữ liệu)
@@ -91,8 +85,8 @@ Route::prefix('tours')->group(function () {
     Route::get('/{slug}', [TourController::class, 'show_gdkh']);
 });
 
-//lấy dánh sách role
-Route::get('/roles', [CustomerManagerController::class, 'index_role']);
+   //lấy dánh sách role
+    Route::get('/roles', [CustomerManagerController::class, 'index_role']);
 
 
 
@@ -259,4 +253,5 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     Route::get('/notifications/get-all-send', [NotificationController::class, 'getAllSentNotifications']);
     //Thu hồi lại thông báo đã gửi
     Route::delete('/notifications/revoke/{draft_id}', [NotificationController::class, 'revoke']);
+
 });

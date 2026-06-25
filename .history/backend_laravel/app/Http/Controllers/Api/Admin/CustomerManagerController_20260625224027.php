@@ -136,7 +136,7 @@ class CustomerManagerController extends Controller
         });
 
         // Sử dụng paginate(10) thay vì get() như bạn đã yêu cầu trước đó
-        $customers = $query->orderBy('created_at', 'desc')->get();
+        $customers = $query->orderBy('created_at', 'desc')->paginate(10);
 
         return response()->json([
             'status'  => 'success',

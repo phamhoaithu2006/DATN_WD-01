@@ -111,38 +111,38 @@ class CustomerManagerController extends Controller
      * * @param Request $request
      * @return JsonResponse
      */
-    public function search(Request $request): JsonResponse
-    {
-        $query = User::withCount('bookings'); // Thêm withCount nếu cần
+   public function search(Request $request): JsonResponse
+{
+    $query = User::withCount('bookings'); // Thêm withCount nếu cần
 
-        // 1. Lọc theo role_id
-        $query->when($request->role_id, function ($q) use ($request) {
-            return $q->where('role_id', $request->role_id);
+    // 1. Lọc theo role_id
+    $query->when($request->role_id, function ($q) use ($request) {
+        return $q->where('role_id', $request->role_id);
+    });
+
+    // 2. Lọc theo status
+    $query->when($request->status, function ($q) use ($request) {
+        return $q->where('status', $request->status);
+    });
+
+    // 3. Tìm kiếm tổng hợp theo 'search' (Tên hoặc Email hoặc SĐT)
+    $query->when($request->search, function ($q) use ($request) {
+        $term = '%' . $request->search . '%';
+        return $q->where(function ($subQuery) use ($term) {
+            $subQuery->where('full_name', 'like', $term)
+                     ->orWhere('email', 'like', $term)
+                     ->orWhere('phone', 'like', $term);
         });
+    });
 
-        // 2. Lọc theo status
-        $query->when($request->status, function ($q) use ($request) {
-            return $q->where('status', $request->status);
-        });
+    // Sử dụng paginate(10) thay vì get() như bạn đã yêu cầu trước đó
+    $customers = $query->orderBy('created_at', 'desc')->paginate(10);
 
-        // 3. Tìm kiếm tổng hợp theo 'search' (Tên hoặc Email hoặc SĐT)
-        $query->when($request->search, function ($q) use ($request) {
-            $term = '%' . $request->search . '%';
-            return $q->where(function ($subQuery) use ($term) {
-                $subQuery->where('full_name', 'like', $term)
-                    ->orWhere('email', 'like', $term)
-                    ->orWhere('phone', 'like', $term);
-            });
-        });
-
-        // Sử dụng paginate(10) thay vì get() như bạn đã yêu cầu trước đó
-        $customers = $query->orderBy('created_at', 'desc')->get();
-
-        return response()->json([
-            'status'  => 'success',
-            'data'    => $customers
-        ], 200);
-    }
+    return response()->json([
+        'status'  => 'success',
+        'data'    => $customers
+    ], 200);
+}
 
 
 
@@ -188,7 +188,7 @@ class CustomerManagerController extends Controller
     {
         // Lấy tất cả các role
         $roles = Role::all(['id', 'name']); // Chỉ lấy những cột cần thiết
-
+        
         return response()->json([
             'status' => 'success',
             'data'   => $roles
