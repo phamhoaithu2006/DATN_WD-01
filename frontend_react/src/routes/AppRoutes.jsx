@@ -31,47 +31,51 @@ const protect = (page) => <ProtectedAdminRoute>{page}</ProtectedAdminRoute>
 const adminPage = (page) => protect(<AdminLayout>{page}</AdminLayout>)
 
 function AppRoutes() {
-  return (
-    <Routes>
-      <Route path="/" element={<CustomerPage />} />
-      <Route path="/tours" element={<CustomerPage />} />
-      <Route path="/destinations" element={<CustomerPage />} />
-      <Route path="/deals" element={<CustomerPage />} />
-      <Route path="/customer/profile" element={<CustomerPage />} />
-      <Route path="/customer/profile/edit" element={<CustomerPage />} />
-      <Route path="/customer/password" element={<CustomerPage />} />
-      <Route path="/customer/favorites" element={<CustomerPage />} />
-      <Route path="/customer/search" element={<CustomerPage />} />
-      <Route path="/customer/bookings" element={<CustomerPage />} />
-      <Route path="/customer/settings" element={<CustomerPage />} />
-      <Route path="/auth" element={<AuthPage />} />
-      <Route path="/admin/settings" element={protect(<SettingsHomePage />)} />
-      <Route path="/admin/settings/system" element={protect(<SystemSettingsPage />)} />
-      <Route path="/admin/settings/security" element={protect(<SecuritySettingsPage />)} />
-      <Route path="/admin/settings/notification" element={protect(<NotificationSettingsPage />)} />
-      <Route path="/admin/settings/locale" element={protect(<LocaleSettingsPage />)} />
-      <Route path="/admin/settings/payment" element={protect(<PaymentSettingsPage />)} />
-      <Route path="/admin/settings/backup" element={protect(<BackupSettingsPage />)} />
-      <Route path="/admin" element={adminPage(<AdminDashboardPage />)} />
-      <Route path="/admin/users" element={adminPage(<UserManagementPage />)} />
-      <Route path="/admin/support" element={adminPage(<SupportStaffManagementPage />)} />
-      <Route path="/admin/categories" element={adminPage(<TourTypeListPage />)} />
-      <Route path="/admin/categories/create" element={adminPage(<TourTypeCreatePage />)} />
-      <Route path="/admin/categories/:id/edit" element={adminPage(<TourTypeEditPage />)} />
-      <Route path="/admin/categories/trash" element={adminPage(<TourTypeTrashPage />)} />
-      <Route path="/admin/tours" element={adminPage(<TourListPage />)} />
-      <Route path="/admin/tours/create" element={adminPage(<TourCreatePage />)} />
-      <Route path="/admin/tours/:id/edit" element={adminPage(<TourEditPage />)} />
-      <Route path="/admin/tours/hidden" element={adminPage(<TourHiddenPage />)} />
-      <Route path="/admin/destinations" element={adminPage(<DestinationListPage />)} />
-      <Route path="/admin/destinations/create" element={adminPage(<DestinationCreatePage />)} />
-      <Route path="/admin/destinations/:id/edit" element={adminPage(<DestinationEditPage />)} />
-      <Route path="/admin/destinations/trash" element={adminPage(<DestinationTrashPage />)} />
-      <Route path="/admin/guides" element={adminPage(<GuideManagementPage />)} />
-      <Route path="/admin/*" element={<Navigate to="/admin" replace />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
-  )
+  return <Routes>
+    {/* Quản lý người dùng */}
+    <Route path="/" element={<CustomerPage />} />
+    <Route path="/tours" element={<CustomerPage />} />
+    <Route path="/destinations" element={<CustomerPage />} />
+    <Route path="/deals" element={<CustomerPage />} />
+    <Route path="/customer/profile" element={<CustomerPage />} />
+    <Route path="/customer/profile/edit" element={<CustomerPage />} />
+    <Route path="/customer/password" element={<CustomerPage />} />
+    <Route path="/customer/favorites" element={<CustomerPage />} />
+    <Route path="/customer/search" element={<CustomerPage />} />
+    <Route path="/customer/bookings" element={<CustomerPage />} />
+    <Route path="/customer/settings" element={<CustomerPage />} />
+    {/* Đăng ký, đăng nhập */}
+    <Route path="/auth" element={<AuthPage />} />
+    {/* Quản lý cài đặt */}
+    <Route path="/admin/settings" element={protect(<SettingsHomePage />)} />
+    <Route path="/admin/settings/system" element={protect(<SystemSettingsPage />)} />
+    <Route path="/admin/settings/security" element={protect(<SecuritySettingsPage />)} />
+    <Route path="/admin/settings/notification" element={protect(<NotificationSettingsPage />)} />
+    <Route path="/admin/settings/locale" element={protect(<LocaleSettingsPage />)} />
+    <Route path="/admin/settings/payment" element={protect(<PaymentSettingsPage />)} />
+    <Route path="/admin/settings/backup" element={protect(<BackupSettingsPage />)} />
+    <Route path="/admin" element={adminPage(<AdminDashboardPage />)} />
+    <Route path="/admin/users" element={adminPage(<UserManagementPage />)} />
+    {/* Danh mục tour/loại tour */}
+    <Route path="/admin/categories" element={adminPage(<TourTypeListPage />)} />
+    <Route path="/admin/categories/create" element={adminPage(<TourTypeCreatePage />)} />
+    <Route path="/admin/categories/:id/edit" element={adminPage(<TourTypeEditPage />)} />
+    <Route path="/admin/categories/trash" element={adminPage(<TourTypeTrashPage />)} />
+    {/* Quản lý tour */}
+    <Route path="/admin/tours" element={adminPage(<TourListPage />)} />
+    <Route path="/admin/tours/create" element={adminPage(<TourCreatePage />)} />
+    <Route path="/admin/tours/:id/edit" element={adminPage(<TourEditPage />)} />
+    <Route path="/admin/tours/hidden" element={adminPage(<TourHiddenPage />)} />
+    {/* Quản lý điểm đến/địa chỉ tour */}
+    <Route path="/admin/destinations" element={adminPage(<DestinationListPage />)} />
+    <Route path="/admin/destinations/create" element={adminPage(<DestinationCreatePage />)} />
+    <Route path="/admin/destinations/:id/edit" element={adminPage(<DestinationEditPage />)} />
+    <Route path="/admin/destinations/trash" element={adminPage(<DestinationTrashPage />)} />
+    {/* Quản lý hướng dẫn viên */}
+    <Route path="/admin/guides" element={adminPage(<GuideManagementPage />)} />
+    <Route path="/admin/*" element={<Navigate to="/admin" replace />} />
+    <Route path="*" element={<Navigate to="/" replace />} />
+  </Routes>
 }
 
 export default AppRoutes
