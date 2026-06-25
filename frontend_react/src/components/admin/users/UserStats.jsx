@@ -1,7 +1,7 @@
 const cards = [
-  ["total", "👥", "Tổng khách hàng", "blue"],
-  ["active", "✓", "Đang hoạt động", "green"],
-  ["locked", "🔒", "Tài khoản đã khóa", "red"],
+  ["total_users", "👥", "Tổng người dùng", "blue"],
+  ["active_users", "✓", "Đang hoạt động", "green"],
+  ["locked_users", "🔒", "Tài khoản đã khóa", "red"],
   ["total_bookings", "▣", "Tổng lượt đặt tour", "amber"],
 ];
 

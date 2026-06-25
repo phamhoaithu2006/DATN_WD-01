@@ -187,6 +187,44 @@
 .booking-count {
   color: #029be5 !important;
 }
+.user-role {
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 800;
+  justify-content: center;
+  line-height: 1;
+  min-width: 92px;
+  padding: 8px 12px;
+  white-space: nowrap;
+}
+.user-role.admin {
+  background: #e0f2fe;
+  border-color: #7dd3fc;
+  color: #0369a1;
+}
+.user-role.customer {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #047857;
+}
+.user-role.support-staff {
+  background: #fef3c7;
+  border-color: #fcd34d;
+  color: #b45309;
+}
+.user-role.tour-guide {
+  background: #ede9fe;
+  border-color: #c4b5fd;
+  color: #6d28d9;
+}
+.user-role.unknown {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #64748b;
+}
 .user-status {
   border-radius: 999px;
   display: inline-block;
@@ -307,7 +345,8 @@
   font-size: 13px;
   font-weight: 700;
 }
-.user-form-grid input {
+.user-form-grid input,
+.user-form-grid select {
   border: 1px solid #d9e4f0;
   border-radius: 11px;
   box-sizing: border-box;

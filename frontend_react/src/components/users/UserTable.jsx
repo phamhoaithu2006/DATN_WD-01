@@ -1,22 +1,16 @@
 import { roleClass, roleLabel } from "../../../utils/accountRoles";
 
 const colors = ["blue", "purple", "green", "amber", "red"];
-
-function initials(name = "") {
-  return (
-    name
-      .split(" ")
-      .filter(Boolean)
-      .slice(-2)
-      .map((word) => word[0])
-      .join("")
-      .toUpperCase() || "ND"
-  );
-}
-
-function formatDate(value) {
-  return value ? new Intl.DateTimeFormat("vi-VN").format(new Date(value)) : "—";
-}
+const initials = (name = "") =>
+  name
+    .split(" ")
+    .filter(Boolean)
+    .slice(-2)
+    .map((word) => word[0])
+    .join("")
+    .toUpperCase() || "TK";
+const date = (value) =>
+  value ? new Intl.DateTimeFormat("vi-VN").format(new Date(value)) : "—";
 
 function Icon({ name }) {
   const paths = {
@@ -45,15 +39,10 @@ function Icon({ name }) {
       </>
     ),
   };
-
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      {paths[name]}
-    </svg>
-  );
+  return <svg viewBox="0 0 24 24">{paths[name]}</svg>;
 }
 
-function UserTable({ customers, loading, onView, onEdit, onToggleLock }) {
+function UserTable({ accounts, loading, onView, onEdit, onToggleLock }) {
   return (
     <div className="user-table-wrap">
       <table className="user-table">
@@ -71,68 +60,66 @@ function UserTable({ customers, loading, onView, onEdit, onToggleLock }) {
           </tr>
         </thead>
         <tbody>
-          {customers.map((customer, index) => (
-            <tr key={customer.id}>
+          {accounts.map((account, index) => (
+            <tr key={account.id}>
               <td>
                 <span
                   className={`user-avatar ${colors[index % colors.length]}`}
                 >
-                  {initials(customer.full_name)}
+                  {initials(account.full_name)}
                 </span>
               </td>
               <td>
-                <strong>{customer.full_name}</strong>
-                <small>ID: U{String(customer.id).padStart(3, "0")}</small>
+                <strong>{account.full_name}</strong>
+                <small>ID: U{String(account.id).padStart(3, "0")}</small>
               </td>
-              <td>{customer.email}</td>
-              <td>{customer.phone || "—"}</td>
-              <td>{formatDate(customer.created_at)}</td>
+              <td>{account.email}</td>
+              <td>{account.phone || "—"}</td>
+              <td>{date(account.created_at)}</td>
               <td>
-                <span className={`user-role ${roleClass(customer.role)}`}>
-                  {roleLabel(customer.role)}
+                <span className={`user-role ${roleClass(account.role)}`}>
+                  {roleLabel(account.role)}
                 </span>
               </td>
               <td>
                 <strong className="booking-count">
-                  {customer.bookings_count ?? 0}
+                  {account.role?.name === "customer"
+                    ? (account.bookings_count ?? 0)
+                    : "—"}
                 </strong>
               </td>
               <td>
-                <span className={`user-status ${customer.status}`}>
-                  {customer.status === "active" ? "Hoạt động" : "Bị khóa"}
+                <span className={`user-status ${account.status}`}>
+                  {account.status === "active" ? "Hoạt động" : "Bị khóa"}
                 </span>
               </td>
               <td>
                 <div className="user-actions">
-                  <button title="Xem chi tiết" onClick={() => onView(customer)}>
+                  <button title="Xem" onClick={() => onView(account)}>
                     <Icon name="view" />
                   </button>
-                  <button title="Chỉnh sửa" onClick={() => onEdit(customer)}>
+                  <button title="Sửa" onClick={() => onEdit(account)}>
                     <Icon name="edit" />
                   </button>
                   <button
                     className={
-                      customer.status === "active" ? "danger" : "success"
+                      account.status === "active" ? "danger" : "success"
                     }
-                    title={
-                      customer.status === "active"
-                        ? "Khóa tài khoản"
-                        : "Mở khóa"
-                    }
-                    onClick={() => onToggleLock(customer)}
+                    title={account.status === "active" ? "Khóa" : "Mở khóa"}
+                    onClick={() => onToggleLock(account)}
                   >
                     <Icon
-                      name={customer.status === "active" ? "lock" : "unlock"}
+                      name={account.status === "active" ? "lock" : "unlock"}
                     />
                   </button>
                 </div>
               </td>
             </tr>
           ))}
-          {!loading && customers.length === 0 ? (
+          {!loading && accounts.length === 0 ? (
             <tr>
               <td className="user-empty" colSpan="9">
-                Không tìm thấy tài khoản người dùng phù hợp.
+                Không tìm thấy tài khoản phù hợp.
               </td>
             </tr>
           ) : null}
