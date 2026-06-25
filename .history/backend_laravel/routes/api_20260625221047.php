@@ -52,10 +52,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/profile/update', [CustomerController::class, 'updateProfile']); 
     Route::put('/profile/change-password', [CustomerController::class, 'changePassword']); 
 
-    //======Thông báo khách hàng, hdv, nvht (dùng chung đc hết)======
+    //======Thông báo khách hàng======
     //hiển thị danh sách thông báo của khách hàng
     Route::get('/notifications/customers', [NotificationCustomerController::class, 'getMyNotifications']);
-    //xem chi tiết thông báo
+    //xem chi tiết thôn báo
     Route::get('/notifications/customers/{id}', [NotificationCustomerController::class, 'getNotificationDetail']);
     // API đếm số lượng thông báo chưa đọc
     Route::get('/notifications/customers/unread-count', [NotificationCustomerController::class, 'getUnreadCount']);

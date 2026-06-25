@@ -10,7 +10,7 @@ use App\Http\Controllers\Api\Admin\DestinationController;
 use App\Http\Controllers\Api\Admin\GuideController;
 use App\Http\Controllers\Api\Admin\LanguageController;
 use App\Http\Controllers\Api\Admin\NotificationController;
-use App\Http\Controllers\Api\Customer\NotificationCustomerController;
+use App\Http\Controllers\Api\Admin\NotificationCustomerController;
 use App\Http\Controllers\Api\Admin\PaymentController;
 use App\Http\Controllers\Api\Admin\ReportController;
 use App\Http\Controllers\Api\Admin\SettingController;
@@ -52,15 +52,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/profile/update', [CustomerController::class, 'updateProfile']); 
     Route::put('/profile/change-password', [CustomerController::class, 'changePassword']); 
 
-    //======Thông báo khách hàng, hdv, nvht (dùng chung đc hết)======
+    //======Thông báo khách hàng======
     //hiển thị danh sách thông báo của khách hàng
-    Route::get('/notifications/customers', [NotificationCustomerController::class, 'getMyNotifications']);
-    //xem chi tiết thông báo
-    Route::get('/notifications/customers/{id}', [NotificationCustomerController::class, 'getNotificationDetail']);
+    Route::get('/notifications', [NotificationCustomerController::class, 'getMyNotifications']);
     // API đếm số lượng thông báo chưa đọc
-    Route::get('/notifications/customers/unread-count', [NotificationCustomerController::class, 'getUnreadCount']);
+    Route::get('/notifications/unread-count', [NotificationController::class, 'getUnreadCount']);
     // API đánh dấu đã đọc (sử dụng PATCH vì cập nhật một phần dữ liệu)
-    Route::patch('/notifications/customers/{id}/read', [NotificationCustomerController::class, 'markAsRead']);
+    Route::patch('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
 });
 
 // Đặt lại mật khẩu cho khách hàng 

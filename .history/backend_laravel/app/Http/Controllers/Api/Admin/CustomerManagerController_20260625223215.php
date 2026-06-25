@@ -86,21 +86,6 @@ class CustomerManagerController extends Controller
         ], 200);
     }
 
-    //     public function index(): JsonResponse
-    // {
-    //     // Sử dụng paginate(10) thay vì get() để chia 10 user mỗi trang
-    //     // Và orderBy để đưa user mới nhất lên đầu
-    //     $users = User::withCount('bookings')
-    //         ->orderBy('created_at', 'desc')
-    //         ->paginate(10);
-
-    //     return response()->json([
-    //         'status'  => 'success',
-    //         'message' => 'Lấy danh sách người dùng thành công (10 user/trang)',
-    //         'data'    => $users
-    //     ], 200);
-    // }
-
 
     /**
      * Tìm kiếm khách hàng theo các điều kiện lọc (Name, Email, Phone, Status).
@@ -113,33 +98,41 @@ class CustomerManagerController extends Controller
      */
     public function search(Request $request): JsonResponse
     {
-        $query = User::withCount('bookings'); // Thêm withCount nếu cần
+        // Khởi tạo truy vấn (Query Builder)
+        $query = User::query();
 
-        // 1. Lọc theo role_id
+        // 1. Lọc theo role_id (Nếu có truyền lên thì mới lọc)
         $query->when($request->role_id, function ($q) use ($request) {
             return $q->where('role_id', $request->role_id);
         });
 
-        // 2. Lọc theo status
+        // 2. Tìm kiếm theo tên (Tìm gần đúng - Like)
+        $query->when($request->name, function ($q) use ($request) {
+            return $q->where('full_name', 'like', '%' . $request->name . '%');
+        });
+
+        // 3. Tìm kiếm theo email (Tìm chính xác)
+        $query->when($request->email, function ($q) use ($request) {
+            return $q->where('email', $request->email);
+        });
+
+        // 4. Tìm kiếm theo số điện thoại (Tìm chính xác)
+        $query->when($request->phone, function ($q) use ($request) {
+            return $q->where('phone', $request->phone);
+        });
+
+        // 5. Lọc theo trạng thái tài khoản
         $query->when($request->status, function ($q) use ($request) {
             return $q->where('status', $request->status);
         });
 
-        // 3. Tìm kiếm tổng hợp theo 'search' (Tên hoặc Email hoặc SĐT)
-        $query->when($request->search, function ($q) use ($request) {
-            $term = '%' . $request->search . '%';
-            return $q->where(function ($subQuery) use ($term) {
-                $subQuery->where('full_name', 'like', $term)
-                    ->orWhere('email', 'like', $term)
-                    ->orWhere('phone', 'like', $term);
-            });
-        });
-
-        // Sử dụng paginate(10) thay vì get() như bạn đã yêu cầu trước đó
-        $customers = $query->orderBy('created_at', 'desc')->get();
+        // Thực thi truy vấn 
+        // Nên sử dụng paginate() nếu dữ liệu lớn, ở đây dùng get() theo yêu cầu của bạn
+        $customers = $query->get();
 
         return response()->json([
             'status'  => 'success',
+            'count'   => $customers->count(),
             'data'    => $customers
         ], 200);
     }
@@ -188,7 +181,7 @@ class CustomerManagerController extends Controller
     {
         // Lấy tất cả các role
         $roles = Role::all(['id', 'name']); // Chỉ lấy những cột cần thiết
-
+        
         return response()->json([
             'status' => 'success',
             'data'   => $roles
