@@ -286,3 +286,4 @@ Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(functi
     //Thu hồi lại thông báo đã gửi
     Route::delete('/notifications/revoke/{draft_id}', [NotificationController::class, 'revoke']);
 });
+});
