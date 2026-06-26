@@ -1,5 +1,6 @@
 ﻿<?php
 
+
 use App\Http\Controllers\Api\Admin\AdminProfileController;
 use App\Http\Controllers\Api\Admin\BookingController;
 use App\Http\Controllers\Api\Admin\CategoryController;
@@ -11,6 +12,7 @@ use App\Http\Controllers\Api\Admin\GuideController;
 use App\Http\Controllers\Api\Admin\LanguageController;
 use App\Http\Controllers\Api\Admin\NotificationController;
 use App\Http\Controllers\Api\Admin\PartnerController;
+use App\Http\Controllers\Api\Admin\PartnerServiceController;
 use App\Http\Controllers\Api\Admin\PaymentController;
 use App\Http\Controllers\Api\Admin\ReportController;
 use App\Http\Controllers\Api\Admin\SettingController;
@@ -25,6 +27,8 @@ use App\Http\Controllers\Api\Customer\WishlistController;
 use App\Http\Controllers\Api\PublicSettingController;
 use App\Http\Controllers\Api\PublicWidgetController;
 use Illuminate\Support\Facades\Route;
+
+
 
 // Đăng ký và đăng nhập cho người dùng
 Route::prefix('auth')->group(function () {
@@ -130,6 +134,13 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     Route::get('partners/{id}',            [PartnerController::class, 'show']);
     Route::put('partners/{id}',            [PartnerController::class, 'update']);
     Route::delete('partners/{id}',         [PartnerController::class, 'destroy']);
+    Route::get('partners/{partnerId}/services',                [PartnerServiceController::class, 'index']);
+    Route::post('partners/{partnerId}/services',               [PartnerServiceController::class, 'store']);
+    Route::get('partners/{partnerId}/services/{id}',           [PartnerServiceController::class, 'show']);
+    Route::put('partners/{partnerId}/services/{id}',           [PartnerServiceController::class, 'update']);
+    Route::delete('partners/{partnerId}/services/{id}',        [PartnerServiceController::class, 'destroy']);
+    Route::patch('partners/{partnerId}/services/{id}/restore', [PartnerServiceController::class, 'restore']);
+    Route::delete('partners/{partnerId}/services/{id}/force',  [PartnerServiceController::class, 'forceDestroy']);
     // Quản lý nhân viên hỗ trợ
     // Xem danh sách
     Route::get('/support-staff', [SupportStaffController::class, 'index']);
