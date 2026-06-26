@@ -1,15 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
+﻿import { useCallback, useEffect, useMemo, useState } from 'react'
 import { getReportCharts, getReportOverview } from '../../../services/reportApi'
 
 const formatCurrency = (value) =>
@@ -26,7 +15,7 @@ const formatCompactMoney = (value) => {
   const number = Number(value || 0)
 
   if (number >= 1000000000) {
-    return `${Math.round(number / 1000000000)} tỷ`
+    return `${Math.round(number / 1000000000)} tá»·`
   }
 
   if (number >= 1000000) {
@@ -126,9 +115,9 @@ function ChartHeader({ title, description }) {
 
       <div className="hidden items-center gap-2 sm:flex">
         <span className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-500">
-          Theo tháng
+          Theo thÃ¡ng
         </span>
-        <span className="text-xl leading-none text-slate-400">⋮</span>
+        <span className="text-xl leading-none text-slate-400">â‹®</span>
       </div>
     </div>
   )
@@ -139,6 +128,176 @@ function EmptyState({ children }) {
     <div className="flex min-h-[180px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-6 py-10 text-center text-sm text-slate-500">
       {children}
     </div>
+  )
+}
+
+const CHART_VIEWBOX_WIDTH = 1000
+const CHART_VIEWBOX_HEIGHT = 320
+
+const getChartValue = (item, key) => Number(item?.[key] || 0)
+
+const getSafeLabel = (value) => (value == null || value === '' ? '-' : String(value))
+
+function ChartAxisLabel({ x, y, textAnchor = 'end', children }) {
+  return (
+    <text
+      x={x}
+      y={y}
+      fill="#64748B"
+      fontSize="12"
+      fontWeight="600"
+      textAnchor={textAnchor}
+    >
+      {children}
+    </text>
+  )
+}
+
+function BarChartSvg({ data, valueKey, labelKey, valueFormatter }) {
+  const padding = { top: 20, right: 18, bottom: 48, left: 60 }
+  const chartWidth = CHART_VIEWBOX_WIDTH - padding.left - padding.right
+  const chartHeight = CHART_VIEWBOX_HEIGHT - padding.top - padding.bottom
+  const values = data.map((item) => getChartValue(item, valueKey))
+  const maxValue = Math.max(1, ...values)
+  const ticks = 4
+  const tickValues = Array.from({ length: ticks + 1 }, (_, index) =>
+    Math.round((maxValue * index) / ticks)
+  )
+  const step = chartWidth / Math.max(data.length, 1)
+  const barWidth = Math.min(42, Math.max(18, step * 0.58))
+
+  return (
+    <svg
+      viewBox={`0 0 ${CHART_VIEWBOX_WIDTH} ${CHART_VIEWBOX_HEIGHT}`}
+      className="h-full w-full"
+      role="img"
+      aria-label="Biá»ƒu Ä‘á»“ cá»™t doanh thu theo thÃ¡ng"
+      preserveAspectRatio="none"
+    >
+      {tickValues.map((tick) => {
+        const y = padding.top + chartHeight - (tick / maxValue) * chartHeight
+
+        return (
+          <g key={tick}>
+            <line
+              x1={padding.left}
+              x2={CHART_VIEWBOX_WIDTH - padding.right}
+              y1={y}
+              y2={y}
+              stroke="#E2E8F0"
+              strokeDasharray="4 4"
+            />
+            <ChartAxisLabel x={padding.left - 12} y={y + 4}>
+              {formatCompactMoney(tick)}
+            </ChartAxisLabel>
+          </g>
+        )
+      })}
+
+      {data.map((item, index) => {
+        const value = getChartValue(item, valueKey)
+        const barHeight = maxValue === 0 ? 0 : (value / maxValue) * chartHeight
+        const x = padding.left + index * step + (step - barWidth) / 2
+        const y = padding.top + chartHeight - barHeight
+        const labelX = padding.left + index * step + step / 2
+
+        return (
+          <g key={`${getSafeLabel(item?.[labelKey])}-${index}`}>
+            <title>{`${getSafeLabel(item?.[labelKey])}: ${valueFormatter(value)}`}</title>
+            <rect
+              x={x}
+              y={y}
+              width={barWidth}
+              height={Math.max(barHeight, 2)}
+              rx="8"
+              fill="#2563EB"
+            />
+            <ChartAxisLabel x={labelX} y={CHART_VIEWBOX_HEIGHT - 18} textAnchor="middle">
+              {getSafeLabel(item?.[labelKey])}
+            </ChartAxisLabel>
+          </g>
+        )
+      })}
+    </svg>
+  )
+}
+
+function LineChartSvg({ data, valueKey, labelKey, valueFormatter }) {
+  const padding = { top: 20, right: 24, bottom: 48, left: 20 }
+  const chartWidth = CHART_VIEWBOX_WIDTH - padding.left - padding.right
+  const chartHeight = CHART_VIEWBOX_HEIGHT - padding.top - padding.bottom
+  const values = data.map((item) => getChartValue(item, valueKey))
+  const maxValue = Math.max(1, ...values)
+  const ticks = 4
+  const tickValues = Array.from({ length: ticks + 1 }, (_, index) =>
+    Math.round((maxValue * index) / ticks)
+  )
+  const step = chartWidth / Math.max(data.length - 1, 1)
+
+  const points = data.map((item, index) => {
+    const value = getChartValue(item, valueKey)
+    const x = padding.left + index * step
+    const y = padding.top + chartHeight - (value / maxValue) * chartHeight
+    return { x, y, value, label: item?.[labelKey] }
+  })
+
+  const linePath = points
+    .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`)
+    .join(' ')
+
+  const areaPath =
+    points.length > 0
+      ? `${linePath} L ${points[points.length - 1].x} ${padding.top + chartHeight} L ${
+          points[0].x
+        } ${padding.top + chartHeight} Z`
+      : ''
+
+  return (
+    <svg
+      viewBox={`0 0 ${CHART_VIEWBOX_WIDTH} ${CHART_VIEWBOX_HEIGHT}`}
+      className="h-full w-full"
+      role="img"
+      aria-label="Biá»ƒu Ä‘á»“ Ä‘Æ°á»ng sá»‘ lÆ°á»£ng khÃ¡ch theo thÃ¡ng"
+      preserveAspectRatio="none"
+    >
+      {tickValues.map((tick) => {
+        const y = padding.top + chartHeight - (tick / maxValue) * chartHeight
+
+        return (
+          <g key={tick}>
+            <line
+              x1={padding.left}
+              x2={CHART_VIEWBOX_WIDTH - padding.right}
+              y1={y}
+              y2={y}
+              stroke="#E2E8F0"
+              strokeDasharray="4 4"
+            />
+            <ChartAxisLabel x={padding.left - 8} y={y + 4}>
+              {formatNumber(tick)}
+            </ChartAxisLabel>
+          </g>
+        )
+      })}
+
+      {points.length > 0 && (
+        <>
+          <path d={areaPath} fill="rgba(37, 99, 235, 0.08)" />
+          <path d={linePath} fill="none" stroke="#2563EB" strokeWidth="4" strokeLinecap="round" />
+        </>
+      )}
+
+      {points.map((point, index) => (
+        <g key={`${getSafeLabel(point.label)}-${index}`}>
+          <title>{`${getSafeLabel(point.label)}: ${valueFormatter(point.value)}`}</title>
+          <circle cx={point.x} cy={point.y} r="6" fill="#FFFFFF" stroke="#2563EB" strokeWidth="3" />
+          <circle cx={point.x} cy={point.y} r="2.5" fill="#2563EB" />
+          <ChartAxisLabel x={point.x} y={CHART_VIEWBOX_HEIGHT - 18} textAnchor="middle">
+            {getSafeLabel(point.label)}
+          </ChartAxisLabel>
+        </g>
+      ))}
+    </svg>
   )
 }
 
@@ -171,7 +330,7 @@ function ReportStatisticsPage() {
       setError(
         err?.response?.data?.message ||
           err?.message ||
-          'Không thể tải dữ liệu báo cáo.'
+          'KhÃ´ng thá»ƒ táº£i dá»¯ liá»‡u bÃ¡o cÃ¡o.'
       )
     } finally {
       setLoading(false)
@@ -196,10 +355,10 @@ function ReportStatisticsPage() {
       <section className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <h1 className="text-[30px] font-extrabold tracking-tight text-slate-950">
-            Báo cáo & Thống kê
+            BÃ¡o cÃ¡o & Thá»‘ng kÃª
           </h1>
           <p className="mt-2 text-sm text-slate-500">
-            Theo dõi doanh thu, booking, lượng khách và điểm đến nổi bật.
+            Theo dÃµi doanh thu, booking, lÆ°á»£ng khÃ¡ch vÃ  Ä‘iá»ƒm Ä‘áº¿n ná»•i báº­t.
           </p>
         </div>
 
@@ -208,8 +367,8 @@ function ReportStatisticsPage() {
             type="button"
             className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 shadow-sm transition hover:border-blue-200 hover:text-blue-600"
           >
-            <span>⬇</span>
-            Xuất báo cáo
+            <span>â¬‡</span>
+            Xuáº¥t bÃ¡o cÃ¡o
           </button>
 
           <button
@@ -218,8 +377,8 @@ function ReportStatisticsPage() {
             className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
             disabled={loading}
           >
-            <span>↻</span>
-            Làm mới dữ liệu
+            <span>â†»</span>
+            LÃ m má»›i dá»¯ liá»‡u
           </button>
         </div>
       </section>
@@ -228,10 +387,10 @@ function ReportStatisticsPage() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="flex h-14 w-full items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 sm:w-[360px]">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-lg">
-              📅
+              ðŸ“…
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-semibold text-slate-500">Khoảng thời gian</p>
+              <p className="text-xs font-semibold text-slate-500">Khoáº£ng thá»i gian</p>
               <p className="mt-1 whitespace-nowrap text-sm font-extrabold text-slate-950">
                 01/01/{year} - 31/12/{year}
               </p>
@@ -240,7 +399,7 @@ function ReportStatisticsPage() {
 
           <div className="w-full sm:w-[220px] lg:ml-auto">
             <SelectBox
-              label="Năm"
+              label="NÄƒm"
               value={year}
               onChange={(event) => setYear(Number(event.target.value))}
             >
@@ -256,7 +415,7 @@ function ReportStatisticsPage() {
 
       {overview?.current_date && (
         <p className="text-xs font-medium text-slate-500">
-          Dữ liệu cập nhật ngày: {overview.current_date}
+          Dá»¯ liá»‡u cáº­p nháº­t ngÃ y: {overview.current_date}
         </p>
       )}
 
@@ -268,40 +427,40 @@ function ReportStatisticsPage() {
 
       {loading ? (
         <Card className="p-10 text-center text-sm font-semibold text-slate-500">
-          Đang tải dữ liệu báo cáo...
+          Äang táº£i dá»¯ liá»‡u bÃ¡o cÃ¡o...
         </Card>
       ) : (
         <>
           <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
             <StatCard
-              title="Tổng doanh thu năm"
+              title="Tá»•ng doanh thu nÄƒm"
               value={formatCurrency(overview?.total_revenue_year)}
-              description={`Năm ${overview?.year || year}`}
-              icon="💰"
+              description={`NÄƒm ${overview?.year || year}`}
+              icon="ðŸ’°"
               tone="blue"
             />
 
             <StatCard
-              title="Tổng số booking"
+              title="Tá»•ng sá»‘ booking"
               value={formatNumber(overview?.total_bookings_year)}
-              description="Tất cả booking trong năm"
-              icon="📋"
+              description="Táº¥t cáº£ booking trong nÄƒm"
+              icon="ðŸ“‹"
               tone="green"
             />
 
             <StatCard
-              title="Tỉ lệ hoàn thành tour"
+              title="Tá»‰ lá»‡ hoÃ n thÃ nh tour"
               value={`${overview?.tour_completion_rate || 0}%`}
-              description="Booking có trạng thái hoàn thành"
-              icon="◔"
+              description="Booking cÃ³ tráº¡ng thÃ¡i hoÃ n thÃ nh"
+              icon="â—”"
               tone="purple"
             />
 
             <StatCard
-              title="TB doanh thu/tháng"
+              title="TB doanh thu/thÃ¡ng"
               value={formatCurrency(overview?.average_revenue_per_booking_month)}
-              description="Trung bình booking đã thanh toán"
-              icon="📈"
+              description="Trung bÃ¬nh booking Ä‘Ã£ thanh toÃ¡n"
+              icon="ðŸ“ˆ"
               tone="orange"
             />
           </section>
@@ -309,108 +468,41 @@ function ReportStatisticsPage() {
           <section className="grid gap-5 xl:grid-cols-2">
             <Card className="p-5">
               <ChartHeader
-                title="Doanh thu theo tháng"
-                description="Chỉ tính các booking đã thanh toán."
+                title="Doanh thu theo thÃ¡ng"
+                description="Chá»‰ tÃ­nh cÃ¡c booking Ä‘Ã£ thanh toÃ¡n."
               />
 
               {hasRevenueData ? (
                 <div className="h-[310px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={revenueChart}
-                      margin={{ top: 8, right: 12, left: 28, bottom: 4 }}
-                    >
-                      <CartesianGrid stroke="#E2E8F0" strokeDasharray="4 4" />
-                      <XAxis
-                        dataKey="month"
-                        tick={{ fill: '#64748B', fontSize: 12 }}
-                        axisLine={false}
-                        tickLine={false}
-                      />
-                      <YAxis
-                        width={62}
-                        tick={{ fill: '#64748B', fontSize: 12 }}
-                        axisLine={false}
-                        tickLine={false}
-                        tickFormatter={formatCompactMoney}
-                      />
-                      <Tooltip
-                        cursor={{ fill: 'rgba(37, 99, 235, 0.08)' }}
-                        formatter={(value) => [formatCurrency(value), 'Doanh thu']}
-                        contentStyle={{
-                          border: '1px solid #E2E8F0',
-                          borderRadius: 14,
-                          boxShadow: '0 12px 30px rgba(15, 23, 42, 0.12)',
-                        }}
-                      />
-                      <Bar
-                        dataKey="revenue"
-                        name="Doanh thu"
-                        fill="#2563EB"
-                        radius={[8, 8, 0, 0]}
-                        maxBarSize={34}
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
+                                    <BarChartSvg
+                    data={revenueChart}
+                    valueKey="revenue"
+                    labelKey="month"
+                    valueFormatter={formatCurrency}
+                  />
                 </div>
               ) : (
-                <EmptyState>Chưa có dữ liệu doanh thu trong năm này.</EmptyState>
+                <EmptyState>ChÆ°a cÃ³ dá»¯ liá»‡u doanh thu trong nÄƒm nÃ y.</EmptyState>
               )}
             </Card>
 
             <Card className="p-5">
               <ChartHeader
-                title="Số lượng khách theo tháng"
-                description="Không tính booking đã bị hủy."
+                title="Sá»‘ lÆ°á»£ng khÃ¡ch theo thÃ¡ng"
+                description="KhÃ´ng tÃ­nh booking Ä‘Ã£ bá»‹ há»§y."
               />
 
               {hasCustomerData ? (
                 <div className="h-[310px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart
-                      data={customerChart}
-                      margin={{ top: 8, right: 14, left: 8, bottom: 4 }}
-                    >
-                      <CartesianGrid stroke="#E2E8F0" strokeDasharray="4 4" />
-                      <XAxis
-                        dataKey="month"
-                        tick={{ fill: '#64748B', fontSize: 12 }}
-                        axisLine={false}
-                        tickLine={false}
-                      />
-                      <YAxis
-                        tick={{ fill: '#64748B', fontSize: 12 }}
-                        axisLine={false}
-                        tickLine={false}
-                        tickFormatter={(value) => formatNumber(value)}
-                      />
-                      <Tooltip
-                        formatter={(value) => [formatNumber(value), 'Số khách']}
-                        contentStyle={{
-                          border: '1px solid #E2E8F0',
-                          borderRadius: 14,
-                          boxShadow: '0 12px 30px rgba(15, 23, 42, 0.12)',
-                        }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="total_customers"
-                        name="Số khách"
-                        stroke="#2563EB"
-                        strokeWidth={3}
-                        dot={{
-                          r: 4,
-                          fill: '#FFFFFF',
-                          stroke: '#2563EB',
-                          strokeWidth: 2,
-                        }}
-                        activeDot={{ r: 6 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
+                                    <LineChartSvg
+                    data={customerChart}
+                    valueKey="total_customers"
+                    labelKey="month"
+                    valueFormatter={formatNumber}
+                  />
                 </div>
               ) : (
-                <EmptyState>Chưa có dữ liệu khách trong năm này.</EmptyState>
+                <EmptyState>ChÆ°a cÃ³ dá»¯ liá»‡u khÃ¡ch trong nÄƒm nÃ y.</EmptyState>
               )}
             </Card>
           </section>
@@ -419,10 +511,10 @@ function ReportStatisticsPage() {
             <div className="mb-5 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
               <div>
                 <h2 className="text-lg font-extrabold text-slate-950">
-                  Top 5 điểm đến được ưa chuộng
+                  Top 5 Ä‘iá»ƒm Ä‘áº¿n Ä‘Æ°á»£c Æ°a chuá»™ng
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  Xếp hạng theo số lượng booking trong năm {year}.
+                  Xáº¿p háº¡ng theo sá»‘ lÆ°á»£ng booking trong nÄƒm {year}.
                 </p>
               </div>
             </div>
@@ -432,10 +524,10 @@ function ReportStatisticsPage() {
                 <thead>
                   <tr className="bg-slate-50 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
                     <th className="px-5 py-4">#</th>
-                    <th className="px-5 py-4">Điểm đến</th>
-                    <th className="px-5 py-4">Tỉnh / Thành phố</th>
-                    <th className="px-5 py-4">Số booking</th>
-                    <th className="px-5 py-4">Số khách</th>
+                    <th className="px-5 py-4">Äiá»ƒm Ä‘áº¿n</th>
+                    <th className="px-5 py-4">Tá»‰nh / ThÃ nh phá»‘</th>
+                    <th className="px-5 py-4">Sá»‘ booking</th>
+                    <th className="px-5 py-4">Sá»‘ khÃ¡ch</th>
                   </tr>
                 </thead>
 
@@ -455,7 +547,7 @@ function ReportStatisticsPage() {
                           </div>
                         </td>
                         <td className="px-5 py-4">
-                          {destination.province_city || 'Chưa cập nhật'}
+                          {destination.province_city || 'ChÆ°a cáº­p nháº­t'}
                         </td>
                         <td className="px-5 py-4 font-semibold">
                           {formatNumber(destination.total_bookings)}
@@ -471,7 +563,7 @@ function ReportStatisticsPage() {
                         colSpan="5"
                         className="px-5 py-10 text-center text-sm text-slate-500"
                       >
-                        Chưa có dữ liệu điểm đến trong năm này.
+                        ChÆ°a cÃ³ dá»¯ liá»‡u Ä‘iá»ƒm Ä‘áº¿n trong nÄƒm nÃ y.
                       </td>
                     </tr>
                   )}
@@ -486,3 +578,4 @@ function ReportStatisticsPage() {
 }
 
 export default ReportStatisticsPage
+

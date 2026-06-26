@@ -3,6 +3,8 @@ import ProtectedAdminRoute from '../components/admin/ProtectedAdminRoute'
 import AdminLayout from '../layouts/AdminLayout'
 import AdminDashboardPage from '../pages/admin/AdminDashboardPage'
 import GuideManagementPage from '../pages/admin/GuideManagementPage'
+import PartnerManagementPage from '../pages/admin/partners/PartnerManagementPage'
+import PartnerTrashPage from '../pages/admin/partners/PartnerTrashPage'
 import SupportStaffManagementPage from '../pages/admin/SupportStaffManagementPage'
 import UserManagementPage from '../pages/admin/UserManagementPage'
 import TourTypeCreatePage from '../pages/admin/categories/TourTypeCreatePage'
@@ -77,6 +79,9 @@ function AppRoutes() {
     <Route path="/admin/destinations/trash" element={adminPage(<DestinationTrashPage />)} />
     {/* Quản lý hướng dẫn viên */}
     <Route path="/admin/guides" element={adminPage(<GuideManagementPage />)} />
+    {/* Quản lý dịch vụ đối tác */}
+    <Route path="/admin/partners" element={adminPage(<PartnerManagementPage />)} />
+    <Route path="/admin/partners/trash" element={adminPage(<PartnerTrashPage />)} />
     <Route path="/admin/*" element={<Navigate to="/admin" replace />} />
     <Route path="*" element={<Navigate to="/" replace />} />
     {/* Quản lý nhân viên hỗ trợ */}
