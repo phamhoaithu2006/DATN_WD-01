@@ -26,6 +26,7 @@ import TourHiddenPage from '../pages/admin/tours/TourHiddenPage'
 import TourListPage from '../pages/admin/tours/TourListPage'
 import AuthPage from '../pages/auth/AuthPage'
 import CustomerPage from '../pages/customer/CustomerPage'
+import ReportStatisticsPage from '../pages/admin/reportStatistics/ReportStatisticsPage'
 
 const protect = (page) => <ProtectedAdminRoute>{page}</ProtectedAdminRoute>
 const adminPage = (page) => protect(<AdminLayout>{page}</AdminLayout>)
@@ -55,6 +56,7 @@ function AppRoutes() {
     <Route path="/admin/settings/payment" element={protect(<PaymentSettingsPage />)} />
     <Route path="/admin/settings/backup" element={protect(<BackupSettingsPage />)} />
     <Route path="/admin" element={adminPage(<AdminDashboardPage />)} />
+    <Route path="/admin/reports" element={adminPage(<ReportStatisticsPage />)} />
     <Route path="/admin/users" element={adminPage(<UserManagementPage />)} />
     {/* Danh mục tour/loại tour */}
     <Route path="/admin/categories" element={adminPage(<TourTypeListPage />)} />
