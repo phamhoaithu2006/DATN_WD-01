@@ -23,6 +23,9 @@ class DatabaseSeeder extends Seeder
             GuideSeeder::class,
             TourSeeder::class,
             BookingSeeder::class,
+            PartnerSeeder::class,
+            PromotionSeeder::class,
+            PartnerServiceSeeder::class,
         ]);
     }
 }
