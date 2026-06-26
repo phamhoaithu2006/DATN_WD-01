@@ -16,6 +16,7 @@ class UserSeeder extends Seeder
         $supportStaffRole = Role::where('name', 'support staff')->firstOrFail();
         $tourGuideRole = Role::where('name', 'tour guide')->firstOrFail();
 
+        $guideRole = Role::where('name', 'tour guide')->firstOrFail();
         $users = [
             [
                 'role_id' => $adminRole->id,
@@ -49,8 +50,31 @@ class UserSeeder extends Seeder
                 'password' => Hash::make('password'),
                 'status' => 'active',
             ],
+            [
+                'role_id'   => $guideRole->id,
+                'full_name' => 'Trần Văn Hùng',
+                'email'     => 'hung.tv@vivugo.vn',
+                'phone'     => '0912111222',
+                'password'  => Hash::make('Guide@123'),
+                'status'    => 'active',
+            ],
+            [
+                'role_id'   => $guideRole->id,
+                'full_name' => 'Nguyễn Thị Mai',
+                'email'     => 'mai.nt@vivugo.vn',
+                'phone'     => '0912111333',
+                'password'  => Hash::make('Guide@123'),
+                'status'    => 'active',
+            ],
+            [
+                'role_id'   => $guideRole->id,
+                'full_name' => 'Hoàng Văn Đức',
+                'email'     => 'duc.hv@vivugo.vn',
+                'phone'     => '0912111444',
+                'password'  => Hash::make('Guide@123'),
+                'status'    => 'active',
+            ],
         ];
-
         foreach ($users as $user) {
             User::updateOrCreate(
                 ['email' => $user['email']],
