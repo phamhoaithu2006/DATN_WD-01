@@ -10,7 +10,7 @@ const mauFormApiTrong = {
   experiences: [],
 }
 
-const mauDongNgoaiNgu = { language_id: '', level_id: '' }
+const mauDongNgoaiNgu = { language_id: '' }
 const mauDongChungChi = { certificate_id: '', issued_year: '' }
 
 const danhSachTrangThaiApi = ['active', 'inactive', 'locked']
@@ -99,10 +99,6 @@ function layTenNgoaiNgu(ngoaiNgu) {
   return ngoaiNgu.language?.name || ngoaiNgu.language_name || ngoaiNgu.language || '-'
 }
 
-function layTenCapDo(ngoaiNgu) {
-  return ngoaiNgu.level?.level_name || ngoaiNgu.level_name || ngoaiNgu.level || ''
-}
-
 function layTenChungChi(kinhNghiem) {
   return kinhNghiem.certificate?.name || kinhNghiem.certificate_name || '-'
 }
@@ -123,16 +119,9 @@ function taoDongChungChi() {
   return { ...mauDongChungChi }
 }
 
-function layCapDoTheoNgonNgu(danhSachNgonNgu, languageId) {
-  const ngonNgu = danhSachNgonNgu.find((item) => String(item.id) === String(languageId))
-
-  return Array.isArray(ngonNgu?.levels) ? ngonNgu.levels : []
-}
-
 function chuyenNgoaiNguThanhForm(languages = []) {
   return languages.map((item) => ({
     language_id: String(item.language_id || item.language?.id || ''),
-    level_id: String(item.level_id || item.level?.id || ''),
   }))
 }
 
@@ -152,7 +141,6 @@ function taoGuidePayload(formHdv, dangSua) {
       .filter((item) => item.language_id)
       .map((item) => ({
         language_id: Number(item.language_id),
-        level_id: item.level_id ? Number(item.level_id) : null,
       })),
     experiences: formHdv.experiences
       .filter((item) => item.certificate_id)
@@ -194,9 +182,7 @@ function validateGuideForm(formHdv, dangSua) {
     loiMoi.status = 'Trạng thái không hợp lệ.'
   }
 
-  const ngoaiNguKhongHopLe = formHdv.languages.find(
-    (item) => (item.language_id || item.level_id) && !item.language_id,
-  )
+  const ngoaiNguKhongHopLe = formHdv.languages.find((item) => item.language_id === '')
 
   if (ngoaiNguKhongHopLe) {
     loiMoi.languages = 'Mỗi dòng ngoại ngữ cần chọn ngôn ngữ.'
@@ -375,7 +361,6 @@ function GuideManagementApiPage() {
           ? {
               ...item,
               [truong]: giaTri,
-              ...(truong === 'language_id' ? { level_id: '' } : {}),
             }
           : item,
       ),
@@ -667,9 +652,7 @@ function GuideManagementApiPage() {
                             {layNgoaiNgu(hdv).length > 0 ? (
                               layNgoaiNgu(hdv).slice(0, 3).map((ngoaiNgu) => (
                                 <span key={ngoaiNgu.id || ngoaiNgu.language_id}>
-                                  {[layTenNgoaiNgu(ngoaiNgu), layTenCapDo(ngoaiNgu)]
-                                    .filter(Boolean)
-                                    .join(' ')}
+                                  {layTenNgoaiNgu(ngoaiNgu)}
                                 </span>
                               ))
                             ) : (
@@ -829,11 +812,6 @@ function GuideManagementApiPage() {
                 Ngoại ngữ
                 <div className="guide-repeat-list">
                   {formHdv.languages.map((ngoaiNgu, index) => {
-                    const danhSachCapDo = layCapDoTheoNgonNgu(
-                      danhSachNgonNgu,
-                      ngoaiNgu.language_id,
-                    )
-
                     return (
                       <div className="guide-repeat-row" key={`language-${index}`}>
                         <select
@@ -847,20 +825,6 @@ function GuideManagementApiPage() {
                           {danhSachNgonNgu.map((item) => (
                             <option key={item.id} value={item.id}>
                               {item.name}
-                            </option>
-                          ))}
-                        </select>
-                        <select
-                          disabled={dangTaiDanhMuc || !ngoaiNgu.language_id}
-                          value={ngoaiNgu.level_id}
-                          onChange={(event) =>
-                            capNhatNgoaiNgu(index, 'level_id', event.target.value)
-                          }
-                        >
-                          <option value="">Chọn trình độ</option>
-                          {danhSachCapDo.map((item) => (
-                            <option key={item.id} value={item.id}>
-                              {item.level_name}
                             </option>
                           ))}
                         </select>
@@ -999,9 +963,7 @@ function GuideManagementApiPage() {
                 {layNgoaiNgu(hdvChiTiet).length > 0 ? (
                   layNgoaiNgu(hdvChiTiet).map((ngoaiNgu) => (
                     <span key={ngoaiNgu.id || ngoaiNgu.language_id}>
-                      {[layTenNgoaiNgu(ngoaiNgu), layTenCapDo(ngoaiNgu)]
-                        .filter(Boolean)
-                        .join(' ')}
+                      {layTenNgoaiNgu(ngoaiNgu)}
                     </span>
                   ))
                 ) : (
