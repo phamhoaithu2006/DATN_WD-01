@@ -28,7 +28,9 @@ import AuthPage from '../pages/auth/AuthPage'
 import CustomerPage from '../pages/customer/CustomerPage'
 import ReportStatisticsPage from '../pages/admin/reportStatistics/ReportStatisticsPage'
 
-const protect = (page) => <ProtectedAdminRoute>{page}</ProtectedAdminRoute>
+const protect = (page, allowedRoles = ['admin']) => (
+  <ProtectedAdminRoute allowedRoles={allowedRoles}>{page}</ProtectedAdminRoute>
+)
 const adminPage = (page) => protect(<AdminLayout>{page}</AdminLayout>)
 
 function AppRoutes() {

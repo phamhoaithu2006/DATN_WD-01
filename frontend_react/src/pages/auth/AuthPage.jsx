@@ -10,6 +10,7 @@ import {
 } from "../../services/authApi";
 import {
   clearSession,
+  normalizeSessionUser,
   readSession,
   readUsers,
   saveSession,
@@ -27,24 +28,12 @@ const emptyRegisterForm = {
   terms: false,
 };
 
-function normalizeUser(user) {
-  if (!user) return null;
-
-  return {
-    ...user,
-    full_name: user.full_name || user.name || user.email || "",
-    email: user.email || "",
-    phone: user.phone || "",
-    role: user.role || "",
-  };
-}
-
 function AuthPage() {
   const navigate = useNavigate();
   const [mode, setMode] = useState("login");
   const [users] = useState(readUsers);
   const [currentUser, setCurrentUser] = useState(() =>
-    normalizeUser(readSession()),
+    normalizeSessionUser(readSession()),
   );
   const [notice, setNotice] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -82,27 +71,22 @@ function AuthPage() {
 
     try {
       const data = await loginApi(loginData.email.trim(), loginData.password, loginData.remember)
-      const roleName = data.user?.role?.name
-
-      if (roleName !== 'admin') {
-        clearSession()
-        setNotice('Tài khoản này không có quyền truy cập admin.')
-        return
-      }
-
-      const sessionUser = {
+      const sessionUser = normalizeSessionUser({
         id: data.user.id,
         full_name: data.user.full_name || data.user.name || data.user.email,
         email: data.user.email,
         phone: data.user.phone,
-        role: roleName,
-      };
+        role: data.user.role,
+      });
 
       saveToken(data.token, loginData.remember)
       saveSession(sessionUser, loginData.remember)
       setCurrentUser(sessionUser)
       setNotice('Đăng nhập thành công.')
-      navigate('/admin', { replace: true })
+
+      if (sessionUser.role === 'admin') {
+        navigate('/admin', { replace: true })
+      }
     } catch (error) {
       setNotice(
         error.response?.data?.message ||
@@ -132,12 +116,12 @@ function AuthPage() {
         password_confirmation: registerData.confirmPassword,
       };
       const data = await registerApi(payload);
-      const sessionUser = normalizeUser({
+      const sessionUser = normalizeSessionUser({
         id: data.user?.id,
         full_name: data.user?.full_name || payload.full_name,
         email: data.user?.email || payload.email,
         phone: data.user?.phone || payload.phone,
-        role: data.user?.role?.name || data.user?.role || "customer",
+        role: data.user?.role || "customer",
       });
 
       saveToken(data.token, true);

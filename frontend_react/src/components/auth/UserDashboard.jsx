@@ -1,4 +1,8 @@
+import { roleClass, roleLabel } from "../../utils/accountRoles";
+
 function UserDashboard({ user, welcomeName, onLogout }) {
+  const roleObj = user.role_detail || { name: user.role };
+
   return (
     <div className="dashboard-card">
       <span className="status-pill">Đang đăng nhập</span>
@@ -14,14 +18,23 @@ function UserDashboard({ user, welcomeName, onLogout }) {
         </div>
         <div>
           <span>Số điện thoại</span>
-          <strong>{user.phone}</strong>
+          <strong>{user.phone || "—"}</strong>
+        </div>
+        <div style={{ gridColumn: "span 2" }}>
+          <span>Vai trò</span>
+          <strong>
+            <span className={`role-badge ${roleClass(roleObj)}`}>
+              {roleLabel(roleObj)}
+            </span>
+          </strong>
         </div>
       </div>
       <button className="primary-button" type="button" onClick={onLogout}>
         Đăng xuất
       </button>
     </div>
-  )
+  );
 }
 
-export default UserDashboard
+export default UserDashboard;
+
