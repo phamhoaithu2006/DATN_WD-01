@@ -165,6 +165,9 @@ function normalizePartner(partner) {
     displayLogo: partner.logo_url || partner.logo || partner.avatar_url || '',
     displayContractStart: partner.contract_start || partner.contract_from || partner.start_date || '',
     displayContractEnd: partner.contract_end || partner.contract_to || partner.end_date || '',
+    displayCreatedAt: partner.created_at || partner.createdAt || '',
+    displayUpdatedAt: partner.updated_at || partner.updatedAt || '',
+    displayDeletedAt: partner.deleted_at || partner.deletedAt || '',
   }
 }
 
@@ -528,6 +531,18 @@ function PartnerDetailModal({ partner, loading, onClose }) {
                 <dt>Hợp đồng</dt>
                 <dd>{formatDateRange(partner?.displayContractStart, partner?.displayContractEnd)}</dd>
               </div>
+              <div>
+                <dt>Ngày tạo</dt>
+                <dd>{formatDate(partner?.displayCreatedAt)}</dd>
+              </div>
+              <div>
+                <dt>Cập nhật gần nhất</dt>
+                <dd>{formatDate(partner?.displayUpdatedAt)}</dd>
+              </div>
+              <div>
+                <dt>Ngày xóa mềm</dt>
+                <dd>{formatDate(partner?.displayDeletedAt)}</dd>
+              </div>
             </dl>
 
             <div className="partner-detail-section">
@@ -656,6 +671,15 @@ function PartnerManagementPage() {
         setPagination(getPaginationMeta(listResponse))
         setStatistics(getStatisticsData(statisticsResponse))
       } catch (error) {
+        const status = error.response?.status
+
+        if (status === 404) {
+          setPartners([])
+          setPagination({ currentPage: 1, lastPage: 1, total: 0, perPage: 10 })
+          setStatistics({})
+          return
+        }
+
         setNotice({ type: 'error', text: getMessage(error, 'Không tải được danh sách đối tác.') })
       } finally {
         setLoading(false)
