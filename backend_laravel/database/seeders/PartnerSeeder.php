@@ -13,11 +13,11 @@ class PartnerSeeder extends Seeder
         $now = Carbon::now();
 
         $serviceTypes = [
-            ['name' => 'Khách sạn',          'slug' => 'khach-san',        'created_at' => $now, 'updated_at' => $now],
-            ['name' => 'Nhà hàng',           'slug' => 'nha-hang',         'created_at' => $now, 'updated_at' => $now],
-            ['name' => 'Vận chuyển',         'slug' => 'van-chuyen',       'created_at' => $now, 'updated_at' => $now],
+            ['name' => 'Khách sạn',          'slug' => 'khach-san',         'created_at' => $now, 'updated_at' => $now],
+            ['name' => 'Nhà hàng',           'slug' => 'nha-hang',          'created_at' => $now, 'updated_at' => $now],
+            ['name' => 'Vận chuyển',         'slug' => 'van-chuyen',        'created_at' => $now, 'updated_at' => $now],
             ['name' => 'Vui chơi giải trí',  'slug' => 'vui-choi-giai-tri', 'created_at' => $now, 'updated_at' => $now],
-            ['name' => 'Bảo hiểm du lịch',  'slug' => 'bao-hiem-du-lich', 'created_at' => $now, 'updated_at' => $now],
+            ['name' => 'Bảo hiểm du lịch',  'slug' => 'bao-hiem-du-lich',  'created_at' => $now, 'updated_at' => $now],
         ];
 
         DB::table('partner_service_types')->insert($serviceTypes);
@@ -26,6 +26,7 @@ class PartnerSeeder extends Seeder
 
         $partners = [
             [
+                'partner_code'    => 'PTN001',
                 'service_type_id' => $typeIds['khach-san'],
                 'name'            => 'Khách sạn Mường Thanh Grand Đà Nẵng',
                 'contact_person'  => 'Nguyễn Thị Lan',
@@ -41,6 +42,7 @@ class PartnerSeeder extends Seeder
                 'updated_at'      => $now,
             ],
             [
+                'partner_code'    => 'PTN002',
                 'service_type_id' => $typeIds['nha-hang'],
                 'name'            => 'Nhà hàng Bữa Việt',
                 'contact_person'  => 'Lê Hoàng Nam',
@@ -56,6 +58,7 @@ class PartnerSeeder extends Seeder
                 'updated_at'      => $now,
             ],
             [
+                'partner_code'    => 'PTN003',
                 'service_type_id' => $typeIds['van-chuyen'],
                 'name'            => 'Công ty TNHH Vận tải Sao Việt',
                 'contact_person'  => 'Phạm Minh Tuấn',
@@ -71,6 +74,7 @@ class PartnerSeeder extends Seeder
                 'updated_at'      => $now,
             ],
             [
+                'partner_code'    => 'PTN004',
                 'service_type_id' => $typeIds['bao-hiem-du-lich'],
                 'name'            => 'Bảo Việt Travel Insurance',
                 'contact_person'  => 'Vũ Thị Hoa',
