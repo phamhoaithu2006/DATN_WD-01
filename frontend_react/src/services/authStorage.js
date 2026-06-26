@@ -9,6 +9,27 @@ export const demoUser = {
   password: 'Demo@123',
 }
 
+export function normalizeSessionUser(user) {
+  if (!user) return null
+
+  const roleName =
+    typeof user.role === 'string'
+      ? user.role
+      : user.role?.name || user.role_name || ''
+
+  return {
+    ...user,
+    full_name: user.full_name || user.name || user.email || '',
+    email: user.email || '',
+    phone: user.phone || '',
+    role: roleName,
+    role_detail:
+      typeof user.role === 'object' && user.role !== null
+        ? user.role
+        : user.role_detail || null,
+  }
+}
+
 export function readUsers() {
   try {
     const users = JSON.parse(localStorage.getItem(USERS_KEY))
@@ -24,7 +45,9 @@ export function saveUsers(users) {
 
 export function readSession() {
   try {
-    return JSON.parse(localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY))
+    return normalizeSessionUser(
+      JSON.parse(localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY)),
+    )
   } catch {
     return null
   }
@@ -35,7 +58,7 @@ export function saveSession(user, remember = true) {
   const otherStorage = remember ? sessionStorage : localStorage
 
   otherStorage.removeItem(SESSION_KEY)
-  storage.setItem(SESSION_KEY, JSON.stringify(user))
+  storage.setItem(SESSION_KEY, JSON.stringify(normalizeSessionUser(user)))
 }
 
 export function readToken() {

@@ -12,9 +12,9 @@ class EnsureAdmin
     {
         $user = $request->user();
 
-        if (!$user || $user->role?->name !== 'admin') {
+        if (! $user || $user->role?->name !== 'admin') {
             return response()->json([
-                'message' => 'Ban khong co quyen truy cap khu vuc admin',
+                'message' => 'Bạn không có quyền truy cập chức năng này.',
             ], 403);
         }
 

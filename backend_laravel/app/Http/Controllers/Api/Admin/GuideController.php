@@ -52,8 +52,11 @@ class GuideController extends Controller
                             ->orWhere('email', 'like', '%' . $search . '%')
                             ->orWhere('phone', 'like', '%' . $search . '%');
                     })
-                    ->orWhereHas('languages', function ($q) use ($search) {
-                        $q->where('language', 'like', '%' . $search . '%');
+                    ->orWhereHas('languages.language', function ($q) use ($search) {
+                        $q->where('name', 'like', '%' . $search . '%');
+                    })
+                    ->orWhereHas('experiences.certificate', function ($q) use ($search) {
+                        $q->where('name', 'like', '%' . $search . '%');
                     });
             });
         }
@@ -88,8 +91,11 @@ class GuideController extends Controller
                             ->orWhere('email', 'like', '%' . $search . '%')
                             ->orWhere('phone', 'like', '%' . $search . '%');
                     })
-                    ->orWhereHas('languages', function ($q) use ($search) {
-                        $q->where('language', 'like', '%' . $search . '%');
+                    ->orWhereHas('languages.language', function ($q) use ($search) {
+                        $q->where('name', 'like', '%' . $search . '%');
+                    })
+                    ->orWhereHas('experiences.certificate', function ($q) use ($search) {
+                        $q->where('name', 'like', '%' . $search . '%');
                     });
             });
         }

@@ -16,22 +16,22 @@ class UserSeeder extends Seeder
         $supportStaffRole = Role::where('name', 'support staff')->firstOrFail();
         $tourGuideRole = Role::where('name', 'tour guide')->firstOrFail();
 
+
         $users = [
             [
                 'role_id' => $adminRole->id,
                 'full_name' => 'Quản trị viên ViVuGo',
                 'email' => 'admin@vivugo.vn',
                 'phone' => '0901000001',
-                'password' => Hash::make('Admin@123'),
+                'password' => Hash::make('password'),
                 'status' => 'active',
             ],
             [
                 'role_id' => $customerRole->id,
                 'full_name' => 'Nguyễn Minh Anh',
-                'email' => '
-                customer@vivugo.vn',
+                'email' => 'customer@vivugo.vn',
                 'phone' => '0901000002',
-                'password' => Hash::make('Customer@123'),
+                'password' => Hash::make('password'),
                 'status' => 'active',
             ],
             [
