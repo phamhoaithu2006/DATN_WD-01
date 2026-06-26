@@ -16,22 +16,22 @@ class UserSeeder extends Seeder
         $supportStaffRole = Role::where('name', 'support staff')->firstOrFail();
         $tourGuideRole = Role::where('name', 'tour guide')->firstOrFail();
 
-        $guideRole = Role::where('name', 'tour guide')->firstOrFail();
         $users = [
             [
                 'role_id' => $adminRole->id,
                 'full_name' => 'Quản trị viên ViVuGo',
                 'email' => 'admin@vivugo.vn',
                 'phone' => '0901000001',
-                'password' => Hash::make('password'),
+                'password' => Hash::make('Admin@123'),
                 'status' => 'active',
             ],
             [
                 'role_id' => $customerRole->id,
                 'full_name' => 'Nguyễn Minh Anh',
-                'email' => 'customer@vivugo.vn',
+                'email' => '
+                customer@vivugo.vn',
                 'phone' => '0901000002',
-                'password' => Hash::make('password'),
+                'password' => Hash::make('Customer@123'),
                 'status' => 'active',
             ],
             [
@@ -39,7 +39,7 @@ class UserSeeder extends Seeder
                 'full_name' => 'Lê Thị Hương',
                 'email' => 'support@vivugo.vn',
                 'phone' => '0901000003',
-                'password' => Hash::make('password'),
+                'password' => Hash::make('Support@123'),
                 'status' => 'active',
             ],
             [
@@ -47,11 +47,11 @@ class UserSeeder extends Seeder
                 'full_name' => 'Phạm Quốc Đạt',
                 'email' => 'guide@vivugo.vn',
                 'phone' => '0901000004',
-                'password' => Hash::make('password'),
+                'password' => Hash::make('Guide@123'),
                 'status' => 'active',
             ],
             [
-                'role_id'   => $guideRole->id,
+                'role_id'   => $tourGuideRole->id,
                 'full_name' => 'Trần Văn Hùng',
                 'email'     => 'hung.tv@vivugo.vn',
                 'phone'     => '0912111222',
@@ -59,7 +59,7 @@ class UserSeeder extends Seeder
                 'status'    => 'active',
             ],
             [
-                'role_id'   => $guideRole->id,
+                'role_id'   => $tourGuideRole->id,
                 'full_name' => 'Nguyễn Thị Mai',
                 'email'     => 'mai.nt@vivugo.vn',
                 'phone'     => '0912111333',
@@ -67,7 +67,7 @@ class UserSeeder extends Seeder
                 'status'    => 'active',
             ],
             [
-                'role_id'   => $guideRole->id,
+                'role_id'   => $tourGuideRole->id,
                 'full_name' => 'Hoàng Văn Đức',
                 'email'     => 'duc.hv@vivugo.vn',
                 'phone'     => '0912111444',
