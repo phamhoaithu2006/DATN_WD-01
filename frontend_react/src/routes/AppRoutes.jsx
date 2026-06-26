@@ -3,6 +3,7 @@ import ProtectedAdminRoute from '../components/admin/ProtectedAdminRoute'
 import AdminLayout from '../layouts/AdminLayout'
 import AdminDashboardPage from '../pages/admin/AdminDashboardPage'
 import GuideManagementPage from '../pages/admin/GuideManagementPage'
+import SupportStaffManagementPage from '../pages/admin/SupportStaffManagementPage'
 import UserManagementPage from '../pages/admin/UserManagementPage'
 import TourTypeCreatePage from '../pages/admin/categories/TourTypeCreatePage'
 import TourTypeEditPage from '../pages/admin/categories/TourTypeEditPage'
@@ -25,6 +26,7 @@ import TourHiddenPage from '../pages/admin/tours/TourHiddenPage'
 import TourListPage from '../pages/admin/tours/TourListPage'
 import AuthPage from '../pages/auth/AuthPage'
 import CustomerPage from '../pages/customer/CustomerPage'
+import ReportStatisticsPage from '../pages/admin/reportStatistics/ReportStatisticsPage'
 
 const protect = (page, allowedRoles = ['admin']) => (
   <ProtectedAdminRoute allowedRoles={allowedRoles}>{page}</ProtectedAdminRoute>
@@ -56,6 +58,7 @@ function AppRoutes() {
     <Route path="/admin/settings/payment" element={protect(<PaymentSettingsPage />)} />
     <Route path="/admin/settings/backup" element={protect(<BackupSettingsPage />)} />
     <Route path="/admin" element={adminPage(<AdminDashboardPage />)} />
+    <Route path="/admin/reports" element={adminPage(<ReportStatisticsPage />)} />
     <Route path="/admin/users" element={adminPage(<UserManagementPage />)} />
     {/* Danh mục tour/loại tour */}
     <Route path="/admin/categories" element={adminPage(<TourTypeListPage />)} />
@@ -76,6 +79,8 @@ function AppRoutes() {
     <Route path="/admin/guides" element={adminPage(<GuideManagementPage />)} />
     <Route path="/admin/*" element={<Navigate to="/admin" replace />} />
     <Route path="*" element={<Navigate to="/" replace />} />
+    {/* Quản lý nhân viên hỗ trợ */}
+    <Route path="/admin/support" element={adminPage(<SupportStaffManagementPage />)} />
   </Routes>
 }
 

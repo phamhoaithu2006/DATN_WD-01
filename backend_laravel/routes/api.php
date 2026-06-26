@@ -1,12 +1,16 @@
 ﻿<?php
 
 use App\Http\Controllers\Api\Admin\AdminProfileController;
+use App\Http\Controllers\Api\Admin\BookingController;
 use App\Http\Controllers\Api\Admin\CategoryController;
+use App\Http\Controllers\Api\Admin\CertificateController;
 use App\Http\Controllers\Api\Admin\CustomerManagerController;
 use App\Http\Controllers\Api\Admin\DatabaseBackupController;
 use App\Http\Controllers\Api\Admin\DestinationController;
 use App\Http\Controllers\Api\Admin\GuideController;
+use App\Http\Controllers\Api\Admin\LanguageController;
 use App\Http\Controllers\Api\Admin\NotificationController;
+use App\Http\Controllers\Api\Customer\NotificationCustomerController;
 use App\Http\Controllers\Api\Admin\PaymentController;
 use App\Http\Controllers\Api\Admin\ReportController;
 use App\Http\Controllers\Api\Admin\SettingController;
@@ -41,11 +45,21 @@ Route::prefix('auth')->group(function () {
 
 // Khách hàng đã đăng nhập
 Route::middleware(['auth:sanctum', 'role:customer'])->group(function () {
-    Route::get('/user', [AuthController::class, 'me']);
-    Route::get('/profile/summary', [CustomerDashboardController::class, 'summary']);
-    Route::get('/profile/bookings', [CustomerDashboardController::class, 'bookings']);
-    Route::put('/profile/update', [CustomerController::class, 'updateProfile']);
-    Route::put('/profile/change-password', [CustomerController::class, 'changePassword']);
+    Route::get('/user', [AuthController::class, 'me']); 
+    Route::get('/profile/summary', [CustomerDashboardController::class, 'summary']); 
+    Route::get('/profile/bookings', [CustomerDashboardController::class, 'bookings']); 
+    Route::put('/profile/update', [CustomerController::class, 'updateProfile']); 
+    Route::put('/profile/change-password', [CustomerController::class, 'changePassword']); 
+
+    //======Thông báo khách hàng, hdv, nvht (dùng chung đc hết)======
+    //hiển thị danh sách thông báo của khách hàng
+    Route::get('/notifications/customers', [NotificationCustomerController::class, 'getMyNotifications']);
+    //xem chi tiết thông báo
+    Route::get('/notifications/customers/{id}', [NotificationCustomerController::class, 'getNotificationDetail']);
+    // API đếm số lượng thông báo chưa đọc
+    Route::get('/notifications/customers/unread-count', [NotificationCustomerController::class, 'getUnreadCount']);
+    // API đánh dấu đã đọc (sử dụng PATCH vì cập nhật một phần dữ liệu)
+    Route::patch('/notifications/customers/{id}/read', [NotificationCustomerController::class, 'markAsRead']);
 });
 
 // Đặt lại mật khẩu cho khách hàng 
@@ -68,7 +82,6 @@ Route::prefix('tours')->group(function () {
     // Chi tiết tour theo slug  
     Route::get('/{slug}', [TourController::class, 'show_gdkh']);
 });
-// ==============================================================================================
 
 Route::get('/settings/public', [PublicSettingController::class, 'show']);
 Route::get('/widgets', [PublicWidgetController::class, 'index']);
@@ -106,20 +119,18 @@ Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(functi
     Route::patch('/customers/{id}/unlock', [CustomerManagerController::class, 'unlock']);
 
     // Quản lý HDV
-    // Tính tổng số lượng 
-    Route::get('/guides/statistics', [GuideController::class, 'statistics']);
-    //Lấy danh sách 
-    Route::get('/guides', [GuideController::class, 'index']);
-    Route::get('/guides/search', [GuideController::class, 'search']);
-    Route::get('/guides/filter', [GuideController::class, 'filter']);
-    //Xem chi tiết 
-    Route::get('/guides/{id}', [GuideController::class, 'show']);
-    //Thêm thông tin 
-    Route::post('/guides', [GuideController::class, 'store']);
-    //Sửa thông tin 
-    Route::put('/guides/{id}', [GuideController::class, 'update']);
-    //Xóa thông tin 
-    Route::delete('/guides/{id}', [GuideController::class, 'destroy']);
+    Route::get('guides', [GuideController::class, 'index']);
+    Route::get('guides/search', [GuideController::class, 'search']);
+    Route::get('guides/filter', [GuideController::class, 'filter']);
+    Route::get('guides/statistics', [GuideController::class, 'statistics']);
+    Route::get('guides/{id}', [GuideController::class, 'show']);
+    Route::post('guides', [GuideController::class, 'store']);
+    Route::put('guides/{id}', [GuideController::class, 'update']);
+    Route::delete('guides/{id}', [GuideController::class, 'destroy']);
+
+    // Quản lý chứng chỉ và ngôn ngữ
+    Route::get('languages', [LanguageController::class, 'index']);
+    Route::get('certificates', [CertificateController::class, 'index']);
 
     // Quản lý nhân viên hỗ trợ
     // Xem danh sách 
@@ -202,6 +213,16 @@ Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(functi
         Route::put('/profile/password', [AdminProfileController::class, 'changePassword']);
     });
     //===========================================================================================
+    //============================================Booking ====================================
+    Route::prefix('bookings')->group(function () {
+        Route::get('/',            [BookingController::class, 'index']);
+        Route::get('/statistics',  [BookingController::class, 'statistics']);
+        Route::get('/{id}',        [BookingController::class, 'show']);
+        Route::post('/',           [BookingController::class, 'store']);
+        Route::put('/{id}',        [BookingController::class, 'update']);
+        Route::patch('/{id}/cancel', [BookingController::class, 'softDelete']);
+        Route::delete('/{id}',     [BookingController::class, 'destroy']);
+    });
 
 
     //================================Chức năng gửi thông báo ====================================
@@ -231,5 +252,4 @@ Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(functi
     Route::get('/notifications/get-all-send', [NotificationController::class, 'getAllSentNotifications']);
     //Thu hồi lại thông báo đã gửi
     Route::delete('/notifications/revoke/{draft_id}', [NotificationController::class, 'revoke']);
-
 });

@@ -5,107 +5,176 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\SupportStaff;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 
 class SupportStaffController extends Controller
 {
-    // API 1 & 3: Hiển thị danh sách, phân trang, tìm kiếm nâng cao & lọc 
+    private const STATUSES = ['active', 'inactive', 'hidden'];
+
     public function index(Request $request)
     {
         $query = SupportStaff::query();
 
-        // Tìm kiếm theo từ khóa key (Tên hoặc Email) 
-        if ($request->has('search') && $request->search != '') {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'LIKE', "%{$search}%")
-                  ->orWhere('email', 'LIKE', "%{$search}%");
+        if ($request->filled('search')) {
+            $search = $request->string('search')->trim();
+            $query->where(function ($subQuery) use ($search) {
+                $subQuery
+                    ->where('name', 'like', '%' . $search . '%')
+                    ->orWhere('email', 'like', '%' . $search . '%')
+                    ->orWhere('role', 'like', '%' . $search . '%');
             });
         }
 
-        // Lọc theo chức vụ (role) 
-        if ($request->has('role') && $request->role != '') {
-            $query->where('role', $request->role);
+        if ($request->filled('role')) {
+            $query->where('role', $request->input('role'));
         }
 
-        // Lọc theo trạng thái (status) 
-        if ($request->has('status') && $request->status != '') {
-            $query->where('status', $request->status);
+        if ($request->filled('status')) {
+            $query->where('status', $request->input('status'));
         }
 
-        // Lọc theo hiệu suất (Tìm nhân viên từ mức rating chỉ định trở lên) 
-        if ($request->has('rating_from') && $request->rating_from != '') {
-            $query->where('performance_rating', '>=', $request->rating_from);
+        if ($request->filled('rating_from')) {
+            $query->where('performance_rating', '>=', $request->input('rating_from'));
         }
 
-        // Sắp xếp mới nhất và phân trang tự động 10 bản ghi 
-        $staff = $query->latest()->paginate(10);
+        if ($request->filled('rating_to')) {
+            $query->where('performance_rating', '<=', $request->input('rating_to'));
+        }
+
+        $perPage = max((int) $request->input('per_page', 10), 1);
+
+        $staff = $query->latest()->paginate($perPage);
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Lấy danh sách nhân viên thành công',
-            'data' => $staff
-        ], 200);
+            'message' => 'Lấy danh sách nhân viên hỗ trợ thành công',
+            'data' => $staff,
+        ]);
     }
 
-    // API 2: Thêm mới tài khoản nhân viên 
+    public function statistics()
+    {
+        $baseQuery = SupportStaff::query();
+
+        $totals = (clone $baseQuery)
+            ->selectRaw('COUNT(*) as total')
+            ->selectRaw("SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active")
+            ->selectRaw("SUM(CASE WHEN status = 'inactive' THEN 1 ELSE 0 END) as inactive")
+            ->selectRaw("SUM(CASE WHEN status = 'hidden' THEN 1 ELSE 0 END) as hidden")
+            ->selectRaw('COALESCE(AVG(performance_rating), 0) as average_rating')
+            ->first();
+
+        $topStaff = (clone $baseQuery)
+            ->orderByDesc('performance_rating')
+            ->orderByDesc('updated_at')
+            ->limit(5)
+            ->get(['id', 'name', 'email', 'role', 'status', 'performance_rating', 'created_at']);
+
+        $roleOptions = (clone $baseQuery)
+            ->select('role')
+            ->distinct()
+            ->orderBy('role')
+            ->pluck('role');
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Lấy thống kê nhân viên hỗ trợ thành công',
+            'data' => [
+                'total' => (int) ($totals->total ?? 0),
+                'active' => (int) ($totals->active ?? 0),
+                'inactive' => (int) ($totals->inactive ?? 0),
+                'hidden' => (int) ($totals->hidden ?? 0),
+                'average_rating' => round((float) ($totals->average_rating ?? 0), 2),
+                'role_options' => $roleOptions,
+                'top_staff' => $topStaff,
+            ],
+        ]);
+    }
+
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:support_staff,email',
-            'role' => 'required|string',
-            'status' => 'nullable|string',
-            'performance_rating' => 'nullable|numeric|between:0,5'
+            'role' => 'required|string|max:100',
+            'status' => ['nullable', 'string', Rule::in(self::STATUSES)],
+            'performance_rating' => 'nullable|numeric|between:0,5',
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'errors' => $validator->errors()], 422);
+            return response()->json([
+                'status' => 'error',
+                'errors' => $validator->errors(),
+            ], 422);
         }
 
-        $staff = SupportStaff::create($request->all());
+        $data = $validator->validated();
+        $data['status'] = $data['status'] ?? 'active';
+        $data['hidden_at'] = $data['status'] === 'hidden' ? Carbon::now() : null;
+
+        $staff = SupportStaff::create($data);
 
         return response()->json([
             'status' => 'success',
             'message' => 'Thêm nhân viên hỗ trợ thành công',
-            'data' => $staff
+            'data' => $staff,
         ], 201);
     }
 
-    // API 4: Xem chi tiết tài khoản nhân viên 
     public function show($id)
     {
         $staff = SupportStaff::findOrFail($id);
 
         return response()->json([
             'status' => 'success',
-            'data' => $staff
-        ], 200);
+            'data' => $staff,
+        ]);
     }
 
-    // API 2: Cập nhật thông tin (Sửa tài khoản) 
     public function update(Request $request, $id)
     {
         $staff = SupportStaff::findOrFail($id);
 
         $validator = Validator::make($request->all(), [
             'name' => 'sometimes|required|string|max:255',
-            'email' => 'sometimes|required|email|unique:support_staff,email,' . $id,
-            'role' => 'sometimes|required|string',
-            'status' => 'sometimes|required|string',
-            'performance_rating' => 'sometimes|required|numeric|between:0,5'
+            'email' => ['sometimes', 'required', 'email', Rule::unique('support_staff', 'email')->ignore($id)],
+            'role' => 'sometimes|required|string|max:100',
+            'status' => ['sometimes', 'required', 'string', Rule::in(self::STATUSES)],
+            'performance_rating' => 'sometimes|required|numeric|between:0,5',
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => 'error', 'errors' => $validator->errors()], 422);
+            return response()->json([
+                'status' => 'error',
+                'errors' => $validator->errors(),
+            ], 422);
         }
 
-        $staff->update($request->all());
+        $data = $validator->validated();
+
+        if (array_key_exists('status', $data)) {
+            $data['hidden_at'] = $data['status'] === 'hidden' ? Carbon::now() : null;
+        }
+
+        $staff->update($data);
 
         return response()->json([
             'status' => 'success',
             'message' => 'Cập nhật thông tin nhân viên thành công',
-            'data' => $staff
-        ], 200);
+            'data' => $staff,
+        ]);
+    }
+
+    public function destroy($id)
+    {
+        $staff = SupportStaff::findOrFail($id);
+        $staff->delete();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Xóa nhân viên hỗ trợ thành công',
+        ]);
     }
 }
