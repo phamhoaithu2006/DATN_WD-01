@@ -57,6 +57,11 @@ function PartnerTrashPage() {
       const response = await partnerApi.getTrashed()
       setPartners(getListData(response))
     } catch (err) {
+      if (err.response?.status === 404) {
+        setPartners([])
+        return
+      }
+
       setError(getMessage(err, 'Không thể tải danh sách đối tác đã xóa.'))
     } finally {
       setLoading(false)
