@@ -75,6 +75,8 @@ function AppRoutes() {
     <Route path="/admin/guides" element={adminPage(<GuideManagementPage />)} />
     <Route path="/admin/*" element={<Navigate to="/admin" replace />} />
     <Route path="*" element={<Navigate to="/" replace />} />
+    {/* Quản lý nhân viên hỗ trợ */}
+    <Route path="/admin/support" element={adminPage(<SupportStaffManagementPage />)} />
   </Routes>
 }
 
