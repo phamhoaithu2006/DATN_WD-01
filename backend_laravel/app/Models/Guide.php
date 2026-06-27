@@ -30,6 +30,13 @@ class Guide extends Model
         return $this->hasMany(GuideLanguage::class);
     }
 
+        public function guideLanguages()
+    {
+        return $this->belongsToMany(Language::class, 'guide_languages')
+            ->withPivot('level_id')
+            ->withTimestamps();
+    }
+
     public function experiences()
     {
         return $this->hasMany(GuideExperience::class);
