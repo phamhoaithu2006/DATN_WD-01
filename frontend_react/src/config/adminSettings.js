@@ -1,5 +1,5 @@
 export const defaultSettings = {
-  site_name: "VivuGo",
+  site_name: "ViVuGo",
   logo_url: "",
   contact_email: "",
   hotline: "",

@@ -1,6 +1,5 @@
 ﻿import { Link } from "react-router-dom";
 import { useLocale } from "../../contexts/LocaleContext";
-import BrandLogo from "../BrandLogo";
 
 function Footer() {
   const { settings } = useLocale();
@@ -8,13 +7,13 @@ function Footer() {
   const footerAddress = settings.footer_address || settings.address || "";
   const footerHotline = settings.footer_hotline || settings.hotline || "1900 1234";
   const footerEmail = settings.footer_email || settings.contact_email || "support@vivugo.vn";
-  const siteName = settings.site_name || "VivuGo";
+  const siteName = settings.site_name || "ViVuGo";
 
   return (
-    <footer className="vg-footer">
+    <footer className="vg-footer vg-footer-soft">
       <div className="vg-container vg-footer-grid">
         <div className="vg-footer-brand">
-          <BrandLogo footer />
+          <div className="vg-footer-title">ViVuGo</div>
           <p className="vg-footer-company">Công ty TNHH Du lịch {siteName}</p>
           {footerText ? <p>{footerText}</p> : <p>Khám phá hành trình mới cùng đội ngũ tư vấn tận tâm.</p>}
           {footerAddress ? <p>{footerAddress}</p> : null}

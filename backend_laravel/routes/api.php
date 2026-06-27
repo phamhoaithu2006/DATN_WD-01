@@ -40,7 +40,7 @@ Route::prefix('auth')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
     });
-    // Lấy thông tin người dùng hiện tại (chỉ có thể thực hiện khi người dùng đã đăng nhập)
+// Lấy thông tin người dùng hiện tại (chỉ có thể thực hiện khi người dùng đã đăng nhập)
     Route::middleware('auth:sanctum')->get('/me', function () {
         return response()->json([
             'user' => request()->user()->load('role'),
@@ -50,11 +50,11 @@ Route::prefix('auth')->group(function () {
 
 // Khách hàng đã đăng nhập
 Route::middleware(['auth:sanctum', 'role:customer'])->group(function () {
-    Route::get('/user', [AuthController::class, 'me']);
-    Route::get('/profile/summary', [CustomerDashboardController::class, 'summary']);
-    Route::get('/profile/bookings', [CustomerDashboardController::class, 'bookings']);
-    Route::put('/profile/update', [CustomerController::class, 'updateProfile']);
-    Route::put('/profile/change-password', [CustomerController::class, 'changePassword']);
+    Route::get('/user', [AuthController::class, 'me']); 
+    Route::get('/profile/summary', [CustomerDashboardController::class, 'summary']); 
+    Route::get('/profile/bookings', [CustomerDashboardController::class, 'bookings']); 
+    Route::put('/profile/update', [CustomerController::class, 'updateProfile']); 
+    Route::put('/profile/change-password', [CustomerController::class, 'changePassword']); 
 
     //======Thông báo khách hàng, hdv, nvht (dùng chung được hết)======
     // Hiển thị danh sách thông báo của khách hàng
@@ -77,7 +77,7 @@ Route::prefix('tours')->group(function () {
     Route::get('/search', [TourController::class, 'search_gdkh']);
     Route::get('/filter', [TourController::class, 'filter_gdkh']);
     Route::get('/', [TourController::class, 'index_gdkh']);
-    // Quản lý danh sách yêu thích (wishlist) cho khách hàng
+// Quản lý danh sách yêu thích (wishlist) cho khách hàng
     Route::middleware(['auth:sanctum', 'role:customer'])->group(function () {
         Route::get('wishlist', [WishlistController::class, 'index']);
         Route::post('wishlist', [WishlistController::class, 'store']);
@@ -95,9 +95,9 @@ Route::get('/roles', [CustomerManagerController::class, 'index_role']);
 
 //======Admin======
 Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function () {
-    Route::get('/settings/public', [PublicSettingController::class, 'show']);
-    Route::get('/widgets', [PublicWidgetController::class, 'index']);
-    Route::middleware(['auth:sanctum', 'role:admin'])->get('/roles', [CustomerManagerController::class, 'index_role']);
+Route::get('/settings/public', [PublicSettingController::class, 'show']);
+Route::get('/widgets', [PublicWidgetController::class, 'index']);
+Route::middleware(['auth:sanctum', 'role:admin'])->get('/roles', [CustomerManagerController::class, 'index_role']);
 
     // Chức năng báo cáo & thống kê
     Route::get('/reports/overview', [ReportController::class, 'getOverviewStatistics']);
@@ -243,7 +243,7 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
         Route::put('/profile', [AdminProfileController::class, 'update']);
         Route::put('/profile/password', [AdminProfileController::class, 'changePassword']);
     });
-
+    
     //======Booking======
     Route::prefix('bookings')->group(function () {
         Route::get('/',            [BookingController::class, 'index']);

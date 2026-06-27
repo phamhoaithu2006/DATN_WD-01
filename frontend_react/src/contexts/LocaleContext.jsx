@@ -14,7 +14,7 @@ const defaultLocaleSettings = {
   timezone: 'Asia/Ho_Chi_Minh',
   date_format: 'dd/mm/yyyy',
   currency: 'VND',
-  site_name: 'VivuGo',
+  site_name: 'ViVuGo',
   logo_url: '',
   contact_email: '',
   hotline: '',

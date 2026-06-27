@@ -2,9 +2,15 @@
 import { useState } from "react";
 import Icon from "../../components/customer/Icon";
 import TourCard from "../../components/customer/TourCard";
-import { demoDestinations, demoTours } from "../../data/customerDemoData";
+import { demoDestinations } from "../../data/customerDemoData";
 
-function HomePage({ tours, favorites, onFavorite }) {
+function HomePage({
+  tours,
+  domesticTours,
+  internationalTours,
+  favorites,
+  onFavorite,
+}) {
   const navigate = useNavigate();
   const [search, setSearch] = useState({
     keyword: "",
@@ -12,8 +18,8 @@ function HomePage({ tours, favorites, onFavorite }) {
     guests: 2,
   });
 
-  const domesticTours = (tours?.length ? tours : demoTours).slice(0, 4);
-  const internationalTours = demoTours.slice(0, 4);
+  const domesticTourCards = (domesticTours?.length ? domesticTours : tours || []).slice(0, 4);
+  const internationalTourCards = (internationalTours?.length ? internationalTours : tours || []).slice(0, 4);
   const destinationCards = demoDestinations.slice(0, 5);
 
   function submitSearch(event) {
@@ -221,7 +227,7 @@ function HomePage({ tours, favorites, onFavorite }) {
             <Link to="/tours">Xem tất cả →</Link>
           </div>
           <div className="vg-tour-grid vg-tour-grid-wide">
-            {domesticTours.map((tour) => (
+            {domesticTourCards.map((tour) => (
               <TourCard
                 key={tour.id}
                 tour={tour}
@@ -244,7 +250,7 @@ function HomePage({ tours, favorites, onFavorite }) {
             <Link to="/deals">Xem tất cả →</Link>
           </div>
           <div className="vg-tour-grid vg-tour-grid-wide">
-            {internationalTours.map((tour) => (
+            {internationalTourCards.map((tour) => (
               <TourCard
                 key={tour.id}
                 tour={tour}
@@ -259,11 +265,27 @@ function HomePage({ tours, favorites, onFavorite }) {
       <section className="vg-home-section" id="gioi-thieu">
         <div className="vg-container">
           <div className="vg-centered-heading">
-            <span className="vg-kicker">Vì sao chọn ViVuGo</span>
+            <span className="vg-kicker">Về chúng tôi</span>
             <h2>Lên kế hoạch nhẹ nhàng, đi chơi trọn vẹn</h2>
             <p>
-              Mọi chi tiết từ tư vấn, thanh toán đến chăm sóc sau chuyến đi đều được chuẩn hóa.
+              ViVuGo tập trung vào hành trình rõ ràng, dịch vụ dễ hiểu và hỗ trợ sát sao trước - trong - sau chuyến đi.
             </p>
+          </div>
+          <div className="vg-about-strip">
+            <article>
+              <Icon name="sparkle" size={22} />
+              <div>
+                <strong>Trải nghiệm đã được chọn lọc</strong>
+                <span>Từ tour trong nước đến quốc tế, mọi lịch trình đều được cập nhật từ API và kiểm duyệt nội dung trước khi hiển thị.</span>
+              </div>
+            </article>
+            <article>
+              <Icon name="headset" size={22} />
+              <div>
+                <strong>Khách hàng là trung tâm</strong>
+                <span>Chúng tôi lắng nghe phản hồi thực tế để cải thiện chất lượng dịch vụ và chăm sóc từng chuyến đi.</span>
+              </div>
+            </article>
           </div>
           <div className="vg-benefit-grid vg-benefit-grid-home">
             {serviceHighlights.map((item) => (
@@ -306,7 +328,7 @@ function HomePage({ tours, favorites, onFavorite }) {
         </div>
       </section>
 
-      <section className="vg-home-section vg-reviews-section">
+      <section className="vg-home-section vg-reviews-section" id="danh-gia">
         <div className="vg-container">
           <div className="vg-centered-heading">
             <span className="vg-kicker">Đánh giá thực tế</span>
