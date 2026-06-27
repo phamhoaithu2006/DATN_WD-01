@@ -28,6 +28,10 @@ class PartnerController extends Controller
             $query->where('service_type_id', $typeId);
         }
 
+        if ($serviceType = $request->query('service_type')) {
+            $query->whereHas('serviceType', fn($q) => $q->where('slug', $serviceType));
+        }
+
         if ($status = $request->query('status')) {
             $query->where('status', $status);
         }
@@ -35,28 +39,40 @@ class PartnerController extends Controller
         $perPage  = min((int) $request->query('per_page', 15), 100);
         $partners = $query->latest()->paginate($perPage);
 
+        // Transform để frontend đọc được
+        $partners->getCollection()->transform(function ($partner) {
+            $partner->service_type       = $partner->serviceType?->slug ?? '';
+            $partner->service_type_label = $partner->serviceType?->name ?? '';
+            $partner->rating             = $partner->average_rating;
+            $partner->contact_name       = $partner->contact_person;
+            unset($partner->serviceType); // ← thêm dòng này để ẩn object
+            return $partner;
+        });
+
         return response()->json(['success' => true, 'data' => $partners]);
     }
-
     public function statistics(): JsonResponse
     {
         $total         = Partner::withoutTrashed()->count();
         $totalActive   = Partner::withoutTrashed()->where('status', 'active')->count();
         $totalInactive = Partner::withoutTrashed()->where('status', 'inactive')->count();
 
-        $byType = PartnerServiceType::withCount([
-            'partners as total_count',
-            'partners as active_count' => fn($q) => $q->where('status', 'active'),
-        ])->get()->map(fn($t) => [
-            'service_type_id'   => $t->id,
-            'service_type_name' => $t->name,
-            'total_count'       => $t->total_count,
-            'active_count'      => $t->active_count,
+        $serviceTypes = PartnerServiceType::all()->map(fn($t) => [
+            'value' => $t->slug,
+            'label' => $t->name,
+            'count' => $t->partners()->withoutTrashed()->count(),
         ]);
 
         return response()->json([
             'success' => true,
-            'data'    => compact('total', 'totalActive', 'totalInactive', 'byType'),
+            'data'    => [
+                'total'          => $total,
+                'active'         => $totalActive,
+                'inactive'       => $totalInactive,
+                'hidden'         => 0,
+                'average_rating' => Partner::withoutTrashed()->avg('average_rating') ?? 0,
+                'service_types'  => $serviceTypes,
+            ],
         ]);
     }
 
@@ -69,6 +85,12 @@ class PartnerController extends Controller
     public function show(int $id): JsonResponse
     {
         $partner = Partner::with('serviceType')->findOrFail($id);
+
+        $partner->service_type       = $partner->serviceType?->slug ?? '';
+        $partner->service_type_label = $partner->serviceType?->name ?? '';
+        $partner->rating             = $partner->average_rating;
+        $partner->contact_name       = $partner->contact_person;
+        unset($partner->serviceType); // ← thêm dòng này
         return response()->json(['success' => true, 'data' => $partner]);
     }
 
