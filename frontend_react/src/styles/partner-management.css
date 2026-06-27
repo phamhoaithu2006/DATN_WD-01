@@ -16,16 +16,17 @@
 }
 
 .partner-breadcrumb {
-  margin-bottom: 18px;
-  color: #526886;
-  font-size: 0.95rem;
-  font-weight: 650;
+  margin-bottom: 16px;
+  color: #64748b;
+  font-size: 0.875rem;
+  font-weight: 700;
 }
 
 .partner-header h1 {
   margin: 0;
   color: #020617;
-  font-size: 2rem;
+  font-size: 30px;
+  font-weight: 800;
   line-height: 1.1;
 }
 

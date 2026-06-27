@@ -1,4 +1,4 @@
-import SettingSectionForm from "./SettingSectionForm";
+﻿import SettingSectionForm from "./SettingSectionForm";
 
 function SettingPanel({
   section,

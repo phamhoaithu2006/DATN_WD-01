@@ -27,8 +27,8 @@ export function validateRegister(values) {
   const normalizedPhone = values.phone.trim()
   const normalizedName = values.full_name.trim()
 
-  if (normalizedName.length < 2) {
-    errors.full_name = "Họ tên cần ít nhất 2 ký tự."
+  if (!normalizedName) {
+    errors.full_name = "Vui lòng nhập họ và tên."
   } else if (!/^[\p{L}\s.'-]+$/u.test(normalizedName)) {
     errors.full_name = "Họ tên chỉ nên gồm chữ cái và khoảng trắng."
   }
@@ -47,7 +47,9 @@ export function validateRegister(values) {
     errors.phone = "Số điện thoại chưa hợp lệ."
   }
 
-  if (values.password.length < 8) {
+  if (!values.password) {
+    errors.password = "Vui lòng nhập mật khẩu."
+  } else if (values.password.length < 8) {
     errors.password = "Mật khẩu cần ít nhất 8 ký tự."
   }
 

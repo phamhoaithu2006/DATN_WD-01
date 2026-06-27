@@ -838,8 +838,8 @@ function PartnerManagementPage() {
     <section className="partner-page">
       <div className="partner-header">
         <div>
-          <div className="partner-breadcrumb">ViVuGo / Dịch Vụ Đối Tác</div>
-          <h1>Dịch vụ đối tác</h1>
+          <div className="partner-breadcrumb">ViVuGo / Quản Lý Dịch Vụ Đối Tác</div>
+          <h1>Quản Lý Dịch Vụ Đối Tác</h1>
           <p>Quản lý danh sách đối tác, thống kê theo loại dịch vụ và thao tác trực tiếp qua API Backend.</p>
         </div>
 
@@ -858,7 +858,7 @@ function PartnerManagementPage() {
         <article className="partner-stat-card blue">
           <strong>{totalPartners}</strong>
           <span>Tổng đối tác</span>
-          <small>Toàn bộ dữ liệu từ BE</small>
+          <small>Toàn bộ đối tác</small>
         </article>
         <article className="partner-stat-card green">
           <strong>{activeCount}</strong>

@@ -89,12 +89,16 @@
   color: #64748b;
   text-decoration: none;
   font-size: 1rem;
-  font-weight: 650;
+  font-weight: 800;
   letter-spacing: 0;
   transition:
     background 160ms ease,
     color 160ms ease,
     transform 160ms ease;
+}
+
+.admin-nav-link span {
+  font-weight: inherit;
 }
 
 .admin-nav-link:hover {
@@ -105,7 +109,7 @@
 .admin-nav-link.active {
   color: #0ea5e9;
   background: #eaf4ff;
-  font-weight: 800;
+  font-weight: 900;
 }
 
 .admin-nav-link.active::after {
@@ -225,15 +229,17 @@
 
 .admin-page-header p {
   margin: 0 0 8px;
-  color: #0ea5e9;
-  font-weight: 800;
+  color: #64748b;
+  font-size: 0.875rem;
+  font-weight: 700;
 }
 
 .admin-page-header h1 {
   margin: 0;
-  color: #0f172a;
-  font-size: clamp(2rem, 4vw, 3rem);
-  line-height: 1.05;
+  color: #020617;
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1.1;
   letter-spacing: 0;
 }
 
@@ -250,16 +256,17 @@
 }
 
 .guide-breadcrumb {
-  margin-bottom: 24px;
-  color: #526886;
-  font-size: 0.95rem;
-  font-weight: 650;
+  margin-bottom: 16px;
+  color: #64748b;
+  font-size: 0.875rem;
+  font-weight: 700;
 }
 
 .guide-heading h1 {
   margin: 0;
   color: #020617;
-  font-size: 2rem;
+  font-size: 30px;
+  font-weight: 800;
   line-height: 1.1;
 }
 

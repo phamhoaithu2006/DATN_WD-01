@@ -129,8 +129,8 @@ function PartnerTrashPage() {
     <section className="partner-trash-page">
       <div className="partner-header compact">
         <div>
-          <div className="partner-breadcrumb">ViVuGo / Dịch Vụ Đối Tác</div>
-          <h1>Đối tác đã xóa mềm</h1>
+          <div className="partner-breadcrumb">ViVuGo / Quản Lý Dịch Vụ Đối Tác</div>
+          <h1>Đối tác đã xóa</h1>
           <p>Khôi phục hoặc xóa vĩnh viễn các đối tác đã được đưa vào thùng rác.</p>
         </div>
 

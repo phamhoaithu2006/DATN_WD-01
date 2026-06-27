@@ -523,8 +523,8 @@ function GuideManagementApiPage() {
     <section className="guide-page">
       <div className="guide-heading">
         <div>
-          <div className="guide-breadcrumb">ViVuGo / Hướng Dẫn Viên</div>
-          <h1>Hướng Dẫn Viên</h1>
+          <div className="guide-breadcrumb">ViVuGo / Quản Lý Hướng Dẫn Viên</div>
+          <h1>Quản Lý Hướng Dẫn Viên</h1>
           <p>Quản lý và phân công hướng dẫn viên du lịch</p>
         </div>
         <button className="guide-add-button" type="button" onClick={moFormThemMoi}>

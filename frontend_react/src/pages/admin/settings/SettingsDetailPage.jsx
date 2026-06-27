@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import SettingPanel from "../../../components/admin/settings/SettingPanel";
 import {
@@ -29,7 +29,7 @@ function SettingsDetailPage({ sectionId }) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  async function loadSettings() {
+  const loadSettings = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
@@ -39,11 +39,15 @@ function SettingsDetailPage({ sectionId }) {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
-    loadSettings();
-  }, []);
+    const timer = window.setTimeout(() => {
+      void loadSettings();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [loadSettings]);
 
   async function saveSettings(event) {
     event.preventDefault();
@@ -67,7 +71,7 @@ function SettingsDetailPage({ sectionId }) {
     <AdminLayout>
       <section className="setting-page">
         <div className="setting-breadcrumb">
-          VivuGo <span>/</span> <b>Cài Đặt</b>
+          ViVuGo <span>/</span> <b>Cài Đặt</b>
           <span>/</span>
           <b>{section.title}</b>
         </div>

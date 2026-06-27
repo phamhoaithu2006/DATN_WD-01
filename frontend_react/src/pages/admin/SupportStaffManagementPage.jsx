@@ -629,8 +629,8 @@ function SupportStaffManagementPage() {
     <section className="support-page">
       <div className="support-heading">
         <div>
-          <div className="support-breadcrumb">ViVuGo / Nhân viên hỗ trợ</div>
-          <h1>Nhân viên hỗ trợ</h1>
+          <div className="support-breadcrumb">ViVuGo / Quản Lý Nhân Viên Hỗ Trợ</div>
+          <h1>Quản Lý Nhân Viên Hỗ Trợ</h1>
           <p>Quản lý tài khoản hỗ trợ khách hàng, thao tác trực tiếp qua API thật.</p>
         </div>
 
