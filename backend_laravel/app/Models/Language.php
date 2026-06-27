@@ -19,4 +19,6 @@ class Language extends Model
             ->withPivot('level_id')
             ->withTimestamps();
     }
+
+    
 }

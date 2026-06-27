@@ -14,4 +14,10 @@ class Certificate extends Model
             ->withPivot('issued_year')
             ->withTimestamps();
     }
+
+
+    public function guideExperiences()
+    {
+        return $this->hasMany(GuideExperience::class);
+    }
 }

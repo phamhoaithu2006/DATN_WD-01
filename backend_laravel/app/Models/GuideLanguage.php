@@ -6,7 +6,13 @@ use Illuminate\Database\Eloquent\Model;
 
 class GuideLanguage extends Model
 {
-    protected $fillable = ['guide_id', 'language_id', 'level_id'];
+    protected $table = 'guide_languages';
+
+    protected $fillable = [
+        'guide_id',
+        'language_id',
+        'level_id',
+    ];
 
     public function guide()
     {
