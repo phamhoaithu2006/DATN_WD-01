@@ -15,7 +15,7 @@ const formatCompactMoney = (value) => {
   const number = Number(value || 0)
 
   if (number >= 1000000000) {
-    return `${Math.round(number / 1000000000)} tá»·`
+    return `${Math.round(number / 1000000000)} tỷ`
   }
 
   if (number >= 1000000) {
@@ -115,9 +115,9 @@ function ChartHeader({ title, description }) {
 
       <div className="hidden items-center gap-2 sm:flex">
         <span className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-500">
-          Theo thÃ¡ng
+          Theo tháng
         </span>
-        <span className="text-xl leading-none text-slate-400">â‹®</span>
+        <span className="text-xl leading-none text-slate-400">⋮</span>
       </div>
     </div>
   )
@@ -171,7 +171,7 @@ function BarChartSvg({ data, valueKey, labelKey, valueFormatter }) {
       viewBox={`0 0 ${CHART_VIEWBOX_WIDTH} ${CHART_VIEWBOX_HEIGHT}`}
       className="h-full w-full"
       role="img"
-      aria-label="Biá»ƒu Ä‘á»“ cá»™t doanh thu theo thÃ¡ng"
+      aria-label="Biểu đồ cột doanh thu theo tháng"
       preserveAspectRatio="none"
     >
       {tickValues.map((tick) => {
@@ -257,7 +257,7 @@ function LineChartSvg({ data, valueKey, labelKey, valueFormatter }) {
       viewBox={`0 0 ${CHART_VIEWBOX_WIDTH} ${CHART_VIEWBOX_HEIGHT}`}
       className="h-full w-full"
       role="img"
-      aria-label="Biá»ƒu Ä‘á»“ Ä‘Æ°á»ng sá»‘ lÆ°á»£ng khÃ¡ch theo thÃ¡ng"
+      aria-label="Biểu đồ đường số lượng khách theo tháng"
       preserveAspectRatio="none"
     >
       {tickValues.map((tick) => {
@@ -330,7 +330,7 @@ function ReportStatisticsPage() {
       setError(
         err?.response?.data?.message ||
           err?.message ||
-          'KhÃ´ng thá»ƒ táº£i dá»¯ liá»‡u bÃ¡o cÃ¡o.'
+          'Không thể tải dữ liệu báo cáo.'
       )
     } finally {
       setLoading(false)
@@ -355,10 +355,10 @@ function ReportStatisticsPage() {
       <section className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <h1 className="text-[30px] font-extrabold tracking-tight text-slate-950">
-            BÃ¡o cÃ¡o & Thá»‘ng kÃª
+            Báo cáo & Thống kê
           </h1>
           <p className="mt-2 text-sm text-slate-500">
-            Theo dÃµi doanh thu, booking, lÆ°á»£ng khÃ¡ch vÃ  Ä‘iá»ƒm Ä‘áº¿n ná»•i báº­t.
+            Theo dõi doanh thu, booking, lượng khách và điểm đến nổi bật.
           </p>
         </div>
 
@@ -367,8 +367,8 @@ function ReportStatisticsPage() {
             type="button"
             className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 shadow-sm transition hover:border-blue-200 hover:text-blue-600"
           >
-            <span>â¬‡</span>
-            Xuáº¥t bÃ¡o cÃ¡o
+            <span>⬇</span>
+            Xuất báo cáo
           </button>
 
           <button
@@ -377,8 +377,8 @@ function ReportStatisticsPage() {
             className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
             disabled={loading}
           >
-            <span>â†»</span>
-            LÃ m má»›i dá»¯ liá»‡u
+            <span>↻</span>
+            Làm mới dữ liệu
           </button>
         </div>
       </section>
@@ -387,10 +387,10 @@ function ReportStatisticsPage() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="flex h-14 w-full items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 sm:w-[360px]">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-lg">
-              ðŸ“…
+              📅
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-semibold text-slate-500">Khoáº£ng thá»i gian</p>
+              <p className="text-xs font-semibold text-slate-500">Khoảng thời gian</p>
               <p className="mt-1 whitespace-nowrap text-sm font-extrabold text-slate-950">
                 01/01/{year} - 31/12/{year}
               </p>
@@ -399,7 +399,7 @@ function ReportStatisticsPage() {
 
           <div className="w-full sm:w-[220px] lg:ml-auto">
             <SelectBox
-              label="NÄƒm"
+              label="Năm"
               value={year}
               onChange={(event) => setYear(Number(event.target.value))}
             >
@@ -415,7 +415,7 @@ function ReportStatisticsPage() {
 
       {overview?.current_date && (
         <p className="text-xs font-medium text-slate-500">
-          Dá»¯ liá»‡u cáº­p nháº­t ngÃ y: {overview.current_date}
+          Dữ liệu cập nhật ngày: {overview.current_date}
         </p>
       )}
 
@@ -427,40 +427,40 @@ function ReportStatisticsPage() {
 
       {loading ? (
         <Card className="p-10 text-center text-sm font-semibold text-slate-500">
-          Äang táº£i dá»¯ liá»‡u bÃ¡o cÃ¡o...
+          Đang tải dữ liệu báo cáo...
         </Card>
       ) : (
         <>
           <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
             <StatCard
-              title="Tá»•ng doanh thu nÄƒm"
+              title="Tổng doanh thu năm"
               value={formatCurrency(overview?.total_revenue_year)}
-              description={`NÄƒm ${overview?.year || year}`}
-              icon="ðŸ’°"
+              description={`Năm ${overview?.year || year}`}
+              icon="💰"
               tone="blue"
             />
 
             <StatCard
-              title="Tá»•ng sá»‘ booking"
+              title="Tổng số booking"
               value={formatNumber(overview?.total_bookings_year)}
-              description="Táº¥t cáº£ booking trong nÄƒm"
-              icon="ðŸ“‹"
+              description="Tất cả booking trong năm"
+              icon="📋"
               tone="green"
             />
 
             <StatCard
-              title="Tá»‰ lá»‡ hoÃ n thÃ nh tour"
+              title="Tỉ lệ hoàn thành tour"
               value={`${overview?.tour_completion_rate || 0}%`}
-              description="Booking cÃ³ tráº¡ng thÃ¡i hoÃ n thÃ nh"
-              icon="â—”"
+              description="Booking có trạng thái hoàn thành"
+              icon="◔"
               tone="purple"
             />
 
             <StatCard
-              title="TB doanh thu/thÃ¡ng"
+              title="TB doanh thu/tháng"
               value={formatCurrency(overview?.average_revenue_per_booking_month)}
-              description="Trung bÃ¬nh booking Ä‘Ã£ thanh toÃ¡n"
-              icon="ðŸ“ˆ"
+              description="Trung bình booking đã thanh toán"
+              icon="📈"
               tone="orange"
             />
           </section>
@@ -468,8 +468,8 @@ function ReportStatisticsPage() {
           <section className="grid gap-5 xl:grid-cols-2">
             <Card className="p-5">
               <ChartHeader
-                title="Doanh thu theo thÃ¡ng"
-                description="Chá»‰ tÃ­nh cÃ¡c booking Ä‘Ã£ thanh toÃ¡n."
+                title="Doanh thu theo tháng"
+                description="Chỉ tính các booking đã thanh toán."
               />
 
               {hasRevenueData ? (
@@ -482,14 +482,14 @@ function ReportStatisticsPage() {
                   />
                 </div>
               ) : (
-                <EmptyState>ChÆ°a cÃ³ dá»¯ liá»‡u doanh thu trong nÄƒm nÃ y.</EmptyState>
+                <EmptyState>Chưa có dữ liệu doanh thu trong năm này.</EmptyState>
               )}
             </Card>
 
             <Card className="p-5">
               <ChartHeader
-                title="Sá»‘ lÆ°á»£ng khÃ¡ch theo thÃ¡ng"
-                description="KhÃ´ng tÃ­nh booking Ä‘Ã£ bá»‹ há»§y."
+                title="Số lượng khách theo tháng"
+                description="Không tính booking đã bị hủy."
               />
 
               {hasCustomerData ? (
@@ -502,7 +502,7 @@ function ReportStatisticsPage() {
                   />
                 </div>
               ) : (
-                <EmptyState>ChÆ°a cÃ³ dá»¯ liá»‡u khÃ¡ch trong nÄƒm nÃ y.</EmptyState>
+                <EmptyState>Chưa có dữ liệu khách trong năm này.</EmptyState>
               )}
             </Card>
           </section>
@@ -511,10 +511,10 @@ function ReportStatisticsPage() {
             <div className="mb-5 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
               <div>
                 <h2 className="text-lg font-extrabold text-slate-950">
-                  Top 5 Ä‘iá»ƒm Ä‘áº¿n Ä‘Æ°á»£c Æ°a chuá»™ng
+                  Top 5 điểm đến được ưa chuộng
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  Xáº¿p háº¡ng theo sá»‘ lÆ°á»£ng booking trong nÄƒm {year}.
+                  Xếp hạng theo số lượng booking trong năm {year}.
                 </p>
               </div>
             </div>
@@ -524,10 +524,10 @@ function ReportStatisticsPage() {
                 <thead>
                   <tr className="bg-slate-50 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
                     <th className="px-5 py-4">#</th>
-                    <th className="px-5 py-4">Äiá»ƒm Ä‘áº¿n</th>
-                    <th className="px-5 py-4">Tá»‰nh / ThÃ nh phá»‘</th>
-                    <th className="px-5 py-4">Sá»‘ booking</th>
-                    <th className="px-5 py-4">Sá»‘ khÃ¡ch</th>
+                    <th className="px-5 py-4">Điểm đến</th>
+                    <th className="px-5 py-4">Tỉnh / Thành phố</th>
+                    <th className="px-5 py-4">Số booking</th>
+                    <th className="px-5 py-4">Số khách</th>
                   </tr>
                 </thead>
 
@@ -547,7 +547,7 @@ function ReportStatisticsPage() {
                           </div>
                         </td>
                         <td className="px-5 py-4">
-                          {destination.province_city || 'ChÆ°a cáº­p nháº­t'}
+                          {destination.province_city || 'Chưa cập nhật'}
                         </td>
                         <td className="px-5 py-4 font-semibold">
                           {formatNumber(destination.total_bookings)}
@@ -563,7 +563,7 @@ function ReportStatisticsPage() {
                         colSpan="5"
                         className="px-5 py-10 text-center text-sm text-slate-500"
                       >
-                        ChÆ°a cÃ³ dá»¯ liá»‡u Ä‘iá»ƒm Ä‘áº¿n trong nÄƒm nÃ y.
+                        Chưa có dữ liệu điểm đến trong năm này.
                       </td>
                     </tr>
                   )}

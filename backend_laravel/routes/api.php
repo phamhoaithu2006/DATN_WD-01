@@ -91,16 +91,13 @@ Route::prefix('tours')->group(function () {
 //lấy dánh sách role
 Route::get('/roles', [CustomerManagerController::class, 'index_role']);
 
-
-
-// Admin
-Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function () {
+// Public settings
 Route::get('/settings/public', [PublicSettingController::class, 'show']);
 Route::get('/widgets', [PublicWidgetController::class, 'index']);
-Route::middleware(['auth:sanctum', 'role:admin'])->get('/roles', [CustomerManagerController::class, 'index_role']);
+
 
 // Admin 
-Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(function () {
+Route::prefix('admin')->group(function () {
     // Chức năng báo cáo & thống kê
     Route::get('/reports/overview', [ReportController::class, 'getOverviewStatistics']);
     Route::get('/reports/charts', [ReportController::class, 'getChartStatistics']);
