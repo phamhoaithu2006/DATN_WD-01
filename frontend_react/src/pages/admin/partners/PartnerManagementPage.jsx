@@ -6,19 +6,18 @@ import '../../../styles/partner-management.css'
 
 const STATUS_OPTIONS = [
   { value: 'active', label: 'Hoạt động' },
-  { value: 'inactive', label: 'Tạm ẩn' },
-  { value: 'hidden', label: 'Đã ẩn' },
+  { value: 'inactive', label: 'Ngừng hoạt động' },
 ]
 
 const EMPTY_FORM = {
   name: '',
   partner_code: '',
-  service_type: 'flight',
+  service_type_id: '',
   contact_name: '',
   phone: '',
   email: '',
   website: '',
-  rating: '4.50',
+  rating: '',
   contract_start: '',
   contract_end: '',
   status: 'active',
@@ -55,27 +54,32 @@ function getMessage(error, fallback) {
   return error.response?.data?.message || fallback
 }
 
-function getListData(payload) {
-  const page = payload?.data?.data
+function unwrapApiData(payload) {
+  return payload?.data ?? payload
+}
 
-  if (Array.isArray(page)) return page
-  if (Array.isArray(payload?.data)) return payload.data
-  if (Array.isArray(payload)) return payload
+function getListData(payload) {
+  const root = unwrapApiData(payload)
+
+  if (Array.isArray(root)) return root
+  if (Array.isArray(root?.data)) return root.data
+  if (Array.isArray(root?.data?.data)) return root.data.data
   return []
 }
 
 function getPaginationMeta(payload) {
-  const page = payload?.data?.data
+  const root = unwrapApiData(payload)
+  const meta = root?.data && !Array.isArray(root.data) ? root.data : root
 
-  if (!page || Array.isArray(page)) {
+  if (!meta || Array.isArray(meta) || typeof meta !== 'object') {
     return { currentPage: 1, lastPage: 1, total: 0, perPage: 10 }
   }
 
   return {
-    currentPage: page.current_page || 1,
-    lastPage: page.last_page || 1,
-    total: page.total || 0,
-    perPage: page.per_page || 10,
+    currentPage: meta.current_page || 1,
+    lastPage: meta.last_page || 1,
+    total: meta.total || 0,
+    perPage: meta.per_page || 10,
   }
 }
 
@@ -123,12 +127,22 @@ function getPartnerCode(partner) {
 }
 
 function getPartnerType(partner) {
-  return partner.service_type || partner.type || partner.partner_type || 'flight'
+  return partner.service_type || partner.type || partner.partner_type || partner.serviceType?.slug || ''
 }
 
 function getPartnerTypeLabel(partner) {
   const type = getPartnerType(partner)
   return SERVICE_LABELS[type] || partner.service_type_label || partner.type_label || type
+}
+
+function getPartnerServiceTypeId(partner) {
+  return String(
+    partner.service_type_id ||
+      partner.serviceType?.id ||
+      partner.service_type?.id ||
+      partner.serviceTypeId ||
+      '',
+  )
 }
 
 function getPartnerContact(partner) {
@@ -157,6 +171,7 @@ function normalizePartner(partner) {
     displayName: getPartnerName(partner),
     displayCode: getPartnerCode(partner),
     displayType: getPartnerType(partner),
+    displayTypeId: getPartnerServiceTypeId(partner),
     displayTypeLabel: getPartnerTypeLabel(partner),
     displayContact: getPartnerContact(partner),
     displayStatus: getPartnerStatus(partner),
@@ -173,26 +188,27 @@ function normalizePartner(partner) {
 
 function buildPayload(form) {
   return {
+    service_type_id: Number(form.service_type_id),
     name: form.name.trim(),
     partner_code: form.partner_code.trim() || null,
-    service_type: form.service_type,
-    contact_name: form.contact_name.trim() || null,
+    contact_person: form.contact_name.trim() || null,
     phone: form.phone.trim() || null,
     email: form.email.trim() || null,
     website: form.website.trim() || null,
-    rating: Number(form.rating),
+    description: form.description.trim() || null,
+    logo_url: form.logo_url.trim() || null,
+    average_rating: Number(form.rating),
     contract_start: form.contract_start || null,
     contract_end: form.contract_end || null,
     status: form.status,
     is_visible: Boolean(form.is_visible),
-    logo_url: form.logo_url.trim() || null,
-    description: form.description.trim() || null,
   }
 }
 
 function validateForm(form) {
   const errors = {}
   const rating = Number(form.rating)
+  const serviceTypeId = Number(form.service_type_id)
 
   if (!form.name.trim()) {
     errors.name = 'Vui lòng nhập tên đối tác.'
@@ -200,8 +216,8 @@ function validateForm(form) {
     errors.name = 'Tên đối tác tối đa 255 ký tự.'
   }
 
-  if (!form.service_type.trim()) {
-    errors.service_type = 'Vui lòng chọn loại dịch vụ.'
+  if (!Number.isInteger(serviceTypeId) || serviceTypeId <= 0) {
+    errors.service_type_id = 'Vui lòng chọn loại dịch vụ.'
   }
 
   if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
@@ -233,47 +249,21 @@ function validateForm(form) {
   return errors
 }
 
-function makeOptionList(statistics, partners) {
-  const source = Array.isArray(statistics.service_types)
-    ? statistics.service_types
-    : Array.isArray(statistics.types)
-      ? statistics.types
-      : Array.isArray(statistics.type_options)
-        ? statistics.type_options
-        : []
-
-  const fromApi = source
+function makeOptionList(serviceTypes = []) {
+  return serviceTypes
     .map((item) => {
       if (!item) return null
 
-      if (typeof item === 'string') {
-        return { value: item, label: SERVICE_LABELS[item] || item }
-      }
-
-      const value = item.value || item.key || item.slug || item.type || item.name
+      const value = String(item.id || item.value || item.key || '')
       if (!value) return null
 
       return {
         value,
-        label: item.label || item.name || SERVICE_LABELS[value] || value,
-        count: item.count ?? item.total ?? 0,
+        label: item.name || item.label || SERVICE_LABELS[item.slug] || item.slug || value,
+        slug: item.slug || item.value || item.key || '',
       }
     })
     .filter(Boolean)
-
-  const fallback = Array.from(new Set(partners.map((partner) => partner.displayType))).map((value) => ({
-    value,
-    label: SERVICE_LABELS[value] || value,
-  }))
-
-  const merged = [...fromApi, ...fallback]
-  const seen = new Set()
-
-  return merged.filter((item) => {
-    if (seen.has(item.value)) return false
-    seen.add(item.value)
-    return true
-  })
 }
 
 function PartnerBadge({ label, tone = 'blue' }) {
@@ -314,7 +304,6 @@ function PartnerFormModal({
             <input
               value={form.name}
               onChange={onChange('name')}
-              placeholder="Vietnam Airlines"
             />
             {formErrors.name ? <span className="partner-error">{formErrors.name}</span> : null}
           </label>
@@ -324,13 +313,12 @@ function PartnerFormModal({
             <input
               value={form.partner_code}
               onChange={onChange('partner_code')}
-              placeholder="DT001"
             />
           </label>
 
           <label>
             Loại dịch vụ
-            <select value={form.service_type} onChange={onChange('service_type')}>
+            <select value={form.service_type_id} onChange={onChange('service_type_id')}>
               <option value="">Chọn loại dịch vụ</option>
               {typeOptions.map((type) => (
                 <option key={type.value} value={type.value}>
@@ -338,8 +326,8 @@ function PartnerFormModal({
                 </option>
               ))}
             </select>
-            {formErrors.service_type ? (
-              <span className="partner-error">{formErrors.service_type}</span>
+            {formErrors.service_type_id ? (
+              <span className="partner-error">{formErrors.service_type_id}</span>
             ) : null}
           </label>
 
@@ -348,13 +336,12 @@ function PartnerFormModal({
             <input
               value={form.contact_name}
               onChange={onChange('contact_name')}
-              placeholder="Nguyễn Văn A"
             />
           </label>
 
           <label>
             Số điện thoại
-            <input value={form.phone} onChange={onChange('phone')} placeholder="1900 1100" />
+            <input value={form.phone} onChange={onChange('phone')} />
           </label>
 
           <label>
@@ -363,18 +350,13 @@ function PartnerFormModal({
               type="email"
               value={form.email}
               onChange={onChange('email')}
-              placeholder="partner@vivugo.vn"
             />
             {formErrors.email ? <span className="partner-error">{formErrors.email}</span> : null}
           </label>
 
           <label>
             Website
-            <input
-              value={form.website}
-              onChange={onChange('website')}
-              placeholder="https://..."
-            />
+            <input value={form.website} onChange={onChange('website')} />
           </label>
 
           <label>
@@ -386,7 +368,6 @@ function PartnerFormModal({
               type="number"
               value={form.rating}
               onChange={onChange('rating')}
-              placeholder="4.5"
             />
             {formErrors.rating ? <span className="partner-error">{formErrors.rating}</span> : null}
           </label>
@@ -429,11 +410,7 @@ function PartnerFormModal({
 
           <label className="partner-form-wide">
             Logo URL
-            <input
-              value={form.logo_url}
-              onChange={onChange('logo_url')}
-              placeholder="https://cdn..."
-            />
+            <input value={form.logo_url} onChange={onChange('logo_url')} />
           </label>
 
           <label className="partner-form-wide">
@@ -442,7 +419,6 @@ function PartnerFormModal({
               rows="4"
               value={form.description}
               onChange={onChange('description')}
-              placeholder="Thông tin giới thiệu, điểm mạnh, phạm vi hợp tác..."
             />
           </label>
         </div>
@@ -565,10 +541,10 @@ function PartnerDetailModal({ partner, loading, onClose }) {
 function PartnerManagementPage() {
   const [partners, setPartners] = useState([])
   const [statistics, setStatistics] = useState({})
+  const [serviceTypes, setServiceTypes] = useState([])
   const [search, setSearch] = useState('')
-  const [filterType, setFilterType] = useState('all')
+  const filterType = 'all'
   const [filterStatus, setFilterStatus] = useState('all')
-  const [filterVisible, setFilterVisible] = useState('all')
   const [page, setPage] = useState(1)
   const [pagination, setPagination] = useState({
     currentPage: 1,
@@ -594,25 +570,9 @@ function PartnerManagementPage() {
   )
 
   const typeOptions = useMemo(
-    () => makeOptionList(statistics, normalizedPartners),
-    [normalizedPartners, statistics],
+    () => makeOptionList(serviceTypes),
+    [serviceTypes],
   )
-
-  const serviceCards = useMemo(() => {
-    const counts = statistics.counts_by_type || statistics.by_type || statistics.service_counts || {}
-    const cards = typeOptions.map((type) => ({
-      value: type.value,
-      label: type.label,
-      count: Number(
-        counts[type.value] ??
-          counts[type.label] ??
-          type.count ??
-          normalizedPartners.filter((partner) => partner.displayType === type.value).length,
-      ),
-    }))
-
-    return cards
-  }, [normalizedPartners, statistics, typeOptions])
 
   const visiblePartners = useMemo(() => {
     const keyword = normalizeText(search.trim())
@@ -634,16 +594,9 @@ function PartnerManagementPage() {
 
       const matchesType = filterType === 'all' || partner.displayType === filterType
       const matchesStatus = filterStatus === 'all' || partner.displayStatus === filterStatus
-      const matchesVisible =
-        filterVisible === 'all' ||
-        (filterVisible === 'visible' && partner.displayVisible) ||
-        (filterVisible === 'hidden' && !partner.displayVisible)
-
-      return matchesKeyword && matchesType && matchesStatus && matchesVisible
+      return matchesKeyword && matchesType && matchesStatus
     })
-  }, [filterStatus, filterType, filterVisible, normalizedPartners, search])
-
-  const activeFilters = [filterType !== 'all', filterStatus !== 'all', filterVisible !== 'all', search.trim()].filter(Boolean).length
+  }, [filterStatus, filterType, normalizedPartners, search])
 
   const loadData = useCallback(
     async (pageNumber = page) => {
@@ -654,15 +607,9 @@ function PartnerManagementPage() {
           partnerApi.getAll({
             page: pageNumber,
             per_page: 10,
-            search: search.trim() || undefined,
+            keyword: search.trim() || undefined,
             service_type: filterType !== 'all' ? filterType : undefined,
             status: filterStatus !== 'all' ? filterStatus : undefined,
-            visible:
-              filterVisible === 'all'
-                ? undefined
-                : filterVisible === 'visible'
-                  ? 1
-                  : 0,
           }),
           partnerApi.getStatistics().catch(() => null),
         ])
@@ -685,8 +632,17 @@ function PartnerManagementPage() {
         setLoading(false)
       }
     },
-    [filterStatus, filterType, filterVisible, page, search],
+    [filterStatus, filterType, page, search],
   )
+
+  const loadServiceTypes = useCallback(async () => {
+    try {
+      const response = await partnerApi.getServiceTypes()
+      setServiceTypes(getListData(response))
+    } catch {
+      // Giữ lại danh mục cũ nếu API tạm thời lỗi.
+    }
+  }, [])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -695,6 +651,14 @@ function PartnerManagementPage() {
 
     return () => window.clearTimeout(timer)
   }, [loadData, page])
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadServiceTypes()
+    }, 0)
+
+    return () => window.clearTimeout(timer)
+  }, [loadServiceTypes])
 
   useEffect(() => {
     if (!notice) return undefined
@@ -712,10 +676,16 @@ function PartnerManagementPage() {
 
   function resetForm(nextPartner = null) {
     if (nextPartner) {
+      const matchedServiceTypeId =
+        nextPartner.service_type_id ||
+        serviceTypes.find((item) => item.slug === nextPartner.service_type)?.id ||
+        serviceTypes.find((item) => item.name === nextPartner.service_type_label)?.id ||
+        ''
+
       setForm({
         name: nextPartner.name || nextPartner.partner_name || nextPartner.company_name || '',
         partner_code: nextPartner.partner_code || nextPartner.code || '',
-        service_type: nextPartner.service_type || nextPartner.type || nextPartner.partner_type || 'flight',
+        service_type_id: String(matchedServiceTypeId),
         contact_name: nextPartner.contact_name || nextPartner.contact_person || '',
         phone: nextPartner.phone || nextPartner.contact_phone || '',
         email: nextPartner.email || nextPartner.contact_email || '',
@@ -877,23 +847,6 @@ function PartnerManagementPage() {
         </article>
       </div>
 
-      <div className="partner-service-strip">
-        {serviceCards.map((item) => (
-          <button
-            key={item.value}
-            className={`partner-service-card ${filterType === item.value ? 'active' : ''}`}
-            type="button"
-            onClick={() => {
-              setFilterType((current) => (current === item.value ? 'all' : item.value))
-              setPage(1)
-            }}
-          >
-            <span>{item.label}</span>
-            <strong>{item.count}</strong>
-          </button>
-        ))}
-      </div>
-
       <div className="partner-filter-panel">
         <div className="partner-search">
           <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -925,32 +878,6 @@ function PartnerManagementPage() {
           ))}
         </select>
 
-        <select
-          value={filterVisible}
-          onChange={(event) => {
-            setFilterVisible(event.target.value)
-            setPage(1)
-          }}
-        >
-          <option value="all">Tất cả hiển thị</option>
-          <option value="visible">Đang hiển thị</option>
-          <option value="hidden">Đang ẩn</option>
-        </select>
-
-        <button
-          className="partner-clear-button"
-          type="button"
-          onClick={() => {
-            setSearch('')
-            setFilterType('all')
-            setFilterStatus('all')
-            setFilterVisible('all')
-            setPage(1)
-          }}
-          disabled={activeFilters === 0}
-        >
-          Xóa bộ lọc
-        </button>
       </div>
 
       <div className="partner-table-wrap">

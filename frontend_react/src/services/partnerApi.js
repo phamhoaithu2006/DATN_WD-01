@@ -12,6 +12,10 @@ export const partnerApi = {
     return apiClient.get(`${PARTNER_ENDPOINT}/statistics`)
   },
 
+  getServiceTypes() {
+    return apiClient.get(`${PARTNER_ENDPOINT}/service-types`)
+  },
+
   getOne(id) {
     return apiClient.get(`${PARTNER_ENDPOINT}/${id}`)
   },
@@ -29,15 +33,15 @@ export const partnerApi = {
   },
 
   getTrashed() {
-    return apiClient.get(`${PARTNER_ENDPOINT}/trash/list`)
+    return apiClient.get(`${PARTNER_ENDPOINT}/trashed`)
   },
 
   restore(id) {
-    return apiClient.post(`${PARTNER_ENDPOINT}/${id}/restore`)
+    return apiClient.patch(`${PARTNER_ENDPOINT}/${id}/restore`)
   },
 
   forceDelete(id) {
-    return apiClient.delete(`${PARTNER_ENDPOINT}/${id}/force-delete`)
+    return apiClient.delete(`${PARTNER_ENDPOINT}/${id}/force`)
   },
 }
 

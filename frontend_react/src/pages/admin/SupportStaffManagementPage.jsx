@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 import {
   createSupportStaff,
@@ -16,25 +16,11 @@ const STATUS_OPTIONS = [
   { value: 'hidden', label: 'Đã ẩn' },
 ]
 
-const DEFAULT_ROLE_OPTIONS = [
-  { value: 'technical', label: 'Kỹ thuật' },
-  { value: 'customer_service', label: 'CSKH' },
-  { value: 'billing', label: 'Thanh toán' },
-]
-
-const PERFORMANCE_FILTERS = [
-  { value: '', label: 'Tất cả hiệu suất' },
-  { value: '4.5', label: 'Từ 4.5 trở lên' },
-  { value: '4.0', label: 'Từ 4.0 trở lên' },
-  { value: '3.5', label: 'Từ 3.5 trở lên' },
-]
-
 const EMPTY_FORM = {
   name: '',
   email: '',
-  role: 'technical',
   status: 'active',
-  performance_rating: '4.50',
+  performance_rating: '',
 }
 
 function initials(name = '') {
@@ -167,10 +153,6 @@ function validateForm(form) {
     errors.email = 'Email không hợp lệ.'
   }
 
-  if (!form.role.trim()) {
-    errors.role = 'Vui lòng chọn chức vụ.'
-  }
-
   if (!STATUS_OPTIONS.some((item) => item.value === form.status)) {
     errors.status = 'Trạng thái không hợp lệ.'
   }
@@ -198,7 +180,6 @@ function SupportStaffFormModal({
   onChange,
   onClose,
   onSubmit,
-  roleOptions,
   editing,
 }) {
   return (
@@ -216,7 +197,7 @@ function SupportStaffFormModal({
         <div className="support-modal-heading">
           <div>
             <h2>{editing ? 'Cập nhật nhân viên hỗ trợ' : 'Thêm nhân viên hỗ trợ'}</h2>
-            <p>Thông tin được lưu trực tiếp lên API Backend.</p>
+            <p>Thông tin được lưu trực tiếp.</p>
           </div>
           <button type="button" onClick={onClose}>
             ×
@@ -229,7 +210,6 @@ function SupportStaffFormModal({
             <input
               value={form.name}
               onChange={onChange('name')}
-              placeholder="Trần Thị Mai"
             />
             {errors.name ? <span className="support-field-error">{errors.name}</span> : null}
           </label>
@@ -240,22 +220,8 @@ function SupportStaffFormModal({
               type="email"
               value={form.email}
               onChange={onChange('email')}
-              placeholder="mai.tt@vivugo.vn"
             />
             {errors.email ? <span className="support-field-error">{errors.email}</span> : null}
-          </label>
-
-          <label>
-            Chức vụ
-            <select value={form.role} onChange={onChange('role')}>
-              <option value="">Chọn chức vụ</option>
-              {roleOptions.map((role) => (
-                <option key={role.value} value={role.value}>
-                  {role.label}
-                </option>
-              ))}
-            </select>
-            {errors.role ? <span className="support-field-error">{errors.role}</span> : null}
           </label>
 
           <label>
@@ -279,7 +245,6 @@ function SupportStaffFormModal({
               type="number"
               value={form.performance_rating}
               onChange={onChange('performance_rating')}
-              placeholder="4.50"
             />
             {errors.performance_rating ? (
               <span className="support-field-error">{errors.performance_rating}</span>
@@ -341,10 +306,6 @@ function SupportStaffDetailModal({ staff, loading, onClose }) {
                 <dd>{staff?.email || '—'}</dd>
               </div>
               <div>
-                <dt>Chức vụ</dt>
-                <dd>{getRoleLabel(staff?.role)}</dd>
-              </div>
-              <div>
                 <dt>Hiệu suất</dt>
                 <dd>{formatRating(staff?.performance_rating)} / 5</dd>
               </div>
@@ -386,9 +347,7 @@ function SupportStaffManagementPage() {
     top_staff: [],
   })
   const [search, setSearch] = useState('')
-  const [roleFilter, setRoleFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
-  const [ratingFilter, setRatingFilter] = useState('')
   const [page, setPage] = useState(1)
   const [pagination, setPagination] = useState({
     currentPage: 1,
@@ -408,24 +367,7 @@ function SupportStaffManagementPage() {
   const [form, setForm] = useState(EMPTY_FORM)
   const [formErrors, setFormErrors] = useState({})
 
-  const roleOptions = useMemo(() => {
-    const apiRoles = (statistics.role_options || [])
-      .filter(Boolean)
-      .map((role) => ({ value: role, label: getRoleLabel(role) }))
-
-    const merged = [...DEFAULT_ROLE_OPTIONS, ...apiRoles]
-    const seen = new Set()
-
-    return merged.filter((item) => {
-      if (seen.has(item.value)) return false
-      seen.add(item.value)
-      return true
-    })
-  }, [statistics.role_options])
-
   const topStaff = statistics.top_staff || []
-
-  const activeFilters = [roleFilter, statusFilter, ratingFilter].filter(Boolean).length
 
   function openToast(type, text) {
     setNotice(makeToast(type, text))
@@ -440,7 +382,6 @@ function SupportStaffManagementPage() {
       setForm({
         name: nextEditing.name || '',
         email: nextEditing.email || '',
-        role: nextEditing.role || 'technical',
         status: nextEditing.status || 'active',
         performance_rating: formatRating(nextEditing.performance_rating),
       })
@@ -502,9 +443,7 @@ function SupportStaffManagementPage() {
           page: pageNumber,
           per_page: 10,
           search: search.trim() || undefined,
-          role: roleFilter || undefined,
           status: statusFilter || undefined,
-          rating_from: ratingFilter || undefined,
         })
 
         setStaffList(getListData(response))
@@ -515,7 +454,7 @@ function SupportStaffManagementPage() {
         setLoading(false)
       }
     },
-    [page, ratingFilter, roleFilter, search, statusFilter],
+    [page, search, statusFilter],
   )
 
   const refreshAll = useCallback(async (pageNumber = page) => {
@@ -564,7 +503,7 @@ function SupportStaffManagementPage() {
       const payload = {
         name: form.name.trim(),
         email: form.email.trim(),
-        role: form.role,
+        role: 'customer_service',
         status: form.status,
         performance_rating: Number(form.performance_rating),
       }
@@ -677,24 +616,9 @@ function SupportStaffManagementPage() {
                   setSearch(event.target.value)
                   setPage(1)
                 }}
-                placeholder="Tìm theo tên, email hoặc chức vụ..."
+                placeholder="Tìm theo tên, email..."
               />
             </label>
-
-            <select
-              value={roleFilter}
-              onChange={(event) => {
-                setRoleFilter(event.target.value)
-                setPage(1)
-              }}
-            >
-              <option value="">Tất cả chức vụ</option>
-              {roleOptions.map((role) => (
-                <option key={role.value} value={role.value}>
-                  {role.label}
-                </option>
-              ))}
-            </select>
 
             <select
               value={statusFilter}
@@ -710,35 +634,6 @@ function SupportStaffManagementPage() {
                 </option>
               ))}
             </select>
-
-            <select
-              value={ratingFilter}
-              onChange={(event) => {
-                setRatingFilter(event.target.value)
-                setPage(1)
-              }}
-            >
-              {PERFORMANCE_FILTERS.map((item) => (
-                <option key={item.value || 'all'} value={item.value}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
-
-            <button
-              className="support-clear-button"
-              type="button"
-              onClick={() => {
-                setSearch('')
-                setRoleFilter('')
-                setStatusFilter('')
-                setRatingFilter('')
-                setPage(1)
-              }}
-              disabled={activeFilters === 0 && !search}
-            >
-              Xóa lọc
-            </button>
           </div>
 
           <div className="support-table-wrap">
@@ -749,7 +644,6 @@ function SupportStaffManagementPage() {
                   <th>Mã NV</th>
                   <th>Họ tên</th>
                   <th>Email</th>
-                  <th>Chức vụ</th>
                   <th>Hiệu suất</th>
                   <th>Trạng thái</th>
                   <th>Hành động</th>
@@ -759,7 +653,7 @@ function SupportStaffManagementPage() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td className="support-empty-row" colSpan="8">
+                    <td className="support-empty-row" colSpan="7">
                       <div className="support-loading">
                         <span />
                         <p>Đang tải danh sách nhân viên hỗ trợ...</p>
@@ -768,7 +662,7 @@ function SupportStaffManagementPage() {
                   </tr>
                 ) : staffList.length === 0 ? (
                   <tr>
-                    <td className="support-empty-row" colSpan="8">
+                    <td className="support-empty-row" colSpan="7">
                       <div className="support-empty-state">
                         <strong>Không tìm thấy nhân viên phù hợp</strong>
                         <span>Hãy thử đổi bộ lọc hoặc từ khóa tìm kiếm.</span>
@@ -796,9 +690,6 @@ function SupportStaffManagementPage() {
                         <small>{formatDate(staff.created_at)}</small>
                       </td>
                       <td>{staff.email}</td>
-                      <td>
-                        <span className="support-role">{getRoleLabel(staff.role)}</span>
-                      </td>
                       <td>
                         <div className="support-rating-cell">
                           <div className="support-rating-track">
@@ -873,7 +764,6 @@ function SupportStaffManagementPage() {
                   <div className="support-top-avatar">{initials(staff.name)}</div>
                   <div className="support-top-content">
                     <strong>{staff.name}</strong>
-                    <span>{getRoleLabel(staff.role)}</span>
                     <div className="support-top-bar">
                       <span style={{ width: `${Math.max(0, Math.min(100, (Number(staff.performance_rating || 0) / 5) * 100))}%` }} />
                     </div>
@@ -899,7 +789,6 @@ function SupportStaffManagementPage() {
           onChange={changeField}
           onClose={closeForm}
           onSubmit={handleSubmit}
-          roleOptions={roleOptions}
           saving={saving}
         />
       ) : null}

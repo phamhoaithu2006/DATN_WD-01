@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import apiClient from '../../services/apiClient'
+import { searchAccounts } from '../../services/adminAccountApi'
 
 const mauFormApiTrong = {
+  user_name: '',
   user_id: '',
   certificate_type: '',
   experience_years: '',
@@ -19,6 +21,12 @@ const nhanTrangThai = {
   active: 'Đang hoạt động',
   inactive: 'Ngừng hoạt động',
   locked: 'Tạm khóa',
+}
+
+const nhanLoaiTour = {
+  all: 'Tất cả loại tour',
+  international: 'Tour quốc tế',
+  domestic: 'Tour trong nước',
 }
 
 function layDanhSachGuideTuPhanHoi(phanHoi) {
@@ -61,6 +69,15 @@ function layThongBaoLoi(error, fallback) {
   }
 
   return error.response?.data?.message || fallback
+}
+
+function chuanHoaTenNguoiDung(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
 }
 
 function layMetaTuPhanHoi(phanHoi) {
@@ -132,7 +149,7 @@ function chuyenKinhNghiemThanhForm(experiences = []) {
   }))
 }
 
-function taoGuidePayload(formHdv, dangSua) {
+function taoGuidePayload(formHdv) {
   const payload = {
     certificate_type: formHdv.certificate_type.trim() || null,
     experience_years: Number(formHdv.experience_years),
@@ -150,20 +167,15 @@ function taoGuidePayload(formHdv, dangSua) {
       })),
   }
 
-  if (!dangSua) {
-    payload.user_id = Number(formHdv.user_id)
-  }
-
   return payload
 }
 
-function validateGuideForm(formHdv, dangSua) {
+function validateGuideForm(formHdv) {
   const loiMoi = {}
-  const userId = Number(formHdv.user_id)
   const experienceYears = Number(formHdv.experience_years)
 
-  if (!dangSua && (!Number.isInteger(userId) || userId <= 0)) {
-    loiMoi.user_id = 'User ID phải là số nguyên lớn hơn 0.'
+  if (!formHdv.user_name.trim()) {
+    loiMoi.user_id = 'Vui lòng nhập họ và tên.'
   }
 
   if (formHdv.certificate_type.trim().length > 100) {
@@ -219,13 +231,25 @@ function validateGuideForm(formHdv, dangSua) {
   return loiMoi
 }
 
+async function timNguoiDungTheoHoTen(hoTen) {
+  const phanHoi = await searchAccounts({ search: hoTen.trim() })
+  const danhSach = Array.isArray(phanHoi) ? phanHoi : []
+  const tenCanTim = chuanHoaTenNguoiDung(hoTen)
+
+  return (
+    danhSach.find((nguoiDung) => {
+      const ten = chuanHoaTenNguoiDung(nguoiDung.full_name || nguoiDung.name)
+      return ten && ten === tenCanTim
+    }) || null
+  )
+}
+
 function GuideManagementApiPage() {
   const [danhSachHdv, setDanhSachHdv] = useState([])
   const [thongKeHdv, setThongKeHdv] = useState({ total: 0, active: 0, inactive: 0, locked: 0 })
   const [tuKhoa, setTuKhoa] = useState('')
   const [locTrangThai, setLocTrangThai] = useState('all')
-  const [locNgoaiNgu, setLocNgoaiNgu] = useState('')
-  const [locKinhNghiem, setLocKinhNghiem] = useState('')
+  const [locLoaiTour, setLocLoaiTour] = useState('all')
   const [phanTrang, setPhanTrang] = useState({ currentPage: 1, lastPage: 1, total: 0 })
   const [danhSachNgonNgu, setDanhSachNgonNgu] = useState([])
   const [danhSachChungChi, setDanhSachChungChi] = useState([])
@@ -241,7 +265,7 @@ function GuideManagementApiPage() {
   const [loiForm, setLoiForm] = useState({})
   const [thongBao, setThongBao] = useState('')
 
-  const coLoc = locTrangThai !== 'all' || locNgoaiNgu.trim() || locKinhNghiem
+  const coLoc = locTrangThai !== 'all' || locLoaiTour !== 'all'
 
   const taiThongKeHdv = useCallback(async () => {
     try {
@@ -298,12 +322,8 @@ function GuideManagementApiPage() {
         params.status = locTrangThai
       }
 
-      if (locNgoaiNgu.trim()) {
-        params.language = locNgoaiNgu.trim()
-      }
-
-      if (locKinhNghiem) {
-        params.experience_years = locKinhNghiem
+      if (locLoaiTour !== 'all') {
+        params.certificate_type = locLoaiTour === 'international' ? 'Quốc tế' : 'Nội địa'
       }
 
       const phanHoi = await apiClient.get(endpoint, { params })
@@ -314,7 +334,7 @@ function GuideManagementApiPage() {
     } finally {
       setDangTai(false)
     }
-  }, [coLoc, locKinhNghiem, locNgoaiNgu, locTrangThai, tuKhoa])
+  }, [coLoc, locLoaiTour, locTrangThai, tuKhoa])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -411,6 +431,7 @@ function GuideManagementApiPage() {
   function moFormThemMoi() {
     setFormHdv({
       ...mauFormApiTrong,
+      user_name: '',
       languages: [taoDongNgoaiNgu()],
       experiences: [taoDongChungChi()],
     })
@@ -423,6 +444,7 @@ function GuideManagementApiPage() {
 
   function moFormChinhSua(hdv) {
     setFormHdv({
+      user_name: layTenNguoiDung(hdv),
       user_id: String(hdv.user_id || ''),
       certificate_type: hdv.certificate_type || '',
       experience_years: String(hdv.experience_years ?? ''),
@@ -440,6 +462,7 @@ function GuideManagementApiPage() {
   function dongForm() {
     setFormHdv({
       ...mauFormApiTrong,
+      user_name: '',
       languages: [],
       experiences: [],
     })
@@ -469,7 +492,7 @@ function GuideManagementApiPage() {
     setLoi('')
     setThongBao('')
 
-    const loiMoi = validateGuideForm(formHdv, Boolean(idDangSua))
+    const loiMoi = validateGuideForm(formHdv)
 
     if (Object.keys(loiMoi).length > 0) {
       setLoiForm(loiMoi)
@@ -478,7 +501,20 @@ function GuideManagementApiPage() {
     }
 
     try {
-      const payload = taoGuidePayload(formHdv, Boolean(idDangSua))
+      const payload = taoGuidePayload(formHdv)
+
+      if (!idDangSua) {
+        const nguoiDung = await timNguoiDungTheoHoTen(formHdv.user_name)
+
+        if (!nguoiDung?.id) {
+          setLoiForm({ user_id: 'Không tìm thấy người dùng có họ và tên này.' })
+          setDangLuu(false)
+          return
+        }
+
+        payload.user_id = Number(nguoiDung.id)
+      }
+
       const phanHoi = idDangSua
         ? await apiClient.put(`/admin/guides/${idDangSua}`, payload)
         : await apiClient.post('/admin/guides', payload)
@@ -539,7 +575,7 @@ function GuideManagementApiPage() {
       {loi ? <div className="guide-alert error">{loi}</div> : null}
 
       <div className="guide-stat-grid">
-        <article className="guide-stat-card">
+        <article className="guide-stat-card blue">
           <strong>{thongKeHdv.total || phanTrang.total || danhSachHdv.length}</strong>
           <span>Tổng HDV</span>
           <small>Toàn hệ thống</small>
@@ -554,7 +590,7 @@ function GuideManagementApiPage() {
           <span>Ngừng hoạt động</span>
           <small>Tạm ngưng nhận tour</small>
         </article>
-        <article className="guide-stat-card blue">
+        <article className="guide-stat-card purple">
           <strong>{thongKeTheoTrangThai.locked || 0}</strong>
           <span>Tạm khóa</span>
           <small>Chưa thể nhận tour</small>
@@ -564,11 +600,18 @@ function GuideManagementApiPage() {
       <div className="guide-content-grid">
         <div className="guide-main-panel">
           <div className="guide-filter-bar">
-            <input
-              value={tuKhoa}
-              placeholder="Tìm hướng dẫn viên theo tên, email, SĐT, mã HDV..."
-              onChange={(event) => setTuKhoa(event.target.value)}
-            />
+            <label className="guide-search">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="11" cy="11" r="7" />
+                <path d="m20 20-4-4" />
+              </svg>
+              <input
+                value={tuKhoa}
+                aria-label="Tìm kiếm HĐV"
+                placeholder="Tìm theo tên, email hoặc SĐT"
+                onChange={(event) => setTuKhoa(event.target.value)}
+              />
+            </label>
             <select
               value={locTrangThai}
               onChange={(event) => setLocTrangThai(event.target.value)}
@@ -580,18 +623,14 @@ function GuideManagementApiPage() {
                 </option>
               ))}
             </select>
-            <input
-              value={locNgoaiNgu}
-              placeholder="Lọc ngoại ngữ..."
-              onChange={(event) => setLocNgoaiNgu(event.target.value)}
-            />
-            <input
-              min="0"
-              type="number"
-              value={locKinhNghiem}
-              placeholder="Kinh nghiệm tối thiểu"
-              onChange={(event) => setLocKinhNghiem(event.target.value)}
-            />
+            <select
+              value={locLoaiTour}
+              onChange={(event) => setLocLoaiTour(event.target.value)}
+            >
+              <option value="all">{nhanLoaiTour.all}</option>
+              <option value="international">{nhanLoaiTour.international}</option>
+              <option value="domestic">{nhanLoaiTour.domestic}</option>
+            </select>
           </div>
 
           <div className="guide-table-wrap">
@@ -747,14 +786,12 @@ function GuideManagementApiPage() {
 
             <div className="guide-form-grid">
               <label>
-                User ID
+                Họ và tên
                 <input
-                  disabled={Boolean(idDangSua)}
-                  min="1"
+                  readOnly={Boolean(idDangSua)}
                   required
-                  type="number"
-                  value={formHdv.user_id}
-                  onChange={(event) => capNhatForm('user_id', event.target.value)}
+                  value={formHdv.user_name}
+                  onChange={(event) => capNhatForm('user_name', event.target.value)}
                 />
                 {loiForm.user_id ? (
                   <span className="guide-field-error">{loiForm.user_id}</span>
@@ -861,11 +898,10 @@ function GuideManagementApiPage() {
                           </option>
                         ))}
                       </select>
-                      <input
+                      <input 
                         min="1900"
                         type="number"
                         value={chungChi.issued_year}
-                        placeholder="Năm cấp"
                         onChange={(event) =>
                           capNhatChungChi(index, 'issued_year', event.target.value)
                         }

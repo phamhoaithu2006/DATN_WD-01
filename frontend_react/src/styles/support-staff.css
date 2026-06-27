@@ -166,16 +166,17 @@
   border-bottom: 1px solid #e7edf5;
   display: grid;
   gap: 12px;
-  grid-template-columns: minmax(0, 1.3fr) repeat(3, minmax(150px, 1fr)) auto;
+  grid-template-columns: minmax(0, 1.5fr) minmax(180px, 0.7fr);
   padding: 16px;
 }
 
 .support-search {
   align-items: center;
-  background: #f8fafc;
-  border: 1px solid #d9e4f0;
-  border-radius: 14px;
+  background: #fff;
+  border: 1.5px solid #0f172a;
+  border-radius: 18px;
   display: flex;
+  min-height: 48px;
   padding: 0 13px;
 }
 
@@ -197,8 +198,7 @@
   width: 100%;
 }
 
-.support-filter-bar select,
-.support-clear-button {
+.support-filter-bar select {
   background: #fff;
   border: 1px solid #d9e4f0;
   border-radius: 14px;
@@ -206,16 +206,6 @@
   font: inherit;
   min-height: 48px;
   padding: 0 14px;
-}
-
-.support-clear-button {
-  color: #0b74d3;
-  font-weight: 800;
-}
-
-.support-clear-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
 }
 
 .support-table-wrap {

@@ -23,12 +23,16 @@ function getMessage(error, fallback) {
   return error.response?.data?.message || fallback
 }
 
-function getListData(payload) {
-  const page = payload?.data?.data
+function unwrapApiData(payload) {
+  return payload?.data ?? payload
+}
 
-  if (Array.isArray(page)) return page
-  if (Array.isArray(payload?.data)) return payload.data
-  if (Array.isArray(payload)) return payload
+function getListData(payload) {
+  const root = unwrapApiData(payload)
+
+  if (Array.isArray(root)) return root
+  if (Array.isArray(root?.data)) return root.data
+  if (Array.isArray(root?.data?.data)) return root.data.data
   return []
 }
 
@@ -38,6 +42,17 @@ function getPartnerName(partner) {
 
 function getPartnerCode(partner) {
   return partner.partner_code || partner.code || `DT${String(partner.id).padStart(3, '0')}`
+}
+
+function getPartnerType(partner) {
+  return (
+    partner.service_type_label ||
+    partner.serviceType?.name ||
+    partner.serviceType?.slug ||
+    partner.service_type ||
+    partner.type ||
+    '—'
+  )
 }
 
 function PartnerTrashPage() {
@@ -169,7 +184,7 @@ function PartnerTrashPage() {
                     <strong>{getPartnerName(partner)}</strong>
                   </td>
                   <td>{getPartnerCode(partner)}</td>
-                  <td>{partner.service_type || partner.type || '—'}</td>
+                  <td>{getPartnerType(partner)}</td>
                   <td>{formatDate(partner.deleted_at)}</td>
                   <td>
                     <div className="partner-actions trash-actions">

@@ -61,6 +61,10 @@ class GuideController extends Controller
             });
         }
 
+        if ($request->certificate_type) {
+            $query->where('certificate_type', 'like', '%' . $request->certificate_type . '%');
+        }
+
         $guides = $query->paginate(10);
 
         return response()->json([
@@ -103,6 +107,10 @@ class GuideController extends Controller
         // Lọc theo trạng thái
         if ($request->status) {
             $query->where('status', $request->status);
+        }
+
+        if ($request->certificate_type) {
+            $query->where('certificate_type', 'like', '%' . $request->certificate_type . '%');
         }
 
         if ($request->experience_years) {
