@@ -2,43 +2,47 @@
 .vg-logo {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
-  color: #075985;
-  font-weight: 800;
+  flex-wrap: nowrap;
+  gap: 14px;
+  color: #0f172a;
+  font-weight: 900;
   text-decoration: none;
+  white-space: nowrap;
+  width: max-content;
 }
 
 .brand--footer {
-  gap: 10px;
+  gap: 18px;
 }
 
 .brand--footer .brand-mark {
-  width: 40px;
-  height: 40px;
-  flex-basis: 40px;
+  width: 54px;
+  height: 54px;
+  flex-basis: 54px;
 }
 
 .brand--footer .brand-name {
-  font-size: 1.38rem;
+  font-size: 1.5rem;
 }
 
 .brand-mark,
 .vg-logo-mark {
-  width: 46px;
-  height: 46px;
+  width: 56px;
+  height: 56px;
   display: inline-grid;
   place-items: center;
-  flex: 0 0 46px;
-  border-radius: 50%;
+  flex: 0 0 56px;
+  flex-shrink: 0;
+  border-radius: 13px;
   color: #ffffff;
-  background: linear-gradient(135deg, #0b63e6, #0b4ec8);
-  box-shadow: 0 16px 34px rgba(11, 99, 230, 0.25);
+  background: #1591f2;
+  box-shadow: 0 8px 16px rgba(21, 145, 242, 0.24);
 }
 
 .brand-mark svg,
 .vg-logo-mark svg {
-  width: 27px;
-  height: 27px;
+  width: 40px;
+  height: 40px;
   fill: currentColor;
 }
 
@@ -53,13 +57,24 @@
 
 .brand-name,
 .vg-logo-name {
-  font-size: clamp(1.35rem, 2vw, 1.7rem);
-  letter-spacing: 0;
+  font-size: clamp(1.5rem, 1.9vw, 2rem);
+  font-weight: 800;
+  letter-spacing: -0.04em;
   line-height: 1;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: nowrap;
+  min-width: 0;
+  flex-shrink: 0;
 }
 
-.brand-name span,
-.vg-logo-name span {
-  color: #f59e0b;
+.brand-name-primary,
+.vg-logo-name .brand-name-primary {
+  color: #1454f0;
+}
+
+.brand-name-accent,
+.vg-logo-name .brand-name-accent {
+  color: #ff6a00;
 }

@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 
 use App\Http\Controllers\Api\Admin\AdminProfileController;
@@ -50,11 +50,11 @@ Route::prefix('auth')->group(function () {
 
 // Khách hàng đã đăng nhập
 Route::middleware(['auth:sanctum', 'role:customer'])->group(function () {
-    Route::get('/user', [AuthController::class, 'me']);
-    Route::get('/profile/summary', [CustomerDashboardController::class, 'summary']);
-    Route::get('/profile/bookings', [CustomerDashboardController::class, 'bookings']);
-    Route::put('/profile/update', [CustomerController::class, 'updateProfile']);
-    Route::put('/profile/change-password', [CustomerController::class, 'changePassword']);
+    Route::get('/user', [AuthController::class, 'me']); 
+    Route::get('/profile/summary', [CustomerDashboardController::class, 'summary']); 
+    Route::get('/profile/bookings', [CustomerDashboardController::class, 'bookings']); 
+    Route::put('/profile/update', [CustomerController::class, 'updateProfile']); 
+    Route::put('/profile/change-password', [CustomerController::class, 'changePassword']); 
 
     //======Thông báo khách hàng, hdv, nvht (dùng chung được hết)======
     // Hiển thị danh sách thông báo của khách hàng
@@ -243,7 +243,7 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
         Route::put('/profile', [AdminProfileController::class, 'update']);
         Route::put('/profile/password', [AdminProfileController::class, 'changePassword']);
     });
-
+    
     //======Booking======
     Route::prefix('bookings')->group(function () {
         Route::get('/',            [BookingController::class, 'index']);

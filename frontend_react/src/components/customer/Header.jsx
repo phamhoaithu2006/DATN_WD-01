@@ -8,9 +8,35 @@ function Header({ user, onLogout }) {
 
   const navItems = [
     { label: "Trang chủ", to: "/", end: true },
-    { label: "Tour trong nước", to: "/tours" },
-    { label: "Tour quốc tế", to: "/deals" },
-    { label: "Về chúng tôi", to: "/#gioi-thieu", hash: true },
+    {
+      label: "Tour trong nước",
+      to: "/tours",
+      items: [
+        { label: "Đà Nẵng - Hội An", to: "/tours?q=Đà%20Nẵng" },
+        { label: "Phú Quốc", to: "/tours?q=Phú%20Quốc" },
+        { label: "Sa Pa", to: "/tours?q=Sa%20Pa" },
+        { label: "Xem toàn bộ tour", to: "/tours" },
+      ],
+    },
+    {
+      label: "Tour quốc tế",
+      to: "/deals",
+      items: [
+        { label: "Nhật Bản", to: "/deals?q=Nhật%20Bản" },
+        { label: "Bali", to: "/deals?q=Bali" },
+        { label: "Singapore", to: "/deals?q=Singapore" },
+        { label: "Xem toàn bộ tour", to: "/deals" },
+      ],
+    },
+    {
+      label: "Về chúng tôi",
+      to: "/#gioi-thieu",
+      hash: true,
+      items: [
+        { label: "Giới thiệu", to: "/#gioi-thieu" },
+        { label: "Đánh giá khách hàng", to: "/#danh-gia" },
+      ],
+    },
   ];
 
   return (
@@ -28,30 +54,46 @@ function Header({ user, onLogout }) {
         </button>
 
         <nav className={mobileOpen ? "vg-nav-links is-open" : "vg-nav-links"}>
-          {navItems.map((item) =>
-            item.hash ? (
-              <a
-                key={item.label}
-                className="vg-nav-pill"
-                href={item.to}
-                onClick={() => setMobileOpen(false)}
-              >
-                {item.label}
-              </a>
-            ) : (
-              <NavLink
-                key={item.label}
-                className={({ isActive }) =>
-                  isActive ? "vg-nav-pill is-active" : "vg-nav-pill"
-                }
-                to={item.to}
-                end={item.end}
-                onClick={() => setMobileOpen(false)}
-              >
-                {item.label}
-              </NavLink>
-            ),
-          )}
+          {navItems.map((item) => (
+            <div
+              className={item.items ? "vg-nav-item vg-nav-menu" : "vg-nav-item"}
+              key={item.label}
+            >
+              {item.hash ? (
+                <a
+                  className="vg-nav-pill"
+                  href={item.to}
+                  onClick={() => setMobileOpen(false)}
+                >
+                  {item.label}
+                </a>
+              ) : (
+                <NavLink
+                  className={({ isActive }) =>
+                    isActive ? "vg-nav-pill is-active" : "vg-nav-pill"
+                  }
+                  to={item.to}
+                  end={item.end}
+                  onClick={() => setMobileOpen(false)}
+                >
+                  {item.label}
+                </NavLink>
+              )}
+              {item.items ? (
+                <div className="vg-nav-dropdown">
+                  {item.items.map((subItem) => (
+                    <Link
+                      key={subItem.label}
+                      to={subItem.to}
+                      onClick={() => setMobileOpen(false)}
+                    >
+                      {subItem.label}
+                    </Link>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ))}
         </nav>
 
         <div className="vg-nav-actions">

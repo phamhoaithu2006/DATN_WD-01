@@ -22,12 +22,49 @@
 }
 
 .admin-brand {
-  min-height: 97px;
+  min-height: 108px;
   display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 22px 17px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 4px;
+  padding: 18px 17px 16px;
   border-bottom: 1px solid #e2e8f0;
+}
+
+.admin-brand-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  color: #0f172a;
+  text-decoration: none;
+}
+
+.admin-brand-link .admin-brand-mark {
+  width: 56px;
+  height: 56px;
+  flex-basis: 56px;
+}
+
+.admin-brand-link .admin-brand-name {
+  font-size: 1.75rem;
+}
+
+.admin-brand-link .brand-name-primary {
+  color: #1454f0;
+}
+
+.admin-brand-link .brand-name-accent {
+  color: #ff6a00;
+}
+
+.admin-brand-subtitle {
+  margin-left: 66px;
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 .admin-brand .brand {
@@ -720,14 +757,19 @@
 }
 
 .admin-sidebar.collapsed .admin-brand {
-  justify-content: center;
+  align-items: center;
   padding-inline: 0;
 }
 
+.admin-sidebar.collapsed .admin-brand-subtitle,
 .admin-sidebar.collapsed .brand-name,
 .admin-sidebar.collapsed .admin-nav-link span,
 .admin-sidebar.collapsed .collapse-button span {
   display: none;
+}
+
+.admin-sidebar.collapsed .admin-brand-link {
+  justify-content: center;
 }
 
 .admin-sidebar.collapsed .admin-nav {
@@ -762,6 +804,10 @@
 
   .admin-brand {
     min-height: auto;
+  }
+
+  .admin-brand-subtitle {
+    margin-left: 0;
   }
 
   .admin-nav {

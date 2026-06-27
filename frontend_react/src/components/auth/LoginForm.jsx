@@ -7,7 +7,9 @@ function LoginForm({ values, errors, isSubmitting, onChange, onSubmit }) {
           type="email"
           value={values.email}
           placeholder="admin@vivugo.vn"
-          onChange={(event) => onChange({ ...values, email: event.target.value })}
+          onChange={(event) =>
+            onChange({ ...values, email: event.target.value })
+          }
         />
         {errors.email ? <span>{errors.email}</span> : null}
       </label>
@@ -17,8 +19,10 @@ function LoginForm({ values, errors, isSubmitting, onChange, onSubmit }) {
         <input
           type="password"
           value={values.password}
-          placeholder="Admin@123"
-          onChange={(event) => onChange({ ...values, password: event.target.value })}
+          placeholder="password"
+          onChange={(event) =>
+            onChange({ ...values, password: event.target.value })
+          }
         />
         {errors.password ? <span>{errors.password}</span> : null}
       </label>
@@ -27,17 +31,19 @@ function LoginForm({ values, errors, isSubmitting, onChange, onSubmit }) {
         <input
           type="checkbox"
           checked={values.remember}
-          onChange={(event) => onChange({ ...values, remember: event.target.checked })}
+          onChange={(event) =>
+            onChange({ ...values, remember: event.target.checked })
+          }
         />
         Ghi nhớ đăng nhập trên trình duyệt này
       </label>
 
       <button className="primary-button" type="submit" disabled={isSubmitting}>
-        {isSubmitting ? 'Đang đăng nhập...' : 'Đăng nhập'}
+        {isSubmitting ? "Đang đăng nhập..." : "Đăng nhập"}
       </button>
-      <p className="helper-text">Tài khoản admin: admin@vivugo.vn / Admin@123</p>
+      <p className="helper-text">Tài khoản admin: admin@vivugo.vn / password</p>
     </form>
-  )
+  );
 }
 
-export default LoginForm
+export default LoginForm;
