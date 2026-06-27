@@ -810,7 +810,7 @@ function PartnerManagementPage() {
         <div>
           <div className="partner-breadcrumb">ViVuGo / Quản Lý Dịch Vụ Đối Tác</div>
           <h1>Quản Lý Dịch Vụ Đối Tác</h1>
-          <p>Quản lý danh sách đối tác, thống kê theo loại dịch vụ và thao tác trực tiếp qua API Backend.</p>
+          <p>Quản lý danh sách đối tác, thống kê theo loại dịch vụ.</p>
         </div>
 
         <div className="partner-header-actions">
@@ -842,8 +842,8 @@ function PartnerManagementPage() {
         </article>
         <article className="partner-stat-card purple">
           <strong>{hiddenCount}</strong>
-          <span>Đang ẩn</span>
-          <small>Tạm ngưng hiển thị</small>
+          <span>Ngừng hoạt động</span>
+          <small>Tạm ngưng hợp tác</small>
         </article>
       </div>
 

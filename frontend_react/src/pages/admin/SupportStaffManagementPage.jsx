@@ -11,9 +11,9 @@ import {
 import '../../styles/support-staff.css'
 
 const STATUS_OPTIONS = [
-  { value: 'active', label: 'Đang làm việc' },
-  { value: 'inactive', label: 'Tạm nghỉ' },
-  { value: 'hidden', label: 'Đã ẩn' },
+  { value: 'active', label: 'Đang hoạt động' },
+  { value: 'inactive', label: 'Ngừng hoạt động' },
+  { value: 'hidden', label: 'Tạm khóa' },
 ]
 
 const EMPTY_FORM = {
@@ -112,23 +112,6 @@ function getPaginationMeta(payload) {
 
 function getStatisticsData(payload) {
   return payload?.data || {}
-}
-
-function getRoleLabel(role) {
-  if (!role) return 'Chưa xác định'
-
-  const normalized = String(role).replaceAll('-', '_')
-
-  return (
-    {
-      technical: 'Kỹ thuật',
-      customer_service: 'CSKH',
-      billing: 'Thanh toán',
-      qa: 'Kiểm thử',
-      supervisor: 'Giám sát',
-      lead: 'Trưởng nhóm',
-    }[normalized] || role
-  )
 }
 
 function getStatusLabel(status) {
@@ -570,7 +553,7 @@ function SupportStaffManagementPage() {
         <div>
           <div className="support-breadcrumb">ViVuGo / Quản Lý Nhân Viên Hỗ Trợ</div>
           <h1>Quản Lý Nhân Viên Hỗ Trợ</h1>
-          <p>Quản lý tài khoản hỗ trợ khách hàng, thao tác trực tiếp qua API thật.</p>
+          <p>Quản lý tài khoản nhân viên hỗ trợ khách hàng.</p>
         </div>
 
         <button className="support-add-button" type="button" onClick={openCreateForm}>
@@ -583,22 +566,22 @@ function SupportStaffManagementPage() {
         <article className="support-stat-card blue">
           <strong>{statistics.total || pagination.total || staffList.length}</strong>
           <span>Tổng nhân viên</span>
-          <small>Toàn bộ tài khoản hỗ trợ</small>
+          <small>Toàn bộ nhân viên hỗ trợ</small>
         </article>
         <article className="support-stat-card green">
           <strong>{statistics.active || 0}</strong>
           <span>Đang hoạt động</span>
-          <small>Sẵn sàng xử lý ticket</small>
+          <small>Sẵn sàng xử lý yêu cầu</small>
         </article>
         <article className="support-stat-card amber">
           <strong>{formatRating(statistics.average_rating)}</strong>
           <span>Hiệu suất trung bình</span>
-          <small>Thống kê từ API backend</small>
+          <small>Thống kê tự động</small>
         </article>
         <article className="support-stat-card purple">
           <strong>{statistics.hidden || 0}</strong>
-          <span>Đã ẩn</span>
-          <small>Tài khoản tạm ngưng hiển thị</small>
+          <span>Tạm khóa</span>
+          <small>Tạm ẩn nhân viên hỗ trợ</small>
         </article>
       </div>
 

@@ -561,7 +561,7 @@ function GuideManagementApiPage() {
         <div>
           <div className="guide-breadcrumb">ViVuGo / Quản Lý Hướng Dẫn Viên</div>
           <h1>Quản Lý Hướng Dẫn Viên</h1>
-          <p>Quản lý và phân công hướng dẫn viên du lịch</p>
+          <p>Quản lý và phân công hướng dẫn viên du lịch.</p>
         </div>
         <button className="guide-add-button" type="button" onClick={moFormThemMoi}>
           <span aria-hidden="true">+</span>
@@ -578,7 +578,7 @@ function GuideManagementApiPage() {
         <article className="guide-stat-card blue">
           <strong>{thongKeHdv.total || phanTrang.total || danhSachHdv.length}</strong>
           <span>Tổng HDV</span>
-          <small>Toàn hệ thống</small>
+          <small>Toàn bộ HDV</small>
         </article>
         <article className="guide-stat-card green">
           <strong>{thongKeTheoTrangThai.active || 0}</strong>
@@ -593,7 +593,7 @@ function GuideManagementApiPage() {
         <article className="guide-stat-card purple">
           <strong>{thongKeTheoTrangThai.locked || 0}</strong>
           <span>Tạm khóa</span>
-          <small>Chưa thể nhận tour</small>
+          <small>Tạm ẩn HDV</small>
         </article>
       </div>
 
