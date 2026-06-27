@@ -1,4 +1,4 @@
-.auth-page {
+﻿.auth-page {
   min-height: 100svh;
   display: grid;
   grid-template-columns: minmax(0, 1.05fr) minmax(380px, 0.95fr);
@@ -238,6 +238,41 @@ button {
     background 160ms ease;
 }
 
+.password-field {
+  position: relative;
+}
+
+.password-field input {
+  padding-right: 74px;
+}
+
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  width: 34px;
+  height: 34px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+}
+
+.password-toggle:hover {
+  background: rgba(100, 116, 139, 0.1);
+  color: #0f172a;
+}
+
+.password-toggle-icon {
+  width: 20px;
+  height: 20px;
+}
+
 .auth-form input:focus {
   border-color: #0ea5e9;
   background: #ffffff;
@@ -251,18 +286,33 @@ button {
   font-weight: 700;
 }
 
-.check-row {
-  grid-template-columns: 18px minmax(0, 1fr);
-  align-items: start;
+.auth-form label.check-row {
+  display: flex;
+  align-items: center;
   gap: 10px;
   color: #334155;
+  font-size: 0.86rem;
+  font-weight: 700;
+  min-width: 0;
+  grid-template-columns: none;
+  white-space: nowrap;
 }
 
-.check-row input {
+.auth-form label.check-row input {
   min-height: 18px;
   width: 18px;
-  margin-top: 3px;
   accent-color: #0ea5e9;
+  flex: 0 0 auto;
+}
+
+.auth-form label.check-row .remember-text {
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: 1.2;
+  white-space: nowrap;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .primary-button {
@@ -296,6 +346,38 @@ button {
   color: #64748b;
   font-size: 0.86rem;
   text-align: center;
+}
+
+.helper-text a,
+.forgot-link {
+  color: #0ea5e9;
+  font-weight: 800;
+  text-decoration: none;
+  transition: color 160ms ease;
+}
+
+.helper-text a:hover,
+.forgot-link:hover {
+  color: #0369a1;
+  text-decoration: underline;
+}
+
+.auth-links-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.auth-links-row .check-row {
+  flex: 1 1 auto;
+}
+
+.forgot-link {
+  flex: 0 0 auto;
+  align-self: center;
+  white-space: nowrap;
+  font-size: 0.88rem;
 }
 
 .dashboard-card {
@@ -379,6 +461,14 @@ button {
     flex-direction: column;
   }
 
+  .auth-links-row {
+    flex-direction: column;
+  }
+
+  .forgot-link {
+    margin-top: 0;
+  }
+
   .trip-strip,
   .profile-grid {
     grid-template-columns: 1fr;
@@ -438,4 +528,5 @@ button {
   color: #374151;
   background: #f3f4f6;
 }
+
 
