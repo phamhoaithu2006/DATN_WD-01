@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\Admin\PaymentController;
 use App\Http\Controllers\Api\Admin\ReportController;
 use App\Http\Controllers\Api\Admin\SettingController;
 use App\Http\Controllers\Api\Admin\SupportStaffController;
+use App\Http\Controllers\Api\Admin\TourDepartureController;
 use App\Http\Controllers\Api\Admin\TourManagerController;
 use App\Http\Controllers\Api\Admin\WidgetController;
 use App\Http\Controllers\Api\AuthController;
@@ -213,6 +214,12 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
         Route::get('/hidden-list', [TourManagerController::class, 'hiddenTours']); // Lấy danh sách tour bị ẩn
         Route::patch('/{id}/hide', [TourManagerController::class, 'hide']); // Ẩn tour
         Route::patch('/{id}/unhide', [TourManagerController::class, 'unhide']); // Hiện tour
+
+        // Quản lý lịch khởi hành (Tour Departures)
+        Route::get('/{tourId}/departures', [TourDepartureController::class, 'index']);   // Danh sách lịch khởi hành của tour
+        Route::post('/{tourId}/departures', [TourDepartureController::class, 'store']);  // Thêm lịch khởi hành mới
+        Route::put('/departures/{id}', [TourDepartureController::class, 'update']);       // Cập nhật lịch khởi hành
+        Route::delete('/departures/{id}', [TourDepartureController::class, 'destroy']);   // Xóa lịch khởi hành
     });
 
     // Cài đặt hệ thống và widget công khai
