@@ -13,7 +13,6 @@ class Guide extends Model
     protected $fillable = [
         'user_id',
         'guide_code',
-        'certificate_type',
         'experience_years',
         'average_rating',
         'review_count',
@@ -23,6 +22,16 @@ class Guide extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function specializations()
+    {
+        return $this->belongsToMany(
+            GuideSpecialization::class,
+            'guide_specialization',  // tên bảng pivot
+            'guide_id',              // FK của Guide
+            'specialization_id'      // FK của GuideSpecialization
+        )->withTimestamps();
     }
 
     public function languages()

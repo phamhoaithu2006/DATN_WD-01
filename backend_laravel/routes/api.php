@@ -51,11 +51,11 @@ Route::prefix('auth')->group(function () {
 
 // Khách hàng đã đăng nhập
 Route::middleware(['auth:sanctum', 'role:customer'])->group(function () {
-    Route::get('/user', [AuthController::class, 'me']); 
-    Route::get('/profile/summary', [CustomerDashboardController::class, 'summary']); 
-    Route::get('/profile/bookings', [CustomerDashboardController::class, 'bookings']); 
-    Route::put('/profile/update', [CustomerController::class, 'updateProfile']); 
-    Route::put('/profile/change-password', [CustomerController::class, 'changePassword']); 
+    Route::get('/user', [AuthController::class, 'me']);
+    Route::get('/profile/summary', [CustomerDashboardController::class, 'summary']);
+    Route::get('/profile/bookings', [CustomerDashboardController::class, 'bookings']);
+    Route::put('/profile/update', [CustomerController::class, 'updateProfile']);
+    Route::put('/profile/change-password', [CustomerController::class, 'changePassword']);
 
     //======Thông báo khách hàng, hdv, nvht (dùng chung được hết)======
     // Hiển thị danh sách thông báo của khách hàng
@@ -130,18 +130,27 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     Route::patch('/customers/{id}/unlock', [CustomerManagerController::class, 'unlock']);
 
     // Quản lý HDV
-    Route::get('guides', [GuideController::class, 'index']);
-    Route::get('guides/search', [GuideController::class, 'search']);
-    Route::get('guides/filter', [GuideController::class, 'filter']);
-    Route::get('guides/statistics', [GuideController::class, 'statistics']);
-    Route::get('guides/{id}', [GuideController::class, 'show']);
-    Route::post('guides', [GuideController::class, 'store']);
-    Route::put('guides/{id}', [GuideController::class, 'update']);
-    Route::delete('guides/{id}', [GuideController::class, 'destroy']);
+    Route::get('guides/trashed',         [GuideController::class, 'trashed']);
+    Route::get('guides/search',          [GuideController::class, 'search']);
+    Route::get('guides/filter',          [GuideController::class, 'filter']);
+    Route::get('guides/statistics',      [GuideController::class, 'statistics']);
+    Route::patch('guides/{id}/restore',  [GuideController::class, 'restore']);
+    Route::delete('guides/{id}/force',   [GuideController::class, 'forceDelete']);
+    Route::get('guides',                 [GuideController::class, 'index']);
+    Route::post('guides',                [GuideController::class, 'store']);
+    Route::get('guides/{id}',            [GuideController::class, 'show']);
+    Route::put('guides/{id}',            [GuideController::class, 'update']);
+    Route::delete('guides/{id}',         [GuideController::class, 'destroy']);
 
-    // Quản lý chứng chỉ và ngôn ngữ
-    Route::get('languages', [LanguageController::class, 'index']);
-    Route::get('certificates', [CertificateController::class, 'index']);
+    // Dropdown cho frontend
+    Route::get('languages',              [LanguageController::class, 'index']);
+    Route::get('certificates',           [CertificateController::class, 'index']);
+    Route::get('guide-specializations',  function () {
+        return response()->json([
+            'message' => 'Danh sách chuyên môn',
+            'data'    => \App\Models\GuideSpecialization::all(),
+        ]);
+    });
     // Quản lý đối tác
     Route::get('partners/service-types',   [PartnerController::class, 'serviceTypes']);
     Route::get('partners/statistics',      [PartnerController::class, 'statistics']);
@@ -250,7 +259,7 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
         Route::put('/profile', [AdminProfileController::class, 'update']);
         Route::put('/profile/password', [AdminProfileController::class, 'changePassword']);
     });
-    
+
     //======Booking======
     Route::prefix('bookings')->group(function () {
         Route::get('/',            [BookingController::class, 'index']);
