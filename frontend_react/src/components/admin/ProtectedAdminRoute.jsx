@@ -7,7 +7,7 @@ function ProtectedAdminRoute({ children, allowedRoles = ['admin'] }) {
   const role = session?.role || ''
 
   if (!token || !allowedRoles.includes(role)) {
-    return <Navigate to="/auth" replace />
+    return <Navigate to="/auth/login" replace />
   }
 
   return children

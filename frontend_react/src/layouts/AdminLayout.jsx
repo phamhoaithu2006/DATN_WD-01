@@ -20,7 +20,7 @@ function AdminLayout({ children }) {
     }
 
     clearSession()
-    navigate('/auth', { replace: true })
+    navigate('/auth/login', { replace: true })
   }
 
   return (

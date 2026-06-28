@@ -22,16 +22,16 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error.response?.status
-    const isAuthPage = window.location.pathname === '/auth'
+    const isAuthPage = window.location.pathname.startsWith('/auth')
     const isAdminPage = window.location.pathname.startsWith('/admin')
 
     if (status === 401 && !isAuthPage) {
       clearSession()
-      window.location.assign('/auth')
+      window.location.assign('/auth/login')
     }
 
     if (status === 403 && isAdminPage) {
-      window.location.assign('/auth')
+      window.location.assign('/auth/login')
     }
 
     return Promise.reject(error)

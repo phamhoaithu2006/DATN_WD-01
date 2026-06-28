@@ -1,4 +1,4 @@
-export const defaultSettings = {
+﻿export const defaultSettings = {
   site_name: "ViVuGo",
   logo_url: "",
   contact_email: "",

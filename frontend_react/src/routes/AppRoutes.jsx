@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import ProtectedAdminRoute from '../components/admin/ProtectedAdminRoute'
 import AdminLayout from '../layouts/AdminLayout'
+import BookingManagementPage from '../pages/admin/BookingManagementPage'
 import AdminDashboardPage from '../pages/admin/AdminDashboardPage'
 import GuideManagementPage from '../pages/admin/GuideManagementPage'
 import PartnerManagementPage from '../pages/admin/partners/PartnerManagementPage'
@@ -27,6 +28,7 @@ import TourEditPage from '../pages/admin/tours/TourEditPage'
 import TourHiddenPage from '../pages/admin/tours/TourHiddenPage'
 import TourListPage from '../pages/admin/tours/TourListPage'
 import AuthPage from '../pages/auth/AuthPage'
+import ForgotPasswordPage from '../pages/auth/ForgotPasswordPage'
 import CustomerPage from '../pages/customer/CustomerPage'
 import ReportStatisticsPage from '../pages/admin/reportStatistics/ReportStatisticsPage'
 
@@ -50,7 +52,10 @@ function AppRoutes() {
     <Route path="/customer/bookings" element={<CustomerPage />} />
     <Route path="/customer/settings" element={<CustomerPage />} />
     {/* Đăng ký, đăng nhập */}
-    <Route path="/auth" element={<AuthPage />} />
+    <Route path="/auth" element={<Navigate to="/auth/login" replace />} />
+    <Route path="/auth/login" element={<AuthPage />} />
+    <Route path="/auth/register" element={<AuthPage />} />
+    <Route path="/auth/forgot-password" element={<ForgotPasswordPage />} />
     {/* Quản lý cài đặt */}
     <Route path="/admin/settings" element={protect(<SettingsHomePage />)} />
     <Route path="/admin/settings/system" element={protect(<SystemSettingsPage />)} />
@@ -61,6 +66,9 @@ function AppRoutes() {
     <Route path="/admin/settings/backup" element={protect(<BackupSettingsPage />)} />
     <Route path="/admin" element={adminPage(<AdminDashboardPage />)} />
     <Route path="/admin/reports" element={adminPage(<ReportStatisticsPage />)} />
+    {/* quản lý Booking */}
+    <Route path="/admin/bookings" element={adminPage(<BookingManagementPage />)} />
+    {/* Router trang quản lý người dùng */}
     <Route path="/admin/users" element={adminPage(<UserManagementPage />)} />
     {/* Danh mục tour/loại tour */}
     <Route path="/admin/categories" element={adminPage(<TourTypeListPage />)} />

@@ -129,10 +129,10 @@ function Header({ user, onLogout }) {
             </div>
           ) : (
             <>
-              <Link className="vg-login-link" to="/auth">
+              <Link className="vg-login-link" to="/auth/login">
                 Đăng nhập
               </Link>
-              <Link className="vg-signup-link" to="/auth">
+              <Link className="vg-signup-link" to="/auth/register">
                 Đăng ký
               </Link>
             </>

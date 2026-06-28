@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+﻿import { useCallback, useEffect, useState } from "react";
 import UserDetailModal from "../../components/admin/users/UserDetailModal";
 import UserFilters from "../../components/admin/users/UserFilters";
 import UserFormModal from "../../components/admin/users/UserFormModal";
@@ -161,15 +161,21 @@ function UserManagementPage() {
 
   return (
     <section className="user-management-page">
-      <header className="user-page-heading">
-        <div>
-          <h1>Quản lý người dùng</h1>
-          <p>Quản lý tài khoản, vai trò và trạng thái hoạt động</p>
+      <div className="user-page-top">
+        <div className="user-page-breadcrumb">
+          ViVuGo <span>/</span> <b>Quản Lý Người Dùng</b>
         </div>
-        <button onClick={() => setEditing(null)}>
-          <span>＋</span> Thêm Người Dùng
-        </button>
-      </header>
+
+        <header className="user-page-heading">
+          <div>
+            <h1>Quản Lý Người Dùng</h1>
+            <p>Quản lý tài khoản, vai trò và trạng thái hoạt động</p>
+          </div>
+          <button onClick={() => setEditing(null)}>
+            <span>＋</span> Thêm Người Dùng
+          </button>
+        </header>
+      </div>
 
       {notice ? (
         <div className={`user-notice ${notice.type}`}>

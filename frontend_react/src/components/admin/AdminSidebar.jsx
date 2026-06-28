@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom'
+﻿import { NavLink } from 'react-router-dom'
 import BrandLogo from '../BrandLogo'
 
 const menuItems = [
@@ -15,7 +15,7 @@ const menuItems = [
     ),
   },
   {
-    label: 'Quản Lý Tour',
+    label: 'Tour',
     path: '/admin/tours',
     icon: (
       <>
@@ -26,7 +26,7 @@ const menuItems = [
     ),
   },
   {
-    label: 'Quản Lý Booking',
+    label: 'Booking',
     path: '/admin/bookings',
     icon: (
       <>
@@ -37,7 +37,7 @@ const menuItems = [
     ),
   },
   {
-    label: 'Quản Lý Người Dùng',
+    label: 'Người Dùng',
     path: '/admin/users',
     icon: (
       <>
@@ -100,7 +100,7 @@ const menuItems = [
     ),
   },
   {
-    label: 'Cài Đặt',
+    label: 'Cài Đặt Hệ Thống',
     path: '/admin/settings',
     icon: (
       <>

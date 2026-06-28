@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\TourResource;
 use App\Models\Tour;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class TourManagerController extends Controller
@@ -16,7 +18,7 @@ class TourManagerController extends Controller
     public function index(Request $request)
     {
         // Loại trừ tour bị ẩn
-        $query = Tour::with(['category', 'destination'])
+        $query = Tour::with(['category', 'destination', 'itineraries.images'])
             ->where('status', '!=', 'hidden');
 
         //  1. ADMIN TÌM KIẾM: Theo tiêu đề tour (title)
@@ -39,6 +41,7 @@ class TourManagerController extends Controller
 
         // Giữ nguyên logic sắp xếp và phân trang theo ID giảm dần của bạn
         $tours = $query->orderBy('id', 'desc')->paginate(10);
+        $tours->getCollection()->transform(fn ($tour) => (new TourResource($tour))->resolve($request));
 
         return response()->json([
             'status' => 'success',
@@ -54,7 +57,7 @@ class TourManagerController extends Controller
     public function publicIndex(Request $request)
     {
         //  Chỉ lấy các tour đã xuất bản (published)
-        $query = Tour::with(['category', 'destination'])
+        $query = Tour::with(['category', 'destination', 'itineraries.images'])
             ->where('status', 'published');
 
         //  1. USER TÌM KIẾM: Tìm theo tiêu đề tour
@@ -72,6 +75,7 @@ class TourManagerController extends Controller
 
         // Giữ nguyên logic sắp xếp và phân trang theo ID giảm dần của bạn
         $tours = $query->orderBy('id', 'desc')->paginate(10);
+        $tours->getCollection()->transform(fn ($tour) => (new TourResource($tour))->resolve($request));
 
         return response()->json([
             'status' => 'success',
@@ -85,6 +89,8 @@ class TourManagerController extends Controller
      */
     public function store(Request $request)
     {
+        $this->normalizeItineraryRequest($request);
+
         $validatedData = $request->validate([
             'category_id' => 'required|integer',
             'destination_id' => 'required|integer',
@@ -92,7 +98,20 @@ class TourManagerController extends Controller
             'title' => 'required|string|max:255',
             'summary' => 'nullable|string|max:500',
             'description' => 'nullable|string',
-            'itinerary' => 'nullable|string',
+            'itinerary' => 'nullable|array',
+            'itinerary.*.day_number' => 'required|integer|min:1',
+            'itinerary.*.sort_order' => 'nullable|integer|min:0',
+            'itinerary.*.type' => 'required|string|in:departure,transport,sightseeing,meal,free_time,return',
+            'itinerary.*.title' => 'required|string|max:255',
+            'itinerary.*.start_time' => 'nullable|date_format:H:i',
+            'itinerary.*.end_time' => 'nullable|date_format:H:i',
+            'itinerary.*.duration' => 'nullable|string|max:100',
+            'itinerary.*.transport' => 'nullable|string|max:255',
+            'itinerary.*.description' => 'nullable|string',
+            'itinerary.*.images' => 'nullable|array',
+            'itinerary.*.images.*.image_url' => 'required_with:itinerary.*.images|string|max:500',
+            'itinerary.*.images.*.alt_text' => 'nullable|string|max:255',
+            'itinerary.*.images.*.sort_order' => 'nullable|integer|min:0',
             'duration_days' => 'required|integer',
             'duration_nights' => 'required|integer',
             'base_price' => 'required|numeric',
@@ -104,12 +123,20 @@ class TourManagerController extends Controller
         $validatedData['slug'] = $request->slug ?? Str::slug($validatedData['title']);
         $validatedData['available_slots'] = $request->available_slots ?? $validatedData['max_slots'];
 
-        $tour = Tour::create($validatedData);
+        $itineraryData = $validatedData['itinerary'] ?? [];
+        unset($validatedData['itinerary']);
+
+        $tour = DB::transaction(function () use ($validatedData, $itineraryData) {
+            $tour = Tour::create($validatedData);
+            $this->syncItineraries($tour, $itineraryData);
+
+            return $tour;
+        });
 
         return response()->json([
             'status' => 'success',
             'message' => 'Thêm tour thành công',
-            'data' => $tour->load(['category', 'destination'])
+            'data' => new TourResource($tour->load(['category', 'destination', 'itineraries.images']))
         ], 201);
     }
 
@@ -119,6 +146,7 @@ class TourManagerController extends Controller
     public function update(Request $request, $id)
     {
         $tour = Tour::findOrFail($id);
+        $this->normalizeItineraryRequest($request);
 
         $validatedData = $request->validate([
             'category_id' => 'sometimes|required|integer',
@@ -126,7 +154,20 @@ class TourManagerController extends Controller
             'title' => 'sometimes|required|string|max:255',
             'summary' => 'nullable|string|max:500',
             'description' => 'nullable|string',
-            'itinerary' => 'nullable|string',
+            'itinerary' => 'nullable|array',
+            'itinerary.*.day_number' => 'required|integer|min:1',
+            'itinerary.*.sort_order' => 'nullable|integer|min:0',
+            'itinerary.*.type' => 'required|string|in:departure,transport,sightseeing,meal,free_time,return',
+            'itinerary.*.title' => 'required|string|max:255',
+            'itinerary.*.start_time' => 'nullable|date_format:H:i',
+            'itinerary.*.end_time' => 'nullable|date_format:H:i',
+            'itinerary.*.duration' => 'nullable|string|max:100',
+            'itinerary.*.transport' => 'nullable|string|max:255',
+            'itinerary.*.description' => 'nullable|string',
+            'itinerary.*.images' => 'nullable|array',
+            'itinerary.*.images.*.image_url' => 'required_with:itinerary.*.images|string|max:500',
+            'itinerary.*.images.*.alt_text' => 'nullable|string|max:255',
+            'itinerary.*.images.*.sort_order' => 'nullable|integer|min:0',
             'duration_days' => 'sometimes|required|integer',
             'duration_nights' => 'sometimes|required|integer',
             'base_price' => 'sometimes|required|numeric',
@@ -147,12 +188,22 @@ class TourManagerController extends Controller
             $validatedData['available_slots'] = $validatedData['max_slots'];
         }
 
-        $tour->update($validatedData);
+        $itineraryData = $validatedData['itinerary'] ?? [];
+        $shouldSyncItinerary = $request->exists('itinerary');
+        unset($validatedData['itinerary']);
+
+        DB::transaction(function () use ($tour, $validatedData, $itineraryData, $shouldSyncItinerary) {
+            $tour->update($validatedData);
+
+            if ($shouldSyncItinerary) {
+                $this->syncItineraries($tour, $itineraryData);
+            }
+        });
 
         return response()->json([
             'status' => 'success',
             'message' => 'Cập nhật tour thành công',
-            'data' => $tour->fresh(['category', 'destination'])
+            'data' => new TourResource($tour->fresh(['category', 'destination', 'itineraries.images']))
         ]);
     }
     /**
@@ -181,7 +232,7 @@ class TourManagerController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Đã ẩn tour thành công',
-            'data' => $tour->fresh(['category', 'destination'])
+            'data' => new TourResource($tour->fresh(['category', 'destination', 'itineraries.images']))
         ]);
     }
 
@@ -205,7 +256,7 @@ class TourManagerController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Đã bỏ ẩn tour thành công',
-            'data' => $tour->fresh(['category', 'destination'])
+            'data' => new TourResource($tour->fresh(['category', 'destination', 'itineraries.images']))
         ]);
     }
 
@@ -214,15 +265,97 @@ class TourManagerController extends Controller
      */
     public function hiddenTours()
     {
-        $tours = Tour::with(['category', 'destination'])
+        $tours = Tour::with(['category', 'destination', 'itineraries.images'])
             ->where('status', 'hidden')
             ->orderBy('id', 'desc')
             ->paginate(10);
+        $tours->getCollection()->transform(fn ($tour) => (new TourResource($tour))->resolve(request()));
 
         return response()->json([
             'status' => 'success',
             'message' => 'Lấy danh sách tour bị ẩn thành công',
             'data' => $tours
         ]);
+    }
+
+    private function normalizeItineraryRequest(Request $request): void
+    {
+        if (! $request->exists('itinerary')) {
+            return;
+        }
+
+        $itinerary = $request->input('itinerary');
+
+        if (is_string($itinerary)) {
+            $decoded = json_decode($itinerary, true);
+            $itinerary = json_last_error() === JSON_ERROR_NONE ? $decoded : $itinerary;
+        }
+
+        if (! is_array($itinerary)) {
+            return;
+        }
+
+        $normalized = collect($itinerary)->map(function ($item, $index) {
+            if (! is_array($item)) {
+                return $item;
+            }
+
+            if (! isset($item['day_number']) && isset($item['day'])) {
+                $item['day_number'] = $item['day'];
+            }
+
+            $item['sort_order'] = $item['sort_order'] ?? $index;
+
+            if (isset($item['images']) && is_array($item['images'])) {
+                $item['images'] = collect($item['images'])->map(function ($image, $imageIndex) {
+                    if (is_string($image)) {
+                        return [
+                            'image_url' => $image,
+                            'sort_order' => $imageIndex,
+                        ];
+                    }
+
+                    if (is_array($image)) {
+                        $image['sort_order'] = $image['sort_order'] ?? $imageIndex;
+                    }
+
+                    return $image;
+                })->all();
+            }
+
+            return $item;
+        })->all();
+
+        $request->merge(['itinerary' => $normalized]);
+    }
+
+    private function syncItineraries(Tour $tour, array $itineraries): void
+    {
+        $tour->itineraries()->delete();
+
+        foreach ($itineraries as $index => $item) {
+            $images = $item['images'] ?? [];
+            unset($item['images'], $item['day']);
+
+            $itinerary = $tour->itineraries()->create([
+                'day_number' => $item['day_number'],
+                'sort_order' => $item['sort_order'] ?? $index,
+                'type' => $item['type'],
+                'title' => $item['title'],
+                'start_time' => $item['start_time'] ?? null,
+                'end_time' => $item['end_time'] ?? null,
+                'duration' => $item['duration'] ?? null,
+                'transport' => $item['transport'] ?? null,
+                'description' => $item['description'] ?? null,
+            ]);
+
+            foreach ($images as $imageIndex => $image) {
+                $itinerary->images()->create([
+                    'image_url' => $image['image_url'],
+                    'alt_text' => $image['alt_text'] ?? null,
+                    'sort_order' => $image['sort_order'] ?? $imageIndex,
+                ]);
+            }
+        }
     }
 }

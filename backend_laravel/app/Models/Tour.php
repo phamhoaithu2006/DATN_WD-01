@@ -19,7 +19,6 @@ class Tour extends Model
         'slug',
         'summary',
         'description',
-        'itinerary',
         'duration_days',
         'duration_nights',
         'base_price',
@@ -57,5 +56,24 @@ class Tour extends Model
     public function usersWhoLiked() {
         // belongsToMany(Model_liên_kết, tên_bảng_trung_gian, khóa_ngoại_của_model_này, khóa_ngoại_của_model_liên_kết)
         return $this->belongsToMany(User::class, 'wishlists', 'tour_id', 'user_id');
+    }
+
+    /**
+     * Quan hệ 1-N: Một Tour có nhiều TourDeparture (lịch khởi hành).
+     */
+    public function departures()
+    {
+        return $this->hasMany(TourDeparture::class);
+    }
+
+    /**
+     * Quan hệ 1-N: Một Tour có nhiều hoạt động lịch trình.
+     */
+    public function itineraries()
+    {
+        return $this->hasMany(TourItinerary::class)
+            ->orderBy('day_number')
+            ->orderBy('sort_order')
+            ->orderBy('id');
     }
 }
