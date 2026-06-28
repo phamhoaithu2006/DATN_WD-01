@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
             BannerSeeder::class,
             SettingSeeder::class,
             UserSeeder::class,
+            GuideSpecializationSeeder::class,
             LanguageSeeder::class,
             CertificateSeeder::class,
             GuideSeeder::class,
