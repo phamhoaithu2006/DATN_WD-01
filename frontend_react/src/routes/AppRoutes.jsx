@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import ProtectedAdminRoute from '../components/admin/ProtectedAdminRoute'
 import AdminLayout from '../layouts/AdminLayout'
+import BookingManagementPage from '../pages/admin/BookingManagementPage'
 import AdminDashboardPage from '../pages/admin/AdminDashboardPage'
 import GuideManagementPage from '../pages/admin/GuideManagementPage'
 import PartnerManagementPage from '../pages/admin/partners/PartnerManagementPage'
@@ -65,6 +66,9 @@ function AppRoutes() {
     <Route path="/admin/settings/backup" element={protect(<BackupSettingsPage />)} />
     <Route path="/admin" element={adminPage(<AdminDashboardPage />)} />
     <Route path="/admin/reports" element={adminPage(<ReportStatisticsPage />)} />
+    {/* quản lý Booking */}
+    <Route path="/admin/bookings" element={adminPage(<BookingManagementPage />)} />
+    {/* Router trang quản lý người dùng */}
     <Route path="/admin/users" element={adminPage(<UserManagementPage />)} />
     {/* Danh mục tour/loại tour */}
     <Route path="/admin/categories" element={adminPage(<TourTypeListPage />)} />

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import tourApi from '../../../services/toursApi'
 
@@ -174,7 +174,7 @@ function TourListPage() {
     return []
   }
 
-  const fetchTours = async () => {
+  const fetchTours = useCallback(async () => {
     try {
       setLoading(true)
 
@@ -190,11 +190,15 @@ function TourListPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
-    fetchTours()
-  }, [])
+    const timer = window.setTimeout(() => {
+      fetchTours()
+    }, 0)
+
+    return () => window.clearTimeout(timer)
+  }, [fetchTours])
 
   useEffect(() => {
     if (!toast) return
@@ -313,52 +317,59 @@ function TourListPage() {
   )
 
   return (
-    <div className="min-h-screen bg-[#f5f8fc] px-8 py-8">
-      {/* HEADER */}
-      <div className="mb-8 flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-        <div>
-          <h1 className="text-[28px] font-semibold tracking-tight text-slate-800">
-            Quản lý Tour
-          </h1>
-          <p className="mt-1 text-sm font-normal text-slate-500">
-            Quản lý danh sách tour
-          </p>
+    <div className="min-h-full bg-slate-50/70 px-8 py-8">
+      <section className="border-b border-slate-200 pb-6">
+        <div className="flex items-center gap-2 text-sm font-semibold text-slate-500">
+          <span>ViVuGo</span>
+          <span className="text-slate-300">/</span>
+          <span className="font-semibold text-[#020617]">Quản Lý Tour</span>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <Link
-            to="/admin/categories"
-            className="inline-flex h-10 items-center gap-2 rounded-lg border border-sky-100 bg-sky-50 px-4 text-sm font-medium text-sky-700 transition hover:border-sky-200 hover:bg-sky-100"
-          >
-            <TagIcon className="h-4 w-4 text-sky-600" />
-            Loại tour
-          </Link>
+        <div className="mt-14 flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+          <div>
+            <h1 className="text-[30px] font-extrabold tracking-tight text-[#020617]">
+              Quản Lý Tour
+            </h1>
+            <p className="mt-2 text-sm text-slate-500">
+              Quản lý danh sách tour, loại tour, điểm đến và trạng thái hiển thị.
+            </p>
+          </div>
 
-          <Link
-            to="/admin/destinations"
-            className="inline-flex h-10 items-center gap-2 rounded-lg border border-emerald-100 bg-emerald-50 px-4 text-sm font-medium text-emerald-700 transition hover:border-emerald-200 hover:bg-emerald-100"
-          >
-            <MapPinIcon className="h-4 w-4 text-emerald-600" />
-            Địa chỉ tour
-          </Link>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              to="/admin/categories"
+              className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700"
+            >
+              <TagIcon className="h-4 w-4 text-sky-600" />
+              Loại tour
+            </Link>
 
-          <Link
-            to="/admin/tours/hidden"
-            className="inline-flex h-10 items-center gap-2 rounded-lg border border-amber-100 bg-amber-50 px-4 text-sm font-medium text-amber-700 transition hover:border-amber-200 hover:bg-amber-100"
-          >
-            <EyeOffIcon className="h-4 w-4 text-amber-600" />
-            Tour đã ẩn
-          </Link>
+            <Link
+              to="/admin/destinations"
+              className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
+            >
+              <MapPinIcon className="h-4 w-4 text-emerald-600" />
+              Địa chỉ tour
+            </Link>
 
-          <Link
-            to="/admin/tours/create"
-            className="inline-flex h-10 items-center gap-2 rounded-lg bg-blue-500 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-blue-600"
-          >
-            <span className="text-lg leading-none">+</span>
-            Thêm tour
-          </Link>
+            <Link
+              to="/admin/tours/hidden"
+              className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-amber-200 hover:bg-amber-50 hover:text-amber-700"
+            >
+              <EyeOffIcon className="h-4 w-4 text-amber-600" />
+              Tour đã ẩn
+            </Link>
+
+            <Link
+              to="/admin/tours/create"
+              className="inline-flex h-11 items-center gap-2 rounded-xl bg-sky-500 px-5 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(14,165,233,0.25)] transition hover:bg-sky-600"
+            >
+              <span className="text-lg leading-none">+</span>
+              Thêm tour
+            </Link>
+          </div>
         </div>
-      </div>
+      </section>
 
       {/* SEARCH CARD */}
       <div className="mb-7 rounded-xl border border-slate-100 bg-white p-5 shadow-sm">

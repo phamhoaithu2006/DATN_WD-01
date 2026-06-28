@@ -23,12 +23,16 @@ function getMessage(error, fallback) {
   return error.response?.data?.message || fallback
 }
 
-function getListData(payload) {
-  const page = payload?.data?.data
+function unwrapApiData(payload) {
+  return payload?.data ?? payload
+}
 
-  if (Array.isArray(page)) return page
-  if (Array.isArray(payload?.data)) return payload.data
-  if (Array.isArray(payload)) return payload
+function getListData(payload) {
+  const root = unwrapApiData(payload)
+
+  if (Array.isArray(root)) return root
+  if (Array.isArray(root?.data)) return root.data
+  if (Array.isArray(root?.data?.data)) return root.data.data
   return []
 }
 
@@ -38,6 +42,17 @@ function getPartnerName(partner) {
 
 function getPartnerCode(partner) {
   return partner.partner_code || partner.code || `DT${String(partner.id).padStart(3, '0')}`
+}
+
+function getPartnerType(partner) {
+  return (
+    partner.service_type_label ||
+    partner.serviceType?.name ||
+    partner.serviceType?.slug ||
+    partner.service_type ||
+    partner.type ||
+    '—'
+  )
 }
 
 function PartnerTrashPage() {
@@ -129,8 +144,8 @@ function PartnerTrashPage() {
     <section className="partner-trash-page">
       <div className="partner-header compact">
         <div>
-          <div className="partner-breadcrumb">ViVuGo / Dịch Vụ Đối Tác</div>
-          <h1>Đối tác đã xóa mềm</h1>
+          <div className="partner-breadcrumb">ViVuGo / Quản Lý Dịch Vụ Đối Tác</div>
+          <h1>Đối tác đã xóa</h1>
           <p>Khôi phục hoặc xóa vĩnh viễn các đối tác đã được đưa vào thùng rác.</p>
         </div>
 
@@ -169,7 +184,7 @@ function PartnerTrashPage() {
                     <strong>{getPartnerName(partner)}</strong>
                   </td>
                   <td>{getPartnerCode(partner)}</td>
-                  <td>{partner.service_type || partner.type || '—'}</td>
+                  <td>{getPartnerType(partner)}</td>
                   <td>{formatDate(partner.deleted_at)}</td>
                   <td>
                     <div className="partner-actions trash-actions">

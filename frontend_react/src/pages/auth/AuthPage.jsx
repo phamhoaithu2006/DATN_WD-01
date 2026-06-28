@@ -82,8 +82,8 @@ function getRegisterFieldError(field, values, { live = false } = {}) {
   const normalizedPhone = values.phone.trim();
 
   if (field === "full_name") {
-    if (normalizedName.length < 2) {
-      return "Họ tên cần ít nhất 2 ký tự.";
+    if (!normalizedName) {
+      return "Vui lòng nhập họ và tên.";
     }
 
     if (!/^[\p{L}\s.'-]+$/u.test(normalizedName)) {
@@ -118,6 +118,10 @@ function getRegisterFieldError(field, values, { live = false } = {}) {
   }
 
   if (field === "password") {
+    if (!values.password) {
+      return "Vui lòng nhập mật khẩu.";
+    }
+
     if (values.password.length < 8) {
       return "Mật khẩu cần ít nhất 8 ký tự.";
     }
@@ -201,20 +205,19 @@ function AuthPage() {
 
   function handleLoginChange(nextValues) {
     setLoginData(nextValues);
-    setLoginErrors((current) => {
-      const nextErrors = { ...current };
-
-      if (Object.prototype.hasOwnProperty.call(nextValues, "password")) {
-        const passwordError = getLoginFieldError("password", nextValues);
-        if (passwordError) {
-          nextErrors.password = passwordError;
+    if (Object.prototype.hasOwnProperty.call(nextValues, "password")) {
+      setLoginErrors((current) => {
+        const nextErrors = { ...current };
+        if (!nextValues.password) {
+          delete nextErrors.password;
+        } else if (nextValues.password.length < 8) {
+          nextErrors.password = "Mật khẩu cần ít nhất 8 ký tự.";
         } else {
           delete nextErrors.password;
         }
-      }
-
-      return nextErrors;
-    });
+        return nextErrors;
+      });
+    }
     setNotice("");
   }
 
@@ -233,40 +236,25 @@ function AuthPage() {
     });
   }
 
-  function handleRegisterChange(nextValues, field) {
+  function handleRegisterChange(nextValues) {
     setRegisterData(nextValues);
     setRegisterErrors((current) => {
       const nextErrors = { ...current };
-      if (field === "confirmPassword") {
-        const error = getRegisterFieldError("confirmPassword", nextValues, {
-          live: true,
-        });
 
-        if (error) {
-          nextErrors.confirmPassword = error;
+      if (Object.prototype.hasOwnProperty.call(nextValues, "password")) {
+        if (!nextValues.password) {
+          delete nextErrors.password;
+        } else if (nextValues.password.length < 8) {
+          nextErrors.password = "Mật khẩu cần ít nhất 8 ký tự.";
         } else {
-          delete nextErrors.confirmPassword;
+          delete nextErrors.password;
         }
-
-        return nextErrors;
       }
 
-      const error = getRegisterFieldError(field, nextValues);
-
-      if (error) {
-        nextErrors[field] = error;
-      } else {
-        delete nextErrors[field];
-      }
-
-      if (field === "password" && nextValues.confirmPassword) {
-        const confirmError = getRegisterFieldError("confirmPassword", nextValues, {
-          live: true,
-        });
-
-        if (confirmError) {
-          nextErrors.confirmPassword = confirmError;
-        } else {
+      if (Object.prototype.hasOwnProperty.call(nextValues, "confirmPassword")) {
+        if (nextValues.confirmPassword && nextValues.confirmPassword !== nextValues.password) {
+          nextErrors.confirmPassword = "Mật khẩu xác nhận không khớp.";
+        } else if (nextValues.confirmPassword) {
           delete nextErrors.confirmPassword;
         }
       }
@@ -274,6 +262,21 @@ function AuthPage() {
       return nextErrors;
     });
     setNotice("");
+  }
+
+  function handleRegisterBlur(field) {
+    setRegisterErrors((current) => {
+      const nextErrors = { ...current };
+      const error = getRegisterFieldError(field, registerData);
+
+      if (error) {
+        nextErrors[field] = error;
+      } else {
+        delete nextErrors[field];
+      }
+
+      return nextErrors;
+    });
   }
 
   async function handleLogin(event) {
@@ -412,6 +415,7 @@ function AuthPage() {
         onLoginChange={handleLoginChange}
         onLoginBlur={handleLoginBlur}
         onRegisterChange={handleRegisterChange}
+        onRegisterBlur={handleRegisterBlur}
         onLoginSubmit={handleLogin}
         onRegisterSubmit={handleRegister}
       />

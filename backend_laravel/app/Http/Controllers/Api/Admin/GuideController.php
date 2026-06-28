@@ -102,6 +102,10 @@ class GuideController extends Controller
             $query->where('status', $request->status);
         }
 
+        if ($request->certificate_type) {
+            $query->where('certificate_type', 'like', '%' . $request->certificate_type . '%');
+        }
+
         if ($request->experience_years) {
             $query->where('experience_years', '>=', $request->experience_years);
         }

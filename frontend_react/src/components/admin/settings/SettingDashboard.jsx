@@ -1,4 +1,4 @@
-function SettingDashboard({ sections, onSelect }) {
+﻿function SettingDashboard({ sections, onSelect }) {
   return (
     <div className="setting-card-grid">
       {sections.map((section) => (

@@ -3,9 +3,10 @@
 }
 
 .setting-breadcrumb {
-  margin-bottom: 28px;
+  margin-bottom: 16px;
   color: #64748b;
-  font-weight: 600;
+  font-size: 0.875rem;
+  font-weight: 700;
 }
 
 .setting-breadcrumb span {
@@ -14,7 +15,8 @@
 }
 
 .setting-breadcrumb b {
-  color: #0f172a;
+  color: #020617;
+  font-weight: 800;
 }
 
 .setting-header {
@@ -28,14 +30,15 @@
 .setting-header h1 {
   margin: 0;
   color: #020617;
-  font-size: 1.75rem;
+  font-size: 30px;
   line-height: 1.1;
-  font-weight: 850;
+  font-weight: 800;
+  letter-spacing: 0;
 }
 
 .setting-header p {
   margin: 7px 0 0;
-  color: #526886;
+  color: #64748b;
   font-size: 0.98rem;
 }
 

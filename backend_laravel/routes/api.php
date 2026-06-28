@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 
 use App\Http\Controllers\Api\Admin\AdminProfileController;
@@ -13,7 +13,6 @@ use App\Http\Controllers\Api\Admin\LanguageController;
 use App\Http\Controllers\Api\Admin\NotificationController;
 use App\Http\Controllers\Api\Admin\PartnerController;
 use App\Http\Controllers\Api\Admin\PartnerServiceController;
-use App\Http\Controllers\Api\Customer\NotificationCustomerController;
 use App\Http\Controllers\Api\Admin\PaymentController;
 use App\Http\Controllers\Api\Admin\ReportController;
 use App\Http\Controllers\Api\Admin\SettingController;
@@ -24,8 +23,10 @@ use App\Http\Controllers\Api\Admin\WidgetController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\Customer\CustomerController;
 use App\Http\Controllers\Api\Customer\CustomerDashboardController;
+use App\Http\Controllers\Api\Customer\NotificationCustomerController;
 use App\Http\Controllers\Api\Customer\TourController;
 use App\Http\Controllers\Api\Customer\WishlistController;
+use App\Http\Controllers\Api\Guide\GuideProfileController;
 use App\Http\Controllers\Api\PublicSettingController;
 use App\Http\Controllers\Api\PublicWidgetController;
 use Illuminate\Support\Facades\Route;
@@ -68,8 +69,10 @@ Route::middleware(['auth:sanctum', 'role:customer'])->group(function () {
     Route::patch('/notifications/customers/{id}/read', [NotificationCustomerController::class, 'markAsRead']);
 });
 
-// Đặt lại mật khẩu cho khách hàng
+//===================== Đặt lại mật khẩu user=============
+//xác nhận email or sdt, gửi otp
 Route::post('/forgot-password', [CustomerController::class, 'forgotPassword']);
+//Xác nhận otp và sửa lại mk
 Route::post('/reset-password', [CustomerController::class, 'resetPassword']);
 Route::post('/travel-assistant', [CustomerDashboardController::class, 'travelAssistant']);
 
@@ -299,4 +302,14 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     Route::get('/notifications/get-all-send', [NotificationController::class, 'getAllSentNotifications']);
     // Thu hồi lại thông báo đã gửi
     Route::delete('/notifications/revoke/{draft_id}', [NotificationController::class, 'revoke']);
+});
+
+//=============================== Hướng dẫn viên ===============================
+Route::middleware('auth:sanctum')->group(function () {
+    //Lấy thông tin hdv
+    Route::get('/guide/profile', [GuideProfileController::class, 'show']);
+    //Sửa thông tin hdv
+    Route::put('/guide/profile', [GuideProfileController::class, 'update']);
+    //Sửa lại pass khi nhớ mk cũ
+    Route::put('/guide/change-password', [GuideProfileController::class, 'changePassword']);
 });

@@ -42,7 +42,7 @@ function EyeOffIcon({ className = "" }) {
   );
 }
 
-function RegisterForm({ values, errors, isSubmitting, onChange, onSubmit }) {
+function RegisterForm({ values, errors, isSubmitting, onChange, onBlur, onSubmit }) {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -63,25 +63,27 @@ function RegisterForm({ values, errors, isSubmitting, onChange, onSubmit }) {
     <form className="auth-form" onSubmit={onSubmit} noValidate>
       <label>
         Họ và tên
-        <input
-          type="text"
-          value={values.full_name}
-          autoComplete="name"
-          onChange={(event) =>
-            onChange({ ...values, full_name: event.target.value }, "full_name")
-          }
-        />
+          <input
+            type="text"
+            value={values.full_name}
+            autoComplete="name"
+            onChange={(event) =>
+              onChange({ ...values, full_name: event.target.value }, "full_name")
+            }
+            onBlur={() => onBlur?.("full_name")}
+          />
         {errors.full_name ? <span>{errors.full_name}</span> : null}
       </label>
 
       <label>
         Email
-        <input
-          type="email"
-          value={values.email}
-          autoComplete="email"
-          onChange={(event) => onChange({ ...values, email: event.target.value }, "email")}
-        />
+          <input
+            type="email"
+            value={values.email}
+            autoComplete="email"
+            onChange={(event) => onChange({ ...values, email: event.target.value }, "email")}
+            onBlur={() => onBlur?.("email")}
+          />
         {errors.email ? <span>{errors.email}</span> : null}
       </label>
 
@@ -95,6 +97,7 @@ function RegisterForm({ values, errors, isSubmitting, onChange, onSubmit }) {
           pattern="[0-9]*"
           autoComplete="tel"
           onChange={handlePhoneChange}
+          onBlur={() => onBlur?.("phone")}
         />
         {errors.phone ? <span>{errors.phone}</span> : null}
         {!errors.phone && livePhoneError ? <span>{livePhoneError}</span> : null}
@@ -110,6 +113,7 @@ function RegisterForm({ values, errors, isSubmitting, onChange, onSubmit }) {
             onChange={(event) =>
               onChange({ ...values, password: event.target.value }, "password")
             }
+            onBlur={() => onBlur?.("password")}
           />
           <button
             className="password-toggle"
@@ -140,6 +144,7 @@ function RegisterForm({ values, errors, isSubmitting, onChange, onSubmit }) {
                 "confirmPassword",
               )
             }
+            onBlur={() => onBlur?.("confirmPassword")}
           />
           <button
             className="password-toggle"
