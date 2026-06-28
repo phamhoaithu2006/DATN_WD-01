@@ -2,6 +2,21 @@
   color: #10213d;
   padding: 4px 0 32px;
 }
+.user-page-top {
+  border-bottom: 1px solid #d9e1ec;
+  margin-bottom: 22px;
+  padding-bottom: 22px;
+}
+.user-page-breadcrumb {
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0 0 16px;
+}
+.user-page-breadcrumb b {
+  color: #020617;
+  font-weight: 800;
+}
 .user-page-heading {
   align-items: center;
   display: flex;
@@ -9,8 +24,11 @@
   margin-bottom: 22px;
 }
 .user-page-heading h1 {
-  font-size: 28px;
-  letter-spacing: -0.5px;
+  color: #020617;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.1;
   margin: 0 0 3px;
 }
 .user-page-heading p {
@@ -19,15 +37,17 @@
 }
 .user-page-heading > button {
   align-items: center;
-  background: #0ea5e9;
+  background: linear-gradient(135deg, #1a9ee4, #0b74d3);
   border: 0;
-  border-radius: 16px;
+  border-radius: 18px;
+  box-shadow: 0 16px 34px rgba(11, 116, 211, 0.22);
   color: #fff;
   display: flex;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 800;
   gap: 7px;
-  padding: 13px 19px;
+  min-height: 48px;
+  padding: 0 18px;
 }
 .user-stat-grid {
   display: grid;
@@ -420,9 +440,14 @@
   }
 }
 @media (max-width: 700px) {
+  .user-page-top {
+    margin-bottom: 18px;
+    padding-bottom: 18px;
+  }
   .user-page-heading {
     align-items: flex-start;
     gap: 16px;
+    flex-direction: column;
   }
   .user-page-heading h1 {
     font-size: 23px;

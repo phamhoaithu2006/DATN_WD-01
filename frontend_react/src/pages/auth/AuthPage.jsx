@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+﻿import { useEffect, useState } from "react";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import AuthCard from "../../components/auth/AuthCard";
-import UserDashboard from "../../components/auth/UserDashboard";
 import AuthLayout from "../../layouts/AuthLayout";
 import {
   login as loginApi,
@@ -11,7 +10,7 @@ import {
 import {
   clearSession,
   readSession,
-  readUsers,
+  readToken,
   saveSession,
   saveToken,
 } from "../../services/authStorage";
@@ -35,79 +34,304 @@ function normalizeUser(user) {
     full_name: user.full_name || user.name || user.email || "",
     email: user.email || "",
     phone: user.phone || "",
-    role: user.role || "",
+    role: user.role?.name || user.role || "",
   };
+}
+
+function resolveRole(user) {
+  return user?.role?.name || user?.role || user?.role_name || "";
+}
+
+function getLoginFieldError(field, values) {
+  if (field === "password") {
+    if (!values.password) {
+      return "Vui lòng nhập mật khẩu.";
+    }
+
+    if (values.password.length < 8) {
+      return "Mật khẩu cần ít nhất 8 ký tự.";
+    }
+
+    return "";
+  }
+
+  if (field === "identifier") {
+    const rawValue = values.identifier.trim();
+    const normalizedPhone = rawValue.replace(/\s+/g, "");
+
+    if (!rawValue) {
+      return "Vui lòng nhập email hoặc SĐT.";
+    }
+
+    if (
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawValue) &&
+      !/^(0|\+84)?[0-9]{9,10}$/.test(normalizedPhone)
+    ) {
+      return "Email hoặc SĐT chưa đúng định dạng.";
+    }
+
+    return "";
+  }
+
+  return "";
+}
+
+function getRegisterFieldError(field, values, { live = false } = {}) {
+  const normalizedName = values.full_name.trim();
+  const normalizedEmail = values.email.trim().toLowerCase();
+  const normalizedPhone = values.phone.trim();
+
+  if (field === "full_name") {
+    if (!normalizedName) {
+      return "Vui lòng nhập họ và tên.";
+    }
+
+    if (!/^[\p{L}\s.'-]+$/u.test(normalizedName)) {
+      return "Họ tên chỉ nên gồm chữ cái và khoảng trắng.";
+    }
+
+    return "";
+  }
+
+  if (field === "email") {
+    if (!normalizedEmail) {
+      return "Vui lòng nhập email.";
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      return "Email chưa đúng định dạng.";
+    }
+
+    return "";
+  }
+
+  if (field === "phone") {
+    if (!normalizedPhone) {
+      return "Vui lòng nhập số điện thoại.";
+    }
+
+    if (!/^\d{10}$/.test(normalizedPhone)) {
+      return "Số điện thoại phải đủ 10 số.";
+    }
+
+    return "";
+  }
+
+  if (field === "password") {
+    if (!values.password) {
+      return "Vui lòng nhập mật khẩu.";
+    }
+
+    if (values.password.length < 8) {
+      return "Mật khẩu cần ít nhất 8 ký tự.";
+    }
+
+    return "";
+  }
+
+  if (field === "confirmPassword") {
+    if (live && !values.confirmPassword) {
+      return "";
+    }
+
+    if (!values.confirmPassword) {
+      return "Vui lòng xác nhận mật khẩu.";
+    }
+
+    if (values.confirmPassword !== values.password) {
+      return "Mật khẩu xác nhận không khớp.";
+    }
+
+    return "";
+  }
+
+  if (field === "terms") {
+    return values.terms ? "" : "Bạn cần đồng ý điều khoản để tiếp tục.";
+  }
+
+  return "";
 }
 
 function AuthPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [mode, setMode] = useState("login");
-  const [users] = useState(readUsers);
-  const [currentUser, setCurrentUser] = useState(() =>
-    normalizeUser(readSession()),
-  );
   const [notice, setNotice] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [loginData, setLoginData] = useState({ email: "", password: "",  remember: false });
+  const [loginData, setLoginData] = useState({
+    identifier: "",
+    password: "",
+    remember: false,
+  });
   const [registerData, setRegisterData] = useState(emptyRegisterForm);
   const [loginErrors, setLoginErrors] = useState({});
   const [registerErrors, setRegisterErrors] = useState({});
 
+  const currentUser = normalizeUser(readSession());
+  const token = readToken();
+  const isRegisterPath = location.pathname === "/auth/register";
+
   useEffect(() => {
-    if (currentUser?.role === "admin") {
+    if (!token || !currentUser) return;
+
+    if (currentUser.role === "admin") {
       navigate("/admin", { replace: true });
+      return;
     }
-  }, [currentUser, navigate]);
-  if (currentUser?.role === "admin") {
-    return <Navigate to="/admin" replace />;
+
+    navigate("/", { replace: true });
+  }, [currentUser, navigate, token]);
+
+  useEffect(() => {
+    setMode(isRegisterPath ? "register" : "login");
+    setNotice("");
+  }, [isRegisterPath]);
+
+  if (token && currentUser) {
+    return currentUser.role === "admin" ? (
+      <Navigate to="/admin" replace />
+    ) : (
+      <Navigate to="/" replace />
+    );
   }
-  const welcomeName = currentUser?.full_name
-    ? currentUser.full_name.split(" ")[0]
-    : "";
 
   function handleModeChange(nextMode) {
     setMode(nextMode);
     setNotice("");
+    navigate(nextMode === "register" ? "/auth/register" : "/auth/login", {
+      replace: true,
+    });
+  }
+
+  function handleLoginChange(nextValues) {
+    setLoginData(nextValues);
+    if (Object.prototype.hasOwnProperty.call(nextValues, "password")) {
+      setLoginErrors((current) => {
+        const nextErrors = { ...current };
+        if (!nextValues.password) {
+          delete nextErrors.password;
+        } else if (nextValues.password.length < 8) {
+          nextErrors.password = "Mật khẩu cần ít nhất 8 ký tự.";
+        } else {
+          delete nextErrors.password;
+        }
+        return nextErrors;
+      });
+    }
+    setNotice("");
+  }
+
+  function handleLoginBlur(field) {
+    setLoginErrors((current) => {
+      const nextErrors = { ...current };
+      const error = getLoginFieldError(field, loginData);
+
+      if (error) {
+        nextErrors[field] = error;
+      } else {
+        delete nextErrors[field];
+      }
+
+      return nextErrors;
+    });
+  }
+
+  function handleRegisterChange(nextValues) {
+    setRegisterData(nextValues);
+    setRegisterErrors((current) => {
+      const nextErrors = { ...current };
+
+      if (Object.prototype.hasOwnProperty.call(nextValues, "password")) {
+        if (!nextValues.password) {
+          delete nextErrors.password;
+        } else if (nextValues.password.length < 8) {
+          nextErrors.password = "Mật khẩu cần ít nhất 8 ký tự.";
+        } else {
+          delete nextErrors.password;
+        }
+      }
+
+      if (Object.prototype.hasOwnProperty.call(nextValues, "confirmPassword")) {
+        if (nextValues.confirmPassword && nextValues.confirmPassword !== nextValues.password) {
+          nextErrors.confirmPassword = "Mật khẩu xác nhận không khớp.";
+        } else if (nextValues.confirmPassword) {
+          delete nextErrors.confirmPassword;
+        }
+      }
+
+      return nextErrors;
+    });
+    setNotice("");
+  }
+
+  function handleRegisterBlur(field) {
+    setRegisterErrors((current) => {
+      const nextErrors = { ...current };
+      const error = getRegisterFieldError(field, registerData);
+
+      if (error) {
+        nextErrors[field] = error;
+      } else {
+        delete nextErrors[field];
+      }
+
+      return nextErrors;
+    });
   }
 
   async function handleLogin(event) {
     event.preventDefault();
     const errors = validateLogin(loginData);
     setLoginErrors(errors);
-    setNotice("");
 
-    if (Object.keys(errors).length > 0) return;
+    if (Object.keys(errors).length > 0) {
+      setNotice("Vui lòng kiểm tra lại các trường đăng nhập.");
+      return;
+    }
 
     setIsSubmitting(true);
 
     try {
-      const data = await loginApi(loginData.email.trim(), loginData.password, loginData.remember)
-      const roleName = data.user?.role?.name
+      const data = await loginApi(
+        loginData.identifier.trim(),
+        loginData.password,
+        loginData.remember,
+      );
+      const roleName = resolveRole(data.user);
+      const sessionUser = normalizeUser({
+        id: data.user?.id,
+        full_name: data.user?.full_name || data.user?.name || data.user?.email,
+        email: data.user?.email,
+        phone: data.user?.phone,
+        role: roleName,
+      });
 
-      if (roleName !== 'admin') {
-        clearSession()
-        setNotice('Tài khoản này không có quyền truy cập admin.')
-        return
+      if (!roleName) {
+        clearSession();
+        setNotice("Tài khoản chưa được gán vai trò hợp lệ.");
+        return;
       }
 
-      const sessionUser = {
-        id: data.user.id,
-        full_name: data.user.full_name || data.user.name || data.user.email,
-        email: data.user.email,
-        phone: data.user.phone,
-        role: roleName,
-      };
+      saveToken(data.token, loginData.remember);
+      saveSession(sessionUser, loginData.remember);
 
-      saveToken(data.token, loginData.remember)
-      saveSession(sessionUser, loginData.remember)
-      setCurrentUser(sessionUser)
-      setNotice('Đăng nhập thành công.')
-      navigate('/admin', { replace: true })
+      if (roleName === "admin") {
+        navigate("/admin", { replace: true });
+        return;
+      }
+
+      if (roleName === "customer") {
+        navigate("/", { replace: true });
+        return;
+      }
+
+      clearSession();
+      setNotice("Tài khoản không có quyền truy cập phù hợp.");
     } catch (error) {
       setNotice(
         error.response?.data?.message ||
-          'Không đăng nhập được. Vui lòng kiểm tra lại thông tin đăng nhập.',
-      )
+          "Không đăng nhập được. Vui lòng kiểm tra lại thông tin đăng nhập.",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -115,11 +339,13 @@ function AuthPage() {
 
   async function handleRegister(event) {
     event.preventDefault();
-    const errors = validateRegister(registerData, users);
+    const errors = validateRegister(registerData);
     setRegisterErrors(errors);
-    setNotice("");
 
-    if (Object.keys(errors).length > 0) return;
+    if (Object.keys(errors).length > 0) {
+      setNotice("Vui lòng kiểm tra lại các trường đăng ký.");
+      return;
+    }
 
     setIsSubmitting(true);
 
@@ -131,22 +357,15 @@ function AuthPage() {
         password: registerData.password,
         password_confirmation: registerData.confirmPassword,
       };
-      const data = await registerApi(payload);
-      const sessionUser = normalizeUser({
-        id: data.user?.id,
-        full_name: data.user?.full_name || payload.full_name,
-        email: data.user?.email || payload.email,
-        phone: data.user?.phone || payload.phone,
-        role: data.user?.role?.name || data.user?.role || "customer",
-      });
 
-      saveToken(data.token, true);
-      saveSession(sessionUser, true);
-      setCurrentUser(sessionUser);
+      await registerApi(payload);
+
+      setMode("login");
+      navigate("/auth/login", { replace: true });
       setLoginData({ email: payload.email, password: "", remember: false });
       setRegisterData(emptyRegisterForm);
       setRegisterErrors({});
-      setNotice("Đăng ký thành công.");
+      setNotice("Đăng ký thành công. Vui lòng đăng nhập để tiếp tục.");
     } catch (error) {
       const apiErrors = error.response?.data?.errors || {};
       const nextErrors = {};
@@ -155,6 +374,10 @@ function AuthPage() {
       if (apiErrors.email) nextErrors.email = apiErrors.email[0];
       if (apiErrors.phone) nextErrors.phone = apiErrors.phone[0];
       if (apiErrors.password) nextErrors.password = apiErrors.password[0];
+      if (apiErrors.confirmPassword) {
+        nextErrors.confirmPassword = apiErrors.confirmPassword[0];
+      }
+      if (apiErrors.terms) nextErrors.terms = apiErrors.terms[0];
 
       setRegisterErrors(nextErrors);
       setNotice(
@@ -170,39 +393,32 @@ function AuthPage() {
     try {
       await logoutApi();
     } catch {
-      // Token có thể đã hết hạn; vẫn cần đăng xuất phía trình duyệt.
+      // Token có thể đã hết hạn.
     }
 
-    setCurrentUser(null);
     clearSession();
-    setNotice("Bạn đã đăng xuất thành công.");
+    setNotice("");
     setMode("login");
   }
 
   return (
-    <AuthLayout currentUser={currentUser} onLogout={handleLogout}>
-      {currentUser ? (
-        <UserDashboard
-          user={currentUser}
-          welcomeName={welcomeName}
-          onLogout={handleLogout}
-        />
-      ) : (
-        <AuthCard
-          mode={mode}
-          notice={notice}
-          loginData={loginData}
-          loginErrors={loginErrors}
-          registerData={registerData}
-          registerErrors={registerErrors}
-          isSubmitting={isSubmitting}
-          onModeChange={handleModeChange}
-          onLoginChange={setLoginData}
-          onRegisterChange={setRegisterData}
-          onLoginSubmit={handleLogin}
-          onRegisterSubmit={handleRegister}
-        />
-      )}
+    <AuthLayout onLogout={handleLogout}>
+      <AuthCard
+        mode={mode}
+        notice={notice}
+        loginData={loginData}
+        loginErrors={loginErrors}
+        registerData={registerData}
+        registerErrors={registerErrors}
+        isSubmitting={isSubmitting}
+        onModeChange={handleModeChange}
+        onLoginChange={handleLoginChange}
+        onLoginBlur={handleLoginBlur}
+        onRegisterChange={handleRegisterChange}
+        onRegisterBlur={handleRegisterBlur}
+        onLoginSubmit={handleLogin}
+        onRegisterSubmit={handleRegister}
+      />
     </AuthLayout>
   );
 }

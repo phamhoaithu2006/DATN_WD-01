@@ -1,4 +1,4 @@
-.auth-page {
+﻿.auth-page {
   min-height: 100svh;
   display: grid;
   grid-template-columns: minmax(0, 1.05fr) minmax(380px, 0.95fr);
@@ -45,35 +45,42 @@
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
-  color: #075985;
+  gap: 14px;
+  color: #0f172a;
   font-weight: 800;
 }
 
 .brand-mark {
-  width: 46px;
-  height: 46px;
+  width: 56px;
+  height: 56px;
   display: inline-grid;
   place-items: center;
-  border-radius: 8px;
+  border-radius: 13px;
   color: #ffffff;
-  background: linear-gradient(135deg, #0ea5e9, #0284c7);
-  box-shadow: 0 16px 34px rgba(14, 165, 233, 0.28);
+  background: #1591f2;
+  box-shadow: 0 8px 16px rgba(21, 145, 242, 0.24);
 }
 
 .brand-mark svg {
-  width: 27px;
-  height: 27px;
+  width: 40px;
+  height: 40px;
   fill: currentColor;
 }
 
 .brand-name {
-  font-size: clamp(1.35rem, 2vw, 1.7rem);
-  letter-spacing: 0;
+  font-size: clamp(1.5rem, 1.9vw, 2rem);
+  letter-spacing: -0.04em;
+  line-height: 1;
+  display: inline-flex;
+  align-items: baseline;
 }
 
-.brand-name span {
-  color: #f59e0b;
+.brand-name .brand-name-primary {
+  color: #1454f0;
+}
+
+.brand-name .brand-name-accent {
+  color: #ff6a00;
 }
 
 .hero-content {
@@ -231,6 +238,41 @@ button {
     background 160ms ease;
 }
 
+.password-field {
+  position: relative;
+}
+
+.password-field input {
+  padding-right: 74px;
+}
+
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  width: 34px;
+  height: 34px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+}
+
+.password-toggle:hover {
+  background: rgba(100, 116, 139, 0.1);
+  color: #0f172a;
+}
+
+.password-toggle-icon {
+  width: 20px;
+  height: 20px;
+}
+
 .auth-form input:focus {
   border-color: #0ea5e9;
   background: #ffffff;
@@ -244,18 +286,33 @@ button {
   font-weight: 700;
 }
 
-.check-row {
-  grid-template-columns: 18px minmax(0, 1fr);
-  align-items: start;
+.auth-form label.check-row {
+  display: flex;
+  align-items: center;
   gap: 10px;
   color: #334155;
+  font-size: 0.86rem;
+  font-weight: 700;
+  min-width: 0;
+  grid-template-columns: none;
+  white-space: nowrap;
 }
 
-.check-row input {
+.auth-form label.check-row input {
   min-height: 18px;
   width: 18px;
-  margin-top: 3px;
   accent-color: #0ea5e9;
+  flex: 0 0 auto;
+}
+
+.auth-form label.check-row .remember-text {
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: 1.2;
+  white-space: nowrap;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .primary-button {
@@ -289,6 +346,38 @@ button {
   color: #64748b;
   font-size: 0.86rem;
   text-align: center;
+}
+
+.helper-text a,
+.forgot-link {
+  color: #0ea5e9;
+  font-weight: 800;
+  text-decoration: none;
+  transition: color 160ms ease;
+}
+
+.helper-text a:hover,
+.forgot-link:hover {
+  color: #0369a1;
+  text-decoration: underline;
+}
+
+.auth-links-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.auth-links-row .check-row {
+  flex: 1 1 auto;
+}
+
+.forgot-link {
+  flex: 0 0 auto;
+  align-self: center;
+  white-space: nowrap;
+  font-size: 0.88rem;
 }
 
 .dashboard-card {
@@ -372,6 +461,14 @@ button {
     flex-direction: column;
   }
 
+  .auth-links-row {
+    flex-direction: column;
+  }
+
+  .forgot-link {
+    margin-top: 0;
+  }
+
   .trip-strip,
   .profile-grid {
     grid-template-columns: 1fr;
@@ -395,3 +492,41 @@ button {
     padding: 22px;
   }
 }
+
+/* Role Badge Styles */
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  width: fit-content;
+}
+
+.role-badge.admin {
+  color: #1e3a8a;
+  background: #dbeafe;
+}
+
+.role-badge.customer {
+  color: #065f46;
+  background: #d1fae5;
+}
+
+.role-badge.support-staff {
+  color: #92400e;
+  background: #fef3c7;
+}
+
+.role-badge.tour-guide {
+  color: #3730a3;
+  background: #e0e7ff;
+}
+
+.role-badge.unknown {
+  color: #374151;
+  background: #f3f4f6;
+}
+
+

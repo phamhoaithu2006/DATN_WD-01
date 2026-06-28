@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+﻿import { useNavigate } from "react-router-dom";
 import SettingDashboard from "../../../components/admin/settings/SettingDashboard";
 import { settingSections } from "../../../config/adminSettings";
 import AdminLayout from "../../../layouts/AdminLayout";
@@ -10,7 +10,7 @@ function SettingsHomePage() {
     <AdminLayout>
       <section className="setting-page">
         <div className="setting-breadcrumb">
-          VivuGo <span>/</span> <b>Cài Đặt</b>
+          ViVuGo <span>/</span> <b>Cài Đặt Hệ Thống</b>
         </div>
         <div className="setting-header">
           <div>

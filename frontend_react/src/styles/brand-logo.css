@@ -1,31 +1,53 @@
-.brand {
+.brand,
+.vg-logo {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
-  color: #075985;
-  font-weight: 800;
+  flex-wrap: nowrap;
+  gap: 14px;
+  color: #0f172a;
+  font-weight: 900;
   text-decoration: none;
+  white-space: nowrap;
+  width: max-content;
 }
 
-.brand-mark {
-  width: 46px;
-  height: 46px;
+.brand--footer {
+  gap: 18px;
+}
+
+.brand--footer .brand-mark {
+  width: 54px;
+  height: 54px;
+  flex-basis: 54px;
+}
+
+.brand--footer .brand-name {
+  font-size: 1.5rem;
+}
+
+.brand-mark,
+.vg-logo-mark {
+  width: 56px;
+  height: 56px;
   display: inline-grid;
   place-items: center;
-  flex: 0 0 46px;
-  border-radius: 8px;
+  flex: 0 0 56px;
+  flex-shrink: 0;
+  border-radius: 13px;
   color: #ffffff;
-  background: linear-gradient(135deg, #0ea5e9, #0284c7);
-  box-shadow: 0 16px 34px rgba(14, 165, 233, 0.28);
+  background: #1591f2;
+  box-shadow: 0 8px 16px rgba(21, 145, 242, 0.24);
 }
 
-.brand-mark svg {
-  width: 27px;
-  height: 27px;
+.brand-mark svg,
+.vg-logo-mark svg {
+  width: 40px;
+  height: 40px;
   fill: currentColor;
 }
 
-.brand-mark img {
+.brand-mark img,
+.vg-logo-mark img {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -33,13 +55,26 @@
   display: block;
 }
 
-.brand-name {
-  font-size: clamp(1.35rem, 2vw, 1.7rem);
-  letter-spacing: 0;
+.brand-name,
+.vg-logo-name {
+  font-size: clamp(1.5rem, 1.9vw, 2rem);
+  font-weight: 800;
+  letter-spacing: -0.04em;
   line-height: 1;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: nowrap;
+  min-width: 0;
+  flex-shrink: 0;
 }
 
-.brand-name span {
-  color: #f59e0b;
+.brand-name-primary,
+.vg-logo-name .brand-name-primary {
+  color: #1454f0;
+}
+
+.brand-name-accent,
+.vg-logo-name .brand-name-accent {
+  color: #ff6a00;
 }

@@ -1,16 +1,49 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Link, NavLink } from "react-router-dom";
 import BrandLogo from "../BrandLogo";
 import Icon from "./Icon";
-import LanguageSwitcher from "../common/LanguageSwitcher";
 
 function Header({ user, onLogout }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const navItems = [
+    { label: "Trang chủ", to: "/", end: true },
+    {
+      label: "Tour trong nước",
+      to: "/tours",
+      items: [
+        { label: "Đà Nẵng - Hội An", to: "/tours?q=Đà%20Nẵng" },
+        { label: "Phú Quốc", to: "/tours?q=Phú%20Quốc" },
+        { label: "Sa Pa", to: "/tours?q=Sa%20Pa" },
+        { label: "Xem toàn bộ tour", to: "/tours" },
+      ],
+    },
+    {
+      label: "Tour quốc tế",
+      to: "/deals",
+      items: [
+        { label: "Nhật Bản", to: "/deals?q=Nhật%20Bản" },
+        { label: "Bali", to: "/deals?q=Bali" },
+        { label: "Singapore", to: "/deals?q=Singapore" },
+        { label: "Xem toàn bộ tour", to: "/deals" },
+      ],
+    },
+    {
+      label: "Về chúng tôi",
+      to: "/#gioi-thieu",
+      hash: true,
+      items: [
+        { label: "Giới thiệu", to: "/#gioi-thieu" },
+        { label: "Đánh giá khách hàng", to: "/#danh-gia" },
+      ],
+    },
+  ];
 
   return (
     <header className="vg-header">
       <div className="vg-container vg-navbar">
         <BrandLogo />
+
         <button
           className="vg-mobile-menu"
           type="button"
@@ -19,39 +52,60 @@ function Header({ user, onLogout }) {
         >
           <Icon name="menu" />
         </button>
+
         <nav className={mobileOpen ? "vg-nav-links is-open" : "vg-nav-links"}>
-          <NavLink to="/">Trang chủ</NavLink>
-          <div className="vg-tour-menu">
-            <NavLink to="/tours">
-              Tour <span className="arrow"></span>
-            </NavLink>
-            <div className="vg-dropdown vg-tour-dropdown">
-              <Link to="/tours">Tất cả tour</Link>
-              <Link to="/tours?category=Biển đảo">Du lịch biển đảo</Link>
-              <Link to="/tours?category=Phiêu lưu">Tour phiêu lưu</Link>
-              <Link to="/tours?category=Văn hóa">Tour văn hóa</Link>
+          {navItems.map((item) => (
+            <div
+              className={item.items ? "vg-nav-item vg-nav-menu" : "vg-nav-item"}
+              key={item.label}
+            >
+              {item.hash ? (
+                <a
+                  className="vg-nav-pill"
+                  href={item.to}
+                  onClick={() => setMobileOpen(false)}
+                >
+                  {item.label}
+                </a>
+              ) : (
+                <NavLink
+                  className={({ isActive }) =>
+                    isActive ? "vg-nav-pill is-active" : "vg-nav-pill"
+                  }
+                  to={item.to}
+                  end={item.end}
+                  onClick={() => setMobileOpen(false)}
+                >
+                  {item.label}
+                </NavLink>
+              )}
+              {item.items ? (
+                <div className="vg-nav-dropdown">
+                  {item.items.map((subItem) => (
+                    <Link
+                      key={subItem.label}
+                      to={subItem.to}
+                      onClick={() => setMobileOpen(false)}
+                    >
+                      {subItem.label}
+                    </Link>
+                  ))}
+                </div>
+              ) : null}
             </div>
-          </div>
-          <NavLink to="/destinations">Điểm đến</NavLink>
-          <NavLink to="/deals">Ưu đãi</NavLink>
+          ))}
         </nav>
+
         <div className="vg-nav-actions">
-          <LanguageSwitcher className="vg-header-language-switcher" />
-          <NavLink
-            className="vg-icon-button"
-            to={user ? "/customer/favorites" : "/auth"}
-            aria-label="Danh sách yêu thích"
-          >
-            <Icon name="heart" />
-          </NavLink>
           {user ? (
             <div className="vg-account-menu">
               <button
-                className="vg-icon-button"
+                className="vg-account-trigger"
                 type="button"
                 aria-label="Tài khoản"
               >
                 <Icon name="user" />
+                <span>{user.full_name || "Tài khoản"}</span>
               </button>
               <div className="vg-dropdown vg-account-dropdown">
                 <Link to="/customer/profile">
@@ -74,9 +128,14 @@ function Header({ user, onLogout }) {
               </div>
             </div>
           ) : (
-            <Link className="vg-login-link" to="/auth">
-              <Icon name="user" /> Đăng nhập
-            </Link>
+            <>
+              <Link className="vg-login-link" to="/auth/login">
+                Đăng nhập
+              </Link>
+              <Link className="vg-signup-link" to="/auth/register">
+                Đăng ký
+              </Link>
+            </>
           )}
         </div>
       </div>

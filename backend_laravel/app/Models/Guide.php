@@ -5,7 +5,6 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use App\Models\GuideExperience;
 
 class Guide extends Model
 {
@@ -14,7 +13,6 @@ class Guide extends Model
     protected $fillable = [
         'user_id',
         'guide_code',
-        'certificate_type',
         'experience_years',
         'average_rating',
         'review_count',
@@ -26,9 +24,26 @@ class Guide extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function specializations()
+    {
+        return $this->belongsToMany(
+            GuideSpecialization::class,
+            'guide_specialization',  // tên bảng pivot
+            'guide_id',              // FK của Guide
+            'specialization_id'      // FK của GuideSpecialization
+        )->withTimestamps();
+    }
+
     public function languages()
     {
         return $this->hasMany(GuideLanguage::class);
+    }
+
+        public function guideLanguages()
+    {
+        return $this->belongsToMany(Language::class, 'guide_languages')
+            ->withPivot('level_id')
+            ->withTimestamps();
     }
 
     public function experiences()

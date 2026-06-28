@@ -19,8 +19,16 @@ class DatabaseSeeder extends Seeder
             SettingSeeder::class,
             UserSeeder::class,
             SupportStaffSeeder::class,
+            GuideSpecializationSeeder::class,
+            LanguageSeeder::class,
+            CertificateSeeder::class,
+
             GuideSeeder::class,
             TourSeeder::class,
+            BookingSeeder::class,
+            PartnerSeeder::class,
+            PromotionSeeder::class,
+            PartnerServiceSeeder::class,
         ]);
     }
 }

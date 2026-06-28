@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Role;
 use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -23,8 +24,10 @@ class AuthController extends Controller
             'password' => ['required', 'string', Password::min($passwordMinLength), 'confirmed'],
         ]);
 
+        $customerRole = Role::where('name', 'customer')->firstOrFail();
+
         $user = User::create([
-            'role_id' => 2,
+            'role_id' => $customerRole->id,
             'full_name' => $request->full_name,
             'email' => $request->email,
             'phone' => $request->phone,
@@ -41,23 +44,38 @@ class AuthController extends Controller
         return response()->json([
             'message' => 'Đăng ký thành công',
             'token' => $token,
-            'user' => $user,
+            'user' => $user->load('role'),
         ], 201);
     }
 
     public function login(Request $request): JsonResponse
     {
+        $identifier = trim((string) $request->input('identifier', $request->input('email', '')));
+        $request->merge(['identifier' => $identifier]);
+
         $request->validate([
-            'email' => ['required', 'email'],
+            'identifier' => ['required', 'string'],
             'password' => ['required', 'string'],
             'remember' => ['sometimes', 'boolean'],
         ]);
 
-        $user = User::with('role')->where('email', $request->email)->first();
+        $identifier = trim($request->identifier);
+
+        if (filter_var($identifier, FILTER_VALIDATE_EMAIL)) {
+            $user = User::with('role')->where('email', strtolower($identifier))->first();
+        } else {
+            $normalizedPhone = preg_replace('/\D+/', '', $identifier);
+            $phoneCandidates = array_values(array_unique(array_filter([
+                $normalizedPhone,
+                str_starts_with($normalizedPhone, '84') ? '0' . substr($normalizedPhone, 2) : null,
+            ])));
+
+            $user = User::with('role')->whereIn('phone', $phoneCandidates)->first();
+        }
 
         if (! $user || ! Hash::check($request->password, $user->password)) {
             return response()->json([
-                'message' => 'Email hoặc mật khẩu không đúng',
+                'message' => 'Email hoặc SĐT hoặc mật khẩu không đúng',
             ], 401);
         }
 
@@ -78,7 +96,7 @@ class AuthController extends Controller
         return response()->json([
             'message' => 'Đăng nhập thành công',
             'token' => $token,
-            'user' => $user,
+            'user' => $user->load('role'),
         ]);
     }
 
@@ -93,9 +111,12 @@ class AuthController extends Controller
 
     public function me(Request $request): JsonResponse
     {
+        $user = $request->user()->load('role');
+
         return response()->json([
             'success' => true,
-            'data' => $request->user(),
+            'user' => $user,
+            'data' => $user,
         ]);
     }
 }

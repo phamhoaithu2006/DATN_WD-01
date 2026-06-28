@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import ChatBox from "../../components/customer/ChatBox";
 import Footer from "../../components/customer/Footer";
@@ -33,6 +33,27 @@ const fallbackProfile = {
   avatar_url: "",
 };
 
+
+const domesticDestinationTerms = [
+  "đà nẵng",
+  "hội an",
+  "phú quốc",
+  "sa pa",
+  "sapa",
+  "hà nội",
+  "hạ long",
+  "nha trang",
+  "đà lạt",
+  "mũi né",
+  "huế",
+  "quảng ninh",
+  "việt nam",
+];
+
+function isDomesticTour(tour) {
+  const destinationText = `${tour.destination || ""} ${tour.title || ""}`.toLowerCase();
+  return domesticDestinationTerms.some((term) => destinationText.includes(term));
+}
 
 function normalizeTour(tour, index = 0) {
   const fallback = demoTours[index % demoTours.length];
@@ -93,6 +114,17 @@ function CustomerPage() {
     ...fallbackProfile,
     ...readSession(),
   }));
+  const normalizedTours = useMemo(() => tours.map(normalizeTour), [tours]);
+  const homeDomesticTours = useMemo(() => {
+    const domestic = normalizedTours.filter(isDomesticTour).slice(0, 4);
+    return domestic.length ? domestic : normalizedTours.slice(0, 4);
+  }, [normalizedTours]);
+  const homeInternationalTours = useMemo(() => {
+    const international = normalizedTours
+      .filter((tour) => !isDomesticTour(tour))
+      .slice(0, 4);
+    return international.length ? international : normalizedTours.slice(0, 4);
+  }, [normalizedTours]);
 
   useEffect(() => {
     let active = true;
@@ -191,7 +223,13 @@ function CustomerPage() {
     "/customer/settings",
   ];
   let content = (
-    <HomePage tours={tours} favorites={favorites} onFavorite={toggleFavorite} />
+    <HomePage
+      tours={normalizedTours}
+      domesticTours={homeDomesticTours}
+      internationalTours={homeInternationalTours}
+      favorites={favorites}
+      onFavorite={toggleFavorite}
+    />
   );
 
   if (route === "/tours" || route === "/deals" || route === "/customer/search")
@@ -214,19 +252,19 @@ function CustomerPage() {
         onFavorite={toggleFavorite}
       />
     ) : (
-      <Navigate to="/auth" replace />
+      <Navigate to="/auth/login" replace />
     );
   else if (route === "/customer/profile/edit")
     content = user ? (
       <ProfileForm profile={profile} setProfile={setProfile} />
     ) : (
-      <Navigate to="/auth" replace />
+      <Navigate to="/auth/login" replace />
     );
   else if (route === "/customer/password")
     content = user ? (
       <ProfileForm profile={profile} setProfile={setProfile} password />
     ) : (
-      <Navigate to="/auth" replace />
+      <Navigate to="/auth/login" replace />
     );
 
   return (

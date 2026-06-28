@@ -26,6 +26,8 @@ export const getAccountRoles = async () =>
   unwrapList(await apiClient.get("/roles"), "roles");
 export const getAccounts = async (params) =>
   (await apiClient.get(USER_MANAGEMENT_ENDPOINT, { params })).data.data;
+export const searchAccounts = async (params) =>
+  (await apiClient.get(`${USER_MANAGEMENT_ENDPOINT}/search`, { params })).data.data;
 export const getAccount = async (id) =>
   (await apiClient.get(`${USER_MANAGEMENT_ENDPOINT}/${id}`)).data.data;
 export const createAccount = async (payload) =>

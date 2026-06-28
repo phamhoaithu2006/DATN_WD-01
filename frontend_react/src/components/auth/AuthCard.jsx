@@ -11,7 +11,9 @@ function AuthCard({
   isSubmitting,
   onModeChange,
   onLoginChange,
+  onLoginBlur,
   onRegisterChange,
+  onRegisterBlur,
   onLoginSubmit,
   onRegisterSubmit,
 }) {
@@ -46,6 +48,7 @@ function AuthCard({
           errors={loginErrors}
           isSubmitting={isSubmitting}
           onChange={onLoginChange}
+          onBlur={onLoginBlur}
           onSubmit={onLoginSubmit}
         />
       ) : (
@@ -54,6 +57,7 @@ function AuthCard({
           errors={registerErrors}
           isSubmitting={isSubmitting}
           onChange={onRegisterChange}
+          onBlur={onRegisterBlur}
           onSubmit={onRegisterSubmit}
         />
       )}
