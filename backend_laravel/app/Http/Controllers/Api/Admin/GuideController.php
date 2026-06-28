@@ -46,18 +46,7 @@ class GuideController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('guide_code', 'like', '%' . $search . '%')
                     ->orWhereHas('user', function ($q) use ($search) {
-                        $q->where('full_name', 'like', '%' . $search . '%')
-                            ->orWhere('email', 'like', '%' . $search . '%')
-                            ->orWhere('phone', 'like', '%' . $search . '%');
-                    })
-                    ->orWhereHas('specializations', function ($q) use ($search) {
-                        $q->where('name', 'like', '%' . $search . '%');
-                    })
-                    ->orWhereHas('languages.language', function ($q) use ($search) {
-                        $q->where('name', 'like', '%' . $search . '%');
-                    })
-                    ->orWhereHas('experiences.certificate', function ($q) use ($search) {
-                        $q->where('name', 'like', '%' . $search . '%');
+                        $q->where('full_name', 'like', '%' . $search . '%');
                     });
             });
         }
@@ -85,15 +74,7 @@ class GuideController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('guide_code', 'like', '%' . $search . '%')
                     ->orWhereHas('user', function ($q) use ($search) {
-                        $q->where('full_name', 'like', '%' . $search . '%')
-                            ->orWhere('email', 'like', '%' . $search . '%')
-                            ->orWhere('phone', 'like', '%' . $search . '%');
-                    })
-                    ->orWhereHas('specializations', function ($q) use ($search) {
-                        $q->where('name', 'like', '%' . $search . '%');
-                    })
-                    ->orWhereHas('languages.language', function ($q) use ($search) {
-                        $q->where('name', 'like', '%' . $search . '%');
+                        $q->where('full_name', 'like', '%' . $search . '%');
                     });
             });
         }
