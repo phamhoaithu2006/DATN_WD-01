@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
             BannerSeeder::class,
             SettingSeeder::class,
             UserSeeder::class,
+            SupportStaffSeeder::class,
             GuideSeeder::class,
             TourSeeder::class,
         ]);
