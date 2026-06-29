@@ -99,6 +99,7 @@ Route::get('/roles', [CustomerManagerController::class, 'index_role']);
     // Cài đặt hệ thống và widget công khai
     Route::get('/settings/public', [PublicSettingController::class, 'show']);
     Route::get('/widgets', [PublicWidgetController::class, 'index']);
+    
 //======Admin======
 Route::middleware(['auth:sanctum'])->prefix('admin')->group(function () {
     
