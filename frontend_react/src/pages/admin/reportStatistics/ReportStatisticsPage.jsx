@@ -338,7 +338,11 @@ function ReportStatisticsPage() {
   }, [year])
 
   useEffect(() => {
-    fetchReports()
+    const timer = window.setTimeout(() => {
+      fetchReports()
+    }, 0)
+
+    return () => window.clearTimeout(timer)
   }, [fetchReports])
 
   const revenueChart = charts?.revenue_by_month_chart || []
@@ -352,34 +356,42 @@ function ReportStatisticsPage() {
 
   return (
     <div className="min-h-full space-y-5 bg-slate-50/70">
-      <section className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-        <div>
-          <h1 className="text-[30px] font-extrabold tracking-tight text-slate-950">
-            Báo cáo & Thống kê
-          </h1>
-          <p className="mt-2 text-sm text-slate-500">
-            Theo dõi doanh thu, booking, lượng khách và điểm đến nổi bật.
-          </p>
+      <section className="border-b border-slate-200 pb-6">
+        <div className="flex items-center gap-2 text-sm font-semibold text-slate-500">
+          <span>ViVuGo</span>
+          <span className="text-slate-300">/</span>
+          <span className="font-semibold text-[#020617]">Báo Cáo & Thống Kê</span>
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <button
-            type="button"
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 shadow-sm transition hover:border-blue-200 hover:text-blue-600"
-          >
-            <span>⬇</span>
-            Xuất báo cáo
-          </button>
+        <div className="mt-14 flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+          <div>
+            <h1 className="text-[30px] font-extrabold tracking-tight text-[#020617]">
+              Báo Cáo & Thống Kê
+            </h1>
+            <p className="mt-2 text-sm text-slate-500">
+              Theo dõi doanh thu, booking, lượng khách và điểm đến nổi bật.
+            </p>
+          </div>
 
-          <button
-            type="button"
-            onClick={fetchReports}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
-            disabled={loading}
-          >
-            <span>↻</span>
-            Làm mới dữ liệu
-          </button>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <button
+              type="button"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 shadow-sm transition hover:border-blue-200 hover:text-blue-600"
+            >
+              <span>⬇</span>
+              Xuất báo cáo
+            </button>
+
+            <button
+              type="button"
+              onClick={fetchReports}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
+              disabled={loading}
+            >
+              <span>↻</span>
+              Làm mới dữ liệu
+            </button>
+          </div>
         </div>
       </section>
 
@@ -474,7 +486,7 @@ function ReportStatisticsPage() {
 
               {hasRevenueData ? (
                 <div className="h-[310px]">
-                                    <BarChartSvg
+                  <BarChartSvg
                     data={revenueChart}
                     valueKey="revenue"
                     labelKey="month"
@@ -494,7 +506,7 @@ function ReportStatisticsPage() {
 
               {hasCustomerData ? (
                 <div className="h-[310px]">
-                                    <LineChartSvg
+                  <LineChartSvg
                     data={customerChart}
                     valueKey="total_customers"
                     labelKey="month"

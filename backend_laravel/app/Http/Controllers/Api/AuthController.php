@@ -50,17 +50,32 @@ class AuthController extends Controller
 
     public function login(Request $request): JsonResponse
     {
+        $identifier = trim((string) $request->input('identifier', $request->input('email', '')));
+        $request->merge(['identifier' => $identifier]);
+
         $request->validate([
-            'email' => ['required', 'email'],
+            'identifier' => ['required', 'string'],
             'password' => ['required', 'string'],
             'remember' => ['sometimes', 'boolean'],
         ]);
 
-        $user = User::with('role')->where('email', $request->email)->first();
+        $identifier = trim($request->identifier);
+
+        if (filter_var($identifier, FILTER_VALIDATE_EMAIL)) {
+            $user = User::with('role')->where('email', strtolower($identifier))->first();
+        } else {
+            $normalizedPhone = preg_replace('/\D+/', '', $identifier);
+            $phoneCandidates = array_values(array_unique(array_filter([
+                $normalizedPhone,
+                str_starts_with($normalizedPhone, '84') ? '0' . substr($normalizedPhone, 2) : null,
+            ])));
+
+            $user = User::with('role')->whereIn('phone', $phoneCandidates)->first();
+        }
 
         if (! $user || ! Hash::check($request->password, $user->password)) {
             return response()->json([
-                'message' => 'Email hoặc mật khẩu không đúng',
+                'message' => 'Email hoặc SĐT hoặc mật khẩu không đúng',
             ], 401);
         }
 

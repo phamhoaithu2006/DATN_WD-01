@@ -89,12 +89,16 @@
   color: #64748b;
   text-decoration: none;
   font-size: 1rem;
-  font-weight: 650;
+  font-weight: 800;
   letter-spacing: 0;
   transition:
     background 160ms ease,
     color 160ms ease,
     transform 160ms ease;
+}
+
+.admin-nav-link span {
+  font-weight: inherit;
 }
 
 .admin-nav-link:hover {
@@ -105,7 +109,7 @@
 .admin-nav-link.active {
   color: #0ea5e9;
   background: #eaf4ff;
-  font-weight: 800;
+  font-weight: 900;
 }
 
 .admin-nav-link.active::after {
@@ -225,15 +229,17 @@
 
 .admin-page-header p {
   margin: 0 0 8px;
-  color: #0ea5e9;
-  font-weight: 800;
+  color: #64748b;
+  font-size: 0.875rem;
+  font-weight: 700;
 }
 
 .admin-page-header h1 {
   margin: 0;
-  color: #0f172a;
-  font-size: clamp(2rem, 4vw, 3rem);
-  line-height: 1.05;
+  color: #020617;
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1.1;
   letter-spacing: 0;
 }
 
@@ -250,16 +256,17 @@
 }
 
 .guide-breadcrumb {
-  margin-bottom: 24px;
-  color: #526886;
-  font-size: 0.95rem;
-  font-weight: 650;
+  margin-bottom: 16px;
+  color: #64748b;
+  font-size: 0.875rem;
+  font-weight: 700;
 }
 
 .guide-heading h1 {
   margin: 0;
   color: #020617;
-  font-size: 2rem;
+  font-size: 30px;
+  font-weight: 800;
   line-height: 1.1;
 }
 
@@ -307,39 +314,72 @@
 }
 
 .guide-stat-card {
-  min-height: 132px;
+  min-height: 104px;
   display: grid;
   align-content: center;
   gap: 6px;
-  padding: 22px 18px;
+  padding: 18px;
 }
 
 .guide-stat-card strong {
+  display: block;
   color: #020617;
-  font-size: 2.45rem;
+  font-size: 30px;
   line-height: 1;
-}
-
-.guide-stat-card.blue strong {
-  color: #0ea5e9;
-}
-
-.guide-stat-card.green strong {
-  color: #10b981;
-}
-
-.guide-stat-card.amber strong {
-  color: #f59e0b;
+  margin-bottom: 10px;
 }
 
 .guide-stat-card span {
+  display: block;
   color: #020617;
-  font-weight: 850;
+  font-size: 14px;
+  font-weight: 800;
+  margin-bottom: 6px;
 }
 
 .guide-stat-card small {
-  color: #8a9bb3;
-  font-size: 0.9rem;
+  color: rgba(15, 23, 42, 0.65);
+  font-size: 13px;
+}
+
+.guide-stat-card.blue {
+  background: linear-gradient(180deg, #eff7ff 0%, #ffffff 100%);
+  border-color: #d8e9fb;
+}
+
+.guide-stat-card.blue strong,
+.guide-stat-card.blue span {
+  color: #1380d9;
+}
+
+.guide-stat-card.green {
+  background: linear-gradient(180deg, #eefdf5 0%, #ffffff 100%);
+  border-color: #d6f3e3;
+}
+
+.guide-stat-card.green strong,
+.guide-stat-card.green span {
+  color: #0e9f6e;
+}
+
+.guide-stat-card.amber {
+  background: linear-gradient(180deg, #fff9eb 0%, #ffffff 100%);
+  border-color: #fde9b2;
+}
+
+.guide-stat-card.amber strong,
+.guide-stat-card.amber span {
+  color: #d97706;
+}
+
+.guide-stat-card.purple {
+  background: linear-gradient(180deg, #f4efff 0%, #ffffff 100%);
+  border-color: #e5d8ff;
+}
+
+.guide-stat-card.purple strong,
+.guide-stat-card.purple span {
+  color: #7c3aed;
 }
 
 .guide-content-grid {
@@ -356,10 +396,53 @@
 
 .guide-filter-bar {
   display: grid;
-  grid-template-columns: minmax(240px, 1fr) 170px 160px 140px;
-  gap: 12px;
+  grid-template-columns: minmax(0, 1.7fr) minmax(180px, 0.5fr) minmax(180px, 0.5fr);
+  gap: 14px;
   padding: 18px;
   border-bottom: 1px solid #e2e8f0;
+}
+
+.guide-search {
+  align-items: center;
+  background: #fff;
+  border: 1.5px solid #243b62;
+  border-radius: 26px;
+  box-shadow: none;
+  color: #8aa0bc;
+  display: flex;
+  justify-self: stretch;
+  min-height: 48px;
+  min-width: 0;
+  width: 100%;
+  padding: 0 16px;
+}
+
+.guide-search svg {
+  fill: none;
+  height: 20px;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  flex-shrink: 0;
+  width: 20px;
+}
+
+.guide-search input {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  color: #10213d;
+  font: inherit;
+  box-shadow: none;
+  outline: 0;
+  padding: 0 12px;
+  min-width: 0;
+  width: 100%;
+}
+
+.guide-search input::placeholder {
+  color: #8aa0bc;
 }
 
 .guide-filter-bar input,
@@ -370,11 +453,20 @@
   min-height: 48px;
   width: 100%;
   border: 1px solid #d7e0ec;
-  border-radius: 12px;
+  border-radius: 14px;
   background: #f8fbff;
   color: #0f172a;
   font: inherit;
   padding: 0 14px;
+}
+
+.guide-search input {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  min-height: 0;
+  padding: 0 12px;
 }
 
 .guide-form-grid textarea {

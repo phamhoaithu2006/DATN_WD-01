@@ -252,19 +252,19 @@ function CustomerPage() {
         onFavorite={toggleFavorite}
       />
     ) : (
-      <Navigate to="/auth" replace />
+      <Navigate to="/auth/login" replace />
     );
   else if (route === "/customer/profile/edit")
     content = user ? (
       <ProfileForm profile={profile} setProfile={setProfile} />
     ) : (
-      <Navigate to="/auth" replace />
+      <Navigate to="/auth/login" replace />
     );
   else if (route === "/customer/password")
     content = user ? (
       <ProfileForm profile={profile} setProfile={setProfile} password />
     ) : (
-      <Navigate to="/auth" replace />
+      <Navigate to="/auth/login" replace />
     );
 
   return (
