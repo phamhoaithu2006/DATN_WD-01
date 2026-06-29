@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import AdminPageHeader from '../../../components/admin/AdminPageHeader'
 import { getReportCharts, getReportOverview } from '../../../services/reportApi'
 
 /* ============================================================
@@ -507,7 +506,7 @@ function ReportStatisticsPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const years = useMemo(() => Array.from({ length: 6 }, (_, i) => currentYear - i), [currentYear])
+  const years = useMemo(() => Array.from({ length: 3 }, (_, i) => currentYear - i), [currentYear])
 
   const fetchReports = useCallback(async () => {
     try {
@@ -626,8 +625,8 @@ function ReportStatisticsPage() {
               Làm mới dữ liệu
             </button>
           </div>
-        }
-      />
+        </div>
+      </section>
 
       {/* FILTER BAR */}
       <Card className="report-fade-up p-4" style={{ animationDelay: '80ms' }}>
