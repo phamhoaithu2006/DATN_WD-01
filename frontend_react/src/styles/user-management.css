@@ -65,6 +65,16 @@
   gap: 16px;
   min-height: 96px;
   padding: 18px;
+  width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    border-color 160ms ease;
 }
 .user-stat-icon {
   align-items: center;
@@ -99,6 +109,21 @@
   display: block;
   font-size: 14px;
   margin-top: 8px;
+}
+
+.user-stat-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(16, 33, 61, 0.12);
+}
+
+.user-stat-card.is-active {
+  box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.22), 0 10px 22px rgba(16, 33, 61, 0.12);
+  transform: translateY(-1px);
+}
+
+.user-stat-card:focus-visible {
+  outline: 3px solid rgba(14, 165, 233, 0.22);
+  outline-offset: 2px;
 }
 .user-filter-bar {
   align-items: center;

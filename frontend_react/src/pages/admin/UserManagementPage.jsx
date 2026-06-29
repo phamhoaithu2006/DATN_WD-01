@@ -72,6 +72,7 @@ function UserManagementPage() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
   const [roleId, setRoleId] = useState("");
+  const [statFilter, setStatFilter] = useState("total_users");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(undefined);
@@ -98,7 +99,17 @@ function UserManagementPage() {
             ? statisticsData.roles
             : rolesFromAccounts(list);
 
-      setCustomers(withResolvedRoles(list, resolvedRoles));
+      const resolvedCustomers = withResolvedRoles(list, resolvedRoles);
+      const nextCustomers =
+        statFilter === "active_users"
+          ? resolvedCustomers.filter((customer) => customer.status === "active")
+          : statFilter === "locked_users"
+            ? resolvedCustomers.filter((customer) => customer.status === "inactive")
+            : statFilter === "total_bookings"
+              ? resolvedCustomers.filter((customer) => Number(customer.bookings_count || 0) > 0)
+              : resolvedCustomers;
+
+      setCustomers(nextCustomers);
       setStatistics(statisticsData || {});
       setRoles(resolvedRoles);
     } catch (error) {
@@ -106,7 +117,7 @@ function UserManagementPage() {
     } finally {
       setLoading(false);
     }
-  }, [roleId, search, status]);
+  }, [roleId, search, statFilter, status]);
 
   useEffect(() => {
     const timer = setTimeout(load, 300);
@@ -184,16 +195,20 @@ function UserManagementPage() {
         </div>
       ) : null}
 
-      <UserStats statistics={statistics} />
+      <UserStats
+        statistics={statistics}
+        activeFilter={statFilter}
+        onFilter={(key) => setStatFilter((current) => (current === key ? "total_users" : key))}
+      />
       <UserFilters
         search={search}
         status={status}
         roleId={roleId}
         roles={roles}
         onSearchChange={setSearch}
-        onStatusChange={setStatus}
-        onRoleChange={setRoleId}
-      />
+          onStatusChange={setStatus}
+          onRoleChange={setRoleId}
+        />
       <UserTable
         customers={customers}
         loading={loading}

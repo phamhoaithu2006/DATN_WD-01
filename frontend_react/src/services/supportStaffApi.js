@@ -19,3 +19,12 @@ export const updateSupportStaff = async (id, payload) =>
 
 export const deleteSupportStaff = async (id) =>
   (await apiClient.delete(`${SUPPORT_STAFF_ENDPOINT}/${id}`)).data
+
+export const getTrashedSupportStaffs = async (params) =>
+  (await apiClient.get(`${SUPPORT_STAFF_ENDPOINT}/trashed`, { params })).data
+
+export const restoreSupportStaff = async (id) =>
+  (await apiClient.patch(`${SUPPORT_STAFF_ENDPOINT}/${id}/restore`)).data
+
+export const forceDeleteSupportStaff = async (id) =>
+  (await apiClient.delete(`${SUPPORT_STAFF_ENDPOINT}/${id}/force-delete`)).data

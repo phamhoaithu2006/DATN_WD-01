@@ -177,6 +177,8 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     Route::get('/support-staff', [SupportStaffController::class, 'index']);
     // Tính tổng số lượng
     Route::get('/support-staff/statistics', [SupportStaffController::class, 'statistics']);
+    // Thùng rác
+    Route::get('/support-staff/trashed', [SupportStaffController::class, 'trashed']);
     // Thêm thông tin
     Route::post('/support-staff', [SupportStaffController::class, 'store']);
     // Xem chi tiết
@@ -185,6 +187,10 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     Route::put('/support-staff/{id}', [SupportStaffController::class, 'update']);
     // Xóa thông tin
     Route::delete('/support-staff/{id}', [SupportStaffController::class, 'destroy']);
+    // Khôi phục từ thùng rác
+    Route::patch('/support-staff/{id}/restore', [SupportStaffController::class, 'restore']);
+    // Xóa vĩnh viễn
+    Route::delete('/support-staff/{id}/force-delete', [SupportStaffController::class, 'forceDestroy']);
 
     // Quản lý địa chỉ tour
     // Tìm kiếm

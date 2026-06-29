@@ -15,7 +15,7 @@ class SupportStaffController extends Controller
 
     public function index(Request $request)
     {
-        $query = SupportStaff::query();
+        $query = SupportStaff::query()->withoutTrashed();
 
         if ($request->filled('search')) {
             $search = $request->string('search')->trim();
@@ -44,7 +44,6 @@ class SupportStaffController extends Controller
         }
 
         $perPage = max((int) $request->input('per_page', 10), 1);
-
         $staff = $query->latest()->paginate($perPage);
 
         return response()->json([
@@ -56,7 +55,7 @@ class SupportStaffController extends Controller
 
     public function statistics()
     {
-        $baseQuery = SupportStaff::query();
+        $baseQuery = SupportStaff::query()->withoutTrashed();
 
         $totals = (clone $baseQuery)
             ->selectRaw('COUNT(*) as total')
@@ -174,7 +173,54 @@ class SupportStaffController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Xóa nhân viên hỗ trợ thành công',
+            'message' => 'Đã chuyển nhân viên hỗ trợ vào thùng rác',
+        ]);
+    }
+
+    public function trashed(Request $request)
+    {
+        $query = SupportStaff::onlyTrashed();
+
+        if ($request->filled('search')) {
+            $search = $request->string('search')->trim();
+            $query->where(function ($subQuery) use ($search) {
+                $subQuery
+                    ->where('name', 'like', '%' . $search . '%')
+                    ->orWhere('email', 'like', '%' . $search . '%')
+                    ->orWhere('role', 'like', '%' . $search . '%');
+            });
+        }
+
+        $perPage = max((int) $request->input('per_page', 10), 1);
+        $staff = $query->latest('deleted_at')->paginate($perPage);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Lấy danh sách nhân viên trong thùng rác thành công',
+            'data' => $staff,
+        ]);
+    }
+
+    public function restore($id)
+    {
+        $staff = SupportStaff::onlyTrashed()->findOrFail($id);
+        $staff->restore();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Khôi phục nhân viên hỗ trợ thành công',
+            'data' => $staff,
+        ]);
+    }
+
+    public function forceDestroy($id)
+    {
+        $staff = SupportStaff::onlyTrashed()->findOrFail($id);
+        $staff->forceDelete();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Xóa vĩnh viễn nhân viên hỗ trợ thành công',
         ]);
     }
 }
