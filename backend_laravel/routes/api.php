@@ -96,11 +96,12 @@ Route::prefix('tours')->group(function () {
 Route::get('/roles', [CustomerManagerController::class, 'index_role']);
 
 
-
-//======Admin======
-Route::middleware(['auth:sanctum'])->prefix('admin')->group(function () {
+    // Cài đặt hệ thống và widget công khai
     Route::get('/settings/public', [PublicSettingController::class, 'show']);
     Route::get('/widgets', [PublicWidgetController::class, 'index']);
+//======Admin======
+Route::middleware(['auth:sanctum'])->prefix('admin')->group(function () {
+    
     Route::middleware(['auth:sanctum', 'role:admin'])->get('/roles', [CustomerManagerController::class, 'index_role']);
 
     // Chức năng báo cáo & thống kê
@@ -240,9 +241,7 @@ Route::middleware(['auth:sanctum'])->prefix('admin')->group(function () {
         Route::delete('/departures/{id}', [TourDepartureController::class, 'destroy']);   // Xóa lịch khởi hành
     });
 
-    // Cài đặt hệ thống và widget công khai
-    Route::get('/settings/public', [PublicSettingController::class, 'show']);
-    Route::get('/widgets', [PublicWidgetController::class, 'index']);
+
 
     // Cài đặt hệ thống cho admin
     Route::get('/settings', [SettingController::class, 'index']);
