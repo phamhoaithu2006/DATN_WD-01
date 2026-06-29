@@ -165,9 +165,9 @@ function BookingManagementPage() {
 
   const cards = [
     { key: 'total', label: 'Tổng', value: statistics.total || meta.total || bookings.length, className: 'total' },
-    { key: 'pending', label: 'Chờ XN', value: statistics.pending || 0, className: 'pending' },
-    { key: 'confirmed', label: 'Đã XN', value: statistics.confirmed || 0, className: 'confirmed' },
-    { key: 'completed', label: 'Hoàn Thành', value: statistics.completed || 0, className: 'completed' },
+    { key: 'pending', label: 'Chờ xác nhận', value: statistics.pending || 0, className: 'pending' },
+    { key: 'confirmed', label: 'Đã xác nhận', value: statistics.confirmed || 0, className: 'confirmed' },
+    { key: 'completed', label: 'Hoàn thành', value: statistics.completed || 0, className: 'completed' },
   ]
 
   return (

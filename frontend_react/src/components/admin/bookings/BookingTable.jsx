@@ -94,8 +94,12 @@ function BookingTable({
                   <td className="booking-tour-name">{booking.tour?.title || '--'}</td>
                   <td>{formatDate(booking.created_at)}</td>
                   <td className="booking-money">{formatMoney(booking.total_amount)}</td>
-                  <td><BookingBadge type="payment" value={booking.payment_status} /></td>
-                  <td><BookingBadge type="status" value={booking.status} /></td>
+                  <td className="booking-payment-cell">
+                    <BookingBadge type="payment" value={booking.payment_status} />
+                  </td>
+                  <td className="booking-status-cell">
+                    <BookingBadge type="status" value={booking.status} />
+                  </td>
                   <td>
                     <BookingActions
                       booking={booking}
