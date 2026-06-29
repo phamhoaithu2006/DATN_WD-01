@@ -1,5 +1,6 @@
-﻿import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import AdminPageHeader from '../../components/admin/AdminPageHeader'
 
 import {
   forceDeleteSupportStaff,
@@ -168,17 +169,16 @@ function SupportStaffTrashPage() {
 
   return (
     <section className="support-page support-trash-page">
-      <div className="support-heading compact">
-        <div>
-          <div className="support-breadcrumb">ViVuGo / Quản Lý Nhân Viên Hỗ Trợ</div>
-          <h1>Thùng rác nhân viên hỗ trợ</h1>
-          <p>Khôi phục hoặc xóa vĩnh viễn các nhân viên đã bị xóa mềm.</p>
-        </div>
-
-        <Link className="support-trash-button" to="/admin/support">
-          Quay lại danh sách
-        </Link>
-      </div>
+      <AdminPageHeader
+        breadcrumb={["ViVuGo", "Quản Lý Nhân Viên Hỗ Trợ"]}
+        title="Thùng rác nhân viên hỗ trợ"
+        description="Khôi phục hoặc xóa vĩnh viễn các nhân viên đã bị xóa mềm."
+        actions={
+          <Link className="support-trash-button" to="/admin/support">
+            Quay lại danh sách
+          </Link>
+        }
+      />
 
       {message ? <div className="support-alert success">{message}</div> : null}
       {error ? <div className="support-alert error">{error}</div> : null}

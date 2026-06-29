@@ -4,6 +4,7 @@ import BookingFilters from '../../components/admin/bookings/BookingFilters'
 import BookingPagination from '../../components/admin/bookings/BookingPagination'
 import BookingStats from '../../components/admin/bookings/BookingStats'
 import BookingTable from '../../components/admin/bookings/BookingTable'
+import AdminPageHeader from '../../components/admin/AdminPageHeader'
 import {
   getBookingList,
   getMeta,
@@ -165,24 +166,25 @@ function BookingManagementPage() {
 
   const cards = [
     { key: 'total', label: 'Tổng', value: statistics.total || meta.total || bookings.length, className: 'total' },
-    { key: 'pending', label: 'Chờ XN', value: statistics.pending || 0, className: 'pending' },
-    { key: 'confirmed', label: 'Đã XN', value: statistics.confirmed || 0, className: 'confirmed' },
-    { key: 'completed', label: 'Hoàn Thành', value: statistics.completed || 0, className: 'completed' },
+    { key: 'pending', label: 'Chờ xác nhận', value: statistics.pending || 0, className: 'pending' },
+    { key: 'confirmed', label: 'Đã xác nhận', value: statistics.confirmed || 0, className: 'confirmed' },
+    { key: 'completed', label: 'Hoàn thành', value: statistics.completed || 0, className: 'completed' },
   ]
 
   return (
     <section className="booking-management-page">
-      <header className="booking-heading">
-        <div>
-          <h1>Quản Lý Booking</h1>
-          <p>Theo dõi và quản lý tất cả đặt tour</p>
-        </div>
-        <BookingStats
-          activeStatus={status}
-          cards={cards}
-          onStatusChange={changeFilter(setStatus)}
-        />
-      </header>
+      <AdminPageHeader
+        breadcrumb={['ViVuGo', 'Quản Lý Booking']}
+        title="Quản Lý Booking"
+        description="Theo dõi và quản lý tất cả đặt tour"
+        actions={
+          <BookingStats
+            activeStatus={status}
+            cards={cards}
+            onStatusChange={changeFilter(setStatus)}
+          />
+        }
+      />
 
       {notice ? (
         <div className={`booking-notice ${notice.type}`}>

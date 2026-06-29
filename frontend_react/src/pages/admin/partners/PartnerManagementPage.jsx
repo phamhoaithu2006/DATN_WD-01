@@ -1,5 +1,6 @@
 ﻿import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import AdminPageHeader from "../../../components/admin/AdminPageHeader";
 import { partnerApi } from "../../../services/partnerApi";
 import "../../../styles/partner-management.css";
 
@@ -750,27 +751,25 @@ export default function PartnerManagementPage() {
     avg = statistics.average_rating ?? statistics.avg_rating ?? 0;
   return (
     <section className="partner-page">
-      <div className="partner-header">
-        <div>
-          <div className="partner-breadcrumb">
-            ViVuGo / Quản Lý Dịch Vụ Đối Tác
-          </div>
-          <h1>Quản Lý Dịch Vụ Đối Tác</h1>
-          <p>Quản lý danh sách đối tác, thống kê theo loại dịch vụ.</p>
-        </div>
-        <div className="partner-header-actions">
-          <Link className="partner-secondary-button" to="/admin/partners/trash">
-            Thùng rác
-          </Link>
-          <button
-            className="partner-primary-button"
-            type="button"
-            onClick={() => resetForm(null)}
-          >
-            <span aria-hidden="true">+</span>Thêm đối tác
-          </button>
-        </div>
-      </div>
+      <AdminPageHeader
+        breadcrumb={["ViVuGo", "Quản Lý Dịch Vụ Đối Tác"]}
+        title="Quản Lý Dịch Vụ Đối Tác"
+        description="Quản lý danh sách đối tác, thống kê theo loại dịch vụ."
+        actions={
+          <>
+            <Link className="partner-secondary-button" to="/admin/partners/trash">
+              Thùng rác
+            </Link>
+            <button
+              className="partner-primary-button"
+              type="button"
+              onClick={() => resetForm(null)}
+            >
+              <span aria-hidden="true">+</span>Thêm đối tác
+            </button>
+          </>
+        }
+      />
       <div className="partner-stat-grid">
         <button
           className={`partner-stat-card blue ${filterStatus === "all" ? "is-active" : ""}`}

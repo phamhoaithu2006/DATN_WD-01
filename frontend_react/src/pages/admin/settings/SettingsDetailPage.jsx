@@ -1,5 +1,6 @@
-﻿import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import AdminPageHeader from "../../../components/admin/AdminPageHeader";
 import SettingPanel from "../../../components/admin/settings/SettingPanel";
 import {
   defaultSettings,
@@ -70,25 +71,25 @@ function SettingsDetailPage({ sectionId }) {
   return (
     <AdminLayout>
       <section className="setting-page">
-        <div className="setting-breadcrumb">
-          ViVuGo <span>/</span> <b>Cài Đặt</b>
-          <span>/</span>
-          <b>{section.title}</b>
-        </div>
-        <div className="setting-header">
-          <div>
-            <h1>{section.title}</h1>
-            <p>{section.description}</p>
-          </div>
-          <button
-            className="setting-refresh-button"
-            type="button"
-            onClick={loadSettings}
-            disabled={loading}
-          >
-            {loading ? "Đang tải..." : "Tải lại"}
-          </button>
-        </div>
+        <AdminPageHeader
+          breadcrumb={[
+            "ViVuGo",
+            { label: "Cài Đặt", href: "/admin/settings" },
+            section?.title || "Cài Đặt",
+          ]}
+          title={section?.title || "Cài Đặt"}
+          description={section?.description || ""}
+          actions={
+            <button
+              className="setting-refresh-button"
+              type="button"
+              onClick={loadSettings}
+              disabled={loading}
+            >
+              {loading ? "Đang tải..." : "Tải lại"}
+            </button>
+          }
+        />
         {error ? <div className="setting-alert error">{error}</div> : null}
         {message ? (
           <div className="setting-alert success">{message}</div>

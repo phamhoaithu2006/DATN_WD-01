@@ -56,7 +56,6 @@ function BookingFilters({
             <select value={sortBy} onChange={(event) => onSortByChange(event.target.value)}>
               <option value="created_at">Ngày đặt</option>
               <option value="total_amount">Tổng tiền</option>
-              <option value="booking_code">Mã booking</option>
             </select>
           </label>
           <label>

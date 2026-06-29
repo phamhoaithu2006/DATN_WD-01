@@ -1,9 +1,13 @@
+import AdminPageHeader from '../../components/admin/AdminPageHeader'
+
 function DashboardHome() {
   return (
-    <section className="admin-page-header">
-      <p>Tổng quan vận hành</p>
-      <h1>Admin Dashboard</h1>
-    </section>
-  );
+    <AdminPageHeader
+      breadcrumb={["ViVuGo", "Admin Dashboard"]}
+      title="Admin Dashboard"
+      description="Tổng quan vận hành"
+    />
+  )
 }
-export default DashboardHome;
+
+export default DashboardHome

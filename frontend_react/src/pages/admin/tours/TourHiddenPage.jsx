@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import AdminPageHeader from '../../../components/admin/AdminPageHeader'
 import tourApi from '../../../services/toursApi'
 
 function TourHiddenPage() {
@@ -17,7 +18,7 @@ function TourHiddenPage() {
     return []
   }
 
-  const fetchHiddenTours = async () => {
+  const fetchHiddenTours = useCallback(async () => {
     try {
       setLoading(true)
 
@@ -32,11 +33,15 @@ function TourHiddenPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
-    fetchHiddenTours()
-  }, [])
+    const timer = window.setTimeout(() => {
+      void fetchHiddenTours()
+    }, 0)
+
+    return () => window.clearTimeout(timer)
+  }, [fetchHiddenTours])
 
   const formatMoney = (value) => {
     if (value === null || value === undefined || value === '') {
@@ -91,21 +96,19 @@ function TourHiddenPage() {
 
   return (
     <div className="p-6">
-      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800">Tour đã ẩn</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Danh sách các tour đang bị ẩn khỏi hệ thống
-          </p>
-        </div>
-
-        <Link
-          to="/admin/tours"
-          className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-        >
-          Quay lại danh sách
-        </Link>
-      </div>
+      <AdminPageHeader
+        breadcrumb={["ViVuGo", "Quản Lý Tour", "Tour đã ẩn"]}
+        title="Tour đã ẩn"
+        description="Danh sách các tour đang bị ẩn khỏi hệ thống"
+        actions={
+          <Link
+            to="/admin/tours"
+            className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 shadow-sm transition hover:border-blue-200 hover:text-blue-600"
+          >
+            Quay lại danh sách
+          </Link>
+        }
+      />
 
       <div className="mb-5 rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
         <input
