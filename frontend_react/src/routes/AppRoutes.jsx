@@ -36,6 +36,7 @@ import ReportStatisticsPage from '../pages/admin/reportStatistics/ReportStatisti
 import TourDepartureListPage from "../pages/admin/tourDepartures/TourDepartureListPage";
 import TourDepartureCreatePage from "../pages/admin/tourDepartures/TourDepartureCreatePage";
 import TourDepartureEditPage from "../pages/admin/tourDepartures/TourDepartureEditPage";
+import AdminNotificationsPage from '../pages/admin/Notifications/AdminNotificationsPage'
 
 
 const protect = (page, allowedRoles = ['admin']) => (
@@ -104,8 +105,11 @@ function AppRoutes() {
     {/* Quản lý nhân viên hỗ trợ */}
     <Route path="/admin/support" element={adminPage(<SupportStaffManagementPage />)} />
     <Route path="/admin/support/trash" element={adminPage(<SupportStaffTrashPage />)} />
+    {/* Quản lý nhân Thông báo */}
+    <Route  path="/admin/notifications"  element={adminPage(<AdminNotificationsPage />)}/>
     <Route path="/admin/*" element={<Navigate to="/admin" replace />} />
     <Route path="*" element={<Navigate to="/" replace />} />
+    
   </Routes>
 }
 
