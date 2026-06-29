@@ -49,6 +49,47 @@
   min-height: 48px;
   padding: 0 18px;
 }
+.user-add-button {
+  align-items: center;
+  background: linear-gradient(135deg, #1454f0 0%, #0ea5e9 100%) !important;
+  border: 0;
+  border-radius: 14px;
+  box-shadow: 0 14px 28px rgba(20, 84, 240, 0.22);
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 14px;
+  font-weight: 800;
+  gap: 10px;
+  min-height: 46px;
+  padding: 0 18px 0 12px;
+  transition:
+    box-shadow 160ms ease,
+    transform 160ms ease,
+    filter 160ms ease;
+}
+.user-add-button span {
+  align-items: center;
+  border-radius: 50%;
+  display: inline-flex;
+  font-size: 18px;
+  height: 28px;
+  justify-content: center;
+  line-height: 1;
+  width: 28px;
+}
+.user-add-button:hover {
+  box-shadow: 0 18px 36px rgba(20, 84, 240, 0.3);
+  filter: saturate(1.06);
+  transform: translateY(-1px);
+}
+.user-add-button:active {
+  transform: translateY(0);
+}
+.user-add-button:focus-visible {
+  outline: 3px solid rgba(14, 165, 233, 0.26);
+  outline-offset: 3px;
+}
 .user-stat-grid {
   display: grid;
   gap: 16px;
@@ -338,6 +379,30 @@
   color: inherit;
   font-size: 20px;
 }
+.user-role-tabs {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #dce5ef;
+  border-radius: 16px;
+  box-shadow: 0 2px 4px #10213d0d;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 8px;
+}
+.user-role-tab {
+  border-radius: 12px;
+  color: #526b8d;
+  font-size: 14px;
+  font-weight: 800;
+  padding: 10px 14px;
+  text-decoration: none;
+}
+.user-role-tab.active {
+  background: #e0f2fe;
+  color: #0369a1;
+}
 .user-modal-backdrop {
   align-items: center;
   background: #0f172a80;
@@ -400,6 +465,12 @@
   margin-top: 7px;
   padding: 12px;
   width: 100%;
+}
+.user-form-grid input.user-role-input {
+  background: #ecfdf5;
+  border-color: #86efac;
+  color: #047857;
+  font-weight: 800;
 }
 .user-modal-actions {
   display: flex;
@@ -484,6 +555,10 @@
     grid-template-columns: 1fr;
   }
   .user-filter-bar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .user-role-tabs {
     align-items: stretch;
     flex-direction: column;
   }

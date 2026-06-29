@@ -57,6 +57,11 @@ function AppRoutes() {
     <Route path="/customer/search" element={<CustomerPage />} />
     <Route path="/customer/bookings" element={<CustomerPage />} />
     <Route path="/customer/settings" element={<CustomerPage />} />
+    <Route path="/admin/users" element={<Navigate to="/admin/users/customers" replace />} />
+    <Route path="/admin/users/customers" element={adminPage(<UserManagementPage roleName="customer" />)} />
+    <Route path="/admin/users/admins" element={adminPage(<UserManagementPage roleName="admin" />)} />
+    <Route path="/admin/users/support-staff" element={adminPage(<UserManagementPage roleName="support staff" />)} />
+    <Route path="/admin/users/tour-guides" element={adminPage(<UserManagementPage roleName="tour guide" />)} />
     {/* Đăng ký, đăng nhập */}
     <Route path="/auth" element={<Navigate to="/auth/login" replace />} />
     <Route path="/auth/login" element={<AuthPage />} />
@@ -74,8 +79,6 @@ function AppRoutes() {
     <Route path="/admin/reports" element={adminPage(<ReportStatisticsPage />)} />
     {/* quản lý Booking */}
     <Route path="/admin/bookings" element={adminPage(<BookingManagementPage />)} />
-    {/* Router trang quản lý người dùng */}
-    <Route path="/admin/users" element={adminPage(<UserManagementPage />)} />
     {/* Danh mục tour/loại tour */}
     <Route path="/admin/categories" element={adminPage(<TourTypeListPage />)} />
     <Route path="/admin/categories/create" element={adminPage(<TourTypeCreatePage />)} />
