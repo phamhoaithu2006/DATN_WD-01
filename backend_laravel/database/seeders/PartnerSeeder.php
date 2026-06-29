@@ -15,9 +15,8 @@ class PartnerSeeder extends Seeder
         $serviceTypes = [
             ['name' => 'Khách sạn',          'slug' => 'khach-san',         'created_at' => $now, 'updated_at' => $now],
             ['name' => 'Nhà hàng',           'slug' => 'nha-hang',          'created_at' => $now, 'updated_at' => $now],
-            ['name' => 'Vận chuyển',         'slug' => 'van-chuyen',        'created_at' => $now, 'updated_at' => $now],
-            ['name' => 'Vui chơi giải trí',  'slug' => 'vui-choi-giai-tri', 'created_at' => $now, 'updated_at' => $now],
-            ['name' => 'Bảo hiểm du lịch',  'slug' => 'bao-hiem-du-lich',  'created_at' => $now, 'updated_at' => $now],
+            ['name' => 'Điểm tham quan',  'slug' => 'diem-tham-quan', 'created_at' => $now, 'updated_at' => $now],
+            ['name' => 'Bảo hiểm',  'slug' => 'bao-hiem',  'created_at' => $now, 'updated_at' => $now],
         ];
 
         DB::table('partner_service_types')->insert($serviceTypes);
@@ -57,25 +56,10 @@ class PartnerSeeder extends Seeder
                 'created_at'      => $now,
                 'updated_at'      => $now,
             ],
-            [
-                'partner_code'    => 'PTN003',
-                'service_type_id' => $typeIds['van-chuyen'],
-                'name'            => 'Công ty TNHH Vận tải Sao Việt',
-                'contact_person'  => 'Phạm Minh Tuấn',
-                'phone'           => '028 3823 5678',
-                'email'           => 'saoviet.transport@example.com',
-                'address'         => '123 Nguyễn Văn Linh, Quận 7, TP.HCM',
-                'website'         => null,
-                'description'     => 'Cung cấp xe du lịch 16-45 chỗ chất lượng cao.',
-                'logo_url'        => null,
-                'status'          => 'active',
-                'deleted_at'      => null,
-                'created_at'      => $now,
-                'updated_at'      => $now,
-            ],
+
             [
                 'partner_code'    => 'PTN004',
-                'service_type_id' => $typeIds['bao-hiem-du-lich'],
+                'service_type_id' => $typeIds['bao-hiem'],
                 'name'            => 'Bảo Việt Travel Insurance',
                 'contact_person'  => 'Vũ Thị Hoa',
                 'phone'           => '1800 599 970',
