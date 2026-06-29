@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
+import AdminPageHeader from '../../components/admin/AdminPageHeader'
 import apiClient from '../../services/apiClient'
 
 function unwrapList(response) {
@@ -143,16 +144,16 @@ function GuideTrashPage() {
 
   return (
     <section className="guide-page guide-trash-page">
-      <div className="guide-heading">
-        <div>
-          <div className="guide-breadcrumb">ViVuGo / Quản Lý Hướng Dẫn Viên</div>
-          <h1>Hướng Dẫn Viên Đã Xóa</h1>
-          <p>Khôi phục hoặc xóa vĩnh viễn các hướng dẫn viên đã được xóa mềm.</p>
-        </div>
-        <Link className="guide-trash-button" to="/admin/guides">
-          Quay lại danh sách
-        </Link>
-      </div>
+      <AdminPageHeader
+        breadcrumb={['ViVuGo', 'Quản Lý Hướng Dẫn Viên']}
+        title="Hướng Dẫn Viên Đã Xóa"
+        description="Khôi phục hoặc xóa vĩnh viễn các hướng dẫn viên đã được xóa mềm."
+        actions={
+          <Link className="guide-trash-button" to="/admin/guides">
+            Quay lại danh sách
+          </Link>
+        }
+      />
 
       {message ? <div className="guide-alert success">{message}</div> : null}
       {error ? <div className="guide-alert error">{error}</div> : null}

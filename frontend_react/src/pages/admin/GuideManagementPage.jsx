@@ -1,6 +1,7 @@
 ﻿import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import apiClient from '../../services/apiClient'
+import AdminPageHeader from '../../components/admin/AdminPageHeader'
 import { getAccountRoles, searchAccounts } from '../../services/adminAccountApi'
 import Icon from '../../components/customer/Icon'
 
@@ -520,23 +521,23 @@ function GuideManagementPage() {
   }
   return (
     <section className="guide-page">
-      <div className="guide-heading">
-        <div>
-          <div className="guide-breadcrumb">ViVuGo / Quản Lý Hướng Dẫn Viên</div>
-          <h1>Quản Lý Hướng Dẫn Viên</h1>
-          <p>Quản lý và phân công hướng dẫn viên du lịch.</p>
-        </div>
-        <div className="guide-heading-actions">
-          <Link className="guide-trash-button" to="/admin/guides/trash">
-            <Icon name="trash" size={16} />
-            Thùng rác
-          </Link>
-          <button className="guide-add-button" type="button" onClick={moFormThemMoi}>
-            <Icon name="plus" size={16} />
-            Thêm HDV
-          </button>
-        </div>
-      </div>
+      <AdminPageHeader
+        breadcrumb={['ViVuGo', 'Quản Lý Hướng Dẫn Viên']}
+        title="Quản Lý Hướng Dẫn Viên"
+        description="Quản lý và phân công hướng dẫn viên du lịch."
+        actions={
+          <>
+            <Link className="guide-trash-button" to="/admin/guides/trash">
+              <Icon name="trash" size={16} />
+              Thùng rác
+            </Link>
+            <button className="guide-add-button" type="button" onClick={moFormThemMoi}>
+              <Icon name="plus" size={16} />
+              Thêm HDV
+            </button>
+          </>
+        }
+      />
       {thongBao ? <div className="guide-alert success">{thongBao}</div> : null}
       {loi ? <div className="guide-alert error">{loi}</div> : null}
       <div className="guide-stat-grid">

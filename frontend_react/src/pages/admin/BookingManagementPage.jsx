@@ -4,6 +4,7 @@ import BookingFilters from '../../components/admin/bookings/BookingFilters'
 import BookingPagination from '../../components/admin/bookings/BookingPagination'
 import BookingStats from '../../components/admin/bookings/BookingStats'
 import BookingTable from '../../components/admin/bookings/BookingTable'
+import AdminPageHeader from '../../components/admin/AdminPageHeader'
 import {
   getBookingList,
   getMeta,
@@ -172,17 +173,18 @@ function BookingManagementPage() {
 
   return (
     <section className="booking-management-page">
-      <header className="booking-heading">
-        <div>
-          <h1>Quản Lý Booking</h1>
-          <p>Theo dõi và quản lý tất cả đặt tour</p>
-        </div>
-        <BookingStats
-          activeStatus={status}
-          cards={cards}
-          onStatusChange={changeFilter(setStatus)}
-        />
-      </header>
+      <AdminPageHeader
+        breadcrumb={['ViVuGo', 'Quản Lý Booking']}
+        title="Quản Lý Booking"
+        description="Theo dõi và quản lý tất cả đặt tour"
+        actions={
+          <BookingStats
+            activeStatus={status}
+            cards={cards}
+            onStatusChange={changeFilter(setStatus)}
+          />
+        }
+      />
 
       {notice ? (
         <div className={`booking-notice ${notice.type}`}>

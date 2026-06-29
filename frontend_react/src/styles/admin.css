@@ -224,23 +224,84 @@
 }
 
 .admin-page-header {
-  max-width: 960px;
+  display: grid;
+  gap: 10px;
+  margin-bottom: 22px;
 }
 
-.admin-page-header p {
-  margin: 0 0 8px;
+.admin-page-breadcrumb {
+  align-items: center;
   color: #64748b;
-  font-size: 0.875rem;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.9rem;
   font-weight: 700;
+  gap: 8px;
+}
+
+.admin-page-breadcrumb-item {
+  align-items: center;
+  color: inherit;
+  display: inline-flex;
+  gap: 8px;
+}
+
+.admin-page-breadcrumb-item:first-child {
+  color: #1454f0;
+  font-weight: 800;
+}
+
+.admin-page-breadcrumb-item:last-child {
+  color: #020617;
+  font-weight: 800;
+}
+
+.admin-page-breadcrumb-item a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.admin-page-breadcrumb-item a:hover {
+  color: #0ea5e9;
+}
+
+.admin-page-breadcrumb-separator {
+  color: #cbd5e1;
+  font-weight: 800;
+}
+
+.admin-page-header-row {
+  align-items: flex-start;
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.admin-page-header-content {
+  min-width: 0;
 }
 
 .admin-page-header h1 {
-  margin: 0;
   color: #020617;
-  font-size: 30px;
-  font-weight: 800;
-  line-height: 1.1;
-  letter-spacing: 0;
+  font-size: 34px;
+  font-weight: 850;
+  letter-spacing: -0.02em;
+  line-height: 1.08;
+  margin: 0;
+}
+
+.admin-page-header p {
+  color: #64748b;
+  font-size: 1rem;
+  margin: 8px 0 0;
+}
+
+.admin-page-header-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: flex-end;
 }
 
 .guide-page {
@@ -1063,6 +1124,14 @@
   .admin-topbar {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .admin-page-header-row {
+    flex-direction: column;
+  }
+
+  .admin-page-header-actions {
+    justify-content: flex-start;
   }
 
   .guide-heading {

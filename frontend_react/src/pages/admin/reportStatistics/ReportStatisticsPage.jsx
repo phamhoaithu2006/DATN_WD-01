@@ -1,4 +1,5 @@
-﻿import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import AdminPageHeader from '../../../components/admin/AdminPageHeader'
 import { getReportCharts, getReportOverview } from '../../../services/reportApi'
 
 const formatCurrency = (value) =>
@@ -356,23 +357,11 @@ function ReportStatisticsPage() {
 
   return (
     <div className="min-h-full space-y-5 bg-slate-50/70">
-      <section className="border-b border-slate-200 pb-6">
-        <div className="flex items-center gap-2 text-sm font-semibold text-slate-500">
-          <span>ViVuGo</span>
-          <span className="text-slate-300">/</span>
-          <span className="font-semibold text-[#020617]">Báo Cáo & Thống Kê</span>
-        </div>
-
-        <div className="mt-14 flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-          <div>
-            <h1 className="text-[30px] font-extrabold tracking-tight text-[#020617]">
-              Báo Cáo & Thống Kê
-            </h1>
-            <p className="mt-2 text-sm text-slate-500">
-              Theo dõi doanh thu, booking, lượng khách và điểm đến nổi bật.
-            </p>
-          </div>
-
+      <AdminPageHeader
+        breadcrumb={["ViVuGo", "Báo Cáo & Thống Kê"]}
+        title="Báo Cáo & Thống Kê"
+        description="Theo dõi doanh thu, booking, lượng khách và điểm đến nổi bật."
+        actions={
           <div className="flex flex-col gap-3 sm:flex-row">
             <button
               type="button"
@@ -392,8 +381,8 @@ function ReportStatisticsPage() {
               Làm mới dữ liệu
             </button>
           </div>
-        </div>
-      </section>
+        }
+      />
 
       <Card className="p-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
