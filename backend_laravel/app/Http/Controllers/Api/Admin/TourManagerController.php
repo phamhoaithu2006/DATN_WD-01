@@ -54,6 +54,21 @@ class TourManagerController extends Controller
      * 2. API Hiển thị tất cả danh sách tour (User)
      * Chỉ lấy danh sách tour chưa ẩn và đã được published + Tích hợp Lọc & Tìm kiếm
      */
+    /**
+     * API Xem chi tiết một tour (Admin)
+     */
+    public function show($id)
+    {
+        $tour = Tour::with(['category', 'destination', 'itineraries.images', 'departures'])
+            ->findOrFail($id);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Lấy chi tiết tour thành công',
+            'data' => new TourResource($tour)
+        ]);
+    }
+
     public function publicIndex(Request $request)
     {
         //  Chỉ lấy các tour đã xuất bản (published)
