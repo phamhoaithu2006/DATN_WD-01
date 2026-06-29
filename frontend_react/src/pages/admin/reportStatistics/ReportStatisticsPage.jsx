@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import AdminPageHeader from '../../../components/admin/AdminPageHeader'
 import { getReportCharts, getReportOverview } from '../../../services/reportApi'
 
 /* ============================================================
@@ -581,31 +582,12 @@ function ReportStatisticsPage() {
       `}</style>
 
       {/* HEADER */}
-      <section className="report-fade-up border-b border-slate-200 bg-gradient-to-b from-white to-slate-50/50 pb-6">
-        <div className="flex items-center gap-2 text-sm font-semibold text-slate-500">
-          <span>ViVuGo</span>
-          <span className="text-slate-300">/</span>
-          <span className="font-semibold text-[#020617]">Báo Cáo & Thống Kê</span>
-        </div>
-
-        <div className="mt-6 flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-extrabold text-blue-700">
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-600 opacity-60" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-blue-600" />
-              </span>
-              Dashboard báo cáo trực quan
-            </div>
-            <h1 className="mt-4 bg-gradient-to-r from-slate-900 via-slate-800 to-blue-700 bg-clip-text text-[30px] font-black tracking-tight text-transparent">
-              Báo Cáo & Thống Kê
-            </h1>
-            <p className="mt-2 text-sm text-slate-500">
-              Theo dõi doanh thu, booking, lượng khách và điểm đến nổi bật theo từng năm.
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-3 sm:flex-row">
+      <AdminPageHeader
+        breadcrumb={['ViVuGo', 'Báo Cáo & Thống Kê']}
+        title="Báo Cáo & Thống Kê"
+        description="Theo dõi doanh thu, booking, lượng khách và điểm đến nổi bật theo từng năm."
+        actions={
+          <>
             <button
               type="button"
               onClick={handleExportReport}
@@ -624,12 +606,18 @@ function ReportStatisticsPage() {
               <RefreshIcon className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
               Làm mới dữ liệu
             </button>
-          </div>
-        </div>
-      </section>
+          </>
+        }
+      />
 
       {/* FILTER BAR */}
       <Card className="report-fade-up p-4" style={{ animationDelay: '80ms' }}>
+        {overview?.current_date && (
+          <p className="report-fade-up text-xs font-medium text-slate-500" style={{ animationDelay: '120ms' }}>
+            Dữ liệu cập nhật ngày: {overview.current_date}
+          </p>
+        )}
+
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="group flex h-14 w-full items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 transition hover:border-blue-200 hover:bg-blue-50/40 sm:w-[360px]">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 transition group-hover:scale-110">
@@ -651,12 +639,6 @@ function ReportStatisticsPage() {
           </div>
         </div>
       </Card>
-
-      {overview?.current_date && (
-        <p className="report-fade-up text-xs font-medium text-slate-500" style={{ animationDelay: '120ms' }}>
-          Dữ liệu cập nhật ngày: {overview.current_date}
-        </p>
-      )}
 
       {error && (
         <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
