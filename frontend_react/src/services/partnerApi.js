@@ -32,8 +32,8 @@ export const partnerApi = {
     return apiClient.delete(`${PARTNER_ENDPOINT}/${id}`)
   },
 
-  getTrashed() {
-    return apiClient.get(`${PARTNER_ENDPOINT}/trashed`)
+  getTrashed(params) {
+    return apiClient.get(`${PARTNER_ENDPOINT}/trashed`, { params })
   },
 
   restore(id) {

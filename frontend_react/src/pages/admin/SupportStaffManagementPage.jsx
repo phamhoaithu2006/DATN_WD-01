@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { useCallback, useEffect, useState } from 'react'
 
 import {
@@ -44,12 +45,14 @@ function formatDateTime(value) {
   }).format(new Date(value))
 }
 
-function formatDate(value) {
-  if (!value) return '—'
+function getPerformancePercent(value) {
+  const rating = Number(value ?? 0)
 
-  return new Intl.DateTimeFormat('vi-VN', {
-    dateStyle: 'long',
-  }).format(new Date(value))
+  if (!Number.isFinite(rating)) {
+    return 0
+  }
+
+  return Math.max(0, Math.min(100, Math.round((rating / 5) * 100)))
 }
 
 function formatRating(value) {
@@ -58,13 +61,7 @@ function formatRating(value) {
 }
 
 function formatRatingPercent(value) {
-  const rating = Number(value ?? 0)
-
-  if (!Number.isFinite(rating)) {
-    return '0%'
-  }
-
-  return `${Math.round((rating / 5) * 100)}%`
+  return `${getPerformancePercent(value)}%`
 }
 
 function getServerMessage(error, fallback) {
@@ -96,7 +93,9 @@ function getListData(payload) {
 }
 
 function getPaginationMeta(payload) {
-  const page = payload?.data?.data
+  const page = payload?.data?.data && !Array.isArray(payload.data.data)
+    ? payload.data.data
+    : payload?.data
 
   if (!page || Array.isArray(page)) {
     return { currentPage: 1, lastPage: 1, total: 0, perPage: 10 }
@@ -154,6 +153,40 @@ function validateForm(form) {
 
 function makeToast(type, text) {
   return { id: Date.now(), type, text }
+}
+
+function ActionIcon({ type }) {
+  if (type === 'detail') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 12s3.5-6 8-6 8 6 8 6-3.5 6-8 6-8-6-8-6Z" />
+        <circle cx="12" cy="12" r="2.5" />
+      </svg>
+    )
+  }
+
+  if (type === 'edit') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0 0-3L16.5 4a2.1 2.1 0 0 0-3 0L3 14.5V20Z" />
+        <path d="M13.5 6.5 17.5 10.5" />
+      </svg>
+    )
+  }
+
+  if (type === 'trash') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 7h16" />
+        <path d="M10 11v6" />
+        <path d="M14 11v6" />
+        <path d="M6 7l1 13h10l1-13" />
+        <path d="M9 7V4h6v3" />
+      </svg>
+    )
+  }
+
+  return null
 }
 
 function SupportStaffFormModal({
@@ -351,6 +384,11 @@ function SupportStaffManagementPage() {
   const [formErrors, setFormErrors] = useState({})
 
   const topStaff = statistics.top_staff || []
+
+  function handleStatCardClick(status) {
+    setStatusFilter(status)
+    setPage(1)
+  }
 
   function openToast(type, text) {
     setNotice(makeToast(type, text))
@@ -556,33 +594,54 @@ function SupportStaffManagementPage() {
           <p>Quản lý tài khoản nhân viên hỗ trợ khách hàng.</p>
         </div>
 
-        <button className="support-add-button" type="button" onClick={openCreateForm}>
-          <span aria-hidden="true">+</span>
-          Thêm nhân viên
-        </button>
+        <div className="support-header-actions">
+          <Link className="support-trash-button" to="/admin/support/trash">
+            Thùng rác
+          </Link>
+          <button className="support-add-button" type="button" onClick={openCreateForm}>
+            <span aria-hidden="true">+</span>
+            Thêm nhân viên
+          </button>
+        </div>
       </div>
 
       <div className="support-stat-grid">
-        <article className="support-stat-card blue">
+        <button
+          className={`support-stat-card blue ${statusFilter === '' ? 'is-active' : ''}`}
+          type="button"
+          onClick={() => handleStatCardClick('')}
+        >
           <strong>{statistics.total || pagination.total || staffList.length}</strong>
           <span>Tổng nhân viên</span>
           <small>Toàn bộ nhân viên hỗ trợ</small>
-        </article>
-        <article className="support-stat-card green">
+        </button>
+        <button
+          className={`support-stat-card green ${statusFilter === 'active' ? 'is-active' : ''}`}
+          type="button"
+          onClick={() => handleStatCardClick('active')}
+        >
           <strong>{statistics.active || 0}</strong>
           <span>Đang hoạt động</span>
           <small>Sẵn sàng xử lý yêu cầu</small>
-        </article>
-        <article className="support-stat-card amber">
-          <strong>{formatRating(statistics.average_rating)}</strong>
-          <span>Hiệu suất trung bình</span>
-          <small>Thống kê tự động</small>
-        </article>
-        <article className="support-stat-card purple">
+        </button>
+        <button
+          className={`support-stat-card amber ${statusFilter === 'inactive' ? 'is-active' : ''}`}
+          type="button"
+          onClick={() => handleStatCardClick('inactive')}
+        >
+          <strong>{statistics.inactive || 0}</strong>
+          <span>Ngừng hoạt động</span>
+          <small>Tạm ngừng xử lý yêu cầu</small>
+        </button>
+        <button
+          className={`support-stat-card purple ${statusFilter === 'hidden' ? 'is-active' : ''}`}
+          type="button"
+          onClick={() => handleStatCardClick('hidden')}
+        >
           <strong>{statistics.hidden || 0}</strong>
           <span>Tạm khóa</span>
           <small>Tạm ẩn nhân viên hỗ trợ</small>
-        </article>
+        </button>
       </div>
 
       <div className="support-content-grid">
@@ -669,18 +728,14 @@ function SupportStaffManagementPage() {
                         </strong>
                       </td>
                       <td>
-                        <strong>{staff.name}</strong>
-                        <small>{formatDate(staff.created_at)}</small>
+                        <strong className="support-name">{staff.name}</strong>
                       </td>
                       <td>{staff.email}</td>
                       <td>
                         <div className="support-rating-cell">
-                          <div className="support-rating-track">
-                            <span
-                              style={{ width: `${Math.max(0, Math.min(100, (Number(staff.performance_rating || 0) / 5) * 100))}%` }}
-                            />
+                          <div className="support-rating-score">
+                            <strong>{formatRating(staff.performance_rating)}</strong>
                           </div>
-                          <strong>{formatRatingPercent(staff.performance_rating)}</strong>
                         </div>
                       </td>
                       <td>
@@ -690,18 +745,30 @@ function SupportStaffManagementPage() {
                       </td>
                       <td>
                         <div className="support-actions">
-                          <button type="button" onClick={() => openDetail(staff)}>
-                            Chi tiết
+                          <button
+                            type="button"
+                            title="Chi tiết"
+                            aria-label={`Chi tiết ${staff.name}`}
+                            onClick={() => openDetail(staff)}
+                          >
+                            <ActionIcon type="detail" />
                           </button>
-                          <button type="button" onClick={() => openEditForm(staff)}>
-                            Sửa
+                          <button
+                            type="button"
+                            title="Sửa"
+                            aria-label={`Sửa ${staff.name}`}
+                            onClick={() => openEditForm(staff)}
+                          >
+                            <ActionIcon type="edit" />
                           </button>
                           <button
                             className="danger"
                             type="button"
+                            title="Xóa mềm"
+                            aria-label={`Xóa mềm ${staff.name}`}
                             onClick={() => setDeleteTarget(staff)}
                           >
-                            Xóa
+                            <ActionIcon type="trash" />
                           </button>
                         </div>
                       </td>
@@ -717,11 +784,12 @@ function SupportStaffManagementPage() {
               type="button"
               onClick={() => setPage((current) => Math.max(1, current - 1))}
               disabled={pagination.currentPage <= 1 || loading}
+              aria-label="Trang trước"
             >
-              Trước
+              ←
             </button>
             <span>
-              Trang {pagination.currentPage} / {pagination.lastPage}
+              {pagination.currentPage} / {pagination.lastPage}
             </span>
             <button
               type="button"
@@ -729,29 +797,36 @@ function SupportStaffManagementPage() {
                 setPage((current) => Math.min(pagination.lastPage, current + 1))
               }
               disabled={pagination.currentPage >= pagination.lastPage || loading}
+              aria-label="Trang sau"
             >
-              Sau
+              →
             </button>
           </div>
         </div>
 
         <aside className="support-side-panel">
           <h2>Top hiệu suất</h2>
-          <p>Nhân viên có điểm hiệu suất cao nhất theo dữ liệu backend.</p>
+          <p>Nhân viên có điểm hiệu suất cao nhất.</p>
 
           {topStaff.length > 0 ? (
             <div className="support-top-list">
               {topStaff.map((staff, index) => (
                 <article className="support-top-item" key={staff.id}>
                   <div className="support-top-rank">{index + 1}</div>
-                  <div className="support-top-avatar">{initials(staff.name)}</div>
+                  <div className={`support-avatar tone-${index % 5} support-top-avatar`}>
+                    {initials(staff.name)}
+                  </div>
                   <div className="support-top-content">
                     <strong>{staff.name}</strong>
+                    <div className="support-top-score">
+                      <span>{formatRating(staff.performance_rating)}</span>
+                      <small>/ 5</small>
+                    </div>
                     <div className="support-top-bar">
-                      <span style={{ width: `${Math.max(0, Math.min(100, (Number(staff.performance_rating || 0) / 5) * 100))}%` }} />
+                      <span style={{ width: `${getPerformancePercent(staff.performance_rating)}%` }} />
                     </div>
                   </div>
-                  <div className="support-top-rating">{formatRating(staff.performance_rating)}</div>
+                  <div className="support-top-rating">{formatRatingPercent(staff.performance_rating)}</div>
                 </article>
               ))}
             </div>
@@ -761,6 +836,18 @@ function SupportStaffManagementPage() {
               <span>Hệ thống sẽ hiển thị top nhân viên khi có dữ liệu.</span>
             </div>
           )}
+
+          <div className="support-side-divider" aria-hidden="true" />
+          <button
+            className="support-side-metric support-stat-card amber"
+            type="button"
+            aria-disabled="true"
+            tabIndex={-1}
+          >
+            <strong>{formatRating(statistics.average_rating)}</strong>
+            <span>Hiệu suất trung bình</span>
+            <small>Thống kê tự động</small>
+          </button>
         </aside>
       </div>
 
@@ -801,7 +888,7 @@ function SupportStaffManagementPage() {
             <p>
               Bạn có chắc muốn xóa{' '}
               <strong>{deleteTarget.name}</strong> khỏi hệ thống?
-              Thao tác này sẽ dùng API xóa thật.
+              Thao tác này sẽ chuyển nhân viên vào thùng rác.
             </p>
             <div className="support-modal-actions">
               <button type="button" onClick={() => setDeleteTarget(null)} disabled={deleting}>

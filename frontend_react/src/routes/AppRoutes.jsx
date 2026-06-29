@@ -4,9 +4,11 @@ import AdminLayout from '../layouts/AdminLayout'
 import BookingManagementPage from '../pages/admin/BookingManagementPage'
 import AdminDashboardPage from '../pages/admin/AdminDashboardPage'
 import GuideManagementPage from '../pages/admin/GuideManagementPage'
+import GuideTrashPage from '../pages/admin/GuideTrashPage'
 import PartnerManagementPage from '../pages/admin/partners/PartnerManagementPage'
 import PartnerTrashPage from '../pages/admin/partners/PartnerTrashPage'
 import SupportStaffManagementPage from '../pages/admin/SupportStaffManagementPage'
+import SupportStaffTrashPage from '../pages/admin/SupportStaffTrashPage'
 import UserManagementPage from '../pages/admin/UserManagementPage'
 import TourTypeCreatePage from '../pages/admin/categories/TourTypeCreatePage'
 import TourTypeEditPage from '../pages/admin/categories/TourTypeEditPage'
@@ -87,13 +89,15 @@ function AppRoutes() {
     <Route path="/admin/destinations/trash" element={adminPage(<DestinationTrashPage />)} />
     {/* Quản lý hướng dẫn viên */}
     <Route path="/admin/guides" element={adminPage(<GuideManagementPage />)} />
+    <Route path="/admin/guides/trash" element={adminPage(<GuideTrashPage />)} />
     {/* Quản lý dịch vụ đối tác */}
     <Route path="/admin/partners" element={adminPage(<PartnerManagementPage />)} />
     <Route path="/admin/partners/trash" element={adminPage(<PartnerTrashPage />)} />
-    <Route path="/admin/*" element={<Navigate to="/admin" replace />} />
-    <Route path="*" element={<Navigate to="/" replace />} />
     {/* Quản lý nhân viên hỗ trợ */}
     <Route path="/admin/support" element={adminPage(<SupportStaffManagementPage />)} />
+    <Route path="/admin/support/trash" element={adminPage(<SupportStaffTrashPage />)} />
+    <Route path="/admin/*" element={<Navigate to="/admin" replace />} />
+    <Route path="*" element={<Navigate to="/" replace />} />
   </Routes>
 }
 

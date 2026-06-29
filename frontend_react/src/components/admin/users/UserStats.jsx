@@ -5,11 +5,16 @@ const cards = [
   ["total_bookings", "▣", "Tổng lượt đặt tour", "amber"],
 ];
 
-function UserStats({ statistics }) {
+function UserStats({ statistics, activeFilter, onFilter }) {
   return (
     <div className="user-stat-grid">
       {cards.map(([key, icon, label, color]) => (
-        <article className={`user-stat-card ${color}`} key={key}>
+        <button
+          className={`user-stat-card ${color} ${activeFilter === key ? "is-active" : ""}`}
+          key={key}
+          type="button"
+          onClick={() => onFilter(key)}
+        >
           <span className="user-stat-icon" aria-hidden="true">
             {icon}
           </span>
@@ -17,7 +22,7 @@ function UserStats({ statistics }) {
             <strong>{statistics[key] ?? 0}</strong>
             <span>{label}</span>
           </div>
-        </article>
+        </button>
       ))}
     </div>
   );

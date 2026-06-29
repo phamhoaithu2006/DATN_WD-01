@@ -255,6 +255,12 @@
   gap: 20px;
 }
 
+.guide-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .guide-breadcrumb {
   margin-bottom: 16px;
   color: #64748b;
@@ -276,6 +282,7 @@
 }
 
 .guide-add-button,
+.guide-trash-button,
 .guide-modal-actions button:last-child {
   min-height: 46px;
   display: inline-flex;
@@ -290,6 +297,20 @@
   cursor: pointer;
   font: inherit;
   font-weight: 850;
+}
+
+.guide-trash-button {
+  border: 1px solid #cbd5e1;
+  border-radius: 18px;
+  background: #ffffff;
+  color: #0f172a;
+  text-decoration: none;
+  padding: 0 16px;
+}
+
+.guide-trash-button:hover {
+  border-color: #ef4444;
+  color: #ef4444;
 }
 
 .guide-add-button span {
@@ -319,6 +340,12 @@
   align-content: center;
   gap: 6px;
   padding: 18px;
+  width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
 }
 
 .guide-stat-card strong {
@@ -380,6 +407,16 @@
 .guide-stat-card.purple strong,
 .guide-stat-card.purple span {
   color: #7c3aed;
+}
+
+.guide-stat-card.is-active {
+  box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.24), 0 10px 22px rgba(15, 23, 42, 0.12);
+  transform: translateY(-1px);
+}
+
+.guide-stat-card:focus-visible {
+  outline: 3px solid rgba(14, 165, 233, 0.24);
+  outline-offset: 2px;
 }
 
 .guide-content-grid {
@@ -585,12 +622,12 @@
 
 .guide-table th:nth-child(8),
 .guide-table td:nth-child(8) {
-  width: 114px;
+  width: 132px;
 }
 
 .guide-table th:nth-child(9),
 .guide-table td:nth-child(9) {
-  width: 116px;
+  width: 126px;
 }
 
 .guide-table th {
@@ -606,7 +643,7 @@
 
 .guide-table th,
 .guide-table td {
-  padding: 12px 10px;
+  padding: 14px 14px;
   border-bottom: 1px solid #eef2f7;
   vertical-align: middle;
 }
@@ -619,7 +656,7 @@
 
 .guide-table td strong {
   display: block;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 
 .guide-table td span {
@@ -700,7 +737,7 @@
   display: flex;
   flex-wrap: nowrap;
   justify-content: flex-end;
-  gap: 6px;
+  gap: 8px;
   white-space: nowrap;
 }
 
@@ -725,9 +762,9 @@
   gap: 0;
   justify-content: center;
   flex: 0 0 auto;
-  min-width: 30px;
-  min-height: 30px;
-  width: 30px;
+  min-width: 32px;
+  min-height: 32px;
+  width: 32px;
   padding: 0;
 }
 
@@ -856,26 +893,36 @@
   justify-content: flex-end;
   gap: 12px;
   padding: 16px 18px;
+  border-top: 1px solid #edf1f6;
+  background: #fff;
   color: #64748b;
   font-weight: 800;
 }
 
 .guide-pagination button {
-  min-height: 34px;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
+  min-width: 50px;
+  min-height: 50px;
+  border: 1px solid #dbe5f2;
+  border-radius: 14px;
   background: #ffffff;
   color: #0f172a;
   cursor: pointer;
   font: inherit;
-  font-size: 0.86rem;
+  font-size: 1.3rem;
   font-weight: 800;
-  padding: 0 12px;
+  line-height: 1;
+  padding: 0;
 }
 
 .guide-pagination button:disabled {
   cursor: not-allowed;
   opacity: 0.5;
+}
+
+.guide-pagination span {
+  color: #60718e;
+  font-size: 1.05rem;
+  font-weight: 800;
 }
 
 .guide-detail-modal {
