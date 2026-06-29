@@ -33,6 +33,10 @@ import AuthPage from '../pages/auth/AuthPage'
 import ForgotPasswordPage from '../pages/auth/ForgotPasswordPage'
 import CustomerPage from '../pages/customer/CustomerPage'
 import ReportStatisticsPage from '../pages/admin/reportStatistics/ReportStatisticsPage'
+import TourDepartureListPage from "../pages/admin/tourDepartures/TourDepartureListPage";
+import TourDepartureCreatePage from "../pages/admin/tourDepartures/TourDepartureCreatePage";
+import TourDepartureEditPage from "../pages/admin/tourDepartures/TourDepartureEditPage";
+
 
 const protect = (page, allowedRoles = ['admin']) => (
   <ProtectedAdminRoute allowedRoles={allowedRoles}>{page}</ProtectedAdminRoute>
@@ -82,6 +86,10 @@ function AppRoutes() {
     <Route path="/admin/tours/create" element={adminPage(<TourCreatePage />)} />
     <Route path="/admin/tours/:id/edit" element={adminPage(<TourEditPage />)} />
     <Route path="/admin/tours/hidden" element={adminPage(<TourHiddenPage />)} />
+    {/* quản lý lịch khởi hành tour */}
+    <Route path="/admin/tour-departures" element={adminPage(<TourDepartureListPage />)}/>
+    <Route path="/admin/tour-departures/create" element={adminPage(<TourDepartureCreatePage />)}/>
+    <Route path="/admin/tour-departures/:tourId/edit/:departureId"  element={adminPage(<TourDepartureEditPage />)}/>
     {/* Quản lý điểm đến/địa chỉ tour */}
     <Route path="/admin/destinations" element={adminPage(<DestinationListPage />)} />
     <Route path="/admin/destinations/create" element={adminPage(<DestinationCreatePage />)} />

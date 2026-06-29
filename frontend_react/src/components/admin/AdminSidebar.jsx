@@ -26,6 +26,21 @@ const menuItems = [
     ),
   },
   {
+  label: 'Lịch Khởi Hành',
+  path: '/admin/tour-departures',
+  icon: (
+    <>
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <path d="M16 3v4" />
+      <path d="M8 3v4" />
+      <path d="M3 11h18" />
+      <path d="M8 15h2" />
+      <path d="M12 15h2" />
+      <path d="M16 15h2" />
+    </>
+  ),
+},
+  {
     label: 'Booking',
     path: '/admin/bookings',
     icon: (
