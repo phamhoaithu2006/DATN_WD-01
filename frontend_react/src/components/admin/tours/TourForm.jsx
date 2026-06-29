@@ -5,6 +5,18 @@ const API_BASE_URL = (
   import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api'
 ).replace(/\/$/, '')
 
+const getAuthHeaders = () => {
+  const token =
+    localStorage.getItem('token') ||
+    localStorage.getItem('admin_token') ||
+    localStorage.getItem('access_token')
+
+  return {
+    Accept: 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  }
+}
+
 const getInitialFormData = (initialData = {}) => {
   let itineraryData = []
   if (Array.isArray(initialData.itinerary)) {
@@ -116,48 +128,52 @@ function TourForm({
     let cancelled = false
 
     const loadOptions = async () => {
-      try {
-        setLoadingOptions(true)
-        setOptionError('')
+  try {
+    setLoadingOptions(true)
+    setOptionError('')
 
-        const [categoryRes, destinationRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/admin/categories`, {
-            headers: { Accept: 'application/json' },
-          }),
-          fetch(`${API_BASE_URL}/admin/destinations`, {
-            headers: { Accept: 'application/json' },
-          }),
-        ])
+    const [categoryRes, destinationRes] = await Promise.all([
+      fetch(`${API_BASE_URL}/admin/categories`, {
+        headers: getAuthHeaders(),
+      }),
+      fetch(`${API_BASE_URL}/admin/destinations`, {
+        headers: getAuthHeaders(),
+      }),
+    ])
 
-        if (!categoryRes.ok) {
-          throw new Error(`Không tải được danh mục: ${categoryRes.status}`)
-        }
-
-        if (!destinationRes.ok) {
-          throw new Error(`Không tải được điểm đến: ${destinationRes.status}`)
-        }
-
-        const categoryData = await categoryRes.json()
-        const destinationData = await destinationRes.json()
-
-        if (!cancelled) {
-          setCategories(normalizeList(categoryData))
-          setDestinations(normalizeList(destinationData))
-        }
-      } catch (error) {
-        console.error('LOAD TOUR OPTIONS ERROR:', error)
-
-        if (!cancelled) {
-          setOptionError(
-            'Không tải được danh mục hoặc điểm đến. Kiểm tra API backend.',
-          )
-        }
-      } finally {
-        if (!cancelled) {
-          setLoadingOptions(false)
-        }
-      }
+    if (categoryRes.status === 401 || destinationRes.status === 401) {
+      throw new Error('Bạn chưa đăng nhập hoặc token đã hết hạn.')
     }
+
+    if (!categoryRes.ok) {
+      throw new Error(`Không tải được danh mục: ${categoryRes.status}`)
+    }
+
+    if (!destinationRes.ok) {
+      throw new Error(`Không tải được điểm đến: ${destinationRes.status}`)
+    }
+
+    const categoryData = await categoryRes.json()
+    const destinationData = await destinationRes.json()
+
+    if (!cancelled) {
+      setCategories(normalizeList(categoryData))
+      setDestinations(normalizeList(destinationData))
+    }
+  } catch (error) {
+    console.error('LOAD TOUR OPTIONS ERROR:', error)
+
+    if (!cancelled) {
+      setOptionError(
+        error.message || 'Không tải được danh mục hoặc điểm đến. Kiểm tra API backend.',
+      )
+    }
+  } finally {
+    if (!cancelled) {
+      setLoadingOptions(false)
+    }
+  }
+}
 
     loadOptions()
 
@@ -634,7 +650,8 @@ function TourForm({
                 >
                   <option value="published">Hiển thị (Published)</option>
                   <option value="draft">Bản nháp (Draft)</option>
-                  <option value="inactive">Tạm ẩn (Inactive)</option>
+                  <option value="hidden">Tạm ẩn (Hidden)</option>
+                  {/* <option value="inactive">Tạm ẩn (Inactive)</option> */}
                 </select>
               </div>
 

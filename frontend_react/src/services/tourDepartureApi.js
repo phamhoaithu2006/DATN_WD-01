@@ -1,17 +1,22 @@
 import axios from "axios";
 
-const API_URL =
-  import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api/admin";
+const BASE_URL = "http://127.0.0.1:8000/api";
+const ADMIN_URL = `${BASE_URL}/admin`;
 
 const getAuthConfig = () => {
-  const token =
-    localStorage.getItem("token") ||
-    localStorage.getItem("admin_token") ||
-    localStorage.getItem("access_token");
+  const token = localStorage.getItem("token") || 
+                localStorage.getItem("admin_token") || 
+                localStorage.getItem("access_token");
+
+  // Kiểm tra nếu không có token thì throw lỗi hoặc trả về cấu hình không chứa header Authorization
+  if (!token) {
+    console.error("Token không tồn tại!");
+    return { headers: { Accept: "application/json" } };
+  }
 
   return {
     headers: {
-      Authorization: token ? `Bearer ${token}` : "",
+      Authorization: `Bearer ${token}`, // Đảm bảo luôn có tiền tố Bearer
       Accept: "application/json",
     },
   };
@@ -19,16 +24,17 @@ const getAuthConfig = () => {
 
 export const tourDepartureApi = {
   getTours() {
-    return axios.get(`${API_URL}/tours`, getAuthConfig());
+    // Thay API_URL thành ADMIN_URL
+    return axios.get(`${ADMIN_URL}/tours`, getAuthConfig());
   },
 
   getByTour(tourId) {
-    return axios.get(`${API_URL}/tours/${tourId}/departures`, getAuthConfig());
+    return axios.get(`${ADMIN_URL}/tours/${tourId}/departures`, getAuthConfig());
   },
 
   create(tourId, data) {
     return axios.post(
-      `${API_URL}/tours/${tourId}/departures`,
+      `${ADMIN_URL}/tours/${tourId}/departures`,
       data,
       getAuthConfig()
     );
@@ -36,7 +42,7 @@ export const tourDepartureApi = {
 
   update(id, data) {
     return axios.put(
-      `${API_URL}/tours/departures/${id}`,
+      `${ADMIN_URL}/tours/departures/${id}`,
       data,
       getAuthConfig()
     );
@@ -44,7 +50,7 @@ export const tourDepartureApi = {
 
   remove(id) {
     return axios.delete(
-      `${API_URL}/tours/departures/${id}`,
+      `${ADMIN_URL}/tours/departures/${id}`,
       getAuthConfig()
     );
   },

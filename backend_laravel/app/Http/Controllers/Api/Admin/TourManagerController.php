@@ -109,10 +109,6 @@ class TourManagerController extends Controller
         $validatedData = $request->validate([
             'category_id' => 'required|integer',
             'destination_id' => 'required|integer',
-
-            // XÓA dòng này:
-            // 'created_by' => 'required|integer',
-
             'title' => 'required|string|max:255',
             'summary' => 'nullable|string|max:500',
             'description' => 'nullable|string',
