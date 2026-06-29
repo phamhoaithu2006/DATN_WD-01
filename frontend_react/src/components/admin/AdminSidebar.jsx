@@ -132,8 +132,7 @@ function AdminSidebar({ collapsed, onToggle, role = 'admin' }) {
   return (
     <aside className={collapsed ? 'admin-sidebar collapsed' : 'admin-sidebar'}>
       <div className="admin-brand">
-        <BrandLogo asLink={false} />
-        <small className="admin-brand-subtitle">Admin Dashboard</small>
+        <BrandLogo className="admin-brand-link" to="/admin" />
       </div>
 
       <nav className="admin-nav" aria-label="Điều hướng quản trị">

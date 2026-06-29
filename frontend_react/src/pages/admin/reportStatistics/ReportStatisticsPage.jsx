@@ -1,4 +1,5 @@
-﻿import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import AdminPageHeader from '../../../components/admin/AdminPageHeader'
 import { getReportCharts, getReportOverview } from '../../../services/reportApi'
 
 /* ============================================================
@@ -625,8 +626,8 @@ function ReportStatisticsPage() {
               Làm mới dữ liệu
             </button>
           </div>
-        </div>
-      </section>
+        }
+      />
 
       {/* FILTER BAR */}
       <Card className="report-fade-up p-4" style={{ animationDelay: '80ms' }}>

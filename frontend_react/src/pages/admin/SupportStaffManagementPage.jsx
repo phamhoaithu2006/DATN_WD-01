@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useCallback, useEffect, useState } from 'react'
+import AdminPageHeader from '../../components/admin/AdminPageHeader'
 
 import {
   createSupportStaff,
@@ -587,23 +588,22 @@ function SupportStaffManagementPage() {
 
   return (
     <section className="support-page">
-      <div className="support-heading">
-        <div>
-          <div className="support-breadcrumb">ViVuGo / Quản Lý Nhân Viên Hỗ Trợ</div>
-          <h1>Quản Lý Nhân Viên Hỗ Trợ</h1>
-          <p>Quản lý tài khoản nhân viên hỗ trợ khách hàng.</p>
-        </div>
-
-        <div className="support-header-actions">
-          <Link className="support-trash-button" to="/admin/support/trash">
-            Thùng rác
-          </Link>
-          <button className="support-add-button" type="button" onClick={openCreateForm}>
-            <span aria-hidden="true">+</span>
-            Thêm nhân viên
-          </button>
-        </div>
-      </div>
+      <AdminPageHeader
+        breadcrumb={["ViVuGo", "Quản Lý Nhân Viên Hỗ Trợ"]}
+        title="Quản Lý Nhân Viên Hỗ Trợ"
+        description="Quản lý tài khoản nhân viên hỗ trợ khách hàng."
+        actions={
+          <div className="support-header-actions">
+            <Link className="support-trash-button" to="/admin/support/trash">
+              Thùng rác
+            </Link>
+            <button className="support-add-button" type="button" onClick={openCreateForm}>
+              <span aria-hidden="true">+</span>
+              Thêm nhân viên
+            </button>
+          </div>
+        }
+      />
 
       <div className="support-stat-grid">
         <button

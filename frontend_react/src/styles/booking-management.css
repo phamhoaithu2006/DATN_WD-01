@@ -346,12 +346,27 @@
   white-space: nowrap;
 }
 
+.booking-payment-cell,
+.booking-status-cell {
+  width: 160px;
+  text-align: center;
+}
+
 .booking-badge {
   border-radius: 999px;
-  display: inline-flex;
+  box-sizing: border-box;
+  display: flex;
   font-size: 13px;
   font-weight: 800;
-  padding: 6px 12px;
+  justify-content: center;
+  line-height: 1.25;
+  max-width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  text-align: center;
+  white-space: normal;
+  word-break: break-word;
+  align-items: center;
 }
 
 .booking-badge.paid,

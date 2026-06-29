@@ -225,11 +225,11 @@ Route::prefix('admin')->group(function () {
     // Giao diện cho admin
     Route::prefix('tours')->group(function () {
         Route::get('/', [TourManagerController::class, 'index']); // Quản lý tour (không hiện tour bị ẩn)
+        Route::get('/hidden-list', [TourManagerController::class, 'hiddenTours']); // Lấy danh sách tour bị ẩn
+        Route::get('/{id}', [TourManagerController::class, 'show']); // Xem chi tiết tour
         Route::post('/', [TourManagerController::class, 'store']); // Thêm tour
         Route::put('/{id}', [TourManagerController::class, 'update']); // Sửa tour
         Route::delete('/{id}', [TourManagerController::class, 'destroy']); // Xóa tour
-
-        Route::get('/hidden-list', [TourManagerController::class, 'hiddenTours']); // Lấy danh sách tour bị ẩn
         Route::patch('/{id}/hide', [TourManagerController::class, 'hide']); // Ẩn tour
         Route::patch('/{id}/unhide', [TourManagerController::class, 'unhide']); // Hiện tour
 

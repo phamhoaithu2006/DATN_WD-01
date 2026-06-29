@@ -4,6 +4,7 @@ import UserFilters from "../../components/admin/users/UserFilters";
 import UserFormModal from "../../components/admin/users/UserFormModal";
 import UserStats from "../../components/admin/users/UserStats";
 import UserTable from "../../components/admin/users/UserTable";
+import AdminPageHeader from "../../components/admin/AdminPageHeader";
 import {
   createAccount,
   getAccount,
@@ -172,21 +173,16 @@ function UserManagementPage() {
 
   return (
     <section className="user-management-page">
-      <div className="user-page-top">
-        <div className="user-page-breadcrumb">
-          ViVuGo <span>/</span> <b>Quản Lý Người Dùng</b>
-        </div>
-
-        <header className="user-page-heading">
-          <div>
-            <h1>Quản Lý Người Dùng</h1>
-            <p>Quản lý tài khoản, vai trò và trạng thái hoạt động</p>
-          </div>
+      <AdminPageHeader
+        breadcrumb={["ViVuGo", "Quản Lý Người Dùng"]}
+        title="Quản Lý Người Dùng"
+        description="Quản lý tài khoản, vai trò và trạng thái hoạt động"
+        actions={
           <button onClick={() => setEditing(null)}>
             <span>＋</span> Thêm Người Dùng
           </button>
-        </header>
-      </div>
+        }
+      />
 
       {notice ? (
         <div className={`user-notice ${notice.type}`}>

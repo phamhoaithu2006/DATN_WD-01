@@ -1,6 +1,7 @@
-﻿import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
+import AdminPageHeader from '../../../components/admin/AdminPageHeader'
 import { partnerApi } from '../../../services/partnerApi'
 import '../../../styles/partner-management.css'
 
@@ -170,17 +171,16 @@ function PartnerTrashPage() {
 
   return (
     <section className="partner-trash-page">
-      <div className="partner-header compact">
-        <div>
-          <div className="partner-breadcrumb">ViVuGo / Quản Lý Dịch Vụ Đối Tác</div>
-          <h1>Đối tác đã xóa</h1>
-          <p>Khôi phục hoặc xóa vĩnh viễn các đối tác đã được đưa vào thùng rác.</p>
-        </div>
-
-        <Link className="partner-secondary-button" to="/admin/partners">
-          Quay lại danh sách
-        </Link>
-      </div>
+      <AdminPageHeader
+        breadcrumb={["ViVuGo", "Quản Lý Dịch Vụ Đối Tác"]}
+        title="Đối tác đã xóa"
+        description="Khôi phục hoặc xóa vĩnh viễn các đối tác đã được đưa vào thùng rác."
+        actions={
+          <Link className="partner-secondary-button" to="/admin/partners">
+            Quay lại danh sách
+          </Link>
+        }
+      />
 
       {message ? <div className="partner-alert success">{message}</div> : null}
       {error ? <div className="partner-alert error">{error}</div> : null}
