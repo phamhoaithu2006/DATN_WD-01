@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { toast } from 'sonner'
 
 const API_BASE_URL = (
   import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api'
@@ -273,17 +274,17 @@ function TourForm({
     e.preventDefault()
 
     if (!formData.category_id) {
-      alert('Vui lòng chọn danh mục')
+      toast.error('Vui lòng chọn danh mục')
       return
     }
 
     if (!formData.destination_id) {
-      alert('Vui lòng chọn điểm đến')
+      toast.error('Vui lòng chọn điểm đến')
       return
     }
 
     if (!formData.title.trim()) {
-      alert('Vui lòng nhập tên tour')
+      toast.error('Vui lòng nhập tên tour')
       return
     }
 
