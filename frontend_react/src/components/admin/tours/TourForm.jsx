@@ -292,7 +292,6 @@ function TourForm({
 
     payload.append('category_id', formData.category_id)
     payload.append('destination_id', formData.destination_id)
-    payload.append('created_by', initialData?.created_by || 1)
     payload.append('title', formData.title.trim())
     payload.append('summary', formData.summary || '')
     payload.append('description', formData.description || '')
