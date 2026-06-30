@@ -1,4 +1,4 @@
-﻿import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import Icon from "../../components/customer/Icon";
 import TourCard from "../../components/customer/TourCard";
@@ -99,120 +99,158 @@ function HomePage({
   return (
     <main className="vg-home-page">
       <section className="vg-hero">
-        <div className="vg-container vg-hero-grid">
-          <div className="vg-hero-copy">
-            <span className="vg-trust">
-              <Icon name="sparkle" size={16} /> Ưu đãi hè 2026 - Giảm đến 30%
-            </span>
-            <h1>
-              Khám phá thế giới
-              <br />
-              cùng <span>ViVuGo</span>
-            </h1>
-            <p>
-              200+ tour trong nước & quốc tế với giá tốt nhất, dịch vụ tận tâm
-              và đội ngũ hướng dẫn viên chuyên nghiệp.
-            </p>
-
-            <div className="vg-hero-actions">
-              <Link className="vg-primary-cta" to="/tours">
-                <Icon name="map" size={18} /> Tour trong nước
-              </Link>
-              <Link className="vg-secondary-cta" to="/deals">
-                <Icon name="globe" size={18} /> Tour quốc tế
-              </Link>
-            </div>
-
-            <form className="vg-search-panel" onSubmit={submitSearch}>
-              <label>
-                <span>
-                  <Icon name="search" size={16} /> Điểm đến
-                </span>
-                <input
-                  value={search.keyword}
-                  onChange={(event) =>
-                    setSearch({ ...search, keyword: event.target.value })
-                  }
-                  placeholder="Tìm điểm đến hoặc tên tour"
-                />
-              </label>
-              <label>
-                <span>
-                  <Icon name="calendar" size={16} /> Ngày khởi hành
-                </span>
-                <input
-                  type="date"
-                  value={search.start_date}
-                  onChange={(event) =>
-                    setSearch({ ...search, start_date: event.target.value })
-                  }
-                />
-              </label>
-              <label>
-                <span>
-                  <Icon name="users" size={16} /> Số khách
-                </span>
-                <input
-                  type="number"
-                  min="1"
-                  value={search.guests}
-                  onChange={(event) =>
-                    setSearch({ ...search, guests: event.target.value })
-                  }
-                />
-              </label>
-              <button type="submit">
-                <Icon name="search" size={18} /> Tìm tour
-              </button>
-            </form>
-          </div>
-
-          <div className="vg-hero-visual" aria-hidden="true">
-            <article className="vg-hero-card vg-hero-card-main">
-              <div className="vg-hero-card-top">
-                <span>ViVuGo Select</span>
-                <strong>Top trải nghiệm hè</strong>
-              </div>
-              <img
-                src={destinationCards[0]?.image}
-                alt=""
-              />
-              <div className="vg-hero-card-bottom">
-                <div>
-                  <b>{destinationCards[1]?.name || "Vietnam"}</b>
-                  <span>{destinationCards[1]?.tours || 36} tour đang mở</span>
-                </div>
-                <div className="vg-mini-rating">
-                  <Icon name="star" size={16} /> 4.8
-                </div>
-              </div>
-            </article>
-
-            <div className="vg-hero-card vg-hero-card-side">
-              <span>Đặt tour siêu nhanh</span>
-              <strong>Chọn ngày, chọn chỗ, đi ngay</strong>
+        <div className="vg-container">
+          <div className="vg-hero-grid">
+            <div className="vg-hero-copy">
+              <span className="vg-trust">
+                <Icon name="sparkle" size={14} /> Ưu đãi hè 2026 • Giảm đến 30%
+              </span>
+              <h1>
+                Khám phá thế giới
+                <br />
+                cùng <span>ViVuGo</span>
+              </h1>
               <p>
-                Bộ lọc thông minh giúp tìm ra chuyến đi phù hợp chỉ trong vài giây.
+                Hơn 200+ tour trong nước & quốc tế với giá tốt nhất,
+                dịch vụ tận tâm và đội ngũ hướng dẫn viên chuyên nghiệp.
               </p>
+
+              <div className="vg-hero-actions">
+                <Link className="vg-primary-cta" to="/tours">
+                  Tour trong nước <Icon name="chevronRight" size={14} />
+                </Link>
+                <Link className="vg-secondary-cta" to="/tours">
+                  Tour quốc tế <Icon name="chevronRight" size={14} />
+                </Link>
+              </div>
+
+              <div className="vg-hero-inline-stats">
+                <div className="vg-inline-stat">
+                  <div className="vg-stat-icon">
+                    <Icon name="globe" size={20} />
+                  </div>
+                  <div className="vg-stat-info">
+                    <strong>50+</strong>
+                    <span>Điểm đến toàn cầu</span>
+                  </div>
+                </div>
+                <div className="vg-inline-stat">
+                  <div className="vg-stat-icon">
+                    <Icon name="briefcase" size={20} />
+                  </div>
+                  <div className="vg-stat-info">
+                    <strong>200+</strong>
+                    <span>Hành trình tuyển chọn</span>
+                  </div>
+                </div>
+                <div className="vg-inline-stat">
+                  <div className="vg-stat-icon">
+                    <Icon name="users" size={20} />
+                  </div>
+                  <div className="vg-stat-info">
+                    <strong>10.000+</strong>
+                    <span>Khách hàng tin tưởng</span>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div className="vg-hero-card vg-hero-card-float">
-              <Icon name="globe" size={20} />
-              <div>
-                <strong>50+ điểm đến</strong>
-                <span>Khắp Việt Nam và Đông Nam Á</span>
+            <div className="vg-hero-visual" aria-hidden="true">
+              <div className="vg-hero-collage">
+                {/* Card 1: Vietnam */}
+                <div className="vg-collage-card vg-collage-card-1">
+                  <div className="vg-card-badge">
+                    <Icon name="fire" size={12} /> Hot
+                  </div>
+                  <img
+                    src={destinationCards[0]?.image || "https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=600&q=80"}
+                    alt={destinationCards[0]?.name || "Việt Nam"}
+                  />
+                  <div className="vg-collage-info">
+                    <h4>{destinationCards[0]?.name || "Việt Nam"}</h4>
+                    <span>
+                      <Icon name="mapPin" size={12} /> {destinationCards[0]?.tours || 36} tour đang mở
+                    </span>
+                  </div>
+                </div>
+
+                {/* Card 2: Japan */}
+                <div className="vg-collage-card vg-collage-card-2">
+                  <img
+                    src={destinationCards[1]?.image || "https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=600&q=80"}
+                    alt={destinationCards[1]?.name || "Nhật Bản"}
+                  />
+                  <div className="vg-collage-info">
+                    <h4>{destinationCards[1]?.name || "Nhật Bản"}</h4>
+                    <span>
+                      <Icon name="mapPin" size={12} /> {destinationCards[1]?.tours || 28} tour đang mở
+                    </span>
+                  </div>
+                </div>
+
+                {/* Card 3: Maldives */}
+                <div className="vg-collage-card vg-collage-card-3">
+                  <img
+                    src={destinationCards[4]?.image || "https://images.unsplash.com/photo-1514282401047-d79a71a590e8?auto=format&fit=crop&w=600&q=80"}
+                    alt={destinationCards[4]?.name || "Maldives"}
+                  />
+                  <div className="vg-collage-info">
+                    <h4>{destinationCards[4]?.name || "Maldives"}</h4>
+                    <span>
+                      <Icon name="mapPin" size={12} /> {destinationCards[4]?.tours || 18} tour đang mở
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <div className="vg-container vg-hero-stats">
-          {stats.map((item) => (
-            <div key={item.label}>
-              <b>{item.value}</b>
-              <span>{item.label}</span>
-            </div>
-          ))}
+          <form className="vg-search-panel" onSubmit={submitSearch}>
+            <label>
+              <span>
+                <Icon name="mapPin" size={16} /> Điểm đến
+              </span>
+              <input
+                value={search.keyword}
+                onChange={(event) =>
+                  setSearch({ ...search, keyword: event.target.value })
+                }
+                placeholder="Bạn muốn đi đâu?"
+              />
+            </label>
+            <label>
+              <span>
+                <Icon name="calendar" size={16} /> Ngày khởi hành
+              </span>
+              <input
+                type="text"
+                placeholder="Chọn ngày đi"
+                onFocus={(e) => (e.target.type = "date")}
+                onBlur={(e) => (e.target.type = "text")}
+                value={search.start_date}
+                onChange={(event) =>
+                  setSearch({ ...search, start_date: event.target.value })
+                }
+              />
+            </label>
+            <label>
+              <span>
+                <Icon name="users" size={16} /> Số khách
+              </span>
+              <input
+                type="number"
+                min="1"
+                value={search.guests}
+                onChange={(event) =>
+                  setSearch({ ...search, guests: event.target.value })
+                }
+                placeholder="Số khách"
+              />
+            </label>
+            <button type="submit">
+              <Icon name="search" size={18} /> Tìm tour
+            </button>
+          </form>
         </div>
       </section>
 
