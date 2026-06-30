@@ -27,6 +27,7 @@ use App\Http\Controllers\Api\Customer\NotificationCustomerController;
 use App\Http\Controllers\Api\Customer\TourController;
 use App\Http\Controllers\Api\Customer\WishlistController;
 use App\Http\Controllers\Api\Guide\GuideProfileController;
+use App\Http\Controllers\Api\Guide\GuideTourController;
 use App\Http\Controllers\Api\PublicSettingController;
 use App\Http\Controllers\Api\PublicWidgetController;
 use Illuminate\Support\Facades\Route;
@@ -334,4 +335,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/guide/profile', [GuideProfileController::class, 'update']);
     //Sửa lại pass khi nhớ mk cũ
     Route::put('/guide/change-password', [GuideProfileController::class, 'changePassword']);
+    // Tour được phân công (⚠️ specific routes PHẢI đứng trước {departureId})
+    Route::get('/guide/tours/upcoming',       [GuideTourController::class, 'upcoming']);
+    Route::get('/guide/tours/ongoing',        [GuideTourController::class, 'ongoing']);
+    Route::get('/guide/tours/completed',      [GuideTourController::class, 'completed']);
+    Route::get('/guide/tours',                [GuideTourController::class, 'index']);
+    Route::get('/guide/tours/{departureId}',  [GuideTourController::class, 'show']);
 });
