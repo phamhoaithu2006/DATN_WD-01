@@ -1,5 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
+import AdminPageHeader from '../../../components/admin/AdminPageHeader'
 import TourForm from '../../../components/admin/tours/TourForm'
 import tourApi from '../../../services/toursApi'
 
@@ -52,19 +53,19 @@ function TourCreatePage() {
 
   return (
     <div className="p-6">
-      <div className="mb-6">
-        <Link
-          to="/admin/tours"
-          className="text-sm font-medium text-blue-600 hover:text-blue-700"
-        >
-          ← Quay lại danh sách
-        </Link>
-
-        <h1 className="mt-3 text-2xl font-bold text-gray-800">Thêm tour</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Tạo tour mới cho hệ thống
-        </p>
-      </div>
+      <AdminPageHeader
+        breadcrumb={["ViVuGo", "Quản Lý Tour", "Thêm tour"]}
+        title="Thêm tour"
+        description="Tạo tour mới cho hệ thống"
+        actions={
+          <Link
+            to="/admin/tours"
+            className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 shadow-sm transition hover:border-blue-200 hover:text-blue-600"
+          >
+            ← Quay lại danh sách
+          </Link>
+        }
+      />
 
       <TourForm
         onSubmit={handleSubmit}

@@ -15,9 +15,11 @@ class DatabaseSeeder extends Seeder
             BannerSeeder::class,
             SettingSeeder::class,
             UserSeeder::class,
+            SupportStaffSeeder::class,
             GuideSpecializationSeeder::class,
             LanguageSeeder::class,
             CertificateSeeder::class,
+
             GuideSeeder::class,
             TourSeeder::class,
             TourGuideAssignmentSeeder::class,

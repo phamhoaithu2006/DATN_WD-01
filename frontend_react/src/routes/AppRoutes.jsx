@@ -4,9 +4,11 @@ import AdminLayout from '../layouts/AdminLayout'
 import BookingManagementPage from '../pages/admin/BookingManagementPage'
 import AdminDashboardPage from '../pages/admin/AdminDashboardPage'
 import GuideManagementPage from '../pages/admin/GuideManagementPage'
+import GuideTrashPage from '../pages/admin/GuideTrashPage'
 import PartnerManagementPage from '../pages/admin/partners/PartnerManagementPage'
 import PartnerTrashPage from '../pages/admin/partners/PartnerTrashPage'
 import SupportStaffManagementPage from '../pages/admin/SupportStaffManagementPage'
+import SupportStaffTrashPage from '../pages/admin/SupportStaffTrashPage'
 import UserManagementPage from '../pages/admin/UserManagementPage'
 import TourTypeCreatePage from '../pages/admin/categories/TourTypeCreatePage'
 import TourTypeEditPage from '../pages/admin/categories/TourTypeEditPage'
@@ -31,6 +33,11 @@ import AuthPage from '../pages/auth/AuthPage'
 import ForgotPasswordPage from '../pages/auth/ForgotPasswordPage'
 import CustomerPage from '../pages/customer/CustomerPage'
 import ReportStatisticsPage from '../pages/admin/reportStatistics/ReportStatisticsPage'
+import TourDepartureListPage from "../pages/admin/tourDepartures/TourDepartureListPage";
+import TourDepartureCreatePage from "../pages/admin/tourDepartures/TourDepartureCreatePage";
+import TourDepartureEditPage from "../pages/admin/tourDepartures/TourDepartureEditPage";
+import AdminNotificationsPage from '../pages/admin/Notifications/AdminNotificationsPage'
+
 
 const protect = (page, allowedRoles = ['admin']) => (
   <ProtectedAdminRoute allowedRoles={allowedRoles}>{page}</ProtectedAdminRoute>
@@ -51,6 +58,11 @@ function AppRoutes() {
     <Route path="/customer/search" element={<CustomerPage />} />
     <Route path="/customer/bookings" element={<CustomerPage />} />
     <Route path="/customer/settings" element={<CustomerPage />} />
+    <Route path="/admin/users" element={<Navigate to="/admin/users/customers" replace />} />
+    <Route path="/admin/users/customers" element={adminPage(<UserManagementPage roleName="customer" />)} />
+    <Route path="/admin/users/admins" element={adminPage(<UserManagementPage roleName="admin" />)} />
+    <Route path="/admin/users/support-staff" element={adminPage(<UserManagementPage roleName="support staff" />)} />
+    <Route path="/admin/users/tour-guides" element={adminPage(<UserManagementPage roleName="tour guide" />)} />
     {/* Đăng ký, đăng nhập */}
     <Route path="/auth" element={<Navigate to="/auth/login" replace />} />
     <Route path="/auth/login" element={<AuthPage />} />
@@ -68,8 +80,6 @@ function AppRoutes() {
     <Route path="/admin/reports" element={adminPage(<ReportStatisticsPage />)} />
     {/* quản lý Booking */}
     <Route path="/admin/bookings" element={adminPage(<BookingManagementPage />)} />
-    {/* Router trang quản lý người dùng */}
-    <Route path="/admin/users" element={adminPage(<UserManagementPage />)} />
     {/* Danh mục tour/loại tour */}
     <Route path="/admin/categories" element={adminPage(<TourTypeListPage />)} />
     <Route path="/admin/categories/create" element={adminPage(<TourTypeCreatePage />)} />
@@ -80,6 +90,10 @@ function AppRoutes() {
     <Route path="/admin/tours/create" element={adminPage(<TourCreatePage />)} />
     <Route path="/admin/tours/:id/edit" element={adminPage(<TourEditPage />)} />
     <Route path="/admin/tours/hidden" element={adminPage(<TourHiddenPage />)} />
+    {/* quản lý lịch khởi hành tour */}
+    <Route path="/admin/tour-departures" element={adminPage(<TourDepartureListPage />)}/>
+    <Route path="/admin/tour-departures/create" element={adminPage(<TourDepartureCreatePage />)}/>
+    <Route path="/admin/tour-departures/:tourId/edit/:departureId"  element={adminPage(<TourDepartureEditPage />)}/>
     {/* Quản lý điểm đến/địa chỉ tour */}
     <Route path="/admin/destinations" element={adminPage(<DestinationListPage />)} />
     <Route path="/admin/destinations/create" element={adminPage(<DestinationCreatePage />)} />
@@ -87,13 +101,18 @@ function AppRoutes() {
     <Route path="/admin/destinations/trash" element={adminPage(<DestinationTrashPage />)} />
     {/* Quản lý hướng dẫn viên */}
     <Route path="/admin/guides" element={adminPage(<GuideManagementPage />)} />
+    <Route path="/admin/guides/trash" element={adminPage(<GuideTrashPage />)} />
     {/* Quản lý dịch vụ đối tác */}
     <Route path="/admin/partners" element={adminPage(<PartnerManagementPage />)} />
     <Route path="/admin/partners/trash" element={adminPage(<PartnerTrashPage />)} />
-    <Route path="/admin/*" element={<Navigate to="/admin" replace />} />
-    <Route path="*" element={<Navigate to="/" replace />} />
     {/* Quản lý nhân viên hỗ trợ */}
     <Route path="/admin/support" element={adminPage(<SupportStaffManagementPage />)} />
+    <Route path="/admin/support/trash" element={adminPage(<SupportStaffTrashPage />)} />
+    {/* Quản lý nhân Thông báo */}
+    <Route  path="/admin/notifications"  element={adminPage(<AdminNotificationsPage />)}/>
+    <Route path="/admin/*" element={<Navigate to="/admin" replace />} />
+    <Route path="*" element={<Navigate to="/" replace />} />
+    
   </Routes>
 }
 

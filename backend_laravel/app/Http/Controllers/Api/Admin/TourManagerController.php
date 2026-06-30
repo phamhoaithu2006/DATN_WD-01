@@ -41,7 +41,7 @@ class TourManagerController extends Controller
 
         // Giữ nguyên logic sắp xếp và phân trang theo ID giảm dần của bạn
         $tours = $query->orderBy('id', 'desc')->paginate(10);
-        $tours->getCollection()->transform(fn ($tour) => (new TourResource($tour))->resolve($request));
+        $tours->getCollection()->transform(fn($tour) => (new TourResource($tour))->resolve($request));
 
         return response()->json([
             'status' => 'success',
@@ -54,6 +54,21 @@ class TourManagerController extends Controller
      * 2. API Hiển thị tất cả danh sách tour (User)
      * Chỉ lấy danh sách tour chưa ẩn và đã được published + Tích hợp Lọc & Tìm kiếm
      */
+    /**
+     * API Xem chi tiết một tour (Admin)
+     */
+    public function show($id)
+    {
+        $tour = Tour::with(['category', 'destination', 'itineraries.images', 'departures'])
+            ->findOrFail($id);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Lấy chi tiết tour thành công',
+            'data' => new TourResource($tour)
+        ]);
+    }
+
     public function publicIndex(Request $request)
     {
         //  Chỉ lấy các tour đã xuất bản (published)
@@ -75,7 +90,7 @@ class TourManagerController extends Controller
 
         // Giữ nguyên logic sắp xếp và phân trang theo ID giảm dần của bạn
         $tours = $query->orderBy('id', 'desc')->paginate(10);
-        $tours->getCollection()->transform(fn ($tour) => (new TourResource($tour))->resolve($request));
+        $tours->getCollection()->transform(fn($tour) => (new TourResource($tour))->resolve($request));
 
         return response()->json([
             'status' => 'success',
@@ -94,10 +109,10 @@ class TourManagerController extends Controller
         $validatedData = $request->validate([
             'category_id' => 'required|integer',
             'destination_id' => 'required|integer',
-            'created_by' => 'required|integer',
             'title' => 'required|string|max:255',
             'summary' => 'nullable|string|max:500',
             'description' => 'nullable|string',
+
             'itinerary' => 'nullable|array',
             'itinerary.*.day_number' => 'required|integer|min:1',
             'itinerary.*.sort_order' => 'nullable|integer|min:0',
@@ -108,10 +123,12 @@ class TourManagerController extends Controller
             'itinerary.*.duration' => 'nullable|string|max:100',
             'itinerary.*.transport' => 'nullable|string|max:255',
             'itinerary.*.description' => 'nullable|string',
+
             'itinerary.*.images' => 'nullable|array',
             'itinerary.*.images.*.image_url' => 'required_with:itinerary.*.images|string|max:500',
             'itinerary.*.images.*.alt_text' => 'nullable|string|max:255',
             'itinerary.*.images.*.sort_order' => 'nullable|integer|min:0',
+
             'duration_days' => 'required|integer',
             'duration_nights' => 'required|integer',
             'base_price' => 'required|numeric',
@@ -119,15 +136,31 @@ class TourManagerController extends Controller
             'status' => 'required|in:draft,published,hidden,cancelled',
         ]);
 
-        // Tự động tạo slug nếu chưa có
-        $validatedData['slug'] = $request->slug ?? Str::slug($validatedData['title']);
-        $validatedData['available_slots'] = $request->available_slots ?? $validatedData['max_slots'];
+        // Lấy user đang đăng nhập qua token Sanctum
+        $user = $request->user();
+
+        if (! $user) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Bạn chưa đăng nhập hoặc token đã hết hạn.',
+            ], 401);
+        }
+
+        // Backend tự gắn người tạo tour
+        $validatedData['created_by'] = $user->id;
+
+        $validatedData['slug'] = $request->slug
+            ?? Str::slug($validatedData['title']);
+
+        $validatedData['available_slots'] = $request->available_slots
+            ?? $validatedData['max_slots'];
 
         $itineraryData = $validatedData['itinerary'] ?? [];
         unset($validatedData['itinerary']);
 
         $tour = DB::transaction(function () use ($validatedData, $itineraryData) {
             $tour = Tour::create($validatedData);
+
             $this->syncItineraries($tour, $itineraryData);
 
             return $tour;
@@ -136,7 +169,9 @@ class TourManagerController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Thêm tour thành công',
-            'data' => new TourResource($tour->load(['category', 'destination', 'itineraries.images']))
+            'data' => new TourResource(
+                $tour->load(['category', 'destination', 'itineraries.images'])
+            ),
         ], 201);
     }
 
@@ -269,7 +304,7 @@ class TourManagerController extends Controller
             ->where('status', 'hidden')
             ->orderBy('id', 'desc')
             ->paginate(10);
-        $tours->getCollection()->transform(fn ($tour) => (new TourResource($tour))->resolve(request()));
+        $tours->getCollection()->transform(fn($tour) => (new TourResource($tour))->resolve(request()));
 
         return response()->json([
             'status' => 'success',

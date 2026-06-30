@@ -26,6 +26,21 @@ const menuItems = [
     ),
   },
   {
+  label: 'Lịch Khởi Hành',
+  path: '/admin/tour-departures',
+  icon: (
+    <>
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <path d="M16 3v4" />
+      <path d="M8 3v4" />
+      <path d="M3 11h18" />
+      <path d="M8 15h2" />
+      <path d="M12 15h2" />
+      <path d="M16 15h2" />
+    </>
+  ),
+},
+  {
     label: 'Booking',
     path: '/admin/bookings',
     icon: (
@@ -100,6 +115,16 @@ const menuItems = [
     ),
   },
   {
+    label: 'Thông Báo',
+    path: '/admin/notifications',
+    icon: (
+      <>
+        <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+        <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+      </>
+    ),
+  },
+  {
     label: 'Cài Đặt Hệ Thống',
     path: '/admin/settings',
     icon: (
@@ -117,8 +142,7 @@ function AdminSidebar({ collapsed, onToggle, role = 'admin' }) {
   return (
     <aside className={collapsed ? 'admin-sidebar collapsed' : 'admin-sidebar'}>
       <div className="admin-brand">
-        <BrandLogo asLink={false} />
-        <small className="admin-brand-subtitle">Admin Dashboard</small>
+        <BrandLogo className="admin-brand-link" to="/admin" />
       </div>
 
       <nav className="admin-nav" aria-label="Điều hướng quản trị">

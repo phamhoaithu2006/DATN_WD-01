@@ -36,7 +36,7 @@ class PartnerController extends Controller
             $query->where('status', $status);
         }
 
-        $perPage  = min((int) $request->query('per_page', 15), 100);
+        $perPage  = min((int) $request->query('per_page', 10), 100);
         $partners = $query->latest()->paginate($perPage);
 
         // Transform để frontend đọc được
@@ -168,7 +168,7 @@ class PartnerController extends Controller
             $query->where('name', 'like', "%{$keyword}%");
         }
 
-        $perPage  = min((int) $request->query('per_page', 15), 100);
+        $perPage  = min((int) $request->query('per_page', 10), 100);
         $partners = $query->latest('deleted_at')->paginate($perPage);
 
         return response()->json(['success' => true, 'data' => $partners]);

@@ -72,6 +72,43 @@ test('admin can retrieve tour departures with price fallback', function () {
 | Test 2: Thêm mới Lịch khởi hành & Validation
 |--------------------------------------------------------------------------
 */
+test('admin can retrieve tour detail', function () {
+    $admin = createAdminUser();
+    Sanctum::actingAs($admin);
+
+    $tour = createTestTour(['created_by' => $admin->id]);
+    $itinerary = $tour->itineraries()->create([
+        'day_number'  => 1,
+        'sort_order'  => 0,
+        'type'        => 'departure',
+        'title'       => 'Khoi hanh',
+        'description' => 'Tap trung va bat dau hanh trinh.',
+    ]);
+    $itinerary->images()->create([
+        'image_url'  => 'https://example.com/khoi-hanh.jpg',
+        'alt_text'   => 'Anh khoi hanh',
+        'sort_order' => 0,
+    ]);
+    $tour->departures()->create([
+        'departure_date' => '2026-07-10',
+        'return_date'    => '2026-07-12',
+        'price'          => 2100000,
+        'total_slots'    => 15,
+        'booked_slots'   => 3,
+        'status'         => 'open'
+    ]);
+
+    $response = $this->getJson("/api/admin/tours/{$tour->id}");
+
+    $response->assertOk()
+        ->assertJsonPath('status', 'success')
+        ->assertJsonPath('data.id', $tour->id)
+        ->assertJsonPath('data.title', $tour->title)
+        ->assertJsonPath('data.itinerary.0.title', 'Khoi hanh')
+        ->assertJsonPath('data.itinerary.0.images.0.image_url', 'https://example.com/khoi-hanh.jpg')
+        ->assertJsonPath('data.departures.0.price', 2100000.0);
+});
+
 test('admin can create departure with valid data', function () {
     $admin = createAdminUser();
     Sanctum::actingAs($admin);

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import AdminPageHeader from '../../../components/admin/AdminPageHeader'
 import tourApi from '../../../services/toursApi'
 
 function SearchIcon({ className = 'h-5 w-5' }) {
@@ -318,23 +319,11 @@ function TourListPage() {
 
   return (
     <div className="min-h-full bg-slate-50/70 px-8 py-8">
-      <section className="border-b border-slate-200 pb-6">
-        <div className="flex items-center gap-2 text-sm font-semibold text-slate-500">
-          <span>ViVuGo</span>
-          <span className="text-slate-300">/</span>
-          <span className="font-semibold text-[#020617]">Quản Lý Tour</span>
-        </div>
-
-        <div className="mt-14 flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-          <div>
-            <h1 className="text-[30px] font-extrabold tracking-tight text-[#020617]">
-              Quản Lý Tour
-            </h1>
-            <p className="mt-2 text-sm text-slate-500">
-              Quản lý danh sách tour, loại tour, điểm đến và trạng thái hiển thị.
-            </p>
-          </div>
-
+      <AdminPageHeader
+        breadcrumb={["ViVuGo", "Quản Lý Tour"]}
+        title="Quản Lý Tour"
+        description="Quản lý danh sách tour, loại tour, điểm đến và trạng thái hiển thị."
+        actions={
           <div className="flex flex-wrap items-center gap-3">
             <Link
               to="/admin/categories"
@@ -368,8 +357,8 @@ function TourListPage() {
               Thêm tour
             </Link>
           </div>
-        </div>
-      </section>
+        }
+      />
 
       {/* SEARCH CARD */}
       <div className="mb-7 rounded-xl border border-slate-100 bg-white p-5 shadow-sm">

@@ -1,11 +1,22 @@
 import { roleLabel } from "../../../utils/accountRoles";
 
-function UserDetailModal({ customer, onClose }) {
+function initials(name = "") {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(-2)
+    .map((word) => word[0])
+    .join("")
+    .toUpperCase();
+}
+
+function UserDetailModal({ customer, showBookings = false, onClose }) {
+  const canShowBookings = showBookings && customer.role?.name === "customer";
   const date = customer.created_at
     ? new Intl.DateTimeFormat("vi-VN", { dateStyle: "long" }).format(
         new Date(customer.created_at),
       )
-    : "—";
+    : "-";
 
   return (
     <div
@@ -27,14 +38,7 @@ function UserDetailModal({ customer, onClose }) {
           </button>
         </div>
         <div className="user-detail-profile">
-          <span>
-            {customer.full_name
-              ?.split(" ")
-              .slice(-2)
-              .map((word) => word[0])
-              .join("")
-              .toUpperCase()}
-          </span>
+          <span>{initials(customer.full_name)}</span>
           <div>
             <h3>{customer.full_name}</h3>
             <em className={`user-status ${customer.status}`}>
@@ -59,10 +63,12 @@ function UserDetailModal({ customer, onClose }) {
             <dt>Ngày đăng ký</dt>
             <dd>{date}</dd>
           </div>
-          <div>
-            <dt>Số lượt đặt tour</dt>
-            <dd>{customer.bookings_count ?? 0} booking</dd>
-          </div>
+          {canShowBookings ? (
+            <div>
+              <dt>Số lượt đặt tour</dt>
+              <dd>{customer.bookings_count ?? 0} booking</dd>
+            </div>
+          ) : null}
         </dl>
         <div className="user-modal-actions">
           <button className="primary" type="button" onClick={onClose}>

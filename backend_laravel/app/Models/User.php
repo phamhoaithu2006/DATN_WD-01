@@ -49,7 +49,10 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
-
+    public function guide()
+    {
+        return $this->hasOne(Guide::class);
+    }
     // --- Relationships ---
 
     public function role(): BelongsTo
@@ -62,7 +65,8 @@ class User extends Authenticatable
         return $this->hasMany(Booking::class, 'user_id', 'id');
     }
 
-    public function wishlists() {
-    return $this->belongsToMany(Tour::class, 'wishlists', 'user_id', 'tour_id')->withTimestamps();
-}
+    public function wishlists()
+    {
+        return $this->belongsToMany(Tour::class, 'wishlists', 'user_id', 'tour_id')->withTimestamps();
+    }
 }

@@ -97,11 +97,13 @@ Route::prefix('tours')->group(function () {
 Route::get('/roles', [CustomerManagerController::class, 'index_role']);
 
 
+// Cài đặt hệ thống và widget công khai
+Route::get('/settings/public', [PublicSettingController::class, 'show']);
+Route::get('/widgets', [PublicWidgetController::class, 'index']);
 
 //======Admin======
-Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function () {
-    Route::get('/settings/public', [PublicSettingController::class, 'show']);
-    Route::get('/widgets', [PublicWidgetController::class, 'index']);
+Route::middleware(['auth:sanctum'])->prefix('admin')->group(function () {
+
     Route::middleware(['auth:sanctum', 'role:admin'])->get('/roles', [CustomerManagerController::class, 'index_role']);
 
     // Chức năng báo cáo & thống kê
@@ -145,16 +147,32 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     Route::get('guides/{id}',            [GuideController::class, 'show']);
     Route::put('guides/{id}',            [GuideController::class, 'update']);
     Route::delete('guides/{id}',         [GuideController::class, 'destroy']);
-
-    // Dropdown cho frontend
-    Route::get('languages',              [LanguageController::class, 'index']);
-    Route::get('certificates',           [CertificateController::class, 'index']);
+    Route::get('guides/available-users', [GuideController::class, 'availableUsers']);
     Route::get('guide-specializations',  function () {
         return response()->json([
             'message' => 'Danh sách chuyên môn',
             'data'    => \App\Models\GuideSpecialization::all(),
         ]);
     });
+    // Quản lý chứng chỉ
+    Route::get('certificates',          [CertificateController::class, 'index']);
+    Route::post('certificates',         [CertificateController::class, 'store']);
+    Route::get('certificates/{id}',     [CertificateController::class, 'show']);
+    Route::put('certificates/{id}',     [CertificateController::class, 'update']);
+    Route::delete('certificates/{id}',  [CertificateController::class, 'destroy']);
+    // Quản lý ngôn ngữ
+    Route::get('languages',                      [LanguageController::class, 'index']);
+    Route::post('languages',                     [LanguageController::class, 'store']);
+    Route::get('languages/{id}',                 [LanguageController::class, 'show']);
+    Route::put('languages/{id}',                 [LanguageController::class, 'update']);
+    Route::delete('languages/{id}',              [LanguageController::class, 'destroy']);
+
+    // Quản lý cấp độ theo ngôn ngữ
+    Route::get('languages/{languageId}/levels',          [LanguageController::class, 'levels']);
+    Route::post('languages/{languageId}/levels',         [LanguageController::class, 'storeLevel']);
+    Route::put('languages/{languageId}/levels/{levelId}',    [LanguageController::class, 'updateLevel']);
+    Route::delete('languages/{languageId}/levels/{levelId}', [LanguageController::class, 'destroyLevel']);
+
     // Quản lý đối tác
     Route::get('partners/service-types',   [PartnerController::class, 'serviceTypes']);
     Route::get('partners/statistics',      [PartnerController::class, 'statistics']);
@@ -178,6 +196,8 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     Route::get('/support-staff', [SupportStaffController::class, 'index']);
     // Tính tổng số lượng
     Route::get('/support-staff/statistics', [SupportStaffController::class, 'statistics']);
+    // Thùng rác
+    Route::get('/support-staff/trashed', [SupportStaffController::class, 'trashed']);
     // Thêm thông tin
     Route::post('/support-staff', [SupportStaffController::class, 'store']);
     // Xem chi tiết
@@ -186,6 +206,10 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     Route::put('/support-staff/{id}', [SupportStaffController::class, 'update']);
     // Xóa thông tin
     Route::delete('/support-staff/{id}', [SupportStaffController::class, 'destroy']);
+    // Khôi phục từ thùng rác
+    Route::patch('/support-staff/{id}/restore', [SupportStaffController::class, 'restore']);
+    // Xóa vĩnh viễn
+    Route::delete('/support-staff/{id}/force-delete', [SupportStaffController::class, 'forceDestroy']);
 
     // Quản lý địa chỉ tour
     // Tìm kiếm
@@ -220,11 +244,11 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     // Giao diện cho admin
     Route::prefix('tours')->group(function () {
         Route::get('/', [TourManagerController::class, 'index']); // Quản lý tour (không hiện tour bị ẩn)
+        Route::get('/hidden-list', [TourManagerController::class, 'hiddenTours']); // Lấy danh sách tour bị ẩn
+        Route::get('/{id}', [TourManagerController::class, 'show']); // Xem chi tiết tour
         Route::post('/', [TourManagerController::class, 'store']); // Thêm tour
         Route::put('/{id}', [TourManagerController::class, 'update']); // Sửa tour
         Route::delete('/{id}', [TourManagerController::class, 'destroy']); // Xóa tour
-
-        Route::get('/hidden-list', [TourManagerController::class, 'hiddenTours']); // Lấy danh sách tour bị ẩn
         Route::patch('/{id}/hide', [TourManagerController::class, 'hide']); // Ẩn tour
         Route::patch('/{id}/unhide', [TourManagerController::class, 'unhide']); // Hiện tour
 
@@ -235,9 +259,7 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
         Route::delete('/departures/{id}', [TourDepartureController::class, 'destroy']);   // Xóa lịch khởi hành
     });
 
-    // Cài đặt hệ thống và widget công khai
-    Route::get('/settings/public', [PublicSettingController::class, 'show']);
-    Route::get('/widgets', [PublicWidgetController::class, 'index']);
+
 
     // Cài đặt hệ thống cho admin
     Route::get('/settings', [SettingController::class, 'index']);
