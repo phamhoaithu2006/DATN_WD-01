@@ -96,13 +96,13 @@ Route::prefix('tours')->group(function () {
 Route::get('/roles', [CustomerManagerController::class, 'index_role']);
 
 
-    // Cài đặt hệ thống và widget công khai
-    Route::get('/settings/public', [PublicSettingController::class, 'show']);
-    Route::get('/widgets', [PublicWidgetController::class, 'index']);
-    
+// Cài đặt hệ thống và widget công khai
+Route::get('/settings/public', [PublicSettingController::class, 'show']);
+Route::get('/widgets', [PublicWidgetController::class, 'index']);
+
 //======Admin======
 Route::middleware(['auth:sanctum'])->prefix('admin')->group(function () {
-    
+
     Route::middleware(['auth:sanctum', 'role:admin'])->get('/roles', [CustomerManagerController::class, 'index_role']);
 
     // Chức năng báo cáo & thống kê
@@ -146,16 +146,32 @@ Route::middleware(['auth:sanctum'])->prefix('admin')->group(function () {
     Route::get('guides/{id}',            [GuideController::class, 'show']);
     Route::put('guides/{id}',            [GuideController::class, 'update']);
     Route::delete('guides/{id}',         [GuideController::class, 'destroy']);
-
-    // Dropdown cho frontend
-    Route::get('languages',              [LanguageController::class, 'index']);
-    Route::get('certificates',           [CertificateController::class, 'index']);
+    Route::get('guides/available-users', [GuideController::class, 'availableUsers']);
     Route::get('guide-specializations',  function () {
         return response()->json([
             'message' => 'Danh sách chuyên môn',
             'data'    => \App\Models\GuideSpecialization::all(),
         ]);
     });
+    // Quản lý chứng chỉ
+    Route::get('certificates',          [CertificateController::class, 'index']);
+    Route::post('certificates',         [CertificateController::class, 'store']);
+    Route::get('certificates/{id}',     [CertificateController::class, 'show']);
+    Route::put('certificates/{id}',     [CertificateController::class, 'update']);
+    Route::delete('certificates/{id}',  [CertificateController::class, 'destroy']);
+    // Quản lý ngôn ngữ
+    Route::get('languages',                      [LanguageController::class, 'index']);
+    Route::post('languages',                     [LanguageController::class, 'store']);
+    Route::get('languages/{id}',                 [LanguageController::class, 'show']);
+    Route::put('languages/{id}',                 [LanguageController::class, 'update']);
+    Route::delete('languages/{id}',              [LanguageController::class, 'destroy']);
+
+    // Quản lý cấp độ theo ngôn ngữ
+    Route::get('languages/{languageId}/levels',          [LanguageController::class, 'levels']);
+    Route::post('languages/{languageId}/levels',         [LanguageController::class, 'storeLevel']);
+    Route::put('languages/{languageId}/levels/{levelId}',    [LanguageController::class, 'updateLevel']);
+    Route::delete('languages/{languageId}/levels/{levelId}', [LanguageController::class, 'destroyLevel']);
+
     // Quản lý đối tác
     Route::get('partners/service-types',   [PartnerController::class, 'serviceTypes']);
     Route::get('partners/statistics',      [PartnerController::class, 'statistics']);
