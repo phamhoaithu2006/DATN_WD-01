@@ -4,6 +4,7 @@ import apiClient from '../../services/apiClient'
 import AdminPageHeader from '../../components/admin/AdminPageHeader'
 import { getAccountRoles, searchAccounts } from '../../services/adminAccountApi'
 import Icon from '../../components/customer/Icon'
+import '../../styles/support-staff.css'
 
 const DEFAULT_FORM = {
   user_id: '',
@@ -272,6 +273,7 @@ function GuideManagementPage() {
   const [loi, setLoi] = useState('')
   const [loiForm, setLoiForm] = useState({})
   const [thongBao, setThongBao] = useState('')
+  const [deleteTarget, setDeleteTarget] = useState(null)
   const coLoc = locTrangThai !== 'all' || locChuyenMon !== 'all'
   const thongKeTheoTrangThai = useMemo(
     () => ({
@@ -504,17 +506,17 @@ function GuideManagementPage() {
       setDangLuu(false)
     }
   }
-  async function xoaHuongDanVien(id) {
-    if (!window.confirm('Bạn có chắc muốn xóa hướng dẫn viên này?')) {
-      return
-    }
+  async function confirmDelete() {
+    if (!deleteTarget) return
+
     setLoi('')
     setThongBao('')
     try {
-      const phanHoi = await apiClient.delete(`/admin/guides/${id}`)
+      const phanHoi = await apiClient.delete(`/admin/guides/${deleteTarget.id}`)
       await taiDanhSachHdv(phanTrang.currentPage)
       await taiThongKeHdv()
       setThongBao(phanHoi.data?.message || 'Đã chuyển hướng dẫn viên vào thùng rác.')
+      setDeleteTarget(null)
     } catch (error) {
       setLoi(getErrorMessage(error, 'Không xóa được hướng dẫn viên.'))
     }
@@ -538,8 +540,28 @@ function GuideManagementPage() {
           </>
         }
       />
-      {thongBao ? <div className="guide-alert success">{thongBao}</div> : null}
-      {loi ? <div className="guide-alert error">{loi}</div> : null}
+      {thongBao ? (
+        <div className="support-toast success">
+          <div>
+            <strong>Thành công</strong>
+            <p>{thongBao}</p>
+          </div>
+          <button type="button" onClick={() => setThongBao('')}>
+            ×
+          </button>
+        </div>
+      ) : null}
+      {loi ? (
+        <div className="support-toast error">
+          <div>
+            <strong>Có lỗi xảy ra</strong>
+            <p>{loi}</p>
+          </div>
+          <button type="button" onClick={() => setLoi('')}>
+            ×
+          </button>
+        </div>
+      ) : null}
       <div className="guide-stat-grid">
         <button
           className={`guide-stat-card blue ${locTrangThai === 'all' && locChuyenMon === 'all' ? 'is-active' : ''}`}
@@ -719,7 +741,7 @@ function GuideManagementPage() {
                               type="button"
                               title="Xóa"
                               aria-label="Xóa"
-                              onClick={() => xoaHuongDanVien(hdv.id)}
+                              onClick={() => setDeleteTarget(hdv)}
                             >
                               <Icon name="trash" size={16} />
                             </button>
@@ -996,6 +1018,33 @@ function GuideManagementPage() {
               ) : (
                 <p className="guide-empty-text">Chưa có chứng chỉ.</p>
               )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {deleteTarget ? (
+        <div
+          className="support-modal-backdrop"
+          role="presentation"
+          onMouseDown={() => setDeleteTarget(null)}
+        >
+          <div
+            className="support-delete-modal"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="support-delete-icon">!</div>
+            <h3>Xóa hướng dẫn viên?</h3>
+            <p>
+              Bạn có chắc muốn xóa <strong>{layTenNguoiDung(deleteTarget)}</strong> khỏi hệ thống?
+              Thao tác này sẽ chuyển hướng dẫn viên vào thùng rác.
+            </p>
+            <div className="support-modal-actions">
+              <button type="button" onClick={() => setDeleteTarget(null)}>
+                Hủy
+              </button>
+              <button className="danger primary" type="button" onClick={confirmDelete}>
+                Xóa
+              </button>
             </div>
           </div>
         </div>

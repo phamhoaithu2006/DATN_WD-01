@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\TourResource;
 use App\Models\Tour;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -23,7 +24,7 @@ class TourManagerController extends Controller
 
         //  1. ADMIN TÌM KIẾM: Theo tiêu đề tour (title)
         if ($request->has('search') && $request->search != '') {
-            $query->where('title', 'LIKE', '%' . $request->search . '%');
+            $query->where('title', 'LIKE', '%'.$request->search.'%');
         }
 
         //  2. ADMIN LỌC TRẠNG THÁI: Lọc nhanh theo 'draft', 'published', 'cancelled'
@@ -46,7 +47,7 @@ class TourManagerController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Lấy danh sách quản lý tour thành công',
-            'data' => $tours
+            'data' => $tours,
         ]);
     }
 
@@ -65,7 +66,7 @@ class TourManagerController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Lấy chi tiết tour thành công',
-            'data' => new TourResource($tour)
+            'data' => new TourResource($tour),
         ]);
     }
 
@@ -77,7 +78,7 @@ class TourManagerController extends Controller
 
         //  1. USER TÌM KIẾM: Tìm theo tiêu đề tour
         if ($request->has('search') && $request->search != '') {
-            $query->where('title', 'LIKE', '%' . $request->search . '%');
+            $query->where('title', 'LIKE', '%'.$request->search.'%');
         }
 
         //  2. USER LỌC KHOẢNG GIÁ: Tìm theo ngân sách của khách
@@ -95,7 +96,7 @@ class TourManagerController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Lấy danh sách tour thành công',
-            'data' => $tours
+            'data' => $tours,
         ]);
     }
 
@@ -151,7 +152,7 @@ class TourManagerController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Thêm tour thành công',
-            'data' => new TourResource($tour->load(['category', 'destination', 'itineraries.images']))
+            'data' => new TourResource($tour->load(['category', 'destination', 'itineraries.images'])),
         ], 201);
     }
 
@@ -192,12 +193,12 @@ class TourManagerController extends Controller
             'status' => 'sometimes|required|in:draft,published,hidden,cancelled',
         ]);
 
-        if (isset($validatedData['title']) && !$request->has('slug')) {
+        if (isset($validatedData['title']) && ! $request->has('slug')) {
             $validatedData['slug'] = Str::slug($validatedData['title']);
         }
 
         if (
-            !isset($validatedData['available_slots']) &&
+            ! isset($validatedData['available_slots']) &&
             isset($validatedData['max_slots'])
         ) {
             $validatedData['available_slots'] = $validatedData['max_slots'];
@@ -218,9 +219,10 @@ class TourManagerController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Cập nhật tour thành công',
-            'data' => new TourResource($tour->fresh(['category', 'destination', 'itineraries.images']))
+            'data' => new TourResource($tour->fresh(['category', 'destination', 'itineraries.images'])),
         ]);
     }
+
     /**
      * 5. API Xóa tour (Soft Delete)
      */
@@ -231,7 +233,7 @@ class TourManagerController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Đã xóa tour thành công'
+            'message' => 'Đã xóa tour thành công',
         ]);
     }
 
@@ -247,7 +249,7 @@ class TourManagerController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Đã ẩn tour thành công',
-            'data' => new TourResource($tour->fresh(['category', 'destination', 'itineraries.images']))
+            'data' => new TourResource($tour->fresh(['category', 'destination', 'itineraries.images'])),
         ]);
     }
 
@@ -262,7 +264,7 @@ class TourManagerController extends Controller
         if ($tour->status !== 'hidden') {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Tour này hiện không bị ẩn'
+                'message' => 'Tour này hiện không bị ẩn',
             ], 400);
         }
 
@@ -271,7 +273,7 @@ class TourManagerController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Đã bỏ ẩn tour thành công',
-            'data' => new TourResource($tour->fresh(['category', 'destination', 'itineraries.images']))
+            'data' => new TourResource($tour->fresh(['category', 'destination', 'itineraries.images'])),
         ]);
     }
 
@@ -289,7 +291,91 @@ class TourManagerController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Lấy danh sách tour bị ẩn thành công',
-            'data' => $tours
+            'data' => $tours,
+        ]);
+    }
+
+    public function statistics(Request $request)
+    {
+        $year = $request->input('year', Carbon::now()->year);
+        $baseQuery = Tour::query()->withoutTrashed();
+
+        $totals = (clone $baseQuery)
+            ->selectRaw('COUNT(*) as total')
+            ->selectRaw("SUM(CASE WHEN status = 'published' THEN 1 ELSE 0 END) as published")
+            ->selectRaw("SUM(CASE WHEN status = 'draft' THEN 1 ELSE 0 END) as draft")
+            ->selectRaw("SUM(CASE WHEN status = 'hidden' THEN 1 ELSE 0 END) as hidden")
+            ->selectRaw("SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled")
+            ->selectRaw('COALESCE(AVG(base_price), 0) as average_price')
+            ->selectRaw('COALESCE(AVG(average_rating), 0) as average_rating')
+            ->first();
+
+        $topTours = DB::table('bookings')
+            ->join('tours', 'bookings.tour_id', '=', 'tours.id')
+            ->leftJoin('destinations', 'tours.destination_id', '=', 'destinations.id')
+            ->select(
+                'tours.id',
+                'tours.title',
+                'tours.slug',
+                'tours.status',
+                'tours.base_price',
+                'tours.average_rating',
+                'tours.review_count',
+                'destinations.name as destination_name',
+                'destinations.province_city',
+                DB::raw('COUNT(bookings.id) as total_bookings'),
+                DB::raw('SUM(bookings.total_amount) as total_revenue'),
+                DB::raw('SUM(bookings.number_of_people) as total_guests')
+            )
+            ->whereYear('bookings.created_at', $year)
+            ->where('bookings.status', '!=', 'cancelled')
+            ->groupBy(
+                'tours.id',
+                'tours.title',
+                'tours.slug',
+                'tours.status',
+                'tours.base_price',
+                'tours.average_rating',
+                'tours.review_count',
+                'destinations.name',
+                'destinations.province_city'
+            )
+            ->orderByDesc('total_bookings')
+            ->limit(5)
+            ->get();
+
+        $recentTours = (clone $baseQuery)
+            ->with(['category:id,name', 'destination:id,name,province_city'])
+            ->orderByDesc('created_at')
+            ->limit(5)
+            ->get([
+                'id',
+                'title',
+                'slug',
+                'status',
+                'base_price',
+                'average_rating',
+                'review_count',
+                'category_id',
+                'destination_id',
+                'created_at',
+            ]);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Lấy thống kê tour thành công',
+            'data' => [
+                'year' => (int) $year,
+                'total' => (int) ($totals->total ?? 0),
+                'published' => (int) ($totals->published ?? 0),
+                'draft' => (int) ($totals->draft ?? 0),
+                'hidden' => (int) ($totals->hidden ?? 0),
+                'cancelled' => (int) ($totals->cancelled ?? 0),
+                'average_price' => (float) ($totals->average_price ?? 0),
+                'average_rating' => round((float) ($totals->average_rating ?? 0), 2),
+                'top_tours' => $topTours,
+                'recent_tours' => $recentTours,
+            ],
         ]);
     }
 

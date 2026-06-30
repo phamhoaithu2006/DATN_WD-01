@@ -1,28 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
+﻿import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import AdminPageHeader from '../../../components/admin/AdminPageHeader'
 import { partnerApi } from '../../../services/partnerApi'
 import '../../../styles/partner-management.css'
-
-function formatDate(value) {
-  if (!value) return '—'
-
-  return new Intl.DateTimeFormat('vi-VN', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value))
-}
-
-function getMessage(error, fallback) {
-  const errors = error.response?.data?.errors
-
-  if (errors) {
-    return Object.values(errors).flat().join(' ')
-  }
-
-  return error.response?.data?.message || fallback
-}
+import '../../../styles/support-staff.css'
 
 function unwrapApiData(payload) {
   return payload?.data ?? payload
@@ -53,6 +35,27 @@ function getPaginationMeta(payload) {
   }
 }
 
+function getMessage(error, fallback) {
+  const errors = error.response?.data?.errors
+  if (errors) {
+    return Object.values(errors).flat().join(' ')
+  }
+
+  return error.response?.data?.message || fallback
+}
+
+function formatDate(value) {
+  if (!value) return '—'
+
+  const parsed = new Date(String(value).trim())
+  if (Number.isNaN(parsed.getTime())) return '—'
+
+  return new Intl.DateTimeFormat('vi-VN', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(parsed)
+}
+
 function getPartnerName(partner) {
   return partner.name || partner.partner_name || partner.company_name || partner.title || '—'
 }
@@ -62,60 +65,64 @@ function getPartnerCode(partner) {
 }
 
 function getPartnerType(partner) {
-  return (
+  const rawType =
     partner.service_type_label ||
     partner.serviceType?.name ||
     partner.serviceType?.slug ||
     partner.service_type ||
-    partner.type ||
-    '—'
-  )
+    partner.type
+
+  if (!rawType) return '—'
+  if (typeof rawType === 'string' || typeof rawType === 'number') return String(rawType)
+  if (typeof rawType === 'object') {
+    return rawType.name || rawType.label || rawType.slug || rawType.title || '—'
+  }
+
+  return '—'
 }
 
 function PartnerTrashPage() {
   const [partners, setPartners] = useState([])
+  const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
-  const [pagination, setPagination] = useState({
-    currentPage: 1,
-    lastPage: 1,
-    total: 0,
-    perPage: 10,
-  })
-  const [loading, setLoading] = useState(false)
+  const [pagination, setPagination] = useState({ currentPage: 1, lastPage: 1, total: 0, perPage: 10 })
+  const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [restoreTarget, setRestoreTarget] = useState(null)
   const [forceDeleteTarget, setForceDeleteTarget] = useState(null)
   const [busy, setBusy] = useState(false)
 
-  const fetchTrashedPartners = useCallback(
-    async (pageNumber = page) => {
-      try {
-        setLoading(true)
-        setError('')
+  const fetchTrashedPartners = useCallback(async (pageNumber = page) => {
+    try {
+      setLoading(true)
+      setError('')
 
-        const response = await partnerApi.getTrashed({ page: pageNumber, per_page: 10 })
-        setPartners(getListData(response))
-        setPagination(getPaginationMeta(response))
-      } catch (err) {
-        if (err.response?.status === 404) {
-          setPartners([])
-          setPagination({ currentPage: 1, lastPage: 1, total: 0, perPage: 10 })
-          return
-        }
+      const response = await partnerApi.getTrashed({
+        page: pageNumber,
+        per_page: 10,
+        keyword: search.trim() || undefined,
+      })
 
-        setError(getMessage(err, 'Không thể tải danh sách đối tác đã xóa.'))
-      } finally {
-        setLoading(false)
+      setPartners(getListData(response))
+      setPagination(getPaginationMeta(response))
+    } catch (err) {
+      if (err.response?.status === 404) {
+        setPartners([])
+        setPagination({ currentPage: 1, lastPage: 1, total: 0, perPage: 10 })
+        return
       }
-    },
-    [page],
-  )
+
+      setError(getMessage(err, 'Không tải được danh sách đối tác đã xóa.'))
+    } finally {
+      setLoading(false)
+    }
+  }, [page, search])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void fetchTrashedPartners(page)
-    }, 0)
+    }, 120)
 
     return () => window.clearTimeout(timer)
   }, [fetchTrashedPartners, page])
@@ -140,7 +147,7 @@ function PartnerTrashPage() {
       setError('')
 
       const response = await partnerApi.restore(restoreTarget.id)
-      setMessage(response.data?.message || response.message || 'Khôi phục đối tác thành công.')
+      setMessage(response.data?.message || response.message || 'Đã khôi phục đối tác.')
       setRestoreTarget(null)
       await fetchTrashedPartners(page)
     } catch (err) {
@@ -170,29 +177,46 @@ function PartnerTrashPage() {
   }
 
   return (
-    <section className="partner-trash-page">
+    <section className="support-page support-trash-page">
       <AdminPageHeader
-        breadcrumb={["ViVuGo", "Quản Lý Dịch Vụ Đối Tác"]}
-        title="Đối tác đã xóa"
-        description="Khôi phục hoặc xóa vĩnh viễn các đối tác đã được đưa vào thùng rác."
+        breadcrumb={['ViVuGo', 'Quản Lý Dịch Vụ Đối Tác']}
+        title="Thùng rác đối tác"
+        description="Khôi phục hoặc xóa vĩnh viễn các đối tác đã bị xóa mềm."
         actions={
-          <Link className="partner-secondary-button" to="/admin/partners">
+          <Link className="support-trash-button" to="/admin/partners">
             Quay lại danh sách
           </Link>
         }
       />
 
-      {message ? <div className="partner-alert success">{message}</div> : null}
-      {error ? <div className="partner-alert error">{error}</div> : null}
+      {message ? <div className="support-alert success">{message}</div> : null}
+      {error ? <div className="support-alert error">{error}</div> : null}
 
-      <div className="partner-table-wrap">
-        <div className="partner-table-scroll">
-          <table className="partner-table trash">
+      <div className="support-main-panel">
+        <div className="support-filter-bar trash">
+          <label className="support-search">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m20 20-4-4" />
+            </svg>
+            <input
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value)
+                setPage(1)
+              }}
+              placeholder="Tìm theo tên, mã, email, số điện thoại..."
+            />
+          </label>
+        </div>
+
+        <div className="support-table-wrap">
+          <table className="support-table trash">
             <thead>
               <tr>
                 <th>STT</th>
-                <th>Tên đối tác</th>
                 <th>Mã</th>
+                <th>Tên đối tác</th>
                 <th>Loại dịch vụ</th>
                 <th>Ngày xóa</th>
                 <th>Hành động</th>
@@ -201,8 +225,11 @@ function PartnerTrashPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="6" className="partner-empty-row">
-                    Đang tải dữ liệu...
+                  <td colSpan="6" className="support-empty-row">
+                    <div className="support-loading">
+                      <span />
+                      <p>Đang tải dữ liệu...</p>
+                    </div>
                   </td>
                 </tr>
               ) : partners.length > 0 ? (
@@ -210,18 +237,16 @@ function PartnerTrashPage() {
                   <tr key={partner.id}>
                     <td>{(pagination.currentPage - 1) * pagination.perPage + index + 1}</td>
                     <td>
+                      <span className="partner-inline-code">{getPartnerCode(partner)}</span>
+                    </td>
+                    <td>
                       <strong>{getPartnerName(partner)}</strong>
                     </td>
-                    <td>{getPartnerCode(partner)}</td>
                     <td>{getPartnerType(partner)}</td>
                     <td>{formatDate(partner.deleted_at)}</td>
                     <td>
-                      <div className="partner-actions trash-actions">
-                        <button
-                          type="button"
-                          onClick={() => setRestoreTarget(partner)}
-                          disabled={busy}
-                        >
+                      <div className="support-actions trash-actions">
+                        <button type="button" onClick={() => setRestoreTarget(partner)} disabled={busy}>
                           Khôi phục
                         </button>
                         <button
@@ -238,8 +263,11 @@ function PartnerTrashPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="6" className="partner-empty-row">
-                    Không có đối tác nào đã xóa.
+                  <td colSpan="6" className="support-empty-row">
+                    <div className="support-empty-state">
+                      <strong>Chưa có đối tác nào trong thùng rác</strong>
+                      <span>Những đối tác bị xóa mềm sẽ xuất hiện tại đây.</span>
+                    </div>
                   </td>
                 </tr>
               )}
@@ -248,7 +276,7 @@ function PartnerTrashPage() {
         </div>
 
         {pagination.lastPage > 1 ? (
-          <div className="partner-pagination">
+          <div className="support-pagination">
             <button
               type="button"
               disabled={pagination.currentPage <= 1 || loading}
@@ -273,13 +301,14 @@ function PartnerTrashPage() {
       </div>
 
       {restoreTarget ? (
-        <div className="partner-modal-backdrop" role="presentation" onMouseDown={() => !busy && setRestoreTarget(null)}>
-          <div className="partner-delete-modal" onMouseDown={(event) => event.stopPropagation()}>
+        <div className="support-modal-backdrop" role="presentation" onMouseDown={() => !busy && setRestoreTarget(null)}>
+          <div className="support-delete-modal" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="support-delete-icon">↺</div>
             <h3>Khôi phục đối tác?</h3>
             <p>
               Bạn muốn khôi phục <strong>{getPartnerName(restoreTarget)}</strong> về danh sách hoạt động?
             </p>
-            <div className="partner-modal-actions">
+            <div className="support-modal-actions">
               <button type="button" onClick={() => setRestoreTarget(null)} disabled={busy}>
                 Hủy
               </button>
@@ -292,13 +321,14 @@ function PartnerTrashPage() {
       ) : null}
 
       {forceDeleteTarget ? (
-        <div className="partner-modal-backdrop" role="presentation" onMouseDown={() => !busy && setForceDeleteTarget(null)}>
-          <div className="partner-delete-modal" onMouseDown={(event) => event.stopPropagation()}>
+        <div className="support-modal-backdrop" role="presentation" onMouseDown={() => !busy && setForceDeleteTarget(null)}>
+          <div className="support-delete-modal" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="support-delete-icon">!</div>
             <h3>Xóa vĩnh viễn đối tác?</h3>
             <p>
               Thao tác này sẽ xóa hoàn toàn <strong>{getPartnerName(forceDeleteTarget)}</strong> và không thể khôi phục.
             </p>
-            <div className="partner-modal-actions">
+            <div className="support-modal-actions">
               <button type="button" onClick={() => setForceDeleteTarget(null)} disabled={busy}>
                 Hủy
               </button>

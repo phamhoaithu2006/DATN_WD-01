@@ -29,35 +29,37 @@ class PartnerController extends Controller
         }
 
         if ($serviceType = $request->query('service_type')) {
-            $query->whereHas('serviceType', fn($q) => $q->where('slug', $serviceType));
+            $query->whereHas('serviceType', fn ($q) => $q->where('slug', $serviceType));
         }
 
         if ($status = $request->query('status')) {
             $query->where('status', $status);
         }
 
-        $perPage  = min((int) $request->query('per_page', 10), 100);
+        $perPage = min((int) $request->query('per_page', 10), 100);
         $partners = $query->latest()->paginate($perPage);
 
         // Transform để frontend đọc được
         $partners->getCollection()->transform(function ($partner) {
-            $partner->service_type       = $partner->serviceType?->slug ?? '';
+            $partner->service_type = $partner->serviceType?->slug ?? '';
             $partner->service_type_label = $partner->serviceType?->name ?? '';
-            $partner->rating             = $partner->average_rating;
-            $partner->contact_name       = $partner->contact_person;
+            $partner->rating = $partner->average_rating;
+            $partner->contact_name = $partner->contact_person;
             unset($partner->serviceType); // ← thêm dòng này để ẩn object
+
             return $partner;
         });
 
         return response()->json(['success' => true, 'data' => $partners]);
     }
+
     public function statistics(): JsonResponse
     {
-        $total         = Partner::withoutTrashed()->count();
-        $totalActive   = Partner::withoutTrashed()->where('status', 'active')->count();
+        $total = Partner::withoutTrashed()->count();
+        $totalActive = Partner::withoutTrashed()->where('status', 'active')->count();
         $totalInactive = Partner::withoutTrashed()->where('status', 'inactive')->count();
 
-        $serviceTypes = PartnerServiceType::all()->map(fn($t) => [
+        $serviceTypes = PartnerServiceType::all()->map(fn ($t) => [
             'value' => $t->slug,
             'label' => $t->name,
             'count' => $t->partners()->withoutTrashed()->count(),
@@ -65,13 +67,13 @@ class PartnerController extends Controller
 
         return response()->json([
             'success' => true,
-            'data'    => [
-                'total'          => $total,
-                'active'         => $totalActive,
-                'inactive'       => $totalInactive,
-                'hidden'         => 0,
+            'data' => [
+                'total' => $total,
+                'active' => $totalActive,
+                'inactive' => $totalInactive,
+                'hidden' => 0,
                 'average_rating' => Partner::withoutTrashed()->avg('average_rating') ?? 0,
-                'service_types'  => $serviceTypes,
+                'service_types' => $serviceTypes,
             ],
         ]);
     }
@@ -79,6 +81,7 @@ class PartnerController extends Controller
     public function serviceTypes(): JsonResponse
     {
         $types = PartnerServiceType::select('id', 'name', 'slug')->orderBy('name')->get();
+
         return response()->json(['success' => true, 'data' => $types]);
     }
 
@@ -86,11 +89,12 @@ class PartnerController extends Controller
     {
         $partner = Partner::with('serviceType')->findOrFail($id);
 
-        $partner->service_type       = $partner->serviceType?->slug ?? '';
+        $partner->service_type = $partner->serviceType?->slug ?? '';
         $partner->service_type_label = $partner->serviceType?->name ?? '';
-        $partner->rating             = $partner->average_rating;
-        $partner->contact_name       = $partner->contact_person;
+        $partner->rating = $partner->average_rating;
+        $partner->contact_name = $partner->contact_person;
         unset($partner->serviceType); // ← thêm dòng này
+
         return response()->json(['success' => true, 'data' => $partner]);
     }
 
@@ -98,65 +102,61 @@ class PartnerController extends Controller
     {
         $validated = $request->validate([
             'service_type_id' => ['required', 'integer', 'exists:partner_service_types,id'],
-            'partner_code'    => ['nullable', 'string', 'max:20', 'unique:partners,partner_code'],
-            'name'            => ['required', 'string', 'max:150'],
-            'contact_person'  => ['nullable', 'string', 'max:100'],
-            'phone'           => ['nullable', 'string', 'max:20'],
-            'email'           => ['nullable', 'email', 'max:150'],
-            'address'         => ['nullable', 'string', 'max:255'],
-            'website'         => ['nullable', 'url', 'max:255'],
-            'description'     => ['nullable', 'string'],
-            'logo_url'        => ['nullable', 'url', 'max:500'],
-            'average_rating'  => ['nullable', 'numeric', 'min:0', 'max:5'],
-            'contract_start'  => ['nullable', 'date'],
-            'contract_end'    => ['nullable', 'date', 'after_or_equal:contract_start'],
-            'is_visible'      => ['nullable', 'boolean'],
-            'status'          => ['nullable', Rule::in(['active', 'inactive'])],
+            'name' => ['required', 'string', 'max:150'],
+            'contact_person' => ['nullable', 'string', 'max:100'],
+            'phone' => ['nullable', 'string', 'max:20'],
+            'email' => ['nullable', 'email', 'max:150'],
+            'address' => ['nullable', 'string', 'max:255'],
+            'website' => ['nullable', 'url', 'max:255'],
+            'description' => ['nullable', 'string'],
+            'logo_url' => ['nullable', 'url', 'max:500'],
+            'contract_start' => ['nullable', 'date'],
+            'contract_end' => ['nullable', 'date', 'after_or_equal:contract_start'],
+            'status' => ['nullable', Rule::in(['active', 'inactive'])],
         ]);
         $validated['status'] = $validated['status'] ?? 'active';
         $partner = Partner::create($validated);
-        $partner->load('serviceType');
+        $partner->refresh()->load('serviceType');
 
         return response()->json([
             'success' => true,
             'message' => 'Thêm đối tác thành công.',
-            'data'    => $partner,
+            'data' => $partner,
         ], 201);
     }
 
     public function update(Request $request, int $id): JsonResponse
     {
-        $partner   = Partner::findOrFail($id);
+        $partner = Partner::findOrFail($id);
         $validated = $request->validate([
             'service_type_id' => ['sometimes', 'integer', 'exists:partner_service_types,id'],
-            'partner_code'    => ['nullable', 'string', 'max:20', Rule::unique('partners', 'partner_code')->ignore($id)],
-            'name'            => ['sometimes', 'string', 'max:150'],
-            'contact_person'  => ['nullable', 'string', 'max:100'],
-            'phone'           => ['nullable', 'string', 'max:20'],
-            'email'           => ['nullable', 'email', 'max:150'],
-            'address'         => ['nullable', 'string', 'max:255'],
-            'website'         => ['nullable', 'url', 'max:255'],
-            'description'     => ['nullable', 'string'],
-            'logo_url'        => ['nullable', 'url', 'max:500'],
-            'average_rating'  => ['nullable', 'numeric', 'min:0', 'max:5'],
-            'contract_start'  => ['nullable', 'date'],
-            'contract_end'    => ['nullable', 'date', 'after_or_equal:contract_start'],
-            'is_visible'      => ['nullable', 'boolean'],
-            'status'          => ['nullable', Rule::in(['active', 'inactive'])],
+            'name' => ['sometimes', 'string', 'max:150'],
+            'contact_person' => ['nullable', 'string', 'max:100'],
+            'phone' => ['nullable', 'string', 'max:20'],
+            'email' => ['nullable', 'email', 'max:150'],
+            'address' => ['nullable', 'string', 'max:255'],
+            'website' => ['nullable', 'url', 'max:255'],
+            'description' => ['nullable', 'string'],
+            'logo_url' => ['nullable', 'url', 'max:500'],
+            'contract_start' => ['nullable', 'date'],
+            'contract_end' => ['nullable', 'date', 'after_or_equal:contract_start'],
+            'status' => ['nullable', Rule::in(['active', 'inactive'])],
         ]);
 
         $partner->update($validated);
-        $partner->load('serviceType');
+        $partner->refresh()->load('serviceType');
 
         return response()->json([
             'success' => true,
             'message' => 'Cập nhật thành công.',
-            'data'    => $partner,
+            'data' => $partner,
         ]);
     }
+
     public function destroy(int $id): JsonResponse
     {
         Partner::findOrFail($id)->delete();
+
         return response()->json(['success' => true, 'message' => 'Xóa mềm thành công.']);
     }
 
@@ -168,7 +168,7 @@ class PartnerController extends Controller
             $query->where('name', 'like', "%{$keyword}%");
         }
 
-        $perPage  = min((int) $request->query('per_page', 10), 100);
+        $perPage = min((int) $request->query('per_page', 10), 100);
         $partners = $query->latest('deleted_at')->paginate($perPage);
 
         return response()->json(['success' => true, 'data' => $partners]);
@@ -178,16 +178,18 @@ class PartnerController extends Controller
     {
         $partner = Partner::onlyTrashed()->findOrFail($id);
         $partner->restore();
+
         return response()->json([
             'success' => true,
             'message' => 'Khôi phục thành công.',
-            'data'    => $partner->load('serviceType'),
+            'data' => $partner->refresh()->load('serviceType'),
         ]);
     }
 
     public function forceDestroy(int $id): JsonResponse
     {
         Partner::onlyTrashed()->findOrFail($id)->forceDelete();
+
         return response()->json(['success' => true, 'message' => 'Xóa vĩnh viễn thành công.']);
     }
 }
