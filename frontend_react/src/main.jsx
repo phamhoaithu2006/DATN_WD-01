@@ -8,8 +8,8 @@ import App from './App.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <BrowserRouter>\
-    <Toaster richColors position="top-right" />
+    <BrowserRouter>
+      <Toaster richColors position="top-right" />
       <App />
     </BrowserRouter>
   </StrictMode>,

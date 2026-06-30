@@ -93,6 +93,7 @@ const iconPaths = {
   ),
   close: <path d="m6 6 12 12M18 6 6 18" />,
   menu: <path d="M4 7h16M4 12h16M4 17h16" />,
+  chevronDown: <path d="m6 9 6 6 6-6" />,
   shield: (
     <>
       <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" />
