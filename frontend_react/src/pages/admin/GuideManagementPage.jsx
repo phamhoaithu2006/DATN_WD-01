@@ -169,6 +169,7 @@ function chuyenKinhNghiemThanhForm(experiences = []) {
 
 function taoGuidePayload(formHdv) {
   return {
+    user_id: formHdv.user_id ? Number(formHdv.user_id) : null,
     specialization_ids: formHdv.specialization_id ? [Number(formHdv.specialization_id)] : [],
     experience_years: Number(formHdv.experience_years),
     status: formHdv.status,
@@ -442,7 +443,7 @@ function GuideManagementPage() {
   function moFormThemMoi() {
     setFormHdv({
       ...DEFAULT_FORM,
-      status: '',
+      status: 'active',
       languages: [taoDongNgoaiNgu()],
       experiences: [taoDongChungChi()],
     })

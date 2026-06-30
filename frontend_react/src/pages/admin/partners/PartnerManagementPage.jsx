@@ -15,11 +15,11 @@ const EMPTY_FORM = {
   contact_name: "",
   phone: "",
   email: "",
+  address: "",
   website: "",
   contract_start: "",
   contract_end: "",
   status: "active",
-  logo_url: "",
   description: "",
 };
 const SERVICE_LABELS = {
@@ -160,6 +160,17 @@ const getMsg = (e, f) =>
   e.response?.data?.message ||
   f;
 
+const isValidUrl = (value) => {
+  if (!value.trim()) return true;
+
+  try {
+    new URL(value.trim());
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 function Icon({ type }) {
   return type === "detail" ? (
     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -274,6 +285,13 @@ function PartnerFormModal({
           <label>
             Website
             <input value={form.website} onChange={onChange("website")} />
+            {formErrors.website ? (
+              <span className="partner-error">{formErrors.website}</span>
+            ) : null}
+          </label>
+          <label>
+            Địa chỉ
+            <input value={form.address} onChange={onChange("address")} />
           </label>
           <label>
             Ngày bắt đầu hợp đồng
@@ -309,10 +327,6 @@ function PartnerFormModal({
             {formErrors.status ? (
               <span className="partner-error">{formErrors.status}</span>
             ) : null}
-          </label>
-          <label className="partner-form-wide">
-            Logo URL
-            <input value={form.logo_url} onChange={onChange("logo_url")} />
           </label>
           <label className="partner-form-wide">
             Mô tả
@@ -568,12 +582,12 @@ export default function PartnerManagementPage() {
           nextPartner.contact_name || nextPartner.contact_person || "",
         phone: nextPartner.phone || nextPartner.contact_phone || "",
         email: nextPartner.email || nextPartner.contact_email || "",
+        address: nextPartner.address || "",
         website: nextPartner.website || nextPartner.website_url || "",
         contract_start:
           nextPartner.contract_start || nextPartner.contract_from || "",
         contract_end: nextPartner.contract_end || nextPartner.contract_to || "",
         status: nextPartner.status || "active",
-        logo_url: nextPartner.logo_url || nextPartner.logo || nextPartner.avatar_url || "",
         description: nextPartner.description || "",
       });
       setEditingPartner(nextPartner);
@@ -600,9 +614,9 @@ export default function PartnerManagementPage() {
     contact_person: f.contact_name.trim() || null,
     phone: f.phone.trim() || null,
     email: f.email.trim() || null,
+    address: f.address.trim() || null,
     website: f.website.trim() || null,
     description: f.description.trim() || null,
-    logo_url: f.logo_url.trim() || null,
     contract_start: f.contract_start || null,
     contract_end: f.contract_end || null,
     status: f.status || "active",
@@ -617,6 +631,8 @@ export default function PartnerManagementPage() {
       e.service_type_id = "Vui lòng chọn loại dịch vụ.";
     if (f.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim()))
       e.email = "Email không hợp lệ.";
+    if (f.website.trim() && !isValidUrl(f.website))
+      e.website = "Website phải là URL hợp lệ, ví dụ https://example.com.";
     if (
       f.contract_start &&
       f.contract_end &&
@@ -655,7 +671,13 @@ export default function PartnerManagementPage() {
             {},
           ),
         );
-      else openToast("error", getMsg(err, "Không lưu được thông tin đối tác."));
+      openToast(
+        "error",
+        getMsg(
+          err,
+          "Không lưu được thông tin đối tác. Vui lòng kiểm tra các trường đang báo lỗi.",
+        ),
+      );
     } finally {
       setSaving(false);
     }
