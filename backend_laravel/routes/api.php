@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 use App\Http\Controllers\Api\Admin\AdminProfileController;
 use App\Http\Controllers\Api\Admin\BookingController;
@@ -26,6 +26,7 @@ use App\Http\Controllers\Api\Customer\NotificationCustomerController;
 use App\Http\Controllers\Api\Customer\TourController;
 use App\Http\Controllers\Api\Customer\WishlistController;
 use App\Http\Controllers\Api\Guide\GuideProfileController;
+use App\Http\Controllers\Api\Guide\GuideTourController;
 use App\Http\Controllers\Api\PublicSettingController;
 use App\Http\Controllers\Api\PublicWidgetController;
 use App\Models\GuideSpecialization;
@@ -93,7 +94,9 @@ Route::prefix('tours')->group(function () {
 // Lấy danh  sách role
 Route::get('/roles', [CustomerManagerController::class, 'index_role']);
 
-// ======Admin======
+
+
+//======Admin======
 Route::prefix('admin')->group(function () {
     Route::get('/settings/public', [PublicSettingController::class, 'show']);
     Route::get('/widgets', [PublicWidgetController::class, 'index']);
@@ -129,27 +132,46 @@ Route::prefix('admin')->group(function () {
     Route::patch('/customers/{id}/unlock', [CustomerManagerController::class, 'unlock']);
 
     // Quản lý HDV
-    Route::get('guides/trashed', [GuideController::class, 'trashed']);
-    Route::get('guides/search', [GuideController::class, 'search']);
-    Route::get('guides/filter', [GuideController::class, 'filter']);
-    Route::get('guides/statistics', [GuideController::class, 'statistics']);
-    Route::patch('guides/{id}/restore', [GuideController::class, 'restore']);
-    Route::delete('guides/{id}/force', [GuideController::class, 'forceDelete']);
-    Route::get('guides', [GuideController::class, 'index']);
-    Route::post('guides', [GuideController::class, 'store']);
-    Route::get('guides/{id}', [GuideController::class, 'show']);
-    Route::put('guides/{id}', [GuideController::class, 'update']);
-    Route::delete('guides/{id}', [GuideController::class, 'destroy']);
+    Route::get('guides/trashed',         [GuideController::class, 'trashed']);
+    Route::get('guides/search',          [GuideController::class, 'search']);
+    Route::get('guides/filter',          [GuideController::class, 'filter']);
+    Route::get('guides/statistics',      [GuideController::class, 'statistics']);
+    Route::patch('guides/{id}/restore',  [GuideController::class, 'restore']);
+    Route::delete('guides/{id}/force',   [GuideController::class, 'forceDelete']);
+    Route::get('guides',                 [GuideController::class, 'index']);
+    Route::post('guides',                [GuideController::class, 'store']);
+    Route::get('guides/{id}',            [GuideController::class, 'show']);
+    Route::put('guides/{id}',            [GuideController::class, 'update']);
+    Route::delete('guides/{id}',         [GuideController::class, 'destroy']);
 
     // Dropdown cho frontend
-    Route::get('languages', [LanguageController::class, 'index']);
-    Route::get('certificates', [CertificateController::class, 'index']);
-    Route::get('guide-specializations', function () {
+    Route::get('languages',              [LanguageController::class, 'index']);
+    Route::get('certificates',           [CertificateController::class, 'index']);
+    Route::get('guide-specializations',  function () {
         return response()->json([
             'message' => 'Danh sách chuyên môn',
             'data' => GuideSpecialization::all(),
         ]);
     });
+    // Quản lý chứng chỉ
+    Route::get('certificates',          [CertificateController::class, 'index']);
+    Route::post('certificates',         [CertificateController::class, 'store']);
+    Route::get('certificates/{id}',     [CertificateController::class, 'show']);
+    Route::put('certificates/{id}',     [CertificateController::class, 'update']);
+    Route::delete('certificates/{id}',  [CertificateController::class, 'destroy']);
+    // Quản lý ngôn ngữ
+    Route::get('languages',                      [LanguageController::class, 'index']);
+    Route::post('languages',                     [LanguageController::class, 'store']);
+    Route::get('languages/{id}',                 [LanguageController::class, 'show']);
+    Route::put('languages/{id}',                 [LanguageController::class, 'update']);
+    Route::delete('languages/{id}',              [LanguageController::class, 'destroy']);
+
+    // Quản lý cấp độ theo ngôn ngữ
+    Route::get('languages/{languageId}/levels',          [LanguageController::class, 'levels']);
+    Route::post('languages/{languageId}/levels',         [LanguageController::class, 'storeLevel']);
+    Route::put('languages/{languageId}/levels/{levelId}',    [LanguageController::class, 'updateLevel']);
+    Route::delete('languages/{languageId}/levels/{levelId}', [LanguageController::class, 'destroyLevel']);
+
     // Quản lý đối tác
     Route::get('partners/service-types', [PartnerController::class, 'serviceTypes']);
     Route::get('partners/statistics', [PartnerController::class, 'statistics']);
@@ -237,9 +259,7 @@ Route::prefix('admin')->group(function () {
         Route::delete('/departures/{id}', [TourDepartureController::class, 'destroy']);   // Xóa lịch khởi hành
     });
 
-    // Cài đặt hệ thống và widget công khai
-    Route::get('/settings/public', [PublicSettingController::class, 'show']);
-    Route::get('/widgets', [PublicWidgetController::class, 'index']);
+
 
     // Cài đặt hệ thống cho admin
     Route::get('/settings', [SettingController::class, 'index']);
@@ -314,4 +334,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/guide/profile', [GuideProfileController::class, 'update']);
     // Sửa lại pass khi nhớ mk cũ
     Route::put('/guide/change-password', [GuideProfileController::class, 'changePassword']);
+    // Tour được phân công (⚠️ specific routes PHẢI đứng trước {departureId})
+    Route::get('/guide/tours/upcoming',       [GuideTourController::class, 'upcoming']);
+    Route::get('/guide/tours/ongoing',        [GuideTourController::class, 'ongoing']);
+    Route::get('/guide/tours/completed',      [GuideTourController::class, 'completed']);
+    Route::get('/guide/tours',                [GuideTourController::class, 'index']);
+    Route::get('/guide/tours/{departureId}',  [GuideTourController::class, 'show']);
 });

@@ -347,4 +347,17 @@ class GuideController extends Controller
             'data'    => $stats,
         ]);
     }
+    public function availableUsers()
+    {
+        $users = \App\Models\User::where('role_id', function ($query) {
+            $query->select('id')->from('roles')->where('name', 'tour guide');
+        })
+            ->whereDoesntHave('guide') // user chưa có guide
+            ->get(['id', 'full_name', 'email', 'phone']);
+
+        return response()->json([
+            'message' => 'Danh sách user chưa làm HDV',
+            'data'    => $users,
+        ]);
+    }
 }
