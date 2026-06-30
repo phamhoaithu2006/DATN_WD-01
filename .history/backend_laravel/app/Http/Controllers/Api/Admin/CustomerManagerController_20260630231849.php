@@ -173,7 +173,7 @@ class CustomerManagerController extends Controller
             $path = $request->file('avatar')->store('avatars', 'public');
 
             // Ví dụ: http://localhost:8000/storage/avatars/abc123.jpg
-            $avatarUrl = asset('storage/' . $path);
+            $avatarUrl = url(Storage::disk('public')->url($path));
         }
 
         $user = User::create([
@@ -287,7 +287,9 @@ class CustomerManagerController extends Controller
             // Lưu ảnh mới
             $newPath = $request->file('avatar')->store('avatars', 'public');
 
-            $validatedData['avatar_url'] = asset('storage/' . $newPath);
+            $validatedData['avatar_url'] = url(
+                Storage::disk('public')->url($newPath)
+            );
         }
 
         $customer->update($validatedData);

@@ -173,7 +173,7 @@ class CustomerManagerController extends Controller
             $path = $request->file('avatar')->store('avatars', 'public');
 
             // Ví dụ: http://localhost:8000/storage/avatars/abc123.jpg
-            $avatarUrl = asset('storage/' . $path);
+            $avatarUrl = url(Storage::disk('public')->url($path));
         }
 
         $user = User::create([
