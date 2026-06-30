@@ -155,41 +155,32 @@ class CustomerManagerController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
+        // 1. Validate dữ liệu đầu vào
         $validatedData = $request->validate([
             'full_name' => 'required|string|max:255',
             'email'     => 'required|email|unique:users,email',
             'password'  => 'required|min:6',
             'phone'     => 'nullable|string|max:15',
+            // Kiểm tra role_id có tồn tại trong bảng roles để đảm bảo tính toàn vẹn dữ liệu
             'role_id'   => 'required|exists:roles,id',
-
-            // FE gửi file với key là avatar
-            'avatar'    => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
         ]);
 
-        $avatarUrl = null;
-
-        if ($request->hasFile('avatar')) {
-            // Lưu vào storage/app/public/avatars
-            $path = $request->file('avatar')->store('avatars', 'public');
-
-            // Ví dụ: http://localhost:8000/storage/avatars/abc123.jpg
-            $avatarUrl = asset('storage/' . $path);
-        }
-
+        // 2. Tạo User mới với dữ liệu đã được xác thực
         $user = User::create([
-            'full_name'  => $validatedData['full_name'],
-            'email'      => $validatedData['email'],
-            'password'   => Hash::make($validatedData['password']),
-            'phone'      => $validatedData['phone'] ?? null,
-            'role_id'    => $validatedData['role_id'],
-            'status'     => 'active',
-            'avatar_url' => $avatarUrl,
+            'full_name' => $validatedData['full_name'],
+            'email'     => $validatedData['email'],
+            // Mã hóa mật khẩu trước khi lưu vào cơ sở dữ liệu
+            'password'  => Hash::make($validatedData['password']),
+            'phone'     => $validatedData['phone'] ?? null,
+            'role_id'   => $validatedData['role_id'],
+            'status'    => 'active', // Mặc định trạng thái là active khi tạo mới
         ]);
 
+        // 3. Trả về kết quả JSON với mã trạng thái 201 (Created)
         return response()->json([
             'status'  => 'success',
             'message' => 'Tạo tài khoản thành công',
-            'data'    => $user,
+            'data'    => $user
         ], 201);
     }
 
@@ -243,60 +234,41 @@ class CustomerManagerController extends Controller
      */
     public function update(Request $request, $id): JsonResponse
     {
+        // 1. Tìm kiếm khách hàng (vẫn giữ điều kiện role_id nếu bạn muốn giới hạn đối tượng cập nhật)
         $customer = User::find($id);
 
         if (!$customer) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Không tìm thấy người dùng',
+                'message' => 'Không tìm thấy người dùng'
             ], 404);
         }
 
+        // 2. Validate dữ liệu
         $validatedData = $request->validate([
             'full_name' => 'sometimes|string|max:255',
             'email'     => 'sometimes|email|unique:users,email,' . $id,
             'phone'     => 'nullable|string|max:15',
             'status'    => 'sometimes|in:active,inactive',
             'password'  => 'sometimes|string|min:6',
+            // Thêm rule để cho phép cập nhật role_id nếu nó có trong request
             'role_id'   => 'sometimes|exists:roles,id',
-
-            'avatar'    => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
         ]);
 
+        // 3. Xử lý mật khẩu nếu có gửi lên
         if (isset($validatedData['password'])) {
             $validatedData['password'] = Hash::make($validatedData['password']);
         }
 
-        // Không đưa avatar file trực tiếp vào update database
-        unset($validatedData['avatar']);
-
-        if ($request->hasFile('avatar')) {
-            // Xóa ảnh cũ nếu ảnh cũ được lưu trong storage của Laravel
-            if ($customer->avatar_url) {
-                $oldPath = parse_url($customer->avatar_url, PHP_URL_PATH) ?? '';
-
-                // /storage/avatars/abc.jpg -> avatars/abc.jpg
-                $oldPath = ltrim($oldPath, '/');
-
-                if (Str::startsWith($oldPath, 'storage/')) {
-                    $oldPath = Str::after($oldPath, 'storage/');
-                    Storage::disk('public')->delete($oldPath);
-                }
-            }
-
-            // Lưu ảnh mới
-            $newPath = $request->file('avatar')->store('avatars', 'public');
-
-            $validatedData['avatar_url'] = asset('storage/' . $newPath);
-        }
-
+        // 4. Cập nhật dữ liệu
+        // Laravel sẽ tự động cập nhật các field có trong $validatedData
         $customer->update($validatedData);
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Cập nhật thông tin thành công',
-            'data'    => $customer->fresh(),
-        ]);
+            'data' => $customer
+        ], 200);
     }
 
 
