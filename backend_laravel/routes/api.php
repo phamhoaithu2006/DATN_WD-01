@@ -147,14 +147,18 @@ Route::middleware(['auth:sanctum'])->prefix('admin')->group(function () {
     Route::put('guides/{id}',            [GuideController::class, 'update']);
     Route::delete('guides/{id}',         [GuideController::class, 'destroy']);
     Route::get('guides/available-users', [GuideController::class, 'availableUsers']);
-    // Dropdown cho frontend
-    Route::get('certificates',           [CertificateController::class, 'index']);
     Route::get('guide-specializations',  function () {
         return response()->json([
             'message' => 'Danh sách chuyên môn',
             'data'    => \App\Models\GuideSpecialization::all(),
         ]);
     });
+    // Quản lý chứng chỉ
+    Route::get('certificates',          [CertificateController::class, 'index']);
+    Route::post('certificates',         [CertificateController::class, 'store']);
+    Route::get('certificates/{id}',     [CertificateController::class, 'show']);
+    Route::put('certificates/{id}',     [CertificateController::class, 'update']);
+    Route::delete('certificates/{id}',  [CertificateController::class, 'destroy']);
     // Quản lý ngôn ngữ
     Route::get('languages',                      [LanguageController::class, 'index']);
     Route::post('languages',                     [LanguageController::class, 'store']);
