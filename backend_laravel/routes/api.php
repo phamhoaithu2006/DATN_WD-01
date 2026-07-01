@@ -143,7 +143,8 @@ Route::prefix('admin')->group(function () {
     Route::get('guides/{id}',            [GuideController::class, 'show']);
     Route::put('guides/{id}',            [GuideController::class, 'update']);
     Route::delete('guides/{id}',         [GuideController::class, 'destroy']);
-
+    Route::post('guides/{id}/avatar',   [GuideController::class, 'uploadAvatar']);
+    Route::delete('guides/{id}/avatar', [GuideController::class, 'deleteAvatar']);
     // Dropdown cho frontend
     Route::get('languages',              [LanguageController::class, 'index']);
     Route::get('certificates',           [CertificateController::class, 'index']);
