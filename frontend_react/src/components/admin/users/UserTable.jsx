@@ -15,7 +15,7 @@ function initials(name = "") {
 }
 
 function formatDate(value) {
-  return value ? new Intl.DateTimeFormat("vi-VN").format(new Date(value)) : "—";
+  return value ? new Intl.DateTimeFormat("vi-VN").format(new Date(value)) : "-";
 }
 
 function Icon({ name }) {
@@ -53,7 +53,16 @@ function Icon({ name }) {
   );
 }
 
-function UserTable({ customers, loading, onView, onEdit, onToggleLock }) {
+function UserTable({
+  customers,
+  loading,
+  showBookings = false,
+  onView,
+  onEdit,
+  onToggleLock,
+}) {
+  const emptyColSpan = showBookings ? 9 : 8;
+
   return (
     <div className="user-table-wrap">
       <table className="user-table">
@@ -65,7 +74,7 @@ function UserTable({ customers, loading, onView, onEdit, onToggleLock }) {
             <th>Số điện thoại</th>
             <th>Ngày đăng ký</th>
             <th>Vai trò</th>
-            <th>Booking</th>
+            {showBookings ? <th>Booking</th> : null}
             <th>Trạng thái</th>
             <th>Hành động</th>
           </tr>
@@ -85,18 +94,20 @@ function UserTable({ customers, loading, onView, onEdit, onToggleLock }) {
                 <small>ID: U{String(customer.id).padStart(3, "0")}</small>
               </td>
               <td>{customer.email}</td>
-              <td>{customer.phone || "—"}</td>
+              <td>{customer.phone || "-"}</td>
               <td>{formatDate(customer.created_at)}</td>
               <td>
                 <span className={`user-role ${roleClass(customer.role)}`}>
                   {roleLabel(customer.role)}
                 </span>
               </td>
-              <td>
-                <strong className="booking-count">
-                  {customer.bookings_count ?? 0}
-                </strong>
-              </td>
+              {showBookings ? (
+                <td>
+                  <strong className="booking-count">
+                    {customer.bookings_count ?? 0}
+                  </strong>
+                </td>
+              ) : null}
               <td>
                 <span className={`user-status ${customer.status}`}>
                   {customer.status === "active" ? "Hoạt động" : "Bị khóa"}
@@ -131,14 +142,14 @@ function UserTable({ customers, loading, onView, onEdit, onToggleLock }) {
           ))}
           {!loading && customers.length === 0 ? (
             <tr>
-              <td className="user-empty" colSpan="9">
+              <td className="user-empty" colSpan={emptyColSpan}>
                 Không tìm thấy tài khoản người dùng phù hợp.
               </td>
             </tr>
           ) : null}
           {loading ? (
             <tr>
-              <td className="user-empty" colSpan="9">
+              <td className="user-empty" colSpan={emptyColSpan}>
                 Đang tải dữ liệu...
               </td>
             </tr>

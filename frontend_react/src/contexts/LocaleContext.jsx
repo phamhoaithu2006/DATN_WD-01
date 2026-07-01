@@ -109,15 +109,18 @@ export function LocaleProvider({ children }) {
   }, [i18n])
 
   useEffect(() => {
-    loadPublicSettings()
+    const timer = window.setTimeout(() => {
+      void loadPublicSettings()
+    }, 0)
 
     const handleRefresh = () => {
-      loadPublicSettings()
+      void loadPublicSettings()
     }
 
     window.addEventListener('vivugo-settings-updated', handleRefresh)
 
     return () => {
+      window.clearTimeout(timer)
       window.removeEventListener('vivugo-settings-updated', handleRefresh)
     }
   }, [loadPublicSettings])

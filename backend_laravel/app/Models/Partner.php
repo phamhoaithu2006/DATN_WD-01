@@ -3,9 +3,9 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Partner extends Model
 {
@@ -31,10 +31,23 @@ class Partner extends Model
 
     protected $casts = [
         'contract_start' => 'date',
-        'contract_end'   => 'date',
-        'is_visible'     => 'boolean',
+        'contract_end' => 'date',
+        'is_visible' => 'boolean',
         'average_rating' => 'float',
     ];
+
+    protected static function booted(): void
+    {
+        static::created(function (Partner $partner): void {
+            if (filled($partner->partner_code)) {
+                return;
+            }
+
+            $partner->forceFill([
+                'partner_code' => 'PTN'.str_pad((string) $partner->id, 4, '0', STR_PAD_LEFT),
+            ])->saveQuietly();
+        });
+    }
 
     public function serviceType(): BelongsTo
     {

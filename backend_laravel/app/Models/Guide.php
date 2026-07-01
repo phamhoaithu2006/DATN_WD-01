@@ -39,7 +39,7 @@ class Guide extends Model
         return $this->hasMany(GuideLanguage::class);
     }
 
-        public function guideLanguages()
+    public function guideLanguages()
     {
         return $this->belongsToMany(Language::class, 'guide_languages')
             ->withPivot('level_id')
@@ -49,5 +49,19 @@ class Guide extends Model
     public function experiences()
     {
         return $this->hasMany(GuideExperience::class);
+    }
+    public function tourGuideAssignments()
+    {
+        return $this->hasMany(TourGuideAssignment::class);
+    }
+
+    public function assignedDepartures()
+    {
+        return $this->belongsToMany(
+            TourDeparture::class,
+            'tour_guide_assignments',
+            'guide_id',
+            'tour_departure_id'
+        )->withPivot('status', 'note')->withTimestamps();
     }
 }

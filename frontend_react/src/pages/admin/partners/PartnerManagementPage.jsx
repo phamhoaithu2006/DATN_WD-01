@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import AdminPageHeader from "../../../components/admin/AdminPageHeader";
 import { partnerApi } from "../../../services/partnerApi";
 import "../../../styles/partner-management.css";
+import "../../../styles/support-staff.css";
 
 const STATUS_OPTIONS = [
   { value: "active", label: "Hoạt động" },
@@ -10,17 +11,15 @@ const STATUS_OPTIONS = [
 ];
 const EMPTY_FORM = {
   name: "",
-  partner_code: "",
   service_type_id: "",
   contact_name: "",
   phone: "",
   email: "",
+  address: "",
   website: "",
-  rating: "",
   contract_start: "",
   contract_end: "",
-  status: "",
-  is_visible: "",
+  status: "active",
   description: "",
 };
 const SERVICE_LABELS = {
@@ -63,16 +62,28 @@ const meta = (p) => {
       };
 };
 const stats = (p) => p?.data?.data || p?.data || {};
-const fmtDate = (v) =>
-  v
-    ? new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium" }).format(
-        new Date(v),
-      )
-    : "—";
+const fmtDate = (v) => {
+  if (!v) return "—";
+
+  const raw = String(v).trim();
+  const datePart = raw.includes("T") ? raw.slice(0, 10) : raw;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(datePart);
+
+  if (match) {
+    return `${match[3]}/${match[2]}/${match[1]}`;
+  }
+
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return "—";
+
+  return new Intl.DateTimeFormat("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(parsed);
+};
 const fmtRange = (s, e) =>
   !s && !e ? "—" : [fmtDate(s), fmtDate(e)].filter(Boolean).join(" - ");
-const fmtRating = (v) =>
-  Number.isFinite(Number(v ?? 0)) ? Number(v ?? 0).toFixed(1) : "0.0";
 const initials = (name = "") =>
   name
     .split(" ")
@@ -91,9 +102,10 @@ const partnerCode = (p) =>
 const partnerType = (p) =>
   p.service_type || p.type || p.partner_type || p.serviceType?.slug || "";
 const partnerTypeLabel = (p) =>
-  SERVICE_LABELS[partnerType(p)] ||
   p.service_type_label ||
+  p.serviceType?.name ||
   p.type_label ||
+  SERVICE_LABELS[partnerType(p)] ||
   partnerType(p) ||
   "—";
 const serviceTypeId = (p) =>
@@ -111,14 +123,6 @@ const partnerContact = (p) => ({
   website: p.website || p.website_url || "",
 });
 const partnerStatus = (p) => p.status || (p.deleted_at ? "hidden" : "active");
-const partnerVisible = (p) =>
-  typeof p.is_visible === "boolean"
-    ? p.is_visible
-    : typeof p.visible === "boolean"
-      ? p.visible
-      : typeof p.show_on_homepage === "boolean"
-        ? p.show_on_homepage
-        : partnerStatus(p) === "active";
 const norm = (p) => ({
   ...p,
   displayName: partnerName(p),
@@ -128,7 +132,6 @@ const norm = (p) => ({
   displayTypeLabel: partnerTypeLabel(p),
   displayContact: partnerContact(p),
   displayStatus: partnerStatus(p),
-  displayVisible: partnerVisible(p),
   displayRating: Number(p.rating ?? p.average_rating ?? p.score ?? 0),
   displayLogo: p.logo_url || p.logo || p.avatar_url || "",
   displayContractStart:
@@ -145,7 +148,7 @@ const optList = (arr = []) =>
       if (!value) return null;
       return {
         value,
-        label: i.name || i.label || SERVICE_LABELS[i.slug] || i.slug || value,
+        label: i.name || i.label || i.slug || SERVICE_LABELS[i.slug] || value,
         slug: i.slug || i.value || i.key || "",
       };
     })
@@ -156,6 +159,17 @@ const getMsg = (e, f) =>
     .join(" ") ||
   e.response?.data?.message ||
   f;
+
+const isValidUrl = (value) => {
+  if (!value.trim()) return true;
+
+  try {
+    new URL(value.trim());
+    return true;
+  } catch {
+    return false;
+  }
+};
 
 function Icon({ type }) {
   return type === "detail" ? (
@@ -226,13 +240,6 @@ function PartnerFormModal({
             ) : null}
           </label>
           <label>
-            Mã đối tác
-            <input
-              value={form.partner_code}
-              onChange={onChange("partner_code")}
-            />
-          </label>
-          <label>
             Loại dịch vụ
             <select
               value={form.service_type_id}
@@ -278,20 +285,13 @@ function PartnerFormModal({
           <label>
             Website
             <input value={form.website} onChange={onChange("website")} />
+            {formErrors.website ? (
+              <span className="partner-error">{formErrors.website}</span>
+            ) : null}
           </label>
           <label>
-            Đánh giá
-            <input
-              min="0"
-              max="5"
-              step="0.1"
-              type="number"
-              value={form.rating}
-              onChange={onChange("rating")}
-            />
-            {formErrors.rating ? (
-              <span className="partner-error">{formErrors.rating}</span>
-            ) : null}
+            Địa chỉ
+            <input value={form.address} onChange={onChange("address")} />
           </label>
           <label>
             Ngày bắt đầu hợp đồng
@@ -327,23 +327,6 @@ function PartnerFormModal({
             {formErrors.status ? (
               <span className="partner-error">{formErrors.status}</span>
             ) : null}
-          </label>
-          <label>
-            Hoạt động
-            <select value={form.is_visible} onChange={onChange("is_visible")}>
-              <option value="" disabled>
-                Chọn hoạt động
-              </option>
-              <option value="true">Có</option>
-              <option value="false">Không</option>
-            </select>
-            {formErrors.is_visible ? (
-              <span className="partner-error">{formErrors.is_visible}</span>
-            ) : null}
-          </label>
-          <label className="partner-form-wide">
-            Logo URL
-            <input value={form.logo_url} onChange={onChange("logo_url")} />
           </label>
           <label className="partner-form-wide">
             Mô tả
@@ -424,14 +407,14 @@ function PartnerDetailModal({ partner, loading, onClose }) {
                       partner?.displayStatus === "active" ? "green" : "amber"
                     }
                   />
-                  <Badge
-                    label={partner?.displayVisible ? "Hiển thị" : "Đang ẩn"}
-                    tone={partner?.displayVisible ? "blue" : "amber"}
-                  />
                 </div>
               </div>
             </div>
             <dl className="partner-detail-grid">
+              <div>
+                <dt>Mã đối tác</dt>
+                <dd>{partnerCode(partner)}</dd>
+              </div>
               <div>
                 <dt>Người liên hệ</dt>
                 <dd>{c.name || "—"}</dd>
@@ -447,10 +430,6 @@ function PartnerDetailModal({ partner, loading, onClose }) {
               <div>
                 <dt>Website</dt>
                 <dd>{c.website || "—"}</dd>
-              </div>
-              <div>
-                <dt>Đánh giá</dt>
-                <dd>{fmtRating(partner?.displayRating)} / 5</dd>
               </div>
               <div>
                 <dt>Hợp đồng</dt>
@@ -598,24 +577,17 @@ export default function PartnerManagementPage() {
           nextPartner.partner_name ||
           nextPartner.company_name ||
           "",
-        partner_code: nextPartner.partner_code || nextPartner.code || "",
         service_type_id: String(matched),
         contact_name:
           nextPartner.contact_name || nextPartner.contact_person || "",
         phone: nextPartner.phone || nextPartner.contact_phone || "",
         email: nextPartner.email || nextPartner.contact_email || "",
+        address: nextPartner.address || "",
         website: nextPartner.website || nextPartner.website_url || "",
-        rating: String(nextPartner.rating ?? nextPartner.average_rating ?? 4.5),
         contract_start:
           nextPartner.contract_start || nextPartner.contract_from || "",
         contract_end: nextPartner.contract_end || nextPartner.contract_to || "",
-        status: nextPartner.status || "",
-        is_visible:
-          typeof nextPartner.is_visible === "boolean"
-            ? String(nextPartner.is_visible)
-            : partnerVisible(nextPartner)
-              ? "true"
-              : "false",
+        status: nextPartner.status || "active",
         description: nextPartner.description || "",
       });
       setEditingPartner(nextPartner);
@@ -639,22 +611,18 @@ export default function PartnerManagementPage() {
   const buildPayload = (f) => ({
     service_type_id: Number(f.service_type_id),
     name: f.name.trim(),
-    partner_code: f.partner_code.trim() || null,
     contact_person: f.contact_name.trim() || null,
     phone: f.phone.trim() || null,
     email: f.email.trim() || null,
+    address: f.address.trim() || null,
     website: f.website.trim() || null,
     description: f.description.trim() || null,
-    logo_url: f.logo_url.trim() || null,
-    average_rating: Number(f.rating),
     contract_start: f.contract_start || null,
     contract_end: f.contract_end || null,
-    status: f.status,
-    is_visible: f.is_visible === "true",
+    status: f.status || "active",
   });
   const validate = (f) => {
     const e = {},
-      rating = Number(f.rating),
       st = Number(f.service_type_id);
     if (!f.name.trim()) e.name = "Vui lòng nhập tên đối tác.";
     else if (f.name.trim().length > 255)
@@ -663,18 +631,14 @@ export default function PartnerManagementPage() {
       e.service_type_id = "Vui lòng chọn loại dịch vụ.";
     if (f.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim()))
       e.email = "Email không hợp lệ.";
-    if (f.rating === "" || !Number.isFinite(rating) || rating < 0 || rating > 5)
-      e.rating = "Đánh giá phải từ 0 đến 5.";
+    if (f.website.trim() && !isValidUrl(f.website))
+      e.website = "Website phải là URL hợp lệ, ví dụ https://example.com.";
     if (
       f.contract_start &&
       f.contract_end &&
       new Date(f.contract_end) < new Date(f.contract_start)
     )
       e.contract_end = "Ngày kết thúc phải lớn hơn ngày bắt đầu.";
-    if (!STATUS_OPTIONS.some((i) => i.value === f.status))
-      e.status = "Vui lòng chọn trạng thái.";
-    if (!["true", "false"].includes(f.is_visible))
-      e.is_visible = "Vui lòng chọn hoạt động.";
     return e;
   };
   const handleSubmit = async (e) => {
@@ -707,7 +671,13 @@ export default function PartnerManagementPage() {
             {},
           ),
         );
-      else openToast("error", getMsg(err, "Không lưu được thông tin đối tác."));
+      openToast(
+        "error",
+        getMsg(
+          err,
+          "Không lưu được thông tin đối tác. Vui lòng kiểm tra các trường đang báo lỗi.",
+        ),
+      );
     } finally {
       setSaving(false);
     }
@@ -747,8 +717,7 @@ export default function PartnerManagementPage() {
       normalized.filter((i) => i.displayStatus === "active").length,
     hidden =
       statistics.inactive ??
-      normalized.filter((i) => i.displayStatus === "inactive").length,
-    avg = statistics.average_rating ?? statistics.avg_rating ?? 0;
+      normalized.filter((i) => i.displayStatus === "inactive").length;
   return (
     <section className="partner-page">
       <AdminPageHeader
@@ -796,16 +765,6 @@ export default function PartnerManagementPage() {
           <small>Sẵn sàng hợp tác</small>
         </button>
         <button
-          className="partner-stat-card amber"
-          type="button"
-          aria-disabled="true"
-          tabIndex={-1}
-        >
-          <strong>{fmtRating(avg)}</strong>
-          <span>Đánh giá trung bình</span>
-          <small>Thống kê tự động</small>
-        </button>
-        <button
           className={`partner-stat-card purple ${filterStatus === "inactive" ? "is-active" : ""}`}
           type="button"
           onClick={() => {
@@ -851,23 +810,32 @@ export default function PartnerManagementPage() {
       <div className="partner-table-wrap">
         <div className="partner-table-scroll">
           <table className="partner-table">
+            <colgroup>
+              <col className="partner-col-logo" style={{ width: "92px" }} />
+              <col className="partner-col-code" style={{ width: "130px" }} />
+              <col className="partner-col-name" style={{ width: "340px" }} />
+              <col className="partner-col-type" style={{ width: "170px" }} />
+              <col className="partner-col-contact" style={{ width: "250px" }} />
+              <col className="partner-col-contract" style={{ width: "148px" }} />
+              <col className="partner-col-status" style={{ width: "116px" }} />
+              <col className="partner-col-actions" style={{ width: "176px" }} />
+            </colgroup>
             <thead>
               <tr>
                 <th>Logo</th>
+                <th>Mã</th>
                 <th>Tên đối tác</th>
                 <th>Loại dịch vụ</th>
                 <th>Liên hệ</th>
-                <th>Đánh giá</th>
                 <th>Hợp đồng</th>
                 <th>Trạng thái</th>
-                <th>Hiển thị</th>
                 <th>Hành động</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td className="partner-empty-row" colSpan="9">
+                  <td className="partner-empty-row" colSpan="8">
                     <div className="partner-loading">
                       <span />
                       <p>Đang tải danh sách đối tác...</p>
@@ -876,7 +844,7 @@ export default function PartnerManagementPage() {
                 </tr>
               ) : visible.length === 0 ? (
                 <tr>
-                  <td className="partner-empty-row" colSpan="9">
+                  <td className="partner-empty-row" colSpan="8">
                     <div className="partner-empty-state">
                       <strong>Không tìm thấy đối tác phù hợp</strong>
                       <span>Hãy thử thay đổi bộ lọc hoặc từ khóa tìm kiếm.</span>
@@ -884,7 +852,7 @@ export default function PartnerManagementPage() {
                   </td>
                 </tr>
               ) : (
-                visible.map((p, idx) => (
+                visible.map((p) => (
                   <tr key={p.id}>
                     <td>
                       <div className="partner-avatar">
@@ -896,11 +864,12 @@ export default function PartnerManagementPage() {
                       </div>
                     </td>
                     <td>
+                      <span className="partner-inline-code">
+                        {partnerCode(p)}
+                      </span>
+                    </td>
+                    <td>
                       <strong>{partnerName(p)}</strong>
-                      <div className="partner-meta">
-                        <span>{partnerCode(p)}</span>
-                        <span>#{idx + 1}</span>
-                      </div>
                     </td>
                     <td>
                       <Badge label={partnerTypeLabel(p)} tone="blue" />
@@ -912,34 +881,26 @@ export default function PartnerManagementPage() {
                       </div>
                     </td>
                     <td>
-                      <div className="partner-rating">
-                        <span>★</span>
-                        <strong>{fmtRating(p.displayRating)}</strong>
+                      <div className="partner-contract-cell">
+                        <div className="partner-contract">
+                          <strong>{fmtDate(p.displayContractStart)}</strong>
+                          <small>{fmtDate(p.displayContractEnd)}</small>
+                        </div>
                       </div>
                     </td>
                     <td>
-                      <div className="partner-contract">
-                        <strong>{fmtDate(p.displayContractStart)}</strong>
-                        <small>{fmtDate(p.displayContractEnd)}</small>
+                      <div className="partner-status-cell">
+                        <Badge
+                          label={
+                            p.displayStatus === "active"
+                              ? "Hoạt động"
+                              : p.displayStatus === "inactive"
+                                ? "Ngừng hoạt động"
+                                : p.displayStatus || "—"
+                          }
+                          tone={p.displayStatus === "active" ? "green" : "amber"}
+                        />
                       </div>
-                    </td>
-                    <td>
-                      <Badge
-                        label={
-                          p.displayStatus === "active"
-                            ? "Hoạt động"
-                            : p.displayStatus === "inactive"
-                              ? "Ngừng hoạt động"
-                              : p.displayStatus || "—"
-                        }
-                        tone={p.displayStatus === "active" ? "green" : "amber"}
-                      />
-                    </td>
-                    <td>
-                      <Badge
-                        label={p.displayVisible ? "Có" : "Không"}
-                        tone={p.displayVisible ? "blue" : "amber"}
-                      />
                     </td>
                     <td>
                       <div className="partner-actions">
@@ -1019,23 +980,23 @@ export default function PartnerManagementPage() {
       ) : null}
       {deleteTarget ? (
         <div
-          className="partner-modal-backdrop"
+          className="support-modal-backdrop"
           role="presentation"
           onMouseDown={() => {
             if (!deleting) setDeleteTarget(null);
           }}
         >
           <div
-            className="partner-delete-modal"
+            className="support-delete-modal"
             onMouseDown={(e) => e.stopPropagation()}
           >
-            <div className="partner-delete-icon">!</div>
+            <div className="support-delete-icon">!</div>
             <h3>Xóa mềm đối tác?</h3>
             <p>
               Bạn có chắc muốn xóa <strong>{partnerName(deleteTarget)}</strong>{" "}
               khỏi hệ thống?
             </p>
-            <div className="partner-modal-actions">
+            <div className="support-modal-actions">
               <button
                 type="button"
                 onClick={() => setDeleteTarget(null)}
@@ -1056,7 +1017,7 @@ export default function PartnerManagementPage() {
         </div>
       ) : null}
       {notice ? (
-        <div className={`partner-toast ${notice.type}`}>
+        <div className={`support-toast ${notice.type}`}>
           <div>
             <strong>
               {notice.type === "success" ? "Thành công" : "Có lỗi xảy ra"}

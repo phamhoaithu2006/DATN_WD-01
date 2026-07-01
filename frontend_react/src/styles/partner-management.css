@@ -97,7 +97,7 @@
 
 .partner-stat-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
 }
 
@@ -158,16 +158,6 @@
 .partner-stat-card.green strong,
 .partner-stat-card.green span {
   color: #0e9f6e;
-}
-
-.partner-stat-card.amber {
-  background: linear-gradient(180deg, #fff9eb 0%, #ffffff 100%);
-  border-color: #fde9b2;
-}
-
-.partner-stat-card.amber strong,
-.partner-stat-card.amber span {
-  color: #d97706;
 }
 
 .partner-stat-card.purple {
@@ -359,6 +349,7 @@
   width: 100%;
   min-width: 1240px;
   border-collapse: collapse;
+  table-layout: fixed;
 }
 
 .partner-table th,
@@ -376,32 +367,66 @@
   white-space: nowrap;
 }
 
+.partner-table th:nth-child(7),
+.partner-table th:nth-child(8) {
+  text-align: center;
+}
+
+.partner-table th:nth-child(5),
+.partner-table th:nth-child(6) {
+  text-align: left;
+}
+
+.partner-table th:nth-child(6),
+.partner-table td:nth-child(6) {
+  padding-inline: 12px 8px;
+}
+
+.partner-table th:nth-child(7),
+.partner-table td:nth-child(7) {
+  padding-inline: 8px 10px;
+}
+
+.partner-table th:nth-child(2),
+.partner-table td:nth-child(2) {
+  text-align: center;
+}
+
 .partner-table td {
   color: #0f172a;
   font-size: 0.94rem;
+  line-height: 1.35;
 }
 
 .partner-table td strong {
   display: block;
   margin-bottom: 4px;
-}
-
-.partner-table td:nth-child(2) strong {
-  max-width: 260px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.25;
 }
 
 .partner-table td:nth-child(2) {
-  min-width: 260px;
+  white-space: nowrap;
+}
+
+.partner-table td:nth-child(3) {
+  min-width: 0;
+  vertical-align: middle;
+}
+
+.partner-table td:nth-child(1) {
+  text-align: center;
 }
 
 .partner-meta,
 .partner-contact,
 .partner-contract {
   display: grid;
-  gap: 3px;
+  gap: 5px;
+}
+
+.partner-contract {
+  justify-items: start;
+  text-align: left;
 }
 
 .partner-meta {
@@ -415,6 +440,23 @@
 .partner-contract small {
   color: #8a9bb3;
   font-size: 0.86rem;
+}
+
+.partner-inline-code {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 72px;
+  padding: 4px 10px;
+  border: 1px solid #d9e1ec;
+  border-radius: 999px;
+  background: #f8fbff;
+  color: #0f172a;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  vertical-align: middle;
 }
 
 .partner-avatar {
@@ -449,6 +491,7 @@
   align-items: center;
   gap: 7px;
   color: #f59e0b;
+  justify-content: center;
 }
 
 .partner-rating strong {
@@ -464,6 +507,16 @@
   background: #eef5fb;
   color: #334155;
   white-space: nowrap;
+}
+
+.partner-table td:nth-child(3) strong {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
+  max-width: 100%;
 }
 
 .partner-badge.blue {
@@ -522,15 +575,40 @@
   stroke-linejoin: round;
 }
 
-.partner-table td:nth-child(3),
+.partner-table td:nth-child(2),
+.partner-table td:nth-child(4),
 .partner-table td:nth-child(7),
-.partner-table td:nth-child(8),
-.partner-table td:nth-child(9) {
+.partner-table td:nth-child(8) {
   white-space: nowrap;
 }
 
-.partner-table td:nth-child(9) {
-  min-width: 170px;
+.partner-table td:nth-child(5) {
+  text-align: left;
+}
+
+.partner-table td:nth-child(6) {
+  text-align: left;
+}
+
+.partner-table td:nth-child(7),
+.partner-table td:nth-child(8) {
+  text-align: center;
+}
+
+.partner-contract-cell {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.partner-status-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.partner-table td:nth-child(8) {
+  min-width: 162px;
 }
 
 .partner-actions button:hover,
@@ -885,7 +963,7 @@
 }
 
 .partner-trash-page .partner-table {
-  min-width: 980px;
+  min-width: 930px;
 }
 
 .partner-trash-page .partner-table-scroll {

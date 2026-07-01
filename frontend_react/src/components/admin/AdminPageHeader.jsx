@@ -23,7 +23,9 @@ function AdminPageHeader({
   actions = null,
   className = '',
 }) {
-  const items = Array.isArray(breadcrumb) ? breadcrumb : [breadcrumb]
+  const items = (Array.isArray(breadcrumb) ? breadcrumb : [breadcrumb]).filter(
+    (item) => item != null && String(item).trim() !== '',
+  )
   const classes = ['admin-page-header', className].filter(Boolean).join(' ')
 
   return (
@@ -31,8 +33,8 @@ function AdminPageHeader({
       <div className="admin-page-breadcrumb">
         {items.map((item, index) => (
           <span className="admin-page-breadcrumb-item" key={index}>
+            {index > 0 ? <span className="admin-page-breadcrumb-separator">/</span> : null}
             {renderCrumb(item, index)}
-            {index < items.length - 1 ? <span className="admin-page-breadcrumb-separator">/</span> : null}
           </span>
         ))}
       </div>
