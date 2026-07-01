@@ -55,7 +55,6 @@ function BookingTable({
       <table>
         <thead>
           <tr>
-            <th>Mã Booking</th>
             <th>Khách Hàng</th>
             <th>Tour</th>
             <th>Ngày Đặt</th>
@@ -68,7 +67,7 @@ function BookingTable({
         <tbody>
           {loading ? (
             <tr>
-              <td className="booking-empty" colSpan="8">Đang tải danh sách booking...</td>
+              <td className="booking-empty" colSpan="7">Đang tải danh sách booking...</td>
             </tr>
           ) : bookings.length ? (
             bookings.map((booking, index) => {
@@ -77,11 +76,6 @@ function BookingTable({
 
               return (
                 <tr key={booking.id}>
-                  <td>
-                    <button className="booking-code" type="button" onClick={() => onView(booking)}>
-                      {booking.booking_code}
-                    </button>
-                  </td>
                   <td>
                     <div className="booking-customer">
                       <span className={`booking-avatar ${avatarClass}`}>{initialsFor(name)}</span>
@@ -116,7 +110,7 @@ function BookingTable({
             })
           ) : (
             <tr>
-              <td className="booking-empty" colSpan="8">Không có booking phù hợp.</td>
+              <td className="booking-empty" colSpan="7">Không có booking phù hợp.</td>
             </tr>
           )}
         </tbody>
