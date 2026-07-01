@@ -1,32 +1,28 @@
-import { roleLabel } from "../../../utils/accountRoles";
+const cards = [
+  ["total_users", "👥", "Tổng người dùng", "blue"],
+  ["active_users", "✓", "Đang hoạt động", "green"],
+  ["locked_users", "🔒", "Tài khoản đã khóa", "red"],
+  ["total_bookings", "▣", "Tổng lượt đặt tour", "amber"],
+];
 
-const icons = {
-  customer: "👥",
-  admin: "🛡️",
-  "support staff": "🎧",
-  "tour guide": "🧭",
-};
-const colors = {
-  customer: "blue",
-  admin: "purple",
-  "support staff": "green",
-  "tour guide": "amber",
-};
-
-function UserStats({ roles = [] }) {
+function UserStats({ statistics, activeFilter, onFilter }) {
   return (
     <div className="user-stat-grid">
-      {roles.map((role) => (
-        <article
-          className={`user-stat-card ${colors[role.name] || "blue"}`}
-          key={role.id}
+      {cards.map(([key, icon, label, color]) => (
+        <button
+          className={`user-stat-card ${color} ${activeFilter === key ? "is-active" : ""}`}
+          key={key}
+          type="button"
+          onClick={() => onFilter(key)}
         >
-          <span className="user-stat-icon">{icons[role.name] || "👤"}</span>
+          <span className="user-stat-icon" aria-hidden="true">
+            {icon}
+          </span>
           <div>
-            <strong>{role.total}</strong>
-            <span>{roleLabel(role)}</span>
+            <strong>{statistics[key] ?? 0}</strong>
+            <span>{label}</span>
           </div>
-        </article>
+        </button>
       ))}
     </div>
   );

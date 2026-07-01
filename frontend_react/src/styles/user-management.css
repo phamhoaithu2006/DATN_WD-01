@@ -270,6 +270,16 @@
 .user-avatar.red {
   background: #ef4444;
 }
+.user-avatar.is-image {
+  background: #e2e8f0;
+  overflow: hidden;
+}
+.user-avatar img,
+.user-detail-profile > span img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
 .booking-count {
   color: #029be5 !important;
 }
@@ -450,6 +460,62 @@
   gap: 17px;
   grid-template-columns: 1fr 1fr;
 }
+.user-avatar-field {
+  color: #334b6c;
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 17px;
+}
+.user-avatar-picker {
+  align-items: center;
+  background: #f8fafc;
+  border: 1px dashed #bdd1e7;
+  border-radius: 14px;
+  display: flex;
+  gap: 16px;
+  margin-top: 9px;
+  padding: 14px;
+}
+.user-avatar-preview {
+  flex: 0 0 auto;
+  font-size: 20px;
+  height: 64px;
+  width: 64px;
+}
+.user-avatar-upload {
+  align-items: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  flex: 1;
+  font: inherit;
+  min-width: 0;
+}
+.user-avatar-upload-button {
+  align-items: center;
+  background: #0ea5e9;
+  border: 0;
+  border-radius: 11px;
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 800;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 14px;
+}
+.user-avatar-upload-button input {
+  display: none;
+}
+.user-avatar-upload small {
+  color: #64748b;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
 .user-form-grid label {
   color: #334b6c;
   font-size: 13px;
@@ -505,6 +571,7 @@
   font-weight: 800;
   height: 64px;
   justify-content: center;
+  overflow: hidden;
   width: 64px;
 }
 .user-detail-profile h3 {
@@ -568,5 +635,9 @@
   .user-form-grid,
   .user-detail-grid {
     grid-template-columns: 1fr;
+  }
+  .user-avatar-picker {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
