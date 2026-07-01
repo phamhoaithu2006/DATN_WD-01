@@ -1,9 +1,11 @@
 <?php
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Models\TourImage;
 
 class Tour extends Model
 {
@@ -35,7 +37,8 @@ class Tour extends Model
      * Quan hệ: N-1 (N đối tượng thuộc về 1 Category)
      * Mặc định sử dụng khóa ngoại: category_id
      */
-    public function category() {
+    public function category()
+    {
         return $this->belongsTo(Category::class);
     }
 
@@ -44,7 +47,8 @@ class Tour extends Model
      * Quan hệ: N-1 (N đối tượng thuộc về 1 Destination)
      * Mặc định sử dụng khóa ngoại: destination_id
      */
-    public function destination() {
+    public function destination()
+    {
         return $this->belongsTo(Destination::class);
     }
 
@@ -53,7 +57,8 @@ class Tour extends Model
      * Sử dụng bảng trung gian là 'wishlists'.
      * * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
      */
-    public function usersWhoLiked() {
+    public function usersWhoLiked()
+    {
         // belongsToMany(Model_liên_kết, tên_bảng_trung_gian, khóa_ngoại_của_model_này, khóa_ngoại_của_model_liên_kết)
         return $this->belongsToMany(User::class, 'wishlists', 'tour_id', 'user_id');
     }
@@ -73,6 +78,29 @@ class Tour extends Model
     {
         return $this->hasMany(TourItinerary::class)
             ->orderBy('day_number')
+            ->orderBy('sort_order')
+            ->orderBy('id');
+    }
+    /**
+     * Quan hệ 1-N: Một Tour có nhiều ảnh.
+     * Dữ liệu lấy từ bảng tour_images.
+     */
+    public function images()
+    {
+        return $this->hasMany(TourImage::class, 'tour_id')
+            ->orderByDesc('is_thumbnail')
+            ->orderBy('sort_order')
+            ->orderBy('id');
+    }
+
+    /**
+     * Ảnh đại diện của tour.
+     * Lấy ảnh có is_thumbnail = 1.
+     */
+    public function thumbnail()
+    {
+        return $this->hasOne(TourImage::class, 'tour_id')
+            ->where('is_thumbnail', 1)
             ->orderBy('sort_order')
             ->orderBy('id');
     }

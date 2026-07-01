@@ -8,7 +8,9 @@ use App\Models\Tour;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+
 
 class TourManagerController extends Controller
 {
@@ -19,12 +21,12 @@ class TourManagerController extends Controller
     public function index(Request $request)
     {
         // Loại trừ tour bị ẩn
-        $query = Tour::with(['category', 'destination', 'itineraries.images'])
+        $query = Tour::with(['category', 'destination', 'thumbnail', 'images', 'itineraries.images'])
             ->where('status', '!=', 'hidden');
 
         //  1. ADMIN TÌM KIẾM: Theo tiêu đề tour (title)
         if ($request->has('search') && $request->search != '') {
-            $query->where('title', 'LIKE', '%'.$request->search.'%');
+            $query->where('title', 'LIKE', '%' . $request->search . '%');
         }
 
         //  2. ADMIN LỌC TRẠNG THÁI: Lọc nhanh theo 'draft', 'published', 'cancelled'
@@ -60,7 +62,7 @@ class TourManagerController extends Controller
      */
     public function show($id)
     {
-        $tour = Tour::with(['category', 'destination', 'itineraries.images', 'departures'])
+        $tour = Tour::with(['category', 'destination', 'thumbnail', 'images', 'itineraries.images', 'departures'])
             ->findOrFail($id);
 
         return response()->json([
@@ -73,12 +75,12 @@ class TourManagerController extends Controller
     public function publicIndex(Request $request)
     {
         //  Chỉ lấy các tour đã xuất bản (published)
-        $query = Tour::with(['category', 'destination', 'itineraries.images'])
+        $query = Tour::with(['category', 'destination', 'thumbnail', 'images', 'itineraries.images'])
             ->where('status', 'published');
 
         //  1. USER TÌM KIẾM: Tìm theo tiêu đề tour
         if ($request->has('search') && $request->search != '') {
-            $query->where('title', 'LIKE', '%'.$request->search.'%');
+            $query->where('title', 'LIKE', '%' . $request->search . '%');
         }
 
         //  2. USER LỌC KHOẢNG GIÁ: Tìm theo ngân sách của khách
@@ -108,6 +110,8 @@ class TourManagerController extends Controller
         $this->normalizeItineraryRequest($request);
 
         $validatedData = $request->validate([
+            'thumbnail_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'thumbnail_alt_text' => 'nullable|string|max:255',
             'category_id' => 'required|integer',
             'destination_id' => 'required|integer',
             'title' => 'required|string|max:255',
@@ -159,8 +163,29 @@ class TourManagerController extends Controller
         $itineraryData = $validatedData['itinerary'] ?? [];
         unset($validatedData['itinerary']);
 
-        $tour = DB::transaction(function () use ($validatedData, $itineraryData) {
+        $thumbnailFile = $request->file('thumbnail_image');
+        $thumbnailAltText = $validatedData['thumbnail_alt_text'] ?? null;
+
+        unset($validatedData['thumbnail_image'], $validatedData['thumbnail_alt_text']);
+
+        $tour = DB::transaction(function () use (
+            $validatedData,
+            $itineraryData,
+            $thumbnailFile,
+            $thumbnailAltText
+        ) {
             $tour = Tour::create($validatedData);
+
+            if ($thumbnailFile) {
+                $path = $thumbnailFile->store('tours', 'public');
+
+                $tour->images()->create([
+                    'image_url' => Storage::url($path),
+                    'alt_text' => $thumbnailAltText,
+                    'sort_order' => 0,
+                    'is_thumbnail' => true,
+                ]);
+            }
 
             $this->syncItineraries($tour, $itineraryData);
 
@@ -170,7 +195,7 @@ class TourManagerController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Thêm tour thành công',
-            'data' => new TourResource($tour->load(['category', 'destination', 'itineraries.images']))
+            'data' => new TourResource($tour->load(['category', 'destination', 'thumbnail', 'images', 'itineraries.images']))
         ], 201);
     }
 
@@ -183,6 +208,8 @@ class TourManagerController extends Controller
         $this->normalizeItineraryRequest($request);
 
         $validatedData = $request->validate([
+            'thumbnail_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'thumbnail_alt_text' => 'nullable|string|max:255',
             'category_id' => 'sometimes|required|integer',
             'destination_id' => 'sometimes|required|integer',
             'title' => 'sometimes|required|string|max:255',
@@ -224,10 +251,58 @@ class TourManagerController extends Controller
 
         $itineraryData = $validatedData['itinerary'] ?? [];
         $shouldSyncItinerary = $request->exists('itinerary');
-        unset($validatedData['itinerary']);
 
-        DB::transaction(function () use ($tour, $validatedData, $itineraryData, $shouldSyncItinerary) {
+        $thumbnailFile = $request->file('thumbnail_image');
+        $thumbnailAltText = $validatedData['thumbnail_alt_text'] ?? null;
+
+        unset(
+            $validatedData['itinerary'],
+            $validatedData['thumbnail_image'],
+            $validatedData['thumbnail_alt_text']
+        );
+
+        DB::transaction(function () use (
+            $tour,
+            $validatedData,
+            $itineraryData,
+            $shouldSyncItinerary,
+            $thumbnailFile,
+            $thumbnailAltText
+        ) {
             $tour->update($validatedData);
+
+            if ($thumbnailFile) {
+                $path = $thumbnailFile->store('tours', 'public');
+                $imageUrl = Storage::url($path);
+
+                $oldThumbnail = $tour->thumbnail()->first();
+
+                if ($oldThumbnail) {
+                    $oldThumbnail->update([
+                        'image_url' => $imageUrl,
+                        'alt_text' => $thumbnailAltText,
+                        'sort_order' => 0,
+                        'is_thumbnail' => true,
+                    ]);
+                } else {
+                    $tour->images()->update(['is_thumbnail' => false]);
+
+                    $tour->images()->create([
+                        'image_url' => $imageUrl,
+                        'alt_text' => $thumbnailAltText,
+                        'sort_order' => 0,
+                        'is_thumbnail' => true,
+                    ]);
+                }
+            } elseif ($thumbnailAltText !== null) {
+                $oldThumbnail = $tour->thumbnail()->first();
+
+                if ($oldThumbnail) {
+                    $oldThumbnail->update([
+                        'alt_text' => $thumbnailAltText,
+                    ]);
+                }
+            }
 
             if ($shouldSyncItinerary) {
                 $this->syncItineraries($tour, $itineraryData);
@@ -237,7 +312,7 @@ class TourManagerController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Cập nhật tour thành công',
-            'data' => new TourResource($tour->fresh(['category', 'destination', 'itineraries.images'])),
+            'data' => new TourResource($tour->fresh(['category', 'destination', 'thumbnail', 'images', 'itineraries.images'])),
         ]);
     }
 
@@ -267,7 +342,7 @@ class TourManagerController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Đã ẩn tour thành công',
-            'data' => new TourResource($tour->fresh(['category', 'destination', 'itineraries.images'])),
+            'data' => new TourResource($tour->fresh(['category', 'destination', 'thumbnail', 'images', 'itineraries.images'])),
         ]);
     }
 
@@ -291,7 +366,7 @@ class TourManagerController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Đã bỏ ẩn tour thành công',
-            'data' => new TourResource($tour->fresh(['category', 'destination', 'itineraries.images'])),
+            'data' => new TourResource($tour->fresh(['category', 'destination', 'thumbnail', 'images', 'itineraries.images'])),
         ]);
     }
 
@@ -300,7 +375,7 @@ class TourManagerController extends Controller
      */
     public function hiddenTours()
     {
-        $tours = Tour::with(['category', 'destination', 'itineraries.images'])
+        $tours = Tour::with(['category', 'destination', 'thumbnail', 'images', 'itineraries.images'])
             ->where('status', 'hidden')
             ->orderBy('id', 'desc')
             ->paginate(10);
@@ -426,20 +501,30 @@ class TourManagerController extends Controller
             $item['sort_order'] = $item['sort_order'] ?? $index;
 
             if (isset($item['images']) && is_array($item['images'])) {
-                $item['images'] = collect($item['images'])->map(function ($image, $imageIndex) {
-                    if (is_string($image)) {
-                        return [
-                            'image_url' => $image,
-                            'sort_order' => $imageIndex,
-                        ];
-                    }
+                $item['images'] = collect($item['images'])
+                    ->map(function ($image, $imageIndex) {
+                        if (is_string($image)) {
+                            return [
+                                'image_url' => trim($image),
+                                'sort_order' => $imageIndex,
+                            ];
+                        }
 
-                    if (is_array($image)) {
-                        $image['sort_order'] = $image['sort_order'] ?? $imageIndex;
-                    }
+                        if (is_array($image)) {
+                            $image['image_url'] = isset($image['image_url']) ? trim($image['image_url']) : '';
+                            $image['alt_text'] = $image['alt_text'] ?? null;
+                            $image['sort_order'] = $image['sort_order'] ?? $imageIndex;
+                        }
 
-                    return $image;
-                })->all();
+                        return $image;
+                    })
+                    ->filter(function ($image) {
+                        return is_array($image)
+                            && isset($image['image_url'])
+                            && $image['image_url'] !== '';
+                    })
+                    ->values()
+                    ->all();
             }
 
             return $item;

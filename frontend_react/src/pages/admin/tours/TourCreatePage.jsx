@@ -2,59 +2,88 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import AdminPageHeader from '../../../components/admin/AdminPageHeader'
 import TourForm from '../../../components/admin/tours/TourForm'
-import tourApi from '../../../services/toursApi'
+
+const API_BASE_URL = (
+  import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api'
+).replace(/\/$/, '')
+
+const getAuthToken = () => {
+  return (
+    localStorage.getItem('token') ||
+    localStorage.getItem('admin_token') ||
+    localStorage.getItem('access_token') ||
+    localStorage.getItem('auth_token') ||
+    localStorage.getItem('authToken')
+  )
+}
 
 function TourCreatePage() {
   const navigate = useNavigate()
   const [submitting, setSubmitting] = useState(false)
 
   const handleSubmit = async (payload) => {
-  try {
-    setSubmitting(true)
+    try {
+      setSubmitting(true)
 
-    await tourApi.create(payload)
+      const token = getAuthToken()
 
-    alert('Thêm tour thành công')
-    navigate('/admin/tours')
-  } catch (error) {
-    console.error('CREATE TOUR ERROR:', error)
-    console.error('STATUS:', error.response?.status)
-    console.error('DATA:', error.response?.data)
+      if (!token) {
+        alert('Bạn chưa đăng nhập hoặc token không tồn tại. Vui lòng đăng nhập lại.')
+        return
+      }
 
-    const status = error.response?.status
-    const message = error.response?.data?.message
-    const errors = error.response?.data?.errors
+      const response = await fetch(`${API_BASE_URL}/admin/tours`, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: payload,
+      })
 
-    if (status === 401) {
-      alert('Bạn chưa đăng nhập hoặc token hết hạn')
-      return
+      const data = await response.json().catch(() => null)
+
+      if (!response.ok) {
+        console.error('CREATE TOUR ERROR RESPONSE:', data)
+
+        if (response.status === 401) {
+          alert('Bạn chưa đăng nhập hoặc token hết hạn')
+          return
+        }
+
+        if (response.status === 404) {
+          alert('Không tìm thấy API /api/admin/tours. Kiểm tra Laravel route.')
+          return
+        }
+
+        if (response.status === 422 && data?.errors) {
+          alert(Object.values(data.errors).flat().join('\n'))
+          return
+        }
+
+        if (data?.message) {
+          alert(data.message)
+          return
+        }
+
+        alert('Thêm tour thất bại')
+        return
+      }
+
+      alert('Thêm tour thành công')
+      navigate('/admin/tours')
+    } catch (error) {
+      console.error('CREATE TOUR ERROR:', error)
+      alert(error.message || 'Thêm tour thất bại')
+    } finally {
+      setSubmitting(false)
     }
-
-    if (status === 404) {
-      alert('Không tìm thấy API /api/admin/tours. Kiểm tra Laravel route.')
-      return
-    }
-
-    if (errors) {
-      alert(Object.values(errors).flat().join('\n'))
-      return
-    }
-
-    if (message) {
-      alert(message)
-      return
-    }
-
-    alert('Thêm tour thất bại')
-  } finally {
-    setSubmitting(false)
   }
-}
 
   return (
     <div className="p-6">
       <AdminPageHeader
-        breadcrumb={["ViVuGo", "Quản Lý Tour", "Thêm tour"]}
+        breadcrumb={['ViVuGo', 'Quản Lý Tour', 'Thêm tour']}
         title="Thêm tour"
         description="Tạo tour mới cho hệ thống"
         actions={

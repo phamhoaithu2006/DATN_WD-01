@@ -242,23 +242,24 @@ Route::prefix('admin')->group(function () {
     Route::get('tours/public', [TourManagerController::class, 'publicIndex']);
 
     // Giao diện cho admin
-    Route::prefix('tours')->group(function () {
-        Route::get('/', [TourManagerController::class, 'index']); // Quản lý tour (không hiện tour bị ẩn)
-        Route::get('/hidden-list', [TourManagerController::class, 'hiddenTours']); // Lấy danh sách tour bị ẩn
-        Route::get('/statistics', [TourManagerController::class, 'statistics']); // Thống kê tour
-        Route::get('/{id}', [TourManagerController::class, 'show']); // Xem chi tiết tour
-        Route::post('/', [TourManagerController::class, 'store']); // Thêm tour
-        Route::put('/{id}', [TourManagerController::class, 'update']); // Sửa tour
-        Route::delete('/{id}', [TourManagerController::class, 'destroy']); // Xóa tour
-        Route::patch('/{id}/hide', [TourManagerController::class, 'hide']); // Ẩn tour
-        Route::patch('/{id}/unhide', [TourManagerController::class, 'unhide']); // Hiện tour
+    Route::middleware(['auth:sanctum', 'role:admin'])
+        ->prefix('tours')
+        ->group(function () {
+            Route::get('/', [TourManagerController::class, 'index']);
+            Route::get('/hidden-list', [TourManagerController::class, 'hiddenTours']);
+            Route::get('/statistics', [TourManagerController::class, 'statistics']);
+            Route::get('/{id}', [TourManagerController::class, 'show']);
+            Route::post('/', [TourManagerController::class, 'store']);
+            Route::put('/{id}', [TourManagerController::class, 'update']);
+            Route::delete('/{id}', [TourManagerController::class, 'destroy']);
+            Route::patch('/{id}/hide', [TourManagerController::class, 'hide']);
+            Route::patch('/{id}/unhide', [TourManagerController::class, 'unhide']);
 
-        // Quản lý lịch khởi hành (Tour Departures)
-        Route::get('/{tourId}/departures', [TourDepartureController::class, 'index']);   // Danh sách lịch khởi hành của tour
-        Route::post('/{tourId}/departures', [TourDepartureController::class, 'store']);  // Thêm lịch khởi hành mới
-        Route::put('/departures/{id}', [TourDepartureController::class, 'update']);       // Cập nhật lịch khởi hành
-        Route::delete('/departures/{id}', [TourDepartureController::class, 'destroy']);   // Xóa lịch khởi hành
-    });
+            Route::get('/{tourId}/departures', [TourDepartureController::class, 'index']);
+            Route::post('/{tourId}/departures', [TourDepartureController::class, 'store']);
+            Route::put('/departures/{id}', [TourDepartureController::class, 'update']);
+            Route::delete('/departures/{id}', [TourDepartureController::class, 'destroy']);
+        });
 
 
 

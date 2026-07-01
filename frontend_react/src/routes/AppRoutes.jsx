@@ -38,7 +38,9 @@ import ReportStatisticsPage from '../pages/admin/reportStatistics/ReportStatisti
 import TourDepartureListPage from "../pages/admin/tourDepartures/TourDepartureListPage";
 import TourDepartureCreatePage from "../pages/admin/tourDepartures/TourDepartureCreatePage";
 import TourDepartureEditPage from "../pages/admin/tourDepartures/TourDepartureEditPage";
-import AdminNotificationsPage from '../pages/admin/Notifications/AdminNotificationsPage'
+import AdminNotificationsPage from '../pages/admin/Notifications/AdminNotificationsPage';
+import TourDetailPage from '../pages/admin/tours/TourDetailPage'
+
 
 
 const protect = (page, allowedRoles = ['admin']) => (
@@ -103,6 +105,7 @@ function AppRoutes() {
     <Route path="/admin/tours/create" element={adminPage(<TourCreatePage />)} />
     <Route path="/admin/tours/:id/edit" element={adminPage(<TourEditPage />)} />
     <Route path="/admin/tours/hidden" element={adminPage(<TourHiddenPage />)} />
+    <Route path="/admin/tours/:id" element={adminPage(<TourDetailPage />)} />
     {/* quản lý lịch khởi hành tour */}
     <Route path="/admin/tour-departures" element={adminPage(<TourDepartureListPage />)}/>
     <Route path="/admin/tour-departures/create" element={adminPage(<TourDepartureCreatePage />)}/>
