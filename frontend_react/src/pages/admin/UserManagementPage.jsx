@@ -161,11 +161,25 @@ function UserManagementPage({ roleName = "customer" }) {
   }, [load]);
 
   useEffect(() => {
-    setSearch("");
-    setStatus("");
-    setEditing(undefined);
-    setDetail(null);
-    setNotice(null);
+    if (!notice) return undefined;
+
+    const timer = setTimeout(() => {
+      setNotice(null);
+    }, 10000);
+
+    return () => clearTimeout(timer);
+  }, [notice]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearch("");
+      setStatus("");
+      setEditing(undefined);
+      setDetail(null);
+      setNotice(null);
+    }, 0);
+
+    return () => clearTimeout(timer);
   }, [rolePage.name]);
 
   async function save(form) {

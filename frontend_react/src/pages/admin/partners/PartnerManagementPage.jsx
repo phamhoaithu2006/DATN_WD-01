@@ -578,7 +578,7 @@ export default function PartnerManagementPage() {
   }, [loadServiceTypes]);
   useEffect(() => {
     if (!notice) return;
-    const t = setTimeout(() => setNotice(null), 3500);
+    const t = setTimeout(() => setNotice(null), 10000);
     return () => clearTimeout(t);
   }, [notice]);
   const openToast = (type, text) => setNotice({ type, text });

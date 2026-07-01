@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useState } from 'react'
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import apiClient from '../../services/apiClient'
 import AdminPageHeader from '../../components/admin/AdminPageHeader'
@@ -188,6 +188,16 @@ function taoGuidePayload(formHdv) {
   }
 }
 
+async function uploadGuideAvatar(guideId, file) {
+  const formData = new FormData()
+  formData.append('avatar', file)
+  return apiClient.post(`/admin/guides/${guideId}/avatar`, formData)
+}
+
+async function deleteGuideAvatar(guideId) {
+  return apiClient.delete(`/admin/guides/${guideId}/avatar`)
+}
+
 function layDanhSachIdUserDaCoHdv(danhSachHdv) {
   return new Set(
     danhSachHdv
@@ -286,6 +296,9 @@ function GuideManagementPage() {
   const [danhSachChuyenMon, setDanhSachChuyenMon] = useState([])
   const [danhSachTaiKhoanHdv, setDanhSachTaiKhoanHdv] = useState([])
   const [formHdv, setFormHdv] = useState(DEFAULT_FORM)
+  const [avatarFile, setAvatarFile] = useState(null)
+  const [avatarCurrentUrl, setAvatarCurrentUrl] = useState('')
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState('')
   const [idDangSua, setIdDangSua] = useState(null)
   const [hdvChiTiet, setHdvChiTiet] = useState(null)
   const [dangTaiChiTiet, setDangTaiChiTiet] = useState(false)
@@ -296,6 +309,7 @@ function GuideManagementPage() {
   const [loiForm, setLoiForm] = useState({})
   const [thongBao, setThongBao] = useState('')
   const [deleteTarget, setDeleteTarget] = useState(null)
+  const avatarInputRef = useRef(null)
   const coLoc = locTrangThai !== 'all' || locChuyenMon !== 'all'
   const thongKeTheoTrangThai = useMemo(
     () => ({
@@ -393,6 +407,16 @@ function GuideManagementPage() {
     }, 350)
     return () => window.clearTimeout(timer)
   }, [taiDanhSachHdv])
+  useEffect(() => {
+    if (!thongBao && !loi) return undefined
+
+    const timer = window.setTimeout(() => {
+      setThongBao('')
+      setLoi('')
+    }, 10000)
+
+    return () => window.clearTimeout(timer)
+  }, [loi, thongBao])
   function capNhatForm(truong, giaTri) {
     setFormHdv((formHienTai) => ({
       ...formHienTai,
@@ -402,6 +426,19 @@ function GuideManagementPage() {
       ...loiHienTai,
       [truong]: '',
     }))
+  }
+  function capNhatAvatar(event) {
+    const file = event.target.files?.[0] || null
+    setAvatarFile(file)
+    setAvatarPreviewUrl((current) => {
+      if (current?.startsWith('blob:')) {
+        URL.revokeObjectURL(current)
+      }
+      return file ? URL.createObjectURL(file) : ''
+    })
+  }
+  function moChonAvatar() {
+    avatarInputRef.current?.click()
   }
   function capNhatNgoaiNgu(index, truong, giaTri) {
     setFormHdv((formHienTai) => ({
@@ -460,6 +497,8 @@ function GuideManagementPage() {
       languages: [taoDongNgoaiNgu()],
       experiences: [taoDongChungChi()],
     })
+    setAvatarFile(null)
+    setAvatarCurrentUrl('')
     setIdDangSua(null)
     setLoi('')
     setLoiForm({})
@@ -475,6 +514,8 @@ function GuideManagementPage() {
       languages: chuyenNgoaiNguThanhForm(hdv.languages),
       experiences: chuyenKinhNghiemThanhForm(hdv.experiences),
     })
+    setAvatarFile(null)
+    setAvatarCurrentUrl(hdv.user?.avatar_url || '')
     setIdDangSua(hdv.id)
     setLoi('')
     setLoiForm({})
@@ -483,6 +524,9 @@ function GuideManagementPage() {
   }
   function dongForm() {
     setFormHdv(DEFAULT_FORM)
+    setAvatarFile(null)
+    setAvatarCurrentUrl('')
+    setAvatarPreviewUrl('')
     setIdDangSua(null)
     setLoiForm({})
     setHienForm(false)
@@ -516,12 +560,22 @@ function GuideManagementPage() {
       const phanHoi = idDangSua
         ? await apiClient.put(`/admin/guides/${idDangSua}`, payload)
         : await apiClient.post('/admin/guides', payload)
+      const guideId = phanHoi.data?.data?.id || idDangSua
+      let avatarUploadFailed = false
+      if (avatarFile && guideId) {
+        try {
+          await uploadGuideAvatar(guideId, avatarFile)
+        } catch {
+          avatarUploadFailed = true
+        }
+      }
       await taiDanhSachHdv(phanTrang.currentPage)
       await taiThongKeHdv()
       dongForm()
       setThongBao(
         phanHoi.data?.message ||
-          (idDangSua ? 'Cập nhật hướng dẫn viên thành công.' : 'Thêm hướng dẫn viên thành công.'),
+          (idDangSua ? 'Cập nhật hướng dẫn viên thành công.' : 'Thêm hướng dẫn viên thành công.') +
+            (avatarUploadFailed ? ' Ảnh đại diện chưa tải lên được.' : ''),
       )
     } catch (error) {
       setLoi(getErrorMessage(error, 'Không lưu được thông tin hướng dẫn viên.'))
@@ -978,6 +1032,40 @@ function GuideManagementPage() {
                 </div>
                 {loiForm.experiences ? <span className="guide-field-error">{loiForm.experiences}</span> : null}
               </label>
+              <label className="guide-form-wide">
+                Ảnh đại diện
+                <div className="guide-avatar-upload guide-avatar-upload-wide">
+                  <input
+                    ref={avatarInputRef}
+                    accept="image/*"
+                    className="guide-avatar-input"
+                    type="file"
+                    onChange={capNhatAvatar}
+                  />
+                  <div className="guide-avatar-preview">
+                    {avatarPreviewUrl || avatarCurrentUrl ? (
+                      <img
+                        alt="Ảnh đại diện hướng dẫn viên"
+                        src={avatarPreviewUrl || avatarCurrentUrl}
+                      />
+                    ) : (
+                      <span>Chưa có ảnh</span>
+                    )}
+                  </div>
+                  <div className="guide-avatar-upload-panel">
+                    <button className="guide-avatar-upload-btn" type="button" onClick={moChonAvatar}>
+                      {avatarCurrentUrl ? 'Đổi ảnh đại diện' : 'Chọn ảnh đại diện'}
+                    </button>
+                    <span className="guide-avatar-upload-meta">
+                      {avatarFile
+                        ? `Đã chọn: ${avatarFile.name}`
+                        : avatarCurrentUrl
+                          ? 'Đang có ảnh đại diện hiện tại.'
+                          : 'Chưa có ảnh đại diện.'}
+                    </span>
+                  </div>
+                </div>
+              </label>
             </div>
             <div className="guide-modal-actions">
               <button type="button" onClick={dongForm}>
@@ -1015,6 +1103,24 @@ function GuideManagementPage() {
               <div>
                 <h3>{layTenNguoiDung(hdvChiTiet)}</h3>
                 <p>{layNhanChuyenMon(hdvChiTiet)}</p>
+                {hdvChiTiet.user?.avatar_url ? (
+                  <button
+                    className="guide-avatar-action"
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await deleteGuideAvatar(hdvChiTiet.id)
+                        setThongBao('Đã xóa ảnh đại diện hướng dẫn viên.')
+                        await moChiTiet(hdvChiTiet)
+                        await taiDanhSachHdv(phanTrang.currentPage)
+                      } catch (error) {
+                        setLoi(getErrorMessage(error, 'Không xóa được ảnh đại diện.'))
+                      }
+                    }}
+                  >
+                    Xóa avatar
+                  </button>
+                ) : null}
               </div>
             </div>
             <div className="guide-detail-grid">
@@ -1109,3 +1215,4 @@ function GuideManagementPage() {
   )
 }
 export default GuideManagementPage
+

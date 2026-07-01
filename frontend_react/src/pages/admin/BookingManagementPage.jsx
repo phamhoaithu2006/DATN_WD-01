@@ -77,6 +77,16 @@ function BookingManagementPage() {
     return () => clearTimeout(timer)
   }, [load])
 
+  useEffect(() => {
+    if (!notice) return undefined
+
+    const timer = setTimeout(() => {
+      setNotice(null)
+    }, 10000)
+
+    return () => clearTimeout(timer)
+  }, [notice])
+
   const changePage = (nextPage) => {
     setPage(nextPage)
   }
