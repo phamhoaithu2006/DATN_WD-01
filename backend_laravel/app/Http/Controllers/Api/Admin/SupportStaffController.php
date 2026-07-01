@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\SupportStaff;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Validator;
@@ -13,16 +14,43 @@ class SupportStaffController extends Controller
 {
     private const STATUSES = ['active', 'inactive', 'hidden'];
 
+    private function supportStaffQuery()
+    {
+        return SupportStaff::query()
+            ->withoutTrashed()
+            ->with(['user.role'])
+            ->whereHas('user', function ($query) {
+                $query->whereHas('role', function ($roleQuery) {
+                    $roleQuery->where('name', 'support staff');
+                });
+            });
+    }
+
+    private function hydrateSupportStaff($staff)
+    {
+        if ($staff?->user) {
+            $staff->setAttribute('name', $staff->user->full_name);
+            $staff->setAttribute('email', $staff->user->email);
+        }
+
+        return $staff;
+    }
+
     public function index(Request $request)
     {
-        $query = SupportStaff::query()->withoutTrashed();
+        $query = $this->supportStaffQuery();
 
         if ($request->filled('search')) {
             $search = $request->string('search')->trim();
             $query->where(function ($subQuery) use ($search) {
                 $subQuery
-                    ->where('name', 'like', '%' . $search . '%')
-                    ->orWhere('email', 'like', '%' . $search . '%')
+                    ->where('support_staff.name', 'like', '%' . $search . '%')
+                    ->orWhere('support_staff.email', 'like', '%' . $search . '%')
+                    ->orWhereHas('user', function ($userQuery) use ($search) {
+                        $userQuery
+                            ->where('full_name', 'like', '%' . $search . '%')
+                            ->orWhere('email', 'like', '%' . $search . '%');
+                    })
                     ->orWhere('role', 'like', '%' . $search . '%');
             });
         }
@@ -45,6 +73,7 @@ class SupportStaffController extends Controller
 
         $perPage = max((int) $request->input('per_page', 10), 1);
         $staff = $query->latest()->paginate($perPage);
+        $staff->setCollection($staff->getCollection()->map(fn ($item) => $this->hydrateSupportStaff($item)));
 
         return response()->json([
             'status' => 'success',
@@ -55,7 +84,7 @@ class SupportStaffController extends Controller
 
     public function statistics()
     {
-        $baseQuery = SupportStaff::query()->withoutTrashed();
+        $baseQuery = $this->supportStaffQuery();
 
         $totals = (clone $baseQuery)
             ->selectRaw('COUNT(*) as total')
@@ -69,7 +98,9 @@ class SupportStaffController extends Controller
             ->orderByDesc('performance_rating')
             ->orderByDesc('updated_at')
             ->limit(5)
-            ->get(['id', 'name', 'email', 'role', 'status', 'performance_rating', 'created_at']);
+            ->select('support_staff.*')
+            ->get();
+        $topStaff = $topStaff->map(fn ($item) => $this->hydrateSupportStaff($item));
 
         $roleOptions = (clone $baseQuery)
             ->select('role')
@@ -95,8 +126,12 @@ class SupportStaffController extends Controller
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:support_staff,email',
+            'user_id' => [
+                'required',
+                'integer',
+                Rule::unique('support_staff', 'user_id')->whereNull('deleted_at'),
+                Rule::exists('users', 'id'),
+            ],
             'role' => 'required|string|max:100',
             'status' => ['nullable', 'string', Rule::in(self::STATUSES)],
             'performance_rating' => 'nullable|numeric|between:0,5',
@@ -110,10 +145,23 @@ class SupportStaffController extends Controller
         }
 
         $data = $validator->validated();
+        $user = User::with('role')->findOrFail($data['user_id']);
+
+        if (($user->role?->name ?? null) !== 'support staff') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Tài khoản phải có role NVHT.',
+            ], 422);
+        }
+
+        $data['name'] = $user->full_name;
+        $data['email'] = $user->email;
         $data['status'] = $data['status'] ?? 'active';
         $data['hidden_at'] = $data['status'] === 'hidden' ? Carbon::now() : null;
 
         $staff = SupportStaff::create($data);
+        $staff->load('user.role');
+        $this->hydrateSupportStaff($staff);
 
         return response()->json([
             'status' => 'success',
@@ -124,7 +172,8 @@ class SupportStaffController extends Controller
 
     public function show($id)
     {
-        $staff = SupportStaff::findOrFail($id);
+        $staff = $this->supportStaffQuery()->findOrFail($id);
+        $this->hydrateSupportStaff($staff);
 
         return response()->json([
             'status' => 'success',
@@ -134,11 +183,16 @@ class SupportStaffController extends Controller
 
     public function update(Request $request, $id)
     {
-        $staff = SupportStaff::findOrFail($id);
+        $staff = SupportStaff::query()->with('user.role')->findOrFail($id);
 
         $validator = Validator::make($request->all(), [
-            'name' => 'sometimes|required|string|max:255',
-            'email' => ['sometimes', 'required', 'email', Rule::unique('support_staff', 'email')->ignore($id)],
+            'user_id' => [
+                'sometimes',
+                'required',
+                'integer',
+                Rule::exists('users', 'id'),
+                Rule::unique('support_staff', 'user_id')->ignore($id)->whereNull('deleted_at'),
+            ],
             'role' => 'sometimes|required|string|max:100',
             'status' => ['sometimes', 'required', 'string', Rule::in(self::STATUSES)],
             'performance_rating' => 'sometimes|required|numeric|between:0,5',
@@ -153,11 +207,27 @@ class SupportStaffController extends Controller
 
         $data = $validator->validated();
 
+        if (array_key_exists('user_id', $data)) {
+            $user = User::with('role')->findOrFail($data['user_id']);
+
+            if (($user->role?->name ?? null) !== 'support staff') {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Tài khoản phải có role NVHT.',
+                ], 422);
+            }
+
+            $data['name'] = $user->full_name;
+            $data['email'] = $user->email;
+        }
+
         if (array_key_exists('status', $data)) {
             $data['hidden_at'] = $data['status'] === 'hidden' ? Carbon::now() : null;
         }
 
         $staff->update($data);
+        $staff->load('user.role');
+        $this->hydrateSupportStaff($staff);
 
         return response()->json([
             'status' => 'success',
@@ -179,20 +249,26 @@ class SupportStaffController extends Controller
 
     public function trashed(Request $request)
     {
-        $query = SupportStaff::onlyTrashed();
+        $query = SupportStaff::onlyTrashed()->with(['user.role']);
 
         if ($request->filled('search')) {
             $search = $request->string('search')->trim();
             $query->where(function ($subQuery) use ($search) {
                 $subQuery
-                    ->where('name', 'like', '%' . $search . '%')
-                    ->orWhere('email', 'like', '%' . $search . '%')
+                    ->where('support_staff.name', 'like', '%' . $search . '%')
+                    ->orWhere('support_staff.email', 'like', '%' . $search . '%')
+                    ->orWhereHas('user', function ($userQuery) use ($search) {
+                        $userQuery
+                            ->where('full_name', 'like', '%' . $search . '%')
+                            ->orWhere('email', 'like', '%' . $search . '%');
+                    })
                     ->orWhere('role', 'like', '%' . $search . '%');
             });
         }
 
         $perPage = max((int) $request->input('per_page', 10), 1);
         $staff = $query->latest('deleted_at')->paginate($perPage);
+        $staff->setCollection($staff->getCollection()->map(fn ($item) => $this->hydrateSupportStaff($item)));
 
         return response()->json([
             'status' => 'success',
@@ -203,8 +279,9 @@ class SupportStaffController extends Controller
 
     public function restore($id)
     {
-        $staff = SupportStaff::onlyTrashed()->findOrFail($id);
+        $staff = SupportStaff::onlyTrashed()->with('user.role')->findOrFail($id);
         $staff->restore();
+        $this->hydrateSupportStaff($staff);
 
         return response()->json([
             'status' => 'success',

@@ -2,8 +2,9 @@
 
 namespace Database\Seeders;
 
+use App\Models\SupportStaff;
+use App\Models\User;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
 
 class SupportStaffSeeder extends Seeder
 {
@@ -12,48 +13,24 @@ class SupportStaffSeeder extends Seeder
      */
     public function run(): void
     {
-        $faker = fake('vi_VN');
         $now = now();
-        $roles = ['technical', 'customer_service', 'billing'];
-        $statuses = [
-            'active',
-            'active',
-            'active',
-            'active',
-            'active',
-            'active',
-            'active',
-            'active',
-            'active',
-            'active',
-            'active',
-            'active',
-            'active',
-            'active',
-            'inactive',
-            'inactive',
-            'inactive',
-            'inactive',
-        ];
 
-        shuffle($statuses);
+        $supportUsers = User::query()
+            ->whereHas('role', fn ($query) => $query->where('name', 'support staff'))
+            ->get();
 
-        $supportStaff = [];
-
-        foreach (range(1, 18) as $index) {
-            $supportStaff[] = [
-                'name' => $faker->name(),
-                'email' => $faker->unique()->safeEmail(),
-                'role' => $faker->randomElement($roles),
-                'status' => $statuses[$index - 1],
-                'performance_rating' => number_format($faker->randomFloat(2, 3.5, 5), 2, '.', ''),
-                'hidden_at' => null,
-                'deleted_at' => null,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ];
+        foreach ($supportUsers as $user) {
+            SupportStaff::updateOrCreate(
+                ['user_id' => $user->id],
+                [
+                    'name' => $user->full_name,
+                    'email' => $user->email,
+                    'role' => 'customer_service',
+                    'status' => $user->status === 'inactive' ? 'inactive' : 'active',
+                    'performance_rating' => 5,
+                    'hidden_at' => $user->status === 'inactive' ? $now : null,
+                ],
+            );
         }
-
-        DB::table('support_staff')->insert($supportStaff);
     }
 }

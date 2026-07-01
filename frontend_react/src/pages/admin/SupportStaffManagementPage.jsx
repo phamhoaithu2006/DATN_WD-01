@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useCallback, useEffect, useState } from 'react'
 import AdminPageHeader from '../../components/admin/AdminPageHeader'
+import { getAccountRoles, getAccounts } from '../../services/adminAccountApi'
 
 import {
   createSupportStaff,
@@ -12,6 +13,8 @@ import {
 } from '../../services/supportStaffApi'
 import '../../styles/support-staff.css'
 
+const SUPPORT_STAFF_ROLE_NAME = 'support staff'
+
 const STATUS_OPTIONS = [
   { value: 'active', label: 'Đang hoạt động' },
   { value: 'inactive', label: 'Ngừng hoạt động' },
@@ -19,10 +22,10 @@ const STATUS_OPTIONS = [
 ]
 
 const EMPTY_FORM = {
+  account_id: '',
   name: '',
   email: '',
-  status: 'active',
-  performance_rating: '',
+  status: '',
 }
 
 function initials(name = '') {
@@ -44,25 +47,6 @@ function formatDateTime(value) {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(value))
-}
-
-function getPerformancePercent(value) {
-  const rating = Number(value ?? 0)
-
-  if (!Number.isFinite(rating)) {
-    return 0
-  }
-
-  return Math.max(0, Math.min(100, Math.round((rating / 5) * 100)))
-}
-
-function formatRating(value) {
-  const rating = Number(value ?? 0)
-  return Number.isFinite(rating) ? rating.toFixed(2) : '0.00'
-}
-
-function formatRatingPercent(value) {
-  return `${getPerformancePercent(value)}%`
 }
 
 function getServerMessage(error, fallback) {
@@ -118,35 +102,44 @@ function getStatusLabel(status) {
   return STATUS_OPTIONS.find((item) => item.value === status)?.label || status
 }
 
-function validateForm(form) {
+function getAccountLabel(account) {
+  const name = account?.full_name || account?.name || 'Chưa có tên'
+
+  return name
+}
+
+function getCurrentAccountId(staff, accounts) {
+  const staffName = (staff?.name || '').trim().toLowerCase()
+  const staffEmail = (staff?.email || '').trim().toLowerCase()
+
+  const match = accounts.find((account) => {
+    const accountName = (account?.full_name || account?.name || '').trim().toLowerCase()
+    const accountEmail = (account?.email || '').trim().toLowerCase()
+
+    return (
+      (staffName && accountName === staffName) ||
+      (staffEmail && accountEmail === staffEmail)
+    )
+  })
+
+  return match?.id ? String(match.id) : ''
+}
+
+function validateForm(form, editing) {
   const errors = {}
-  const rating = Number(form.performance_rating)
 
-  if (!form.name.trim()) {
-    errors.name = 'Vui lòng nhập họ tên.'
-  } else if (form.name.trim().length > 255) {
-    errors.name = 'Họ tên tối đa 255 ký tự.'
+  if (editing) {
+    if (!form.name.trim()) {
+      errors.name = 'Vui lòng nhập họ tên.'
+    } else if (form.name.trim().length > 255) {
+      errors.name = 'Họ tên tối đa 255 ký tự.'
+    }
+  } else if (!form.account_id) {
+    errors.account_id = 'Chọn NVHT'
   }
 
-  if (!form.email.trim()) {
-    errors.email = 'Vui lòng nhập email.'
-  } else if (
-    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())
-  ) {
-    errors.email = 'Email không hợp lệ.'
-  }
-
-  if (!STATUS_OPTIONS.some((item) => item.value === form.status)) {
+  if (!form.status || !STATUS_OPTIONS.some((item) => item.value === form.status)) {
     errors.status = 'Trạng thái không hợp lệ.'
-  }
-
-  if (
-    form.performance_rating === '' ||
-    !Number.isFinite(rating) ||
-    rating < 0 ||
-    rating > 5
-  ) {
-    errors.performance_rating = 'Hiệu suất phải từ 0 đến 5.'
   }
 
   return errors
@@ -194,7 +187,9 @@ function SupportStaffFormModal({
   form,
   errors,
   saving,
+  accountOptions,
   onChange,
+  onPickAccount,
   onClose,
   onSubmit,
   editing,
@@ -223,27 +218,33 @@ function SupportStaffFormModal({
 
         <div className="support-form-grid">
           <label>
-            Họ và tên
-            <input
-              value={form.name}
-              onChange={onChange('name')}
-            />
+            Họ và tên {editing ? '' : '(NVHT)'}
+            {editing ? (
+              <input
+                value={form.name}
+                onChange={onChange('name')}
+                readOnly
+              />
+            ) : (
+              <select value={form.account_id} onChange={onPickAccount}>
+                <option value="">Chọn NVHT</option>
+                {accountOptions.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {getAccountLabel(account)}
+                  </option>
+                ))}
+              </select>
+            )}
             {errors.name ? <span className="support-field-error">{errors.name}</span> : null}
-          </label>
-
-          <label>
-            Email
-            <input
-              type="email"
-              value={form.email}
-              onChange={onChange('email')}
-            />
-            {errors.email ? <span className="support-field-error">{errors.email}</span> : null}
+            {errors.account_id ? <span className="support-field-error">{errors.account_id}</span> : null}
           </label>
 
           <label>
             Trạng thái
             <select value={form.status} onChange={onChange('status')}>
+              <option value="" disabled>
+                Chọn trạng thái
+              </option>
               {STATUS_OPTIONS.map((status) => (
                 <option key={status.value} value={status.value}>
                   {status.label}
@@ -251,21 +252,6 @@ function SupportStaffFormModal({
               ))}
             </select>
             {errors.status ? <span className="support-field-error">{errors.status}</span> : null}
-          </label>
-
-          <label className="support-form-wide">
-            Hiệu suất
-            <input
-              min="0"
-              max="5"
-              step="0.01"
-              type="number"
-              value={form.performance_rating}
-              onChange={onChange('performance_rating')}
-            />
-            {errors.performance_rating ? (
-              <span className="support-field-error">{errors.performance_rating}</span>
-            ) : null}
           </label>
         </div>
 
@@ -323,10 +309,6 @@ function SupportStaffDetailModal({ staff, loading, onClose }) {
                 <dd>{staff?.email || '—'}</dd>
               </div>
               <div>
-                <dt>Hiệu suất</dt>
-                <dd>{formatRating(staff?.performance_rating)} / 5</dd>
-              </div>
-              <div>
                 <dt>Ngày tạo</dt>
                 <dd>{formatDateTime(staff?.created_at)}</dd>
               </div>
@@ -354,6 +336,7 @@ function SupportStaffDetailModal({ staff, loading, onClose }) {
 
 function SupportStaffManagementPage() {
   const [staffList, setStaffList] = useState([])
+  const [accountOptions, setAccountOptions] = useState([])
   const [statistics, setStatistics] = useState({
     total: 0,
     active: 0,
@@ -361,7 +344,6 @@ function SupportStaffManagementPage() {
     hidden: 0,
     average_rating: 0,
     role_options: [],
-    top_staff: [],
   })
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
@@ -384,8 +366,6 @@ function SupportStaffManagementPage() {
   const [form, setForm] = useState(EMPTY_FORM)
   const [formErrors, setFormErrors] = useState({})
 
-  const topStaff = statistics.top_staff || []
-
   function handleStatCardClick(status) {
     setStatusFilter(status)
     setPage(1)
@@ -402,14 +382,25 @@ function SupportStaffManagementPage() {
   function resetForm(nextEditing = null) {
     if (nextEditing) {
       setForm({
+        account_id: getCurrentAccountId(nextEditing, accountOptions),
         name: nextEditing.name || '',
         email: nextEditing.email || '',
-        status: nextEditing.status || 'active',
-        performance_rating: formatRating(nextEditing.performance_rating),
+        status: nextEditing.status || '',
       })
       setEditingStaff(nextEditing)
     } else {
-      setForm(EMPTY_FORM)
+      const defaultAccount = accountOptions.length === 1 ? accountOptions[0] : null
+
+      setForm(
+        defaultAccount
+          ? {
+              ...EMPTY_FORM,
+              account_id: String(defaultAccount.id),
+              name: defaultAccount.full_name || defaultAccount.name || '',
+              email: defaultAccount.email || '',
+            }
+          : EMPTY_FORM,
+      )
       setEditingStaff(null)
     }
 
@@ -447,6 +438,25 @@ function SupportStaffManagementPage() {
     }
   }
 
+  function pickAccount(event) {
+    const accountId = event.target.value
+    const selectedAccount = accountOptions.find((account) => String(account.id) === String(accountId))
+
+    setForm((current) => ({
+      ...current,
+      account_id: accountId,
+      name: selectedAccount?.full_name || selectedAccount?.name || '',
+      email: selectedAccount?.email || '',
+    }))
+
+    setFormErrors((current) => ({
+      ...current,
+      account_id: '',
+      name: '',
+      email: '',
+    }))
+  }
+
   const loadStatistics = useCallback(async () => {
     try {
       const response = await getSupportStaffStatistics()
@@ -479,6 +489,25 @@ function SupportStaffManagementPage() {
     [page, search, statusFilter],
   )
 
+  const loadAccounts = useCallback(async () => {
+    try {
+      const roleList = await getAccountRoles().catch(() => [])
+      const supportRole = roleList.find((role) => role.name === SUPPORT_STAFF_ROLE_NAME) || {
+        id: 1,
+        name: SUPPORT_STAFF_ROLE_NAME,
+      }
+
+      const accounts = await getAccounts({
+        role_id: supportRole.id,
+      })
+
+      setAccountOptions(Array.isArray(accounts) ? accounts : [])
+    } catch (error) {
+      setAccountOptions([])
+      openToast('error', getServerMessage(error, 'Không tải được danh sách user NVHT.'))
+    }
+  }, [])
+
   const refreshAll = useCallback(async (pageNumber = page) => {
     await Promise.all([loadStatistics(), loadList(pageNumber)])
   }, [loadList, loadStatistics, page])
@@ -490,6 +519,14 @@ function SupportStaffManagementPage() {
 
     return () => window.clearTimeout(timer)
   }, [loadStatistics])
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadAccounts()
+    }, 0)
+
+    return () => window.clearTimeout(timer)
+  }, [loadAccounts])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -512,7 +549,7 @@ function SupportStaffManagementPage() {
   async function handleSubmit(event) {
     event.preventDefault()
 
-    const nextErrors = validateForm(form)
+    const nextErrors = validateForm(form, Boolean(editingStaff))
 
     if (Object.keys(nextErrors).length > 0) {
       setFormErrors(nextErrors)
@@ -523,11 +560,9 @@ function SupportStaffManagementPage() {
 
     try {
       const payload = {
-        name: form.name.trim(),
-        email: form.email.trim(),
         role: 'customer_service',
         status: form.status,
-        performance_rating: Number(form.performance_rating),
+        ...(form.account_id ? { user_id: Number(form.account_id) } : {}),
       }
 
       const response = editingStaff
@@ -658,7 +693,7 @@ function SupportStaffManagementPage() {
                   setSearch(event.target.value)
                   setPage(1)
                 }}
-                placeholder="Tìm theo tên, email..."
+                placeholder="Tìm theo tên..."
               />
             </label>
 
@@ -681,21 +716,20 @@ function SupportStaffManagementPage() {
           <div className="support-table-wrap">
             <table className="support-table">
               <thead>
-                <tr>
-                  <th>Avatar</th>
-                  <th>Mã NV</th>
-                  <th>Họ tên</th>
-                  <th>Email</th>
-                  <th>Hiệu suất</th>
-                  <th>Trạng thái</th>
-                  <th>Hành động</th>
-                </tr>
+              <tr>
+                <th>Avatar</th>
+                <th>Mã NV</th>
+                <th>Họ tên</th>
+                <th>Email</th>
+                <th>Trạng thái</th>
+                <th>Hành động</th>
+              </tr>
               </thead>
 
               <tbody>
                 {loading ? (
                   <tr>
-                    <td className="support-empty-row" colSpan="7">
+                    <td className="support-empty-row" colSpan="6">
                       <div className="support-loading">
                         <span />
                         <p>Đang tải danh sách nhân viên hỗ trợ...</p>
@@ -704,7 +738,7 @@ function SupportStaffManagementPage() {
                   </tr>
                 ) : staffList.length === 0 ? (
                   <tr>
-                    <td className="support-empty-row" colSpan="7">
+                    <td className="support-empty-row" colSpan="6">
                       <div className="support-empty-state">
                         <strong>Không tìm thấy nhân viên phù hợp</strong>
                         <span>Hãy thử đổi bộ lọc hoặc từ khóa tìm kiếm.</span>
@@ -730,14 +764,7 @@ function SupportStaffManagementPage() {
                       <td>
                         <strong className="support-name">{staff.name}</strong>
                       </td>
-                      <td>{staff.email}</td>
-                      <td>
-                        <div className="support-rating-cell">
-                          <div className="support-rating-score">
-                            <strong>{formatRating(staff.performance_rating)}</strong>
-                          </div>
-                        </div>
-                      </td>
+                      <td>{staff.email || '—'}</td>
                       <td>
                         <span className={`support-status ${staff.status}`}>
                           {getStatusLabel(staff.status)}
@@ -803,52 +830,6 @@ function SupportStaffManagementPage() {
             </button>
           </div>
         </div>
-
-        <aside className="support-side-panel">
-          <h2>Top hiệu suất</h2>
-          <p>Nhân viên có điểm hiệu suất cao nhất.</p>
-
-          {topStaff.length > 0 ? (
-            <div className="support-top-list">
-              {topStaff.map((staff, index) => (
-                <article className="support-top-item" key={staff.id}>
-                  <div className="support-top-rank">{index + 1}</div>
-                  <div className={`support-avatar tone-${index % 5} support-top-avatar`}>
-                    {initials(staff.name)}
-                  </div>
-                  <div className="support-top-content">
-                    <strong>{staff.name}</strong>
-                    <div className="support-top-score">
-                      <span>{formatRating(staff.performance_rating)}</span>
-                      <small>/ 5</small>
-                    </div>
-                    <div className="support-top-bar">
-                      <span style={{ width: `${getPerformancePercent(staff.performance_rating)}%` }} />
-                    </div>
-                  </div>
-                  <div className="support-top-rating">{formatRatingPercent(staff.performance_rating)}</div>
-                </article>
-              ))}
-            </div>
-          ) : (
-            <div className="support-empty-state compact">
-              <strong>Chưa có thống kê</strong>
-              <span>Hệ thống sẽ hiển thị top nhân viên khi có dữ liệu.</span>
-            </div>
-          )}
-
-          <div className="support-side-divider" aria-hidden="true" />
-          <button
-            className="support-side-metric support-stat-card amber"
-            type="button"
-            aria-disabled="true"
-            tabIndex={-1}
-          >
-            <strong>{formatRating(statistics.average_rating)}</strong>
-            <span>Hiệu suất trung bình</span>
-            <small>Thống kê tự động</small>
-          </button>
-        </aside>
       </div>
 
       {formVisible ? (
@@ -856,7 +837,9 @@ function SupportStaffManagementPage() {
           editing={editingStaff}
           errors={formErrors}
           form={form}
+          accountOptions={accountOptions}
           onChange={changeField}
+          onPickAccount={pickAccount}
           onClose={closeForm}
           onSubmit={handleSubmit}
           saving={saving}

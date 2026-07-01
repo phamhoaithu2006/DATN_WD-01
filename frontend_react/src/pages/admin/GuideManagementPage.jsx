@@ -199,6 +199,9 @@ function layDanhSachIdUserDaCoHdv(danhSachHdv) {
 function validateGuideForm(formHdv) {
   const loiMoi = {}
   const experienceYears = Number(formHdv.experience_years)
+  const namHienTai = new Date().getFullYear()
+  const languages = Array.isArray(formHdv.languages) ? formHdv.languages : []
+  const experiences = Array.isArray(formHdv.experiences) ? formHdv.experiences : []
 
   if (!formHdv.user_id) {
     loiMoi.user_id = 'Vui lòng chọn tài khoản HDV.'
@@ -217,44 +220,54 @@ function validateGuideForm(formHdv) {
   }
 
   if (!danhSachTrangThaiApi.includes(formHdv.status)) {
-    loiMoi.status = 'Trạng thái không hợp lệ.'
+    loiMoi.status = 'Vui lòng chọn trạng thái.'
   }
-  const ngoaiNguKhongHopLe = formHdv.languages.find((item) => item.language_id === '')
+  if (languages.length === 0) {
+    loiMoi.languages = 'Vui lòng thêm ít nhất một ngôn ngữ.'
+  }
+
+  const ngoaiNguKhongHopLe = languages.find((item) => !item.language_id)
 
   if (ngoaiNguKhongHopLe) {
     loiMoi.languages = 'Mỗi dòng ngoại ngữ cần chọn ngôn ngữ.'
   }
-  const thieuTrinhDo = formHdv.languages.find((item) => item.language_id && !item.level_id)
+  const thieuTrinhDo = languages.find((item) => item.language_id && !item.level_id)
 
   if (thieuTrinhDo) {
     loiMoi.languages = 'Mỗi dòng ngoại ngữ cần chọn trình độ.'
   }
 
   const trungNgoaiNgu =
-    new Set(formHdv.languages.filter((item) => item.language_id).map((item) => item.language_id))
-      .size !== formHdv.languages.filter((item) => item.language_id).length
+    new Set(languages.filter((item) => item.language_id).map((item) => item.language_id)).size !==
+    languages.filter((item) => item.language_id).length
 
-      if (trungNgoaiNgu) {
+  if (trungNgoaiNgu) {
     loiMoi.languages = 'Không chọn trùng ngôn ngữ.'
   }
 
-  const kinhNghiemKhongHopLe = formHdv.experiences.find(
+  if (experiences.length === 0) {
+    loiMoi.experiences = 'Vui lòng thêm ít nhất một chứng chỉ.'
+  }
+
+  const kinhNghiemKhongHopLe = experiences.find(
     (item) =>
-      (item.certificate_id || item.issued_year) &&
-      (!item.certificate_id ||
-        (item.issued_year && !Number.isInteger(Number(item.issued_year)))),
+      !item.certificate_id ||
+      !item.issued_year ||
+      !Number.isInteger(Number(item.issued_year)) ||
+      Number(item.issued_year) < 1900 ||
+      Number(item.issued_year) > namHienTai,
   )
 
   if (kinhNghiemKhongHopLe) {
-    loiMoi.experiences = 'Mỗi dòng chứng chỉ cần chọn chứng chỉ, năm cấp nếu có phải là số nguyên.'
+    loiMoi.experiences = 'Mỗi dòng chứng chỉ cần chọn chứng chỉ và năm cấp hợp lệ.'
   }
 
   const trungChungChi =
     new Set(
-      formHdv.experiences.filter((item) => item.certificate_id).map((item) => item.certificate_id),
-    ).size !== formHdv.experiences.filter((item) => item.certificate_id).length
+      experiences.filter((item) => item.certificate_id).map((item) => item.certificate_id),
+    ).size !== experiences.filter((item) => item.certificate_id).length
 
-    if (trungChungChi) {
+  if (trungChungChi) {
     loiMoi.experiences = 'Không chọn trùng chứng chỉ.'
   }
 
@@ -443,7 +456,7 @@ function GuideManagementPage() {
   function moFormThemMoi() {
     setFormHdv({
       ...DEFAULT_FORM,
-      status: 'active',
+      status: '',
       languages: [taoDongNgoaiNgu()],
       experiences: [taoDongChungChi()],
     })
@@ -458,7 +471,7 @@ function GuideManagementPage() {
       user_id: String(hdv.user_id || ''),
       specialization_id: String(hdv.specializations?.[0]?.id || ''),
       experience_years: String(hdv.experience_years ?? ''),
-      status: hdv.status || 'active',
+      status: hdv.status || '',
       languages: chuyenNgoaiNguThanhForm(hdv.languages),
       experiences: chuyenKinhNghiemThanhForm(hdv.experiences),
     })
@@ -806,7 +819,9 @@ function GuideManagementPage() {
                   disabled={Boolean(idDangSua)}
                   onChange={(event) => capNhatForm('user_id', event.target.value)}
                 >
-                  <option value="">Chọn HDV</option>
+                  <option value="" disabled>
+                    Chọn HDV
+                  </option>
                   {danhSachTaiKhoanHdv
                     .filter((user) => {
                       if (idDangSua && String(user.id) === String(formHdv.user_id)) {
@@ -829,7 +844,9 @@ function GuideManagementPage() {
                   value={formHdv.specialization_id}
                   onChange={(event) => capNhatForm('specialization_id', event.target.value)}
                 >
-                  <option value="">Chọn chuyên môn</option>
+                  <option value="" disabled>
+                    Chọn chuyên môn
+                  </option>
                   {danhSachChuyenMon.map((item) => (
                     <option key={item.id} value={item.id}>
                       {layTenChuyenMon(item)}
@@ -856,7 +873,9 @@ function GuideManagementPage() {
               <label>
                 Trạng thái
                 <select value={formHdv.status} onChange={(event) => capNhatForm('status', event.target.value)}>
-                  <option value="">Chọn trạng thái</option>
+                  <option value="" disabled>
+                    Chọn trạng thái
+                  </option>
                   {danhSachTrangThaiApi.map((trangThai) => (
                     <option key={trangThai} value={trangThai}>
                       {nhanTrangThai[trangThai]}
@@ -879,7 +898,9 @@ function GuideManagementPage() {
                           value={ngoaiNgu.language_id}
                           onChange={(event) => capNhatNgoaiNgu(index, 'language_id', event.target.value)}
                         >
-                          <option value="">Chọn ngôn ngữ</option>
+                          <option value="" disabled>
+                            Chọn ngôn ngữ
+                          </option>
                           {danhSachNgonNgu
                             .filter((item) => !idsNgonNguDaChon.includes(String(item.id)))
                             .map((item) => (
@@ -893,7 +914,9 @@ function GuideManagementPage() {
                           value={ngoaiNgu.level_id}
                           onChange={(event) => capNhatNgoaiNgu(index, 'level_id', event.target.value)}
                         >
-                          <option value="">Chọn trình độ</option>
+                          <option value="" disabled>
+                            Chọn trình độ
+                          </option>
                           {danhSachTrinhDo.map((level) => (
                             <option key={level.id} value={level.id}>
                               {level.level_name || level.name}
@@ -925,7 +948,9 @@ function GuideManagementPage() {
                           value={chungChi.certificate_id}
                           onChange={(event) => capNhatChungChi(index, 'certificate_id', event.target.value)}
                         >
-                          <option value="">Chọn chứng chỉ</option>
+                          <option value="" disabled>
+                            Chọn chứng chỉ
+                          </option>
                           {danhSachChungChi
                             .filter((item) => !idsChungChiDaChon.includes(String(item.id)))
                             .map((item) => (

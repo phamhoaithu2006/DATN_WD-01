@@ -176,7 +176,7 @@
 .support-content-grid {
   display: grid;
   gap: 18px;
-  grid-template-columns: minmax(0, 1fr) 340px;
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
 }
 
@@ -262,7 +262,7 @@
 
 .support-table {
   border-collapse: collapse;
-  min-width: 1060px;
+  min-width: 0;
   width: 100%;
   table-layout: fixed;
 }
@@ -404,6 +404,7 @@
   display: flex;
   flex-wrap: nowrap;
   gap: 8px;
+  justify-content: center;
   white-space: nowrap;
 }
 
@@ -426,8 +427,8 @@
   align-items: center;
   display: inline-flex;
   justify-content: center;
-  min-width: 34px;
-  padding: 0;
+  min-width: 40px;
+  padding: 0 10px;
 }
 
 .support-actions.trash-actions {
@@ -450,7 +451,7 @@
 }
 
 .support-table td:last-child {
-  min-width: 176px;
+  min-width: 156px;
 }
 
 .support-trash-page .support-table td:last-child {
@@ -474,17 +475,17 @@
 
 .support-table th:nth-child(1),
 .support-table td:nth-child(1) {
-  width: 64px;
+  width: 72px;
 }
 
 .support-table th:nth-child(2),
 .support-table td:nth-child(2) {
-  width: 92px;
+  width: 100px;
 }
 
 .support-table th:nth-child(3),
 .support-table td:nth-child(3) {
-  width: 170px;
+  width: 220px;
 }
 
 .support-table th:nth-child(4),
@@ -494,19 +495,13 @@
 
 .support-table th:nth-child(5),
 .support-table td:nth-child(5) {
-  width: 150px;
+  width: 160px;
   text-align: center;
 }
 
 .support-table th:nth-child(6),
 .support-table td:nth-child(6) {
-  width: 140px;
-  text-align: center;
-}
-
-.support-table th:nth-child(7),
-.support-table td:nth-child(7) {
-  width: 220px;
+  width: 180px;
   text-align: center;
 }
 
@@ -528,26 +523,6 @@
 .support-trash-page .support-table th:nth-child(4),
 .support-trash-page .support-table td:nth-child(4) {
   width: 220px;
-}
-
-.support-trash-page .support-table th:nth-child(5),
-.support-trash-page .support-table td:nth-child(5) {
-  width: 170px;
-}
-
-.support-trash-page .support-table th:nth-child(6),
-.support-trash-page .support-table td:nth-child(6) {
-  width: 220px;
-}
-
-.support-trash-page .support-table th:nth-child(7),
-.support-trash-page .support-table td:nth-child(7) {
-  width: 220px;
-}
-
-.support-table td:nth-child(7) .support-actions {
-  justify-content: center;
-  width: 100%;
 }
 
 .support-actions button svg {

@@ -19,7 +19,7 @@ const EMPTY_FORM = {
   website: "",
   contract_start: "",
   contract_end: "",
-  status: "active",
+  status: "",
   description: "",
 };
 const SERVICE_LABELS = {
@@ -170,6 +170,10 @@ const isValidUrl = (value) => {
     return false;
   }
 };
+const isValidPhone = (value) => {
+  const digits = value.replace(/\D/g, "");
+  return digits.length >= 9 && digits.length <= 15;
+};
 
 function Icon({ type }) {
   return type === "detail" ? (
@@ -266,10 +270,16 @@ function PartnerFormModal({
               value={form.contact_name}
               onChange={onChange("contact_name")}
             />
+            {formErrors.contact_name ? (
+              <span className="partner-error">{formErrors.contact_name}</span>
+            ) : null}
           </label>
           <label>
             Số điện thoại
             <input value={form.phone} onChange={onChange("phone")} />
+            {formErrors.phone ? (
+              <span className="partner-error">{formErrors.phone}</span>
+            ) : null}
           </label>
           <label>
             Email
@@ -292,6 +302,9 @@ function PartnerFormModal({
           <label>
             Địa chỉ
             <input value={form.address} onChange={onChange("address")} />
+            {formErrors.address ? (
+              <span className="partner-error">{formErrors.address}</span>
+            ) : null}
           </label>
           <label>
             Ngày bắt đầu hợp đồng
@@ -300,6 +313,9 @@ function PartnerFormModal({
               value={form.contract_start}
               onChange={onChange("contract_start")}
             />
+            {formErrors.contract_start ? (
+              <span className="partner-error">{formErrors.contract_start}</span>
+            ) : null}
           </label>
           <label>
             Ngày kết thúc hợp đồng
@@ -335,6 +351,9 @@ function PartnerFormModal({
               value={form.description}
               onChange={onChange("description")}
             />
+            {formErrors.description ? (
+              <span className="partner-error">{formErrors.description}</span>
+            ) : null}
           </label>
         </div>
         <div className="partner-modal-actions">
@@ -587,7 +606,7 @@ export default function PartnerManagementPage() {
         contract_start:
           nextPartner.contract_start || nextPartner.contract_from || "",
         contract_end: nextPartner.contract_end || nextPartner.contract_to || "",
-        status: nextPartner.status || "active",
+        status: nextPartner.status || "",
         description: nextPartner.description || "",
       });
       setEditingPartner(nextPartner);
@@ -619,7 +638,7 @@ export default function PartnerManagementPage() {
     description: f.description.trim() || null,
     contract_start: f.contract_start || null,
     contract_end: f.contract_end || null,
-    status: f.status || "active",
+    status: f.status,
   });
   const validate = (f) => {
     const e = {},
@@ -629,16 +648,27 @@ export default function PartnerManagementPage() {
       e.name = "Tên đối tác tối đa 255 ký tự.";
     if (!Number.isInteger(st) || st <= 0)
       e.service_type_id = "Vui lòng chọn loại dịch vụ.";
-    if (f.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim()))
+    if (!f.contact_name.trim()) e.contact_name = "Vui lòng nhập người liên hệ.";
+    if (!f.phone.trim()) e.phone = "Vui lòng nhập số điện thoại.";
+    else if (!isValidPhone(f.phone.trim()))
+      e.phone = "Số điện thoại không hợp lệ.";
+    if (!f.email.trim()) e.email = "Vui lòng nhập email.";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim()))
       e.email = "Email không hợp lệ.";
-    if (f.website.trim() && !isValidUrl(f.website))
+    if (!f.address.trim()) e.address = "Vui lòng nhập địa chỉ.";
+    if (!f.website.trim()) e.website = "Vui lòng nhập website.";
+    else if (!isValidUrl(f.website))
       e.website = "Website phải là URL hợp lệ, ví dụ https://example.com.";
-    if (
+    if (!f.contract_start) e.contract_start = "Vui lòng chọn ngày bắt đầu hợp đồng.";
+    if (!f.contract_end) e.contract_end = "Vui lòng chọn ngày kết thúc hợp đồng.";
+    else if (
       f.contract_start &&
       f.contract_end &&
       new Date(f.contract_end) < new Date(f.contract_start)
     )
       e.contract_end = "Ngày kết thúc phải lớn hơn ngày bắt đầu.";
+    if (!f.status) e.status = "Vui lòng chọn trạng thái.";
+    if (!f.description.trim()) e.description = "Vui lòng nhập mô tả.";
     return e;
   };
   const handleSubmit = async (e) => {

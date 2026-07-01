@@ -196,7 +196,7 @@ function SupportStaffTrashPage() {
                 setSearch(event.target.value)
                 setPage(1)
               }}
-              placeholder="Tìm theo tên, email..."
+              placeholder="Tìm theo tên..."
             />
           </label>
         </div>

@@ -389,13 +389,13 @@
   line-height: 1;
 }
 
-.guide-stat-grid {
+.guide-page .guide-stat-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 18px;
+  gap: 16px;
 }
 
-.guide-stat-card,
+.guide-page .guide-stat-card,
 .guide-main-panel,
 .guide-side-panel,
 .guide-modal {
@@ -405,7 +405,7 @@
   box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
 }
 
-.guide-stat-card {
+.guide-page .guide-stat-card {
   min-height: 104px;
   display: grid;
   align-content: center;
@@ -417,80 +417,80 @@
   cursor: pointer;
   font: inherit;
   text-align: left;
+  border-radius: 18px;
+  box-shadow: 0 8px 20px rgba(16, 33, 61, 0.08);
 }
 
-.guide-stat-card strong {
+.guide-page .guide-stat-card strong {
   display: block;
-  color: #020617;
   font-size: 30px;
   line-height: 1;
   margin-bottom: 10px;
 }
 
-.guide-stat-card span {
+.guide-page .guide-stat-card span {
   display: block;
-  color: #020617;
   font-size: 14px;
   font-weight: 800;
   margin-bottom: 6px;
 }
 
-.guide-stat-card small {
+.guide-page .guide-stat-card small {
   color: rgba(15, 23, 42, 0.65);
   font-size: 13px;
 }
 
-.guide-stat-card.blue {
+.guide-page .guide-stat-card.blue {
   background: linear-gradient(180deg, #eff7ff 0%, #ffffff 100%);
   border-color: #d8e9fb;
 }
 
-.guide-stat-card.blue strong,
-.guide-stat-card.blue span {
+.guide-page .guide-stat-card.blue strong,
+.guide-page .guide-stat-card.blue span {
   color: #1380d9;
 }
 
-.guide-stat-card.green {
+.guide-page .guide-stat-card.green {
   background: linear-gradient(180deg, #eefdf5 0%, #ffffff 100%);
   border-color: #d6f3e3;
 }
 
-.guide-stat-card.green strong,
-.guide-stat-card.green span {
+.guide-page .guide-stat-card.green strong,
+.guide-page .guide-stat-card.green span {
   color: #0e9f6e;
 }
 
-.guide-stat-card.amber {
+.guide-page .guide-stat-card.amber {
   background: linear-gradient(180deg, #fff9eb 0%, #ffffff 100%);
   border-color: #fde9b2;
 }
 
-.guide-stat-card.amber strong,
-.guide-stat-card.amber span {
+.guide-page .guide-stat-card.amber strong,
+.guide-page .guide-stat-card.amber span {
   color: #d97706;
 }
 
-.guide-stat-card.purple {
+.guide-page .guide-stat-card.purple {
   background: linear-gradient(180deg, #f4efff 0%, #ffffff 100%);
   border-color: #e5d8ff;
 }
 
-.guide-stat-card.purple strong,
-.guide-stat-card.purple span {
+.guide-page .guide-stat-card.purple strong,
+.guide-page .guide-stat-card.purple span {
   color: #7c3aed;
 }
 
-.guide-stat-card.is-active {
-  box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.24), 0 10px 22px rgba(15, 23, 42, 0.12);
+.guide-page .guide-stat-card.is-active {
+  box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.22), 0 10px 22px rgba(16, 33, 61, 0.12);
   transform: translateY(-1px);
 }
 
-.guide-stat-card:focus-visible {
+.guide-page .guide-stat-card:focus-visible {
   outline: 3px solid rgba(14, 165, 233, 0.24);
   outline-offset: 2px;
 }
 
-.guide-content-grid {
+.guide-page .guide-content-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 18px;
