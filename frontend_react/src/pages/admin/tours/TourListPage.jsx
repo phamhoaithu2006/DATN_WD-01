@@ -220,7 +220,7 @@ function TourListPage() {
 
     const timer = setTimeout(() => {
       setToast(null)
-    }, 3000)
+    }, 10000)
 
     return () => clearTimeout(timer)
   }, [toast])

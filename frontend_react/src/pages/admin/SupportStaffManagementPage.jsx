@@ -218,7 +218,7 @@ function SupportStaffFormModal({
 
         <div className="support-form-grid">
           <label>
-            Họ và tên {editing ? '' : '(NVHT)'}
+            Họ và tên
             {editing ? (
               <input
                 value={form.name}
@@ -541,7 +541,7 @@ function SupportStaffManagementPage() {
 
     const timer = window.setTimeout(() => {
       closeToast()
-    }, 3500)
+    }, 10000)
 
     return () => window.clearTimeout(timer)
   }, [notice])
