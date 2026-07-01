@@ -141,17 +141,6 @@ function GuideSidebar({ collapsed, onLogout }) {
         ))}
       </nav>
 
-      {!collapsed && (
-        <div className="guide-promo-card">
-          <div className="guide-promo-star">⭐</div>
-          <h3>Nâng cấp tài khoản</h3>
-          <p>Mở khóa tính năng cao cấp &amp; ưu tiên hỗ trợ khách hàng VIP</p>
-          <button className="guide-promo-btn" type="button">
-            Nâng cấp ngay &rarr;
-          </button>
-        </div>
-      )}
-
       <button className="guide-logout-button" type="button" onClick={onLogout}>
         <svg className="guide-logout-icon" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
