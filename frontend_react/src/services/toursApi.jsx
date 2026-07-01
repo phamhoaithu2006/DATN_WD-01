@@ -24,6 +24,9 @@ const tourApi = {
   getAll() {
     return api.get('/admin/tours')
   },
+  getById(id) {
+    return api.get(`/admin/tours/${id}`)
+  },
 
   getHidden() {
     return api.get('/admin/tours/hidden-list')

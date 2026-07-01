@@ -32,10 +32,10 @@ class TourResource extends JsonResource
             'status' => $this->status,
             'average_rating' => $this->average_rating,
             'review_count' => $this->review_count,
-            
+
             // Kết hợp 2 trường dữ liệu thành một chuỗi hiển thị
             'duration'    => "{$this->duration_days} ngày {$this->duration_nights} đêm",
-            
+
             // Gom nhóm các dữ liệu liên quan để API phản hồi gọn gàng hơn
             'price' => [
                 'base'     => (float)$this->base_price,
@@ -55,11 +55,52 @@ class TourResource extends JsonResource
              * Giúp tránh lỗi "Property access on null" và tối ưu hiệu năng.
              * Chỉ lấy tên (name) nếu quan hệ đã được eager load (thông qua with() ở Controller).
              */
-            'category'    => $this->whenLoaded('category', fn() => $this->category->name),
-            'destination' => $this->whenLoaded('destination', fn() => $this->destination->name),
-            'departures'  => $this->whenLoaded('departures', fn() =>
+            // Giữ nguyên dữ liệu cũ
+            'category'    => $this->whenLoaded('category', fn() => optional($this->category)->name),
+            'destination' => $this->whenLoaded('destination', fn() => optional($this->destination)->name),
+
+            // Bổ sung thêm field mới để frontend dễ hiển thị tên
+            'category_name' => $this->whenLoaded('category', fn() => optional($this->category)->name),
+            'destination_name' => $this->whenLoaded('destination', fn() => optional($this->destination)->name),
+
+            // Bổ sung object đầy đủ nếu sau này cần dùng id + name
+            'category_info' => $this->whenLoaded('category', function () {
+                return $this->category ? [
+                    'id' => $this->category->id,
+                    'name' => $this->category->name,
+                ] : null;
+            }),
+
+            'destination_info' => $this->whenLoaded('destination', function () {
+                return $this->destination ? [
+                    'id' => $this->destination->id,
+                    'name' => $this->destination->name,
+                ] : null;
+            }),
+            'departures'  => $this->whenLoaded(
+                'departures',
+                fn() =>
                 TourDepartureResource::collection($this->departures)
             ),
+            'thumbnail_url' => $this->thumbnail?->image_url,
+
+            'thumbnail' => $this->thumbnail ? [
+                'id' => $this->thumbnail->id,
+                'image_url' => $this->thumbnail->image_url,
+                'alt_text' => $this->thumbnail->alt_text,
+                'sort_order' => $this->thumbnail->sort_order,
+                'is_thumbnail' => $this->thumbnail->is_thumbnail,
+            ] : null,
+
+            'images' => $this->images?->map(function ($image) {
+                return [
+                    'id' => $image->id,
+                    'image_url' => $image->image_url,
+                    'alt_text' => $image->alt_text,
+                    'sort_order' => $image->sort_order,
+                    'is_thumbnail' => $image->is_thumbnail,
+                ];
+            })->values(),
         ];
     }
 }

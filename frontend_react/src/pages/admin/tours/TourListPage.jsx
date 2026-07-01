@@ -17,6 +17,20 @@ function SearchIcon({ className = 'h-5 w-5' }) {
     </svg>
   )
 }
+function EyeIcon({ className = 'h-4 w-4' }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  )
+}
 
 function FilterIcon({ className = 'h-5 w-5' }) {
   return (
@@ -221,7 +235,6 @@ function TourListPage() {
 
   const closeActionModal = () => {
     if (actionLoading) return
-
     setPendingAction(null)
   }
 
@@ -264,36 +277,6 @@ function TourListPage() {
     }
   }
 
-  const formatMoney = (value) => {
-    if (value === null || value === undefined || value === '') return '-'
-
-    const number = Number(value)
-
-    if (Number.isNaN(number)) return '-'
-
-    return number.toLocaleString('vi-VN') + ' đ'
-  }
-
-  const showDiscountPrice = (tour) => {
-    const discountPrice = tour.discount_price
-
-    if (
-      discountPrice === null ||
-      discountPrice === undefined ||
-      discountPrice === ''
-    ) {
-      return '-'
-    }
-
-    const number = Number(discountPrice)
-
-    if (Number.isNaN(number) || number <= 0) {
-      return '-'
-    }
-
-    return formatMoney(number)
-  }
-
   const formatTourTitle = (value = '') => {
     return value
       .trim()
@@ -309,10 +292,77 @@ function TourListPage() {
       .join(' ')
   }
 
+  const API_ORIGIN = 'http://127.0.0.1:8000'
+
+  const normalizeImageUrl = (url) => {
+    if (!url) return ''
+
+    const value = String(url).trim()
+
+    if (!value) return ''
+
+    if (value.startsWith('http://') || value.startsWith('https://')) {
+      return value
+    }
+
+    if (value.startsWith('/storage')) {
+      return `${API_ORIGIN}${value}`
+    }
+
+    if (value.startsWith('storage')) {
+      return `${API_ORIGIN}/${value}`
+    }
+
+    if (value.startsWith('/uploads')) {
+      return `${API_ORIGIN}${value}`
+    }
+
+    if (value.startsWith('uploads')) {
+      return `${API_ORIGIN}/${value}`
+    }
+
+    return value
+  }
+
+  const getTourThumbnail = (tour) => {
+    const thumbnailFromImages =
+      tour.images?.find((image) => Number(image.is_thumbnail) === 1)?.image_url ||
+      tour.tour_images?.find((image) => Number(image.is_thumbnail) === 1)?.image_url
+
+    const imageUrl =
+      tour.thumbnail_url ||
+      tour.thumbnail?.image_url ||
+      tour.image_url ||
+      thumbnailFromImages ||
+      tour.images?.[0]?.image_url ||
+      tour.tour_images?.[0]?.image_url ||
+      ''
+
+    return normalizeImageUrl(imageUrl)
+  }
+
+  const getCategoryName = (tour) => {
+    if (tour.category_name) return tour.category_name
+    if (tour.category_info?.name) return tour.category_info.name
+    if (typeof tour.category === 'string') return tour.category
+    if (tour.category?.name) return tour.category.name
+
+    return '-'
+  }
+
+  const getDestinationName = (tour) => {
+    if (tour.destination_name) return tour.destination_name
+    if (tour.destination_info?.name) return tour.destination_info.name
+    if (typeof tour.destination === 'string') return tour.destination
+    if (tour.destination?.name) return tour.destination.name
+
+    return '-'
+  }
+
   const filtered = tours.filter((tour) =>
-    `${tour.title || ''} ${tour.summary || ''} ${tour.status || ''} ${
-      tour.destination?.name || tour.destination_name || ''
-    }`
+    `${tour.title || ''} ${tour.summary || ''} ${tour.status || ''} ${getCategoryName(
+      tour,
+    )} ${getDestinationName(tour)}`
       .toLowerCase()
       .includes(keyword.toLowerCase()),
   )
@@ -320,7 +370,7 @@ function TourListPage() {
   return (
     <div className="min-h-full bg-slate-50/70 px-8 py-8">
       <AdminPageHeader
-        breadcrumb={["ViVuGo", "Quản Lý Tour"]}
+        breadcrumb={['ViVuGo', 'Quản Lý Tour']}
         title="Quản Lý Tour"
         description="Quản lý danh sách tour, loại tour, điểm đến và trạng thái hiển thị."
         actions={
@@ -360,7 +410,6 @@ function TourListPage() {
         }
       />
 
-      {/* SEARCH CARD */}
       <div className="mb-7 rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
           <div className="relative flex-1">
@@ -397,7 +446,6 @@ function TourListPage() {
         </div>
       </div>
 
-      {/* TABLE CARD */}
       <div className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
         <div className="mb-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -421,16 +469,15 @@ function TourListPage() {
         </div>
 
         <div className="overflow-x-auto rounded-lg border border-slate-100">
-          <table className="w-full min-w-[1080px] text-sm">
+          <table className="w-full min-w-[1180px] text-sm">
             <thead>
               <tr className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
                 <th className="px-5 py-3">ID</th>
+                <th className="px-5 py-3">Hình ảnh</th>
                 <th className="px-5 py-3">Tên</th>
                 <th className="px-5 py-3">Danh mục</th>
                 <th className="px-5 py-3">Điểm đến</th>
                 <th className="px-5 py-3">Thời gian</th>
-                <th className="px-5 py-3">Giá gốc</th>
-                <th className="px-5 py-3">Giá KM</th>
                 <th className="px-5 py-3">Chỗ</th>
                 <th className="px-5 py-3">Trạng thái</th>
                 <th className="px-5 py-3 text-center">Hành động</th>
@@ -440,7 +487,7 @@ function TourListPage() {
             <tbody className="divide-y divide-slate-100 bg-white">
               {loading ? (
                 <tr>
-                  <td colSpan="10" className="px-5 py-14 text-center">
+                  <td colSpan="9" className="px-5 py-14 text-center">
                     <div className="mx-auto flex max-w-xs flex-col items-center gap-3">
                       <div className="h-8 w-8 animate-spin rounded-full border-4 border-sky-100 border-t-sky-500" />
                       <p className="text-sm font-normal text-slate-500">
@@ -451,7 +498,7 @@ function TourListPage() {
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan="10" className="px-5 py-14 text-center">
+                  <td colSpan="9" className="px-5 py-14 text-center">
                     <div className="mx-auto max-w-sm rounded-xl bg-slate-50 px-6 py-8">
                       <p className="text-base font-medium text-slate-700">
                         Không có dữ liệu
@@ -463,120 +510,132 @@ function TourListPage() {
                   </td>
                 </tr>
               ) : (
-                filtered.map((tour) => (
-                  <tr
-                    key={tour.id}
-                    className="transition hover:bg-sky-50/40"
-                  >
-                    <td className="whitespace-nowrap px-5 py-4 font-medium text-slate-600">
-                      #{tour.id}
-                    </td>
+                filtered.map((tour) => {
+                  const thumbnailUrl = getTourThumbnail(tour)
 
-                    <td className="min-w-[260px] px-5 py-4">
-                      <div className="max-w-[280px]">
-                        <p className="line-clamp-1 text-[14px] font-medium leading-6 text-slate-800">
-                          {formatTourTitle(tour.title)}
-                        </p>
+                  return (
+                    <tr
+                      key={tour.id}
+                      className="transition hover:bg-sky-50/40"
+                    >
+                      <td className="whitespace-nowrap px-5 py-4 font-medium text-slate-600">
+                        #{tour.id}
+                      </td>
 
-                        {tour.summary ? (
-                          <p className="mt-1 line-clamp-1 text-[13px] font-normal leading-5 text-slate-500">
-                            {tour.summary}
-                          </p>
+                      <td className="whitespace-nowrap px-5 py-4 min-w-[240px]">
+                        {thumbnailUrl ? (
+                          <img
+                            src={thumbnailUrl}
+                            alt={tour.title || 'Ảnh tour'}
+                            className="h-24 w-56 rounded-xl border border-slate-100 object-cover shadow-sm"
+                          />
                         ) : (
-                          <p className="mt-1 text-[13px] font-normal leading-5 text-slate-400">
-                            Chưa có mô tả ngắn
-                          </p>
+                          <div className="flex h-24 w-56 items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-xs text-slate-400">
+                            Chưa có ảnh
+                          </div>
                         )}
-                      </div>
-                    </td>
+                      </td>
 
-                    <td className="whitespace-nowrap px-5 py-4 font-normal text-slate-600">
-                      {tour.category?.name ||
-                        tour.category_name ||
-                        tour.category_id ||
-                        '-'}
-                    </td>
+                      <td className="min-w-[300px] px-5 py-4">
+                        <div className="max-w-[320px]">
+                          <p className="line-clamp-1 text-[14px] font-medium leading-6 text-slate-800">
+                            {formatTourTitle(tour.title)}
+                          </p>
 
-                    <td className="whitespace-nowrap px-5 py-4 font-normal text-slate-600">
-                      {tour.destination?.name ||
-                        tour.destination_name ||
-                        tour.destination_id ||
-                        '-'}
-                    </td>
+                          {tour.summary ? (
+                            <p className="mt-1 line-clamp-1 text-[13px] font-normal leading-5 text-slate-500">
+                              {tour.summary}
+                            </p>
+                          ) : (
+                            <p className="mt-1 text-[13px] font-normal leading-5 text-slate-400">
+                              Chưa có mô tả ngắn
+                            </p>
+                          )}
+                        </div>
+                      </td>
 
-                    <td className="whitespace-nowrap px-5 py-4 font-normal text-slate-600">
-                      {tour.duration_days || 0}N /{' '}
-                      {tour.duration_nights || 0}Đ
-                    </td>
+                      <td className="whitespace-nowrap px-5 py-4 font-normal text-slate-600">
+                        {getCategoryName(tour)}
+                      </td>
 
-                    <td className="whitespace-nowrap px-5 py-4 font-medium text-slate-700">
-                      {formatMoney(tour.base_price)}
-                    </td>
+                      <td className="whitespace-nowrap px-5 py-4 font-normal text-slate-600">
+                        {getDestinationName(tour)}
+                      </td>
 
-                    <td className="whitespace-nowrap px-5 py-4 font-medium text-rose-600">
-                      {showDiscountPrice(tour)}
-                    </td>
+                      <td className="whitespace-nowrap px-5 py-4 font-normal text-slate-600">
+                        {tour.duration_days || 0}N /{' '}
+                        {tour.duration_nights || 0}Đ
+                      </td>
 
-                    <td className="whitespace-nowrap px-5 py-4 font-normal text-slate-600">
-                      {tour.available_slots || 0}/{tour.max_slots || 0}
-                    </td>
+                      <td className="whitespace-nowrap px-5 py-4 font-normal text-slate-600">
+                        {tour.available_slots || 0}/{tour.max_slots || 0}
+                      </td>
 
-                    <td className="whitespace-nowrap px-5 py-4">
-                      <span
-                        className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium ${
-                          tour.status === 'published'
-                            ? 'bg-emerald-50 text-emerald-700'
-                            : tour.status === 'draft'
-                              ? 'bg-amber-50 text-amber-700'
-                              : 'bg-slate-100 text-slate-600'
-                        }`}
-                      >
+                      <td className="whitespace-nowrap px-5 py-4">
                         <span
-                          className={`h-1.5 w-1.5 rounded-full ${
+                          className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium ${
                             tour.status === 'published'
-                              ? 'bg-emerald-500'
+                              ? 'bg-emerald-50 text-emerald-700'
                               : tour.status === 'draft'
-                                ? 'bg-amber-500'
-                                : 'bg-slate-400'
+                                ? 'bg-amber-50 text-amber-700'
+                                : 'bg-slate-100 text-slate-600'
                           }`}
-                        />
-                        {tour.status || '-'}
-                      </span>
-                    </td>
-
-                    <td className="px-5 py-4">
-                      <div className="flex items-center justify-center gap-2">
-                        <Link
-                          to={`/admin/tours/${tour.id}/edit`}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-sky-50 text-sky-600 transition hover:bg-sky-100"
-                          title="Sửa tour"
                         >
-                          <EditIcon className="h-4 w-4" />
-                        </Link>
+                          <span
+                            className={`h-1.5 w-1.5 rounded-full ${
+                              tour.status === 'published'
+                                ? 'bg-emerald-500'
+                                : tour.status === 'draft'
+                                  ? 'bg-amber-500'
+                                  : 'bg-slate-400'
+                            }`}
+                          />
+                          {tour.status || '-'}
+                        </span>
+                      </td>
 
-                        <button
-                          type="button"
-                          onClick={() => openActionModal('hide', tour)}
-                          disabled={actionLoading === `hide-${tour.id}`}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-600 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
-                          title="Ẩn tour"
-                        >
-                          <EyeOffIcon className="h-4 w-4" />
-                        </button>
+                      <td className="px-5 py-4">
+                        <div className="flex items-center justify-center gap-2">
+                          <Link
+                            to={`/admin/tours/${tour.id}`}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 transition hover:bg-emerald-100"
+                            title="Xem chi tiết tour"
+                          >
+                            <EyeIcon className="h-4 w-4" />
+                          </Link>
 
-                        <button
-                          type="button"
-                          onClick={() => openActionModal('delete', tour)}
-                          disabled={actionLoading === `delete-${tour.id}`}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-rose-50 text-rose-600 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
-                          title="Xóa tour"
-                        >
-                          <TrashIcon className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                          <Link
+                            to={`/admin/tours/${tour.id}/edit`}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-sky-50 text-sky-600 transition hover:bg-sky-100"
+                            title="Sửa tour"
+                          >
+                            <EditIcon className="h-4 w-4" />
+                          </Link>
+
+                          <button
+                            type="button"
+                            onClick={() => openActionModal('hide', tour)}
+                            disabled={actionLoading === `hide-${tour.id}`}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-600 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+                            title="Ẩn tour"
+                          >
+                            <EyeOffIcon className="h-4 w-4" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => openActionModal('delete', tour)}
+                            disabled={actionLoading === `delete-${tour.id}`}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-rose-50 text-rose-600 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                            title="Xóa tour"
+                          >
+                            <TrashIcon className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })
               )}
             </tbody>
           </table>
@@ -652,9 +711,10 @@ function TourListPage() {
               <p className="mt-3 text-sm font-normal leading-6 text-slate-500">
                 Bạn có chắc muốn {pendingAction.type === 'hide' ? 'ẩn' : 'xóa'} tour{' '}
                 <span className="font-medium text-slate-700">
-                  {formatTourTitle(pendingAction.tour?.title || '') || `#${pendingAction.tour?.id}`}
-                </span>
-                {' '}không?
+                  {formatTourTitle(pendingAction.tour?.title || '') ||
+                    `#${pendingAction.tour?.id}`}
+                </span>{' '}
+                không?
               </p>
             </div>
 
