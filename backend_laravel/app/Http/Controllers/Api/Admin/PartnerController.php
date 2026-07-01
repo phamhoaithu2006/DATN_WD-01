@@ -7,6 +7,7 @@ use App\Models\Partner;
 use App\Models\PartnerServiceType;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 class PartnerController extends Controller
@@ -29,7 +30,7 @@ class PartnerController extends Controller
         }
 
         if ($serviceType = $request->query('service_type')) {
-            $query->whereHas('serviceType', fn ($q) => $q->where('slug', $serviceType));
+            $query->whereHas('serviceType', fn($q) => $q->where('slug', $serviceType));
         }
 
         if ($status = $request->query('status')) {
@@ -59,7 +60,7 @@ class PartnerController extends Controller
         $totalActive = Partner::withoutTrashed()->where('status', 'active')->count();
         $totalInactive = Partner::withoutTrashed()->where('status', 'inactive')->count();
 
-        $serviceTypes = PartnerServiceType::all()->map(fn ($t) => [
+        $serviceTypes = PartnerServiceType::all()->map(fn($t) => [
             'value' => $t->slug,
             'label' => $t->name,
             'count' => $t->partners()->withoutTrashed()->count(),
@@ -188,8 +189,105 @@ class PartnerController extends Controller
 
     public function forceDestroy(int $id): JsonResponse
     {
-        Partner::onlyTrashed()->findOrFail($id)->forceDelete();
+        $partner = Partner::onlyTrashed()->findOrFail($id);
 
-        return response()->json(['success' => true, 'message' => 'Xóa vĩnh viễn thành công.']);
+        if (
+            $partner->logo_url &&
+            str_contains($partner->logo_url, '/storage/partner/')
+        ) {
+            $oldPath = str_replace(
+                '/storage/',
+                '',
+                parse_url($partner->logo_url, PHP_URL_PATH)
+            );
+
+            if (Storage::disk('public')->exists($oldPath)) {
+                Storage::disk('public')->delete($oldPath);
+            }
+        }
+
+        $partner->forceDelete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Xóa vĩnh viễn thành công.',
+        ]);
+    }
+    public function uploadLogo(Request $request, int $id): JsonResponse
+    {
+        $partner = Partner::findOrFail($id);
+
+        $request->validate([
+            'logo' => ['required', 'image', 'mimes:jpeg,png,jpg,webp', 'max:2048'],
+        ]);
+
+        // Xóa logo cũ nếu có
+        if (
+            $partner->logo_url &&
+            str_contains($partner->logo_url, '/storage/partner/')
+        ) {
+            $oldPath = str_replace(
+                '/storage/',
+                '',
+                parse_url($partner->logo_url, PHP_URL_PATH)
+            );
+
+            if (Storage::disk('public')->exists($oldPath)) {
+                Storage::disk('public')->delete($oldPath);
+            }
+        }
+
+        // Upload logo mới
+        $file = $request->file('logo');
+
+        $fileName = uniqid() . '_' . time() . '.' . $file->getClientOriginalExtension();
+
+        $path = $file->storeAs(
+            'partner',
+            $fileName,
+            'public'
+        );
+
+        $url = asset('storage/' . $path);
+
+        $partner->update([
+            'logo_url' => $url,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Upload logo thành công.',
+            'data' => [
+                'logo_url' => $url,
+            ],
+        ]);
+    }
+    public function deleteLogo(int $id): JsonResponse
+    {
+        $partner = Partner::findOrFail($id);
+
+        if (
+            $partner->logo_url &&
+            str_contains($partner->logo_url, '/storage/partner/')
+        ) {
+            $oldPath = str_replace(
+                '/storage/',
+                '',
+                parse_url($partner->logo_url, PHP_URL_PATH)
+            );
+
+            if (Storage::disk('public')->exists($oldPath)) {
+                Storage::disk('public')->delete($oldPath);
+            }
+        }
+
+        $partner->update([
+            'logo_url' => null,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Xóa logo thành công.',
+        ]);
     }
 }

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Guide;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 class GuideController extends Controller
@@ -380,7 +381,7 @@ class GuideController extends Controller
         // Xóa ảnh cũ nếu có và là file local
         if ($guide->user->avatar_url && str_contains($guide->user->avatar_url, '/storage/avatars/')) {
             $oldPath = str_replace('/storage/', '', parse_url($guide->user->avatar_url, PHP_URL_PATH));
-            \Illuminate\Support\Facades\Storage::disk('public')->delete($oldPath);
+            Storage::disk('public')->delete($oldPath);
         }
 
         $path = $request->file('avatar')->store('avatars', 'public');
@@ -409,7 +410,7 @@ class GuideController extends Controller
 
         if ($guide->user->avatar_url && str_contains($guide->user->avatar_url, '/storage/avatars/')) {
             $oldPath = str_replace('/storage/', '', parse_url($guide->user->avatar_url, PHP_URL_PATH));
-            \Illuminate\Support\Facades\Storage::disk('public')->delete($oldPath);
+            Storage::disk('public')->delete($oldPath);
         }
 
         $guide->user->update(['avatar_url' => null]);
