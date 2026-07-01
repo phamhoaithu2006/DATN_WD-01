@@ -108,7 +108,10 @@ function HomePage({
               <h1>
                 Khám phá thế giới
                 <br />
-                cùng <span>ViVuGo</span>
+                cùng{" "}
+                <span className="hero-brand">
+                  <span className="hero-brand-vivu">ViVu</span><span className="hero-brand-go">Go</span>
+                </span>
               </h1>
               <p>
                 Hơn 200+ tour trong nước & quốc tế với giá tốt nhất,
