@@ -1092,7 +1092,7 @@
   transform: rotate(180deg);
 }
 
- (max-width: 760px) {
+@media (max-width: 760px) {
   .admin-shell,
   .admin-shell.sidebar-collapsed {
     grid-template-columns: 1fr;

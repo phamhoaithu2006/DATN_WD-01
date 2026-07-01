@@ -268,7 +268,7 @@ function CustomerPage() {
     );
 
   return (
-    <div className="vg-app">
+    <div className={`vg-app ${location.pathname === "/" ? "is-home-page" : ""}`}>
       <Header user={user} onLogout={logout} />
       {content}
       <Footer />

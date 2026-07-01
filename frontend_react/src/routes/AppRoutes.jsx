@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import ProtectedAdminRoute from '../components/admin/ProtectedAdminRoute'
 import AdminLayout from '../layouts/AdminLayout'
+import GuideLayout from '../layouts/GuideLayout'
 import BookingManagementPage from '../pages/admin/BookingManagementPage'
 import AdminDashboardPage from '../pages/admin/AdminDashboardPage'
 import GuideManagementPage from '../pages/admin/GuideManagementPage'
@@ -32,6 +33,7 @@ import TourListPage from '../pages/admin/tours/TourListPage'
 import AuthPage from '../pages/auth/AuthPage'
 import ForgotPasswordPage from '../pages/auth/ForgotPasswordPage'
 import CustomerPage from '../pages/customer/CustomerPage'
+import GuideDashboardPage from '../pages/guide/GuideDashboardPage'
 import ReportStatisticsPage from '../pages/admin/reportStatistics/ReportStatisticsPage'
 import TourDepartureListPage from "../pages/admin/tourDepartures/TourDepartureListPage";
 import TourDepartureCreatePage from "../pages/admin/tourDepartures/TourDepartureCreatePage";
@@ -43,6 +45,7 @@ const protect = (page, allowedRoles = ['admin']) => (
   <ProtectedAdminRoute allowedRoles={allowedRoles}>{page}</ProtectedAdminRoute>
 )
 const adminPage = (page) => protect(<AdminLayout>{page}</AdminLayout>)
+const guidePage = (page) => protect(<GuideLayout>{page}</GuideLayout>, ['tour guide'])
 
 function AppRoutes() {
   return <Routes>
@@ -58,6 +61,16 @@ function AppRoutes() {
     <Route path="/customer/search" element={<CustomerPage />} />
     <Route path="/customer/bookings" element={<CustomerPage />} />
     <Route path="/customer/settings" element={<CustomerPage />} />
+    <Route path="/guide" element={guidePage(<GuideDashboardPage />)} />
+    <Route path="/guide/tours" element={guidePage(<GuideDashboardPage />)} />
+    <Route path="/guide/schedule" element={guidePage(<GuideDashboardPage />)} />
+    <Route path="/guide/history" element={guidePage(<GuideDashboardPage />)} />
+    <Route path="/guide/reviews" element={guidePage(<GuideDashboardPage />)} />
+    <Route path="/guide/customers" element={guidePage(<GuideDashboardPage />)} />
+    <Route path="/guide/messages" element={guidePage(<GuideDashboardPage />)} />
+    <Route path="/guide/notifications" element={guidePage(<GuideDashboardPage />)} />
+    <Route path="/guide/profile" element={guidePage(<GuideDashboardPage />)} />
+    <Route path="/guide/settings" element={guidePage(<GuideDashboardPage />)} />
     <Route path="/admin/users" element={<Navigate to="/admin/users/customers" replace />} />
     <Route path="/admin/users/customers" element={adminPage(<UserManagementPage roleName="customer" />)} />
     <Route path="/admin/users/admins" element={adminPage(<UserManagementPage roleName="admin" />)} />

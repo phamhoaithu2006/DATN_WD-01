@@ -360,4 +360,60 @@ class GuideController extends Controller
             'data'    => $users,
         ]);
     }
+    // UPLOAD ẢNH ĐẠI DIỆN CHO HDV
+    public function uploadAvatar(Request $request, $id)
+    {
+        $guide = Guide::with('user')->find($id);
+
+        if (!$guide) {
+            return response()->json(['message' => 'Không tìm thấy hướng dẫn viên'], 404);
+        }
+
+        if (!$guide->user) {
+            return response()->json(['message' => 'Hướng dẫn viên chưa liên kết tài khoản'], 422);
+        }
+
+        $request->validate([
+            'avatar' => 'required|image|mimes:jpg,jpeg,png,webp|max:2048',
+        ]);
+
+        // Xóa ảnh cũ nếu có và là file local
+        if ($guide->user->avatar_url && str_contains($guide->user->avatar_url, '/storage/avatars/')) {
+            $oldPath = str_replace('/storage/', '', parse_url($guide->user->avatar_url, PHP_URL_PATH));
+            \Illuminate\Support\Facades\Storage::disk('public')->delete($oldPath);
+        }
+
+        $path = $request->file('avatar')->store('avatars', 'public');
+        $url  = asset('storage/' . $path);
+
+        $guide->user->update(['avatar_url' => $url]);
+
+        return response()->json([
+            'message' => 'Cập nhật ảnh đại diện thành công',
+            'data'    => ['avatar_url' => $url],
+        ]);
+    }
+
+    // XÓA ẢNH ĐẠI DIỆN
+    public function deleteAvatar($id)
+    {
+        $guide = Guide::with('user')->find($id);
+
+        if (!$guide) {
+            return response()->json(['message' => 'Không tìm thấy hướng dẫn viên'], 404);
+        }
+
+        if (!$guide->user) {
+            return response()->json(['message' => 'Hướng dẫn viên chưa liên kết tài khoản'], 422);
+        }
+
+        if ($guide->user->avatar_url && str_contains($guide->user->avatar_url, '/storage/avatars/')) {
+            $oldPath = str_replace('/storage/', '', parse_url($guide->user->avatar_url, PHP_URL_PATH));
+            \Illuminate\Support\Facades\Storage::disk('public')->delete($oldPath);
+        }
+
+        $guide->user->update(['avatar_url' => null]);
+
+        return response()->json(['message' => 'Xóa ảnh đại diện thành công']);
+    }
 }
