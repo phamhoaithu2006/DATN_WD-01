@@ -77,7 +77,7 @@ function formFromCustomer(customer, roles) {
       }
     : {
         ...emptyForm,
-        role_id: defaultRoleId(roles),
+        role_id: "",
       };
 }
 
