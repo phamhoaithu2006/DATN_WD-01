@@ -191,6 +191,8 @@ Route::prefix('admin')->group(function () {
     Route::delete('partners/{partnerId}/services/{id}', [PartnerServiceController::class, 'destroy']);
     Route::patch('partners/{partnerId}/services/{id}/restore', [PartnerServiceController::class, 'restore']);
     Route::delete('partners/{partnerId}/services/{id}/force', [PartnerServiceController::class, 'forceDestroy']);
+    Route::post('partners/{id}/upload-logo', [PartnerController::class, 'uploadLogo']);
+    Route::delete('partners/{id}/delete-logo', [PartnerController::class, 'deleteLogo']);
     // Quản lý nhân viên hỗ trợ
     // Xem danh sách
     Route::get('/support-staff', [SupportStaffController::class, 'index']);
