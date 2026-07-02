@@ -478,7 +478,6 @@ function TourListPage() {
                 <th className="px-5 py-3">Danh mục</th>
                 <th className="px-5 py-3">Điểm đến</th>
                 <th className="px-5 py-3">Thời gian</th>
-                <th className="px-5 py-3">Chỗ</th>
                 <th className="px-5 py-3">Trạng thái</th>
                 <th className="px-5 py-3 text-center">Hành động</th>
               </tr>
@@ -487,7 +486,7 @@ function TourListPage() {
             <tbody className="divide-y divide-slate-100 bg-white">
               {loading ? (
                 <tr>
-                  <td colSpan="9" className="px-5 py-14 text-center">
+                  <td colSpan="8" className="px-5 py-14 text-center">
                     <div className="mx-auto flex max-w-xs flex-col items-center gap-3">
                       <div className="h-8 w-8 animate-spin rounded-full border-4 border-sky-100 border-t-sky-500" />
                       <p className="text-sm font-normal text-slate-500">
@@ -498,7 +497,7 @@ function TourListPage() {
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan="9" className="px-5 py-14 text-center">
+                  <td colSpan="8" className="px-5 py-14 text-center">
                     <div className="mx-auto max-w-sm rounded-xl bg-slate-50 px-6 py-8">
                       <p className="text-base font-medium text-slate-700">
                         Không có dữ liệu
@@ -567,9 +566,7 @@ function TourListPage() {
                         {tour.duration_nights || 0}Đ
                       </td>
 
-                      <td className="whitespace-nowrap px-5 py-4 font-normal text-slate-600">
-                        {tour.available_slots || 0}/{tour.max_slots || 0}
-                      </td>
+                      
 
                       <td className="whitespace-nowrap px-5 py-4">
                         <span

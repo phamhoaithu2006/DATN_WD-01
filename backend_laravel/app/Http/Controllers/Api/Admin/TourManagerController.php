@@ -111,6 +111,8 @@ class TourManagerController extends Controller
 
         $validatedData = $request->validate([
             'thumbnail_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'gallery_images' => 'nullable|array',
+            'gallery_images.*' => 'image|mimes:jpg,jpeg,png,webp|max:5120',
             'thumbnail_alt_text' => 'nullable|string|max:255',
             'category_id' => 'required|integer',
             'destination_id' => 'required|integer',
@@ -164,15 +166,25 @@ class TourManagerController extends Controller
         unset($validatedData['itinerary']);
 
         $thumbnailFile = $request->file('thumbnail_image');
+        $galleryFiles = $request->file('gallery_images', []);
         $thumbnailAltText = $validatedData['thumbnail_alt_text'] ?? null;
 
-        unset($validatedData['thumbnail_image'], $validatedData['thumbnail_alt_text']);
+        if (! is_array($galleryFiles)) {
+            $galleryFiles = [];
+        }
+
+        unset(
+            $validatedData['thumbnail_image'],
+            $validatedData['gallery_images'],
+            $validatedData['thumbnail_alt_text']
+        );
 
         $tour = DB::transaction(function () use (
             $validatedData,
             $itineraryData,
             $thumbnailFile,
-            $thumbnailAltText
+            $thumbnailAltText,
+            $galleryFiles
         ) {
             $tour = Tour::create($validatedData);
 
@@ -184,6 +196,23 @@ class TourManagerController extends Controller
                     'alt_text' => $thumbnailAltText,
                     'sort_order' => 0,
                     'is_thumbnail' => true,
+                ]);
+            }
+
+            $sortOrder = $thumbnailFile ? 1 : 0;
+
+            foreach ($galleryFiles as $imageFile) {
+                if (! $imageFile) {
+                    continue;
+                }
+
+                $path = $imageFile->store('tours', 'public');
+
+                $tour->images()->create([
+                    'image_url' => Storage::url($path),
+                    'alt_text' => $thumbnailAltText,
+                    'sort_order' => $sortOrder++,
+                    'is_thumbnail' => false,
                 ]);
             }
 
@@ -209,6 +238,8 @@ class TourManagerController extends Controller
 
         $validatedData = $request->validate([
             'thumbnail_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'gallery_images' => 'nullable|array',
+            'gallery_images.*' => 'image|mimes:jpg,jpeg,png,webp|max:5120',
             'thumbnail_alt_text' => 'nullable|string|max:255',
             'category_id' => 'sometimes|required|integer',
             'destination_id' => 'sometimes|required|integer',
@@ -253,11 +284,17 @@ class TourManagerController extends Controller
         $shouldSyncItinerary = $request->exists('itinerary');
 
         $thumbnailFile = $request->file('thumbnail_image');
+        $galleryFiles = $request->file('gallery_images', []);
         $thumbnailAltText = $validatedData['thumbnail_alt_text'] ?? null;
+
+        if (! is_array($galleryFiles)) {
+            $galleryFiles = [];
+        }
 
         unset(
             $validatedData['itinerary'],
             $validatedData['thumbnail_image'],
+            $validatedData['gallery_images'],
             $validatedData['thumbnail_alt_text']
         );
 
@@ -267,7 +304,8 @@ class TourManagerController extends Controller
             $itineraryData,
             $shouldSyncItinerary,
             $thumbnailFile,
-            $thumbnailAltText
+            $thumbnailAltText,
+            $galleryFiles
         ) {
             $tour->update($validatedData);
 
@@ -300,6 +338,25 @@ class TourManagerController extends Controller
                 if ($oldThumbnail) {
                     $oldThumbnail->update([
                         'alt_text' => $thumbnailAltText,
+                    ]);
+                }
+            }
+
+            if (! empty($galleryFiles)) {
+                $nextSortOrder = ((int) $tour->images()->max('sort_order')) + 1;
+
+                foreach ($galleryFiles as $imageFile) {
+                    if (! $imageFile) {
+                        continue;
+                    }
+
+                    $path = $imageFile->store('tours', 'public');
+
+                    $tour->images()->create([
+                        'image_url' => Storage::url($path),
+                        'alt_text' => $thumbnailAltText,
+                        'sort_order' => $nextSortOrder++,
+                        'is_thumbnail' => false,
                     ]);
                 }
             }

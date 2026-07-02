@@ -301,13 +301,32 @@ function MetricCard({ icon: Icon, label, value, tone = 'sky' }) {
     violet: 'bg-violet-50 text-violet-600 ring-violet-100',
   }[tone]
 
+  const displayValue = value || '-'
+
   return (
-    <div className="min-h-[94px] rounded-[12px] border border-slate-200/90 bg-white p-3 shadow-[0_6px_18px_rgba(15,23,42,0.035)]">
-      <span className={`mb-2 inline-flex h-7 w-7 items-center justify-center rounded-lg ring-1 ${toneClass}`}>
-        <Icon />
+    <div className="group flex min-h-[76px] min-w-0 items-center gap-3 rounded-[15px] border border-slate-200/90 bg-white px-3.5 py-3 shadow-[0_8px_22px_rgba(15,23,42,0.04)] transition duration-200 hover:-translate-y-0.5 hover:border-sky-100 hover:shadow-[0_14px_28px_rgba(15,23,42,0.07)]">
+      <span className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 transition duration-200 group-hover:scale-105 ${toneClass}`}>
+        <Icon className="h-4 w-4" />
       </span>
-      <p className="text-[11px] font-bold leading-none text-slate-500">{label}</p>
-      <p className="mt-1 text-[13px] font-black leading-[18px] text-slate-950">{value || '-'}</p>
+
+      <div className="min-w-0 flex-1">
+        <p className="text-[11px] font-bold leading-none text-slate-500">
+          {label}
+        </p>
+
+        <p
+          title={String(displayValue)}
+          className="mt-1.5 text-[13.5px] font-black leading-[18px] text-slate-950"
+          style={{
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+          }}
+        >
+          {displayValue}
+        </p>
+      </div>
     </div>
   )
 }
@@ -326,16 +345,16 @@ function PriceInfoRow({ icon: Icon, label, value, tone = 'sky', strike = false, 
   }[tone]
 
   return (
-    <div className={`flex min-h-[64px] items-center justify-between gap-4 rounded-[14px] border px-5 py-3.5 ${rowClass}`}>
-      <div className="flex items-center gap-4">
-        <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/80 shadow-sm ring-1 ring-white/90">
+    <div className={`flex min-h-[68px] items-center justify-between gap-4 rounded-[16px] border px-4 py-3.5 shadow-[0_8px_22px_rgba(15,23,42,0.035)] ${rowClass}`}>
+      <div className="flex min-w-0 items-center gap-3.5">
+        <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/85 shadow-sm ring-1 ring-white/90">
           <Icon />
         </span>
-        <p className="text-[15px] font-bold text-slate-700">{label}</p>
+        <p className="min-w-0 text-[14.5px] font-bold text-slate-700">{label}</p>
       </div>
 
-      <div className="text-right">
-        <p className={`whitespace-nowrap text-[22px] font-black tracking-[-0.04em] ${valueClass} ${strike ? 'line-through decoration-2' : ''}`}>
+      <div className="shrink-0 text-right">
+        <p className={`whitespace-nowrap text-[21px] font-black tracking-[-0.04em] ${valueClass} ${strike ? 'line-through decoration-2' : ''}`}>
           {value}
         </p>
         {subText && <p className="mt-0.5 text-[12px] font-semibold text-slate-600">{subText}</p>}
@@ -475,20 +494,15 @@ function TourDetailPage() {
   }, [tour, images])
 
   const galleryImages = useMemo(() => {
-    const source = images.length > 0 ? images.slice(0, 6) : thumbnailUrl ? [{ id: 'thumbnail', image_url: thumbnailUrl, alt_text: tour?.title }] : []
-
-    if (source.length === 0) return []
-
-    const slots = [...source]
-    let index = 0
-
-    while (slots.length < 6) {
-      const item = source[index % source.length]
-      slots.push({ ...item, id: `${item.id || 'gallery'}-${slots.length}` })
-      index += 1
+    if (images.length > 0) {
+      return images
     }
 
-    return slots.slice(0, 6)
+    if (thumbnailUrl) {
+      return [{ id: 'thumbnail', image_url: thumbnailUrl, alt_text: tour?.title }]
+    }
+
+    return []
   }, [images, thumbnailUrl, tour?.title])
 
   const itineraries = useMemo(() => {
@@ -513,7 +527,7 @@ function TourDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-full bg-[#f8fbff] px-6 py-7 text-slate-900 xl:px-8" style={{ fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+      <div className="min-h-full bg-[#f8fbff] px-6 py-7 text-slate-900 xl:px-8" style={{ fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif' }}>
         <div className="rounded-[18px] border border-slate-100 bg-white p-12 text-center shadow-[0_24px_70px_rgba(15,23,42,0.08)] ring-1 ring-slate-100/80">
           <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-sky-100 border-t-[#0575f9]" />
           <p className="mt-4 text-sm font-semibold text-slate-500">Đang tải chi tiết tour...</p>
@@ -524,7 +538,7 @@ function TourDetailPage() {
 
   if (error || !tour) {
     return (
-      <div className="min-h-full bg-[#f8fbff] px-6 py-7 text-slate-900 xl:px-8" style={{ fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+      <div className="min-h-full bg-[#f8fbff] px-6 py-7 text-slate-900 xl:px-8" style={{ fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif' }}>
         <div className="rounded-[18px] border border-rose-100 bg-white p-12 text-center shadow-[0_24px_70px_rgba(244,63,94,0.08)] ring-1 ring-rose-50">
           <p className="text-base font-bold text-rose-600">
             {error || 'Không tìm thấy tour.'}
@@ -548,14 +562,15 @@ function TourDetailPage() {
   const displayPrice = discountPrice > 0 ? discountPrice : basePrice
   const departures = Array.isArray(tour.departures) ? tour.departures : []
   const itineraryDays = Object.entries(groupedItineraries).sort(([a], [b]) => Number(a) - Number(b))
+  const visibleGalleryImages = galleryImages.slice(0, 6)
 
   return (
     <div
-      className="min-h-full bg-[#f8fbff] px-6 py-5 text-slate-900 xl:px-8 xl:py-6"
-      style={{ fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}
+      className="min-h-full bg-gradient-to-br from-[#f8fbff] via-white to-sky-50/40 px-6 py-5 text-slate-900 xl:px-8 xl:py-6"
+      style={{ fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif' }}
     >
       <div className="mx-auto w-full max-w-[1480px]">
-        <div className="mb-5 flex flex-wrap items-start justify-between gap-5">
+        <div className="mb-5 flex flex-wrap items-start justify-between gap-5 rounded-[22px] border border-white bg-white/70 p-4 shadow-[0_18px_46px_rgba(15,23,42,0.045)] backdrop-blur">
           <div>
             <nav className="mb-4 flex items-center gap-2 text-[13px] font-semibold text-slate-500">
               <span>ViVuGo</span>
@@ -592,18 +607,18 @@ function TourDetailPage() {
           </div>
         </div>
 
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px] xl:grid-cols-[minmax(0,1fr)_430px] 2xl:grid-cols-[minmax(0,1fr)_470px]">
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_390px] xl:grid-cols-[minmax(0,1fr)_430px] 2xl:grid-cols-[minmax(0,1fr)_460px]">
           <div className="space-y-4">
             <SectionCard className="overflow-hidden">
-              <div className="grid min-h-[286px] lg:grid-cols-[46%_54%]">
+              <div className="grid min-h-[320px] lg:grid-cols-[42%_58%]">
                 {thumbnailUrl ? (
                   <img
                     src={thumbnailUrl}
                     alt={tour.title || 'Ảnh tour'}
-                    className="h-[286px] w-full object-cover lg:h-full"
+                    className="h-[300px] w-full object-cover lg:h-full"
                   />
                 ) : (
-                  <div className="flex h-[286px] w-full items-center justify-center bg-gradient-to-br from-sky-50 to-slate-100 text-sm font-semibold text-slate-400 lg:h-full">
+                  <div className="flex h-[300px] w-full items-center justify-center bg-gradient-to-br from-sky-50 to-slate-100 text-sm font-semibold text-slate-400 lg:h-full">
                     Chưa có ảnh đại diện
                   </div>
                 )}
@@ -622,7 +637,7 @@ function TourDetailPage() {
                     {tour.summary || 'Chưa có mô tả ngắn cho tour này.'}
                   </p>
 
-                  <div className="mt-5 grid grid-cols-4 gap-3">
+                  <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <MetricCard
                       icon={CategoryIcon}
                       label="Danh mục"
@@ -652,7 +667,7 @@ function TourDetailPage() {
               </div>
             </SectionCard>
 
-            <SectionCard className="p-4.5 p-5">
+            <SectionCard className="p-5">
               <SectionTitle icon={DocumentIcon} title="Mô tả chi tiết" />
               <p className="whitespace-pre-line text-[13.5px] font-medium leading-6 text-slate-600 xl:text-[14px]">
                 {tour.description || 'Chưa có mô tả chi tiết.'}
@@ -663,7 +678,7 @@ function TourDetailPage() {
               <SectionTitle icon={CalendarIcon} title="Lịch trình tour" />
 
               {itineraryDays.length > 0 ? (
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {itineraryDays.slice(0, 3).map(([day, items]) => (
                     <TimelineDayCard key={day} day={day} items={items} />
                   ))}
@@ -712,24 +727,39 @@ function TourDetailPage() {
               <SectionTitle
                 icon={ImageIcon}
                 title="Thư viện ảnh"
-                right={<span className="text-[13px] font-bold text-[#0575f9]">Xem tất cả</span>}
+                right={<span className="text-[13px] font-bold text-[#0575f9]">{galleryImages.length} ảnh</span>}
               />
 
               {galleryImages.length > 0 ? (
                 <div className="grid grid-cols-3 gap-3">
-                  {galleryImages.map((image, index) => (
-                    <img
-                      key={image.id || `${image.image_url}-${index}`}
-                      src={image.image_url}
-                      alt={image.alt_text || tour.title || 'Ảnh tour'}
-                      className="aspect-square w-full rounded-[12px] border border-slate-100 object-cover shadow-sm transition duration-200 hover:scale-[1.02] hover:shadow-md"
-                    />
-                  ))}
+                  {visibleGalleryImages.map((image, index) => {
+                    const isLastVisible = index === visibleGalleryImages.length - 1
+                    const hasMoreImages = galleryImages.length > visibleGalleryImages.length
+
+                    return (
+                      <div
+                        key={image.id || `${image.image_url}-${index}`}
+                        className="group relative overflow-hidden rounded-[14px] border border-slate-100 bg-slate-50 shadow-sm"
+                      >
+                        <img
+                          src={image.image_url}
+                          alt={image.alt_text || tour.title || 'Ảnh tour'}
+                          className="aspect-square w-full object-cover transition duration-300 group-hover:scale-105"
+                        />
+
+                        {isLastVisible && hasMoreImages && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-slate-950/55 text-[18px] font-black text-white">
+                            +{galleryImages.length - visibleGalleryImages.length}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               ) : (
                 <div className="grid grid-cols-3 gap-3">
                   {Array.from({ length: 6 }).map((_, index) => (
-                    <div key={index} className="aspect-square rounded-[12px] border border-dashed border-slate-200 bg-slate-50" />
+                    <div key={index} className="aspect-square rounded-[14px] border border-dashed border-slate-200 bg-slate-50" />
                   ))}
                 </div>
               )}
