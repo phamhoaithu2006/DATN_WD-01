@@ -206,6 +206,10 @@ Route::prefix('admin')->group(function () {
     Route::get('/support-staff/{id}', [SupportStaffController::class, 'show']);
     // Sửa thông tin
     Route::put('/support-staff/{id}', [SupportStaffController::class, 'update']);
+    // Upload avatar
+    Route::post('/support-staff/{id}/avatar', [SupportStaffController::class, 'uploadAvatar']);
+    // Xóa avatar
+    Route::delete('/support-staff/{id}/avatar', [SupportStaffController::class, 'deleteAvatar']);
     // Xóa thông tin
     Route::delete('/support-staff/{id}', [SupportStaffController::class, 'destroy']);
     // Khôi phục từ thùng rác
