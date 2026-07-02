@@ -742,6 +742,7 @@
 .partner-modal-header h2 {
   margin: 0;
   color: #020617;
+  font-weight: 800;
 }
 
 .partner-modal-header p {
@@ -749,6 +750,10 @@
   color: #64748b;
   font-size: 0.9rem;
   font-weight: 700;
+}
+
+.partner-modal-header .partner-modal-code {
+  color: #020617;
 }
 
 .partner-modal-header button {
@@ -816,7 +821,7 @@
 
 .partner-logo-panel {
   display: grid;
-  gap: 10px;
+  gap: 4px;
 }
 
 .partner-logo-input {
@@ -860,8 +865,9 @@
 .partner-logo-meta {
   color: #64748b;
   font-size: 12px;
-  line-height: 1.4;
-  padding-left: 2px;
+  line-height: 1.15;
+  margin: 0;
+  padding-left: 0;
 }
 
 .partner-logo-link {
@@ -874,6 +880,8 @@
   font: inherit;
   font-size: 12px;
   font-weight: 800;
+  line-height: 1.15;
+  margin: 0;
 }
 
 .partner-error {

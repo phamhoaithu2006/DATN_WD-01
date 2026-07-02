@@ -299,7 +299,9 @@ function GuideManagementPage() {
   const [avatarFile, setAvatarFile] = useState(null)
   const [avatarCurrentUrl, setAvatarCurrentUrl] = useState('')
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState('')
+  const [avatarRemoveRequested, setAvatarRemoveRequested] = useState(false)
   const [idDangSua, setIdDangSua] = useState(null)
+  const [maHienThiDangSua, setMaHienThiDangSua] = useState('')
   const [hdvChiTiet, setHdvChiTiet] = useState(null)
   const [dangTaiChiTiet, setDangTaiChiTiet] = useState(false)
   const [hienForm, setHienForm] = useState(false)
@@ -429,13 +431,43 @@ function GuideManagementPage() {
   }
   function capNhatAvatar(event) {
     const file = event.target.files?.[0] || null
+    if (!file) {
+      return
+    }
     setAvatarFile(file)
+    setAvatarRemoveRequested(false)
     setAvatarPreviewUrl((current) => {
       if (current?.startsWith('blob:')) {
         URL.revokeObjectURL(current)
       }
       return file ? URL.createObjectURL(file) : ''
     })
+  }
+  function xoaAvatarHienTai() {
+    setAvatarRemoveRequested(true)
+    setAvatarFile(null)
+    setAvatarPreviewUrl((current) => {
+      if (current?.startsWith('blob:')) {
+        URL.revokeObjectURL(current)
+      }
+      return ''
+    })
+    if (avatarInputRef.current) {
+      avatarInputRef.current.value = ''
+    }
+  }
+  function boFileDaChon() {
+    setAvatarRemoveRequested(false)
+    setAvatarFile(null)
+    setAvatarPreviewUrl((current) => {
+      if (current?.startsWith('blob:')) {
+        URL.revokeObjectURL(current)
+      }
+      return ''
+    })
+    if (avatarInputRef.current) {
+      avatarInputRef.current.value = ''
+    }
   }
   function moChonAvatar() {
     avatarInputRef.current?.click()
@@ -499,7 +531,9 @@ function GuideManagementPage() {
     })
     setAvatarFile(null)
     setAvatarCurrentUrl('')
+    setAvatarRemoveRequested(false)
     setIdDangSua(null)
+    setMaHienThiDangSua('')
     setLoi('')
     setLoiForm({})
     setThongBao('')
@@ -516,7 +550,9 @@ function GuideManagementPage() {
     })
     setAvatarFile(null)
     setAvatarCurrentUrl(hdv.user?.avatar_url || '')
+    setAvatarRemoveRequested(false)
     setIdDangSua(hdv.id)
+    setMaHienThiDangSua(hdv.guide_code || '')
     setLoi('')
     setLoiForm({})
     setThongBao('')
@@ -527,7 +563,9 @@ function GuideManagementPage() {
     setAvatarFile(null)
     setAvatarCurrentUrl('')
     setAvatarPreviewUrl('')
+    setAvatarRemoveRequested(false)
     setIdDangSua(null)
+    setMaHienThiDangSua('')
     setLoiForm({})
     setHienForm(false)
   }
@@ -565,6 +603,12 @@ function GuideManagementPage() {
       if (avatarFile && guideId) {
         try {
           await uploadGuideAvatar(guideId, avatarFile)
+        } catch {
+          avatarUploadFailed = true
+        }
+      } else if (idDangSua && avatarRemoveRequested && guideId) {
+        try {
+          await deleteGuideAvatar(guideId)
         } catch {
           avatarUploadFailed = true
         }
@@ -857,8 +901,8 @@ function GuideManagementPage() {
           <form className="guide-modal" onSubmit={luuHuongDanVien} noValidate>
             <div className="guide-modal-header">
               <div>
-                <h2>{idDangSua ? 'Sửa hướng dẫn viên' : 'Thêm hướng dẫn viên'}</h2>
-                <p>Thông tin tài khoản hướng dẫn viên</p>
+                <h2>{idDangSua ? 'Cập nhật HDV' : 'Thêm hướng dẫn viên'}</h2>
+                {idDangSua ? <p>Mã hiển thị: {maHienThiDangSua || '-'}</p> : <p>Thông tin tài khoản hướng dẫn viên</p>}
               </div>
               <button type="button" onClick={dongForm}>
                 Đóng
@@ -1035,14 +1079,7 @@ function GuideManagementPage() {
               <label className="guide-form-wide">
                 Ảnh đại diện
                 <div className="guide-avatar-upload guide-avatar-upload-wide">
-                  <input
-                    ref={avatarInputRef}
-                    accept="image/*"
-                    className="guide-avatar-input"
-                    type="file"
-                    onChange={capNhatAvatar}
-                  />
-                  <div className="guide-avatar-preview">
+                  <div className="guide-avatar-preview guide-avatar-preview-large">
                     {avatarPreviewUrl || avatarCurrentUrl ? (
                       <img
                         alt="Ảnh đại diện hướng dẫn viên"
@@ -1052,18 +1089,33 @@ function GuideManagementPage() {
                       <span>Chưa có ảnh</span>
                     )}
                   </div>
-                  <div className="guide-avatar-upload-panel">
-                    <button className="guide-avatar-upload-btn" type="button" onClick={moChonAvatar}>
-                      {avatarCurrentUrl ? 'Đổi ảnh đại diện' : 'Chọn ảnh đại diện'}
+                  <input
+                    ref={avatarInputRef}
+                    accept="image/*"
+                    className="guide-avatar-input"
+                    type="file"
+                    onChange={capNhatAvatar}
+                  />
+                  <button className="guide-avatar-upload-btn" type="button" onClick={moChonAvatar}>
+                    {avatarCurrentUrl ? 'Đổi ảnh đại diện' : 'Chọn ảnh đại diện'}
+                  </button>
+                  <span className="guide-avatar-upload-meta">
+                  {avatarFile
+                    ? `Đã chọn: ${avatarFile.name}`
+                    : avatarCurrentUrl
+                        ? 'Đang có ảnh đại diện hiện tại.'
+                        : 'Chưa chọn ảnh.'}
+                  </span>
+                  {avatarFile ? (
+                    <button className="guide-avatar-action" type="button" onClick={boFileDaChon}>
+                      Bỏ file đã chọn
                     </button>
-                    <span className="guide-avatar-upload-meta">
-                      {avatarFile
-                        ? `Đã chọn: ${avatarFile.name}`
-                        : avatarCurrentUrl
-                          ? 'Đang có ảnh đại diện hiện tại.'
-                          : 'Chưa có ảnh đại diện.'}
-                    </span>
-                  </div>
+                  ) : null}
+                  {idDangSua && avatarCurrentUrl && !avatarFile ? (
+                    <button className="guide-avatar-action" type="button" onClick={xoaAvatarHienTai}>
+                      {avatarRemoveRequested ? 'Đã chọn xóa avatar hiện tại' : 'Xóa avatar hiện tại'}
+                    </button>
+                  ) : null}
                 </div>
               </label>
             </div>
@@ -1084,7 +1136,11 @@ function GuideManagementPage() {
             <div className="guide-modal-header">
               <div>
                 <h2>Chi tiết hướng dẫn viên</h2>
-                <p>{dangTaiChiTiet ? 'Đang tải dữ liệu mới nhất...' : hdvChiTiet.guide_code}</p>
+                <p>
+                  {dangTaiChiTiet
+                    ? 'Đang tải dữ liệu mới nhất...'
+                    : `Mã hiển thị: ${hdvChiTiet.guide_code || '-'}`}
+                </p>
               </div>
               <button type="button" onClick={() => setHdvChiTiet(null)}>
                 Đóng
@@ -1102,25 +1158,12 @@ function GuideManagementPage() {
               )}
               <div>
                 <h3>{layTenNguoiDung(hdvChiTiet)}</h3>
-                <p>{layNhanChuyenMon(hdvChiTiet)}</p>
-                {hdvChiTiet.user?.avatar_url ? (
-                  <button
-                    className="guide-avatar-action"
-                    type="button"
-                    onClick={async () => {
-                      try {
-                        await deleteGuideAvatar(hdvChiTiet.id)
-                        setThongBao('Đã xóa ảnh đại diện hướng dẫn viên.')
-                        await moChiTiet(hdvChiTiet)
-                        await taiDanhSachHdv(phanTrang.currentPage)
-                      } catch (error) {
-                        setLoi(getErrorMessage(error, 'Không xóa được ảnh đại diện.'))
-                      }
-                    }}
-                  >
-                    Xóa avatar
-                  </button>
-                ) : null}
+                <div className="guide-detail-topline">
+                  <p>{layNhanChuyenMon(hdvChiTiet)}</p>
+                  <span className={`guide-status ${hdvChiTiet.status || ''}`}>
+                    {nhanTrangThai[hdvChiTiet.status] || hdvChiTiet.status || '—'}
+                  </span>
+                </div>
               </div>
             </div>
             <div className="guide-detail-grid">

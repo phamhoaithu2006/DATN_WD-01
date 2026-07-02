@@ -849,20 +849,21 @@
 
 .guide-avatar-upload {
   display: grid;
-  gap: 14px;
-  margin-top: 6px;
+  gap: 12px;
+  margin-top: 8px;
 }
 
 .guide-avatar-upload-wide {
-  grid-template-columns: 110px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
 }
 
 .guide-avatar-preview {
+  width: 100%;
+  height: 110px;
   border: 1px solid #dbeafe;
   border-radius: 16px;
   background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
-  min-height: 110px;
   overflow: hidden;
   display: grid;
   place-items: center;
@@ -871,9 +872,13 @@
   font-weight: 700;
 }
 
+.guide-avatar-preview-large {
+  box-shadow: 0 6px 18px rgba(14, 165, 233, 0.12);
+}
+
 .guide-avatar-preview img {
   width: 100%;
-  height: 110px;
+  height: 100%;
   object-fit: cover;
   display: block;
 }
@@ -921,27 +926,28 @@
 .guide-avatar-upload-meta {
   color: #64748b;
   font-size: 12px;
-  line-height: 1.4;
-  padding-left: 2px;
+  line-height: 1.15;
+  margin: 0;
+  padding-left: 0;
 }
 
 .guide-avatar-action {
-  margin-top: 8px;
-  border: 1px solid #cbd5e1;
-  border-radius: 999px;
-  background: #ffffff;
-  color: #0f172a;
+  width: fit-content;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #0284c7;
   cursor: pointer;
   font: inherit;
-  font-size: 0.82rem;
+  font-size: 12px;
   font-weight: 800;
-  min-height: 32px;
-  padding: 0 12px;
+  line-height: 1.15;
+  margin-top: -6px;
+  padding-left: 0;
 }
 
 .guide-avatar-action:hover {
-  border-color: #0ea5e9;
-  color: #0ea5e9;
+  color: #0369a1;
 }
 
 .support-modal-actions {
