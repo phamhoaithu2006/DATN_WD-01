@@ -1,8 +1,13 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useLocale } from "../../contexts/LocaleContext";
 import Icon from "./Icon";
 
 function TourCard({ tour, favorite, onFavorite }) {
   const { currency, formatCurrency } = useLocale();
+  const navigate = useNavigate();
+  const [imgError, setImgError] = useState(false);
+
   const salePrice = Number(tour.price?.discount || tour.price?.base || 0);
   const originalPrice = Number(tour.price?.base || salePrice);
   const displayPrice =
@@ -14,51 +19,96 @@ function TourCard({ tour, favorite, onFavorite }) {
       ? originalPrice * 25000
       : originalPrice;
 
+  // Smart rating logic
+  const rawAverage = Number(tour.rating?.average || 0);
+  const ratingCount = Number(tour.rating?.count || 0);
+  const ratingAverage = rawAverage > 0 ? rawAverage : (ratingCount > 0 ? 4.8 : 0);
+  const hasRating = ratingAverage > 0;
+
+  const handleCardClick = (e) => {
+    // If the user clicks on the heart button, do not navigate.
+    if (e.target.closest(".vg-heart")) {
+      return;
+    }
+    navigate(`/tours/${tour.id}`);
+  };
+
   return (
-    <article className="vg-tour-card">
+    <article className="vg-tour-card" onClick={handleCardClick}>
       <div className="vg-tour-photo">
-        <img src={tour.image} alt={tour.title} />
+        {imgError || !tour.image ? (
+          <div className="vg-tour-fallback-image">
+            <Icon name="globe" size={32} />
+            <span>{tour.title}</span>
+          </div>
+        ) : (
+          <img
+            src={tour.image}
+            alt={tour.title}
+            onError={() => setImgError(true)}
+          />
+        )}
         <div className="vg-tour-badges">
-          {tour.featured ? <span>Nổi bật</span> : null}
-          {tour.discountLabel ? <strong>{tour.discountLabel}</strong> : null}
+          {tour.featured ? <span className="badge-featured">Nổi bật</span> : null}
+          {tour.discountLabel ? <strong className="badge-discount">{tour.discountLabel}</strong> : null}
         </div>
         <button
           className={favorite ? "vg-heart is-active" : "vg-heart"}
           type="button"
-          onClick={() => onFavorite(tour)}
+          onClick={(e) => {
+            e.stopPropagation();
+            onFavorite(tour);
+          }}
           aria-label="Thêm tour yêu thích"
         >
           <Icon name="heart" size={19} />
         </button>
         <span className="vg-place">
-          <Icon name="map" size={15} /> {tour.destination}
+          <Icon name="mapPin" size={14} /> {tour.destination}
         </span>
       </div>
       <div className="vg-tour-info">
         <div className="vg-tour-meta">
-          <span>{tour.category}</span>
-          <b>★ {tour.rating?.average || 4.8}</b>
-          <small>({tour.rating?.count || 128})</small>
+          <span className="vg-tour-category">{tour.category}</span>
+          {hasRating ? (
+            <span className="vg-tour-rating">
+              <Icon name="star" size={13} />
+              <b>{ratingAverage.toFixed(1)}</b>
+              <small>({ratingCount})</small>
+            </span>
+          ) : (
+            <span className="vg-tour-rating new">
+              <Icon name="star" size={13} />
+              <b>Mới</b>
+            </span>
+          )}
         </div>
         <h3>{tour.title}</h3>
-        <p>{tour.summary}</p>
         <div className="vg-tour-facts">
           <span>
-            <Icon name="clock" size={16} /> {tour.duration}
+            <Icon name="clock" size={15} /> {tour.duration}
           </span>
           <span>
-            <Icon name="users" size={16} /> Tối đa {tour.slots?.max || 12}
+            <Icon name="users" size={15} /> Tối đa {tour.slots?.max || 12}
           </span>
         </div>
         <div className="vg-tour-footer">
-          <div>
-            <strong>{formatCurrency(displayPrice)}</strong>
+          <div className="vg-tour-price-box">
+            <div className="vg-tour-price-row">
+              <strong className="vg-tour-sale-price">{formatCurrency(displayPrice)}</strong>
+              <span className="vg-tour-price-unit">/ người</span>
+            </div>
             {displayOriginalPrice > displayPrice ? (
-              <del>{formatCurrency(displayOriginalPrice)}</del>
-            ) : null}
-            <small>/ người</small>
+              <div className="vg-tour-discount-row">
+                <span className="vg-tour-original-label">Giá gốc:</span>
+                <del className="vg-tour-original-price">{formatCurrency(displayOriginalPrice)}</del>
+              </div>
+            ) : (
+              <div className="vg-tour-discount-row placeholder">
+                <span>&nbsp;</span>
+              </div>
+            )}
           </div>
-          <button type="button">Xem chi tiết</button>
         </div>
       </div>
     </article>
@@ -66,3 +116,4 @@ function TourCard({ tour, favorite, onFavorite }) {
 }
 
 export default TourCard;
+
