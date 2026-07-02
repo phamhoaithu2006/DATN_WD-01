@@ -4,10 +4,13 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
-use App\Models\User;
+use App\Models\Guide;
 use App\Models\Role;
+use App\Models\SupportStaff;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
@@ -15,6 +18,120 @@ use Illuminate\Support\Str;
 
 class CustomerManagerController extends Controller
 {
+    private function syncRoleRelations(User $user): void
+    {
+        $user->loadMissing('role');
+
+        $roleName = $user->role?->name;
+
+        if ($roleName === 'support staff') {
+            $this->restoreOrCreateSupportStaff($user);
+        } else {
+            $this->archiveSupportStaff($user);
+        }
+
+        if ($roleName === 'tour guide') {
+            $this->restoreOrCreateGuide($user);
+        } else {
+            $this->archiveGuide($user);
+        }
+    }
+
+    private function restoreOrCreateSupportStaff(User $user): void
+    {
+        $staff = SupportStaff::withTrashed()
+            ->where('user_id', $user->id)
+            ->orWhere('email', $user->email)
+            ->first();
+
+        $payload = [
+            'user_id' => $user->id,
+            'name' => $user->full_name,
+            'email' => $user->email,
+            'role' => 'customer_service',
+            'status' => $user->status === 'inactive' ? 'inactive' : 'active',
+            'hidden_at' => null,
+        ];
+
+        if ($staff) {
+            if ($staff->trashed()) {
+                $staff->restore();
+            }
+
+            $staff->update($payload);
+            return;
+        }
+
+        SupportStaff::create([
+            ...$payload,
+            'performance_rating' => 5,
+        ]);
+    }
+
+    private function archiveSupportStaff(User $user): void
+    {
+        $staff = SupportStaff::query()->where('user_id', $user->id)->first();
+
+        if (!$staff) {
+            return;
+        }
+
+        $staff->update([
+            'status' => 'hidden',
+            'hidden_at' => Carbon::now(),
+        ]);
+
+        $staff->delete();
+    }
+
+    private function restoreOrCreateGuide(User $user): void
+    {
+        $guide = Guide::withTrashed()->where('user_id', $user->id)->first();
+
+        $payload = [
+            'user_id' => $user->id,
+            'experience_years' => $guide?->experience_years ?? 0,
+            'average_rating' => $guide?->average_rating ?? 0,
+            'review_count' => $guide?->review_count ?? 0,
+            'status' => $user->status === 'inactive' ? 'inactive' : 'active',
+        ];
+
+        if ($guide) {
+            if ($guide->trashed()) {
+                $guide->restore();
+            }
+
+            $guide->update($payload);
+            return;
+        }
+
+        Guide::create([
+            ...$payload,
+            'guide_code' => $this->generateGuideCode(),
+        ]);
+    }
+
+    private function archiveGuide(User $user): void
+    {
+        $guide = Guide::query()->where('user_id', $user->id)->first();
+
+        if (!$guide) {
+            return;
+        }
+
+        $guide->update([
+            'status' => 'inactive',
+        ]);
+
+        $guide->delete();
+    }
+
+    private function generateGuideCode(): string
+    {
+        $count = Guide::withTrashed()->count() + 1;
+
+        return 'HDV' . str_pad((string) $count, 3, '0', STR_PAD_LEFT);
+    }
 
     /**
      * Lấy tổng số lượng khách hàng hiện có trong hệ thống.
@@ -176,20 +293,26 @@ class CustomerManagerController extends Controller
             $avatarUrl = asset('storage/' . $path);
         }
 
-        $user = User::create([
-            'full_name'  => $validatedData['full_name'],
-            'email'      => $validatedData['email'],
-            'password'   => Hash::make($validatedData['password']),
-            'phone'      => $validatedData['phone'] ?? null,
-            'role_id'    => $validatedData['role_id'],
-            'status'     => 'active',
-            'avatar_url' => $avatarUrl,
-        ]);
+        $user = DB::transaction(function () use ($validatedData, $avatarUrl) {
+            $user = User::create([
+                'full_name'  => $validatedData['full_name'],
+                'email'      => $validatedData['email'],
+                'password'   => Hash::make($validatedData['password']),
+                'phone'      => $validatedData['phone'] ?? null,
+                'role_id'    => $validatedData['role_id'],
+                'status'     => 'active',
+                'avatar_url' => $avatarUrl,
+            ]);
+
+            $this->syncRoleRelations($user->fresh());
+
+            return $user;
+        });
 
         return response()->json([
             'status'  => 'success',
             'message' => 'Tạo tài khoản thành công',
-            'data'    => $user,
+            'data'    => $user->fresh('role'),
         ], 201);
     }
 
@@ -243,7 +366,7 @@ class CustomerManagerController extends Controller
      */
     public function update(Request $request, $id): JsonResponse
     {
-        $customer = User::find($id);
+        $customer = User::with('role')->find($id);
 
         if (!$customer) {
             return response()->json([
@@ -263,6 +386,8 @@ class CustomerManagerController extends Controller
             'avatar'    => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
         ]);
 
+        $previousAvatarPath = null;
+
         if (isset($validatedData['password'])) {
             $validatedData['password'] = Hash::make($validatedData['password']);
         }
@@ -279,8 +404,7 @@ class CustomerManagerController extends Controller
                 $oldPath = ltrim($oldPath, '/');
 
                 if (Str::startsWith($oldPath, 'storage/')) {
-                    $oldPath = Str::after($oldPath, 'storage/');
-                    Storage::disk('public')->delete($oldPath);
+                    $previousAvatarPath = Str::after($oldPath, 'storage/');
                 }
             }
 
@@ -290,12 +414,19 @@ class CustomerManagerController extends Controller
             $validatedData['avatar_url'] = asset('storage/' . $newPath);
         }
 
-        $customer->update($validatedData);
+        DB::transaction(function () use ($customer, $validatedData) {
+            $customer->update($validatedData);
+            $this->syncRoleRelations($customer->fresh());
+        });
+
+        if ($previousAvatarPath) {
+            Storage::disk('public')->delete($previousAvatarPath);
+        }
 
         return response()->json([
             'status'  => 'success',
             'message' => 'Cập nhật thông tin thành công',
-            'data'    => $customer->fresh(),
+            'data'    => $customer->fresh('role'),
         ]);
     }
 
