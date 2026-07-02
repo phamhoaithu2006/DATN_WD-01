@@ -345,12 +345,16 @@ function TourForm({
   const [thumbnailPreview, setThumbnailPreview] = useState(() =>
     getInitialThumbnailPreview(initialData || {}),
   )
+  const [galleryImages, setGalleryImages] = useState([])
+  const [galleryPreviews, setGalleryPreviews] = useState([])
 
   if (initialDataKey !== prevInitialDataKey) {
     setPrevInitialDataKey(initialDataKey)
     setFormData(getInitialFormData(initialData || {}))
     setThumbnailImage(null)
     setThumbnailPreview(getInitialThumbnailPreview(initialData || {}))
+    setGalleryImages([])
+    setGalleryPreviews([])
   }
 
   useEffect(() => {
@@ -434,15 +438,29 @@ function TourForm({
   }
 
   const handleThumbnailChange = (e) => {
-    const file = e.target.files?.[0]
+    const selectedFiles = Array.from(e.target.files || [])
 
-    setThumbnailImage(file || null)
-
-    if (file) {
-      setThumbnailPreview(URL.createObjectURL(file))
-    } else {
-      setThumbnailPreview(getInitialThumbnailPreview(initialData || {}))
+    if (selectedFiles.length === 0) {
+      return
     }
+
+    const currentFiles = thumbnailImage
+      ? [thumbnailImage, ...galleryImages]
+      : []
+
+    const nextFiles = [...currentFiles, ...selectedFiles]
+    const firstFile = nextFiles[0] || null
+    const otherFiles = nextFiles.slice(1)
+
+    setThumbnailImage(firstFile)
+    setGalleryImages(otherFiles)
+
+    if (firstFile) {
+      setThumbnailPreview(URL.createObjectURL(firstFile))
+      setGalleryPreviews(nextFiles.map((file) => URL.createObjectURL(file)))
+    }
+
+    e.target.value = ''
   }
 
   const updateItinerary = (newItinerary) => {
@@ -590,6 +608,10 @@ function TourForm({
     if (thumbnailImage) {
       payload.append('thumbnail_image', thumbnailImage)
     }
+
+    galleryImages.forEach((file) => {
+      payload.append('gallery_images[]', file)
+    })
 
     payload.append(
       'thumbnail_alt_text',
@@ -1104,11 +1126,11 @@ function TourForm({
                     Tải ảnh lên hoặc kéo thả vào đây
                   </span>
                   <span className="mt-1 text-xs font-medium text-slate-400">
-                    Định dạng JPG, PNG, WebP. Tối đa 5MB.
+                    Chọn 1 hoặc nhiều ảnh. Ảnh đầu tiên là ảnh đại diện.
                   </span>
 
                   <span className="mt-3 inline-flex h-9 items-center justify-center rounded-lg border border-blue-100 bg-white px-4 text-xs font-black text-blue-600 shadow-sm">
-                    Chọn ảnh
+                    Chọn / thêm ảnh
                   </span>
                 </label>
 
@@ -1116,6 +1138,7 @@ function TourForm({
                   id="thumbnail_image"
                   type="file"
                   accept="image/*"
+                  multiple
                   onChange={handleThumbnailChange}
                   className="sr-only"
                 />
@@ -1124,7 +1147,22 @@ function TourForm({
               <div>
                 <FieldLabel>Ảnh xem trước</FieldLabel>
 
-                {thumbnailPreview ? (
+                {galleryPreviews.length > 0 ? (
+                  <div className="mt-1.5 grid grid-cols-3 gap-2">
+                    {galleryPreviews.map((src, index) => (
+                      <div
+                        key={`${src}-${index}`}
+                        className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50"
+                      >
+                        <img
+                          src={src}
+                          alt={`Xem trước ảnh tour ${index + 1}`}
+                          className="aspect-square w-full object-cover"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ) : thumbnailPreview ? (
                   <div className="mt-1.5 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
                     <img
                       src={thumbnailPreview}
