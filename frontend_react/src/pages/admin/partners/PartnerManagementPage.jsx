@@ -1,4 +1,5 @@
 ﻿import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRef } from "react";
 import { Link } from "react-router-dom";
 import AdminPageHeader from "../../../components/admin/AdminPageHeader";
 import { partnerApi } from "../../../services/partnerApi";
@@ -204,9 +205,16 @@ function PartnerFormModal({
   editingPartner,
   form,
   formErrors,
+  logoCurrentUrl,
+  logoFile,
+  logoPreviewUrl,
+  logoInputRef,
   saving,
   onChange,
   onClose,
+  onClearLogo,
+  onOpenLogoPicker,
+  onPickLogo,
   onSubmit,
   typeOptions,
 }) {
@@ -355,6 +363,50 @@ function PartnerFormModal({
               <span className="partner-error">{formErrors.description}</span>
             ) : null}
           </label>
+          <label className="partner-form-wide">
+            Logo đối tác
+            <div className="partner-logo-upload">
+              <input
+                accept="image/*"
+                className="partner-logo-input"
+                ref={logoInputRef}
+                type="file"
+                onChange={onPickLogo}
+              />
+              <div className="partner-logo-preview">
+                {logoPreviewUrl || logoCurrentUrl ? (
+                  <img alt="Logo đối tác" src={logoPreviewUrl || logoCurrentUrl} />
+                ) : (
+                  <span>Chưa có logo</span>
+                )}
+              </div>
+              <div className="partner-logo-panel">
+                <button
+                  className="partner-logo-button"
+                  type="button"
+                  onClick={onOpenLogoPicker}
+                >
+                  {logoCurrentUrl ? "Đổi logo" : "Chọn logo"}
+                </button>
+                <span className="partner-logo-meta">
+                  {logoFile
+                    ? `Đã chọn: ${logoFile.name}`
+                    : logoCurrentUrl
+                      ? "Đang có logo hiện tại."
+                      : "Chưa chọn logo."}
+                </span>
+                {logoFile ? (
+                  <button
+                    className="partner-logo-link"
+                    type="button"
+                    onClick={onClearLogo}
+                  >
+                    Bỏ file đã chọn
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          </label>
         </div>
         <div className="partner-modal-actions">
           <button type="button" onClick={onClose}>
@@ -373,7 +425,13 @@ function PartnerFormModal({
   );
 }
 
-function PartnerDetailModal({ partner, loading, onClose }) {
+function PartnerDetailModal({
+  partner,
+  loading,
+  deletingLogo,
+  onClose,
+  onDeleteLogo,
+}) {
   const c = partner ? partnerContact(partner) : {};
   return (
     <div
@@ -472,6 +530,24 @@ function PartnerDetailModal({ partner, loading, onClose }) {
               <h3>Mô tả</h3>
               <p>{partner?.description || "Chưa có mô tả."}</p>
             </div>
+            {partner?.displayLogo ? (
+              <div className="partner-detail-section">
+                <h3>Logo</h3>
+                <div className="partner-detail-logo-row">
+                  <div className="partner-avatar large">
+                    <img alt={partnerName(partner)} src={partner.displayLogo} />
+                  </div>
+                  <button
+                    className="danger"
+                    type="button"
+                    disabled={deletingLogo}
+                    onClick={onDeleteLogo}
+                  >
+                    {deletingLogo ? "Đang xóa..." : "Xóa logo"}
+                  </button>
+                </div>
+              </div>
+            ) : null}
             <div className="partner-modal-actions">
               <button className="primary" type="button" onClick={onClose}>
                 Đóng
@@ -505,9 +581,14 @@ export default function PartnerManagementPage() {
     [detailPartner, setDetailPartner] = useState(null),
     [deleteTarget, setDeleteTarget] = useState(null),
     [deleting, setDeleting] = useState(false),
+    [deletingLogo, setDeletingLogo] = useState(false),
     [notice, setNotice] = useState(null),
     [form, setForm] = useState(EMPTY_FORM),
-    [formErrors, setFormErrors] = useState({});
+    [formErrors, setFormErrors] = useState({}),
+    [logoFile, setLogoFile] = useState(null),
+    [logoCurrentUrl, setLogoCurrentUrl] = useState(""),
+    [logoPreviewUrl, setLogoPreviewUrl] = useState("");
+  const logoInputRef = useRef(null);
   const normalized = useMemo(() => partners.map(norm), [partners]);
   const typeOptions = useMemo(() => optList(serviceTypes), [serviceTypes]);
   const visible = useMemo(() => {
@@ -583,6 +664,7 @@ export default function PartnerManagementPage() {
   }, [notice]);
   const openToast = (type, text) => setNotice({ type, text });
   const resetForm = (nextPartner = null) => {
+    clearLogoSelection();
     if (nextPartner) {
       const matched =
         nextPartner.service_type_id ||
@@ -609,10 +691,16 @@ export default function PartnerManagementPage() {
         status: nextPartner.status || "",
         description: nextPartner.description || "",
       });
+      setLogoFile(null);
+      setLogoCurrentUrl(nextPartner.displayLogo || nextPartner.logo_url || "");
+      setLogoPreviewUrl("");
       setEditingPartner(nextPartner);
     } else {
       setForm(EMPTY_FORM);
       setEditingPartner(null);
+      setLogoFile(null);
+      setLogoCurrentUrl("");
+      setLogoPreviewUrl("");
     }
     setFormErrors({});
     setFormVisible(true);
@@ -621,11 +709,38 @@ export default function PartnerManagementPage() {
     setFormVisible(false);
     setEditingPartner(null);
     setFormErrors({});
+    setLogoCurrentUrl("");
+    clearLogoSelection();
   };
   const changeField = (field) => (event) => {
     const v = event.target.value;
     setForm((c) => ({ ...c, [field]: v }));
     setFormErrors((c) => ({ ...c, [field]: "" }));
+  };
+  const pickLogo = (event) => {
+    const file = event.target.files?.[0] || null;
+    setLogoFile(file);
+    setLogoPreviewUrl((current) => {
+      if (current?.startsWith("blob:")) {
+        URL.revokeObjectURL(current);
+      }
+      return file ? URL.createObjectURL(file) : "";
+    });
+  };
+  const clearLogoSelection = () => {
+    setLogoFile(null);
+    setLogoPreviewUrl((current) => {
+      if (current?.startsWith("blob:")) {
+        URL.revokeObjectURL(current);
+      }
+      return "";
+    });
+    if (logoInputRef.current) {
+      logoInputRef.current.value = "";
+    }
+  };
+  const openLogoPicker = () => {
+    logoInputRef.current?.click();
   };
   const buildPayload = (f) => ({
     service_type_id: Number(f.service_type_id),
@@ -684,11 +799,23 @@ export default function PartnerManagementPage() {
       const res = editingPartner
         ? await partnerApi.update(editingPartner.id, payload)
         : await partnerApi.create(payload);
+      const partnerId =
+        res.data?.data?.id || res.data?.id || editingPartner?.id || null;
+      let logoUploadFailed = false;
+
+      if (logoFile && partnerId) {
+        try {
+          await partnerApi.uploadLogo(partnerId, logoFile);
+        } catch {
+          logoUploadFailed = true;
+        }
+      }
       openToast(
         "success",
         res.data?.message ||
           res.message ||
-          (editingPartner ? "Đã cập nhật đối tác." : "Đã thêm đối tác."),
+          (editingPartner ? "Đã cập nhật đối tác." : "Đã thêm đối tác.") +
+            (logoUploadFailed ? " Logo chưa tải lên được." : ""),
       );
       closeForm();
       await loadData(page);
@@ -722,6 +849,20 @@ export default function PartnerManagementPage() {
       openToast("error", getMsg(err, "Không tải được chi tiết đối tác."));
     } finally {
       setDetailLoading(false);
+    }
+  };
+  const removeLogo = async () => {
+    if (!detailPartner?.id) return;
+    setDeletingLogo(true);
+    try {
+      const res = await partnerApi.deleteLogo(detailPartner.id);
+      openToast("success", res.data?.message || res.message || "Đã xóa logo.");
+      await openDetail(detailPartner);
+      await loadData(page);
+    } catch (err) {
+      openToast("error", getMsg(err, "Không xóa được logo đối tác."));
+    } finally {
+      setDeletingLogo(false);
     }
   };
   const confirmDelete = async () => {
@@ -994,8 +1135,15 @@ export default function PartnerManagementPage() {
           editingPartner={editingPartner}
           form={form}
           formErrors={formErrors}
+          logoCurrentUrl={logoCurrentUrl}
+          logoFile={logoFile}
+          logoInputRef={logoInputRef}
+          logoPreviewUrl={logoPreviewUrl}
           onChange={changeField}
           onClose={closeForm}
+          onClearLogo={clearLogoSelection}
+          onOpenLogoPicker={openLogoPicker}
+          onPickLogo={pickLogo}
           onSubmit={handleSubmit}
           saving={saving}
           typeOptions={typeOptions}
@@ -1004,7 +1152,9 @@ export default function PartnerManagementPage() {
       {detailPartner ? (
         <PartnerDetailModal
           loading={detailLoading}
+          deletingLogo={deletingLogo}
           onClose={() => setDetailPartner(null)}
+          onDeleteLogo={removeLogo}
           partner={detailPartner}
         />
       ) : null}
