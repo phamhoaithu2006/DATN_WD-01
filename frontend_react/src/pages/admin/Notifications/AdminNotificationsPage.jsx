@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
+import AdminPageHeader from '../../../components/admin/AdminPageHeader'
 import adminNotificationApi from '/src/services/adminNotificationApi.js'
 
 const EMPTY_FORM = {
   title: '',
   message: '',
-  target_type: 'all',
+  target_type: '',
 }
 
 const getArray = (data) => {
@@ -57,7 +58,6 @@ export default function AdminNotificationsPage() {
   const [users, setUsers] = useState([])
   const [selectedUsers, setSelectedUsers] = useState([])
   const [searchKeyword, setSearchKeyword] = useState('')
-  const [previewUsers, setPreviewUsers] = useState([])
 
   const [roles, setRoles] = useState([])
   const [selectedRoleIds, setSelectedRoleIds] = useState([])
@@ -173,9 +173,13 @@ useEffect(() => {
   }
 }, [])
 
-    useEffect(() => {
-    void loadRoles()
-    }, [])
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadRoles()
+    }, 0)
+
+    return () => window.clearTimeout(timer)
+  }, [])
 
     const toggleRole = (roleId) => {
     const id = Number(roleId)
@@ -202,7 +206,6 @@ useEffect(() => {
   setEditingDraftId(null)
   setSelectedUsers([])
   setSelectedRoleIds([])
-  setPreviewUsers([])
   setSearchKeyword('')
 }
 
@@ -297,7 +300,6 @@ useEffect(() => {
   const previewRecipients = async () => {
     if (form.target_type === 'all') {
       toast.info('Thông báo sẽ được gửi cho toàn bộ người dùng')
-      setPreviewUsers([])
       return
     }
 
@@ -307,7 +309,6 @@ useEffect(() => {
         role_ids: form.target_type === 'role' ? selectedRoleIds : [],
       })
 
-      setPreviewUsers(getArray(response))
       toast.success(`Tìm thấy ${getArray(response).length} người nhận`)
     } catch (error) {
       console.error(error)
@@ -322,7 +323,7 @@ useEffect(() => {
     setForm({
       title: draft.title || '',
       message: draft.message || '',
-      target_type: draft.target_type || 'all',
+      target_type: draft.target_type || '',
     })
 
     if (draft.target_type === 'specific') {
@@ -460,26 +461,11 @@ const openDraftDetail = async (id) => {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-6">
-        <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-        <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-700 px-6 py-7 text-white shadow-xl shadow-blue-200 sm:px-8">
-            <div className="relative z-10">
-            <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-blue-100">
-                Quản trị hệ thống
-            </p>
-
-            <h1 className="mt-2 text-3xl font-black sm:text-4xl">
-                Thông báo người dùng
-            </h1>
-
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-blue-100">
-                Tạo chiến dịch, lưu bản nháp, chọn người nhận và quản lý lịch sử gửi thông báo.
-            </p>
-            </div>
-
-            <div className="absolute -right-16 -top-16 h-52 w-52 rounded-full bg-white/10 blur-2xl" />
-            <div className="absolute -bottom-20 right-36 h-40 w-40 rounded-full bg-cyan-300/20 blur-2xl" />
-        </section>
-      </div>
+      <AdminPageHeader
+        breadcrumb={['ViVuGo', 'Thông báo người dùng']}
+        title="Thông báo người dùng"
+        description="Tạo chiến dịch, lưu bản nháp, chọn người nhận và quản lý lịch sử gửi thông báo."
+      />
 
       <div className="flex flex-wrap gap-2">
         <button className={tabClass('compose')} onClick={() => setTab('compose')}>
@@ -500,8 +486,8 @@ const openDraftDetail = async (id) => {
       </div>
 
       {tab === 'compose' && (
-        <div className="grid gap-6 lg:grid-cols-3">
-          <div className="space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
+        <div className="grid gap-6">
+          <div className="space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold text-slate-800">
                 {editingDraftId ? 'Chỉnh sửa bản nháp' : 'Tạo thông báo mới'}
@@ -531,7 +517,6 @@ const openDraftDetail = async (id) => {
                     title: event.target.value,
                   }))
                 }
-                placeholder="Ví dụ: Bảo trì hệ thống"
                 className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500"
               />
             </div>
@@ -550,7 +535,6 @@ const openDraftDetail = async (id) => {
                     message: event.target.value,
                   }))
                 }
-                placeholder="Nhập nội dung thông báo gửi đến người dùng..."
                 className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500"
               />
             </div>
@@ -568,10 +552,12 @@ const openDraftDetail = async (id) => {
                     target_type: event.target.value,
                   }))
 
-                  setPreviewUsers([])
                 }}
                 className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500"
               >
+                <option value="" disabled>
+                  Chọn đối tượng nhận
+                </option>
                 <option value="all">Gửi cho toàn bộ người dùng</option>
                 <option value="specific">Chọn một số người dùng</option>
                 <option value="role">Gửi toàn bộ người dùng theo vai trò</option>
@@ -583,7 +569,6 @@ const openDraftDetail = async (id) => {
                 <input
                   value={searchKeyword}
                   onChange={(event) => setSearchKeyword(event.target.value)}
-                  placeholder="Tìm theo tên người dùng..."
                   className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 outline-none focus:border-blue-500"
                 />
 
@@ -739,46 +724,6 @@ const openDraftDetail = async (id) => {
             </div>
           </div>
 
-          <aside className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-bold text-slate-800">
-              Xem trước
-            </h2>
-
-            <div className="mt-4 rounded-xl bg-slate-50 p-4">
-              <p className="font-bold text-slate-800">
-                {form.title || 'Tiêu đề thông báo'}
-              </p>
-
-              <p className="mt-2 whitespace-pre-wrap text-sm text-slate-600">
-                {form.message || 'Nội dung thông báo sẽ hiển thị tại đây.'}
-              </p>
-            </div>
-
-            <div className="mt-5">
-              <p className="text-sm font-bold text-slate-700">
-                Người nhận xem trước
-              </p>
-
-              {form.target_type === 'all' && (
-                <p className="mt-2 text-sm text-slate-500">
-                  Toàn bộ người dùng trong hệ thống.
-                </p>
-              )}
-
-              {previewUsers.length > 0 && (
-                <div className="mt-3 space-y-2">
-                  {previewUsers.map((user) => (
-                    <div
-                      key={user.id}
-                      className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700"
-                    >
-                      {user.full_name}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </aside>
         </div>
       )}
 
@@ -1006,6 +951,12 @@ const openDraftDetail = async (id) => {
             </div>
 
             <div className="space-y-6 p-6">
+                {loadingDraftDetail ? (
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-5 py-10 text-center text-sm font-semibold text-slate-500">
+                    Đang tải chi tiết...
+                  </div>
+                ) : (
+                  <>
                 <div className="grid gap-4 sm:grid-cols-2">
                 <div className="rounded-2xl bg-slate-50 p-4">
                     <p className="text-xs font-extrabold uppercase tracking-wide text-slate-400">
@@ -1056,6 +1007,8 @@ const openDraftDetail = async (id) => {
                     Chỉnh sửa bản nháp
                 </button>
                 </div>
+                  </>
+                )}
             </div>
             </div>
         </div>

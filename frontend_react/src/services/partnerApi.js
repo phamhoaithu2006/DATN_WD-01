@@ -28,6 +28,16 @@ export const partnerApi = {
     return apiClient.put(`${PARTNER_ENDPOINT}/${id}`, payload)
   },
 
+  uploadLogo(id, file) {
+    const formData = new FormData()
+    formData.append('logo', file)
+    return apiClient.post(`${PARTNER_ENDPOINT}/${id}/upload-logo`, formData)
+  },
+
+  deleteLogo(id) {
+    return apiClient.delete(`${PARTNER_ENDPOINT}/${id}/delete-logo`)
+  },
+
   remove(id) {
     return apiClient.delete(`${PARTNER_ENDPOINT}/${id}`)
   },

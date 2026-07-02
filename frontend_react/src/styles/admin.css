@@ -1070,20 +1070,54 @@
 .guide-detail-head {
   display: flex;
   align-items: center;
-  gap: 16px;
-  margin: 22px 0;
+  gap: 18px;
+  margin: 22px 0 18px;
 }
 
-.guide-detail-head h3,
+.guide-detail-head > div {
+  display: grid;
+  gap: 6px;
+}
+
+.guide-detail-topline {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.guide-detail-head h3 {
+  margin: 0;
+  color: #020617;
+  font-size: 1.35rem;
+  line-height: 1.15;
+}
+
 .guide-detail-section h3 {
   margin: 0;
   color: #020617;
+  font-size: 1.05rem;
+  line-height: 1.2;
+  font-weight: 400;
 }
 
 .guide-detail-head p,
 .guide-empty-text {
-  margin: 4px 0 0;
+  margin: 0;
   color: #64748b;
+}
+
+.guide-detail-topline .guide-status {
+  width: fit-content;
+  padding: 5px 12px;
+  font-size: 0.84rem;
+}
+
+.guide-detail-head .guide-avatar.large {
+  width: 84px;
+  height: 84px;
+  font-size: 1.35rem;
+  box-shadow: 0 8px 20px rgba(14, 165, 233, 0.12);
 }
 
 .guide-detail-grid {
@@ -1116,8 +1150,8 @@
 
 .guide-detail-section {
   display: grid;
-  gap: 12px;
-  margin-top: 22px;
+  gap: 10px;
+  margin-top: 18px;
 }
 
 .guide-certificate-list {
