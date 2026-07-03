@@ -8,7 +8,6 @@ import GuideManagementPage from '../pages/admin/GuideManagementPage'
 import GuideTrashPage from '../pages/admin/GuideTrashPage'
 import PartnerManagementPage from '../pages/admin/partners/PartnerManagementPage'
 import PartnerTrashPage from '../pages/admin/partners/PartnerTrashPage'
-import ServiceCategoryManagementPage from '../pages/admin/serviceCategories/ServiceCategoryManagementPage'
 import SupportStaffManagementPage from '../pages/admin/SupportStaffManagementPage'
 import SupportStaffTrashPage from '../pages/admin/SupportStaffTrashPage'
 import UserManagementPage from '../pages/admin/UserManagementPage'
@@ -35,6 +34,7 @@ import AuthPage from '../pages/auth/AuthPage'
 import ForgotPasswordPage from '../pages/auth/ForgotPasswordPage'
 import CustomerPage from '../pages/customer/CustomerPage'
 import GuideDashboardPage from '../pages/guide/GuideDashboardPage'
+import GuideProfilePage from '../pages/guide/GuideProfilePage'
 import ReportStatisticsPage from '../pages/admin/reportStatistics/ReportStatisticsPage'
 import TourDepartureListPage from "../pages/admin/tourDepartures/TourDepartureListPage";
 import TourDepartureCreatePage from "../pages/admin/tourDepartures/TourDepartureCreatePage";
@@ -57,7 +57,6 @@ function AppRoutes() {
     {/* Quản lý người dùng */}
     <Route path="/" element={<CustomerPage />} />
     <Route path="/tours" element={<CustomerPage />} />
-    <Route path="/tours/:id" element={<CustomerPage />} />
     <Route path="/destinations" element={<CustomerPage />} />
     <Route path="/deals" element={<CustomerPage />} />
     <Route path="/customer/profile" element={<CustomerPage />} />
@@ -67,6 +66,7 @@ function AppRoutes() {
     <Route path="/customer/search" element={<CustomerPage />} />
     <Route path="/customer/bookings" element={<CustomerPage />} />
     <Route path="/customer/settings" element={<CustomerPage />} />
+    {/* Trang hướng dẫn viên */}
     <Route path="/guide" element={guidePage(<GuideDashboardPage />)} />
     <Route path="/guide/tours" element={guidePage(<GuideDashboardPage />)} />
     <Route path="/guide/schedule" element={guidePage(<GuideDashboardPage />)} />
@@ -75,7 +75,7 @@ function AppRoutes() {
     <Route path="/guide/customers" element={guidePage(<GuideDashboardPage />)} />
     <Route path="/guide/messages" element={guidePage(<GuideDashboardPage />)} />
     <Route path="/guide/notifications" element={guidePage(<GuideDashboardPage />)} />
-    <Route path="/guide/profile" element={guidePage(<GuideDashboardPage />)} />
+    <Route path="/guide/profile" element={guidePage(<GuideProfilePage />)} />
     <Route path="/guide/settings" element={guidePage(<GuideDashboardPage />)} />
     <Route path="/admin/users" element={<Navigate to="/admin/users/customers" replace />} />
     <Route path="/admin/users/customers" element={adminPage(<UserManagementPage roleName="customer" />)} />
@@ -125,7 +125,6 @@ function AppRoutes() {
     {/* Quản lý dịch vụ đối tác */}
     <Route path="/admin/partners" element={adminPage(<PartnerManagementPage />)} />
     <Route path="/admin/partners/trash" element={adminPage(<PartnerTrashPage />)} />
-    <Route path="/admin/service-categories" element={adminPage(<ServiceCategoryManagementPage />)} />
     {/* Quản lý nhân viên hỗ trợ */}
     <Route path="/admin/support" element={adminPage(<SupportStaffManagementPage />)} />
     <Route path="/admin/support/trash" element={adminPage(<SupportStaffTrashPage />)} />
