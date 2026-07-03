@@ -66,7 +66,22 @@ export async function removeWishlist(tourId) {
 }
 
 export async function updateProfile(payload) {
-  return api.put('/profile/update', payload)
+  const hasAvatar = payload?.avatar instanceof File
+
+  if (!hasAvatar) {
+    return api.put('/profile/update', payload)
+  }
+
+  const formData = new FormData()
+  formData.append('_method', 'PUT')
+
+  Object.entries(payload).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      formData.append(key, value)
+    }
+  })
+
+  return api.put('/profile/update', formData)
 }
 
 export async function changePassword(payload) {

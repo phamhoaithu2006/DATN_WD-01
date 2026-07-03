@@ -652,6 +652,7 @@ export default function PartnerManagementPage() {
   }, [notice]);
   const openToast = (type, text) => setNotice({ type, text });
   const resetForm = (nextPartner = null) => {
+    void loadServiceTypes();
     clearLogoSelection();
     if (nextPartner) {
       const matched =

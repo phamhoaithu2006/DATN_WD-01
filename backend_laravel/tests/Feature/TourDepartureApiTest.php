@@ -1,11 +1,12 @@
 <?php
 
+use App\Models\Booking;
+use App\Models\Role;
 use App\Models\Tour;
 use App\Models\TourDeparture;
-use App\Models\Booking;
 use App\Models\User;
-use App\Models\Role;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
 
 uses(RefreshDatabase::class);
@@ -13,29 +14,65 @@ uses(RefreshDatabase::class);
 // Hàm helper để tạo admin user nhanh chóng
 function createAdminUser(): User
 {
+    ensureTourReferenceData();
+
     $role = Role::firstOrCreate(['name' => 'admin'], ['description' => 'Admin Role']);
+
     return User::factory()->create([
         'role_id' => $role->id,
-        'status'  => 'active'
+        'status' => 'active',
     ]);
 }
 
 // Hàm helper để tạo Tour nhanh chóng
 function createTestTour(array $attributes = []): Tour
 {
+    ensureTourReferenceData();
+
     return Tour::create(array_merge([
-        'category_id'     => 1,
-        'destination_id'  => 1,
-        'title'           => 'Tour Hà Nội Hạ Long 2 Ngày 1 Đêm',
-        'slug'            => 'tour-ha-noi-ha-long-2-ngay-1-dem',
-        'base_price'      => 2500000,
-        'discount_price'  => 2200000,
-        'max_slots'       => 20,
+        'category_id' => 1,
+        'destination_id' => 1,
+        'title' => 'Tour Hà Nội Hạ Long 2 Ngày 1 Đêm',
+        'slug' => 'tour-ha-noi-ha-long-2-ngay-1-dem',
+        'base_price' => 2500000,
+        'discount_price' => 2200000,
+        'max_slots' => 20,
         'available_slots' => 20,
-        'duration_days'   => 2,
+        'duration_days' => 2,
         'duration_nights' => 1,
-        'status'          => 'published',
+        'status' => 'published',
     ], $attributes));
+}
+
+function ensureTourReferenceData(): void
+{
+    $now = now();
+
+    DB::table('categories')->updateOrInsert(
+        ['id' => 1],
+        [
+            'name' => 'Danh mục test',
+            'slug' => 'danh-muc-test',
+            'description' => 'Danh mục dùng cho feature test.',
+            'status' => 'active',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]
+    );
+
+    DB::table('destinations')->updateOrInsert(
+        ['id' => 1],
+        [
+            'name' => 'Điểm đến test',
+            'slug' => 'diem-den-test',
+            'province_city' => 'Hà Nội',
+            'country' => 'Việt Nam',
+            'description' => 'Điểm đến dùng cho feature test.',
+            'status' => 'active',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]
+    );
 }
 
 /*
@@ -51,13 +88,13 @@ test('admin can retrieve tour departures with price fallback', function () {
 
     // Tạo đợt khởi hành có price = null (để test fallback sang discount_price của Tour)
     $departure = TourDeparture::create([
-        'tour_id'        => $tour->id,
+        'tour_id' => $tour->id,
         'departure_date' => now()->addDays(5)->format('Y-m-d'),
-        'return_date'    => now()->addDays(7)->format('Y-m-d'),
-        'price'          => null,
-        'total_slots'    => 10,
-        'booked_slots'   => 0,
-        'status'         => 'open'
+        'return_date' => now()->addDays(7)->format('Y-m-d'),
+        'price' => null,
+        'total_slots' => 10,
+        'booked_slots' => 0,
+        'status' => 'open',
     ]);
 
     $response = $this->getJson("/api/admin/tours/{$tour->id}/departures");
@@ -78,24 +115,24 @@ test('admin can retrieve tour detail', function () {
 
     $tour = createTestTour(['created_by' => $admin->id]);
     $itinerary = $tour->itineraries()->create([
-        'day_number'  => 1,
-        'sort_order'  => 0,
-        'type'        => 'departure',
-        'title'       => 'Khoi hanh',
+        'day_number' => 1,
+        'sort_order' => 0,
+        'type' => 'departure',
+        'title' => 'Khoi hanh',
         'description' => 'Tap trung va bat dau hanh trinh.',
     ]);
     $itinerary->images()->create([
-        'image_url'  => 'https://example.com/khoi-hanh.jpg',
-        'alt_text'   => 'Anh khoi hanh',
+        'image_url' => 'https://example.com/khoi-hanh.jpg',
+        'alt_text' => 'Anh khoi hanh',
         'sort_order' => 0,
     ]);
     $tour->departures()->create([
         'departure_date' => '2026-07-10',
-        'return_date'    => '2026-07-12',
-        'price'          => 2100000,
-        'total_slots'    => 15,
-        'booked_slots'   => 3,
-        'status'         => 'open'
+        'return_date' => '2026-07-12',
+        'price' => 2100000,
+        'total_slots' => 15,
+        'booked_slots' => 3,
+        'status' => 'open',
     ]);
 
     $response = $this->getJson("/api/admin/tours/{$tour->id}");
@@ -117,10 +154,10 @@ test('admin can create departure with valid data', function () {
 
     $payload = [
         'departure_date' => now()->addDays(2)->format('Y-m-d'),
-        'return_date'    => now()->addDays(4)->format('Y-m-d'),
-        'price'          => 1800000,
-        'total_slots'    => 15,
-        'status'         => 'open'
+        'return_date' => now()->addDays(4)->format('Y-m-d'),
+        'price' => 1800000,
+        'total_slots' => 15,
+        'status' => 'open',
     ];
 
     $response = $this->postJson("/api/admin/tours/{$tour->id}/departures", $payload);
@@ -131,8 +168,8 @@ test('admin can create departure with valid data', function () {
         ->assertJsonPath('data.total_slots', 15);
 
     $this->assertDatabaseHas('tour_departures', [
-        'tour_id'     => $tour->id,
-        'total_slots' => 15
+        'tour_id' => $tour->id,
+        'total_slots' => 15,
     ]);
 });
 
@@ -145,9 +182,9 @@ test('create departure validation fails with invalid dates', function () {
     // Ngày đi ở quá khứ, ngày về trước ngày đi
     $payload = [
         'departure_date' => now()->subDay()->format('Y-m-d'),
-        'return_date'    => now()->subDays(2)->format('Y-m-d'),
-        'total_slots'    => 10,
-        'status'         => 'open'
+        'return_date' => now()->subDays(2)->format('Y-m-d'),
+        'total_slots' => 10,
+        'status' => 'open',
     ];
 
     $response = $this->postJson("/api/admin/tours/{$tour->id}/departures", $payload);
@@ -168,17 +205,17 @@ test('update departure validation checks return_date against existing departure_
     $tour = createTestTour();
 
     $departure = TourDeparture::create([
-        'tour_id'        => $tour->id,
+        'tour_id' => $tour->id,
         'departure_date' => '2026-07-05',
-        'return_date'    => '2026-07-07',
-        'total_slots'    => 10,
-        'booked_slots'   => 2,
-        'status'         => 'open'
+        'return_date' => '2026-07-07',
+        'total_slots' => 10,
+        'booked_slots' => 2,
+        'status' => 'open',
     ]);
 
     // Update return_date trước departure_date hiện tại (2026-07-01 < 2026-07-05)
     $response = $this->putJson("/api/admin/tours/departures/{$departure->id}", [
-        'return_date' => '2026-07-01'
+        'return_date' => '2026-07-01',
     ]);
 
     $response->assertStatus(422)
@@ -192,17 +229,17 @@ test('update departure total_slots cannot be less than booked_slots', function (
     $tour = createTestTour();
 
     $departure = TourDeparture::create([
-        'tour_id'        => $tour->id,
+        'tour_id' => $tour->id,
         'departure_date' => '2026-07-05',
-        'return_date'    => '2026-07-07',
-        'total_slots'    => 10,
-        'booked_slots'   => 6, // Đã đặt 6 chỗ
-        'status'         => 'open'
+        'return_date' => '2026-07-07',
+        'total_slots' => 10,
+        'booked_slots' => 6, // Đã đặt 6 chỗ
+        'status' => 'open',
     ]);
 
     // Update total_slots xuống 5 (nhỏ hơn booked_slots = 6)
     $response = $this->putJson("/api/admin/tours/departures/{$departure->id}", [
-        'total_slots' => 5
+        'total_slots' => 5,
     ]);
 
     $response->assertStatus(422)
@@ -221,25 +258,25 @@ test('cannot delete departure if it has active bookings', function () {
     $tour = createTestTour();
 
     $departure = TourDeparture::create([
-        'tour_id'        => $tour->id,
+        'tour_id' => $tour->id,
         'departure_date' => '2026-07-05',
-        'return_date'    => '2026-07-07',
-        'total_slots'    => 10,
-        'booked_slots'   => 1,
-        'status'         => 'open'
+        'return_date' => '2026-07-07',
+        'total_slots' => 10,
+        'booked_slots' => 1,
+        'status' => 'open',
     ]);
 
     // Tạo booking liên kết với đợt đi
     Booking::create([
-        'booking_code'      => 'BK123456',
-        'user_id'           => $admin->id,
-        'tour_id'           => $tour->id,
+        'booking_code' => 'BK123456',
+        'user_id' => $admin->id,
+        'tour_id' => $tour->id,
         'tour_departure_id' => $departure->id,
-        'number_of_people'  => 1,
-        'unit_price'        => 2200000,
-        'total_amount'      => 2200000,
-        'status'            => 'confirmed',
-        'payment_status'    => 'paid'
+        'number_of_people' => 1,
+        'unit_price' => 2200000,
+        'total_amount' => 2200000,
+        'status' => 'confirmed',
+        'payment_status' => 'paid',
     ]);
 
     $response = $this->deleteJson("/api/admin/tours/departures/{$departure->id}");
@@ -261,44 +298,44 @@ test('admin can create tour with detailed itinerary records and images', functio
     Sanctum::actingAs($admin);
 
     $payload = [
-        'category_id'     => 1,
-        'destination_id'  => 1,
-        'created_by'      => $admin->id,
-        'title'           => 'Tour Test Lịch Trình',
-        'duration_days'   => 2,
+        'category_id' => 1,
+        'destination_id' => 1,
+        'created_by' => $admin->id,
+        'title' => 'Tour Test Lịch Trình',
+        'duration_days' => 2,
         'duration_nights' => 1,
-        'base_price'      => 1000000,
-        'max_slots'       => 10,
-        'status'          => 'draft',
-        'itinerary'       => [
+        'base_price' => 1000000,
+        'max_slots' => 10,
+        'status' => 'draft',
+        'itinerary' => [
             [
-                'day_number'  => 1,
-                'sort_order'  => 0,
-                'type'        => 'departure',
-                'title'       => 'Khởi hành từ Hà Nội',
-                'start_time'  => '08:00',
-                'transport'   => 'Xe du lịch',
+                'day_number' => 1,
+                'sort_order' => 0,
+                'type' => 'departure',
+                'title' => 'Khởi hành từ Hà Nội',
+                'start_time' => '08:00',
+                'transport' => 'Xe du lịch',
                 'description' => 'Tập trung tại điểm hẹn và khởi hành.',
-                'images'      => [
+                'images' => [
                     [
-                        'image_url'  => 'https://example.com/lich-trinh-1.jpg',
-                        'alt_text'   => 'Điểm khởi hành',
+                        'image_url' => 'https://example.com/lich-trinh-1.jpg',
+                        'alt_text' => 'Điểm khởi hành',
                         'sort_order' => 0,
                     ],
                 ],
             ],
             [
-                'day_number'  => 1,
-                'sort_order'  => 1,
-                'type'        => 'sightseeing',
-                'title'       => 'Tham quan phố cổ',
-                'duration'    => '2 giờ',
+                'day_number' => 1,
+                'sort_order' => 1,
+                'type' => 'sightseeing',
+                'title' => 'Tham quan phố cổ',
+                'duration' => '2 giờ',
                 'description' => 'Đi bộ tham quan các điểm nổi bật.',
             ],
-        ]
+        ],
     ];
 
-    $response = $this->postJson("/api/admin/tours", $payload);
+    $response = $this->postJson('/api/admin/tours', $payload);
 
     $response->assertStatus(201)
         ->assertJsonPath('status', 'success')
@@ -306,14 +343,14 @@ test('admin can create tour with detailed itinerary records and images', functio
         ->assertJsonPath('data.itinerary.0.images.0.image_url', 'https://example.com/lich-trinh-1.jpg');
 
     $this->assertDatabaseHas('tour_itineraries', [
-        'title'      => 'Tham quan phố cổ',
-        'type'       => 'sightseeing',
+        'title' => 'Tham quan phố cổ',
+        'type' => 'sightseeing',
         'sort_order' => 1,
     ]);
 
     $this->assertDatabaseHas('tour_itinerary_images', [
         'image_url' => 'https://example.com/lich-trinh-1.jpg',
-        'alt_text'  => 'Điểm khởi hành',
+        'alt_text' => 'Điểm khởi hành',
     ]);
 });
 
@@ -323,14 +360,14 @@ test('admin can update tour and resync itinerary records', function () {
 
     $tour = createTestTour(['created_by' => $admin->id]);
     $oldItinerary = $tour->itineraries()->create([
-        'day_number'  => 1,
-        'sort_order'  => 0,
-        'type'        => 'sightseeing',
-        'title'       => 'Lịch trình cũ',
+        'day_number' => 1,
+        'sort_order' => 0,
+        'type' => 'sightseeing',
+        'title' => 'Lịch trình cũ',
         'description' => 'Nội dung cũ',
     ]);
     $oldItinerary->images()->create([
-        'image_url'  => 'https://example.com/cu.jpg',
+        'image_url' => 'https://example.com/cu.jpg',
         'sort_order' => 0,
     ]);
 
@@ -338,11 +375,11 @@ test('admin can update tour and resync itinerary records', function () {
         'title' => 'Tour đã cập nhật lịch trình',
         'itinerary' => [
             [
-                'day_number'  => 2,
-                'sort_order'  => 0,
-                'type'        => 'return',
-                'title'       => 'Trở về Hà Nội',
-                'transport'   => 'Máy bay',
+                'day_number' => 2,
+                'sort_order' => 0,
+                'type' => 'return',
+                'title' => 'Trở về Hà Nội',
+                'transport' => 'Máy bay',
                 'description' => 'Kết thúc chuyến đi.',
             ],
         ],
@@ -360,11 +397,11 @@ test('admin can update tour and resync itinerary records', function () {
     ]);
 
     $this->assertDatabaseHas('tour_itineraries', [
-        'tour_id'     => $tour->id,
-        'day_number'  => 2,
-        'type'        => 'return',
-        'title'       => 'Trở về Hà Nội',
-        'transport'   => 'Máy bay',
+        'tour_id' => $tour->id,
+        'day_number' => 2,
+        'type' => 'return',
+        'title' => 'Trở về Hà Nội',
+        'transport' => 'Máy bay',
     ]);
 });
 
@@ -373,24 +410,24 @@ test('store tour validates detailed itinerary structure', function () {
     Sanctum::actingAs($admin);
 
     $payload = [
-        'category_id'     => 1,
-        'destination_id'  => 1,
-        'created_by'      => $admin->id,
-        'title'           => 'Tour Test Itinerary',
-        'duration_days'   => 2,
+        'category_id' => 1,
+        'destination_id' => 1,
+        'created_by' => $admin->id,
+        'title' => 'Tour Test Itinerary',
+        'duration_days' => 2,
         'duration_nights' => 1,
-        'base_price'      => 1000000,
-        'max_slots'       => 10,
-        'status'          => 'draft',
-        'itinerary'       => [
+        'base_price' => 1000000,
+        'max_slots' => 10,
+        'status' => 'draft',
+        'itinerary' => [
             [
                 'day_number' => 1,
-                'type'       => 'invalid_type',
-            ]
-        ]
+                'type' => 'invalid_type',
+            ],
+        ],
     ];
 
-    $response = $this->postJson("/api/admin/tours", $payload);
+    $response = $this->postJson('/api/admin/tours', $payload);
 
     $response->assertStatus(422)
         ->assertJsonValidationErrors(['itinerary.0.type', 'itinerary.0.title']);

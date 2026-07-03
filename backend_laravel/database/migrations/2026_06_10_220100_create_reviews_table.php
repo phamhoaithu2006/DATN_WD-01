@@ -23,7 +23,9 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        DB::statement('ALTER TABLE reviews ADD CONSTRAINT reviews_rating_check CHECK (rating BETWEEN 1 AND 5)');
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement('ALTER TABLE reviews ADD CONSTRAINT reviews_rating_check CHECK (rating BETWEEN 1 AND 5)');
+        }
     }
 
     /**
@@ -31,7 +33,10 @@ return new class extends Migration
      */
     public function down(): void
     {
-        DB::statement('ALTER TABLE reviews DROP CHECK reviews_rating_check');
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement('ALTER TABLE reviews DROP CHECK reviews_rating_check');
+        }
+
         Schema::dropIfExists('reviews');
     }
 };

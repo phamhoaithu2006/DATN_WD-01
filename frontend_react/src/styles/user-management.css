@@ -538,6 +538,38 @@
   color: #047857;
   font-weight: 800;
 }
+.user-password-field {
+  margin-top: 7px;
+  position: relative;
+}
+.user-password-field input {
+  margin-top: 0;
+  padding-right: 46px;
+}
+.user-password-toggle {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 9px;
+  color: #64748b;
+  cursor: pointer;
+  display: inline-flex;
+  height: 36px;
+  justify-content: center;
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 36px;
+}
+.user-password-toggle:hover {
+  background: #eef6ff;
+  color: #0ea5e9;
+}
+.user-password-toggle-icon {
+  height: 20px;
+  width: 20px;
+}
 .user-modal-actions {
   display: flex;
   gap: 10px;

@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { roleClass, roleLabel } from "../../../utils/accountRoles";
+import { mediaUrl } from "../../../utils/mediaUrl";
 
 const colors = ["blue", "purple", "green", "amber", "red"];
 
@@ -83,11 +85,7 @@ function UserTable({
           {customers.map((customer, index) => (
             <tr key={customer.id}>
               <td>
-                <span
-                  className={`user-avatar ${colors[index % colors.length]}`}
-                >
-                  {initials(customer.full_name)}
-                </span>
+                <UserAvatar customer={customer} color={colors[index % colors.length]} />
               </td>
               <td>
                 <strong>{customer.full_name}</strong>
@@ -157,6 +155,25 @@ function UserTable({
         </tbody>
       </table>
     </div>
+  );
+}
+
+function UserAvatar({ customer, color }) {
+  const [failed, setFailed] = useState(false);
+  const src = !failed ? mediaUrl(customer.avatar_url) : "";
+
+  return (
+    <span className={`user-avatar ${src ? "is-image" : color}`}>
+      {src ? (
+        <img
+          src={src}
+          alt={customer.full_name}
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        initials(customer.full_name)
+      )}
+    </span>
   );
 }
 
