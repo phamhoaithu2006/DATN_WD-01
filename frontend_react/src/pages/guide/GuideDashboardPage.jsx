@@ -429,18 +429,19 @@ function GuideDashboardPage() {
   const periodStats = summary.period || {}
   const selectedTourStats = periodStats[tourPeriod] || {}
   const selectedCustomerStats = periodStats[customerPeriod] || {}
-  const todaySchedule = dashboard?.today_schedule || []
-  const upcomingTours = dashboard?.upcoming_tours || []
-  const ongoingTours = dashboard?.ongoing_tours || []
-  const assignedTours = dashboard?.assigned_tours || []
-  const incomeRows = dashboard?.income_rows || []
+
+  const todaySchedule = useMemo(() => dashboard?.today_schedule ?? [], [dashboard?.today_schedule])
+  const upcomingTours = useMemo(() => dashboard?.upcoming_tours ?? [], [dashboard?.upcoming_tours])
+  const ongoingTours = useMemo(() => dashboard?.ongoing_tours ?? [], [dashboard?.ongoing_tours])
+  const assignedTours = useMemo(() => dashboard?.assigned_tours ?? [], [dashboard?.assigned_tours])
+  const incomeRows = useMemo(() => dashboard?.income_rows ?? [], [dashboard?.income_rows])
   const tourOverview = dashboard?.tour_overview || {}
-  const recentReviews = dashboard?.recent_reviews || []
+  const recentReviews = useMemo(() => dashboard?.recent_reviews ?? [], [dashboard?.recent_reviews])
 
   const avatarSrc = mediaUrl(guide.avatar_url || guide.user?.avatar_url)
   const fullName = guide.user?.full_name || guide.user?.name || 'Hướng dẫn viên'
-  const today = new Date()
-  const visibleMonth = useMemo(() => new Date(today.getFullYear(), today.getMonth() + calendarOffset, 1), [calendarOffset])
+  const today = useMemo(() => new Date(), [])
+  const visibleMonth = useMemo(() => new Date(today.getFullYear(), today.getMonth() + calendarOffset, 1), [today, calendarOffset])
   const calendarKey = visibleMonth.toISOString().slice(0, 7)
   const selectedDate = today.toISOString().slice(0, 10)
 
@@ -508,6 +509,9 @@ function GuideDashboardPage() {
               <div className="guide-hero-shape shape-one" />
               <div className="guide-hero-shape shape-two" />
               <div className="guide-hero-card">
+                <div className="guide-hero-card-avatar">
+                  {avatarSrc ? <img src={avatarSrc} alt={fullName} /> : initials(fullName)}
+                </div>
                 <span>{guide.guide_code || 'HDV'}</span>
                 <strong>{formatNumber(totalTours)} tour đã dẫn</strong>
                 <small>{formatNumber(summary.rating?.review_count || guide.review_count)} lượt đánh giá</small>
