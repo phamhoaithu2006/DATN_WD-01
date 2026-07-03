@@ -18,6 +18,7 @@ class TourDeparture extends Model
         'total_slots',
         'booked_slots',
         'status',
+        'current_stage_id',
     ];
 
     /**
@@ -25,8 +26,8 @@ class TourDeparture extends Model
      */
     protected $casts = [
         'departure_date' => 'date',
-        'return_date'    => 'date',
-        'price'          => 'float',
+        'return_date' => 'date',
+        'price' => 'float',
     ];
 
     /**
@@ -43,5 +44,28 @@ class TourDeparture extends Model
     public function bookings(): HasMany
     {
         return $this->hasMany(Booking::class);
+    }
+
+    public function guideAssignments(): HasMany
+    {
+        return $this->hasMany(TourGuideAssignment::class);
+    }
+
+    public function attendanceSessions(): HasMany
+    {
+        return $this->hasMany(AttendanceSession::class);
+    }
+
+    public function stages(): HasMany
+    {
+        return $this->hasMany(TourDepartureStage::class)
+            ->orderBy('day_number')
+            ->orderBy('sort_order')
+            ->orderBy('id');
+    }
+
+    public function currentStage(): BelongsTo
+    {
+        return $this->belongsTo(TourDepartureStage::class, 'current_stage_id');
     }
 }
