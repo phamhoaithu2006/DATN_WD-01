@@ -314,6 +314,31 @@
   justify-content: flex-end;
 }
 
+.guide-page .admin-page-header-actions {
+  flex-wrap: nowrap;
+}
+
+.guide-header-actions-group {
+  align-items: center;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.guide-header-links {
+  align-items: center;
+  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+  border: 1px solid #dbe5f2;
+  border-radius: 22px;
+  box-shadow: 0 10px 24px rgba(16, 33, 61, 0.06);
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px;
+}
+
 .guide-page {
   display: grid;
   gap: 22px;
@@ -354,6 +379,7 @@
 
 .guide-add-button,
 .guide-trash-button,
+.guide-section-link,
 .guide-modal-actions button:last-child {
   min-height: 46px;
   display: inline-flex;
@@ -368,6 +394,47 @@
   cursor: pointer;
   font: inherit;
   font-weight: 850;
+}
+
+.guide-section-link {
+  border: 1px solid #dbe5f2;
+  border-radius: 16px;
+  background: #ffffff;
+  color: #0f172a;
+  text-decoration: none;
+  padding: 0 16px;
+  box-shadow: 0 4px 10px rgba(16, 33, 61, 0.04);
+  transition: transform 160ms ease, border-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
+}
+
+.guide-section-link-primary {
+  background: linear-gradient(180deg, #eff7ff 0%, #ffffff 100%);
+  border-color: #cfe3fb;
+  color: #0b74d3;
+}
+
+.guide-section-link-ghost {
+  background: linear-gradient(180deg, #ffffff 0%, #fafcff 100%);
+}
+
+.guide-section-link:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(16, 33, 61, 0.08);
+}
+
+.guide-section-link-primary:hover {
+  border-color: #0b74d3;
+  color: #0b74d3;
+  background: linear-gradient(180deg, #eaf5ff 0%, #ffffff 100%);
+}
+
+.guide-section-link-ghost:hover {
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.guide-section-link svg {
+  flex-shrink: 0;
 }
 
 .guide-trash-button {
@@ -1248,6 +1315,20 @@
     justify-content: flex-start;
   }
 
+  .guide-page .admin-page-header-actions {
+    flex-wrap: wrap;
+  }
+
+  .guide-header-actions-group,
+  .guide-header-links {
+    width: 100%;
+  }
+
+  .guide-header-links {
+    box-sizing: border-box;
+    flex-wrap: wrap;
+  }
+
   .guide-heading {
     align-items: flex-start;
     flex-direction: column;
@@ -1263,6 +1344,14 @@
   }
 
   .guide-add-button {
+    width: 100%;
+  }
+
+  .guide-trash-button {
+    width: 100%;
+  }
+
+  .guide-section-link {
     width: 100%;
   }
 }
@@ -1333,6 +1422,14 @@
   }
 
   .guide-add-button {
+    width: 100%;
+  }
+
+  .guide-trash-button {
+    width: 100%;
+  }
+
+  .guide-section-link {
     width: 100%;
   }
 }

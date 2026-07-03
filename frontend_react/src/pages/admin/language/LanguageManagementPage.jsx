@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import AdminPageHeader from '../../../components/admin/AdminPageHeader'
+import Icon from '../../../components/customer/Icon'
 import { languageApi } from '../../../services/languageApi'
 
 // ─── helpers ───────────────────────────────────────────────
@@ -315,6 +317,10 @@ function LanguageManagementPage() {
         description="Quản lý ngôn ngữ và cấp độ cho hướng dẫn viên."
         actions={
           <div className="support-header-actions">
+            <Link className="support-back-button" to="/admin/guides">
+              <Icon name="chevronRight" size={16} />
+              Quay lại danh sách HDV
+            </Link>
             <button
               className="support-add-button"
               type="button"
@@ -328,7 +334,7 @@ function LanguageManagementPage() {
       />
 
       {/* Thống kê */}
-      <div className="support-stat-grid">
+      <div className="support-stat-grid centered">
         <div className="support-stat-card blue">
           <strong>{languages.length}</strong>
           <span>Tổng ngôn ngữ</span>

@@ -649,7 +649,17 @@ function GuideManagementPage() {
         title="Quản Lý Hướng Dẫn Viên"
         description="Quản lý và phân công hướng dẫn viên du lịch."
         actions={
-          <>
+          <div className="guide-header-actions-group">
+            <div className="guide-header-links">
+              <Link className="guide-section-link guide-section-link-primary" to="/admin/languages">
+                <Icon name="globe" size={16} />
+                Ngôn ngữ
+              </Link>
+              <Link className="guide-section-link guide-section-link-primary" to="/admin/certificates">
+                <Icon name="shield" size={16} />
+                Chứng chỉ
+              </Link>
+            </div>
             <Link className="guide-trash-button" to="/admin/guides/trash">
               <Icon name="trash" size={16} />
               Thùng rác
@@ -658,7 +668,7 @@ function GuideManagementPage() {
               <Icon name="plus" size={16} />
               Thêm HDV
             </button>
-          </>
+          </div>
         }
       />
       {thongBao ? (

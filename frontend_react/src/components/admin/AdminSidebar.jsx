@@ -87,30 +87,6 @@ const menuItems = [
     ),
   },
   {
-  label: 'Ngôn Ngữ',
-  path: '/admin/languages',
-  icon: (
-    <>
-      <path d="M4 5h16" />
-      <path d="M8 5v14" />
-      <path d="M4 19h16" />
-      <path d="M12 9l4 10" />
-      <path d="M10 15h4" />
-    </>
-  ),
-},
-{
-    label: 'Chứng Chỉ',
-    path: '/admin/certificates',
-    icon: (
-      <>
-        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-        <path d="M12 8v4" />
-        <path d="M12 16h.01" />
-      </>
-    ),
-  },
-  {
     label: 'Loại Dịch Vụ',
     path: '/admin/service-categories',
     icon: (

@@ -707,7 +707,34 @@ export default function PartnerManagementPage() {
   const changeField = (field) => (event) => {
     const v = event.target.value;
     setForm((c) => ({ ...c, [field]: v }));
-    setFormErrors((c) => ({ ...c, [field]: "" }));
+    setFormErrors((c) => {
+      if (field === "website") {
+        if (!v.trim()) return { ...c, website: "" };
+        return {
+          ...c,
+          website: isValidUrl(v)
+            ? ""
+            : "Website phải là URL hợp lệ, ví dụ https://example.com.",
+        };
+      }
+      if (field === "email") {
+        if (!v.trim()) return { ...c, email: "" };
+        return {
+          ...c,
+          email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim())
+            ? ""
+            : "Email không hợp lệ.",
+        };
+      }
+      if (field === "phone") {
+        if (!v.trim()) return { ...c, phone: "" };
+        return {
+          ...c,
+          phone: isValidPhone(v.trim()) ? "" : "Số điện thoại không hợp lệ.",
+        };
+      }
+      return { ...c, [field]: "" };
+    });
   };
   const pickLogo = (event) => {
     const file = event.target.files?.[0] || null;
@@ -776,12 +803,9 @@ export default function PartnerManagementPage() {
     if (!f.phone.trim()) e.phone = "Vui lòng nhập số điện thoại.";
     else if (!isValidPhone(f.phone.trim()))
       e.phone = "Số điện thoại không hợp lệ.";
-    if (!f.email.trim()) e.email = "Vui lòng nhập email.";
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim()))
+    if (f.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim()))
       e.email = "Email không hợp lệ.";
-    if (!f.address.trim()) e.address = "Vui lòng nhập địa chỉ.";
-    if (!f.website.trim()) e.website = "Vui lòng nhập website.";
-    else if (!isValidUrl(f.website))
+    if (f.website.trim() && !isValidUrl(f.website))
       e.website = "Website phải là URL hợp lệ, ví dụ https://example.com.";
     if (!f.contract_start) e.contract_start = "Vui lòng chọn ngày bắt đầu hợp đồng.";
     if (!f.contract_end) e.contract_end = "Vui lòng chọn ngày kết thúc hợp đồng.";
@@ -789,10 +813,9 @@ export default function PartnerManagementPage() {
       f.contract_start &&
       f.contract_end &&
       new Date(f.contract_end) < new Date(f.contract_start)
-    )
+      )
       e.contract_end = "Ngày kết thúc phải lớn hơn ngày bắt đầu.";
     if (!f.status) e.status = "Vui lòng chọn trạng thái.";
-    if (!f.description.trim()) e.description = "Vui lòng nhập mô tả.";
     return e;
   };
   const handleSubmit = async (e) => {
