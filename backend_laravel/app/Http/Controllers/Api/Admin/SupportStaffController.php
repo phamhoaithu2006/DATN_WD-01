@@ -7,6 +7,7 @@ use App\Models\SupportStaff;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 
@@ -31,6 +32,7 @@ class SupportStaffController extends Controller
         if ($staff?->user) {
             $staff->setAttribute('name', $staff->user->full_name);
             $staff->setAttribute('email', $staff->user->email);
+            $staff->setAttribute('avatar_url', $staff->user->avatar_url);
         }
 
         return $staff;
@@ -298,6 +300,66 @@ class SupportStaffController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Xóa vĩnh viễn nhân viên hỗ trợ thành công',
+        ]);
+    }
+    public function uploadAvatar(Request $request, $id)
+    {
+        $staff = SupportStaff::with('user.role')->findOrFail($id);
+
+        if (!$staff->user) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'NhÃ¢n viÃªn há»— trá»£ chÆ°a liÃªn káº¿t tÃ i khoáº£n.',
+            ], 422);
+        }
+
+        $request->validate([
+            'avatar' => 'required|image|mimes:jpg,jpeg,png,webp|max:2048',
+        ]);
+
+        if ($staff->user->avatar_url && str_contains($staff->user->avatar_url, '/storage/avatars/')) {
+            $oldPath = str_replace('/storage/', '', parse_url($staff->user->avatar_url, PHP_URL_PATH));
+            Storage::disk('public')->delete($oldPath);
+        }
+
+        $path = $request->file('avatar')->store('avatars', 'public');
+        $url = asset('storage/' . $path);
+
+        $staff->user->update(['avatar_url' => $url]);
+        $staff->load('user.role');
+        $this->hydrateSupportStaff($staff);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Cáº­p nháº­t áº£nh Ä‘áº¡i diá»‡n nhÃ¢n viÃªn há»— trá»£ thÃ nh cÃ´ng',
+            'data' => $staff,
+        ]);
+    }
+
+    public function deleteAvatar($id)
+    {
+        $staff = SupportStaff::with('user.role')->findOrFail($id);
+
+        if (!$staff->user) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'NhÃ¢n viÃªn há»— trá»£ chÆ°a liÃªn káº¿t tÃ i khoáº£n.',
+            ], 422);
+        }
+
+        if ($staff->user->avatar_url && str_contains($staff->user->avatar_url, '/storage/avatars/')) {
+            $oldPath = str_replace('/storage/', '', parse_url($staff->user->avatar_url, PHP_URL_PATH));
+            Storage::disk('public')->delete($oldPath);
+        }
+
+        $staff->user->update(['avatar_url' => null]);
+        $staff->load('user.role');
+        $this->hydrateSupportStaff($staff);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'XÃ³a áº£nh Ä‘áº¡i diá»‡n nhÃ¢n viÃªn há»— trá»£ thÃ nh cÃ´ng',
+            'data' => $staff,
         ]);
     }
 }

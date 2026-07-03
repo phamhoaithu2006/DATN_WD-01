@@ -8,6 +8,10 @@ const defaultForm = {
   name: '',
   description: '',
   status: 'active',
+  thumbnail_url: '',
+  thumbnail_alt_text: '',
+  thumbnail_image: null,
+  thumbnail_preview: '',
 }
 
 function TourTypeCreatePage() {
@@ -20,10 +24,20 @@ function TourTypeCreatePage() {
   const handleChange = (event) => {
     const { name, value } = event.target
 
-    setFormData({
-      ...formData,
+    setFormData((current) => ({
+      ...current,
       [name]: value,
-    })
+    }))
+  }
+
+  const handleImageChange = (event) => {
+    const file = event.target.files?.[0] || null
+
+    setFormData((current) => ({
+      ...current,
+      thumbnail_image: file,
+      thumbnail_preview: file ? URL.createObjectURL(file) : '',
+    }))
   }
 
   const handleSubmit = async (event) => {
@@ -41,6 +55,8 @@ function TourTypeCreatePage() {
       await categoryApi.create({
         name: formData.name.trim(),
         description: formData.description.trim(),
+        thumbnail_image: formData.thumbnail_image,
+        thumbnail_alt_text: formData.thumbnail_alt_text.trim(),
         status: formData.status,
       })
       
@@ -79,6 +95,7 @@ function TourTypeCreatePage() {
           submitting={submitting}
           submitLabel="Thêm mới"
           onChange={handleChange}
+          onImageChange={handleImageChange}
           onSubmit={handleSubmit}
           onCancel={() => navigate('/admin/tours')}
         />

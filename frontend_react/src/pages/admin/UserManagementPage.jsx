@@ -56,10 +56,10 @@ const messageFrom = (error) =>
   error.response?.data?.message ||
   "Không thể xử lý yêu cầu.";
 
-const cleanPayload = (form, isEditing, fixedRoleId) => {
+const cleanPayload = (form, isEditing) => {
   const payload = {
     ...form,
-    role_id: fixedRoleId || (form.role_id ? Number(form.role_id) : ""),
+    role_id: form.role_id ? Number(form.role_id) : "",
   };
 
   if (isEditing && !payload.password) {
@@ -110,7 +110,6 @@ function UserManagementPage({ roleName = "customer" }) {
   );
   const [customers, setCustomers] = useState([]);
   const [roles, setRoles] = useState([]);
-  const [currentRole, setCurrentRole] = useState(null);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
@@ -147,7 +146,6 @@ function UserManagementPage({ roleName = "customer" }) {
 
       setCustomers(withResolvedRoles(list, rolesWithCurrent));
       setRoles(rolesWithCurrent);
-      setCurrentRole(selectedRole);
     } catch (error) {
       setNotice({ type: "error", text: messageFrom(error) });
     } finally {
@@ -188,9 +186,9 @@ function UserManagementPage({ roleName = "customer" }) {
       const response = editing
         ? await updateAccount(
             editing.id,
-            cleanPayload(form, true, currentRole?.id),
+            cleanPayload(form, true),
           )
-        : await createAccount(cleanPayload(form, false, currentRole?.id));
+        : await createAccount(cleanPayload(form, false));
 
       setNotice({ type: "success", text: response.message });
       setEditing(undefined);
@@ -291,7 +289,6 @@ function UserManagementPage({ roleName = "customer" }) {
         <UserFormModal
           customer={editing}
           roles={roles}
-          fixedRole={currentRole}
           saving={saving}
           onClose={() => setEditing(undefined)}
           onSave={save}

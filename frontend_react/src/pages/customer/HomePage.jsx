@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Icon from "../../components/customer/Icon";
 import TourCard from "../../components/customer/TourCard";
 import { demoDestinations } from "../../data/customerDemoData";
@@ -9,6 +9,7 @@ function HomePage({
   domesticTours,
   internationalTours,
   favorites,
+  categories = [],
   onFavorite,
 }) {
   const navigate = useNavigate();
@@ -21,6 +22,18 @@ function HomePage({
   const domesticTourCards = (domesticTours?.length ? domesticTours : tours || []).slice(0, 4);
   const internationalTourCards = (internationalTours?.length ? internationalTours : tours || []).slice(0, 4);
   const destinationCards = demoDestinations.slice(0, 5);
+  const categoryTourCounts = useMemo(() => {
+    const counts = {};
+    if (Array.isArray(tours)) {
+      for (const tour of tours) {
+        const cat = tour.category;
+        if (cat) {
+          counts[cat] = (counts[cat] || 0) + 1;
+        }
+      }
+    }
+    return counts;
+  }, [tours]);
 
   function submitSearch(event) {
     event.preventDefault();
@@ -344,30 +357,57 @@ function HomePage({
         </div>
       </section>
 
-      <section className="vg-home-section vg-home-section-alt">
-        <div className="vg-container">
-          <div className="vg-centered-heading">
-            <span className="vg-kicker">Điểm đến</span>
-            <h2>Khám phá các vùng đất được yêu thích</h2>
-            <p>Những cái tên nổi bật đang được đặt nhiều trong mùa du lịch này.</p>
+            {categories.length > 0 ? (
+        <section className="vg-home-section vg-home-section-alt">
+          <div className="vg-container">
+            <div className="vg-centered-heading">
+              <span className="vg-kicker">Loại hình</span>
+              <h2>Những loại hình du lịch phổ biến</h2>
+              <p>Danh sách các loại hình tour hiện có trên hệ thống.</p>
+            </div>
+            <div className="vg-destination-grid vg-destination-grid-home">
+              {categories.map((category) => (
+                <Link
+                  to={`/tours?category=${encodeURIComponent(category.name)}`}
+                  className="vg-destination-card"
+                  key={category.id}
+                >
+                  <img src={category.thumbnail_url || 'https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=1200&q=80'} alt={category.name} />
+                  <div>
+                    <h3>{category.name}</h3>
+                    <span>{categoryTourCounts[category.name] || 0} tour đang mở</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
           </div>
-          <div className="vg-destination-grid vg-destination-grid-home">
-            {destinationCards.map((destination) => (
-              <Link
-                to={`/tours?q=${encodeURIComponent(destination.name)}`}
-                className="vg-destination-card"
-                key={destination.name}
-              >
-                <img src={destination.image} alt={destination.name} />
-                <div>
-                  <h3>{destination.name}</h3>
-                  <span>{destination.tours} tour đang mở</span>
-                </div>
-              </Link>
-            ))}
+        </section>
+      ) : destinationCards.length > 0 ? (
+        <section className="vg-home-section vg-home-section-alt">
+          <div className="vg-container">
+            <div className="vg-centered-heading">
+              <span className="vg-kicker">Điểm đến</span>
+              <h2>Những điểm đến đang có tour mở bán</h2>
+              <p>Danh sách này được tổng hợp từ dữ liệu tour hiện có trên hệ thống.</p>
+            </div>
+            <div className="vg-destination-grid vg-destination-grid-home">
+              {destinationCards.map((destination) => (
+                <Link
+                  to={`/tours?q=${encodeURIComponent(destination.name)}`}
+                  className="vg-destination-card"
+                  key={destination.name}
+                >
+                  <img src={destination.image} alt={destination.name} />
+                  <div>
+                    <h3>{destination.name}</h3>
+                    <span>{destination.tours} tour đang mở</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      ) : null}
 
       <section className="vg-home-section vg-reviews-section" id="danh-gia">
         <div className="vg-container">

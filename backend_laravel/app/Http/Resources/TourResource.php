@@ -75,6 +75,12 @@ class TourResource extends JsonResource
                 return $this->destination ? [
                     'id' => $this->destination->id,
                     'name' => $this->destination->name,
+                    'slug' => $this->destination->slug,
+                    'province_city' => $this->destination->province_city,
+                    'country' => $this->destination->country,
+                    'description' => $this->destination->description,
+                    'thumbnail_url' => $this->destination->thumbnail_url,
+                    'status' => $this->destination->status,
                 ] : null;
             }),
             'departures'  => $this->whenLoaded(

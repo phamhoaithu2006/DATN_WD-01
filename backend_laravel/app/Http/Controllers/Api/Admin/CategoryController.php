@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Category;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class CategoryController extends Controller
@@ -49,13 +50,24 @@ class CategoryController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:150|unique:categories,name',
             'description' => 'nullable|string',
+            'thumbnail_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'thumbnail_alt_text' => 'nullable|string|max:255',
             'status' => 'nullable|in:active,inactive',
         ]);
+
+        $thumbnailUrl = null;
+
+        if ($request->hasFile('thumbnail_image')) {
+            $path = $request->file('thumbnail_image')->store('categories', 'public');
+            $thumbnailUrl = asset('storage/' . $path);
+        }
 
         $category = Category::create([
             'name' => $validated['name'],
             'slug' => $this->generateUniqueSlug($validated['name']),
             'description' => $validated['description'] ?? null,
+            'thumbnail_url' => $thumbnailUrl,
+            'thumbnail_alt_text' => $validated['thumbnail_alt_text'] ?? null,
             'status' => $validated['status'] ?? 'active',
         ]);
 
@@ -80,6 +92,8 @@ class CategoryController extends Controller
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:150|unique:categories,name,' . $id,
             'description' => 'sometimes|nullable|string',
+            'thumbnail_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'thumbnail_alt_text' => 'sometimes|nullable|string|max:255',
             'status' => 'sometimes|in:active,inactive',
         ]);
 
@@ -90,6 +104,17 @@ class CategoryController extends Controller
 
         if (array_key_exists('description', $validated)) {
             $category->description = $validated['description'];
+        }
+
+        if ($request->hasFile('thumbnail_image')) {
+            $this->deleteStoredCategoryImage($category->thumbnail_url);
+
+            $path = $request->file('thumbnail_image')->store('categories', 'public');
+            $category->thumbnail_url = asset('storage/' . $path);
+        }
+
+        if (array_key_exists('thumbnail_alt_text', $validated)) {
+            $category->thumbnail_alt_text = $validated['thumbnail_alt_text'];
         }
 
         if (array_key_exists('status', $validated)) {
@@ -179,5 +204,24 @@ class CategoryController extends Controller
         }
 
         return $slug;
+    }
+
+    private function deleteStoredCategoryImage(?string $imageUrl): void
+    {
+        if (! $imageUrl || ! str_contains($imageUrl, '/storage/categories/')) {
+            return;
+        }
+
+        $urlPath = parse_url($imageUrl, PHP_URL_PATH);
+
+        if (! is_string($urlPath) || ! Str::startsWith($urlPath, '/storage/')) {
+            return;
+        }
+
+        $storagePath = Str::after($urlPath, '/storage/');
+
+        if ($storagePath !== '') {
+            Storage::disk('public')->delete($storagePath);
+        }
     }
 }
