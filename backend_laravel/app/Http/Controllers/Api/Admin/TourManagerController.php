@@ -11,7 +11,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
-
 class TourManagerController extends Controller
 {
     /**
@@ -26,7 +25,7 @@ class TourManagerController extends Controller
 
         //  1. ADMIN TÌM KIẾM: Theo tiêu đề tour (title)
         if ($request->has('search') && $request->search != '') {
-            $query->where('title', 'LIKE', '%' . $request->search . '%');
+            $query->where('title', 'LIKE', '%'.$request->search.'%');
         }
 
         //  2. ADMIN LỌC TRẠNG THÁI: Lọc nhanh theo 'draft', 'published', 'cancelled'
@@ -44,7 +43,7 @@ class TourManagerController extends Controller
 
         // Giữ nguyên logic sắp xếp và phân trang theo ID giảm dần của bạn
         $tours = $query->orderBy('id', 'desc')->paginate(10);
-        $tours->getCollection()->transform(fn($tour) => (new TourResource($tour))->resolve($request));
+        $tours->getCollection()->transform(fn ($tour) => (new TourResource($tour))->resolve($request));
 
         return response()->json([
             'status' => 'success',
@@ -69,7 +68,7 @@ class TourManagerController extends Controller
             'status' => 'success',
             'message' => 'Lấy chi tiết tour thành công',
             'data' => new TourResource($tour),
-        ]);
+        ], 200, [], JSON_PRESERVE_ZERO_FRACTION);
     }
 
     public function publicIndex(Request $request)
@@ -80,7 +79,7 @@ class TourManagerController extends Controller
 
         //  1. USER TÌM KIẾM: Tìm theo tiêu đề tour
         if ($request->has('search') && $request->search != '') {
-            $query->where('title', 'LIKE', '%' . $request->search . '%');
+            $query->where('title', 'LIKE', '%'.$request->search.'%');
         }
 
         //  2. USER LỌC KHOẢNG GIÁ: Tìm theo ngân sách của khách
@@ -93,7 +92,7 @@ class TourManagerController extends Controller
 
         // Giữ nguyên logic sắp xếp và phân trang theo ID giảm dần của bạn
         $tours = $query->orderBy('id', 'desc')->paginate(10);
-        $tours->getCollection()->transform(fn($tour) => (new TourResource($tour))->resolve($request));
+        $tours->getCollection()->transform(fn ($tour) => (new TourResource($tour))->resolve($request));
 
         return response()->json([
             'status' => 'success',
@@ -224,8 +223,8 @@ class TourManagerController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Thêm tour thành công',
-            'data' => new TourResource($tour->load(['category', 'destination', 'thumbnail', 'images', 'itineraries.images']))
-        ], 201);
+            'data' => new TourResource($tour->load(['category', 'destination', 'thumbnail', 'images', 'itineraries.images'])),
+        ], 201, [], JSON_PRESERVE_ZERO_FRACTION);
     }
 
     /**
@@ -370,7 +369,7 @@ class TourManagerController extends Controller
             'status' => 'success',
             'message' => 'Cập nhật tour thành công',
             'data' => new TourResource($tour->fresh(['category', 'destination', 'thumbnail', 'images', 'itineraries.images'])),
-        ]);
+        ], 200, [], JSON_PRESERVE_ZERO_FRACTION);
     }
 
     /**
@@ -436,7 +435,7 @@ class TourManagerController extends Controller
             ->where('status', 'hidden')
             ->orderBy('id', 'desc')
             ->paginate(10);
-        $tours->getCollection()->transform(fn($tour) => (new TourResource($tour))->resolve(request()));
+        $tours->getCollection()->transform(fn ($tour) => (new TourResource($tour))->resolve(request()));
 
         return response()->json([
             'status' => 'success',

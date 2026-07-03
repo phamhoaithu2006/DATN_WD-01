@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\Admin\PartnerController;
 use App\Http\Controllers\Api\Admin\PartnerServiceController;
 use App\Http\Controllers\Api\Admin\PaymentController;
 use App\Http\Controllers\Api\Admin\ReportController;
+use App\Http\Controllers\Api\Admin\ServiceCategoryController;
 use App\Http\Controllers\Api\Admin\SettingController;
 use App\Http\Controllers\Api\Admin\SupportStaffController;
 use App\Http\Controllers\Api\Admin\TourDepartureController;
@@ -94,41 +95,50 @@ Route::prefix('tours')->group(function () {
 
 // Lấy danh  sách role
 Route::get('/roles', [CustomerManagerController::class, 'index_role']);
+Route::get('/settings/public', [PublicSettingController::class, 'show']);
+Route::get('/widgets', [PublicWidgetController::class, 'index']);
 
 // ======Admin======
 Route::prefix('admin')->group(function () {
     Route::get('/settings/public', [PublicSettingController::class, 'show']);
     Route::get('/widgets', [PublicWidgetController::class, 'index']);
     Route::middleware(['auth:sanctum', 'role:admin'])->get('/roles', [CustomerManagerController::class, 'index_role']);
+    Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
+        Route::apiResource('service-categories', ServiceCategoryController::class)
+            ->parameters(['service-categories' => 'id'])
+            ->whereNumber('id');
+    });
 
     // Chức năng báo cáo & thống kê
     Route::get('/reports/overview', [ReportController::class, 'getOverviewStatistics']);
     Route::get('/reports/charts', [ReportController::class, 'getChartStatistics']);
 
     // Quản lý sao lưu database
-    Route::get('/backups', [DatabaseBackupController::class, 'index']);
-    Route::post('/backups', [DatabaseBackupController::class, 'store']);
-    Route::get('/backups/{filename}/download', [DatabaseBackupController::class, 'download']);
-    Route::delete('/backups/{filename}', [DatabaseBackupController::class, 'destroy']);
+    Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
+        Route::get('/backups', [DatabaseBackupController::class, 'index']);
+        Route::post('/backups', [DatabaseBackupController::class, 'store']);
+        Route::get('/backups/{filename}/download', [DatabaseBackupController::class, 'download']);
+        Route::delete('/backups/{filename}', [DatabaseBackupController::class, 'destroy']);
+    });
 
     // ======Quản lý user======
     // Quản lý người dùng
-    Route::get('/customers/statistics', [CustomerManagerController::class, 'statistics']);
-    Route::get('/customers/count', [CustomerManagerController::class, 'count']);
+    Route::get('/customers/statistics', [CustomerManagerController::class, 'statistics'])->middleware(['auth:sanctum', 'role:admin']);
+    Route::get('/customers/count', [CustomerManagerController::class, 'count'])->middleware(['auth:sanctum', 'role:admin']);
     // Lấy danh sách người dùng
-    Route::get('/customers', [CustomerManagerController::class, 'index']);
+    Route::get('/customers', [CustomerManagerController::class, 'index'])->middleware(['auth:sanctum', 'role:admin']);
     // Chức năng tìm kiếm
-    Route::get('/customers/search', [CustomerManagerController::class, 'search']);
+    Route::get('/customers/search', [CustomerManagerController::class, 'search'])->middleware(['auth:sanctum', 'role:admin']);
     // Thêm người dùng
-    Route::post('/customers', [CustomerManagerController::class, 'store']);
+    Route::post('/customers', [CustomerManagerController::class, 'store'])->middleware(['auth:sanctum', 'role:admin']);
     // Xem chi tiết
-    Route::get('/customers/{id}', [CustomerManagerController::class, 'show']);
+    Route::get('/customers/{id}', [CustomerManagerController::class, 'show'])->middleware(['auth:sanctum', 'role:admin']);
     // Sửa tài khoản
-    Route::put('/customers/{id}', [CustomerManagerController::class, 'update']);
+    Route::put('/customers/{id}', [CustomerManagerController::class, 'update'])->middleware(['auth:sanctum', 'role:admin']);
     // Khóa tài khoản
-    Route::patch('/customers/{id}/lock', [CustomerManagerController::class, 'lock']);
+    Route::patch('/customers/{id}/lock', [CustomerManagerController::class, 'lock'])->middleware(['auth:sanctum', 'role:admin']);
     // Khôi phục tài khoản
-    Route::patch('/customers/{id}/unlock', [CustomerManagerController::class, 'unlock']);
+    Route::patch('/customers/{id}/unlock', [CustomerManagerController::class, 'unlock'])->middleware(['auth:sanctum', 'role:admin']);
 
     // Quản lý HDV
     Route::get('guides/trashed', [GuideController::class, 'trashed']);

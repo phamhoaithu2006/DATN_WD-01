@@ -14,7 +14,9 @@ class EnsureAdmin
 
         if (! $user || $user->role?->name !== 'admin') {
             return response()->json([
+                'success' => false,
                 'message' => 'Bạn không có quyền truy cập chức năng này.',
+                'errors' => [],
             ], 403);
         }
 

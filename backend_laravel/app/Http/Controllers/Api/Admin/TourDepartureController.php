@@ -23,12 +23,12 @@ class TourDepartureController extends Controller
             ->paginate(10);
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Lấy danh sách lịch khởi hành thành công',
-            'data'    => TourDepartureResource::collection(
+            'data' => TourDepartureResource::collection(
                 $departures->load('tour')
             ),
-        ]);
+        ], 200, [], JSON_PRESERVE_ZERO_FRACTION);
     }
 
     /**
@@ -41,10 +41,10 @@ class TourDepartureController extends Controller
 
         $validatedData = $request->validate([
             'departure_date' => 'required|date|after_or_equal:today',
-            'return_date'    => 'nullable|date|after:departure_date',
-            'price'          => 'nullable|numeric|min:0',
-            'total_slots'    => 'required|integer|min:1',
-            'status'         => 'required|in:open,closed,completed,cancelled',
+            'return_date' => 'nullable|date|after:departure_date',
+            'price' => 'nullable|numeric|min:0',
+            'total_slots' => 'required|integer|min:1',
+            'status' => 'required|in:open,closed,completed,cancelled',
         ]);
 
         $validatedData['tour_id'] = $tour->id;
@@ -53,10 +53,10 @@ class TourDepartureController extends Controller
         $departure = TourDeparture::create($validatedData);
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Thêm lịch khởi hành thành công',
-            'data'    => new TourDepartureResource($departure->load('tour')),
-        ], 201);
+            'data' => new TourDepartureResource($departure->load('tour')),
+        ], 201, [], JSON_PRESERVE_ZERO_FRACTION);
     }
 
     /**
@@ -69,20 +69,20 @@ class TourDepartureController extends Controller
 
         $validatedData = $request->validate([
             'departure_date' => 'sometimes|required|date|after_or_equal:today',
-            'return_date'    => 'nullable|date|after:' . ($request->departure_date ?? $departure->departure_date?->format('Y-m-d') ?? 'today'),
-            'price'          => 'nullable|numeric|min:0',
-            'total_slots'    => 'sometimes|required|integer|min:' . ($request->booked_slots ?? $departure->booked_slots),
-            'booked_slots'   => 'nullable|integer|min:0|max:' . ($request->total_slots ?? $departure->total_slots),
-            'status'         => 'sometimes|required|in:open,closed,completed,cancelled',
+            'return_date' => 'nullable|date|after:'.($request->departure_date ?? $departure->departure_date?->format('Y-m-d') ?? 'today'),
+            'price' => 'nullable|numeric|min:0',
+            'total_slots' => 'sometimes|required|integer|min:'.($request->booked_slots ?? $departure->booked_slots),
+            'booked_slots' => 'nullable|integer|min:0|max:'.($request->total_slots ?? $departure->total_slots),
+            'status' => 'sometimes|required|in:open,closed,completed,cancelled',
         ]);
 
         $departure->update($validatedData);
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Cập nhật lịch khởi hành thành công',
-            'data'    => new TourDepartureResource($departure->fresh(['tour'])),
-        ]);
+            'data' => new TourDepartureResource($departure->fresh(['tour'])),
+        ], 200, [], JSON_PRESERVE_ZERO_FRACTION);
     }
 
     /**
@@ -98,7 +98,7 @@ class TourDepartureController extends Controller
         // Kiểm tra ràng buộc: không cho phép xóa nếu có booking đang tồn tại liên kết
         if ($departure->bookings()->exists()) {
             return response()->json([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => 'Không thể xóa lịch khởi hành này vì đã có booking liên kết. Vui lòng hủy hoặc chuyển các booking trước khi xóa.',
             ], 422);
         }
@@ -106,7 +106,7 @@ class TourDepartureController extends Controller
         $departure->delete();
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Đã xóa lịch khởi hành thành công',
         ]);
     }

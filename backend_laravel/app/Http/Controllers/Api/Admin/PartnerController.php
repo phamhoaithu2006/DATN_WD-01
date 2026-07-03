@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Partner;
-use App\Models\PartnerServiceType;
+use App\Models\ServiceCategory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -30,7 +30,7 @@ class PartnerController extends Controller
         }
 
         if ($serviceType = $request->query('service_type')) {
-            $query->whereHas('serviceType', fn($q) => $q->where('slug', $serviceType));
+            $query->whereHas('serviceType', fn ($q) => $q->where('slug', $serviceType));
         }
 
         if ($status = $request->query('status')) {
@@ -60,7 +60,7 @@ class PartnerController extends Controller
         $totalActive = Partner::withoutTrashed()->where('status', 'active')->count();
         $totalInactive = Partner::withoutTrashed()->where('status', 'inactive')->count();
 
-        $serviceTypes = PartnerServiceType::all()->map(fn($t) => [
+        $serviceTypes = ServiceCategory::query()->orderBy('name')->get()->map(fn ($t) => [
             'value' => $t->slug,
             'label' => $t->name,
             'count' => $t->partners()->withoutTrashed()->count(),
@@ -81,7 +81,10 @@ class PartnerController extends Controller
 
     public function serviceTypes(): JsonResponse
     {
-        $types = PartnerServiceType::select('id', 'name', 'slug')->orderBy('name')->get();
+        $types = ServiceCategory::query()
+            ->select('id', 'name', 'slug', 'status')
+            ->orderBy('name')
+            ->get();
 
         return response()->json(['success' => true, 'data' => $types]);
     }
@@ -102,7 +105,7 @@ class PartnerController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'service_type_id' => ['required', 'integer', 'exists:partner_service_types,id'],
+            'service_type_id' => ['required', 'integer', Rule::exists('service_categories', 'id')->whereNull('deleted_at')],
             'name' => ['required', 'string', 'max:150'],
             'contact_person' => ['nullable', 'string', 'max:100'],
             'phone' => ['nullable', 'string', 'max:20'],
@@ -130,7 +133,7 @@ class PartnerController extends Controller
     {
         $partner = Partner::findOrFail($id);
         $validated = $request->validate([
-            'service_type_id' => ['sometimes', 'integer', 'exists:partner_service_types,id'],
+            'service_type_id' => ['sometimes', 'integer', Rule::exists('service_categories', 'id')->whereNull('deleted_at')],
             'name' => ['sometimes', 'string', 'max:150'],
             'contact_person' => ['nullable', 'string', 'max:100'],
             'phone' => ['nullable', 'string', 'max:20'],
@@ -213,6 +216,7 @@ class PartnerController extends Controller
             'message' => 'Xóa vĩnh viễn thành công.',
         ]);
     }
+
     public function uploadLogo(Request $request, int $id): JsonResponse
     {
         $partner = Partner::findOrFail($id);
@@ -240,7 +244,7 @@ class PartnerController extends Controller
         // Upload logo mới
         $file = $request->file('logo');
 
-        $fileName = uniqid() . '_' . time() . '.' . $file->getClientOriginalExtension();
+        $fileName = uniqid().'_'.time().'.'.$file->getClientOriginalExtension();
 
         $path = $file->storeAs(
             'partner',
@@ -248,7 +252,7 @@ class PartnerController extends Controller
             'public'
         );
 
-        $url = asset('storage/' . $path);
+        $url = asset('storage/'.$path);
 
         $partner->update([
             'logo_url' => $url,
@@ -262,6 +266,7 @@ class PartnerController extends Controller
             ],
         ]);
     }
+
     public function deleteLogo(int $id): JsonResponse
     {
         $partner = Partner::findOrFail($id);
