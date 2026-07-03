@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom'
+﻿import { NavLink } from 'react-router-dom'
 
 const guideMenuItems = [
   {
@@ -64,7 +64,6 @@ const guideMenuItems = [
   {
     label: 'Thông báo',
     path: '/guide/notifications',
-    badge: 3,
     icon: (
       <>
         <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
@@ -134,9 +133,6 @@ function GuideSidebar({ collapsed, onLogout }) {
               {item.icon}
             </svg>
             {!collapsed && <span>{item.label}</span>}
-            {!collapsed && item.badge && (
-              <span className="guide-nav-badge">{item.badge}</span>
-            )}
           </NavLink>
         ))}
       </nav>
