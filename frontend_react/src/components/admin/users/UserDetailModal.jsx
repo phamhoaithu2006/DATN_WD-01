@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { roleLabel } from "../../../utils/accountRoles";
+import { mediaUrl } from "../../../utils/mediaUrl";
 
 function initials(name = "") {
   return name
@@ -11,7 +13,9 @@ function initials(name = "") {
 }
 
 function UserDetailModal({ customer, showBookings = false, onClose }) {
+  const [avatarFailed, setAvatarFailed] = useState(false);
   const canShowBookings = showBookings && customer.role?.name === "customer";
+  const avatarSrc = !avatarFailed ? mediaUrl(customer.avatar_url) : "";
   const date = customer.created_at
     ? new Intl.DateTimeFormat("vi-VN", { dateStyle: "long" }).format(
         new Date(customer.created_at),
@@ -38,7 +42,17 @@ function UserDetailModal({ customer, showBookings = false, onClose }) {
           </button>
         </div>
         <div className="user-detail-profile">
-          <span>{initials(customer.full_name)}</span>
+          <span className={avatarSrc ? "is-image" : ""}>
+            {avatarSrc ? (
+              <img
+                src={avatarSrc}
+                alt={customer.full_name}
+                onError={() => setAvatarFailed(true)}
+              />
+            ) : (
+              initials(customer.full_name)
+            )}
+          </span>
           <div>
             <h3>{customer.full_name}</h3>
             <em className={`user-status ${customer.status}`}>

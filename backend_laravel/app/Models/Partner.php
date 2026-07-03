@@ -51,7 +51,7 @@ class Partner extends Model
 
     public function serviceType(): BelongsTo
     {
-        return $this->belongsTo(PartnerServiceType::class, 'service_type_id');
+        return $this->belongsTo(ServiceCategory::class, 'service_type_id')->withTrashed();
     }
 
     public function services(): HasMany

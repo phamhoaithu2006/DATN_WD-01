@@ -44,6 +44,7 @@
 
 .partner-primary-button,
 .partner-secondary-button,
+.partner-service-button,
 .partner-actions button,
 .partner-pagination button,
 .partner-modal-actions button {
@@ -69,6 +70,17 @@
   text-decoration: none;
 }
 
+.partner-service-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 0 18px;
+  text-decoration: none;
+  box-sizing: border-box;
+  line-height: 1;
+}
+
 .partner-primary-button {
   border: 0;
   background: linear-gradient(135deg, #0ea5e9, #0284c7);
@@ -87,8 +99,47 @@
   color: #0f172a;
 }
 
+.partner-service-button {
+  border: 1px solid #bfe7dc;
+  background: linear-gradient(180deg, #effcf8 0%, #ffffff 100%);
+  box-shadow: 0 8px 18px rgba(15, 118, 110, 0.08);
+  color: #0f766e;
+  font-size: 0.98rem;
+  white-space: nowrap;
+  font-weight: 800;
+}
+
+.partner-service-button:hover {
+  border-color: #14b8a6;
+  color: #0f766e;
+  box-shadow: 0 10px 22px rgba(20, 184, 166, 0.14);
+}
+
+.service-category-back-button {
+  align-items: center;
+  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+  border: 1px solid #cfe0ef;
+  border-radius: 14px;
+  color: #0f172a;
+  display: inline-flex;
+  font: inherit;
+  font-weight: 800;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 18px;
+  text-decoration: none;
+  transition: transform 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.service-category-back-button:hover {
+  border-color: #0ea5e9;
+  color: #0ea5e9;
+  transform: translateY(-1px);
+}
+
 .partner-primary-button:hover,
 .partner-secondary-button:hover,
+.partner-service-button:hover,
 .partner-actions button:hover,
 .partner-pagination button:hover,
 .partner-modal-actions button:hover {
@@ -742,6 +793,7 @@
 .partner-modal-header h2 {
   margin: 0;
   color: #020617;
+  font-weight: 800;
 }
 
 .partner-modal-header p {
@@ -749,6 +801,10 @@
   color: #64748b;
   font-size: 0.9rem;
   font-weight: 700;
+}
+
+.partner-modal-header .partner-modal-code {
+  color: #020617;
 }
 
 .partner-modal-header button {
@@ -788,6 +844,97 @@
   grid-column: 1 / -1;
 }
 
+.partner-logo-upload {
+  display: grid;
+  gap: 14px;
+  margin-top: 6px;
+}
+
+.partner-logo-preview {
+  min-height: 110px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid #dbeafe;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.partner-logo-preview img {
+  display: block;
+  width: 100%;
+  height: 110px;
+  object-fit: cover;
+}
+
+.partner-logo-panel {
+  display: grid;
+  gap: 4px;
+}
+
+.partner-logo-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.partner-logo-button {
+  width: 100%;
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  border: 1px dashed #93c5fd;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+  color: #0f172a;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  transition:
+    border-color 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.partner-logo-button:hover {
+  border-color: #0ea5e9;
+  box-shadow: 0 8px 18px rgba(14, 165, 233, 0.12);
+  transform: translateY(-1px);
+}
+
+.partner-logo-meta {
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.15;
+  margin: 0;
+  padding-left: 0;
+}
+
+.partner-logo-link {
+  width: fit-content;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #0284c7;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.15;
+  margin: 0;
+}
+
 .partner-error {
   color: #dc2626;
   font-size: 12px;
@@ -824,6 +971,30 @@
 .partner-detail-section p {
   margin: 4px 0 0;
   color: #64748b;
+}
+
+.partner-detail-logo-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 10px;
+}
+
+.partner-detail-logo-row .danger {
+  min-height: 42px;
+  padding: 0 14px;
+  border: 1px solid #fecaca;
+  border-radius: 999px;
+  background: #fff5f5;
+  color: #dc2626;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+}
+
+.partner-detail-logo-row .danger:hover {
+  border-color: #ef4444;
+  color: #b91c1c;
 }
 
 .partner-detail-tags {

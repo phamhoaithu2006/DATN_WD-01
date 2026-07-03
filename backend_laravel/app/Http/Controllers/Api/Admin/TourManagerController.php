@@ -11,7 +11,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
-
 class TourManagerController extends Controller
 {
     /**
@@ -26,7 +25,7 @@ class TourManagerController extends Controller
 
         //  1. ADMIN TÌM KIẾM: Theo tiêu đề tour (title)
         if ($request->has('search') && $request->search != '') {
-            $query->where('title', 'LIKE', '%' . $request->search . '%');
+            $query->where('title', 'LIKE', '%'.$request->search.'%');
         }
 
         //  2. ADMIN LỌC TRẠNG THÁI: Lọc nhanh theo 'draft', 'published', 'cancelled'
@@ -44,7 +43,7 @@ class TourManagerController extends Controller
 
         // Giữ nguyên logic sắp xếp và phân trang theo ID giảm dần của bạn
         $tours = $query->orderBy('id', 'desc')->paginate(10);
-        $tours->getCollection()->transform(fn($tour) => (new TourResource($tour))->resolve($request));
+        $tours->getCollection()->transform(fn ($tour) => (new TourResource($tour))->resolve($request));
 
         return response()->json([
             'status' => 'success',
@@ -69,7 +68,7 @@ class TourManagerController extends Controller
             'status' => 'success',
             'message' => 'Lấy chi tiết tour thành công',
             'data' => new TourResource($tour),
-        ]);
+        ], 200, [], JSON_PRESERVE_ZERO_FRACTION);
     }
 
     public function publicIndex(Request $request)
@@ -80,7 +79,7 @@ class TourManagerController extends Controller
 
         //  1. USER TÌM KIẾM: Tìm theo tiêu đề tour
         if ($request->has('search') && $request->search != '') {
-            $query->where('title', 'LIKE', '%' . $request->search . '%');
+            $query->where('title', 'LIKE', '%'.$request->search.'%');
         }
 
         //  2. USER LỌC KHOẢNG GIÁ: Tìm theo ngân sách của khách
@@ -93,7 +92,7 @@ class TourManagerController extends Controller
 
         // Giữ nguyên logic sắp xếp và phân trang theo ID giảm dần của bạn
         $tours = $query->orderBy('id', 'desc')->paginate(10);
-        $tours->getCollection()->transform(fn($tour) => (new TourResource($tour))->resolve($request));
+        $tours->getCollection()->transform(fn ($tour) => (new TourResource($tour))->resolve($request));
 
         return response()->json([
             'status' => 'success',
@@ -111,6 +110,8 @@ class TourManagerController extends Controller
 
         $validatedData = $request->validate([
             'thumbnail_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'gallery_images' => 'nullable|array',
+            'gallery_images.*' => 'image|mimes:jpg,jpeg,png,webp|max:5120',
             'thumbnail_alt_text' => 'nullable|string|max:255',
             'category_id' => 'required|integer',
             'destination_id' => 'required|integer',
@@ -164,15 +165,25 @@ class TourManagerController extends Controller
         unset($validatedData['itinerary']);
 
         $thumbnailFile = $request->file('thumbnail_image');
+        $galleryFiles = $request->file('gallery_images', []);
         $thumbnailAltText = $validatedData['thumbnail_alt_text'] ?? null;
 
-        unset($validatedData['thumbnail_image'], $validatedData['thumbnail_alt_text']);
+        if (! is_array($galleryFiles)) {
+            $galleryFiles = [];
+        }
+
+        unset(
+            $validatedData['thumbnail_image'],
+            $validatedData['gallery_images'],
+            $validatedData['thumbnail_alt_text']
+        );
 
         $tour = DB::transaction(function () use (
             $validatedData,
             $itineraryData,
             $thumbnailFile,
-            $thumbnailAltText
+            $thumbnailAltText,
+            $galleryFiles
         ) {
             $tour = Tour::create($validatedData);
 
@@ -187,6 +198,23 @@ class TourManagerController extends Controller
                 ]);
             }
 
+            $sortOrder = $thumbnailFile ? 1 : 0;
+
+            foreach ($galleryFiles as $imageFile) {
+                if (! $imageFile) {
+                    continue;
+                }
+
+                $path = $imageFile->store('tours', 'public');
+
+                $tour->images()->create([
+                    'image_url' => Storage::url($path),
+                    'alt_text' => $thumbnailAltText,
+                    'sort_order' => $sortOrder++,
+                    'is_thumbnail' => false,
+                ]);
+            }
+
             $this->syncItineraries($tour, $itineraryData);
 
             return $tour;
@@ -195,8 +223,8 @@ class TourManagerController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Thêm tour thành công',
-            'data' => new TourResource($tour->load(['category', 'destination', 'thumbnail', 'images', 'itineraries.images']))
-        ], 201);
+            'data' => new TourResource($tour->load(['category', 'destination', 'thumbnail', 'images', 'itineraries.images'])),
+        ], 201, [], JSON_PRESERVE_ZERO_FRACTION);
     }
 
     /**
@@ -209,6 +237,8 @@ class TourManagerController extends Controller
 
         $validatedData = $request->validate([
             'thumbnail_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'gallery_images' => 'nullable|array',
+            'gallery_images.*' => 'image|mimes:jpg,jpeg,png,webp|max:5120',
             'thumbnail_alt_text' => 'nullable|string|max:255',
             'category_id' => 'sometimes|required|integer',
             'destination_id' => 'sometimes|required|integer',
@@ -253,11 +283,17 @@ class TourManagerController extends Controller
         $shouldSyncItinerary = $request->exists('itinerary');
 
         $thumbnailFile = $request->file('thumbnail_image');
+        $galleryFiles = $request->file('gallery_images', []);
         $thumbnailAltText = $validatedData['thumbnail_alt_text'] ?? null;
+
+        if (! is_array($galleryFiles)) {
+            $galleryFiles = [];
+        }
 
         unset(
             $validatedData['itinerary'],
             $validatedData['thumbnail_image'],
+            $validatedData['gallery_images'],
             $validatedData['thumbnail_alt_text']
         );
 
@@ -267,7 +303,8 @@ class TourManagerController extends Controller
             $itineraryData,
             $shouldSyncItinerary,
             $thumbnailFile,
-            $thumbnailAltText
+            $thumbnailAltText,
+            $galleryFiles
         ) {
             $tour->update($validatedData);
 
@@ -304,6 +341,25 @@ class TourManagerController extends Controller
                 }
             }
 
+            if (! empty($galleryFiles)) {
+                $nextSortOrder = ((int) $tour->images()->max('sort_order')) + 1;
+
+                foreach ($galleryFiles as $imageFile) {
+                    if (! $imageFile) {
+                        continue;
+                    }
+
+                    $path = $imageFile->store('tours', 'public');
+
+                    $tour->images()->create([
+                        'image_url' => Storage::url($path),
+                        'alt_text' => $thumbnailAltText,
+                        'sort_order' => $nextSortOrder++,
+                        'is_thumbnail' => false,
+                    ]);
+                }
+            }
+
             if ($shouldSyncItinerary) {
                 $this->syncItineraries($tour, $itineraryData);
             }
@@ -313,7 +369,7 @@ class TourManagerController extends Controller
             'status' => 'success',
             'message' => 'Cập nhật tour thành công',
             'data' => new TourResource($tour->fresh(['category', 'destination', 'thumbnail', 'images', 'itineraries.images'])),
-        ]);
+        ], 200, [], JSON_PRESERVE_ZERO_FRACTION);
     }
 
     /**
@@ -379,7 +435,7 @@ class TourManagerController extends Controller
             ->where('status', 'hidden')
             ->orderBy('id', 'desc')
             ->paginate(10);
-        $tours->getCollection()->transform(fn($tour) => (new TourResource($tour))->resolve(request()));
+        $tours->getCollection()->transform(fn ($tour) => (new TourResource($tour))->resolve(request()));
 
         return response()->json([
             'status' => 'success',

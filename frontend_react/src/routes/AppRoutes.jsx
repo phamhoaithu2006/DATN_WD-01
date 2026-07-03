@@ -8,6 +8,7 @@ import GuideManagementPage from '../pages/admin/GuideManagementPage'
 import GuideTrashPage from '../pages/admin/GuideTrashPage'
 import PartnerManagementPage from '../pages/admin/partners/PartnerManagementPage'
 import PartnerTrashPage from '../pages/admin/partners/PartnerTrashPage'
+import ServiceCategoryManagementPage from '../pages/admin/serviceCategories/ServiceCategoryManagementPage'
 import SupportStaffManagementPage from '../pages/admin/SupportStaffManagementPage'
 import SupportStaffTrashPage from '../pages/admin/SupportStaffTrashPage'
 import UserManagementPage from '../pages/admin/UserManagementPage'
@@ -39,7 +40,9 @@ import TourDepartureListPage from "../pages/admin/tourDepartures/TourDepartureLi
 import TourDepartureCreatePage from "../pages/admin/tourDepartures/TourDepartureCreatePage";
 import TourDepartureEditPage from "../pages/admin/tourDepartures/TourDepartureEditPage";
 import AdminNotificationsPage from '../pages/admin/Notifications/AdminNotificationsPage';
-import TourDetailPage from '../pages/admin/tours/TourDetailPage'
+import TourDetailPage from '../pages/admin/tours/TourDetailPage';
+import LanguageManagementPage from '../pages/admin/language/LanguageManagementPage';
+import CertificateManagementPage from '../pages/admin/certificate/CertificateManagementPage'
 
 
 
@@ -122,6 +125,7 @@ function AppRoutes() {
     {/* Quản lý dịch vụ đối tác */}
     <Route path="/admin/partners" element={adminPage(<PartnerManagementPage />)} />
     <Route path="/admin/partners/trash" element={adminPage(<PartnerTrashPage />)} />
+    <Route path="/admin/service-categories" element={adminPage(<ServiceCategoryManagementPage />)} />
     {/* Quản lý nhân viên hỗ trợ */}
     <Route path="/admin/support" element={adminPage(<SupportStaffManagementPage />)} />
     <Route path="/admin/support/trash" element={adminPage(<SupportStaffTrashPage />)} />
@@ -129,8 +133,16 @@ function AppRoutes() {
     <Route  path="/admin/notifications"  element={adminPage(<AdminNotificationsPage />)}/>
     <Route path="/admin/*" element={<Navigate to="/admin" replace />} />
     <Route path="*" element={<Navigate to="/" replace />} />
-    
+    <Route
+  path="/admin/languages"
+  element={adminPage(<LanguageManagementPage />)}
+/>
+    <Route
+      path="/admin/certificates"
+      element={adminPage(<CertificateManagementPage />)}
+    />
   </Routes>
+  
 }
 
 export default AppRoutes
