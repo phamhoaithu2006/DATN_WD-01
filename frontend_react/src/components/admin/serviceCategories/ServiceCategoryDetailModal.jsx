@@ -52,10 +52,6 @@ function ServiceCategoryDetailModal({ category, loading, onClose }) {
                 <dd>{category?.name || '—'}</dd>
               </div>
               <div>
-                <dt>Slug</dt>
-                <dd>{category?.slug || '—'}</dd>
-              </div>
-              <div>
                 <dt>Trạng thái</dt>
                 <dd>
                   <StatusBadge active={category?.status} />

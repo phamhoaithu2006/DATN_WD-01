@@ -305,7 +305,7 @@ function GuideManagementPage() {
   const [hdvChiTiet, setHdvChiTiet] = useState(null)
   const [dangTaiChiTiet, setDangTaiChiTiet] = useState(false)
   const [hienForm, setHienForm] = useState(false)
-  const [dangTai, setDangTai] = useState(false)
+  const [dangTai, setDangTai] = useState(true)
   const [dangLuu, setDangLuu] = useState(false)
   const [loi, setLoi] = useState('')
   const [loiForm, setLoiForm] = useState({})
@@ -387,6 +387,7 @@ function GuideManagementPage() {
     [coLoc, locChuyenMon, locTrangThai, tuKhoa],
   )
   function chonThongKeTrangThai(trangThai) {
+    setDangTai(true)
     if (trangThai === 'all') {
       setLocTrangThai('all')
       setLocChuyenMon('all')
@@ -741,6 +742,7 @@ function GuideManagementPage() {
                 value={tuKhoa}
                 placeholder="Tìm theo mã HDV hoặc tên"
                 onChange={(event) => {
+                  setDangTai(true)
                   setTuKhoa(event.target.value)
                   setPhanTrang((current) => ({ ...current, currentPage: 1 }))
                 }}
@@ -749,6 +751,7 @@ function GuideManagementPage() {
             <select
               value={locTrangThai}
               onChange={(event) => {
+                setDangTai(true)
                 setLocTrangThai(event.target.value)
                 setPhanTrang((current) => ({ ...current, currentPage: 1 }))
               }}
@@ -763,6 +766,7 @@ function GuideManagementPage() {
             <select
               value={locChuyenMon}
               onChange={(event) => {
+                setDangTai(true)
                 setLocChuyenMon(event.target.value)
                 setPhanTrang((current) => ({ ...current, currentPage: 1 }))
               }}
@@ -793,7 +797,12 @@ function GuideManagementPage() {
               <tbody>
                 {dangTai ? (
                   <tr>
-                    <td colSpan="9">Đang tải dữ liệu...</td>
+                    <td className="support-empty-row" colSpan="9">
+                      <div className="support-loading">
+                        <span />
+                        <p>Đang tải danh sách HDV...</p>
+                      </div>
+                    </td>
                   </tr>
                 ) : null}
                 {!dangTai && danhSachHdv.length === 0 ? (
@@ -888,7 +897,10 @@ function GuideManagementPage() {
             <button
               disabled={phanTrang.currentPage <= 1 || dangTai}
               type="button"
-              onClick={() => taiDanhSachHdv(phanTrang.currentPage - 1)}
+              onClick={() => {
+                setDangTai(true)
+                taiDanhSachHdv(phanTrang.currentPage - 1)
+              }}
               aria-label="Trang trước"
             >
               ←
@@ -899,7 +911,10 @@ function GuideManagementPage() {
             <button
               disabled={phanTrang.currentPage >= phanTrang.lastPage || dangTai}
               type="button"
-              onClick={() => taiDanhSachHdv(phanTrang.currentPage + 1)}
+              onClick={() => {
+                setDangTai(true)
+                taiDanhSachHdv(phanTrang.currentPage + 1)
+              }}
               aria-label="Trang sau"
             >
               →

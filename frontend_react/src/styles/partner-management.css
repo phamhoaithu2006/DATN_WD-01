@@ -44,6 +44,7 @@
 
 .partner-primary-button,
 .partner-secondary-button,
+.partner-service-button,
 .partner-actions button,
 .partner-pagination button,
 .partner-modal-actions button {
@@ -69,6 +70,17 @@
   text-decoration: none;
 }
 
+.partner-service-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 0 18px;
+  text-decoration: none;
+  box-sizing: border-box;
+  line-height: 1;
+}
+
 .partner-primary-button {
   border: 0;
   background: linear-gradient(135deg, #0ea5e9, #0284c7);
@@ -87,8 +99,47 @@
   color: #0f172a;
 }
 
+.partner-service-button {
+  border: 1px solid #bfe7dc;
+  background: linear-gradient(180deg, #effcf8 0%, #ffffff 100%);
+  box-shadow: 0 8px 18px rgba(15, 118, 110, 0.08);
+  color: #0f766e;
+  font-size: 0.98rem;
+  white-space: nowrap;
+  font-weight: 800;
+}
+
+.partner-service-button:hover {
+  border-color: #14b8a6;
+  color: #0f766e;
+  box-shadow: 0 10px 22px rgba(20, 184, 166, 0.14);
+}
+
+.service-category-back-button {
+  align-items: center;
+  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+  border: 1px solid #cfe0ef;
+  border-radius: 14px;
+  color: #0f172a;
+  display: inline-flex;
+  font: inherit;
+  font-weight: 800;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 18px;
+  text-decoration: none;
+  transition: transform 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.service-category-back-button:hover {
+  border-color: #0ea5e9;
+  color: #0ea5e9;
+  transform: translateY(-1px);
+}
+
 .partner-primary-button:hover,
 .partner-secondary-button:hover,
+.partner-service-button:hover,
 .partner-actions button:hover,
 .partner-pagination button:hover,
 .partner-modal-actions button:hover {

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import AdminPageHeader from '../../../components/admin/AdminPageHeader'
 import ServiceCategoryDetailModal from '../../../components/admin/serviceCategories/ServiceCategoryDetailModal'
@@ -16,7 +17,7 @@ import '../../../styles/service-categories.css'
 const EMPTY_FORM = {
   name: '',
   description: '',
-  status: true,
+  status: '',
 }
 
 const EMPTY_PAGINATION = {
@@ -78,7 +79,7 @@ function formFromCategory(category) {
   return {
     name: category?.name || '',
     description: category?.description || '',
-    status: Boolean(category?.status),
+    status: typeof category?.status === 'boolean' ? category.status : true,
   }
 }
 
@@ -309,14 +310,20 @@ function ServiceCategoryManagementPage() {
         title="Quản Lý Loại Dịch Vụ"
         description="Quản lý nhóm dịch vụ dùng cho đối tác và các quy trình vận hành."
         actions={
-          <button
-            className="service-category-primary-button"
-            type="button"
-            onClick={openCreateForm}
-          >
-            <span aria-hidden="true">+</span>
-            Thêm loại dịch vụ
-          </button>
+          <>
+            <Link className="service-category-back-button" to="/admin/partners">
+              <span aria-hidden="true">←</span>
+              Quay lại danh sách đối tác
+            </Link>
+            <button
+              className="service-category-primary-button"
+              type="button"
+              onClick={openCreateForm}
+            >
+              <span aria-hidden="true">+</span>
+              Thêm loại dịch vụ
+            </button>
+          </>
         }
       />
 

@@ -682,13 +682,17 @@
 .support-empty-row {
   padding: 28px !important;
   text-align: center;
+  vertical-align: middle;
 }
 
 .support-loading {
   align-items: center;
-  display: inline-flex;
+  display: flex;
   flex-direction: column;
   gap: 12px;
+  justify-content: center;
+  min-height: 180px;
+  width: 100%;
 }
 
 .support-loading span {

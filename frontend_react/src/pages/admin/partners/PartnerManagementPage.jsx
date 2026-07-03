@@ -924,6 +924,9 @@ export default function PartnerManagementPage() {
             <Link className="partner-secondary-button" to="/admin/partners/trash">
               Thùng rác
             </Link>
+            <Link className="partner-service-button" to="/admin/service-categories">
+              Loại dịch vụ
+            </Link>
             <button
               className="partner-primary-button"
               type="button"
