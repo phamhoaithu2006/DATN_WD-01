@@ -163,7 +163,6 @@ function UserFormModal({ customer, roles = [], saving, onClose, onSave }) {
               required
               value={form.full_name}
               onChange={change("full_name")}
-              placeholder="Nguyễn Văn An"
             />
           </label>
           <label>
@@ -173,7 +172,6 @@ function UserFormModal({ customer, roles = [], saving, onClose, onSave }) {
               type="email"
               value={form.email}
               onChange={change("email")}
-              placeholder="email@example.com"
             />
           </label>
           <label>
@@ -181,7 +179,6 @@ function UserFormModal({ customer, roles = [], saving, onClose, onSave }) {
             <input
               value={form.phone}
               onChange={change("phone")}
-              placeholder="09xx xxx xxx"
             />
           </label>
           <label>
