@@ -8,6 +8,7 @@ import GuideManagementPage from '../pages/admin/GuideManagementPage'
 import GuideTrashPage from '../pages/admin/GuideTrashPage'
 import PartnerManagementPage from '../pages/admin/partners/PartnerManagementPage'
 import PartnerTrashPage from '../pages/admin/partners/PartnerTrashPage'
+import ServiceCategoryManagementPage from '../pages/admin/serviceCategories/ServiceCategoryManagementPage'
 import SupportStaffManagementPage from '../pages/admin/SupportStaffManagementPage'
 import SupportStaffTrashPage from '../pages/admin/SupportStaffTrashPage'
 import UserManagementPage from '../pages/admin/UserManagementPage'
@@ -123,6 +124,7 @@ function AppRoutes() {
     {/* Quản lý dịch vụ đối tác */}
     <Route path="/admin/partners" element={adminPage(<PartnerManagementPage />)} />
     <Route path="/admin/partners/trash" element={adminPage(<PartnerTrashPage />)} />
+    <Route path="/admin/service-categories" element={adminPage(<ServiceCategoryManagementPage />)} />
     {/* Quản lý nhân viên hỗ trợ */}
     <Route path="/admin/support" element={adminPage(<SupportStaffManagementPage />)} />
     <Route path="/admin/support/trash" element={adminPage(<SupportStaffTrashPage />)} />
