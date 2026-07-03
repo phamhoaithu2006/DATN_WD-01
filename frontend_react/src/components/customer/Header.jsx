@@ -3,6 +3,9 @@ import { Link, NavLink, useLocation } from "react-router-dom";
 import BrandLogo from "../BrandLogo";
 import Icon from "./Icon";
 import { useLocale } from "../../contexts/LocaleContext";
+import { categoryApi } from "../../services/categoryApi";
+import { destinationApi } from "../../services/destinationApi";
+import { fetchTours } from "../../services/customerApi";
 
 // Detailed mock data structured for the Mega Menu categories, tabs, and content items
 const megaMenuData = {
@@ -286,9 +289,153 @@ function Header({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState(null);
   const [mobileAccordion, setMobileAccordion] = useState(null);
   const [menuOpenedByClick, setMenuOpenedByClick] = useState(false);
+  const [menuData, setMenuData] = useState(megaMenuData);
   
   const headerRef = useRef(null);
   const closeTimeoutRef = useRef(null);
+
+  // Load live category, destination, and tour data for the Mega Menu
+  useEffect(() => {
+    let active = true;
+
+    async function loadMenuData() {
+      try {
+        const [destResponse, catResponse, toursData] = await Promise.all([
+          destinationApi.getAll().catch(() => ({ data: [] })),
+          categoryApi.getAll().catch(() => ({ data: [] })),
+          fetchTours().catch(() => [])
+        ]);
+
+        if (!active) return;
+
+        const destinations = Array.isArray(destResponse?.data?.data)
+          ? destResponse.data.data
+          : Array.isArray(destResponse?.data)
+            ? destResponse.data
+            : [];
+
+        const categories = Array.isArray(catResponse?.data?.data)
+          ? catResponse.data.data
+          : Array.isArray(catResponse?.data)
+            ? catResponse.data
+            : [];
+
+        const tours = Array.isArray(toursData) ? toursData : [];
+
+        // Build Places to see (Điểm du lịch)
+        const domesticDests = destinations.filter(d => {
+          const c = (d.country || '').trim().toLowerCase();
+          return c === 'việt nam' || c === 'viet nam' || c === '';
+        });
+        const intlDests = destinations.filter(d => {
+          const c = (d.country || '').trim().toLowerCase();
+          return c !== 'việt nam' && c !== 'viet nam' && c !== '';
+        });
+
+        const placesSidebar = [
+          { id: "all-destinations", label: { vi: "Tất cả điểm đến", en: "All destinations" } }
+        ];
+        if (domesticDests.length > 0) {
+          placesSidebar.push({ id: "vietnam", label: { vi: "Trong nước", en: "Domestic" } });
+        }
+        if (intlDests.length > 0) {
+          placesSidebar.push({ id: "international", label: { vi: "Quốc tế", en: "International" } });
+        }
+
+        const placesContent = {
+          "all-destinations": destinations.map(d => ({
+            id: d.id,
+            title: { vi: d.name, en: d.name },
+            subtitle: { 
+              vi: d.province_city ? `Điểm du lịch tại ${d.province_city}` : "Điểm du lịch nổi bật", 
+              en: d.province_city ? `Attraction in ${d.province_city}` : "Top attraction" 
+            },
+            image: d.thumbnail_url || "https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=120&q=80"
+          })),
+          "vietnam": domesticDests.map(d => ({
+            id: d.id,
+            title: { vi: d.name, en: d.name },
+            subtitle: { 
+              vi: d.province_city ? `Kỳ quan tại ${d.province_city}, Việt Nam` : "Kỳ quan tại Việt Nam", 
+              en: d.province_city ? `Wonder in ${d.province_city}, Vietnam` : "Wonder in Vietnam" 
+            },
+            image: d.thumbnail_url || "https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=120&q=80"
+          })),
+          "international": intlDests.map(d => ({
+            id: d.id,
+            title: { vi: d.name, en: d.name },
+            subtitle: { 
+              vi: `${d.province_city || ''}, ${d.country}`, 
+              en: `${d.province_city || ''}, ${d.country}` 
+            },
+            image: d.thumbnail_url || "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=120&q=80"
+          }))
+        };
+
+        // Build Things to do (Trải nghiệm)
+        const activeCategories = categories.filter(c => c.status === 'active' || c.status === undefined);
+        const thingsSidebar = [
+          { id: "all-activities", label: { vi: "Tất cả trải nghiệm", en: "All experiences" } }
+        ];
+        activeCategories.forEach(cat => {
+          thingsSidebar.push({
+            id: `cat-${cat.id}`,
+            label: { vi: cat.name, en: cat.name }
+          });
+        });
+
+        const thingsContent = {
+          "all-activities": tours.slice(0, 9).map(tour => ({
+            title: { vi: tour.title, en: tour.title },
+            subtitle: {
+              vi: tour.duration || `${tour.duration_days} ngày ${tour.duration_nights} đêm`,
+              en: tour.duration || `${tour.duration_days} days ${tour.duration_nights} nights`
+            },
+            image: tour.thumbnail_url || tour.image || "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=120&q=80",
+            slug: tour.slug
+          }))
+        };
+
+        activeCategories.forEach(cat => {
+          const catTours = tours.filter(tour => 
+            tour.category_id === cat.id || 
+            tour.category_info?.id === cat.id ||
+            (tour.category && (tour.category === cat.name || tour.category.name === cat.name))
+          );
+          thingsContent[`cat-${cat.id}`] = catTours.slice(0, 9).map(tour => ({
+            title: { vi: tour.title, en: tour.title },
+            subtitle: {
+              vi: tour.duration || `${tour.duration_days} ngày ${tour.duration_nights} đêm`,
+              en: tour.duration || `${tour.duration_days} days ${tour.duration_nights} nights`
+            },
+            image: tour.thumbnail_url || tour.image || "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=120&q=80",
+            slug: tour.slug
+          }));
+        });
+
+        setMenuData({
+          "places-to-see": {
+            label: { vi: "Điểm du lịch", en: "Places to see" },
+            sidebar: placesSidebar,
+            content: placesContent
+          },
+          "things-to-do": {
+            label: { vi: "Trải nghiệm", en: "Things to do" },
+            sidebar: thingsSidebar,
+            content: thingsContent
+          },
+          "trip-inspiration": megaMenuData["trip-inspiration"]
+        });
+      } catch (err) {
+        console.error("Failed to load mega menu data:", err);
+      }
+    }
+
+    loadMenuData();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Auto-close menu drawer and dropdown on path navigation changes
   useEffect(() => {
@@ -336,7 +483,7 @@ function Header({ user, onLogout }) {
       // Open new menu and lock it open
       setActiveMenu(menuKey);
       setMenuOpenedByClick(true);
-      const defaultTab = megaMenuData[menuKey]?.sidebar[0]?.id || null;
+      const defaultTab = menuData[menuKey]?.sidebar[0]?.id || null;
       setActiveTab(defaultTab);
     }
   };
@@ -347,7 +494,7 @@ function Header({ user, onLogout }) {
     setActiveMenu(menuKey);
     // Set default vertical tab if changing top-level menus
     if (activeMenu !== menuKey) {
-      const defaultTab = megaMenuData[menuKey]?.sidebar[0]?.id || null;
+      const defaultTab = menuData[menuKey]?.sidebar[0]?.id || null;
       setActiveTab(defaultTab);
     }
   };
@@ -372,11 +519,11 @@ function Header({ user, onLogout }) {
     }, 250);
   };
 
-  const activeMenuObj = megaMenuData[activeMenu];
+  const activeMenuObj = menuData[activeMenu];
   const activeContentItems = activeMenuObj?.content[activeTab] || [];
 
   return (
-    <header className="vg-header relative" ref={headerRef}>
+    <header className="vg-header sticky top-0 z-[80]" ref={headerRef}>
       <div className="vg-container vg-navbar relative z-30">
         <BrandLogo />
 
@@ -403,8 +550,8 @@ function Header({ user, onLogout }) {
             {language === "vi" ? "Trang chủ" : "Home"}
           </NavLink>
 
-          {Object.keys(megaMenuData).map((menuKey) => {
-            const menu = megaMenuData[menuKey];
+          {Object.keys(menuData).map((menuKey) => {
+            const menu = menuData[menuKey];
             const isMenuOpen = activeMenu === menuKey;
             const menuLabel = language === "vi" ? menu.label.vi : menu.label.en;
 
@@ -529,7 +676,9 @@ function Header({ user, onLogout }) {
                   const itemSubtitle = language === "vi" ? item.subtitle.vi : item.subtitle.en;
                   
                   // Construct a search dynamic link query for destinations or experiences
-                  const searchUrl = `/tours?q=${encodeURIComponent(item.title.en)}`;
+                  const searchUrl = item.slug
+                    ? `/tours/${item.slug}`
+                    : `/tours?q=${encodeURIComponent(language === "vi" ? item.title.vi : item.title.en)}`;
 
                   return (
                     <Link
@@ -591,8 +740,8 @@ function Header({ user, onLogout }) {
             </NavLink>
 
             {/* Accordions sections */}
-            {Object.keys(megaMenuData).map((menuKey) => {
-              const menu = megaMenuData[menuKey];
+            {Object.keys(menuData).map((menuKey) => {
+              const menu = menuData[menuKey];
               const isAccordionOpen = mobileAccordion === menuKey;
               const menuLabel = language === "vi" ? menu.label.vi : menu.label.en;
 
@@ -624,7 +773,9 @@ function Header({ user, onLogout }) {
                             <div className="grid grid-cols-1 gap-2.5 pl-1.5">
                               {items.map((item, idx) => {
                                 const itemTitle = language === "vi" ? item.title.vi : item.title.en;
-                                const searchUrl = `/tours?q=${encodeURIComponent(item.title.en)}`;
+                                const searchUrl = item.slug
+                                  ? `/tours/${item.slug}`
+                                  : `/tours?q=${encodeURIComponent(language === "vi" ? item.title.vi : item.title.en)}`;
                                 return (
                                   <Link
                                     key={idx}

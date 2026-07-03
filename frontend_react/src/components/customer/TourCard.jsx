@@ -25,12 +25,19 @@ function TourCard({ tour, favorite, onFavorite }) {
   const ratingAverage = rawAverage > 0 ? rawAverage : (ratingCount > 0 ? 4.8 : 0);
   const hasRating = ratingAverage > 0;
 
+  const isFeatured = tour.featured || (ratingAverage >= 4.9 && ratingCount > 0);
+  const hasDiscount = originalPrice > salePrice && salePrice > 0;
+  const computedDiscountLabel = hasDiscount
+    ? `-${Math.round((1 - salePrice / originalPrice) * 100)}%`
+    : null;
+  const discountLabelToShow = tour.discountLabel || computedDiscountLabel;
+
   const handleCardClick = (e) => {
     // If the user clicks on the heart button, do not navigate.
     if (e.target.closest(".vg-heart")) {
       return;
     }
-    navigate(`/tours/${tour.id}`);
+    navigate(`/tours/${tour.slug || tour.id}`);
   };
 
   return (
@@ -49,8 +56,8 @@ function TourCard({ tour, favorite, onFavorite }) {
           />
         )}
         <div className="vg-tour-badges">
-          {tour.featured ? <span className="badge-featured">Nổi bật</span> : null}
-          {tour.discountLabel ? <strong className="badge-discount">{tour.discountLabel}</strong> : null}
+          {isFeatured ? <span className="badge-featured">Nổi bật</span> : null}
+          {discountLabelToShow ? <strong className="badge-discount">{discountLabelToShow}</strong> : null}
         </div>
         <button
           className={favorite ? "vg-heart is-active" : "vg-heart"}

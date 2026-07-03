@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
+import { categoryApi } from "../../services/categoryApi";
 import ChatBox from "../../components/customer/ChatBox";
 import Footer from "../../components/customer/Footer";
 import Header from "../../components/customer/Header";
@@ -25,6 +26,7 @@ import HomePage from "./HomePage";
 import ProfileDashboard from "./ProfileDashboard";
 import ProfileForm from "./ProfileForm";
 import ToursPage from "./ToursPage";
+import CustomerTourDetailPage from "./TourDetailPage";
 
 const fallbackProfile = {
   full_name: "Khách hàng ViVuGo",
@@ -51,43 +53,98 @@ const domesticDestinationTerms = [
 ];
 
 function isDomesticTour(tour) {
+  const country = String(
+    tour.destinationInfo?.country ||
+    tour.destination_info?.country ||
+    tour.country ||
+    "",
+  ).trim().toLowerCase();
   const destinationText = `${tour.destination || ""} ${tour.title || ""}`.toLowerCase();
-  return domesticDestinationTerms.some((term) => destinationText.includes(term));
+  const matchesLegacyTerms = domesticDestinationTerms.some((term) =>
+    destinationText.includes(term),
+  );
+
+  return country === "việt nam" || country === "viet nam" || matchesLegacyTerms;
 }
 
 function normalizeTour(tour, index = 0) {
   const fallback = demoTours[index % demoTours.length];
+  
+  // Differentiate between mock/demo tour and live database tour
+  const isLive = !!(tour.base_price !== undefined || tour.category_info || tour.destination_info || tour.max_slots !== undefined);
+
+  if (!isLive) {
+    return {
+      ...fallback,
+      ...tour,
+      price: {
+        base: tour.price?.base || fallback.price.base,
+        discount: tour.price?.discount || fallback.price.discount,
+      },
+      slots: {
+        max: tour.slots?.max || fallback.slots.max,
+        available: tour.slots?.available || fallback.slots.available,
+      },
+      rating: {
+        average: tour.rating?.average || fallback.rating.average,
+        count: tour.rating?.count || fallback.rating.count,
+      },
+    };
+  }
+
+  const basePrice = Number(tour.base_price || tour.price?.base || 0);
+  const discountPrice = tour.discount_price !== undefined && tour.discount_price !== null
+    ? Number(tour.discount_price)
+    : (tour.price?.discount !== undefined && tour.price?.discount !== null ? Number(tour.price?.discount) : null);
+
+  const durationStr = tour.duration || (tour.duration_days 
+    ? `${tour.duration_days} ngày ${tour.duration_nights} đêm` 
+    : `${fallback.duration_days} ngày ${fallback.duration_nights} đêm`);
+
+  const categoryName = tour.category_name || 
+    (typeof tour.category === 'string' ? tour.category : null) || 
+    tour.category_info?.name || 
+    tour.category?.name || 
+    fallback.category;
+
+  const destName = tour.destination_name || 
+    (typeof tour.destination === 'string' ? tour.destination : null) || 
+    tour.destination_info?.name || 
+    tour.destination?.name || 
+    fallback.destination;
 
   return {
-    ...fallback,
-    ...tour,
-    image: tour.image || tour.thumbnail || fallback.image,
-    category: tour.category || fallback.category,
-    travelStyle:
-      tour.travelStyle || tour.travel_style || fallback.travelStyle,
-    destination: tour.destination || fallback.destination,
+    id: tour.id,
+    title: tour.title || fallback.title,
+    slug: tour.slug || fallback.slug,
+    summary: tour.summary || tour.description || fallback.summary,
+    image: tour.thumbnail_url || tour.image || tour.thumbnail?.image_url || fallback.image,
+    category: categoryName,
+    travelStyle: tour.travel_style || tour.travelStyle || fallback.travelStyle,
+    destination: destName,
+    duration: durationStr,
     price: {
-      base: tour.price?.base || tour.base_price || fallback.price.base,
-      discount:
-        tour.price?.discount ||
-        tour.discount_price ||
-        fallback.price.discount,
+      base: basePrice,
+      discount: discountPrice,
     },
     slots: {
-      max: tour.slots?.max || tour.max_slots || fallback.slots.max,
-      available:
-        tour.slots?.available ||
-        tour.available_slots ||
-        fallback.slots.available,
+      max: tour.max_slots || tour.slots?.max || 12,
+      available: tour.available_slots || tour.slots?.available || 12,
     },
     rating: {
-      average:
-        tour.rating?.average ||
-        tour.average_rating ||
-        fallback.rating.average,
-      count:
-        tour.rating?.count || tour.review_count || fallback.rating.count,
+      average: tour.average_rating !== undefined && tour.average_rating !== null ? Number(tour.average_rating) : 0,
+      count: tour.review_count || 0,
     },
+    destinationInfo: tour.destination_info || tour.destinationInfo || {
+      id: null,
+      name: destName,
+      slug: "",
+      province_city: "",
+      country: "",
+      description: "",
+      thumbnail_url: "",
+      status: "",
+    }
   };
 }
 
@@ -103,9 +160,11 @@ function CustomerPage() {
   const location = useLocation();
   const token = readToken();
   const [user, setUser] = useState(readSession);
-  const [tours, setTours] = useState(demoTours);
+  const [tours, setTours] = useState([]);
+  const [hasLiveTours, setHasLiveTours] = useState(false);
   const [favorites, setFavorites] = useState(readStoredFavorites);
   const [bookings, setBookings] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [summary, setSummary] = useState({
     bookings_count: 0,
     wishlist_count: 0,
@@ -128,10 +187,29 @@ function CustomerPage() {
 
   useEffect(() => {
     let active = true;
+    async function loadCategories() {
+      try {
+        const res = await categoryApi.getAll();
+        if (active && res.data?.status === 'success') {
+          setCategories(res.data.data);
+        }
+      } catch (err) {
+        console.error("Failed to load categories:", err);
+      }
+    }
+    loadCategories();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
 
     async function loadTours() {
       const query = new URLSearchParams(location.search);
       const category = query.get("category");
+      const scope = query.get("scope");
       const searchParams = {
         keyword: query.get("q") || undefined,
         start_date: query.get("date") || undefined,
@@ -143,15 +221,26 @@ function CustomerPage() {
         const items = category
           ? await filterTours({ category })
           : await fetchTours(searchParams);
+        const normalizedItems = items.map(normalizeTour);
+        const scopedItems = scope === "domestic"
+          ? normalizedItems.filter(isDomesticTour)
+          : scope === "international"
+            ? normalizedItems.filter((tour) => !isDomesticTour(tour))
+            : normalizedItems;
 
         if (!active) return;
-        if (items.length || hasFilters) {
-          setTours(items.map(normalizeTour));
+        if (scopedItems.length || hasFilters || scope) {
+          setTours(scopedItems);
+          setHasLiveTours(true);
         } else {
-          setTours(demoTours);
+          setTours(normalizedItems);
+          setHasLiveTours(true);
         }
       } catch {
-        if (active) setTours(demoTours);
+        if (active) {
+          setTours([]);
+          setHasLiveTours(false);
+        }
       }
     }
 
@@ -216,6 +305,7 @@ function CustomerPage() {
 
   const favoriteTours = tours.filter((tour) => favorites.includes(tour.id));
   const route = location.pathname;
+  const matchTourDetail = route.match(/^\/tours\/([^/]+)$/);
   const accountRoutes = [
     "/customer/profile",
     "/customer/bookings",
@@ -228,11 +318,23 @@ function CustomerPage() {
       domesticTours={homeDomesticTours}
       internationalTours={homeInternationalTours}
       favorites={favorites}
+      categories={categories}
       onFavorite={toggleFavorite}
     />
   );
 
-  if (route === "/tours" || route === "/deals" || route === "/customer/search")
+  if (matchTourDetail) {
+    content = (
+      <CustomerTourDetailPage
+        tourId={matchTourDetail[1]}
+        tours={normalizedTours}
+        hasLiveTours={hasLiveTours}
+        favorites={favorites}
+        onFavorite={toggleFavorite}
+      />
+    );
+  }
+  else if (route === "/tours" || route === "/deals" || route === "/customer/search")
     content = (
       <ToursPage
         tours={tours}

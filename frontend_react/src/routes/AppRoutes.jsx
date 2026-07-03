@@ -54,6 +54,7 @@ function AppRoutes() {
     {/* Quản lý người dùng */}
     <Route path="/" element={<CustomerPage />} />
     <Route path="/tours" element={<CustomerPage />} />
+    <Route path="/tours/:id" element={<CustomerPage />} />
     <Route path="/destinations" element={<CustomerPage />} />
     <Route path="/deals" element={<CustomerPage />} />
     <Route path="/customer/profile" element={<CustomerPage />} />
