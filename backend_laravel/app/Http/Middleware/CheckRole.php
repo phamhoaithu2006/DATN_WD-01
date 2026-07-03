@@ -25,9 +25,11 @@ class CheckRole
             $roles
         );
 
-        if ($currentRole === '' || ! in_array($currentRole, $allowedRoles, true)) { 
+        if ($currentRole === '' || ! in_array($currentRole, $allowedRoles, true)) {
             return response()->json([
+                'success' => false,
                 'message' => 'Bạn không có quyền truy cập chức năng này.',
+                'errors' => [],
             ], 403);
         }
 

@@ -1,7 +1,7 @@
 <?php
 
-use App\Models\PartnerServiceType;
 use App\Models\Role;
+use App\Models\ServiceCategory;
 use App\Models\User;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -9,6 +9,7 @@ use Laravel\Sanctum\Sanctum;
 
 beforeEach(function () {
     Schema::dropIfExists('partners');
+    Schema::dropIfExists('service_categories');
     Schema::dropIfExists('partner_service_types');
     Schema::dropIfExists('users');
     Schema::dropIfExists('roles');
@@ -35,11 +36,14 @@ beforeEach(function () {
         $table->softDeletes();
     });
 
-    Schema::create('partner_service_types', function (Blueprint $table) {
+    Schema::create('service_categories', function (Blueprint $table) {
         $table->id();
-        $table->string('name');
+        $table->string('name')->unique();
         $table->string('slug')->unique();
+        $table->text('description')->nullable();
+        $table->boolean('status')->default(true)->index();
         $table->timestamps();
+        $table->softDeletes();
     });
 
     Schema::create('partners', function (Blueprint $table) {
@@ -80,9 +84,9 @@ function createPartnerAdminUser(): User
 test('admin can create partner with auto generated code', function () {
     Sanctum::actingAs(createPartnerAdminUser());
 
-    $serviceType = PartnerServiceType::query()->create([
+    $serviceType = ServiceCategory::query()->create([
         'name' => 'Khách sạn',
-        'slug' => 'khach-san',
+        'status' => true,
     ]);
 
     $response = $this->postJson('/api/admin/partners', [
@@ -116,4 +120,19 @@ test('admin can create partner with auto generated code', function () {
         'average_rating' => 0,
         'is_visible' => 1,
     ]);
+});
+
+test('partner service types are loaded from service categories', function () {
+    Sanctum::actingAs(createPartnerAdminUser());
+
+    ServiceCategory::query()->create([
+        'name' => 'Transport Service',
+        'status' => true,
+    ]);
+
+    $this->getJson('/api/admin/partners/service-types')
+        ->assertOk()
+        ->assertJsonPath('success', true)
+        ->assertJsonPath('data.0.name', 'Transport Service')
+        ->assertJsonPath('data.0.slug', 'transport-service');
 });

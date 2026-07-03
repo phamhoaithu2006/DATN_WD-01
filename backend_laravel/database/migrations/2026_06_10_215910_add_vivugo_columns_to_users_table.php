@@ -28,9 +28,12 @@ return new class extends Migration
         }
 
         DB::statement('UPDATE users SET full_name = COALESCE(NULLIF(full_name, ""), email) WHERE full_name IS NULL OR full_name = ""');
-        DB::statement('ALTER TABLE users MODIFY role_id BIGINT UNSIGNED NOT NULL');
-        DB::statement('ALTER TABLE users MODIFY full_name VARCHAR(150) NOT NULL');
-        DB::statement('ALTER TABLE users MODIFY email VARCHAR(150) NOT NULL');
+
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement('ALTER TABLE users MODIFY role_id BIGINT UNSIGNED NOT NULL');
+            DB::statement('ALTER TABLE users MODIFY full_name VARCHAR(150) NOT NULL');
+            DB::statement('ALTER TABLE users MODIFY email VARCHAR(150) NOT NULL');
+        }
 
         Schema::table('users', function (Blueprint $table) {
             $table->foreign('role_id')->references('id')->on('roles')->restrictOnDelete()->cascadeOnUpdate();
@@ -49,6 +52,8 @@ return new class extends Migration
             $table->dropColumn(['role_id', 'full_name', 'phone', 'avatar_url', 'status']);
         });
 
-        DB::statement('ALTER TABLE users MODIFY email VARCHAR(255) NOT NULL');
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement('ALTER TABLE users MODIFY email VARCHAR(255) NOT NULL');
+        }
     }
 };
