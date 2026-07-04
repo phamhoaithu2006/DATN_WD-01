@@ -26,6 +26,8 @@ class SupportStaffSeeder extends Seeder
                     'name' => $user->full_name,
                     'email' => $user->email,
                     'role' => 'customer_service',
+                    'specialization' => 'noi_dia',
+                    'experience_years' => 0,
                     'status' => $user->status === 'inactive' ? 'inactive' : 'active',
                     'performance_rating' => 5,
                     'hidden_at' => $user->status === 'inactive' ? $now : null,
