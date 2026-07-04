@@ -27,12 +27,6 @@ export async function fetchTours(params = {}) {
   return response.data?.data || []
 }
 
-export async function fetchTourDetail(slug) {
-  const response = await api.get(`/tours/${encodeURIComponent(slug)}`)
-
-  return response.data?.data || null
-}
-
 export async function filterTours(params = {}) {
   const response = await api.get('/tours/filter', { params })
 
@@ -91,7 +85,6 @@ export async function updateProfile(payload) {
   }
 
   const formData = new FormData()
-  formData.append('_method', 'PUT')
 
   Object.entries(payload).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== '') {
@@ -99,7 +92,9 @@ export async function updateProfile(payload) {
     }
   })
 
-  return api.put('/profile/update', formData)
+  formData.append('_method', 'PUT')
+
+  return api.post('/profile/update', formData)
 }
 
 export async function changePassword(payload) {
