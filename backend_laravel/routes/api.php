@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\Admin\AdminProfileController;
+use App\Http\Controllers\Api\Admin\AdminTourDepartureBookingController;
 use App\Http\Controllers\Api\Admin\BookingController;
 use App\Http\Controllers\Api\Admin\CategoryController;
 use App\Http\Controllers\Api\Admin\CertificateController;
@@ -21,6 +22,7 @@ use App\Http\Controllers\Api\Admin\TourDepartureController;
 use App\Http\Controllers\Api\Admin\TourManagerController;
 use App\Http\Controllers\Api\Admin\WidgetController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\Customer\CustomerBookingController;
 use App\Http\Controllers\Api\Customer\CustomerController;
 use App\Http\Controllers\Api\Customer\CustomerDashboardController;
 use App\Http\Controllers\Api\Customer\NotificationCustomerController;
@@ -68,7 +70,13 @@ Route::middleware(['auth:sanctum', 'role:customer'])->group(function () {
     Route::get('/notifications/customers/unread-count', [NotificationCustomerController::class, 'getUnreadCount']);
     // API đánh dấu đã đọc (sử dụng PATCH vì cập nhật một phần dữ liệu)
     Route::patch('/notifications/customers/{id}/read', [NotificationCustomerController::class, 'markAsRead']);
+
+    //đặt tour
+    Route::post('customer/bookings', [CustomerBookingController::class, 'store']);
 });
+
+
+
 
 // ===================== Đặt lại mật khẩu user=============
 // xác nhận email or sdt, gửi otp
@@ -339,6 +347,10 @@ Route::prefix('admin')->group(function () {
     Route::get('/notifications/get-all-send', [NotificationController::class, 'getAllSentNotifications']);
     // Thu hồi lại thông báo đã gửi
     Route::delete('/notifications/revoke/{draft_id}', [NotificationController::class, 'revoke']);
+
+    //==========quản lý lịch trình============
+    //Hiển thị danh sách user đặt tour
+    Route::get('tour-departures/{tourDeparture}/booked-customers',[AdminTourDepartureBookingController::class, 'index']);
 });
 
 // =============================== Hướng dẫn viên ===============================

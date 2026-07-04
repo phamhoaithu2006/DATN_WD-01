@@ -13,6 +13,7 @@ class Tour extends Model
 
     protected $table = 'tours';
 
+
     protected $fillable = [
         'category_id',
         'destination_id',
@@ -30,6 +31,15 @@ class Tour extends Model
         'status',
         'average_rating',
         'review_count',
+    ];
+
+    protected $casts = [
+        'base_price' => 'decimal:2',
+        'discount_price' => 'decimal:2',
+        'max_slots' => 'integer',
+        'available_slots' => 'integer',
+        'average_rating' => 'decimal:2',
+        'review_count' => 'integer',
     ];
 
     /**
