@@ -29,6 +29,7 @@ use App\Http\Controllers\Api\Customer\NotificationCustomerController;
 use App\Http\Controllers\Api\Customer\TourController;
 use App\Http\Controllers\Api\Customer\WishlistController;
 use App\Http\Controllers\Api\Guide\GuideAttendanceController;
+use App\Http\Controllers\Api\Guide\GuideDashboardController;
 use App\Http\Controllers\Api\Guide\GuideProfileController;
 use App\Http\Controllers\Api\Guide\GuideTourController;
 use App\Http\Controllers\Api\PublicSettingController;
@@ -154,6 +155,7 @@ Route::prefix('admin')->group(function () {
     Route::get('guides/search', [GuideController::class, 'search']);
     Route::get('guides/filter', [GuideController::class, 'filter']);
     Route::get('guides/statistics', [GuideController::class, 'statistics']);
+    Route::get('guides/available-users', [GuideController::class, 'availableUsers']);
     Route::patch('guides/{id}/restore', [GuideController::class, 'restore']);
     Route::delete('guides/{id}/force', [GuideController::class, 'forceDelete']);
     Route::get('guides', [GuideController::class, 'index']);
@@ -358,6 +360,7 @@ Route::prefix('admin')->group(function () {
 Route::middleware('auth:sanctum')->group(function () {
     // Lấy thông tin hdv
     Route::get('/guide/profile', [GuideProfileController::class, 'show']);
+    Route::get('/guide/dashboard', [GuideDashboardController::class, 'show']);
     // Sửa thông tin hdv
     Route::put('/guide/profile', [GuideProfileController::class, 'update']);
     // Sửa lại pass khi nhớ mk cũ
