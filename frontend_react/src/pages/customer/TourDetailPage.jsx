@@ -1,15 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useLocale } from "../../contexts/LocaleContext";
-import { fetchTourDetail } from "../../services/customerApi";
+import { createCustomerBooking, fetchTourDetail, previewCustomerBooking } from "../../services/customerApi";
+import { readSession, readToken } from "../../services/authStorage";
 import Icon from "../../components/customer/Icon";
-
-const fallbackGalleryImages = [
-  "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=600&q=80",
-  "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&w=600&q=80",
-  "https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=600&q=80",
-  "https://images.unsplash.com/photo-1506929562872-bb421503ef21?auto=format&fit=crop&w=600&q=80",
-];
+import { mediaUrl } from "../../utils/mediaUrl";
 
 function normalizeTourDetail(tour, fallback = {}) {
   if (!tour) return fallback;
@@ -17,7 +12,7 @@ function normalizeTourDetail(tour, fallback = {}) {
   return {
     ...fallback,
     ...tour,
-    image: tour.image || tour.thumbnail_url || tour.thumbnail?.image_url || fallback.image,
+    image: mediaUrl(tour.image || tour.thumbnail_url || tour.thumbnail?.image_url || fallback.image),
     category: tour.category || tour.category_name || fallback.category,
     travelStyle: tour.travelStyle || tour.travel_style || fallback.travelStyle,
     destination: tour.destination || tour.destination_name || fallback.destination,
@@ -40,6 +35,32 @@ function getTourPath(tour) {
   return `/tours/${tour.slug || tour.id}`;
 }
 
+function getRuleAgeHint(rule) {
+  if (rule.min_age === null || rule.min_age === undefined) return "Nhóm giá theo quy định tour";
+  if (rule.max_age === null || rule.max_age === undefined) return `Từ ${rule.min_age} tuổi trở lên`;
+  return `Từ ${rule.min_age} đến ${rule.max_age} tuổi`;
+}
+
+function getParticipantType(rule) {
+  if (!rule) return "adult";
+  if (Number(rule.max_age) <= 4) return "infant";
+  if (Number(rule.max_age) <= 10) return "child";
+  return "adult";
+}
+
+function getSuggestedBirthDate(rule) {
+  const today = new Date();
+  const age = rule?.min_age ?? 18;
+  today.setFullYear(today.getFullYear() - age);
+  return today.toISOString().split("T")[0];
+}
+
+function getPricingRuleText(rule) {
+  if (rule.pricing_type === "free") return "miễn phí";
+  if (rule.pricing_type === "fixed") return `${Number(rule.price_value || 0).toLocaleString("vi-VN")}đ`;
+  return `${rule.price_value}% giá người lớn`;
+}
+
 function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = [], onFavorite }) {
   const { currency, formatCurrency } = useLocale();
   const navigate = useNavigate();
@@ -50,7 +71,6 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
   const [showItineraryModal, setShowItineraryModal] = useState(false);
   const [detailTour, setDetailTour] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [detailError, setDetailError] = useState("");
 
   // Find tour
   const listTour = tours.find((t) => String(t.id) === String(tourId) || String(t.slug) === String(tourId)) || null;
@@ -61,22 +81,39 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
       ? tourId
       : null;
 
-  // Booking state
-  const [startDate, setStartDate] = useState(() => {
-    const today = new Date();
-    today.setDate(today.getDate() + 7); // Default to 7 days from now
-    return today.toISOString().split("T")[0];
+  // Booking checkout state
+  const [checkoutStep, setCheckoutStep] = useState(1);
+  const [selectedDepartureId, setSelectedDepartureId] = useState("");
+  const [quantities, setQuantities] = useState({});
+  const [bookingPreview, setBookingPreview] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [bookingError, setBookingError] = useState("");
+  const [bookingSubmitting, setBookingSubmitting] = useState(false);
+  const [useCustomContact, setUseCustomContact] = useState(false);
+  const [contact, setContact] = useState(() => {
+    const session = readSession() || {};
+    return {
+      contact_name: session.full_name || "",
+      contact_email: session.email || "",
+      contact_phone: session.phone || "",
+      address: session.address || "",
+      special_request: "",
+    };
   });
-  const [adults, setAdults] = useState(1);
-  const [children, setChildren] = useState(0);
-  const [infants, setInfants] = useState(0);
+  const [participants, setParticipants] = useState([]);
 
-  // Refs for scroll spy
+  const [itineraryCollapsed, setItineraryCollapsed] = useState(false);
+
+  // Refs for scroll spy & actions
+  const packageOptionsRef = useRef(null);
   const overviewRef = useRef(null);
-  const itineraryRef = useRef(null);
   const servicesRef = useRef(null);
   const policiesRef = useRef(null);
   const reviewsRef = useRef(null);
+
+  const scrollToOptions = () => {
+    packageOptionsRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -88,13 +125,11 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
     async function loadTourDetail() {
       if (!detailLookup) {
         setDetailTour(null);
-        setDetailError("");
         setDetailLoading(false);
         return;
       }
 
       setDetailLoading(true);
-      setDetailError("");
 
       try {
         const item = await fetchTourDetail(detailLookup);
@@ -103,7 +138,6 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
       } catch {
         if (!active) return;
         setDetailTour(null);
-        setDetailError("Không thể tải chi tiết tour từ máy chủ.");
       } finally {
         if (active) setDetailLoading(false);
       }
@@ -140,111 +174,208 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
   // Price calculations
   const basePrice = Number(tour.price?.discount || tour.price?.base || 0);
   const displayBasePrice = currency === "VND" && basePrice > 0 && basePrice < 100000 ? basePrice * 25000 : basePrice;
-  const originalPrice = Number(tour.price?.base || basePrice);
-  const displayOriginalPrice = currency === "VND" && originalPrice > 0 && originalPrice < 100000 ? originalPrice * 25000 : originalPrice;
-
-  // Guest pricing ratios
-  const adultPrice = displayBasePrice;
-  const childPrice = Math.round(displayBasePrice * 0.75); // 75% of adult price
-  const infantPrice = 0; // Free
-
-  const totalCost = adults * adultPrice + children * childPrice + infants * infantPrice;
-  const tax = Math.round(totalCost * 0.08); // 8% VAT
-  const finalTotal = totalCost + tax;
-
-  // Rating values
-  const ratingAverage = Number(tour.rating?.average || 4.8);
-  const ratingCount = Number(tour.rating?.count || 124);
-
-  // Fallback itinerary while backend data is not available.
-  const fallbackItinerary = [
-    {
-      day: 1,
-      title: "Khởi hành - Khám phá điểm đến đầu tiên & Nhận phòng nghỉ dưỡng",
-      content: "Xe và hướng dẫn viên ViVuGo đón quý khách tại điểm hẹn, khởi hành đi " + tour.destination + ". Trên đường đi, đoàn dừng chân nghỉ ngơi và dùng bữa sáng tự túc. Đến nơi, quý khách dùng bữa trưa tại nhà hàng với các món ăn đặc sản địa phương, sau đó làm thủ tục nhận phòng khách sạn tiêu chuẩn. Buổi chiều, đoàn tham quan địa điểm đầu tiên trong hành trình, tự do chụp ảnh check-in. Buổi tối, thưởng thức bữa tối lãng mạn tại resort/khách sạn và tự do dạo chơi phố đêm.",
-    },
-    {
-      day: 2,
-      title: "Trải nghiệm hoạt động đặc sắc & Khám phá văn hóa bản địa",
-      content: "Quý khách có thể dậy sớm ngắm bình minh và dùng bữa sáng buffet tại khách sạn. Ngày thứ hai sẽ đưa quý khách đi sâu khám phá các điểm tham quan nổi tiếng nhất tại " + tour.destination + ". Tham gia các hoạt động ngoài trời đặc thù (leo núi ngắm cảnh, tắm biển, chèo thuyền Kayak hoặc tham quan đền chùa cổ kính). Đoàn ăn trưa tại nhà hàng địa phương. Buổi chiều tiếp tục hành trình trải nghiệm văn hóa độc đáo. Tối đoàn ăn tối trên thuyền hoặc tại nhà hàng trung tâm.",
-    },
-    {
-      day: 3,
-      title: "Tự do mua sắm - Check-out & Trở về điểm xuất phát ban đầu",
-      content: "Dùng bữa sáng tại khách sạn. Quý khách tự do thư giãn tại bể bơi, dạo chơi mua sắm đặc sản làm quà cho người thân tại các khu chợ địa phương. 11:30 đoàn làm thủ tục trả phòng khách sạn và dùng bữa trưa nhẹ. Chiều xe đón đoàn xuất phát trở về. Trên đường về, xe dừng nghỉ tại các trạm dừng chân để mua nông sản. Chiều tối về đến điểm đón ban đầu, hướng dẫn viên chia tay đoàn, kết thúc tour du lịch đầy ắp kỷ niệm đẹp cùng ViVuGo.",
-    },
-  ];
-
-  const apiItinerary = Array.isArray(tour.itinerary)
-    ? tour.itinerary
-        .filter(Boolean)
-        .sort((a, b) => (a.sort_order || a.day_number || 0) - (b.sort_order || b.day_number || 0))
-        .map((item, index) => ({
-          day: item.day_number || item.day || index + 1,
-          title: item.title || `Ngày ${item.day_number || index + 1}`,
-          content: item.description || item.content || item.duration || "",
-        }))
+  const departures = Array.isArray(tour.departures) ? tour.departures : [];
+  const firstOpenDeparture = departures.find((departure) => departure.status === "open" && Number(departure.available_slots) > 0);
+  const effectiveSelectedDepartureId = selectedDepartureId || (firstOpenDeparture ? String(firstOpenDeparture.id) : "");
+  const selectedDeparture = departures.find((departure) => String(departure.id) === String(effectiveSelectedDepartureId)) || null;
+  const adultPrice = Number(selectedDeparture?.price || displayBasePrice || 0);
+  const activePricingRules = Array.isArray(tour.age_pricing_rules)
+    ? tour.age_pricing_rules.filter((rule) => rule.is_active !== false)
     : [];
-  const itinerary = apiItinerary.length ? apiItinerary : fallbackItinerary;
+  const bookingGroups = activePricingRules.length
+    ? activePricingRules
+    : [{
+      id: "adult_default",
+      label: "Người lớn",
+      min_age: 11,
+      max_age: null,
+      pricing_type: "percentage",
+      price_value: 100,
+      is_active: true,
+    }];
+  const defaultQuantityRule = bookingGroups.find((rule) => rule.max_age === null || rule.max_age === undefined) || bookingGroups[bookingGroups.length - 1];
+  const effectiveQuantities = Object.keys(quantities).length
+    ? quantities
+    : { [defaultQuantityRule.id]: 1 };
+  const getRuleQuantity = (rule) => Number(effectiveQuantities[rule.id] || 0);
+  const getRuleUnitPrice = (rule) => {
+    if (rule.pricing_type === "free") return 0;
+    if (rule.pricing_type === "fixed") return Number(rule.price_value || 0);
+    return Math.round(adultPrice * Number(rule.price_value || 100) / 100);
+  };
+  const totalGuests = bookingGroups.reduce((sum, rule) => sum + getRuleQuantity(rule), 0);
+  const localTotal = bookingGroups.reduce((sum, rule) => sum + getRuleQuantity(rule) * getRuleUnitPrice(rule), 0);
+  const finalTotal = Number(bookingPreview?.total_amount ?? localTotal);
+  const availableSlots = Number(selectedDeparture?.available_slots || tour.slots?.available || 0);
 
-  // Inclusions and Exclusions
-  const inclusions = [
-    "Xe du lịch đời mới, máy lạnh đưa đón khứ hồi theo lịch trình.",
-    "Khách sạn/Resort tiêu chuẩn cao cấp (2 người/phòng, lẻ nam/nữ ghép 3).",
-    "Các bữa ăn tiêu chuẩn cao theo chương trình (bao gồm Buffet sáng tại khách sạn).",
-    "Vé vào cửa các điểm tham quan theo lịch trình chi tiết.",
-    "Hướng dẫn viên tiếng Việt chuyên nghiệp, tận tâm suốt tuyến.",
-    "Bảo hiểm du lịch quốc tế/nội địa mức bồi thường tối đa 50,000,000đ/vụ.",
-    "Nước suối miễn phí phục vụ trên xe (1 chai/người/ngày).",
-  ];
-
-  const exclusions = [
-    "Thuế giá trị gia tăng VAT 8% (nếu quý khách lấy hóa đơn đỏ).",
-    "Chi phí đồ uống trong các bữa ăn và chi tiêu cá nhân ngoài chương trình.",
-    "Phụ thu phòng đơn (nếu quý khách có nhu cầu ở riêng 1 phòng).",
-    "Tiền TIP cho hướng dẫn viên và tài xế phục vụ đoàn (không bắt buộc).",
-  ];
-
-  // Reviews mock list
-  const reviews = [
-    {
-      name: "Nguyễn Văn Hùng",
-      avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&q=80",
-      date: "15/06/2026",
-      rating: 5,
-      content: "Chuyến đi tuyệt vời hơn cả mong đợi. Hướng dẫn viên của ViVuGo rất nhiệt tình, chu đáo và am hiểu lịch sử địa phương. Khách sạn sạch sẽ, dịch vụ ăn uống ngon miệng. Sẽ tiếp tục ủng hộ ViVuGo trong các tour tiếp theo!",
-    },
-    {
-      name: "Trần Thị Mai",
-      avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=100&q=80",
-      date: "28/05/2026",
-      rating: 5,
-      content: "Gia đình tôi có trải nghiệm rất đáng nhớ tại " + tour.destination + ". Bố mẹ tôi đã lớn tuổi nhưng lịch trình sắp xếp cực kỳ hợp lý, không bị mệt chút nào. Đồ ăn phong phú và hợp khẩu vị. Đánh giá 5 sao cho chất lượng dịch vụ!",
-    },
-    {
-      name: "Phạm Minh Hoàng",
-      avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80",
-      date: "10/05/2026",
-      rating: 4,
-      content: "Tour tổ chức chuyên nghiệp, xe di chuyển êm ái. Cảnh đẹp tuyệt vời, tuy nhiên ngày thứ 2 hoạt động hơi dày một chút nên hơi mệt về chiều. Bù lại đồ ăn tối rất ngon và dịch vụ phòng nghỉ đỉnh cao. Rất đáng tiền!",
-    },
-  ];
+  const ratingAverage = Number(tour.rating?.average || tour.average_rating || 0);
+  const ratingCount = Number(tour.rating?.count || tour.review_count || 0);
+  const hasRating = ratingCount > 0 && ratingAverage > 0;
+  const bookingsCount = Number(tour.bookings_count || 0);
 
   const apiGalleryImages = Array.isArray(tour.images)
     ? tour.images
-        .map((image) => image?.image_url || image?.url || image)
-        .filter(Boolean)
+      .map((image) => mediaUrl(image?.image_url || image?.url || image))
+      .filter(Boolean)
     : [];
-  const galleryImages = Array.from(
-    new Set([tour.image, ...apiGalleryImages, ...fallbackGalleryImages].filter(Boolean)),
-  ).slice(0, 5);
+  let galleryImages = Array.from(
+    new Set([mediaUrl(tour.image), ...apiGalleryImages].filter(Boolean)),
+  );
+  const imageCount = Math.min(galleryImages.length || 1, 5);
 
+  const itinerarySteps = Array.isArray(tour.itinerary)
+    ? tour.itinerary
+      .filter(Boolean)
+      .sort((a, b) => (a.sort_order || a.day_number || 0) - (b.sort_order || b.day_number || 0))
+      .map((item, index) => ({
+        id: item.id,
+        day: item.day_number || item.day || index + 1,
+        time: [item.start_time, item.end_time].filter(Boolean).join(" - ") || `Ngày ${item.day_number || ""}`.trim(),
+        title: item.title || `Ngày ${item.day_number || index + 1}`,
+        desc: item.description || item.content || item.duration || "Chưa cập nhật mô tả lịch trình.",
+        transport: item.transport || "",
+        images: Array.isArray(item.images)
+          ? item.images.map((image) => mediaUrl(image?.image_url || image?.url || image)).filter(Boolean)
+          : [],
+        isGreen: item.type === "activity",
+      }))
+    : [];
+  const serviceInclusions = Array.isArray(tour.inclusions) ? tour.inclusions.filter(Boolean) : [];
+  const serviceExclusions = Array.isArray(tour.exclusions) ? tour.exclusions.filter(Boolean) : [];
 
+  const buildQuantitySummary = () => bookingGroups
+    .map((rule) => ({
+      rule_id: rule.id === "adult_default" ? null : Number(rule.id),
+      quantity: getRuleQuantity(rule),
+    }))
+    .filter((item) => item.quantity > 0);
 
-  const handleBookingSubmit = (e) => {
-    e.preventDefault();
-    setBookingCode(`VVG-${Math.floor(100000 + Math.random() * 900000)}`);
-    setBookingSuccess(true);
+  const updateQuantity = (ruleId, nextQuantity) => {
+    const safeQuantity = Math.max(0, nextQuantity);
+    const nextTotal = totalGuests - Number(effectiveQuantities[ruleId] || 0) + safeQuantity;
+
+    if (availableSlots > 0 && nextTotal > availableSlots) {
+      setBookingError(`Lịch này chỉ còn ${availableSlots} chỗ trống.`);
+      return;
+    }
+
+    setBookingError("");
+    setQuantities((current) => ({ ...effectiveQuantities, ...current, [ruleId]: safeQuantity }));
+  };
+
+  const syncParticipantsFromQuantities = () => {
+    const nextParticipants = [];
+
+    bookingGroups.forEach((rule) => {
+      const quantity = getRuleQuantity(rule);
+      for (let index = 0; index < quantity; index += 1) {
+        nextParticipants.push({
+          full_name: "",
+          phone: "",
+          birth_date: getSuggestedBirthDate(rule),
+          gender: "male",
+          identity_number: "",
+          participant_type: getParticipantType(rule),
+        });
+      }
+    });
+
+    setParticipants(nextParticipants);
+  };
+
+  const updateContactField = (field, value) => {
+    setContact((current) => ({ ...current, [field]: value }));
+  };
+
+  const updateParticipantField = (index, field, value) => {
+    setParticipants((current) => current.map((participant, itemIndex) => (
+      itemIndex === index ? { ...participant, [field]: value } : participant
+    )));
+  };
+
+  const handleClearAll = () => {
+    setQuantities({ [defaultQuantityRule.id]: 1 });
+    setBookingError("");
+  };
+
+  const handleBookingSubmit = async (event) => {
+    event.preventDefault();
+    setBookingError("");
+
+    if (!readToken()) {
+      navigate("/auth/login");
+      return;
+    }
+
+    if (checkoutStep === 1) {
+      if (!selectedDeparture) {
+        setBookingError("Vui lòng chọn ngày khởi hành có sẵn.");
+        return;
+      }
+
+      if (totalGuests < 1) {
+        setBookingError("Vui lòng chọn ít nhất 1 khách đặt tour.");
+        return;
+      }
+
+      try {
+        setPreviewLoading(true);
+        const preview = await previewCustomerBooking({
+          tour_departure_id: Number(selectedDeparture.id),
+          quantity_summary: buildQuantitySummary(),
+        });
+        setBookingPreview(preview);
+      } catch (error) {
+        setBookingError(error.response?.data?.message || "Chưa thể tính giá từ máy chủ, vui lòng thử lại.");
+        return;
+      } finally {
+        setPreviewLoading(false);
+      }
+
+      syncParticipantsFromQuantities();
+      setCheckoutStep(2);
+      return;
+    }
+
+    if (checkoutStep === 2) {
+      if (!contact.contact_name || !contact.contact_phone) {
+        setBookingError("Vui lòng nhập tên và số điện thoại liên hệ.");
+        return;
+      }
+
+      const hasMissingParticipant = participants.some((participant) => (
+        !participant.full_name || !participant.birth_date || !participant.participant_type
+      ));
+
+      if (hasMissingParticipant) {
+        setBookingError("Vui lòng nhập đầy đủ họ tên, ngày sinh và nhóm hành khách.");
+        return;
+      }
+
+      setCheckoutStep(3);
+      return;
+    }
+
+    try {
+      setBookingSubmitting(true);
+      const booking = await createCustomerBooking({
+        tour_departure_id: Number(selectedDeparture.id),
+        number_of_people: totalGuests,
+        quantity_summary: buildQuantitySummary(),
+        contact,
+        participants,
+        note: contact.special_request || undefined,
+      });
+
+      setBookingCode(booking?.booking_code || booking?.data?.booking_code || "Đang cập nhật");
+      setBookingSuccess(true);
+    } catch (error) {
+      const errors = error.response?.data?.errors;
+      const firstError = errors ? Object.values(errors).flat()[0] : null;
+      setBookingError(firstError || error.response?.data?.message || "Thanh toán giả lập chưa thành công, vui lòng kiểm tra lại thông tin.");
+    } finally {
+      setBookingSubmitting(false);
+    }
   };
 
   // Filter 3 related tours (excluding current tour)
@@ -254,23 +385,67 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
 
   return (
     <div className="vg-tour-detail-page">
-      {/* Breadcrumb section */}
-      <div className="vg-detail-breadcrumb">
+      {/* Redesigned Top Header (Above Gallery) */}
+      <header className="vg-traveloka-header">
         <div className="vg-container">
-          <Link to="/">Trang chủ</Link>
-          <Icon name="chevronRight" size={12} />
-          <Link to="/tours">Danh sách Tour</Link>
-          <Icon name="chevronRight" size={12} />
-          <span>{tour.title}</span>
-        </div>
-      </div>
+          {/* Breadcrumb section */}
+          <div className="vg-detail-breadcrumb" style={{ padding: 0, background: "none", marginBottom: 8 }}>
+            <Link to="/">Trang chủ</Link>
+            <Icon name="chevronRight" size={12} />
+            <Link to="/tours">Danh sách Tour</Link>
+            <Icon name="chevronRight" size={12} />
+            <span style={{ color: "#687176" }}>{tour.title}</span>
+          </div>
 
-      <main className="vg-detail-main">
+          {/* Title */}
+          <h1 className="vg-traveloka-title">{tour.title}</h1>
+
+          {/* Tags Pills Row */}
+          <div className="vg-title-tags-row">
+            {tour.category ? <span className="vg-title-tag-pill">{tour.category}</span> : null}
+            {tour.destination ? <span className="vg-title-tag-pill">{tour.destination}</span> : null}
+            {tour.duration ? <span className="vg-title-tag-pill">{tour.duration}</span> : null}
+            <span className="vg-title-tag-pill">{departures.length} lịch khởi hành đang mở</span>
+          </div>
+
+          {/* Ratings & Wishlist Row */}
+          <div className="vg-meta-row-traveloka">
+            <div className="vg-meta-left-traveloka">
+              {hasRating ? (
+                <>
+                  <span className="vg-rating-score-traveloka">★ {ratingAverage.toFixed(1)}/5</span>
+                  <a href="#reviews" className="vg-reviews-link-traveloka">({ratingCount} đánh giá)</a>
+                </>
+              ) : (
+                <span className="vg-reviews-link-traveloka">Chưa có đánh giá</span>
+              )}
+              <span className="meta-separator">•</span>
+              <span className="vg-booked-tag-traveloka">{bookingsCount} lượt đặt</span>
+              <span className="meta-separator">•</span>
+              <a href="#overview" className="vg-loc-link-traveloka">
+                <Icon name="mapPin" size={14} />
+                <span>{tour.destination}</span>
+              </a>
+            </div>
+
+            <button
+              className={`vg-wishlist-btn-traveloka ${isFavorite ? "is-active" : ""}`}
+              onClick={() => onFavorite(tour)}
+              aria-label="Thêm vào danh sách yêu thích"
+            >
+              <Icon name="heart" size={16} />
+              <span>{isFavorite ? "Đã lưu vào wishlist" : "Lưu vào wishlist"}</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main className="vg-detail-main" style={{ paddingTop: 0 }}>
         <div className="vg-container">
-          {/* Grid Image Gallery */}
-          <div className="vg-detail-gallery">
-            <div className="gallery-main">
-              {imgError ? (
+          {/* Traveloka Gallery Grid: 1 large left, 4 small right */}
+          <div className={`vg-gallery-grid-traveloka layout-count-${imageCount}`}>
+            <div className="vg-gallery-main-traveloka">
+              {imgError || !galleryImages[0] ? (
                 <div className="vg-tour-fallback-image">
                   <Icon name="globe" size={48} />
                   <span>{tour.title}</span>
@@ -283,194 +458,490 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                 />
               )}
             </div>
-            <div className="gallery-thumbs">
-              {galleryImages.slice(1, 5).map((imgUrl, i) => (
-                <div key={i} className="gallery-thumb-item">
-                  <img src={imgUrl} alt={`${tour.title} view ${i + 1}`} />
+            {imageCount > 1 && (
+              <div className="vg-gallery-thumbs-traveloka">
+                {galleryImages.slice(1, imageCount).map((imgUrl, i) => (
+                  <div key={i} className="vg-gallery-thumb-item-traveloka">
+                    <img src={imgUrl} alt={`${tour.title} view ${i + 1}`} />
+                    {i === imageCount - 2 && galleryImages.length >= 5 && (
+                      <button className="vg-gallery-btn-overlay" onClick={() => setShowItineraryModal(true)}>
+                        <Icon name="camera" size={16} />
+                        <span>Xem tất cả ảnh ({galleryImages.length})</span>
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Highlights & Quick Price Card (2 columns) */}
+          <div className="vg-highlights-row-traveloka">
+            <div className="vg-highlights-card-traveloka">
+              <h3 style={{ fontSize: "1.15rem", fontWeight: "700", marginBottom: "12px", color: "#03121a" }}>
+                Điểm nhấn nổi bật của hành trình
+              </h3>
+              {tour.description ? (
+                <p className="vg-detail-summary-text">{tour.description}</p>
+              ) : tour.summary ? (
+                <p className="vg-detail-summary-text">{tour.summary}</p>
+              ) : (
+                <p className="vg-detail-summary-text">Tour này chưa cập nhật phần mô tả chi tiết.</p>
+              )}
+              <span className="see-more-link" onClick={scrollToOptions}>
+                Xem thêm tùy chọn gói &gt;
+              </span>
+            </div>
+
+            <div className="vg-quick-action-card-traveloka">
+              <div className="vg-quick-price-box">
+                <span className="vg-quick-price-label">Giá tốt nhất từ trước đến nay</span>
+                <div className="vg-quick-price-value">
+                  {formatCurrency(displayBasePrice)}
+                  <span className="vg-quick-price-unit"> / khách</span>
                 </div>
-              ))}
+              </div>
+              <button className="vg-btn-select-options" onClick={scrollToOptions}>
+                Chọn các tùy chọn gói
+              </button>
             </div>
           </div>
 
-          {/* Core Layout Columns */}
-          <div className="vg-detail-layout">
-            {/* Left Content column */}
-            <div className="vg-detail-content-col">
-              {/* Klook-style Header Block */}
-              <div className="vg-klook-header">
-                <h1 className="vg-klook-title">{tour.title}</h1>
-                
-                <div className="vg-klook-badge">
-                  <span className="badge-icon">🏆</span>
-                  <span className="badge-text">Trải nghiệm Tour 5 Sao hàng đầu tại {tour.destination}</span>
-                  <span className="badge-arrow"><Icon name="chevronRight" size={10} /></span>
-                </div>
+          {/* Package Options Section Header */}
+          <h2 className="vg-package-options-section-title" ref={packageOptionsRef}>
+            {tour.title} Package Options
+          </h2>
 
-                <div className="vg-klook-meta-row">
-                  <div className="meta-left">
-                    <span className="rating-score">★ {ratingAverage.toFixed(1)}/5</span>
-                    <span className="rating-reviews">({ratingCount} đánh giá)</span>
-                    <span className="meta-separator">•</span>
-                    <span className="booked-count">1,200+ khách đã đặt</span>
+          {/* Package Options Layout (2 columns) */}
+          <div className="vg-package-options-layout-traveloka">
+            {/* Left Column: Option selection form card */}
+            <div className="vg-package-options-form-card">
+              <div className="vg-form-title-row">
+                <h3>Chọn các tùy chọn gói</h3>
+                <span className="vg-clear-all-link" onClick={handleClearAll}>
+                  Xóa tất cả
+                </span>
+              </div>
+
+              {bookingError ? (
+                <div className="booking-inline-error" style={{ marginBottom: 20 }}>
+                  {bookingError}
+                </div>
+              ) : null}
+
+              <form onSubmit={handleBookingSubmit}>
+                {checkoutStep === 1 && (
+                  <>
+                    {/* Date Picker Input */}
+                    <div className="vg-date-picker-section">
+                      <label className="vg-date-picker-label">Vui lòng chọn ngày khởi hành</label>
+                      <div className="vg-date-input-wrapper">
+                        <Icon name="calendar" size={18} />
+                        <select
+                          className="vg-date-input-field"
+                          value={effectiveSelectedDepartureId}
+                          onChange={(event) => {
+                            setSelectedDepartureId(event.target.value);
+                            setBookingPreview(null);
+                            setBookingError("");
+                          }}
+                          required
+                        >
+                          <option value="">Chọn ngày đi của bạn</option>
+                          {departures.map((departure) => (
+                            <option key={departure.id} value={departure.id}>
+                              {departure.departure_date} (Còn {departure.available_slots} chỗ trống)
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      {!departures.length ? (
+                        <small style={{ color: "#ff5b00", display: "block", marginTop: "6px" }}>
+                          Tour này hiện tại chưa có lịch xuất phát sẵn sàng trực tuyến.
+                        </small>
+                      ) : null}
+                    </div>
+
+                    {/* Quantity Row */}
+                    <div className="vg-quantity-section">
+                      <label className="vg-options-group-title">Số lượng người tham gia</label>
+
+                      {bookingGroups.map((rule) => {
+                        const quantity = getRuleQuantity(rule);
+                        const unitPrice = getRuleUnitPrice(rule);
+
+                        return (
+                          <div className="vg-qty-row-traveloka" key={rule.id}>
+                            <div className="vg-qty-info">
+                              <strong>{rule.label}</strong>
+                              <small>{getRuleAgeHint(rule)} - {formatCurrency(unitPrice)}</small>
+                            </div>
+                            <div className="vg-counter-control">
+                              <button
+                                type="button"
+                                className="vg-counter-btn"
+                                disabled={quantity <= 0}
+                                onClick={() => updateQuantity(rule.id, quantity - 1)}
+                              >
+                                -
+                              </button>
+                              <span className="vg-counter-value">{quantity}</span>
+                              <button
+                                type="button"
+                                className="vg-counter-btn"
+                                disabled={availableSlots > 0 && totalGuests >= availableSlots}
+                                onClick={() => updateQuantity(rule.id, quantity + 1)}
+                              >
+                                +
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+
+                {checkoutStep === 2 && (
+                  <div className="checkout-form-stack" style={{ marginBottom: 20 }}>
+                    <section className="checkout-section">
+                      <div className="checkout-section-title" style={{ marginBottom: 12 }}>
+                        <h4>Thông tin liên hệ đặt chỗ</h4>
+                        <button
+                          type="button"
+                          className="checkout-add-button"
+                          onClick={() => setUseCustomContact((curr) => !curr)}
+                        >
+                          {useCustomContact ? "Sử dụng mặc định" : "+ Thay đổi"}
+                        </button>
+                      </div>
+                      <div className="contact-preview-card" style={{ marginBottom: 12 }}>
+                        <strong>{contact.contact_name || "Người đặt tour"}</strong>
+                        <span>{contact.contact_phone || "Chưa có số điện thoại"}</span>
+                        <span>{contact.contact_email || "Chưa có email"}</span>
+                      </div>
+                      {useCustomContact && (
+                        <div className="checkout-grid" style={{ marginBottom: 12 }}>
+                          <input
+                            value={contact.contact_name}
+                            onChange={(e) => updateContactField("contact_name", e.target.value)}
+                            placeholder="Họ tên liên hệ"
+                            style={{ padding: 10, borderRadius: 8, border: "1px solid #cbd5e1" }}
+                          />
+                          <input
+                            value={contact.contact_phone}
+                            onChange={(e) => updateContactField("contact_phone", e.target.value)}
+                            placeholder="Số điện thoại"
+                            style={{ padding: 10, borderRadius: 8, border: "1px solid #cbd5e1" }}
+                          />
+                          <input
+                            value={contact.contact_email}
+                            onChange={(e) => updateContactField("contact_email", e.target.value)}
+                            placeholder="Email liên hệ"
+                            style={{ padding: 10, borderRadius: 8, border: "1px solid #cbd5e1" }}
+                          />
+                          <input
+                            value={contact.address}
+                            onChange={(e) => updateContactField("address", e.target.value)}
+                            placeholder="Địa chỉ"
+                            style={{ padding: 10, borderRadius: 8, border: "1px solid #cbd5e1" }}
+                          />
+                        </div>
+                      )}
+                      <textarea
+                        value={contact.special_request}
+                        onChange={(e) => updateContactField("special_request", e.target.value)}
+                        placeholder="Yêu cầu đặc biệt nếu có (ăn chay, dị ứng, xe đẩy...)"
+                        rows={3}
+                        style={{ width: "100%", padding: 10, borderRadius: 8, border: "1px solid #cbd5e1" }}
+                      />
+                    </section>
+
+                    <section className="checkout-section" style={{ marginTop: 16 }}>
+                      <div className="checkout-section-title" style={{ marginBottom: 12 }}>
+                        <h4>Thông tin hành khách tham gia</h4>
+                        <span style={{ fontSize: "0.85rem", color: "#687176" }}>{participants.length} khách</span>
+                      </div>
+                      {participants.map((p, index) => (
+                        <div className="participant-card" key={index} style={{ marginBottom: 14 }}>
+                          <strong style={{ display: "block", marginBottom: 8 }}>Hành khách {index + 1}</strong>
+                          <div className="checkout-grid">
+                            <input
+                              value={p.full_name}
+                              onChange={(e) => updateParticipantField(index, "full_name", e.target.value)}
+                              placeholder="Họ tên hành khách"
+                              style={{ padding: 8, borderRadius: 6, border: "1px solid #cbd5e1" }}
+                            />
+                            <input
+                              type="date"
+                              value={p.birth_date}
+                              onChange={(e) => updateParticipantField(index, "birth_date", e.target.value)}
+                              style={{ padding: 8, borderRadius: 6, border: "1px solid #cbd5e1" }}
+                            />
+                            <select
+                              value={p.gender}
+                              onChange={(e) => updateParticipantField(index, "gender", e.target.value)}
+                              style={{ padding: 8, borderRadius: 6, border: "1px solid #cbd5e1" }}
+                            >
+                              <option value="male">Nam</option>
+                              <option value="female">Nữ</option>
+                              <option value="other">Khác</option>
+                            </select>
+                            <select
+                              value={p.participant_type}
+                              onChange={(e) => updateParticipantField(index, "participant_type", e.target.value)}
+                              style={{ padding: 8, borderRadius: 6, border: "1px solid #cbd5e1" }}
+                            >
+                              <option value="adult">Người lớn</option>
+                              <option value="child">Trẻ em</option>
+                              <option value="infant">Em bé</option>
+                            </select>
+                            <input
+                              value={p.phone}
+                              onChange={(e) => updateParticipantField(index, "phone", e.target.value)}
+                              placeholder="Số điện thoại"
+                              style={{ padding: 8, borderRadius: 6, border: "1px solid #cbd5e1" }}
+                            />
+                            <input
+                              value={p.identity_number}
+                              onChange={(e) => updateParticipantField(index, "identity_number", e.target.value)}
+                              placeholder="CCCD/Hộ chiếu"
+                              style={{ padding: 8, borderRadius: 6, border: "1px solid #cbd5e1" }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </section>
                   </div>
-                  <button
-                    className={`vg-klook-wishlist-btn ${isFavorite ? "is-active" : ""}`}
-                    onClick={() => onFavorite(tour)}
-                    aria-label="Thêm vào danh sách yêu thích"
-                  >
-                    <Icon name="heart" size={16} />
-                    <span>{isFavorite ? "Đã lưu vào wishlist" : "Lưu vào wishlist"}</span>
+                )}
+
+                {checkoutStep === 3 && (
+                  <div className="fake-payment-box" style={{ marginBottom: 20 }}>
+                    <h4>Thanh toán đặt chỗ giả lập</h4>
+                    <p style={{ color: "#687176", fontSize: "0.88rem", lineHeight: 1.5 }}>
+                      Hệ thống ViVuGo hiện đang chạy ở chế độ giả lập thử nghiệm. Bấm xác nhận đặt chỗ bên dưới để hoàn tất giao dịch.
+                    </p>
+                    <div className="breakdown-row total" style={{ marginTop: 14 }}>
+                      <span>Tổng tiền cần thanh toán</span>
+                      <strong style={{ fontSize: "1.4rem", color: "#ff5b00" }}>{formatCurrency(finalTotal)}</strong>
+                    </div>
+                  </div>
+                )}
+
+                {/* Bottom sticky actions bar inside options card */}
+                <div className="vg-options-bottom-summary">
+                  <div className="vg-summary-price-box">
+                    <span className="vg-summary-price-value">
+                      {formatCurrency(finalTotal)}
+                    </span>
+                    <span className="vg-summary-price-label">
+                      Tổng tiền cho {totalGuests} khách hàng
+                    </span>
+                  </div>
+
+                  <div className="vg-options-action-buttons">
+                    {checkoutStep > 1 && (
+                      <button
+                        type="button"
+                        className="checkout-back-button"
+                        style={{ border: "1px solid #cbd5e1", borderRadius: 8, color: "#687176" }}
+                        onClick={() => setCheckoutStep(checkoutStep - 1)}
+                      >
+                        Quay lại
+                      </button>
+                    )}
+
+                    <button
+                      type="submit"
+                      className="vg-btn-book-traveloka"
+                      disabled={previewLoading || bookingSubmitting || !departures.length}
+                    >
+                      {checkoutStep === 1 && (previewLoading ? "Đang xử lý..." : "Đặt ngay")}
+                      {checkoutStep === 2 && "Đến bước thanh toán"}
+                      {checkoutStep === 3 && (bookingSubmitting ? "Đang xử lý đặt chỗ..." : "Xác nhận đặt tour")}
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
+
+            {/* Right Column: Package details and Itinerary timeline */}
+            <div className="vg-package-details-col-traveloka">
+              <div className="vg-package-details-card-traveloka">
+                <div className="vg-details-title-row">
+                  <h3>Package details</h3>
+                  <button className="vg-details-maximize-btn" onClick={() => setShowItineraryModal(true)}>
+                    <Icon name="maximize" size={16} />
                   </button>
                 </div>
 
-                <div className="vg-klook-alert">
-                  <span className="alert-icon">📢</span>
-                  <span className="alert-text">
-                    Lưu ý: Lịch trình khởi hành có thể điều chỉnh linh hoạt theo thời tiết hoặc yêu cầu riêng của đoàn để đảm bảo an toàn tuyệt đối.
+                {/* Badges list */}
+                <div className="vg-details-badges-list">
+                  <span className="vg-details-badge-item">
+                    <span style={{ color: "#10b981", marginRight: 6 }}>✓</span>
+                    {departures.length} lịch khởi hành đang mở
+                  </span>
+                  <span className="vg-details-badge-item">
+                    <span style={{ color: "#10b981", marginRight: 6 }}>✓</span>
+                    Còn {availableSlots} chỗ ở lịch đang chọn
+                  </span>
+                  <span className="vg-details-badge-item">
+                    <span style={{ color: "#10b981", marginRight: 6 }}>✓</span>
+                    Giá người lớn: {formatCurrency(adultPrice)}
                   </span>
                 </div>
 
-                {detailError ? (
-                  <div className="vg-klook-alert">
-                    <span className="alert-icon">!</span>
-                    <span className="alert-text">{detailError}</span>
-                  </div>
-                ) : null}
+                {/* Collapsible vertical Itinerary timeline */}
+                <div
+                  className={`vg-itinerary-timeline-title-row ${itineraryCollapsed ? "is-collapsed" : ""}`}
+                  onClick={() => setItineraryCollapsed(!itineraryCollapsed)}
+                >
+                  <h4>
+                    <Icon name="calendar" size={16} />
+                    Lịch trình chuyến đi chi tiết
+                  </h4>
+                  <Icon name="chevronDown" size={16} />
+                </div>
 
-                <div className="vg-klook-specs">
-                  <div className="spec-item">
-                    <div className="spec-icon">
-                      <Icon name="calendar" size={18} />
+                <div className={`vg-itinerary-list-traveloka ${itineraryCollapsed ? "is-collapsed" : ""}`}>
+                  {itinerarySteps.length ? (
+                    itinerarySteps.map((step, idx) => (
+                      <div
+                        key={step.id || idx}
+                        className={`vg-itinerary-step-traveloka ${step.isGreen ? "is-green" : ""}`}
+                      >
+                        <span className={`vg-step-time-traveloka ${step.isGreen ? "is-green" : ""}`}>
+                          {step.time}
+                        </span>
+                        <span className="vg-step-title-traveloka">{step.title}</span>
+                        <span className="vg-step-desc-traveloka">{step.desc}</span>
+                        {step.transport ? <span className="vg-step-desc-traveloka">Phương tiện: {step.transport}</span> : null}
+                        {step.images.length ? (
+                          <div className="vg-step-images-grid-traveloka">
+                            {step.images.map((imgUrl, imgIdx) => (
+                              <img key={imgIdx} src={imgUrl} alt={`${step.title} preview ${imgIdx + 1}`} />
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="vg-itinerary-step-traveloka">
+                      <span className="vg-step-title-traveloka">Chưa cập nhật lịch trình chi tiết.</span>
                     </div>
-                    <div className="spec-content">
-                      <strong>Thời gian khởi hành:</strong>
-                      <span>Khởi hành hàng ngày theo yêu cầu</span>
-                    </div>
-                  </div>
-                  <div className="spec-item">
-                    <div className="spec-icon">
-                      <Icon name="clock" size={18} />
-                    </div>
-                    <div className="spec-content">
-                      <strong>Thời lượng chuyến đi:</strong>
-                      <span>{tour.duration}</span>
-                    </div>
-                  </div>
-                  <div className="spec-item">
-                    <div className="spec-icon">
-                      <Icon name="mapPin" size={18} />
-                    </div>
-                    <div className="spec-content">
-                      <strong>Điểm khởi hành & Đón khách:</strong>
-                      <span>{tour.destination} / Khách sạn tại trung tâm</span>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
+            </div>
+          </div>
 
-              {/* Overview Section */}
-              <section id="overview" ref={overviewRef} className="vg-detail-section">
-                <h2>Tổng quan chuyến đi</h2>
-                <p className="vg-detail-summary-text">{tour.summary}</p>
-                <div className="vg-detail-highlights">
-                  <div className="highlight-card">
-                    <Icon name="clock" size={24} />
-                    <div>
-                      <strong>Thời gian</strong>
-                      <span>{tour.duration}</span>
-                    </div>
-                  </div>
-                  <div className="highlight-card">
-                    <Icon name="users" size={24} />
-                    <div>
-                      <strong>Nhóm khách tối đa</strong>
-                      <span>{tour.slots?.max || 12} người</span>
-                    </div>
-                  </div>
-                  <div className="highlight-card">
-                    <Icon name="globe" size={24} />
-                    <div>
-                      <strong>Phương tiện</strong>
-                      <span>Xe du lịch, Hàng không</span>
-                    </div>
-                  </div>
-                  <div className="highlight-card">
-                    <Icon name="mapPin" size={24} />
-                    <div>
-                      <strong>Điểm khởi hành</strong>
-                      <span>Hà Nội / TP.HCM</span>
-                    </div>
-                  </div>
+          {/* Overview Section */}
+          <section id="overview" ref={overviewRef} className="vg-detail-section" style={{ marginTop: 48 }}>
+            <h2>Tổng quan chuyến đi</h2>
+            <p className="vg-detail-summary-text">{tour.summary}</p>
+            <div className="vg-detail-highlights">
+              <div className="highlight-card">
+                <Icon name="clock" size={24} />
+                <div>
+                  <strong>Thời gian</strong>
+                  <span>{tour.duration}</span>
                 </div>
-                <div className="vg-tour-highlights-box">
-                  <h3>Điểm nhấn nổi bật của hành trình</h3>
-                  <ul>
-                    <li>Trải nghiệm dịch vụ lữ hành chuyên nghiệp chuẩn 5 sao từ ViVuGo.</li>
-                    <li>Khám phá trọn vẹn nét đẹp văn hóa, phong cảnh hoang sơ tại {tour.destination}.</li>
-                    <li>Thưởng thức thực đơn hải sản/đặc sản phong phú được chọn lọc kỹ lưỡng.</li>
-                    <li>Resort/Khách sạn nghỉ dưỡng cao cấp tọa lạc tại vị trí đắc địa nhất.</li>
-                  </ul>
+              </div>
+              <div className="highlight-card">
+                <Icon name="users" size={24} />
+                <div>
+                  <strong>Nhóm khách tối đa</strong>
+                  <span>{tour.slots?.max || 12} người</span>
                 </div>
-              </section>
-
-
-              {/* Services Section */}
-              <section id="services" ref={servicesRef} className="vg-detail-section">
-                <h2>Dịch vụ đi kèm</h2>
-                <div className="vg-services-grid">
-                  <div className="services-box inclusion-box">
-                    <h3>
-                      <span className="bullet-icon inclusion">✓</span>
-                      Dịch vụ bao gồm (Included)
-                    </h3>
-                    <ul>
-                      {inclusions.map((text, i) => (
-                        <li key={i}>{text}</li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div className="services-box exclusion-box">
-                    <h3>
-                      <span className="bullet-icon exclusion">✗</span>
-                      Dịch vụ không bao gồm (Excluded)
-                    </h3>
-                    <ul>
-                      {exclusions.map((text, i) => (
-                        <li key={i}>{text}</li>
-                      ))}
-                    </ul>
-                  </div>
+              </div>
+              <div className="highlight-card">
+                <Icon name="globe" size={24} />
+                <div>
+                  <strong>Lịch khởi hành</strong>
+                  <span>{departures.length ? `${departures.length} lịch đang mở` : "Chưa có lịch đang mở"}</span>
                 </div>
-              </section>
-
-              {/* Policies Section */}
-              <section id="policies" ref={policiesRef} className="vg-detail-section">
-                <h2>Chính sách & Quy định</h2>
-                <div className="vg-policy-accordion">
-                  <div className="policy-block">
-                    <h4>1. Quy định về trẻ em và phụ thu</h4>
-                    <ul>
-                      <li>Trẻ em dưới 5 tuổi: Miễn phí giá tour (ngủ chung giường với bố mẹ, bố mẹ tự lo ăn uống cho bé). Hai người lớn chỉ được kèm 1 trẻ em miễn phí, trẻ thứ hai tính 50% giá tour.</li>
-                      <li>Trẻ em từ 5 - 11 tuổi: Tính 75% giá tour người lớn (ăn suất riêng, ngủ chung giường với bố mẹ).</li>
-                      <li>Trẻ từ 12 tuổi trở lên: Tính bằng giá người lớn.</li>
-                    </ul>
-                  </div>
-                  <div className="policy-block">
-                    <h4>2. Điều kiện hoàn hủy hủy tour</h4>
-                    <ul>
-                      <li>Hủy tour trước 15 ngày khởi hành: Miễn phí hoàn hủy 100%.</li>
-                      <li>Hủy tour từ 7 - 14 ngày trước khởi hành: Phạt 50% tổng giá trị hợp đồng đặt tour.</li>
-                      <li>Hủy tour trong vòng 7 ngày trước khởi hành hoặc không tham gia: Phạt 100% chi phí.</li>
-                    </ul>
-                  </div>
+              </div>
+              <div className="highlight-card">
+                <Icon name="mapPin" size={24} />
+                <div>
+                  <strong>Điểm đến</strong>
+                  <span>{tour.destination || "Chưa cập nhật"}</span>
                 </div>
-              </section>
+              </div>
+            </div>
+          </section>
 
-              {/* Reviews Section */}
-              <section id="reviews" ref={reviewsRef} className="vg-detail-section">
-                <h2>Đánh giá từ khách hàng</h2>
-                <div className="vg-reviews-summary">
-                  <div className="reviews-score-box">
+          {/* Services Section */}
+          <section id="services" ref={servicesRef} className="vg-detail-section">
+            <h2>Dịch vụ đi kèm</h2>
+            <div className="vg-services-grid">
+              <div className="services-box inclusion-box">
+                <h3>
+                  <span className="bullet-icon inclusion">✓</span>
+                  Dịch vụ bao gồm (Included)
+                </h3>
+                <ul>
+                  {serviceInclusions.length ? (
+                    serviceInclusions.map((text, i) => (
+                      <li key={i}>{text}</li>
+                    ))
+                  ) : (
+                    <li>Tour này chưa cập nhật danh sách dịch vụ bao gồm.</li>
+                  )}
+                </ul>
+              </div>
+              <div className="services-box exclusion-box">
+                <h3>
+                  <span className="bullet-icon exclusion">✗</span>
+                  Dịch vụ không bao gồm (Excluded)
+                </h3>
+                <ul>
+                  {serviceExclusions.length ? (
+                    serviceExclusions.map((text, i) => (
+                      <li key={i}>{text}</li>
+                    ))
+                  ) : (
+                    <li>Tour này chưa cập nhật danh sách dịch vụ không bao gồm.</li>
+                  )}
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          {/* Policies Section */}
+          <section id="policies" ref={policiesRef} className="vg-detail-section">
+            <h2>Chính sách & Quy định</h2>
+            <div className="vg-policy-accordion">
+              <div className="policy-block">
+                <h4>1. Quy định về trẻ em và phụ thu</h4>
+                <ul>
+                  {bookingGroups.length ? (
+                    bookingGroups.map((rule) => (
+                      <li key={rule.id}>
+                        {rule.label}: {getRuleAgeHint(rule)} - {getPricingRuleText(rule)}
+                      </li>
+                    ))
+                  ) : (
+                    <li>Tour này chưa cập nhật chính sách giá theo độ tuổi.</li>
+                  )}
+                </ul>
+              </div>
+              <div className="policy-block">
+                <h4>2. Điều kiện hoàn hủy hủy tour</h4>
+                <ul>
+                  <li>Tour này chưa cập nhật chính sách hoàn hủy riêng.</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          {/* Reviews Section */}
+          <section id="reviews" ref={reviewsRef} className="vg-detail-section">
+            <h2>Đánh giá từ khách hàng</h2>
+            <div className="vg-reviews-summary">
+              <div className="reviews-score-box">
+                {hasRating ? (
+                  <>
                     <strong className="score-average">{ratingAverage.toFixed(1)}</strong>
                     <div className="score-stars">
                       {Array.from({ length: 5 }).map((_, i) => (
@@ -479,225 +950,25 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                         </span>
                       ))}
                     </div>
-                    <span className="score-count">{ratingCount} đánh giá chân thực</span>
-                  </div>
-                  <div className="reviews-bars">
-                    <div className="bar-row">
-                      <span>5 sao</span>
-                      <div className="bar-bg"><div className="bar-fill" style={{ width: "85%" }}></div></div>
-                      <span>85%</span>
-                    </div>
-                    <div className="bar-row">
-                      <span>4 sao</span>
-                      <div className="bar-bg"><div className="bar-fill" style={{ width: "12%" }}></div></div>
-                      <span>12%</span>
-                    </div>
-                    <div className="bar-row">
-                      <span>3 sao</span>
-                      <div className="bar-bg"><div className="bar-fill" style={{ width: "3%" }}></div></div>
-                      <span>3%</span>
-                    </div>
-                    <div className="bar-row">
-                      <span>2 sao</span>
-                      <div className="bar-bg"><div className="bar-fill" style={{ width: "0%" }}></div></div>
-                      <span>0%</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="vg-reviews-list">
-                  {reviews.map((rev, index) => (
-                    <div key={index} className="vg-review-item">
-                      <div className="review-avatar">
-                        <img src={rev.avatar} alt={rev.name} />
-                      </div>
-                      <div className="review-main">
-                        <div className="review-meta">
-                          <strong>{rev.name}</strong>
-                          <span className="review-date">{rev.date}</span>
-                        </div>
-                        <div className="review-rating">
-                          {Array.from({ length: 5 }).map((_, i) => (
-                            <span key={i} className={i < rev.rating ? "star-active" : ""}>
-                              ★
-                            </span>
-                          ))}
-                        </div>
-                        <p className="review-text">{rev.content}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            </div>
-
-            {/* Right Booking column */}
-            <div className="vg-detail-sidebar-col">
-              <div className="vg-booking-card">
-                <div className="booking-price-header">
-                  <span>Giá từ</span>
-                  <div className="booking-price-row">
-                    <strong className="booking-price-active">{formatCurrency(displayBasePrice)}</strong>
-                    <span className="booking-price-unit">/ khách</span>
-                  </div>
-                  {displayOriginalPrice > displayBasePrice ? (
-                    <del className="booking-price-old">{formatCurrency(displayOriginalPrice)}</del>
-                  ) : null}
-                </div>
-
-                <form className="booking-form" onSubmit={handleBookingSubmit}>
-                  <div className="form-group">
-                    <label>
-                      <Icon name="calendar" size={16} />
-                      Ngày khởi hành
-                    </label>
-                    <input
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      min={new Date().toISOString().split("T")[0]}
-                      required
-                    />
-                  </div>
-
-                  <div className="guests-selectors">
-                    <label className="guests-label-main">
-                      <Icon name="users" size={16} />
-                      Số lượng người tham gia
-                    </label>
-
-                    {/* Adults */}
-                    <div className="guest-row">
-                      <div className="guest-info">
-                        <strong>Người lớn</strong>
-                        <small>Từ 12 tuổi trở lên</small>
-                      </div>
-                      <div className="qty-control">
-                        <button
-                          type="button"
-                          disabled={adults <= 1}
-                          onClick={() => setAdults(adults - 1)}
-                        >
-                          -
-                        </button>
-                        <span>{adults}</span>
-                        <button
-                          type="button"
-                          disabled={adults + children >= (tour.slots?.available || 8)}
-                          onClick={() => setAdults(adults + 1)}
-                        >
-                          +
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Children */}
-                    <div className="guest-row">
-                      <div className="guest-info">
-                        <strong>Trẻ em</strong>
-                        <small>Từ 5 - 11 tuổi (75% giá)</small>
-                      </div>
-                      <div className="qty-control">
-                        <button
-                          type="button"
-                          disabled={children <= 0}
-                          onClick={() => setChildren(children - 1)}
-                        >
-                          -
-                        </button>
-                        <span>{children}</span>
-                        <button
-                          type="button"
-                          disabled={adults + children >= (tour.slots?.available || 8)}
-                          onClick={() => setChildren(children + 1)}
-                        >
-                          +
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Infants */}
-                    <div className="guest-row">
-                      <div className="guest-info">
-                        <strong>Em bé</strong>
-                        <small>Dưới 5 tuổi (Miễn phí)</small>
-                      </div>
-                      <div className="qty-control">
-                        <button
-                          type="button"
-                          disabled={infants <= 0}
-                          onClick={() => setInfants(infants - 1)}
-                        >
-                          -
-                        </button>
-                        <span>{infants}</span>
-                        <button
-                          type="button"
-                          onClick={() => setInfants(infants + 1)}
-                        >
-                          +
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Pricing Breakdown summary */}
-                  <div className="booking-summary-breakdown">
-                    <h4>Chi tiết giá tạm tính</h4>
-                    <div className="breakdown-row">
-                      <span>Người lớn ({adults} × {formatCurrency(adultPrice)})</span>
-                      <span>{formatCurrency(adults * adultPrice)}</span>
-                    </div>
-                    {children > 0 && (
-                      <div className="breakdown-row">
-                        <span>Trẻ em ({children} × {formatCurrency(childPrice)})</span>
-                        <span>{formatCurrency(children * childPrice)}</span>
-                      </div>
-                    )}
-                    <div className="breakdown-row">
-                      <span>Thuế VAT (8%)</span>
-                      <span>{formatCurrency(tax)}</span>
-                    </div>
-                    <div className="breakdown-row total">
-                      <span>Tổng số tiền</span>
-                      <strong>{formatCurrency(finalTotal)}</strong>
-                    </div>
-                  </div>
-
-                  <button type="submit" className="vg-btn-book">
-                    Đăng Ký Đặt Tour Ngay
-                  </button>
-                </form>
-                <div className="booking-help-note">
-                  * Điền thông tin đặt chỗ sẽ không tính tiền ngay. Đội ngũ nhân viên của ViVuGo sẽ liên hệ lại qua số điện thoại để hỗ trợ tư vấn chi tiết lịch trình.
-                </div>
-              </div>
-
-              {/* Sidebar Itinerary Card */}
-              <div className="vg-itinerary-sidebar-card" ref={itineraryRef}>
-                <h3>
-                  <Icon name="calendar" size={20} />
-                  Lịch trình chuyến đi
-                </h3>
-                <div className="vg-itinerary-sidebar-timeline">
-                  {itinerary.map((item, index) => (
-                    <div key={index} className="vg-itinerary-sidebar-step">
-                      <span className="day-label">Ngày {item.day}</span>
-                      <div className="day-summary">{item.title}</div>
-                    </div>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  className="vg-itinerary-zoom-btn"
-                  onClick={() => setShowItineraryModal(true)}
-                >
-                  <Icon name="maximize" size={16} />
-                  Phóng to xem chi tiết
-                </button>
+                    <span className="score-count">{ratingCount} đánh giá</span>
+                  </>
+                ) : (
+                  <>
+                    <strong className="score-average">--</strong>
+                    <span className="score-count">Tour này chưa có đánh giá.</span>
+                  </>
+                )}
               </div>
             </div>
-          </div>
+
+            <div className="vg-reviews-list">
+              <div className="vg-review-item">
+                <div className="review-main">
+                  <p className="review-text">Danh sách nhận xét chi tiết chưa được kết nối với API đánh giá.</p>
+                </div>
+              </div>
+            </div>
+          </section>
 
           {/* Related Tours section */}
           {relatedTours.length > 0 && (
@@ -738,8 +1009,14 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                           <span className="vg-tour-category">{t.category}</span>
                           <span className="vg-tour-rating">
                             <Icon name="star" size={13} />
-                            <b>{Number(t.rating?.average || 4.8).toFixed(1)}</b>
-                            <small>({t.rating?.count || 12})</small>
+                            {Number(t.rating?.count || 0) > 0 ? (
+                              <>
+                                <b>{Number(t.rating?.average || 0).toFixed(1)}</b>
+                                <small>({t.rating?.count})</small>
+                              </>
+                            ) : (
+                              <small>Chưa có đánh giá</small>
+                            )}
                           </span>
                         </div>
                         <h3>{t.title}</h3>
@@ -791,7 +1068,7 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
             </div>
             <h2>Đăng Ký Đặt Tour Thành Công!</h2>
             <p className="modal-sub">Cảm ơn bạn đã lựa chọn tin tưởng dịch vụ lữ hành của ViVuGo.</p>
-            
+
             <div className="modal-summary-box">
               <div className="summary-item">
                 <span>Mã đặt chỗ:</span>
@@ -803,11 +1080,11 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
               </div>
               <div className="summary-item">
                 <span>Ngày xuất phát:</span>
-                <strong>{startDate.split("-").reverse().join("/")}</strong>
+                <strong>{selectedDeparture?.departure_date || "Đang cập nhật"}</strong>
               </div>
               <div className="summary-item">
                 <span>Số lượng khách:</span>
-                <strong>{adults} Người lớn {children > 0 ? `, ${children} Trẻ em` : ""} {infants > 0 ? `, ${infants} Em bé` : ""}</strong>
+                <strong>{totalGuests} khách</strong>
               </div>
               <div className="summary-item total">
                 <span>Tổng giá trị đơn đặt:</span>
@@ -839,31 +1116,52 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
               <h2>Lịch trình chi tiết</h2>
               <p className="modal-sub">{tour.title}</p>
             </div>
-            
+
             <div className="modal-itinerary-body">
               <div className="vg-itinerary-timeline">
-                {itinerary.map((item, index) => (
-                  <div
-                    key={index}
-                    className={`vg-timeline-day ${expandedDay === index ? "is-expanded" : ""}`}
-                  >
+                {itinerarySteps.length ? (
+                  itinerarySteps.map((item, index) => (
                     <div
-                      className="day-header"
-                      onClick={() => setExpandedDay(expandedDay === index ? -1 : index)}
+                      key={item.id || index}
+                      className={`vg-timeline-day ${expandedDay === index ? "is-expanded" : ""}`}
                     >
-                      <div className="day-number">Ngày {item.day}</div>
-                      <h4 className="day-title">{item.title}</h4>
-                      <span className="day-arrow">
-                        <Icon name="chevronDown" size={18} />
-                      </span>
-                    </div>
-                    <div className="day-body-wrapper">
-                      <div className="day-body-content">
-                        <p>{item.content}</p>
+                      <div
+                        className="day-header"
+                        onClick={() => setExpandedDay(expandedDay === index ? -1 : index)}
+                      >
+                        <div className="day-number">{item.time}</div>
+                        <h4 className="day-title">{item.title}</h4>
+                        <span className="day-arrow">
+                          <Icon name="chevronDown" size={18} />
+                        </span>
+                      </div>
+                      <div className="day-body-wrapper">
+                        <div className="day-body-content">
+                          <p>{item.desc}</p>
+                          {item.transport ? <p>Phương tiện: {item.transport}</p> : null}
+                          {item.images.length ? (
+                            <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
+                              {item.images.map((imgUrl, imgIdx) => (
+                                <img
+                                  key={imgIdx}
+                                  src={imgUrl}
+                                  alt={`${item.title} preview ${imgIdx + 1}`}
+                                  style={{ width: 120, height: 90, objectFit: "cover", borderRadius: 8 }}
+                                />
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
                       </div>
                     </div>
+                  ))
+                ) : (
+                  <div className="vg-timeline-day is-expanded">
+                    <div className="day-header">
+                      <h4 className="day-title">Chưa cập nhật lịch trình chi tiết.</h4>
+                    </div>
                   </div>
-                ))}
+                )}
               </div>
             </div>
 
@@ -878,5 +1176,4 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
     </div>
   );
 }
-
 export default TourDetailPage;

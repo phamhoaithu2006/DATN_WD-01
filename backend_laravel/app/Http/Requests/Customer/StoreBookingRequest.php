@@ -34,6 +34,26 @@ class StoreBookingRequest extends FormRequest
                 'max:2000',
             ],
 
+            'quantity_summary' => [
+                'nullable',
+                'array',
+                'min:1',
+                'max:20',
+            ],
+
+            'quantity_summary.*.rule_id' => [
+                'nullable',
+                'integer',
+                'exists:tour_age_pricing_rules,id',
+            ],
+
+            'quantity_summary.*.quantity' => [
+                'required_with:quantity_summary',
+                'integer',
+                'min:0',
+                'max:20',
+            ],
+
             'contact' => [
                 'required',
                 'array',
@@ -131,6 +151,18 @@ class StoreBookingRequest extends FormRequest
                         'Số lượng thành viên phải đúng bằng số người đặt tour.'
                     );
                 }
+
+                $quantitySummary = $this->input('quantity_summary', []);
+                if (is_array($quantitySummary) && $quantitySummary !== []) {
+                    $selectedPeople = collect($quantitySummary)->sum(fn ($item) => (int) ($item['quantity'] ?? 0));
+
+                    if ($numberOfPeople > 0 && $selectedPeople !== $numberOfPeople) {
+                        $validator->errors()->add(
+                            'quantity_summary',
+                            'Tổng số lượng đã chọn phải đúng bằng số người đặt tour.'
+                        );
+                    }
+                }
             },
         ];
     }
@@ -140,6 +172,7 @@ class StoreBookingRequest extends FormRequest
         return [
             'tour_departure_id.exists' => 'Lịch khởi hành không tồn tại.',
             'participants.required' => 'Vui lòng nhập danh sách người tham gia.',
+            'quantity_summary.*.rule_id.exists' => 'Nhóm giá đã chọn không tồn tại.',
         ];
     }
 }

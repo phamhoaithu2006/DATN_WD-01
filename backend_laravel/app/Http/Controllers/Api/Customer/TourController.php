@@ -36,7 +36,20 @@ class TourController extends Controller
         // Tìm kiếm tour theo slug và điều kiện xuất bản
         $tour = Tour::where('slug', $slug)
             ->where('status', 'published')
-            ->with(['category', 'destination', 'itineraries.images', 'agePricingRules']) // Load kèm dữ liệu để Resource sử dụng
+            ->with([
+                'category',
+                'destination',
+                'itineraries.images',
+                'agePricingRules',
+                'departures' => fn ($query) => $query
+                    ->where('status', 'open')
+                    ->whereDate('departure_date', '>=', today())
+                    ->orderBy('departure_date'),
+                'departures.tour',
+            ])
+            ->withCount([
+                'bookings as bookings_count' => fn ($query) => $query->where('status', '!=', 'cancelled'),
+            ])
             ->firstOrFail();                    // Nếu không tìm thấy, tự động bắn lỗi 404
 
         // Trả về dạng object đơn lẻ
