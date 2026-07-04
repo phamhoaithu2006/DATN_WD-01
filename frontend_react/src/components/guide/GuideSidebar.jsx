@@ -73,6 +73,16 @@ const guideMenuItems = [
     ),
   },
   {
+    label: 'Hồ sơ cá nhân',
+    path: '/guide/profile',
+    icon: (
+      <>
+        <path d="M20 21a8 8 0 0 0-16 0" />
+        <circle cx="12" cy="7" r="4" />
+      </>
+    ),
+  },
+  {
     label: 'Cài đặt chung',
     path: '/guide/settings',
     icon: (
