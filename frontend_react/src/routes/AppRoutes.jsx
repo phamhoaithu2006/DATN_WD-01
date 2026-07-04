@@ -52,6 +52,10 @@ const protect = (page, allowedRoles = ['admin']) => (
 const adminPage = (page) => protect(<AdminLayout>{page}</AdminLayout>)
 const guidePage = (page) => protect(<GuideLayout>{page}</GuideLayout>, ['tour guide'])
 
+function GuideComingSoonPage({ title }) {
+  return <div className="guide-blank-page" aria-label={title} />
+}
+
 function AppRoutes() {
   return <Routes>
     {/* Quản lý người dùng */}
@@ -68,15 +72,15 @@ function AppRoutes() {
     <Route path="/customer/settings" element={<CustomerPage />} />
     {/* Trang hướng dẫn viên */}
     <Route path="/guide" element={guidePage(<GuideDashboardPage />)} />
-    <Route path="/guide/tours" element={guidePage(<GuideDashboardPage />)} />
-    <Route path="/guide/schedule" element={guidePage(<GuideDashboardPage />)} />
-    <Route path="/guide/history" element={guidePage(<GuideDashboardPage />)} />
-    <Route path="/guide/reviews" element={guidePage(<GuideDashboardPage />)} />
-    <Route path="/guide/customers" element={guidePage(<GuideDashboardPage />)} />
-    <Route path="/guide/messages" element={guidePage(<GuideDashboardPage />)} />
-    <Route path="/guide/notifications" element={guidePage(<GuideDashboardPage />)} />
-    <Route path="/guide/profile" element={guidePage(<GuideProfilePage />)} />
-    <Route path="/guide/settings" element={guidePage(<GuideDashboardPage />)} />
+    <Route path="/guide/tours" element={guidePage(<GuideComingSoonPage title="Tour của tôi" />)} />
+    <Route path="/guide/schedule" element={guidePage(<GuideComingSoonPage title="Lịch làm việc" />)} />
+    <Route path="/guide/history" element={guidePage(<GuideComingSoonPage title="Lịch sử Tour" />)} />
+    <Route path="/guide/reviews" element={guidePage(<GuideComingSoonPage title="Đánh giá" />)} />
+    <Route path="/guide/customers" element={guidePage(<GuideComingSoonPage title="Khách hàng" />)} />
+    <Route path="/guide/messages" element={guidePage(<GuideComingSoonPage title="Tin nhắn" />)} />
+    <Route path="/guide/notifications" element={guidePage(<GuideComingSoonPage title="Thông báo" />)} />
+    <Route path="/guide/profile" element={guidePage(<GuideComingSoonPage title="Hồ sơ" />)} />
+    <Route path="/guide/settings" element={guidePage(<GuideComingSoonPage title="Cài đặt chung" />)} />
     <Route path="/admin/users" element={<Navigate to="/admin/users/customers" replace />} />
     <Route path="/admin/users/customers" element={adminPage(<UserManagementPage roleName="customer" />)} />
     <Route path="/admin/users/admins" element={adminPage(<UserManagementPage roleName="admin" />)} />

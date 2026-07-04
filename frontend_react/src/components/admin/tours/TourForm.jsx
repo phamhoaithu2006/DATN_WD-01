@@ -216,18 +216,6 @@ const normalizeAgePricingRulesForSubmit = (rules = []) => {
     .filter(Boolean)
 }
 
-const getBasePriceFromAgeRules = (rules = [], fallback = 0) => {
-  const prices = normalizeAgePricingRulesForSubmit(rules)
-    .map((rule) => Number(rule.price_value || 0))
-    .filter((price) => price > 0)
-
-  if (prices.length > 0) {
-    return Math.min(...prices)
-  }
-
-  return fallback || 0
-}
-
 const getInitialFormData = (initialData = {}) => {
   let itineraryData = []
   if (Array.isArray(initialData.itinerary)) {
@@ -281,6 +269,14 @@ const getInitialThumbnailPreview = (initialData = {}) => {
       thumbnailFromImages ||
       '',
   )
+}
+
+const getInitialImagePreviews = (initialData = {}) => {
+  const images = Array.isArray(initialData.images) ? initialData.images : []
+
+  return images
+    .map((image) => normalizeImageUrl(image?.image_url || image?.url || image))
+    .filter(Boolean)
 }
 
 const normalizeList = (data) => {
@@ -452,7 +448,9 @@ function TourForm({
     getInitialThumbnailPreview(initialData || {}),
   )
   const [galleryImages, setGalleryImages] = useState([])
-  const [galleryPreviews, setGalleryPreviews] = useState([])
+  const [galleryPreviews, setGalleryPreviews] = useState(() =>
+    getInitialImagePreviews(initialData || {}),
+  )
 
   if (initialDataKey !== prevInitialDataKey) {
     setPrevInitialDataKey(initialDataKey)
@@ -460,7 +458,7 @@ function TourForm({
     setThumbnailImage(null)
     setThumbnailPreview(getInitialThumbnailPreview(initialData || {}))
     setGalleryImages([])
-    setGalleryPreviews([])
+    setGalleryPreviews(getInitialImagePreviews(initialData || {}))
   }
 
   useEffect(() => {
@@ -693,20 +691,23 @@ function TourForm({
       return
     }
 
-    const currentFiles = thumbnailImage
-      ? [thumbnailImage, ...galleryImages]
-      : []
+    const currentFiles = thumbnailImage ? [thumbnailImage, ...galleryImages] : []
 
     const nextFiles = [...currentFiles, ...selectedFiles]
     const firstFile = nextFiles[0] || null
     const otherFiles = nextFiles.slice(1)
+    const nextObjectUrls = selectedFiles.map((file) => URL.createObjectURL(file))
 
     setThumbnailImage(firstFile)
     setGalleryImages(otherFiles)
 
     if (firstFile) {
       setThumbnailPreview(URL.createObjectURL(firstFile))
-      setGalleryPreviews(nextFiles.map((file) => URL.createObjectURL(file)))
+      setGalleryPreviews((prev) => {
+        const keptPreviews = thumbnailImage ? prev : getInitialImagePreviews(initialData || {})
+
+        return [...keptPreviews, ...nextObjectUrls]
+      })
     }
 
     e.target.value = ''

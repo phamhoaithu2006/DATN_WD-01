@@ -32,6 +32,7 @@ class TourResource extends JsonResource
             'status' => $this->status,
             'average_rating' => $this->average_rating,
             'review_count' => $this->review_count,
+            'bookings_count' => (int) ($this->bookings_count ?? 0),
 
             // Kết hợp 2 trường dữ liệu thành một chuỗi hiển thị
             'duration'    => "{$this->duration_days} ngày {$this->duration_nights} đêm",

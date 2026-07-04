@@ -51,6 +51,18 @@ export async function fetchBookings() {
   return response.data?.data || []
 }
 
+export async function previewCustomerBooking(payload) {
+  const response = await api.post('/customer/bookings/preview', payload)
+
+  return response.data?.data || null
+}
+
+export async function createCustomerBooking(payload) {
+  const response = await api.post('/customer/bookings', payload)
+
+  return response.data?.data || response.data
+}
+
 export async function askTravelAssistant(message) {
   const response = await api.post('/travel-assistant', { message })
 
