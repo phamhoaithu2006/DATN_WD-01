@@ -2,7 +2,7 @@
 import { Link } from 'react-router-dom'
 import apiClient from '../../services/apiClient'
 import AdminPageHeader from '../../components/admin/AdminPageHeader'
-import { getAccountRoles, searchAccounts } from '../../services/adminAccountApi'
+import { getAccountRoles } from '../../services/adminAccountApi'
 import Icon from '../../components/customer/Icon'
 import '../../styles/support-staff.css'
 
@@ -295,6 +295,7 @@ function GuideManagementPage() {
   const [danhSachChungChi, setDanhSachChungChi] = useState([])
   const [danhSachChuyenMon, setDanhSachChuyenMon] = useState([])
   const [danhSachTaiKhoanHdv, setDanhSachTaiKhoanHdv] = useState([])
+  const [taiKhoanDangSua, setTaiKhoanDangSua] = useState(null)
   const [formHdv, setFormHdv] = useState(DEFAULT_FORM)
   const [avatarFile, setAvatarFile] = useState(null)
   const [avatarCurrentUrl, setAvatarCurrentUrl] = useState('')
@@ -322,6 +323,18 @@ function GuideManagementPage() {
     [thongKeHdv],
   )
   const idUserDaCoHdv = useMemo(() => layDanhSachIdUserDaCoHdv(danhSachHdv), [danhSachHdv])
+  const danhSachTaiKhoanHdvTrongForm = useMemo(() => {
+    if (!idDangSua || !taiKhoanDangSua?.id) {
+      return danhSachTaiKhoanHdv
+    }
+
+    const idTaiKhoanDangSua = String(taiKhoanDangSua.id)
+    const danhSachConLai = danhSachTaiKhoanHdv.filter(
+      (user) => String(user.id) !== idTaiKhoanDangSua,
+    )
+
+    return [taiKhoanDangSua, ...danhSachConLai]
+  }, [danhSachTaiKhoanHdv, idDangSua, taiKhoanDangSua])
 
   const taiThongKeHdv = useCallback(async () => {
     try {
@@ -350,7 +363,9 @@ function GuideManagementPage() {
       setDanhSachNgonNgu(unwrapList(phanHoiNgonNgu))
       setDanhSachChungChi(unwrapList(phanHoiChungChi))
       setDanhSachChuyenMon(unwrapList(phanHoiChuyenMon))
-      const danhSachTaiKhoan = roleHDV?.id ? await searchAccounts({ role_id: roleHDV.id }) : []
+      const danhSachTaiKhoan = roleHDV?.id
+        ? unwrapList(await apiClient.get('/admin/guides/available-users'))
+        : []
       setDanhSachTaiKhoanHdv(Array.isArray(danhSachTaiKhoan) ? danhSachTaiKhoan : [])
     } catch (error) {
       setLoi(getErrorMessage(error, 'Không tải được danh mục ngôn ngữ/chứng chỉ/chuyên môn.'))
@@ -535,10 +550,12 @@ function GuideManagementPage() {
     setAvatarRemoveRequested(false)
     setIdDangSua(null)
     setMaHienThiDangSua('')
+    setTaiKhoanDangSua(null)
     setLoi('')
     setLoiForm({})
     setThongBao('')
     setHienForm(true)
+    void taiDanhMucHdv()
   }
   function moFormChinhSua(hdv) {
     setFormHdv({
@@ -554,6 +571,7 @@ function GuideManagementPage() {
     setAvatarRemoveRequested(false)
     setIdDangSua(hdv.id)
     setMaHienThiDangSua(hdv.guide_code || '')
+    setTaiKhoanDangSua(hdv.user || null)
     setLoi('')
     setLoiForm({})
     setThongBao('')
@@ -567,6 +585,7 @@ function GuideManagementPage() {
     setAvatarRemoveRequested(false)
     setIdDangSua(null)
     setMaHienThiDangSua('')
+    setTaiKhoanDangSua(null)
     setLoiForm({})
     setHienForm(false)
   }
@@ -945,7 +964,7 @@ function GuideManagementPage() {
                   <option value="" disabled>
                     Chọn HDV
                   </option>
-                  {danhSachTaiKhoanHdv
+                  {danhSachTaiKhoanHdvTrongForm
                     .filter((user) => {
                       if (idDangSua && String(user.id) === String(formHdv.user_id)) {
                         return true

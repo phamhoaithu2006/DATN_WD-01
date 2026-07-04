@@ -146,6 +146,7 @@ Route::prefix('admin')->group(function () {
     Route::get('guides/search', [GuideController::class, 'search']);
     Route::get('guides/filter', [GuideController::class, 'filter']);
     Route::get('guides/statistics', [GuideController::class, 'statistics']);
+    Route::get('guides/available-users', [GuideController::class, 'availableUsers']);
     Route::patch('guides/{id}/restore', [GuideController::class, 'restore']);
     Route::delete('guides/{id}/force', [GuideController::class, 'forceDelete']);
     Route::get('guides', [GuideController::class, 'index']);
