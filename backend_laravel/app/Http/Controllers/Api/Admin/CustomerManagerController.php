@@ -276,11 +276,11 @@ class CustomerManagerController extends Controller
             'full_name' => 'required|string|max:255',
             'email'     => 'required|email|unique:users,email',
             'password'  => 'required|min:6',
-            'phone'     => 'nullable|string|max:15',
+            'phone'     => 'nullable|string|max:10',
             'role_id'   => 'required|exists:roles,id',
 
             // FE gửi file với key là avatar
-            'avatar'    => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
+            'avatar'    => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
         ]);
 
         $avatarUrl = null;

@@ -25,11 +25,11 @@ class CustomerController extends Controller
             'full_name' => 'required|string|max:255',
 
             // Số điện thoại có thể bỏ trống, tối đa 20 ký tự
-            'phone' => 'nullable|string|max:20',
+            'phone' => 'nullable|string|max:10',
 
             // FE gửi file ảnh với key là "avatar"
             // Chỉ nhận jpg, jpeg, png, webp và dung lượng tối đa 2MB
-            'avatar' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
+            'avatar' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
         ]);
 
         // 2. Lấy user hiện đang đăng nhập từ token Sanctum
