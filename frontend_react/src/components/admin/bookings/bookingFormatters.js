@@ -41,6 +41,12 @@ export const customerPhone = (booking) =>
   booking.user?.email ||
   ''
 
+export const bookingDeparture = (booking) =>
+  booking.tour_departure ||
+  booking.tourDeparture ||
+  booking.departure ||
+  null
+
 export const initialsFor = (name) =>
   name
     .split(' ')

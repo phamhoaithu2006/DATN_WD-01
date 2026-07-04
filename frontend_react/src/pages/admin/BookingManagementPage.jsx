@@ -159,7 +159,7 @@ function BookingManagementPage() {
   }
 
   const removeBooking = async (booking) => {
-    if (!window.confirm(`Xóa vĩnh viễn booking ${booking.booking_code}?`)) return
+    if (!window.confirm('Xóa vĩnh viễn booking này?')) return
 
     setBusy(`delete-${booking.id}`)
     try {

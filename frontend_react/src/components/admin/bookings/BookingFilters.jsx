@@ -25,7 +25,7 @@ function BookingFilters({
           <SearchIcon />
           <input
             value={search}
-            placeholder="Tìm theo mã booking, khách hàng, tour..."
+            placeholder="Tìm theo khách hàng hoặc số điện thoại..."
             onChange={(event) => onSearchChange(event.target.value)}
           />
         </label>
