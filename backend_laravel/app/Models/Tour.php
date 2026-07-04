@@ -4,16 +4,15 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use App\Models\TourImage;
 
 class Tour extends Model
 {
     use HasFactory, SoftDeletes;
 
     protected $table = 'tours';
-
 
     protected $fillable = [
         'category_id',
@@ -44,72 +43,93 @@ class Tour extends Model
     ];
 
     /**
-     * Lấy danh mục mà đối tượng này thuộc về.
-     * Quan hệ: N-1 (N đối tượng thuộc về 1 Category)
-     * Mặc định sử dụng khóa ngoại: category_id
+     * Một tour thuộc một danh mục.
      */
     public function category()
     {
-        return $this->belongsTo(Category::class);
+        return $this->belongsTo(Category::class, 'category_id');
     }
 
     /**
-     * Lấy địa điểm (destination) mà đối tượng này thuộc về.
-     * Quan hệ: N-1 (N đối tượng thuộc về 1 Destination)
-     * Mặc định sử dụng khóa ngoại: destination_id
+     * Điểm đến chính cũ của tour.
+     * Dùng cột destination_id trong bảng tours.
      */
     public function destination()
     {
-        return $this->belongsTo(Destination::class);
+        return $this->belongsTo(Destination::class, 'destination_id');
     }
 
     /**
-     * Quan hệ với User (Nhiều Tour được yêu thích bởi Nhiều User).
-     * Sử dụng bảng trung gian là 'wishlists'.
-     * * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
+     * Nhiều điểm đến mới của tour.
+     * Dùng bảng trung gian tour_destinations.
      */
-    public function usersWhoLiked()
+    public function destinations(): BelongsToMany
     {
-        // belongsToMany(Model_liên_kết, tên_bảng_trung_gian, khóa_ngoại_của_model_này, khóa_ngoại_của_model_liên_kết)
-        return $this->belongsToMany(User::class, 'wishlists', 'tour_id', 'user_id');
+        return $this->belongsToMany(
+            Destination::class,
+            'tour_destinations',
+            'tour_id',
+            'destination_id',
+        )
+            ->withPivot('sort_order')
+            ->orderBy('tour_destinations.sort_order');
     }
 
     /**
-     * Quan hệ 1-N: Một Tour có nhiều TourDeparture (lịch khởi hành).
+     * Người dùng đã yêu thích tour.
      */
-    public function departures()
+    public function usersWhoLiked(): BelongsToMany
     {
-        return $this->hasMany(TourDeparture::class);
+        return $this->belongsToMany(
+            User::class,
+            'wishlists',
+            'tour_id',
+            'user_id',
+        );
     }
 
+    /**
+     * Các lịch khởi hành của tour.
+     */
+    public function departures(): HasMany
+    {
+        return $this->hasMany(TourDeparture::class, 'tour_id');
+    }
+
+    /**
+     * Các đơn đặt tour.
+     */
     public function bookings(): HasMany
     {
-        return $this->hasMany(Booking::class);
+        return $this->hasMany(Booking::class, 'tour_id');
     }
 
+    /**
+     * Quy tắc giá theo độ tuổi.
+     */
     public function agePricingRules(): HasMany
     {
-        return $this->hasMany(TourAgePricingRule::class)
+        return $this->hasMany(TourAgePricingRule::class, 'tour_id')
             ->orderBy('sort_order')
             ->orderBy('min_age')
             ->orderBy('id');
     }
 
     /**
-     * Quan hệ 1-N: Một Tour có nhiều hoạt động lịch trình.
+     * Lịch trình tour.
      */
-    public function itineraries()
+    public function itineraries(): HasMany
     {
-        return $this->hasMany(TourItinerary::class)
+        return $this->hasMany(TourItinerary::class, 'tour_id')
             ->orderBy('day_number')
             ->orderBy('sort_order')
             ->orderBy('id');
     }
+
     /**
-     * Quan hệ 1-N: Một Tour có nhiều ảnh.
-     * Dữ liệu lấy từ bảng tour_images.
+     * Toàn bộ ảnh của tour.
      */
-    public function images()
+    public function images(): HasMany
     {
         return $this->hasMany(TourImage::class, 'tour_id')
             ->orderByDesc('is_thumbnail')
@@ -118,8 +138,7 @@ class Tour extends Model
     }
 
     /**
-     * Ảnh đại diện của tour.
-     * Lấy ảnh có is_thumbnail = 1.
+     * Ảnh đại diện tour.
      */
     public function thumbnail()
     {

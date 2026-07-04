@@ -8,6 +8,8 @@ const api = axios.create({
   },
 })
 
+
+
 api.interceptors.request.use((config) => {
   const token = readToken()
 
@@ -19,12 +21,9 @@ api.interceptors.request.use((config) => {
 })
 
 export async function fetchTours(params = {}) {
-  const endpoint = params.keyword || params.destination_id || params.start_date || params.guests
-    ? '/tours/search'
-    : '/tours'
-  const response = await api.get(endpoint, { params })
+  const response = await api.get("/tours", { params });
 
-  return response.data?.data || []
+  return response.data?.data || [];
 }
 
 export async function fetchTourDetail(slug) {
@@ -84,26 +83,24 @@ export async function removeWishlist(tourId) {
 }
 
 export async function updateProfile(payload) {
-  const hasAvatar = payload?.avatar instanceof File
+  const formData = new FormData();
 
-  if (!hasAvatar) {
-    return api.put('/profile/update', payload)
+  // POST + _method=PUT để Laravel nhận được cả file avatar.
+  formData.append("_method", "PUT");
+  formData.append("full_name", String(payload.full_name || "").trim());
+  formData.append("phone", String(payload.phone || "").trim());
+
+  if (payload.avatar instanceof File) {
+    formData.append("avatar", payload.avatar);
   }
 
-  const formData = new FormData()
-  formData.append('_method', 'PUT')
-
-  Object.entries(payload).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== '') {
-      formData.append(key, value)
-    }
-  })
-
-  return api.put('/profile/update', formData)
+  return api.post("/profile/update", formData);
 }
 
 export async function changePassword(payload) {
   return api.put('/profile/change-password', payload)
 }
+
+
 
 export default api
