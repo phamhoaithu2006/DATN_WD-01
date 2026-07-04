@@ -94,11 +94,11 @@ class GuideProfileController extends Controller
         $validated = $request->validate([
             'full_name' => 'sometimes|string|max:255',
             'email' => 'sometimes|email|max:255|unique:users,email,' . $user->id,
-            'phone' => 'sometimes|nullable|string|max:20',
+            'phone' => 'sometimes|nullable|string|max:10',
 
             // FE gửi file ảnh với key là avatar
             // Chỉ nhận jpg, jpeg, png, webp, tối đa 2MB
-            'avatar' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
+            'avatar' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
 
             'certificate_type' => 'sometimes|string|max:255',
             'experience_years' => 'sometimes|integer|min:0',
