@@ -26,12 +26,6 @@ export async function fetchTours(params = {}) {
   return response.data?.data || [];
 }
 
-export async function fetchTourDetail(slug) {
-  const response = await api.get(`/tours/${encodeURIComponent(slug)}`)
-
-  return response.data?.data || null
-}
-
 export async function filterTours(params = {}) {
   const response = await api.get('/tours/filter', { params })
 
