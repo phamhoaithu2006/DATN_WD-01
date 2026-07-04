@@ -79,7 +79,7 @@ function AppRoutes() {
     <Route path="/guide/customers" element={guidePage(<GuideComingSoonPage title="Khách hàng" />)} />
     <Route path="/guide/messages" element={guidePage(<GuideComingSoonPage title="Tin nhắn" />)} />
     <Route path="/guide/notifications" element={guidePage(<GuideComingSoonPage title="Thông báo" />)} />
-    <Route path="/guide/profile" element={guidePage(<GuideComingSoonPage title="Hồ sơ" />)} />
+    <Route path="/guide/profile" element={guidePage(<GuideProfilePage />)} />
     <Route path="/guide/settings" element={guidePage(<GuideComingSoonPage title="Cài đặt chung" />)} />
     <Route path="/admin/users" element={<Navigate to="/admin/users/customers" replace />} />
     <Route path="/admin/users/customers" element={adminPage(<UserManagementPage roleName="customer" />)} />
@@ -133,19 +133,15 @@ function AppRoutes() {
     <Route path="/admin/support" element={adminPage(<SupportStaffManagementPage />)} />
     <Route path="/admin/support/trash" element={adminPage(<SupportStaffTrashPage />)} />
     {/* Quản lý nhân Thông báo */}
-    <Route  path="/admin/notifications"  element={adminPage(<AdminNotificationsPage />)}/>
+    <Route path="/admin/notifications" element={adminPage(<AdminNotificationsPage />)} />
+    <Route path="/admin/languages" element={adminPage(<LanguageManagementPage />)} />
+    <Route path="/admin/certificates" element={adminPage(<CertificateManagementPage />)} />
     <Route path="/admin/*" element={<Navigate to="/admin" replace />} />
     <Route path="*" element={<Navigate to="/" replace />} />
-    <Route
-  path="/admin/languages"
-  element={adminPage(<LanguageManagementPage />)}
-/>
-    <Route
-      path="/admin/certificates"
-      element={adminPage(<CertificateManagementPage />)}
-    />
   </Routes>
   
 }
 
 export default AppRoutes
+
+

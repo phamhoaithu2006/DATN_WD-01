@@ -239,6 +239,18 @@ class CustomerManagerController extends Controller
             return $q->where('role_id', $request->role_id);
         });
 
+        if ($request->boolean('exclude_completed_support_staff')) {
+            $query->whereDoesntHave('supportStaff', function ($supportStaffQuery) {
+                $supportStaffQuery
+                    ->whereNotNull('specialization')
+                    ->where('specialization', '!=', '')
+                    ->whereNotNull('experience_years')
+                    ->whereNotNull('status')
+                    ->where('status', '!=', '');
+            });
+        }
+
+
         // 2. Lọc theo status
         $query->when($request->status, function ($q) use ($request) {
             return $q->where('status', $request->status);

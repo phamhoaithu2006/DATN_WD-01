@@ -22,10 +22,17 @@ const STATUS_OPTIONS = [
   { value: 'hidden', label: 'Tạm khóa' },
 ]
 
+const SPECIALIZATION_OPTIONS = [
+  { value: 'noi_dia', label: 'Nội địa' },
+  { value: 'quoc_te', label: 'Quốc tế' },
+]
+
 const EMPTY_FORM = {
   account_id: '',
   name: '',
   email: '',
+  specialization: '',
+  experience_years: '',
   status: '',
 }
 
@@ -95,6 +102,10 @@ function getStatusLabel(status) {
   return STATUS_OPTIONS.find((item) => item.value === status)?.label || status
 }
 
+function getSpecializationLabel(value) {
+  return SPECIALIZATION_OPTIONS.find((item) => item.value === value)?.label || value || '—'
+}
+
 function getAccountLabel(account) {
   return account?.full_name || account?.name || 'Chưa có tên'
 }
@@ -127,6 +138,20 @@ function validateForm(form, editing) {
     }
   } else if (!form.account_id) {
     errors.account_id = 'Chọn NVHT'
+  }
+
+  if (!form.specialization) {
+    errors.specialization = 'Vui lòng chọn chuyên môn.'
+  }
+
+  const experienceYears = Number(form.experience_years)
+
+  if (
+    form.experience_years === '' ||
+    !Number.isInteger(experienceYears) ||
+    experienceYears < 0
+  ) {
+    errors.experience_years = 'Số năm kinh nghiệm phải là số nguyên từ 0.'
   }
 
   if (!form.status || !STATUS_OPTIONS.some((item) => item.value === form.status)) {
@@ -200,14 +225,19 @@ function SupportStaffFormModal({
   avatarPreviewUrl,
   avatarCurrentUrl,
   avatarInputRef,
+  avatarRemoveRequested,
   onChange,
   onPickAccount,
   onPickAvatar,
   onOpenAvatarPicker,
+  onClearSelectedAvatar,
+  onRequestRemoveCurrentAvatar,
   onClose,
   onSubmit,
   editing,
 }) {
+  const avatarDisplayUrl = avatarPreviewUrl || (avatarRemoveRequested ? '' : avatarCurrentUrl)
+
   return (
     <div className="support-modal-backdrop" role="presentation" onMouseDown={onClose}>
       <form
@@ -246,6 +276,35 @@ function SupportStaffFormModal({
           </label>
 
           <label>
+            Chuyên môn
+            <select value={form.specialization} onChange={onChange('specialization')}>
+              <option value="" disabled>
+                Chọn chuyên môn
+              </option>
+              {SPECIALIZATION_OPTIONS.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+            {errors.specialization ? <span className="support-field-error">{errors.specialization}</span> : null}
+          </label>
+
+          <label>
+            Số năm kinh nghiệm
+            <input
+              min="0"
+              type="number"
+              value={form.experience_years}
+              onChange={onChange('experience_years')}
+              placeholder="Nhập số năm kinh nghiệm"
+            />
+            {errors.experience_years ? (
+              <span className="support-field-error">{errors.experience_years}</span>
+            ) : null}
+          </label>
+
+          <label>
             Trạng thái
             <select value={form.status} onChange={onChange('status')}>
               <option value="" disabled>
@@ -271,10 +330,10 @@ function SupportStaffFormModal({
                 onChange={onPickAvatar}
               />
               <div className="guide-avatar-preview">
-                {avatarPreviewUrl || avatarCurrentUrl ? (
+                {avatarDisplayUrl ? (
                   <img
                     alt={form.name || 'Ảnh đại diện nhân viên hỗ trợ'}
-                    src={avatarPreviewUrl || avatarCurrentUrl}
+                    src={avatarDisplayUrl}
                   />
                 ) : (
                   <span>Chưa có ảnh</span>
@@ -287,10 +346,26 @@ function SupportStaffFormModal({
                 <span className="guide-avatar-upload-meta">
                   {avatarFile
                     ? `Đã chọn: ${avatarFile.name}`
+                    : avatarRemoveRequested
+                      ? 'Đã chọn xóa avatar hiện tại.'
                     : avatarCurrentUrl
                       ? 'Đang dùng ảnh đại diện hiện tại.'
                       : 'Hỗ trợ JPG, PNG hoặc WebP tối đa 2MB.'}
                 </span>
+                {avatarFile ? (
+                  <button className="guide-avatar-action" type="button" onClick={onClearSelectedAvatar}>
+                    Hủy ảnh đã chọn
+                  </button>
+                ) : null}
+                {editing && (avatarCurrentUrl || avatarRemoveRequested) && !avatarFile ? (
+                  <button
+                    className="guide-avatar-action"
+                    type="button"
+                    onClick={onRequestRemoveCurrentAvatar}
+                  >
+                    {avatarRemoveRequested ? 'Hoàn tác xóa avatar' : 'Xóa avatar hiện tại'}
+                  </button>
+                ) : null}
               </div>
             </div>
           </label>
@@ -360,16 +435,20 @@ function SupportStaffDetailModal({ staff, loading, deletingAvatar, onClose, onDe
                 <dd>{staff?.email || '—'}</dd>
               </div>
               <div>
+                <dt>Chuyên môn</dt>
+                <dd>{getSpecializationLabel(staff?.specialization)}</dd>
+              </div>
+              <div>
+                <dt>Số năm kinh nghiệm</dt>
+                <dd>{Number(staff?.experience_years || 0)} năm</dd>
+              </div>
+              <div>
                 <dt>Ngày tạo</dt>
                 <dd>{formatDateTime(staff?.created_at)}</dd>
               </div>
               <div>
                 <dt>Cập nhật gần nhất</dt>
                 <dd>{formatDateTime(staff?.updated_at)}</dd>
-              </div>
-              <div>
-                <dt>Ẩn từ</dt>
-                <dd>{formatDateTime(staff?.hidden_at)}</dd>
               </div>
             </dl>
 
@@ -398,6 +477,7 @@ function SupportStaffManagementPage() {
   })
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [specializationFilter, setSpecializationFilter] = useState('')
   const [page, setPage] = useState(1)
   const [pagination, setPagination] = useState({
     currentPage: 1,
@@ -420,6 +500,7 @@ function SupportStaffManagementPage() {
   const [avatarFile, setAvatarFile] = useState(null)
   const [avatarCurrentUrl, setAvatarCurrentUrl] = useState('')
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState('')
+  const [avatarRemoveRequested, setAvatarRemoveRequested] = useState(false)
   const avatarInputRef = useRef(null)
 
   function handleStatCardClick(status) {
@@ -440,6 +521,7 @@ function SupportStaffManagementPage() {
     setAvatarFile(null)
     setAvatarPreviewUrl('')
     setAvatarCurrentUrl(currentUrl || '')
+    setAvatarRemoveRequested(false)
   }
 
   function resetForm(nextEditing = null) {
@@ -448,6 +530,8 @@ function SupportStaffManagementPage() {
         account_id: getCurrentAccountId(nextEditing, accountOptions),
         name: nextEditing.name || '',
         email: nextEditing.email || '',
+        specialization: nextEditing.specialization || '',
+        experience_years: nextEditing.experience_years ?? '',
         status: nextEditing.status || '',
       })
       setEditingStaff(nextEditing)
@@ -531,9 +615,41 @@ function SupportStaffManagementPage() {
   function pickAvatar(event) {
     const file = event.target.files?.[0] || null
 
+    if (!file) {
+      return
+    }
+
     revokePreviewUrl(avatarPreviewUrl)
     setAvatarFile(file)
     setAvatarPreviewUrl(file ? URL.createObjectURL(file) : '')
+    setAvatarRemoveRequested(false)
+  }
+
+  function clearSelectedAvatar() {
+    revokePreviewUrl(avatarPreviewUrl)
+    setAvatarFile(null)
+    setAvatarPreviewUrl('')
+    setAvatarRemoveRequested(false)
+
+    if (avatarInputRef.current) {
+      avatarInputRef.current.value = ''
+    }
+  }
+
+  function requestRemoveCurrentAvatar() {
+    if (avatarRemoveRequested) {
+      setAvatarRemoveRequested(false)
+      return
+    }
+
+    revokePreviewUrl(avatarPreviewUrl)
+    setAvatarFile(null)
+    setAvatarPreviewUrl('')
+    setAvatarRemoveRequested(true)
+
+    if (avatarInputRef.current) {
+      avatarInputRef.current.value = ''
+    }
   }
 
   const loadStatistics = useCallback(async () => {
@@ -555,6 +671,7 @@ function SupportStaffManagementPage() {
           per_page: 10,
           search: search.trim() || undefined,
           status: statusFilter || undefined,
+          specialization: specializationFilter || undefined,
         })
 
         setStaffList(getListData(response))
@@ -565,7 +682,7 @@ function SupportStaffManagementPage() {
         setLoading(false)
       }
     },
-    [page, search, statusFilter],
+    [page, search, statusFilter, specializationFilter],
   )
 
   const loadAccounts = useCallback(async () => {
@@ -578,6 +695,7 @@ function SupportStaffManagementPage() {
 
       const accounts = await getAccounts({
         role_id: supportRole.id,
+        exclude_completed_support_staff: true,
       })
 
       setAccountOptions(Array.isArray(accounts) ? accounts : [])
@@ -642,6 +760,8 @@ function SupportStaffManagementPage() {
     try {
       const payload = {
         role: 'customer_service',
+        specialization: form.specialization,
+        experience_years: Number(form.experience_years),
         status: form.status,
         ...(form.account_id ? { user_id: Number(form.account_id) } : {}),
       }
@@ -657,6 +777,12 @@ function SupportStaffManagementPage() {
       if (avatarFile && savedStaffId) {
         try {
           await uploadSupportStaffAvatar(savedStaffId, avatarFile)
+        } catch {
+          avatarUploadFailed = true
+        }
+      } else if (editingStaff && avatarRemoveRequested && savedStaffId) {
+        try {
+          await deleteSupportStaffAvatar(savedStaffId)
         } catch {
           avatarUploadFailed = true
         }
@@ -827,6 +953,21 @@ function SupportStaffManagementPage() {
                 </option>
               ))}
             </select>
+
+            <select
+              value={specializationFilter}
+              onChange={(event) => {
+                setSpecializationFilter(event.target.value)
+                setPage(1)
+              }}
+            >
+              <option value="">Tất cả chuyên môn</option>
+              {SPECIALIZATION_OPTIONS.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="support-table-wrap">
@@ -836,7 +977,8 @@ function SupportStaffManagementPage() {
                   <th>Avatar</th>
                   <th>Mã NV</th>
                   <th>Họ tên</th>
-                  <th>Email</th>
+                  <th>Chuyên môn</th>
+                  <th>Kinh nghiệm</th>
                   <th>Trạng thái</th>
                   <th>Hành động</th>
                 </tr>
@@ -845,7 +987,7 @@ function SupportStaffManagementPage() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td className="support-empty-row" colSpan="6">
+                    <td className="support-empty-row" colSpan="7">
                       <div className="support-loading">
                         <span />
                         <p>Đang tải danh sách nhân viên hỗ trợ...</p>
@@ -854,7 +996,7 @@ function SupportStaffManagementPage() {
                   </tr>
                 ) : staffList.length === 0 ? (
                   <tr>
-                    <td className="support-empty-row" colSpan="6">
+                    <td className="support-empty-row" colSpan="7">
                       <div className="support-empty-state">
                         <strong>Không tìm thấy nhân viên phù hợp</strong>
                         <span>Hãy thử đổi bộ lọc hoặc từ khóa tìm kiếm.</span>
@@ -872,8 +1014,10 @@ function SupportStaffManagementPage() {
                       </td>
                       <td>
                         <strong className="support-name">{staff.name}</strong>
+                        <span className="support-email">{staff.email || '—'}</span>
                       </td>
-                      <td>{staff.email || '—'}</td>
+                      <td>{getSpecializationLabel(staff.specialization)}</td>
+                      <td>{Number(staff.experience_years || 0)} năm</td>
                       <td>
                         <span className={`support-status ${staff.status}`}>
                           {getStatusLabel(staff.status)}
@@ -949,10 +1093,13 @@ function SupportStaffManagementPage() {
           avatarPreviewUrl={avatarPreviewUrl}
           avatarCurrentUrl={avatarCurrentUrl}
           avatarInputRef={avatarInputRef}
+          avatarRemoveRequested={avatarRemoveRequested}
           onChange={changeField}
           onPickAccount={pickAccount}
           onPickAvatar={pickAvatar}
           onOpenAvatarPicker={openAvatarPicker}
+          onClearSelectedAvatar={clearSelectedAvatar}
+          onRequestRemoveCurrentAvatar={requestRemoveCurrentAvatar}
           onClose={closeForm}
           onSubmit={handleSubmit}
           saving={saving}

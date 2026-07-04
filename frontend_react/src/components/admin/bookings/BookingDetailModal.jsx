@@ -1,5 +1,7 @@
+import BookingBadge from './BookingBadge'
 import { paymentOptions, statusOptions } from './bookingConstants'
 import {
+  bookingDeparture,
   customerName,
   customerPhone,
   formatDate,
@@ -8,77 +10,145 @@ import {
 
 function BookingDetailModal({ booking, busy, onClose, onPaymentChange, onStatusChange }) {
   const name = customerName(booking)
+  const phone = customerPhone(booking)
+  const departure = bookingDeparture(booking)
+  const participants = Array.isArray(booking.participants) ? booking.participants : []
+  const contact = booking.contact || {}
+  const departureText = departure
+    ? `${formatDate(departure.departure_date)} - ${formatDate(departure.return_date)}`
+    : 'Chưa có lịch khởi hành'
 
   return (
     <div className="booking-modal-backdrop" role="presentation" onMouseDown={onClose}>
-      <article className="booking-modal" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
-        <header>
+      <article className="booking-modal booking-detail-modal" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
+        <header className="booking-detail-header">
           <div>
             <p>Chi tiết booking</p>
-            <h2>{booking.booking_code}</h2>
+            <h2>{booking.booking_code || `#${booking.id}`}</h2>
+            <span>{booking.tour?.title || 'Chưa có thông tin tour'}</span>
           </div>
-          <button type="button" onClick={onClose}>×</button>
+          <div className="booking-detail-header-actions">
+            <BookingBadge type="status" value={booking.status} />
+            <BookingBadge type="payment" value={booking.payment_status} />
+            <button type="button" aria-label="Đóng" onClick={onClose}>×</button>
+          </div>
         </header>
 
-        <div className="booking-detail-grid">
+        <div className="booking-detail-summary">
           <section>
             <span>Khách hàng</span>
             <strong>{name}</strong>
-            <small>{customerPhone(booking)}</small>
+            <small>{phone || contact.contact_email || '--'}</small>
           </section>
           <section>
-            <span>Tour</span>
-            <strong>{booking.tour?.title || '--'}</strong>
-            <small>
-              {booking.tourDeparture
-                ? `${formatDate(booking.tourDeparture.departure_date)} - ${formatDate(booking.tourDeparture.return_date)}`
-                : 'Chưa có lịch khởi hành'}
-            </small>
+            <span>Lịch khởi hành</span>
+            <strong>{departureText}</strong>
+            <small>{booking.number_of_people || 0} khách</small>
           </section>
-          <section>
-            <span>Số khách</span>
-            <strong>{booking.number_of_people || 0}</strong>
-            <small>Đơn giá {formatMoney(booking.unit_price)}</small>
-          </section>
-          <section>
+          <section className="booking-detail-money">
             <span>Tổng tiền</span>
             <strong>{formatMoney(booking.total_amount)}</strong>
             <small>Giảm giá {formatMoney(booking.discount_amount)}</small>
           </section>
         </div>
 
-        <div className="booking-detail-actions">
-          <label>
-            Trạng thái
-            <select
-              value={booking.status || ''}
-              disabled={busy}
-              onChange={(event) => onStatusChange(booking, event.target.value)}
-            >
-              {statusOptions.filter((item) => item.value).map((item) => (
-                <option key={item.value} value={item.value}>{item.label}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Thanh toán
-            <select
-              value={booking.payment_status || ''}
-              disabled={busy}
-              onChange={(event) => onPaymentChange(booking, event.target.value)}
-            >
-              {paymentOptions.filter((item) => item.value).map((item) => (
-                <option key={item.value} value={item.value}>{item.label}</option>
-              ))}
-            </select>
-          </label>
+        <div className="booking-detail-body">
+          <section className="booking-detail-panel">
+            <div className="booking-detail-panel-title">
+              <span>Thông tin liên hệ</span>
+            </div>
+            <dl className="booking-detail-list">
+              <div>
+                <dt>Họ tên</dt>
+                <dd>{contact.contact_name || name}</dd>
+              </div>
+              <div>
+                <dt>Số điện thoại</dt>
+                <dd>{contact.contact_phone || phone || '--'}</dd>
+              </div>
+              <div>
+                <dt>Email</dt>
+                <dd>{contact.contact_email || booking.user?.email || '--'}</dd>
+              </div>
+              <div>
+                <dt>Địa chỉ</dt>
+                <dd>{contact.address || '--'}</dd>
+              </div>
+            </dl>
+          </section>
+
+          <section className="booking-detail-panel">
+            <div className="booking-detail-panel-title">
+              <span>Thanh toán và xử lý</span>
+            </div>
+            <div className="booking-detail-controls">
+              <label>
+                Trạng thái
+                <select
+                  value={booking.status || ''}
+                  disabled={busy}
+                  onChange={(event) => onStatusChange(booking, event.target.value)}
+                >
+                  {statusOptions.filter((item) => item.value).map((item) => (
+                    <option key={item.value} value={item.value}>{item.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Thanh toán
+                <select
+                  value={booking.payment_status || ''}
+                  disabled={busy}
+                  onChange={(event) => onPaymentChange(booking, event.target.value)}
+                >
+                  {paymentOptions.filter((item) => item.value).map((item) => (
+                    <option key={item.value} value={item.value}>{item.label}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <dl className="booking-detail-list compact">
+              <div>
+                <dt>Đơn giá</dt>
+                <dd>{formatMoney(booking.unit_price)}</dd>
+              </div>
+              <div>
+                <dt>Ngày đặt</dt>
+                <dd>{formatDate(booking.created_at)}</dd>
+              </div>
+            </dl>
+          </section>
         </div>
 
-        {booking.note ? (
-          <div className="booking-note">
+        {participants.length ? (
+          <section className="booking-detail-panel booking-participants-panel">
+            <div className="booking-detail-panel-title">
+              <span>Danh sách hành khách</span>
+              <strong>{participants.length}</strong>
+            </div>
+            <div className="booking-participant-list">
+              {participants.map((participant, index) => (
+                <div className="booking-participant-item" key={participant.id || `${participant.full_name}-${index}`}>
+                  <span>{index + 1}</span>
+                  <div>
+                    <strong>{participant.full_name || 'Hành khách'}</strong>
+                    <small>
+                      {formatDate(participant.birth_date)}
+                      {participant.phone ? ` · ${participant.phone}` : ''}
+                    </small>
+                  </div>
+                  <b>{formatMoney(participant.unit_price)}</b>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        {booking.note || contact.special_request ? (
+          <section className="booking-note">
             <span>Ghi chú</span>
-            <p>{booking.note}</p>
-          </div>
+            <p>{booking.note || contact.special_request}</p>
+          </section>
         ) : null}
       </article>
     </div>

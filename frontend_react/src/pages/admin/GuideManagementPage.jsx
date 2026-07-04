@@ -232,6 +232,7 @@ function validateGuideForm(formHdv) {
   if (!danhSachTrangThaiApi.includes(formHdv.status)) {
     loiMoi.status = 'Vui lòng chọn trạng thái.'
   }
+
   if (languages.length === 0) {
     loiMoi.languages = 'Vui lòng thêm ít nhất một ngôn ngữ.'
   }

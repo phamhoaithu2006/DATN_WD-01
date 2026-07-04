@@ -14,6 +14,11 @@ use Illuminate\Validation\Rule;
 class SupportStaffController extends Controller
 {
     private const STATUSES = ['active', 'inactive', 'hidden'];
+    private const SPECIALIZATIONS = ['noi_dia', 'quoc_te'];
+    private const SPECIALIZATION_LABELS = [
+        'noi_dia' => 'Nội địa',
+        'quoc_te' => 'Quốc tế',
+    ];
 
     private function supportStaffQuery()
     {
@@ -33,6 +38,13 @@ class SupportStaffController extends Controller
             $staff->setAttribute('name', $staff->user->full_name);
             $staff->setAttribute('email', $staff->user->email);
             $staff->setAttribute('avatar_url', $staff->user->avatar_url);
+        }
+
+        if ($staff) {
+            $staff->setAttribute(
+                'specialization_label',
+                self::SPECIALIZATION_LABELS[$staff->specialization ?? ''] ?? ($staff->specialization ?? null),
+            );
         }
 
         return $staff;
@@ -63,6 +75,10 @@ class SupportStaffController extends Controller
 
         if ($request->filled('status')) {
             $query->where('status', $request->input('status'));
+        }
+
+        if ($request->filled('specialization')) {
+            $query->where('specialization', $request->input('specialization'));
         }
 
         if ($request->filled('rating_from')) {
@@ -134,6 +150,8 @@ class SupportStaffController extends Controller
                 Rule::unique('support_staff', 'user_id')->whereNull('deleted_at'),
                 Rule::exists('users', 'id'),
             ],
+            'specialization' => ['required', 'string', Rule::in(self::SPECIALIZATIONS)],
+            'experience_years' => ['required', 'integer', 'min:0'],
             'role' => 'required|string|max:100',
             'status' => ['nullable', 'string', Rule::in(self::STATUSES)],
             'performance_rating' => 'nullable|numeric|between:0,5',
@@ -195,6 +213,8 @@ class SupportStaffController extends Controller
                 Rule::exists('users', 'id'),
                 Rule::unique('support_staff', 'user_id')->ignore($id)->whereNull('deleted_at'),
             ],
+            'specialization' => ['sometimes', 'required', 'string', Rule::in(self::SPECIALIZATIONS)],
+            'experience_years' => ['sometimes', 'required', 'integer', 'min:0'],
             'role' => 'sometimes|required|string|max:100',
             'status' => ['sometimes', 'required', 'string', Rule::in(self::STATUSES)],
             'performance_rating' => 'sometimes|required|numeric|between:0,5',

@@ -18,12 +18,15 @@ class SupportStaff extends Model
         'name',
         'email',
         'role',
+        'specialization',
+        'experience_years',
         'status',
         'performance_rating',
         'hidden_at',
     ];
 
     protected $casts = [
+        'experience_years' => 'integer',
         'performance_rating' => 'decimal:2',
         'hidden_at' => 'datetime',
         'created_at' => 'datetime',

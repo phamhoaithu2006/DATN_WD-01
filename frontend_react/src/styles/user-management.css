@@ -532,6 +532,21 @@
   padding: 12px;
   width: 100%;
 }
+.user-form-grid input.is-invalid,
+.user-form-grid select.is-invalid {
+  background: #fff7f7;
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+}
+.user-field-error {
+  color: #dc2626 !important;
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+  margin-top: 6px;
+  white-space: normal !important;
+}
 .user-form-grid input.user-role-input {
   background: #ecfdf5;
   border-color: #86efac;
