@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\TourImage;
 
@@ -79,6 +80,14 @@ class Tour extends Model
     public function departures()
     {
         return $this->hasMany(TourDeparture::class);
+    }
+
+    public function agePricingRules(): HasMany
+    {
+        return $this->hasMany(TourAgePricingRule::class)
+            ->orderBy('sort_order')
+            ->orderBy('min_age')
+            ->orderBy('id');
     }
 
     /**

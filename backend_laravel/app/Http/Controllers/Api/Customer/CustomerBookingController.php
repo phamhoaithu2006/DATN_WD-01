@@ -7,6 +7,8 @@ use App\Http\Requests\Customer\StoreBookingRequest;
 use App\Models\Booking;
 use App\Models\Tour;
 use App\Models\TourDeparture;
+use App\Services\TourPricingService;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -14,6 +16,11 @@ use Illuminate\Validation\ValidationException;
 
 class CustomerBookingController extends Controller
 {
+    public function __construct(
+        private readonly TourPricingService $tourPricingService
+    ) {
+    }
+
     public function store(StoreBookingRequest $request): JsonResponse
     {
         $data = $request->validated();
@@ -27,6 +34,7 @@ class CustomerBookingController extends Controller
 
             // Tour dùng SoftDelete thì query này tự bỏ tour đã bị xóa mềm
             $tour = Tour::query()
+                ->with('agePricingRules')
                 ->lockForUpdate()
                 ->findOrFail($departure->tour_id);
 
@@ -63,13 +71,7 @@ class CustomerBookingController extends Controller
 
             // Giá lịch khởi hành được ưu tiên.
             // Nếu lịch chưa có giá thì lấy giá khuyến mãi tour, sau đó mới lấy giá gốc.
-            $unitPrice = $departure->price !== null
-                ? (float) $departure->price
-                : (
-                    $tour->discount_price !== null
-                        ? (float) $tour->discount_price
-                        : (float) $tour->base_price
-                );
+            $unitPrice = $this->tourPricingService->resolveAdultPrice($tour, $departure);
 
             if ($unitPrice <= 0) {
                 throw ValidationException::withMessages([
@@ -80,10 +82,40 @@ class CustomerBookingController extends Controller
             }
 
             $discountAmount = 0;
-            $totalAmount = round(
-                ($unitPrice * $numberOfPeople) - $discountAmount,
-                2
-            );
+            $hasActiveAgePricingRules = $tour->agePricingRules
+                ->where('is_active', true)
+                ->isNotEmpty();
+            $pricedParticipants = collect($data['participants'])
+                ->map(function (array $participant, int $index) use ($tour, $departure, $hasActiveAgePricingRules) {
+                    $birthDate = Carbon::parse($participant['birth_date']);
+                    $pricing = $this->tourPricingService->calculateParticipantPrice(
+                        $tour,
+                        $departure,
+                        $birthDate,
+                        $departure->departure_date
+                    );
+                    $rule = $pricing['rule'];
+
+                    if ($hasActiveAgePricingRules && ! $rule) {
+                        throw ValidationException::withMessages([
+                            "participants.{$index}.birth_date" => 'Không tìm thấy quy tắc giá phù hợp cho hành khách này.',
+                        ]);
+                    }
+
+                    return [
+                        'full_name' => $participant['full_name'],
+                        'phone' => $participant['phone'] ?? null,
+                        'birth_date' => $birthDate->toDateString(),
+                        'gender' => $participant['gender'] ?? null,
+                        'identity_number' => $participant['identity_number'] ?? null,
+                        'participant_type' => $participant['participant_type'],
+                        'unit_price' => $pricing['unit_price'],
+                        'pricing_rule_label' => $rule?->label ?? 'Người lớn mặc định',
+                        'pricing_type' => $rule?->pricing_type ?? 'percentage',
+                        'pricing_value' => $rule?->price_value ?? 100,
+                    ];
+                });
+            $totalAmount = round(max(0, $pricedParticipants->sum('unit_price') - $discountAmount), 2);
 
             $booking = Booking::create([
                 'booking_code' => 'BK-' . Str::upper((string) Str::ulid()),
@@ -115,18 +147,7 @@ class CustomerBookingController extends Controller
                 'special_request' => $data['contact']['special_request'] ?? null,
             ]);
 
-            $booking->participants()->createMany(
-                collect($data['participants'])->map(function (array $participant) {
-                    return [
-                        'full_name' => $participant['full_name'],
-                        'phone' => $participant['phone'] ?? null,
-                        'birth_date' => $participant['birth_date'] ?? null,
-                        'gender' => $participant['gender'] ?? null,
-                        'identity_number' => $participant['identity_number'] ?? null,
-                        'participant_type' => $participant['participant_type'],
-                    ];
-                })->all()
-            );
+            $booking->participants()->createMany($pricedParticipants->all());
 
             $booking->statusHistories()->create([
                 'changed_by' => $user->id,

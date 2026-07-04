@@ -30,7 +30,7 @@ class AdminTourDepartureBookingController extends Controller
 
                 'contact:id,booking_id,contact_name,contact_email,contact_phone,address,special_request',
 
-                'participants:id,booking_id,full_name,phone,birth_date,gender,participant_type',
+                'participants:id,booking_id,full_name,phone,birth_date,gender,participant_type,unit_price,pricing_rule_label,pricing_type,pricing_value',
             ])
             ->withCount('participants')
 
@@ -102,6 +102,10 @@ class AdminTourDepartureBookingController extends Controller
                         'birth_date' => $participant->birth_date?->format('Y-m-d'),
                         'gender' => $participant->gender,
                         'participant_type' => $participant->participant_type,
+                        'unit_price' => $participant->unit_price,
+                        'pricing_rule_label' => $participant->pricing_rule_label,
+                        'pricing_type' => $participant->pricing_type,
+                        'pricing_value' => $participant->pricing_value,
                     ];
                 })->values(),
 

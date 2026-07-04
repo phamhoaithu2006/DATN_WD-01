@@ -16,10 +16,16 @@ class BookingParticipant extends Model
         'gender',
         'identity_number',
         'participant_type',
+        'unit_price',
+        'pricing_rule_label',
+        'pricing_type',
+        'pricing_value',
     ];
 
     protected $casts = [
         'birth_date' => 'date',
+        'unit_price' => 'float',
+        'pricing_value' => 'float',
     ];
 
     public function booking(): BelongsTo

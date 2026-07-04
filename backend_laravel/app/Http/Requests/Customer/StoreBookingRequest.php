@@ -89,7 +89,7 @@ class StoreBookingRequest extends FormRequest
             ],
 
             'participants.*.birth_date' => [
-                'nullable',
+                'required',
                 'date',
                 'before_or_equal:today',
             ],
@@ -109,7 +109,7 @@ class StoreBookingRequest extends FormRequest
             'participants.*.participant_type' => [
                 'required',
                 'string',
-                'max:50',
+                'in:adult,child,infant',
             ],
         ];
     }
