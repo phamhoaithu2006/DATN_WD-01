@@ -26,7 +26,7 @@ class TourManagerController extends Controller
 
         //  1. ADMIN TÌM KIẾM: Theo tiêu đề tour (title)
         if ($request->has('search') && $request->search != '') {
-            $query->where('title', 'LIKE', '%'.$request->search.'%');
+            $query->where('title', 'LIKE', '%' . $request->search . '%');
         }
 
         //  2. ADMIN LỌC TRẠNG THÁI: Lọc nhanh theo 'draft', 'published', 'cancelled'
@@ -44,7 +44,7 @@ class TourManagerController extends Controller
 
         // Giữ nguyên logic sắp xếp và phân trang theo ID giảm dần của bạn
         $tours = $query->orderBy('id', 'desc')->paginate(10);
-        $tours->getCollection()->transform(fn ($tour) => (new TourResource($tour))->resolve($request));
+        $tours->getCollection()->transform(fn($tour) => (new TourResource($tour))->resolve($request));
 
         return response()->json([
             'status' => 'success',
@@ -80,7 +80,7 @@ class TourManagerController extends Controller
 
         //  1. USER TÌM KIẾM: Tìm theo tiêu đề tour
         if ($request->has('search') && $request->search != '') {
-            $query->where('title', 'LIKE', '%'.$request->search.'%');
+            $query->where('title', 'LIKE', '%' . $request->search . '%');
         }
 
         //  2. USER LỌC KHOẢNG GIÁ: Tìm theo ngân sách của khách
@@ -93,7 +93,7 @@ class TourManagerController extends Controller
 
         // Giữ nguyên logic sắp xếp và phân trang theo ID giảm dần của bạn
         $tours = $query->orderBy('id', 'desc')->paginate(10);
-        $tours->getCollection()->transform(fn ($tour) => (new TourResource($tour))->resolve($request));
+        $tours->getCollection()->transform(fn($tour) => (new TourResource($tour))->resolve($request));
 
         return response()->json([
             'status' => 'success',
@@ -108,6 +108,7 @@ class TourManagerController extends Controller
     public function store(Request $request)
     {
         $this->normalizeItineraryRequest($request);
+        $this->normalizeAgePricingRulesRequest($request);
 
         $validatedData = $request->validate([
             'thumbnail_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
@@ -250,6 +251,7 @@ class TourManagerController extends Controller
     {
         $tour = Tour::findOrFail($id);
         $this->normalizeItineraryRequest($request);
+        $this->normalizeAgePricingRulesRequest($request);
 
         $validatedData = $request->validate([
             'thumbnail_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
@@ -472,7 +474,7 @@ class TourManagerController extends Controller
             ->where('status', 'hidden')
             ->orderBy('id', 'desc')
             ->paginate(10);
-        $tours->getCollection()->transform(fn ($tour) => (new TourResource($tour))->resolve(request()));
+        $tours->getCollection()->transform(fn($tour) => (new TourResource($tour))->resolve(request()));
 
         return response()->json([
             'status' => 'success',
@@ -656,6 +658,66 @@ class TourManagerController extends Controller
         }
     }
 
+    private function normalizeAgePricingRulesRequest(Request $request): void
+    {
+        if (! $request->exists('age_pricing_rules')) {
+            return;
+        }
+
+        $rules = $request->input('age_pricing_rules');
+
+        if (is_string($rules)) {
+            $decoded = json_decode($rules, true);
+            $rules = json_last_error() === JSON_ERROR_NONE ? $decoded : $rules;
+        }
+
+        if (! is_array($rules)) {
+            return;
+        }
+
+        $normalized = collect($rules)
+            ->map(function ($rule, $index) {
+                if (! is_array($rule)) {
+                    return $rule;
+                }
+
+                $label = trim((string) ($rule['label'] ?? ''));
+
+                if ($label === '') {
+                    $label = 'Mức giá ' . ($index + 1);
+                }
+
+                $pricingType = $rule['pricing_type'] ?? 'fixed';
+
+                return [
+                    'label' => $label,
+                    'min_age' => isset($rule['min_age']) && $rule['min_age'] !== ''
+                        ? (int) $rule['min_age']
+                        : 0,
+                    'max_age' => isset($rule['max_age']) && $rule['max_age'] !== ''
+                        ? (int) $rule['max_age']
+                        : null,
+                    'pricing_type' => in_array($pricingType, ['percentage', 'fixed', 'free'], true)
+                        ? $pricingType
+                        : 'fixed',
+                    'price_value' => isset($rule['price_value']) && $rule['price_value'] !== ''
+                        ? (float) $rule['price_value']
+                        : 0,
+                    'sort_order' => isset($rule['sort_order']) && $rule['sort_order'] !== ''
+                        ? (int) $rule['sort_order']
+                        : $index,
+                    'is_active' => filter_var($rule['is_active'] ?? true, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? true,
+                ];
+            })
+            ->filter(function ($rule) {
+                return is_array($rule);
+            })
+            ->values()
+            ->all();
+
+        $request->merge(['age_pricing_rules' => $normalized]);
+    }
+
     private function syncAgePricingRules(Tour $tour, array $rules): void
     {
         $tour->agePricingRules()->delete();
@@ -695,8 +757,6 @@ class TourManagerController extends Controller
             ->sortBy('min_age')
             ->values();
 
-        $coversAdult = false;
-
         foreach ($sortedRules as $position => $rule) {
             if ($rule['max_age'] !== null && $rule['max_age'] < $rule['min_age']) {
                 throw ValidationException::withMessages([
@@ -720,16 +780,6 @@ class TourManagerController extends Controller
                     ]);
                 }
             }
-
-            if ($rule['is_active'] && ($rule['max_age'] === null || $rule['max_age'] >= 18)) {
-                $coversAdult = true;
-            }
-        }
-
-        if (! $coversAdult) {
-            throw ValidationException::withMessages([
-                'age_pricing_rules' => 'Cần có ít nhất một quy tắc đang hoạt động áp dụng cho nhóm tuổi người lớn.',
-            ]);
         }
     }
 }
