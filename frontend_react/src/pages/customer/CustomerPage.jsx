@@ -27,6 +27,7 @@ import ProfileDashboard from "./ProfileDashboard";
 import ProfileForm from "./ProfileForm";
 import ToursPage from "./ToursPage";
 import CustomerTourDetailPage from "./TourDetailPage";
+import { mediaUrl } from "../../utils/mediaUrl";
 
 const fallbackProfile = {
   full_name: "Khách hàng ViVuGo",
@@ -118,7 +119,7 @@ function normalizeTour(tour, index = 0) {
     title: tour.title || fallback.title,
     slug: tour.slug || fallback.slug,
     summary: tour.summary || tour.description || fallback.summary,
-    image: tour.thumbnail_url || tour.image || tour.thumbnail?.image_url || fallback.image,
+    image: mediaUrl(tour.thumbnail_url || tour.image || tour.thumbnail?.image_url || fallback.image),
     category: categoryName,
     travelStyle: tour.travel_style || tour.travelStyle || fallback.travelStyle,
     destination: destName,

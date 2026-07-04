@@ -47,6 +47,9 @@ class TourController extends Controller
                     ->orderBy('departure_date'),
                 'departures.tour',
             ])
+            ->withCount([
+                'bookings as bookings_count' => fn ($query) => $query->where('status', '!=', 'cancelled'),
+            ])
             ->firstOrFail();                    // Nếu không tìm thấy, tự động bắn lỗi 404
 
         // Trả về dạng object đơn lẻ
