@@ -33,6 +33,12 @@ export async function filterTours(params = {}) {
   return response.data?.data || []
 }
 
+export async function fetchTourDetail(slug) {
+  const response = await api.get(`/tours/${slug}`)
+
+  return response.data?.data || response.data
+}
+
 export async function fetchWishlist() {
   const response = await api.get('/tours/wishlist')
 
