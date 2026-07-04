@@ -8,13 +8,14 @@ import '../../styles/support-staff.css'
 
 const DEFAULT_FORM = {
   user_id: '',
-  specialization_id: '',
   experience_years: '',
   status: '',
+  specializations: [], // Cập nhật: Thay specialization_id bằng mảng
   languages: [],
   experiences: [],
 }
 
+const EMPTY_SPECIALIZATION_ROW = { specialization_id: '' }
 const EMPTY_LANGUAGE_ROW = { language_id: '', level_id: '' }
 const EMPTY_CERTIFICATE_ROW = { certificate_id: '', issued_year: '' }
 const danhSachTrangThaiApi = ['active', 'inactive', 'locked']
@@ -145,12 +146,22 @@ function laySoTourPhuTrach(hdv) {
   return hdv.assigned_tours_count || hdv.tours_count || hdv.current_tours_count || 0
 }
 
+function taoDongChuyenMon() {
+  return { ...EMPTY_SPECIALIZATION_ROW }
+}
+
 function taoDongNgoaiNgu() {
   return { ...EMPTY_LANGUAGE_ROW }
 }
 
 function taoDongChungChi() {
   return { ...EMPTY_CERTIFICATE_ROW }
+}
+
+function chuyenChuyenMonThanhForm(specializations = []) {
+  return specializations.map((item) => ({
+    specialization_id: String(item.specialization_id || item.id || ''),
+  }))
 }
 
 function chuyenNgoaiNguThanhForm(languages = []) {
@@ -170,7 +181,9 @@ function chuyenKinhNghiemThanhForm(experiences = []) {
 function taoGuidePayload(formHdv) {
   return {
     user_id: formHdv.user_id ? Number(formHdv.user_id) : null,
-    specialization_ids: formHdv.specialization_id ? [Number(formHdv.specialization_id)] : [],
+    specialization_ids: formHdv.specializations
+      .filter((item) => item.specialization_id)
+      .map((item) => Number(item.specialization_id)),
     experience_years: Number(formHdv.experience_years),
     status: formHdv.status,
     languages: formHdv.languages
@@ -210,6 +223,7 @@ function validateGuideForm(formHdv) {
   const loiMoi = {}
   const experienceYears = Number(formHdv.experience_years)
   const namHienTai = new Date().getFullYear()
+  const specializations = Array.isArray(formHdv.specializations) ? formHdv.specializations : []
   const languages = Array.isArray(formHdv.languages) ? formHdv.languages : []
   const experiences = Array.isArray(formHdv.experiences) ? formHdv.experiences : []
 
@@ -217,8 +231,19 @@ function validateGuideForm(formHdv) {
     loiMoi.user_id = 'Vui lòng chọn tài khoản HDV.'
   }
 
-  if (!formHdv.specialization_id) {
-    loiMoi.specialization_id = 'Vui lòng chọn chuyên môn.'
+  // Cập nhật validate chuyên môn
+  if (specializations.length === 0) {
+    loiMoi.specializations = 'Vui lòng chọn ít nhất một chuyên môn.'
+  }
+  const thieuChuyenMon = specializations.find((item) => !item.specialization_id)
+  if (thieuChuyenMon) {
+    loiMoi.specializations = 'Mỗi dòng chuyên môn cần chọn một chuyên môn hợp lệ.'
+  }
+  const trungChuyenMon =
+    new Set(specializations.filter((item) => item.specialization_id).map((item) => item.specialization_id)).size !==
+    specializations.filter((item) => item.specialization_id).length
+  if (trungChuyenMon) {
+    loiMoi.specializations = 'Không chọn trùng chuyên môn.'
   }
 
   if (
@@ -489,6 +514,33 @@ function GuideManagementPage() {
   function moChonAvatar() {
     avatarInputRef.current?.click()
   }
+
+  // CÁC HÀM XỬ LÝ CHUYÊN MÔN (MỚI)
+  function capNhatChuyenMon(index, giaTri) {
+    setFormHdv((formHienTai) => ({
+      ...formHienTai,
+      specializations: formHienTai.specializations.map((item, viTri) =>
+        viTri === index ? { ...item, specialization_id: giaTri } : item,
+      ),
+    }))
+    setLoiForm((loiHienTai) => ({ ...loiHienTai, specializations: '' }))
+  }
+  function themChuyenMon() {
+    if (formHdv.specializations.length < 2) {
+      setFormHdv((formHienTai) => ({
+        ...formHienTai,
+        specializations: [...formHienTai.specializations, taoDongChuyenMon()],
+      }))
+    }
+  }
+  function xoaChuyenMon(index) {
+    setFormHdv((formHienTai) => ({
+      ...formHienTai,
+      specializations: formHienTai.specializations.filter((_, viTri) => viTri !== index),
+    }))
+    setLoiForm((loiHienTai) => ({ ...loiHienTai, specializations: '' }))
+  }
+  
   function capNhatNgoaiNgu(index, truong, giaTri) {
     setFormHdv((formHienTai) => ({
       ...formHienTai,
@@ -543,6 +595,7 @@ function GuideManagementPage() {
     setFormHdv({
       ...DEFAULT_FORM,
       status: '',
+      specializations: [taoDongChuyenMon()],
       languages: [taoDongNgoaiNgu()],
       experiences: [taoDongChungChi()],
     })
@@ -559,9 +612,11 @@ function GuideManagementPage() {
     void taiDanhMucHdv()
   }
   function moFormChinhSua(hdv) {
+    const specs = chuyenChuyenMonThanhForm(hdv.specializations)
+    
     setFormHdv({
       user_id: String(hdv.user_id || ''),
-      specialization_id: String(hdv.specializations?.[0]?.id || ''),
+      specializations: specs.length > 0 ? specs : [taoDongChuyenMon()],
       experience_years: String(hdv.experience_years ?? ''),
       status: hdv.status || '',
       languages: chuyenNgoaiNguThanhForm(hdv.languages),
@@ -980,26 +1035,47 @@ function GuideManagementPage() {
                 </select>
                 {loiForm.user_id ? <span className="guide-field-error">{loiForm.user_id}</span> : null}
               </label>
-              <label>
+
+              {/* Giao diện nhập Mảng Chuyên Môn */}
+              <label className="guide-form-wide">
                 Chuyên môn
-                <select
-                  required
-                  value={formHdv.specialization_id}
-                  onChange={(event) => capNhatForm('specialization_id', event.target.value)}
-                >
-                  <option value="" disabled>
-                    Chọn chuyên môn
-                  </option>
-                  {danhSachChuyenMon.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {layTenChuyenMon(item)}
-                    </option>
-                  ))}
-                </select>
-                {loiForm.specialization_id ? (
-                  <span className="guide-field-error">{loiForm.specialization_id}</span>
-                ) : null}
+                <div className="guide-repeat-list">
+                  {formHdv.specializations.map((chuyenMon, index) => {
+                    const idsChuyenMonDaChon = formHdv.specializations
+                      .filter((_, viTri) => viTri !== index)
+                      .map((item) => item.specialization_id)
+                    return (
+                      <div className="guide-repeat-row" key={`specialization-${index}`}>
+                        <select
+                          value={chuyenMon.specialization_id}
+                          onChange={(event) => capNhatChuyenMon(index, event.target.value)}
+                        >
+                          <option value="" disabled>
+                            Chọn chuyên môn
+                          </option>
+                          {danhSachChuyenMon
+                            .filter((item) => !idsChuyenMonDaChon.includes(String(item.id)))
+                            .map((item) => (
+                              <option key={item.id} value={item.id}>
+                                {layTenChuyenMon(item)}
+                              </option>
+                            ))}
+                        </select>
+                        <button type="button" onClick={() => xoaChuyenMon(index)}>
+                          Xóa
+                        </button>
+                      </div>
+                    )
+                  })}
+                  {formHdv.specializations.length < 2 && (
+                    <button className="guide-repeat-add" type="button" onClick={themChuyenMon}>
+                      Thêm chuyên môn
+                    </button>
+                  )}
+                </div>
+                {loiForm.specializations ? <span className="guide-field-error">{loiForm.specializations}</span> : null}
               </label>
+
               <label>
                 Số năm kinh nghiệm
                 <input
