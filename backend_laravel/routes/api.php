@@ -72,6 +72,7 @@ Route::middleware(['auth:sanctum', 'role:customer'])->group(function () {
     Route::patch('/notifications/customers/{id}/read', [NotificationCustomerController::class, 'markAsRead']);
 
     //đặt tour
+    Route::post('customer/bookings/preview', [CustomerBookingController::class, 'preview']);
     Route::post('customer/bookings', [CustomerBookingController::class, 'store']);
 });
 

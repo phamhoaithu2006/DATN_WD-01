@@ -4333,6 +4333,9 @@
 .booking-form label .vg-icon {
   color: #8c9ba5;
 }
+.booking-form input,
+.booking-form select,
+.booking-form textarea,
 .booking-form input[type="date"] {
   border: 1px solid #cbd5e1;
   border-radius: 12px;
@@ -4344,10 +4347,132 @@
   transition: border-color 0.2s;
   width: 100%;
   box-sizing: border-box;
+  background: white;
 }
+.booking-form textarea {
+  resize: vertical;
+  min-height: 84px;
+}
+.booking-form input:focus,
+.booking-form select:focus,
+.booking-form textarea:focus,
 .booking-form input[type="date"]:focus {
   border-color: #0871d3;
   box-shadow: 0 0 0 3px rgba(8, 113, 211, 0.1);
+}
+
+.checkout-steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding: 6px;
+  background: #f8fafc;
+  border: 1px solid #edf2f7;
+  border-radius: 16px;
+}
+.checkout-steps span {
+  padding: 8px 6px;
+  border-radius: 12px;
+  color: #7b8b9a;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: center;
+}
+.checkout-steps span.active {
+  color: #0871d3;
+  background: #eaf5ff;
+}
+.booking-inline-error {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  color: #be123c;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+.booking-muted {
+  color: #8c9ba5;
+  font-size: 0.8rem;
+}
+.checkout-form-stack,
+.checkout-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.checkout-section {
+  padding: 16px;
+  border: 1px solid #edf2f7;
+  border-radius: 18px;
+  background: #fbfdff;
+}
+.checkout-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.checkout-section-title h4 {
+  margin: 0;
+  font-size: 1rem;
+  color: #1c2b3d;
+}
+.checkout-section-title span {
+  color: #8c9ba5;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.checkout-add-button,
+.checkout-back-button {
+  border: 1px solid #ff6b35;
+  color: #ff5a1f;
+  background: white;
+  border-radius: 12px;
+  padding: 9px 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.contact-preview-card,
+.participant-card,
+.fake-payment-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid #e8eef5;
+  background: white;
+}
+.contact-preview-card span,
+.fake-payment-box p {
+  color: #5c6e80;
+  font-size: 0.88rem;
+  margin: 0;
+}
+.checkout-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+.participant-card strong {
+  color: #1c2b3d;
+}
+.fake-payment-box h4 {
+  margin: 0;
+  color: #1c2b3d;
+}
+.checkout-actions {
+  display: flex;
+  gap: 10px;
+}
+.checkout-actions .vg-btn-book {
+  flex: 1;
+}
+.checkout-actions .vg-btn-book:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .guests-selectors {

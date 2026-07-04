@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useLocale } from "../../contexts/LocaleContext";
-import { fetchTourDetail } from "../../services/customerApi";
+import { createCustomerBooking, fetchTourDetail, previewCustomerBooking } from "../../services/customerApi";
+import { readSession, readToken } from "../../services/authStorage";
 import Icon from "../../components/customer/Icon";
 
 const fallbackGalleryImages = [
@@ -40,6 +41,26 @@ function getTourPath(tour) {
   return `/tours/${tour.slug || tour.id}`;
 }
 
+function getRuleAgeHint(rule) {
+  if (rule.min_age === null || rule.min_age === undefined) return "Nhóm giá theo quy định tour";
+  if (rule.max_age === null || rule.max_age === undefined) return `Từ ${rule.min_age} tuổi trở lên`;
+  return `Từ ${rule.min_age} đến ${rule.max_age} tuổi`;
+}
+
+function getParticipantType(rule) {
+  if (!rule) return "adult";
+  if (Number(rule.max_age) <= 4) return "infant";
+  if (Number(rule.max_age) <= 10) return "child";
+  return "adult";
+}
+
+function getSuggestedBirthDate(rule) {
+  const today = new Date();
+  const age = rule?.min_age ?? 18;
+  today.setFullYear(today.getFullYear() - age);
+  return today.toISOString().split("T")[0];
+}
+
 function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = [], onFavorite }) {
   const { currency, formatCurrency } = useLocale();
   const navigate = useNavigate();
@@ -61,15 +82,26 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
       ? tourId
       : null;
 
-  // Booking state
-  const [startDate, setStartDate] = useState(() => {
-    const today = new Date();
-    today.setDate(today.getDate() + 7); // Default to 7 days from now
-    return today.toISOString().split("T")[0];
+  // Booking checkout state
+  const [checkoutStep, setCheckoutStep] = useState(1);
+  const [selectedDepartureId, setSelectedDepartureId] = useState("");
+  const [quantities, setQuantities] = useState({});
+  const [bookingPreview, setBookingPreview] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [bookingError, setBookingError] = useState("");
+  const [bookingSubmitting, setBookingSubmitting] = useState(false);
+  const [useCustomContact, setUseCustomContact] = useState(false);
+  const [contact, setContact] = useState(() => {
+    const session = readSession() || {};
+    return {
+      contact_name: session.full_name || "",
+      contact_email: session.email || "",
+      contact_phone: session.phone || "",
+      address: session.address || "",
+      special_request: "",
+    };
   });
-  const [adults, setAdults] = useState(1);
-  const [children, setChildren] = useState(0);
-  const [infants, setInfants] = useState(0);
+  const [participants, setParticipants] = useState([]);
 
   // Refs for scroll spy
   const overviewRef = useRef(null);
@@ -142,15 +174,39 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
   const displayBasePrice = currency === "VND" && basePrice > 0 && basePrice < 100000 ? basePrice * 25000 : basePrice;
   const originalPrice = Number(tour.price?.base || basePrice);
   const displayOriginalPrice = currency === "VND" && originalPrice > 0 && originalPrice < 100000 ? originalPrice * 25000 : originalPrice;
-
-  // Guest pricing ratios
-  const adultPrice = displayBasePrice;
-  const childPrice = Math.round(displayBasePrice * 0.75); // 75% of adult price
-  const infantPrice = 0; // Free
-
-  const totalCost = adults * adultPrice + children * childPrice + infants * infantPrice;
-  const tax = Math.round(totalCost * 0.08); // 8% VAT
-  const finalTotal = totalCost + tax;
+  const departures = Array.isArray(tour.departures) ? tour.departures : [];
+  const firstOpenDeparture = departures.find((departure) => departure.status === "open" && Number(departure.available_slots) > 0);
+  const effectiveSelectedDepartureId = selectedDepartureId || (firstOpenDeparture ? String(firstOpenDeparture.id) : "");
+  const selectedDeparture = departures.find((departure) => String(departure.id) === String(effectiveSelectedDepartureId)) || null;
+  const adultPrice = Number(selectedDeparture?.price || displayBasePrice || 0);
+  const activePricingRules = Array.isArray(tour.age_pricing_rules)
+    ? tour.age_pricing_rules.filter((rule) => rule.is_active !== false)
+    : [];
+  const bookingGroups = activePricingRules.length
+    ? activePricingRules
+    : [{
+        id: "adult_default",
+        label: "Người lớn",
+        min_age: 11,
+        max_age: null,
+        pricing_type: "percentage",
+        price_value: 100,
+        is_active: true,
+      }];
+  const defaultQuantityRule = bookingGroups.find((rule) => rule.max_age === null || rule.max_age === undefined) || bookingGroups[bookingGroups.length - 1];
+  const effectiveQuantities = Object.keys(quantities).length
+    ? quantities
+    : { [defaultQuantityRule.id]: 1 };
+  const getRuleQuantity = (rule) => Number(effectiveQuantities[rule.id] || 0);
+  const getRuleUnitPrice = (rule) => {
+    if (rule.pricing_type === "free") return 0;
+    if (rule.pricing_type === "fixed") return Number(rule.price_value || 0);
+    return Math.round(adultPrice * Number(rule.price_value || 100) / 100);
+  };
+  const totalGuests = bookingGroups.reduce((sum, rule) => sum + getRuleQuantity(rule), 0);
+  const localTotal = bookingGroups.reduce((sum, rule) => sum + getRuleQuantity(rule) * getRuleUnitPrice(rule), 0);
+  const finalTotal = Number(bookingPreview?.total_amount ?? localTotal);
+  const availableSlots = Number(selectedDeparture?.available_slots || tour.slots?.available || 0);
 
   // Rating values
   const ratingAverage = Number(tour.rating?.average || 4.8);
@@ -241,16 +297,141 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
 
 
 
-  const handleBookingSubmit = (e) => {
-    e.preventDefault();
-    setBookingCode(`VVG-${Math.floor(100000 + Math.random() * 900000)}`);
-    setBookingSuccess(true);
+  const buildQuantitySummary = () => bookingGroups
+    .map((rule) => ({
+      rule_id: rule.id === "adult_default" ? null : Number(rule.id),
+      quantity: getRuleQuantity(rule),
+    }))
+    .filter((item) => item.quantity > 0);
+
+  const updateQuantity = (ruleId, nextQuantity) => {
+    const safeQuantity = Math.max(0, nextQuantity);
+    const nextTotal = totalGuests - Number(effectiveQuantities[ruleId] || 0) + safeQuantity;
+
+    if (availableSlots > 0 && nextTotal > availableSlots) {
+      setBookingError(`Lịch này chỉ còn ${availableSlots} chỗ trống.`);
+      return;
+    }
+
+    setBookingError("");
+    setQuantities((current) => ({ ...effectiveQuantities, ...current, [ruleId]: safeQuantity }));
+  };
+
+  const syncParticipantsFromQuantities = () => {
+    const nextParticipants = [];
+
+    bookingGroups.forEach((rule) => {
+      const quantity = getRuleQuantity(rule);
+      for (let index = 0; index < quantity; index += 1) {
+        nextParticipants.push({
+          full_name: "",
+          phone: "",
+          birth_date: getSuggestedBirthDate(rule),
+          gender: "male",
+          identity_number: "",
+          participant_type: getParticipantType(rule),
+        });
+      }
+    });
+
+    setParticipants(nextParticipants);
+  };
+
+  const updateContactField = (field, value) => {
+    setContact((current) => ({ ...current, [field]: value }));
+  };
+
+  const updateParticipantField = (index, field, value) => {
+    setParticipants((current) => current.map((participant, itemIndex) => (
+      itemIndex === index ? { ...participant, [field]: value } : participant
+    )));
+  };
+
+  const handleBookingSubmit = async (event) => {
+    event.preventDefault();
+    setBookingError("");
+
+    if (!readToken()) {
+      navigate("/auth/login");
+      return;
+    }
+
+    if (checkoutStep === 1) {
+      if (!selectedDeparture) {
+        setBookingError("Vui lòng chọn lịch khởi hành.");
+        return;
+      }
+
+      if (totalGuests < 1) {
+        setBookingError("Vui lòng chọn ít nhất 1 người tham gia.");
+        return;
+      }
+
+      try {
+        setPreviewLoading(true);
+        const preview = await previewCustomerBooking({
+          tour_departure_id: Number(selectedDeparture.id),
+          quantity_summary: buildQuantitySummary(),
+        });
+        setBookingPreview(preview);
+      } catch (error) {
+        setBookingError(error.response?.data?.message || "Chưa thể tính giá từ máy chủ, vui lòng thử lại.");
+        return;
+      } finally {
+        setPreviewLoading(false);
+      }
+
+      syncParticipantsFromQuantities();
+      setCheckoutStep(2);
+      return;
+    }
+
+    if (checkoutStep === 2) {
+      if (!contact.contact_name || !contact.contact_phone) {
+        setBookingError("Vui lòng nhập tên và số điện thoại liên hệ.");
+        return;
+      }
+
+      const hasMissingParticipant = participants.some((participant) => (
+        !participant.full_name || !participant.birth_date || !participant.participant_type
+      ));
+
+      if (hasMissingParticipant) {
+        setBookingError("Vui lòng nhập đầy đủ họ tên, ngày sinh và nhóm hành khách.");
+        return;
+      }
+
+      setCheckoutStep(3);
+      return;
+    }
+
+    try {
+      setBookingSubmitting(true);
+      const booking = await createCustomerBooking({
+        tour_departure_id: Number(selectedDeparture.id),
+        number_of_people: totalGuests,
+        quantity_summary: buildQuantitySummary(),
+        contact,
+        participants,
+        note: contact.special_request || undefined,
+      });
+
+      setBookingCode(booking?.booking_code || booking?.data?.booking_code || "Đang cập nhật");
+      setBookingSuccess(true);
+    } catch (error) {
+      const errors = error.response?.data?.errors;
+      const firstError = errors ? Object.values(errors).flat()[0] : null;
+      setBookingError(firstError || error.response?.data?.message || "Thanh toán giả lập chưa thành công, vui lòng kiểm tra lại thông tin.");
+    } finally {
+      setBookingSubmitting(false);
+    }
   };
 
   // Filter 3 related tours (excluding current tour)
   const relatedTours = tours
     .filter((t) => String(t.id) !== String(tourId) && String(t.slug) !== String(tourId))
     .slice(0, 3);
+  const showLegacyBookingForm = false;
 
   return (
     <div className="vg-tour-detail-page">
@@ -546,6 +727,198 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                 </div>
 
                 <form className="booking-form" onSubmit={handleBookingSubmit}>
+                  <div className="checkout-steps">
+                    <span className={checkoutStep >= 1 ? "active" : ""}>1. Chọn lịch</span>
+                    <span className={checkoutStep >= 2 ? "active" : ""}>2. Thông tin</span>
+                    <span className={checkoutStep >= 3 ? "active" : ""}>3. Thanh toán</span>
+                  </div>
+
+                  {bookingError ? <div className="booking-inline-error">{bookingError}</div> : null}
+
+                  {checkoutStep === 1 && (
+                    <>
+                      <div className="form-group">
+                        <label>
+                          <Icon name="calendar" size={16} />
+                          Lịch khởi hành có sẵn
+                        </label>
+                        <select
+                          value={effectiveSelectedDepartureId}
+                          onChange={(event) => {
+                            setSelectedDepartureId(event.target.value);
+                            setBookingPreview(null);
+                            setBookingError("");
+                          }}
+                          required
+                        >
+                          <option value="">Chọn lịch khởi hành</option>
+                          {departures.map((departure) => (
+                            <option key={departure.id} value={departure.id}>
+                              {departure.departure_date} - còn {departure.available_slots} chỗ - {formatCurrency(Number(departure.price || adultPrice))}
+                            </option>
+                          ))}
+                        </select>
+                        {!departures.length ? <small className="booking-muted">Tour này chưa có lịch khởi hành đang mở.</small> : null}
+                      </div>
+
+                      <div className="guests-selectors">
+                        <label className="guests-label-main">
+                          <Icon name="users" size={16} />
+                          Số lượng người tham gia
+                        </label>
+
+                        {bookingGroups.map((rule) => {
+                          const quantity = getRuleQuantity(rule);
+                          const unitPrice = getRuleUnitPrice(rule);
+
+                          return (
+                            <div className="guest-row" key={rule.id}>
+                              <div className="guest-info">
+                                <strong>{rule.label}</strong>
+                                <small>{getRuleAgeHint(rule)} - {formatCurrency(unitPrice)}</small>
+                              </div>
+                              <div className="qty-control">
+                                <button
+                                  type="button"
+                                  disabled={quantity <= 0}
+                                  onClick={() => updateQuantity(rule.id, quantity - 1)}
+                                >
+                                  -
+                                </button>
+                                <span>{quantity}</span>
+                                <button
+                                  type="button"
+                                  disabled={availableSlots > 0 && totalGuests >= availableSlots}
+                                  onClick={() => updateQuantity(rule.id, quantity + 1)}
+                                >
+                                  +
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+
+                  {checkoutStep === 2 && (
+                    <div className="checkout-form-stack">
+                      <section className="checkout-section">
+                        <div className="checkout-section-title">
+                          <h4>Thông tin liên hệ</h4>
+                          <button type="button" className="checkout-add-button" onClick={() => setUseCustomContact((current) => !current)}>
+                            + Thêm
+                          </button>
+                        </div>
+                        <div className="contact-preview-card">
+                          <strong>{contact.contact_name || "Người đặt tour"}</strong>
+                          <span>{contact.contact_phone || "Chưa có số điện thoại"}</span>
+                          <span>{contact.contact_email || "Chưa có email"}</span>
+                        </div>
+                        {useCustomContact && (
+                          <div className="checkout-grid">
+                            <input value={contact.contact_name} onChange={(event) => updateContactField("contact_name", event.target.value)} placeholder="Họ tên liên hệ" />
+                            <input value={contact.contact_phone} onChange={(event) => updateContactField("contact_phone", event.target.value)} placeholder="Số điện thoại" />
+                            <input value={contact.contact_email} onChange={(event) => updateContactField("contact_email", event.target.value)} placeholder="Email" />
+                            <input value={contact.address} onChange={(event) => updateContactField("address", event.target.value)} placeholder="Địa chỉ" />
+                          </div>
+                        )}
+                        <textarea value={contact.special_request} onChange={(event) => updateContactField("special_request", event.target.value)} placeholder="Yêu cầu đặc biệt nếu có" rows={3} />
+                      </section>
+
+                      <section className="checkout-section">
+                        <div className="checkout-section-title">
+                          <h4>Thông tin người tham gia</h4>
+                          <span>{participants.length} khách</span>
+                        </div>
+                        {participants.map((participant, index) => (
+                          <div className="participant-card" key={index}>
+                            <strong>Khách {index + 1}</strong>
+                            <div className="checkout-grid">
+                              <input value={participant.full_name} onChange={(event) => updateParticipantField(index, "full_name", event.target.value)} placeholder="Họ tên" />
+                              <input type="date" value={participant.birth_date} onChange={(event) => updateParticipantField(index, "birth_date", event.target.value)} />
+                              <select value={participant.gender} onChange={(event) => updateParticipantField(index, "gender", event.target.value)}>
+                                <option value="male">Nam</option>
+                                <option value="female">Nữ</option>
+                                <option value="other">Khác</option>
+                              </select>
+                              <select value={participant.participant_type} onChange={(event) => updateParticipantField(index, "participant_type", event.target.value)}>
+                                <option value="adult">Người lớn</option>
+                                <option value="child">Trẻ em</option>
+                                <option value="infant">Em bé</option>
+                              </select>
+                              <input value={participant.phone} onChange={(event) => updateParticipantField(index, "phone", event.target.value)} placeholder="Số điện thoại nếu có" />
+                              <input value={participant.identity_number} onChange={(event) => updateParticipantField(index, "identity_number", event.target.value)} placeholder="CCCD/Hộ chiếu nếu có" />
+                            </div>
+                          </div>
+                        ))}
+                      </section>
+                    </div>
+                  )}
+
+                  {checkoutStep === 3 && (
+                    <div className="fake-payment-box">
+                      <h4>Thanh toán tạm thời</h4>
+                      <p>Hiện tại hệ thống chưa tích hợp thanh toán online. Bấm xác nhận để tạo booking và chờ nhân viên liên hệ.</p>
+                      <div className="breakdown-row total">
+                        <span>Số tiền cần thanh toán</span>
+                        <strong>{formatCurrency(finalTotal)}</strong>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="booking-summary-breakdown">
+                    <h4>Chi tiết giá tạm tính</h4>
+                    {bookingGroups.map((rule) => {
+                      const quantity = getRuleQuantity(rule);
+                      if (!quantity) return null;
+                      const unitPrice = getRuleUnitPrice(rule);
+
+                      return (
+                        <div className="breakdown-row" key={rule.id}>
+                          <span>{rule.label} ({quantity} x {formatCurrency(unitPrice)})</span>
+                          <span>{formatCurrency(quantity * unitPrice)}</span>
+                        </div>
+                      );
+                    })}
+                    <div className="breakdown-row total">
+                      <span>Tổng số tiền</span>
+                      <strong>{formatCurrency(finalTotal)}</strong>
+                    </div>
+                  </div>
+
+                  <div className="checkout-actions">
+                    {checkoutStep > 1 && (
+                      <button type="button" className="checkout-back-button" onClick={() => setCheckoutStep(checkoutStep - 1)}>
+                        Quay lại
+                      </button>
+                    )}
+                    <button type="submit" className="vg-btn-book" disabled={previewLoading || bookingSubmitting || !departures.length}>
+                      {checkoutStep === 1 && (previewLoading ? "Đang tính giá..." : "Tiếp tục")}
+                      {checkoutStep === 2 && "Đến bước thanh toán"}
+                      {checkoutStep === 3 && (bookingSubmitting ? "Đang tạo booking..." : "Xác nhận thanh toán")}
+                    </button>
+                  </div>
+                </form>
+                <div className="booking-help-note">
+                  * Giá cuối cùng sẽ được backend kiểm tra lại theo ngày sinh của từng người tham gia trước khi tạo booking.
+                </div>
+
+                {showLegacyBookingForm && (() => {
+                  const startDate = selectedDeparture?.departure_date || "";
+                  const adults = 0;
+                  const children = 0;
+                  const infants = 0;
+                  const childPrice = 0;
+                  const tax = 0;
+                  const setStartDate = () => {};
+                  const setAdults = () => {};
+                  const setChildren = () => {};
+                  const setInfants = () => {};
+
+                  return (
+                <>
+                <form className="booking-form" onSubmit={handleBookingSubmit}>
                   <div className="form-group">
                     <label>
                       <Icon name="calendar" size={16} />
@@ -671,6 +1044,9 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                 <div className="booking-help-note">
                   * Điền thông tin đặt chỗ sẽ không tính tiền ngay. Đội ngũ nhân viên của ViVuGo sẽ liên hệ lại qua số điện thoại để hỗ trợ tư vấn chi tiết lịch trình.
                 </div>
+                </>
+                  );
+                })()}
               </div>
 
               {/* Sidebar Itinerary Card */}
@@ -803,11 +1179,11 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
               </div>
               <div className="summary-item">
                 <span>Ngày xuất phát:</span>
-                <strong>{startDate.split("-").reverse().join("/")}</strong>
+                <strong>{selectedDeparture?.departure_date || "Đang cập nhật"}</strong>
               </div>
               <div className="summary-item">
                 <span>Số lượng khách:</span>
-                <strong>{adults} Người lớn {children > 0 ? `, ${children} Trẻ em` : ""} {infants > 0 ? `, ${infants} Em bé` : ""}</strong>
+                <strong>{totalGuests} khách</strong>
               </div>
               <div className="summary-item total">
                 <span>Tổng giá trị đơn đặt:</span>
