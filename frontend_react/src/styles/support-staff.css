@@ -252,8 +252,14 @@
   border-bottom: 1px solid #e7edf5;
   display: grid;
   gap: 12px;
-  grid-template-columns: minmax(0, 1.5fr) minmax(180px, 0.7fr);
+  grid-template-columns: minmax(0, 1.5fr) minmax(180px, 0.7fr) minmax(180px, 0.7fr);
   padding: 16px;
+}
+
+.support-filter-bar select,
+.support-search {
+  min-width: 0;
+  width: 100%;
 }
 
 .support-search {
@@ -318,6 +324,11 @@
   text-align: left;
 }
 
+.support-table th:last-child,
+.support-table td:last-child {
+  text-align: center;
+}
+
 .certificate-table th,
 .certificate-table td {
   padding-left: 18px;
@@ -380,6 +391,17 @@
   overflow: hidden;
   text-overflow: clip;
   line-height: 1.25;
+  white-space: nowrap;
+}
+
+.support-email {
+  color: #6b7f9f;
+  display: block;
+  font-size: 13px;
+  line-height: 1.3;
+  margin-top: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -1238,6 +1260,10 @@
 
   .support-search {
     grid-column: 1 / -1;
+  }
+
+  .support-filter-bar select {
+    width: 100%;
   }
 }
 
