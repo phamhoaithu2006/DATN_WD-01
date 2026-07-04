@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useLocale } from "../../contexts/LocaleContext";
 import Icon from "./Icon";
 
+
 function TourCard({ tour, favorite, onFavorite }) {
   const { currency, formatCurrency } = useLocale();
   const navigate = useNavigate();
@@ -117,6 +118,7 @@ function TourCard({ tour, favorite, onFavorite }) {
             )}
           </div>
         </div>
+        
       </div>
     </article>
   );

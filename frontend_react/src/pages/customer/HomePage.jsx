@@ -5,42 +5,71 @@ import TourCard from "../../components/customer/TourCard";
 import { demoDestinations } from "../../data/customerDemoData";
 
 function HomePage({
-  tours,
-  domesticTours,
-  internationalTours,
-  favorites,
+  tours = [],
+  domesticTours = [],
+  internationalTours = [],
+  favorites = [],
   categories = [],
   onFavorite,
 }) {
   const navigate = useNavigate();
+
   const [search, setSearch] = useState({
     keyword: "",
-    start_date: "",
+    departure_date: "",
     guests: 2,
   });
 
-  const domesticTourCards = (domesticTours?.length ? domesticTours : tours || []).slice(0, 4);
-  const internationalTourCards = (internationalTours?.length ? internationalTours : tours || []).slice(0, 4);
+  const safeTours = Array.isArray(tours) ? tours : [];
+  const safeDomesticTours = Array.isArray(domesticTours)
+    ? domesticTours
+    : [];
+  const safeInternationalTours = Array.isArray(internationalTours)
+    ? internationalTours
+    : [];
+  const safeFavorites = Array.isArray(favorites) ? favorites : [];
+  const safeCategories = Array.isArray(categories) ? categories : [];
+
+  /*
+   * Không dùng slice(0, 4): trang chủ sẽ hiển thị toàn bộ tour
+   * mà CustomerPage truyền vào.
+   */
+  const domesticTourCards =
+    safeDomesticTours.length > 0 ? safeDomesticTours : safeTours;
+
+  const internationalTourCards =
+    safeInternationalTours.length > 0
+      ? safeInternationalTours
+      : safeTours;
   const destinationCards = demoDestinations.slice(0, 5);
   const categoryTourCounts = useMemo(() => {
     const counts = {};
-    if (Array.isArray(tours)) {
-      for (const tour of tours) {
-        const cat = tour.category;
-        if (cat) {
-          counts[cat] = (counts[cat] || 0) + 1;
-        }
+
+    for (const tour of safeTours) {
+      const categoryName = tour.category;
+
+      if (categoryName) {
+        counts[categoryName] = (counts[categoryName] || 0) + 1;
       }
     }
+
     return counts;
-  }, [tours]);
+  }, [safeTours]);
 
   function submitSearch(event) {
     event.preventDefault();
     const params = new URLSearchParams();
-    if (search.keyword) params.set("q", search.keyword);
-    if (search.start_date) params.set("date", search.start_date);
-    if (search.guests) params.set("guests", search.guests);
+    if (search.keyword.trim()) {
+      params.set("q", search.keyword.trim());
+    }
+
+    if (search.departure_date) {
+      params.set("departure_date", search.departure_date);
+    }
+
+    if (search.guests) {
+      params.set("guests", search.guests);
+    }
     navigate(`/tours?${params.toString()}`);
   }
 
@@ -239,13 +268,11 @@ function HomePage({
                 <Icon name="calendar" size={16} /> Ngày khởi hành
               </span>
               <input
-                type="text"
-                placeholder="Chọn ngày đi"
-                onFocus={(e) => (e.target.type = "date")}
-                onBlur={(e) => (e.target.type = "text")}
-                value={search.start_date}
+                type="date"
+                min={new Date().toISOString().slice(0, 10)}
+                value={search.departure_date}
                 onChange={(event) =>
-                  setSearch({ ...search, start_date: event.target.value })
+                  setSearch({ ...search, departure_date: event.target.value })
                 }
               />
             </label>
@@ -278,14 +305,14 @@ function HomePage({
               <h2>Tour trong nước</h2>
               <p>Những hành trình được chọn lọc cho kỳ nghỉ ngắn ngày và cuối tuần.</p>
             </div>
-            <Link to="/tours">Xem tất cả →</Link>
+            <Link to="/tours?scope=domestic">Xem tất cả →</Link>
           </div>
           <div className="vg-tour-grid vg-tour-grid-wide">
             {domesticTourCards.map((tour) => (
               <TourCard
                 key={tour.id}
                 tour={tour}
-                favorite={favorites.includes(tour.id)}
+                favorite={safeFavorites.includes(tour.id)}
                 onFavorite={onFavorite}
               />
             ))}
@@ -301,14 +328,14 @@ function HomePage({
               <h2>Tour quốc tế</h2>
               <p>Gợi ý các hành trình nổi bật với trải nghiệm đa dạng và giá cạnh tranh.</p>
             </div>
-            <Link to="/deals">Xem tất cả →</Link>
+            <Link to="/tours?scope=international">Xem tất cả →</Link>
           </div>
           <div className="vg-tour-grid vg-tour-grid-wide">
             {internationalTourCards.map((tour) => (
               <TourCard
                 key={tour.id}
                 tour={tour}
-                favorite={favorites.includes(tour.id)}
+                favorite={safeFavorites.includes(tour.id)}
                 onFavorite={onFavorite}
               />
             ))}
@@ -357,7 +384,7 @@ function HomePage({
         </div>
       </section>
 
-            {categories.length > 0 ? (
+            {safeCategories.length > 0 ? (
         <section className="vg-home-section vg-home-section-alt">
           <div className="vg-container">
             <div className="vg-centered-heading">
@@ -366,9 +393,9 @@ function HomePage({
               <p>Danh sách các loại hình tour hiện có trên hệ thống.</p>
             </div>
             <div className="vg-destination-grid vg-destination-grid-home">
-              {categories.map((category) => (
+              {safeCategories.map((category) => (
                 <Link
-                  to={`/tours?category=${encodeURIComponent(category.name)}`}
+                  to={`/tours?category_id=${category.id}`}
                   className="vg-destination-card"
                   key={category.id}
                 >
