@@ -48,6 +48,11 @@ const emptyForm = {
   avatar: null,
 };
 
+const MAX_AVATAR_SIZE = 5 * 1024 * 1024;
+const AVATAR_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_PATTERN = /^(0|\+84)[0-9]{9,10}$/;
+
 function defaultRoleId(roles) {
   const customerRole = roles.find((role) => role.name === "customer");
   return String(customerRole?.id || roles[0]?.id || "");
@@ -77,8 +82,54 @@ function formFromCustomer(customer, roles) {
       }
     : {
         ...emptyForm,
-        role_id: "",
+        role_id: defaultRoleId(roles),
       };
+}
+
+function validateUserForm(form, isEditing) {
+  const errors = {};
+  const fullName = form.full_name.trim();
+  const email = form.email.trim();
+  const phone = form.phone.trim();
+  const password = form.password.trim();
+
+  if (!fullName) {
+    errors.full_name = "Vui lòng nhập họ và tên.";
+  } else if (fullName.length < 2) {
+    errors.full_name = "Họ và tên phải có ít nhất 2 ký tự.";
+  } else if (fullName.length > 255) {
+    errors.full_name = "Họ và tên không được vượt quá 255 ký tự.";
+  }
+
+  if (!email) {
+    errors.email = "Vui lòng nhập email.";
+  } else if (!EMAIL_PATTERN.test(email)) {
+    errors.email = "Email không đúng định dạng.";
+  }
+
+  if (phone && !PHONE_PATTERN.test(phone)) {
+    errors.phone = "Số điện thoại phải bắt đầu bằng 0 hoặc +84 và có 10-11 số.";
+  }
+
+  if (!form.role_id) {
+    errors.role_id = "Vui lòng chọn vai trò.";
+  }
+
+  if (!isEditing && !password) {
+    errors.password = "Vui lòng nhập mật khẩu.";
+  } else if (password && password.length < 6) {
+    errors.password = "Mật khẩu phải có ít nhất 6 ký tự.";
+  }
+
+  if (form.avatar) {
+    if (!AVATAR_TYPES.includes(form.avatar.type)) {
+      errors.avatar = "Ảnh đại diện chỉ nhận JPG, PNG hoặc WebP.";
+    } else if (form.avatar.size > MAX_AVATAR_SIZE) {
+      errors.avatar = "Ảnh đại diện không được vượt quá 5MB.";
+    }
+  }
+
+  return errors;
 }
 
 function UserFormModal({ customer, roles = [], saving, onClose, onSave }) {
@@ -87,9 +138,13 @@ function UserFormModal({ customer, roles = [], saving, onClose, onSave }) {
   const [avatarName, setAvatarName] = useState("");
   const [avatarFailed, setAvatarFailed] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [errors, setErrors] = useState({});
 
-  const change = (key) => (event) =>
-    setForm((current) => ({ ...current, [key]: event.target.value }));
+  const change = (key) => (event) => {
+    const { value } = event.target;
+    setForm((current) => ({ ...current, [key]: value }));
+    setErrors((current) => ({ ...current, [key]: undefined }));
+  };
 
   const changeAvatar = (event) => {
     const file = event.target.files?.[0] || null;
@@ -98,23 +153,36 @@ function UserFormModal({ customer, roles = [], saving, onClose, onSave }) {
     setAvatarPreview(file ? URL.createObjectURL(file) : mediaUrl(customer?.avatar_url));
     setAvatarFailed(false);
     setAvatarName(file?.name || "");
+    setErrors((current) => ({ ...current, avatar: undefined }));
   };
 
   const canShowAvatar = avatarPreview && !avatarFailed;
+  const fieldClass = (key) => (errors[key] ? "is-invalid" : undefined);
+  const errorFor = (key) =>
+    errors[key] ? <small className="user-field-error">{errors[key]}</small> : null;
+
+  const submit = (event) => {
+    event.preventDefault();
+    const nextErrors = validateUserForm(form, Boolean(customer));
+
+    if (Object.keys(nextErrors).length) {
+      setErrors(nextErrors);
+      return;
+    }
+
+    onSave({
+      ...form,
+      full_name: form.full_name.trim(),
+      email: form.email.trim(),
+      phone: form.phone.trim(),
+      password: form.password.trim(),
+      role_id: form.role_id ? Number(form.role_id) : "",
+    });
+  };
 
   return (
     <div className="user-modal-backdrop" role="presentation" onMouseDown={onClose}>
-      <form
-        className="user-modal"
-        onSubmit={(event) => {
-          event.preventDefault();
-          onSave({
-            ...form,
-            role_id: form.role_id ? Number(form.role_id) : "",
-          });
-        }}
-        onMouseDown={(event) => event.stopPropagation()}
-      >
+      <form className="user-modal" onSubmit={submit} onMouseDown={(event) => event.stopPropagation()} noValidate>
         <div className="user-modal-heading">
           <div>
             <h2>{customer ? "Cập nhật người dùng" : "Thêm người dùng"}</h2>
@@ -152,6 +220,7 @@ function UserFormModal({ customer, roles = [], saving, onClose, onSave }) {
                 {avatarName ||
                   (customer?.avatar_url ? "Đang dùng ảnh hiện tại" : "JPG, PNG hoặc WebP")}
               </small>
+              {errorFor("avatar")}
             </div>
           </div>
         </div>
@@ -160,30 +229,34 @@ function UserFormModal({ customer, roles = [], saving, onClose, onSave }) {
           <label>
             Họ và tên
             <input
-              required
+              className={fieldClass("full_name")}
               value={form.full_name}
               onChange={change("full_name")}
             />
+            {errorFor("full_name")}
           </label>
           <label>
             Email
             <input
-              required
+              className={fieldClass("email")}
               type="email"
               value={form.email}
               onChange={change("email")}
             />
+            {errorFor("email")}
           </label>
           <label>
             Số điện thoại
             <input
+              className={fieldClass("phone")}
               value={form.phone}
               onChange={change("phone")}
             />
+            {errorFor("phone")}
           </label>
           <label>
             Vai trò
-            <select required value={form.role_id} onChange={change("role_id")}>
+            <select className={fieldClass("role_id")} value={form.role_id} onChange={change("role_id")}>
               <option value="">Chọn vai trò</option>
               {roles.map((role) => (
                 <option key={role.id} value={role.id}>
@@ -191,13 +264,13 @@ function UserFormModal({ customer, roles = [], saving, onClose, onSave }) {
                 </option>
               ))}
             </select>
+            {errorFor("role_id")}
           </label>
           <label>
             {customer ? "Mật khẩu mới (không bắt buộc)" : "Mật khẩu"}
             <div className="user-password-field">
               <input
-                required={!customer}
-                minLength="6"
+                className={fieldClass("password")}
                 type={showPassword ? "text" : "password"}
                 value={form.password}
                 onChange={change("password")}
@@ -216,6 +289,7 @@ function UserFormModal({ customer, roles = [], saving, onClose, onSave }) {
                 )}
               </button>
             </div>
+            {errorFor("password")}
           </label>
         </div>
 
@@ -224,11 +298,7 @@ function UserFormModal({ customer, roles = [], saving, onClose, onSave }) {
             Hủy
           </button>
           <button className="primary" disabled={saving} type="submit">
-            {saving
-              ? "Đang lưu..."
-              : customer
-                ? "Lưu thay đổi"
-                : "Thêm người dùng"}
+            {saving ? "Đang lưu..." : customer ? "Lưu thay đổi" : "Thêm người dùng"}
           </button>
         </div>
       </form>
