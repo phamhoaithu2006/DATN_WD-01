@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class TourManagerController extends Controller
 {
@@ -20,7 +21,7 @@ class TourManagerController extends Controller
     public function index(Request $request)
     {
         // Loại trừ tour bị ẩn
-        $query = Tour::with(['category', 'destination', 'thumbnail', 'images', 'itineraries.images'])
+        $query = Tour::with(['category', 'destination', 'thumbnail', 'images', 'itineraries.images', 'agePricingRules'])
             ->where('status', '!=', 'hidden');
 
         //  1. ADMIN TÌM KIẾM: Theo tiêu đề tour (title)
@@ -61,7 +62,7 @@ class TourManagerController extends Controller
      */
     public function show($id)
     {
-        $tour = Tour::with(['category', 'destination', 'thumbnail', 'images', 'itineraries.images', 'departures'])
+        $tour = Tour::with(['category', 'destination', 'thumbnail', 'images', 'itineraries.images', 'departures', 'agePricingRules'])
             ->findOrFail($id);
 
         return response()->json([
@@ -74,7 +75,7 @@ class TourManagerController extends Controller
     public function publicIndex(Request $request)
     {
         //  Chỉ lấy các tour đã xuất bản (published)
-        $query = Tour::with(['category', 'destination', 'thumbnail', 'images', 'itineraries.images'])
+        $query = Tour::with(['category', 'destination', 'thumbnail', 'images', 'itineraries.images', 'agePricingRules'])
             ->where('status', 'published');
 
         //  1. USER TÌM KIẾM: Tìm theo tiêu đề tour
@@ -138,8 +139,17 @@ class TourManagerController extends Controller
             'duration_days' => 'required|integer',
             'duration_nights' => 'required|integer',
             'base_price' => 'required|numeric',
+            'discount_price' => 'nullable|numeric',
             'max_slots' => 'required|integer',
             'status' => 'required|in:draft,published,hidden,cancelled',
+            'age_pricing_rules' => 'nullable|array',
+            'age_pricing_rules.*.label' => 'required_with:age_pricing_rules|string|max:150',
+            'age_pricing_rules.*.min_age' => 'required_with:age_pricing_rules|integer|min:0',
+            'age_pricing_rules.*.max_age' => 'nullable|integer|min:0',
+            'age_pricing_rules.*.pricing_type' => 'required_with:age_pricing_rules|in:percentage,fixed,free',
+            'age_pricing_rules.*.price_value' => 'nullable|numeric|min:0',
+            'age_pricing_rules.*.sort_order' => 'nullable|integer|min:0',
+            'age_pricing_rules.*.is_active' => 'nullable|boolean',
         ]);
 
         // Lấy user đang đăng nhập qua token Sanctum
@@ -162,7 +172,11 @@ class TourManagerController extends Controller
             ?? $validatedData['max_slots'];
 
         $itineraryData = $validatedData['itinerary'] ?? [];
+        $agePricingRules = $validatedData['age_pricing_rules'] ?? [];
         unset($validatedData['itinerary']);
+        unset($validatedData['age_pricing_rules']);
+
+        $this->validateAgePricingRules($agePricingRules);
 
         $thumbnailFile = $request->file('thumbnail_image');
         $galleryFiles = $request->file('gallery_images', []);
@@ -181,6 +195,7 @@ class TourManagerController extends Controller
         $tour = DB::transaction(function () use (
             $validatedData,
             $itineraryData,
+            $agePricingRules,
             $thumbnailFile,
             $thumbnailAltText,
             $galleryFiles
@@ -216,6 +231,7 @@ class TourManagerController extends Controller
             }
 
             $this->syncItineraries($tour, $itineraryData);
+            $this->syncAgePricingRules($tour, $agePricingRules);
 
             return $tour;
         });
@@ -223,7 +239,7 @@ class TourManagerController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Thêm tour thành công',
-            'data' => new TourResource($tour->load(['category', 'destination', 'thumbnail', 'images', 'itineraries.images'])),
+            'data' => new TourResource($tour->load(['category', 'destination', 'thumbnail', 'images', 'itineraries.images', 'agePricingRules'])),
         ], 201, [], JSON_PRESERVE_ZERO_FRACTION);
     }
 
@@ -266,6 +282,14 @@ class TourManagerController extends Controller
             'max_slots' => 'sometimes|required|integer',
             'available_slots' => 'nullable|integer',
             'status' => 'sometimes|required|in:draft,published,hidden,cancelled',
+            'age_pricing_rules' => 'nullable|array',
+            'age_pricing_rules.*.label' => 'required_with:age_pricing_rules|string|max:150',
+            'age_pricing_rules.*.min_age' => 'required_with:age_pricing_rules|integer|min:0',
+            'age_pricing_rules.*.max_age' => 'nullable|integer|min:0',
+            'age_pricing_rules.*.pricing_type' => 'required_with:age_pricing_rules|in:percentage,fixed,free',
+            'age_pricing_rules.*.price_value' => 'nullable|numeric|min:0',
+            'age_pricing_rules.*.sort_order' => 'nullable|integer|min:0',
+            'age_pricing_rules.*.is_active' => 'nullable|boolean',
         ]);
 
         if (isset($validatedData['title']) && ! $request->has('slug')) {
@@ -280,7 +304,9 @@ class TourManagerController extends Controller
         }
 
         $itineraryData = $validatedData['itinerary'] ?? [];
+        $agePricingRules = $validatedData['age_pricing_rules'] ?? [];
         $shouldSyncItinerary = $request->exists('itinerary');
+        $shouldSyncAgePricingRules = $request->exists('age_pricing_rules');
 
         $thumbnailFile = $request->file('thumbnail_image');
         $galleryFiles = $request->file('gallery_images', []);
@@ -292,16 +318,23 @@ class TourManagerController extends Controller
 
         unset(
             $validatedData['itinerary'],
+            $validatedData['age_pricing_rules'],
             $validatedData['thumbnail_image'],
             $validatedData['gallery_images'],
             $validatedData['thumbnail_alt_text']
         );
 
+        if ($shouldSyncAgePricingRules) {
+            $this->validateAgePricingRules($agePricingRules);
+        }
+
         DB::transaction(function () use (
             $tour,
             $validatedData,
             $itineraryData,
+            $agePricingRules,
             $shouldSyncItinerary,
+            $shouldSyncAgePricingRules,
             $thumbnailFile,
             $thumbnailAltText,
             $galleryFiles
@@ -363,12 +396,16 @@ class TourManagerController extends Controller
             if ($shouldSyncItinerary) {
                 $this->syncItineraries($tour, $itineraryData);
             }
+
+            if ($shouldSyncAgePricingRules) {
+                $this->syncAgePricingRules($tour, $agePricingRules);
+            }
         });
 
         return response()->json([
             'status' => 'success',
             'message' => 'Cập nhật tour thành công',
-            'data' => new TourResource($tour->fresh(['category', 'destination', 'thumbnail', 'images', 'itineraries.images'])),
+            'data' => new TourResource($tour->fresh(['category', 'destination', 'thumbnail', 'images', 'itineraries.images', 'agePricingRules'])),
         ], 200, [], JSON_PRESERVE_ZERO_FRACTION);
     }
 
@@ -398,7 +435,7 @@ class TourManagerController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Đã ẩn tour thành công',
-            'data' => new TourResource($tour->fresh(['category', 'destination', 'thumbnail', 'images', 'itineraries.images'])),
+            'data' => new TourResource($tour->fresh(['category', 'destination', 'thumbnail', 'images', 'itineraries.images', 'agePricingRules'])),
         ]);
     }
 
@@ -422,7 +459,7 @@ class TourManagerController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Đã bỏ ẩn tour thành công',
-            'data' => new TourResource($tour->fresh(['category', 'destination', 'thumbnail', 'images', 'itineraries.images'])),
+            'data' => new TourResource($tour->fresh(['category', 'destination', 'thumbnail', 'images', 'itineraries.images', 'agePricingRules'])),
         ]);
     }
 
@@ -431,7 +468,7 @@ class TourManagerController extends Controller
      */
     public function hiddenTours()
     {
-        $tours = Tour::with(['category', 'destination', 'thumbnail', 'images', 'itineraries.images'])
+        $tours = Tour::with(['category', 'destination', 'thumbnail', 'images', 'itineraries.images', 'agePricingRules'])
             ->where('status', 'hidden')
             ->orderBy('id', 'desc')
             ->paginate(10);
@@ -616,6 +653,83 @@ class TourManagerController extends Controller
                     'sort_order' => $image['sort_order'] ?? $imageIndex,
                 ]);
             }
+        }
+    }
+
+    private function syncAgePricingRules(Tour $tour, array $rules): void
+    {
+        $tour->agePricingRules()->delete();
+
+        foreach ($rules as $index => $rule) {
+            $tour->agePricingRules()->create([
+                'label' => $rule['label'],
+                'min_age' => $rule['min_age'],
+                'max_age' => $rule['max_age'] ?? null,
+                'pricing_type' => $rule['pricing_type'],
+                'price_value' => $rule['pricing_type'] === 'free'
+                    ? 0
+                    : ($rule['price_value'] ?? 0),
+                'sort_order' => $rule['sort_order'] ?? $index,
+                'is_active' => $rule['is_active'] ?? true,
+            ]);
+        }
+    }
+
+    private function validateAgePricingRules(array $rules): void
+    {
+        if ($rules === []) {
+            return;
+        }
+
+        $sortedRules = collect($rules)
+            ->map(function ($rule, $index) {
+                return [
+                    'index' => $index,
+                    'min_age' => (int) ($rule['min_age'] ?? 0),
+                    'max_age' => isset($rule['max_age']) ? (int) $rule['max_age'] : null,
+                    'pricing_type' => $rule['pricing_type'] ?? null,
+                    'price_value' => (float) ($rule['price_value'] ?? 0),
+                    'is_active' => (bool) ($rule['is_active'] ?? true),
+                ];
+            })
+            ->sortBy('min_age')
+            ->values();
+
+        $coversAdult = false;
+
+        foreach ($sortedRules as $position => $rule) {
+            if ($rule['max_age'] !== null && $rule['max_age'] < $rule['min_age']) {
+                throw ValidationException::withMessages([
+                    "age_pricing_rules.{$rule['index']}.max_age" => 'Tuổi tối đa phải lớn hơn hoặc bằng tuổi tối thiểu.',
+                ]);
+            }
+
+            if ($rule['pricing_type'] === 'percentage' && $rule['price_value'] > 100) {
+                throw ValidationException::withMessages([
+                    "age_pricing_rules.{$rule['index']}.price_value" => 'Phần trăm giá phải nằm trong khoảng từ 0 đến 100.',
+                ]);
+            }
+
+            if ($position > 0) {
+                $previous = $sortedRules[$position - 1];
+                $previousMaxAge = $previous['max_age'] ?? PHP_INT_MAX;
+
+                if ($rule['min_age'] <= $previousMaxAge) {
+                    throw ValidationException::withMessages([
+                        "age_pricing_rules.{$rule['index']}.min_age" => 'Khoảng tuổi đang bị chồng lấn với quy tắc trước đó.',
+                    ]);
+                }
+            }
+
+            if ($rule['is_active'] && ($rule['max_age'] === null || $rule['max_age'] >= 18)) {
+                $coversAdult = true;
+            }
+        }
+
+        if (! $coversAdult) {
+            throw ValidationException::withMessages([
+                'age_pricing_rules' => 'Cần có ít nhất một quy tắc đang hoạt động áp dụng cho nhóm tuổi người lớn.',
+            ]);
         }
     }
 }

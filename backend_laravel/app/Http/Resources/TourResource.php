@@ -41,6 +41,18 @@ class TourResource extends JsonResource
                 'base'     => (float)$this->base_price,
                 'discount' => (float)$this->discount_price,
             ],
+            'age_pricing_rules' => $this->whenLoaded('agePricingRules', fn () => $this->agePricingRules->map(function ($rule) {
+                return [
+                    'id' => $rule->id,
+                    'label' => $rule->label,
+                    'min_age' => $rule->min_age,
+                    'max_age' => $rule->max_age,
+                    'pricing_type' => $rule->pricing_type,
+                    'price_value' => $rule->price_value,
+                    'sort_order' => $rule->sort_order,
+                    'is_active' => $rule->is_active,
+                ];
+            })->values()),
             'slots' => [
                 'max'       => $this->max_slots,
                 'available' => $this->available_slots,

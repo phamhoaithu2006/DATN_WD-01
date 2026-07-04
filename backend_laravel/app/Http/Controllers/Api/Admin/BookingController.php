@@ -5,13 +5,23 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
+use App\Models\Tour;
+use App\Models\TourDeparture;
+use App\Services\TourPricingService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 
 class BookingController extends Controller
 {
+    public function __construct(
+        private readonly TourPricingService $tourPricingService
+    ) {
+    }
+
     /**
      * GET /api/admin/bookings
      * Danh sách booking có phân trang + tìm kiếm + lọc
@@ -105,31 +115,77 @@ class BookingController extends Controller
             'tour_departure_id' => 'nullable|exists:tour_departures,id',
             'promotion_id'     => 'nullable|exists:promotions,id',
             'staff_id'         => 'nullable|exists:users,id',
-            'number_of_people' => 'required|integer|min:1',
-            'unit_price'       => 'required|numeric|min:0',
+            'number_of_people' => 'nullable|integer|min:1',
+            'unit_price'       => 'nullable|numeric|min:0',
             'discount_amount'  => 'nullable|numeric|min:0',
             'note'             => 'nullable|string',
+            'contact' => 'nullable|array',
+            'contact.contact_name' => 'required_with:contact|string|max:150',
+            'contact.contact_email' => 'nullable|email|max:150',
+            'contact.contact_phone' => 'required_with:contact|string|max:20',
+            'contact.address' => 'nullable|string|max:255',
+            'contact.special_request' => 'nullable|string',
+            'participants' => 'nullable|array|min:1',
+            'participants.*.full_name' => 'required_with:participants|string|max:150',
+            'participants.*.phone' => 'nullable|string|max:20',
+            'participants.*.birth_date' => 'required_with:participants|date|before_or_equal:today',
+            'participants.*.gender' => 'nullable|in:male,female,other',
+            'participants.*.identity_number' => 'nullable|string|max:30',
+            'participants.*.participant_type' => 'nullable|in:adult,child,infant',
         ]);
+
+        $participants = $data['participants'] ?? [];
+        $contact = $data['contact'] ?? null;
+        unset($data['participants'], $data['contact']);
 
         $data['booking_code']   = 'BK' . now()->format('Ymd') . strtoupper(Str::random(4));
         $data['discount_amount'] = $data['discount_amount'] ?? 0;
-        $data['total_amount']   = ($data['unit_price'] * $data['number_of_people']) - $data['discount_amount'];
         $data['status']         = 'pending';
         $data['payment_status'] = 'unpaid';
 
-        $booking = Booking::create($data);
+        $booking = DB::transaction(function () use ($data, $participants, $contact) {
+            if ($participants !== []) {
+                $tour = Tour::with('agePricingRules')->findOrFail($data['tour_id']);
+                $departure = $this->resolveDeparture($tour, $data['tour_departure_id'] ?? null);
+                $pricingSummary = $this->buildParticipantPricing($tour, $departure, $participants);
+
+                $data['number_of_people'] = count($pricingSummary['participants']);
+                $data['unit_price'] = $pricingSummary['adult_price'];
+                $data['total_amount'] = max(0, $pricingSummary['total_amount'] - $data['discount_amount']);
+            } else {
+                if (! isset($data['number_of_people'], $data['unit_price'])) {
+                    throw ValidationException::withMessages([
+                        'participants' => 'Vui lòng nhập danh sách người tham gia hoặc nhập số người và đơn giá.',
+                    ]);
+                }
+
+                $data['total_amount'] = ($data['unit_price'] * $data['number_of_people']) - $data['discount_amount'];
+            }
+
+            $booking = Booking::create($data);
+
+            if ($contact) {
+                $booking->contact()->create($contact);
+            }
+
+            if ($participants !== []) {
+                $booking->participants()->createMany($pricingSummary['participants']);
+            }
+
+            return $booking;
+        });
 
         return response()->json([
             'success' => true,
             'message' => 'Tạo booking thành công.',
-            'data'    => $booking,
+            'data'    => $booking->load(['contact', 'participants']),
         ], 201);
     }
 
     // ─── Sửa booking ──────────────────────────────────────────────
     public function update(Request $request, $id)
     {
-        $booking = Booking::findOrFail($id);
+        $booking = Booking::with(['tour.agePricingRules', 'tourDeparture', 'participants', 'contact'])->findOrFail($id);
 
         $data = $request->validate([
             'number_of_people' => 'sometimes|integer|min:1',
@@ -140,10 +196,36 @@ class BookingController extends Controller
             'note'             => 'nullable|string',
             'cancel_reason'    => 'nullable|string',
             'staff_id'         => 'nullable|exists:users,id',
+            'contact' => 'nullable|array',
+            'contact.contact_name' => 'required_with:contact|string|max:150',
+            'contact.contact_email' => 'nullable|email|max:150',
+            'contact.contact_phone' => 'required_with:contact|string|max:20',
+            'contact.address' => 'nullable|string|max:255',
+            'contact.special_request' => 'nullable|string',
+            'participants' => 'nullable|array|min:1',
+            'participants.*.full_name' => 'required_with:participants|string|max:150',
+            'participants.*.phone' => 'nullable|string|max:20',
+            'participants.*.birth_date' => 'required_with:participants|date|before_or_equal:today',
+            'participants.*.gender' => 'nullable|in:male,female,other',
+            'participants.*.identity_number' => 'nullable|string|max:30',
+            'participants.*.participant_type' => 'nullable|in:adult,child,infant',
         ]);
 
         // Tự tính lại total nếu có thay đổi giá/số người
-        if (isset($data['unit_price']) || isset($data['number_of_people']) || isset($data['discount_amount'])) {
+        $participants = $data['participants'] ?? null;
+        $contact = $data['contact'] ?? null;
+        unset($data['participants'], $data['contact']);
+        $pricingSummary = null;
+
+        if ($participants !== null) {
+            $pricingSummary = $this->buildParticipantPricing($booking->tour, $booking->tourDeparture, $participants);
+            $discount = $data['discount_amount'] ?? $booking->discount_amount;
+            $data['number_of_people'] = count($pricingSummary['participants']);
+            $data['unit_price'] = $pricingSummary['adult_price'];
+            $data['total_amount'] = max(0, $pricingSummary['total_amount'] - $discount);
+        }
+
+        if ($participants === null && (isset($data['unit_price']) || isset($data['number_of_people']) || isset($data['discount_amount']))) {
             $unitPrice   = $data['unit_price']       ?? $booking->unit_price;
             $numPeople   = $data['number_of_people'] ?? $booking->number_of_people;
             $discount    = $data['discount_amount']  ?? $booking->discount_amount;
@@ -155,12 +237,26 @@ class BookingController extends Controller
             $data['cancelled_at'] = Carbon::now();
         }
 
-        $booking->update($data);
+        DB::transaction(function () use ($booking, $data, $participants, $contact, $pricingSummary) {
+            $booking->update($data);
+
+            if ($contact !== null) {
+                $booking->contact()->updateOrCreate(
+                    ['booking_id' => $booking->id],
+                    $contact
+                );
+            }
+
+            if ($participants !== null && $pricingSummary !== null) {
+                $booking->participants()->delete();
+                $booking->participants()->createMany($pricingSummary['participants']);
+            }
+        });
 
         return response()->json([
             'success' => true,
             'message' => 'Cập nhật booking thành công.',
-            'data'    => $booking->fresh(),
+            'data'    => $booking->fresh(['contact', 'participants']),
         ]);
     }
 
@@ -186,5 +282,85 @@ class BookingController extends Controller
             'success' => true,
             'message' => 'Đã xóa booking vĩnh viễn.',
         ]);
+    }
+
+    private function resolveDeparture(Tour $tour, ?int $departureId): TourDeparture
+    {
+        if (! $departureId) {
+            throw ValidationException::withMessages([
+                'tour_departure_id' => 'Vui lòng chọn lịch khởi hành khi tính giá theo hành khách.',
+            ]);
+        }
+
+        $departure = TourDeparture::findOrFail($departureId);
+
+        if ((int) $departure->tour_id !== (int) $tour->id) {
+            throw ValidationException::withMessages([
+                'tour_departure_id' => 'Lịch khởi hành không thuộc tour đã chọn.',
+            ]);
+        }
+
+        return $departure;
+    }
+
+    private function buildParticipantPricing(Tour $tour, TourDeparture $departure, array $participants): array
+    {
+        $adultPrice = $this->tourPricingService->resolveAdultPrice($tour, $departure);
+        $hasActiveAgePricingRules = $tour->agePricingRules
+            ->where('is_active', true)
+            ->isNotEmpty();
+        $rows = [];
+        $totalAmount = 0;
+
+        foreach ($participants as $index => $participant) {
+            $birthDate = Carbon::parse($participant['birth_date']);
+            $pricing = $this->tourPricingService->calculateParticipantPrice(
+                $tour,
+                $departure,
+                $birthDate,
+                $departure->departure_date
+            );
+            $rule = $pricing['rule'];
+
+            if ($hasActiveAgePricingRules && ! $rule) {
+                throw ValidationException::withMessages([
+                    "participants.{$index}.birth_date" => 'Không tìm thấy quy tắc giá phù hợp cho hành khách này.',
+                ]);
+            }
+
+            $rows[] = [
+                'full_name' => $participant['full_name'],
+                'phone' => $participant['phone'] ?? null,
+                'birth_date' => $birthDate->toDateString(),
+                'gender' => $participant['gender'] ?? null,
+                'identity_number' => $participant['identity_number'] ?? null,
+                'participant_type' => $participant['participant_type'] ?? $this->detectParticipantType($pricing['age']),
+                'unit_price' => $pricing['unit_price'],
+                'pricing_rule_label' => $rule?->label ?? 'Người lớn mặc định',
+                'pricing_type' => $rule?->pricing_type ?? 'percentage',
+                'pricing_value' => $rule?->price_value ?? 100,
+            ];
+
+            $totalAmount += $pricing['unit_price'];
+        }
+
+        return [
+            'adult_price' => $adultPrice,
+            'participants' => $rows,
+            'total_amount' => $totalAmount,
+        ];
+    }
+
+    private function detectParticipantType(int $age): string
+    {
+        if ($age < 6) {
+            return 'infant';
+        }
+
+        if ($age < 11) {
+            return 'child';
+        }
+
+        return 'adult';
     }
 }
