@@ -27,6 +27,12 @@ export async function fetchTours(params = {}) {
   return response.data?.data || []
 }
 
+export async function fetchTourDetail(slug) {
+  const response = await api.get(`/tours/${encodeURIComponent(slug)}`)
+
+  return response.data?.data || null
+}
+
 export async function filterTours(params = {}) {
   const response = await api.get('/tours/filter', { params })
 
@@ -49,6 +55,18 @@ export async function fetchBookings() {
   const response = await api.get('/profile/bookings')
 
   return response.data?.data || []
+}
+
+export async function previewCustomerBooking(payload) {
+  const response = await api.post('/customer/bookings/preview', payload)
+
+  return response.data?.data || null
+}
+
+export async function createCustomerBooking(payload) {
+  const response = await api.post('/customer/bookings', payload)
+
+  return response.data?.data || response.data
 }
 
 export async function askTravelAssistant(message) {

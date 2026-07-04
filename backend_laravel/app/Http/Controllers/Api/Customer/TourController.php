@@ -19,7 +19,7 @@ class TourController extends Controller
     {
         $tours = Tour::query()
             ->where('status', 'published')       // Lọc dữ liệu: Chỉ lấy các tour đã xuất bản
-            ->with(['category', 'destination', 'itineraries.images'])  // Eager Loading: Load sẵn dữ liệu liên quan để tránh N+1 Query
+            ->with(['category', 'destination', 'itineraries.images', 'agePricingRules'])  // Eager Loading: Load sẵn dữ liệu liên quan để tránh N+1 Query
             ->orderBy('id', 'desc')              // Sắp xếp: Tour mới nhất lên đầu
             ->paginate(12);                      // Phân trang: Giới hạn 12 kết quả mỗi lần gọi, tránh quá tải server/client
 
@@ -36,7 +36,20 @@ class TourController extends Controller
         // Tìm kiếm tour theo slug và điều kiện xuất bản
         $tour = Tour::where('slug', $slug)
             ->where('status', 'published')
-            ->with(['category', 'destination', 'itineraries.images']) // Load kèm dữ liệu để Resource sử dụng
+            ->with([
+                'category',
+                'destination',
+                'itineraries.images',
+                'agePricingRules',
+                'departures' => fn ($query) => $query
+                    ->where('status', 'open')
+                    ->whereDate('departure_date', '>=', today())
+                    ->orderBy('departure_date'),
+                'departures.tour',
+            ])
+            ->withCount([
+                'bookings as bookings_count' => fn ($query) => $query->where('status', '!=', 'cancelled'),
+            ])
             ->firstOrFail();                    // Nếu không tìm thấy, tự động bắn lỗi 404
 
         // Trả về dạng object đơn lẻ
@@ -52,7 +65,7 @@ class TourController extends Controller
         // Khởi tạo query với các điều kiện bắt buộc (status, quan hệ liên quan)
         $query = Tour::query()
             ->where('status', 'published') 
-            ->with(['category', 'destination', 'itineraries.images']);
+            ->with(['category', 'destination', 'itineraries.images', 'agePricingRules']);
 
         // 1. Tìm kiếm theo tên (Từ khóa)
         // Dùng 'when' để chỉ thêm điều kiện vào query nếu người dùng có nhập 'keyword'
@@ -92,7 +105,7 @@ class TourController extends Controller
         // Khởi tạo truy vấn với điều kiện cơ bản
         $query = Tour::query()
             ->where('status', 'published')
-            ->with(['category', 'destination', 'itineraries.images']);
+            ->with(['category', 'destination', 'itineraries.images', 'agePricingRules']);
 
         // 1. Lọc theo danh mục (category_id)
         $query->when($request->category_id, fn($q, $id) => $q->where('category_id', $id));

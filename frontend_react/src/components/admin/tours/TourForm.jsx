@@ -123,6 +123,99 @@ const normalizeItineraryForSubmit = (itinerary = []) => {
   })
 }
 
+const parseAgeRangeLabel = (label) => {
+  const raw = String(label || '').trim().toLowerCase()
+
+  if (!raw) {
+    return { min_age: 0, max_age: null }
+  }
+
+  const numbers = raw.match(/\d+/g)?.map(Number) || []
+
+  if (numbers.length >= 2) {
+    const minAge = Math.min(numbers[0], numbers[1])
+    const maxAge = Math.max(numbers[0], numbers[1])
+
+    return { min_age: minAge, max_age: maxAge }
+  }
+
+  if (numbers.length === 1) {
+    const age = numbers[0]
+
+    if (
+      raw.includes('trên') ||
+      raw.includes('tren') ||
+      raw.includes('lớn hơn') ||
+      raw.includes('lon hon') ||
+      raw.includes('>') ||
+      raw.includes('+') ||
+      raw.includes('trở lên') ||
+      raw.includes('tro len')
+    ) {
+      return { min_age: raw.includes('trên') || raw.includes('tren') || raw.includes('>') ? age + 1 : age, max_age: null }
+    }
+
+    if (
+      raw.includes('dưới') ||
+      raw.includes('duoi') ||
+      raw.includes('nhỏ hơn') ||
+      raw.includes('nho hon') ||
+      raw.includes('<')
+    ) {
+      return { min_age: 0, max_age: Math.max(age - 1, 0) }
+    }
+
+    return { min_age: age, max_age: age }
+  }
+
+  return { min_age: 0, max_age: null }
+}
+
+const normalizeAgePricingRulesForForm = (initialData = {}) => {
+  const rules = Array.isArray(initialData.age_pricing_rules)
+    ? initialData.age_pricing_rules
+    : Array.isArray(initialData.agePricingRules)
+      ? initialData.agePricingRules
+      : []
+
+  return rules.map((rule, index) => ({
+    label: rule.label || '',
+    price_value: rule.price_value ?? '',
+    min_age: rule.min_age ?? 0,
+    max_age: rule.max_age ?? null,
+    pricing_type: rule.pricing_type || 'fixed',
+    sort_order: rule.sort_order ?? index,
+    is_active: rule.is_active ?? true,
+  }))
+}
+
+const normalizeAgePricingRulesForSubmit = (rules = []) => {
+  if (!Array.isArray(rules)) return []
+
+  return rules
+    .map((rule, index) => {
+      const label = String(rule.label || '').trim()
+      const priceValue = String(rule.price_value ?? '').trim()
+
+      if (!label || priceValue === '') {
+        return null
+      }
+
+      const parsedAges = parseAgeRangeLabel(label)
+
+      return {
+        label,
+        min_age: parsedAges.min_age,
+        max_age: parsedAges.max_age,
+        pricing_type: 'fixed',
+        price_value: Number(priceValue) || 0,
+        sort_order: index,
+        is_active: true,
+      }
+    })
+    .filter(Boolean)
+}
+
 const getInitialFormData = (initialData = {}) => {
   let itineraryData = []
   if (Array.isArray(initialData.itinerary)) {
@@ -149,8 +242,9 @@ const getInitialFormData = (initialData = {}) => {
     duration_nights: initialData.duration_nights ?? '',
     base_price: initialData.base_price ?? '',
     discount_price: initialData.discount_price ?? '',
-    max_slots: initialData.max_slots ?? '',
-    available_slots: initialData.available_slots ?? '',
+    max_slots: initialData.max_slots ?? 1,
+    available_slots: initialData.available_slots ?? 1,
+    age_pricing_rules: normalizeAgePricingRulesForForm(initialData),
     status: initialData.status ?? 'published',
     thumbnail_alt_text:
       initialData.thumbnail_alt_text ??
@@ -175,6 +269,14 @@ const getInitialThumbnailPreview = (initialData = {}) => {
       thumbnailFromImages ||
       '',
   )
+}
+
+const getInitialImagePreviews = (initialData = {}) => {
+  const images = Array.isArray(initialData.images) ? initialData.images : []
+
+  return images
+    .map((image) => normalizeImageUrl(image?.image_url || image?.url || image))
+    .filter(Boolean)
 }
 
 const normalizeList = (data) => {
@@ -346,7 +448,9 @@ function TourForm({
     getInitialThumbnailPreview(initialData || {}),
   )
   const [galleryImages, setGalleryImages] = useState([])
-  const [galleryPreviews, setGalleryPreviews] = useState([])
+  const [galleryPreviews, setGalleryPreviews] = useState(() =>
+    getInitialImagePreviews(initialData || {}),
+  )
 
   if (initialDataKey !== prevInitialDataKey) {
     setPrevInitialDataKey(initialDataKey)
@@ -354,7 +458,7 @@ function TourForm({
     setThumbnailImage(null)
     setThumbnailPreview(getInitialThumbnailPreview(initialData || {}))
     setGalleryImages([])
-    setGalleryPreviews([])
+    setGalleryPreviews(getInitialImagePreviews(initialData || {}))
   }
 
   useEffect(() => {
@@ -437,6 +541,149 @@ function TourForm({
     }))
   }
 
+  const showConfirmToast = ({
+    title,
+    description,
+    confirmText = 'Xác nhận',
+    tone = 'rose',
+    onConfirm,
+  }) => {
+    const toneClass =
+      tone === 'amber'
+        ? {
+            border: 'border-amber-100',
+            iconBg: 'bg-amber-50',
+            iconText: 'text-amber-600',
+            button: 'bg-amber-500 hover:bg-amber-600',
+          }
+        : {
+            border: 'border-rose-100',
+            iconBg: 'bg-rose-50',
+            iconText: 'text-rose-600',
+            button: 'bg-rose-500 hover:bg-rose-600',
+          }
+
+    toast.custom(
+      (toastId) => (
+        <div
+          className={`w-full max-w-sm rounded-2xl border bg-white p-4 shadow-xl ${toneClass.border}`}
+        >
+          <div className="flex items-start gap-3">
+            <div
+              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${toneClass.iconBg} ${toneClass.iconText}`}
+            >
+              <svg
+                className="h-5 w-5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M3 6h18" />
+                <path d="M8 6V4h8v2" />
+                <path d="M19 6l-1 14H6L5 6" />
+                <path d="M10 11v6" />
+                <path d="M14 11v6" />
+              </svg>
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">
+                    {title}
+                  </p>
+                  <p className="mt-1 text-sm font-normal leading-6 text-slate-500">
+                    {description}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => toast.dismiss(toastId)}
+                  className="rounded-md px-2 py-1 text-lg leading-none text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                  aria-label="Đóng xác nhận"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => toast.dismiss(toastId)}
+                  className="h-9 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-600 transition hover:bg-slate-50"
+                >
+                  Hủy
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    toast.dismiss(toastId)
+                    onConfirm?.()
+                  }}
+                  className={`h-9 rounded-lg text-sm font-medium text-white shadow-sm transition ${toneClass.button}`}
+                >
+                  {confirmText}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ),
+      {
+        duration: Infinity,
+        position: 'top-right',
+      },
+    )
+  }
+
+  const handleAddAgePricingRule = () => {
+    setFormData((prev) => ({
+      ...prev,
+      age_pricing_rules: [
+        ...(prev.age_pricing_rules || []),
+        {
+          label: '',
+          price_value: '',
+          pricing_type: 'fixed',
+          sort_order: prev.age_pricing_rules?.length || 0,
+          is_active: true,
+        },
+      ],
+    }))
+  }
+
+  const handleUpdateAgePricingRule = (indexToUpdate, field, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      age_pricing_rules: (prev.age_pricing_rules || []).map((rule, index) =>
+        index === indexToUpdate ? { ...rule, [field]: value } : rule,
+      ),
+    }))
+  }
+
+  const handleRemoveAgePricingRule = (indexToRemove) => {
+    const rule = formData.age_pricing_rules?.[indexToRemove]
+
+    showConfirmToast({
+      title: 'Xóa mức giá này?',
+      description: `Mức giá “${rule?.label || `#${indexToRemove + 1}`}” sẽ bị xóa khỏi form.`,
+      confirmText: 'Xóa giá',
+      onConfirm: () => {
+        setFormData((prev) => ({
+          ...prev,
+          age_pricing_rules: (prev.age_pricing_rules || []).filter(
+            (_, index) => index !== indexToRemove,
+          ),
+        }))
+      },
+    })
+  }
+
   const handleThumbnailChange = (e) => {
     const selectedFiles = Array.from(e.target.files || [])
 
@@ -444,20 +691,23 @@ function TourForm({
       return
     }
 
-    const currentFiles = thumbnailImage
-      ? [thumbnailImage, ...galleryImages]
-      : []
+    const currentFiles = thumbnailImage ? [thumbnailImage, ...galleryImages] : []
 
     const nextFiles = [...currentFiles, ...selectedFiles]
     const firstFile = nextFiles[0] || null
     const otherFiles = nextFiles.slice(1)
+    const nextObjectUrls = selectedFiles.map((file) => URL.createObjectURL(file))
 
     setThumbnailImage(firstFile)
     setGalleryImages(otherFiles)
 
     if (firstFile) {
       setThumbnailPreview(URL.createObjectURL(firstFile))
-      setGalleryPreviews(nextFiles.map((file) => URL.createObjectURL(file)))
+      setGalleryPreviews((prev) => {
+        const keptPreviews = thumbnailImage ? prev : getInitialImagePreviews(initialData || {})
+
+        return [...keptPreviews, ...nextObjectUrls]
+      })
     }
 
     e.target.value = ''
@@ -492,11 +742,20 @@ function TourForm({
   }
 
   const handleRemoveStep = (indexToRemove) => {
-    const nextItinerary = formData.itinerary.filter(
-      (_, idx) => idx !== indexToRemove,
-    )
+    const step = formData.itinerary?.[indexToRemove]
 
-    updateItinerary(nextItinerary)
+    showConfirmToast({
+      title: 'Xóa chặng này?',
+      description: `Chặng “${step?.title || `#${indexToRemove + 1}`}” sẽ bị xóa khỏi lịch trình.`,
+      confirmText: 'Xóa chặng',
+      onConfirm: () => {
+        const nextItinerary = formData.itinerary.filter(
+          (_, idx) => idx !== indexToRemove,
+        )
+
+        updateItinerary(nextItinerary)
+      },
+    })
   }
 
   const handleUpdateStep = (indexToUpdate, field, value) => {
@@ -550,19 +809,26 @@ function TourForm({
   }
 
   const handleRemoveStepImage = (stepIndex, imageIndex) => {
-    const nextItinerary = formData.itinerary.map((step, idx) => {
-      if (idx === stepIndex) {
-        const nextImages = (step.images || []).filter(
-          (_, imgIdx) => imgIdx !== imageIndex,
-        )
+    showConfirmToast({
+      title: 'Xóa ảnh đính kèm này?',
+      description: 'Liên kết ảnh này sẽ bị xóa khỏi chặng hiện tại.',
+      confirmText: 'Xóa ảnh',
+      onConfirm: () => {
+        const nextItinerary = formData.itinerary.map((step, idx) => {
+          if (idx === stepIndex) {
+            const nextImages = (step.images || []).filter(
+              (_, imgIdx) => imgIdx !== imageIndex,
+            )
 
-        return { ...step, images: nextImages }
-      }
+            return { ...step, images: nextImages }
+          }
 
-      return step
+          return step
+        })
+
+        updateItinerary(nextItinerary)
+      },
     })
-
-    updateItinerary(nextItinerary)
   }
 
   const submitForm = (statusOverride) => {
@@ -581,6 +847,15 @@ function TourForm({
       return
     }
 
+    if (Number(formData.base_price || 0) < 0) {
+      toast.error('Giá gốc tour không hợp lệ')
+      return
+    }
+
+    const agePricingRules = normalizeAgePricingRulesForSubmit(
+      formData.age_pricing_rules,
+    )
+
     const payload = new FormData()
 
     payload.append('category_id', formData.category_id)
@@ -597,13 +872,14 @@ function TourForm({
     payload.append('duration_days', formData.duration_days || 1)
     payload.append('duration_nights', formData.duration_nights || 0)
     payload.append('base_price', formData.base_price || 0)
-    payload.append('discount_price', formData.discount_price || 0)
+    payload.append('discount_price', 0)
     payload.append('max_slots', formData.max_slots || 1)
     payload.append(
       'available_slots',
       formData.available_slots || formData.max_slots || 1,
     )
     payload.append('status', statusOverride || formData.status || 'published')
+    payload.append('age_pricing_rules', JSON.stringify(agePricingRules))
 
     if (thumbnailImage) {
       payload.append('thumbnail_image', thumbnailImage)
@@ -1331,29 +1607,93 @@ function TourForm({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <FieldLabel required>Chỗ tối đa</FieldLabel>
-                  <input
-                    type="number"
-                    name="max_slots"
-                    value={formData.max_slots}
-                    onChange={handleChange}
-                    placeholder="VD: 30"
-                    className={inputClass}
-                  />
+              <div>
+                <FieldLabel required>Giá gốc tour</FieldLabel>
+                <input
+                  type="number"
+                  name="base_price"
+                  min="0"
+                  value={formData.base_price}
+                  onChange={handleChange}
+                  placeholder="VD: 1000000"
+                  className={inputClass}
+                />
+              </div>
+
+              <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-3">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <FieldLabel>Giá theo độ tuổi / phụ thu</FieldLabel>
+                    <p className="mt-1 text-[11px] font-semibold leading-5 text-slate-400">
+                      ví dụ: 3-5 tuổi, 10-15 tuổi, trên 18 tuổi.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleAddAgePricingRule}
+                    className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg border border-blue-100 bg-white px-3 text-xs font-black text-blue-600 shadow-sm transition hover:bg-blue-50"
+                  >
+                    + Thêm giá
+                  </button>
                 </div>
 
-                <div>
-                  <FieldLabel required>Chỗ trống</FieldLabel>
-                  <input
-                    type="number"
-                    name="available_slots"
-                    value={formData.available_slots}
-                    onChange={handleChange}
-                    placeholder="Auto"
-                    className={inputClass}
-                  />
+                <div className="space-y-2.5">
+                  {(formData.age_pricing_rules || []).length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-slate-200 bg-white px-3 py-5 text-center text-xs font-semibold text-slate-400">
+                      Chưa có mức giá theo độ tuổi / phụ thu
+                    </div>
+                  ) : (
+                    (formData.age_pricing_rules || []).map((rule, index) => (
+                      <div
+                        key={index}
+                        className="grid grid-cols-[minmax(0,1fr)_130px_auto] items-end gap-2 rounded-xl border border-slate-100 bg-white p-2.5"
+                      >
+                        <div>
+                          <FieldLabel>Độ tuổi</FieldLabel>
+                          <input
+                            type="text"
+                            value={rule.label || ''}
+                            onChange={(e) =>
+                              handleUpdateAgePricingRule(
+                                index,
+                                'label',
+                                e.target.value,
+                              )
+                            }
+                            placeholder="VD: 3-5 tuổi"
+                            className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-800 outline-none transition focus:border-blue-500"
+                          />
+                        </div>
+
+                        <div>
+                          <FieldLabel>Giá / phụ thu</FieldLabel>
+                          <input
+                            type="number"
+                            min="0"
+                            value={rule.price_value ?? ''}
+                            onChange={(e) =>
+                              handleUpdateAgePricingRule(
+                                index,
+                                'price_value',
+                                e.target.value,
+                              )
+                            }
+                            placeholder="VD: 300000"
+                            className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-800 outline-none transition focus:border-blue-500"
+                          />
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveAgePricingRule(index)}
+                          className="mb-0.5 h-10 rounded-lg px-2 text-[11px] font-black text-red-500 transition hover:bg-red-50 hover:text-red-700"
+                        >
+                          Xóa
+                        </button>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             </div>

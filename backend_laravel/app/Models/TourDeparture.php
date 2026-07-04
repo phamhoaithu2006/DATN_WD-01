@@ -27,7 +27,9 @@ class TourDeparture extends Model
     protected $casts = [
         'departure_date' => 'date',
         'return_date' => 'date',
-        'price' => 'float',
+        'price' => 'decimal:2',
+        'total_slots' => 'integer',
+        'booked_slots' => 'integer',
     ];
 
     /**

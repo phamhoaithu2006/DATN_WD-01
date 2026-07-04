@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\TourImage;
 
@@ -12,6 +13,7 @@ class Tour extends Model
     use HasFactory, SoftDeletes;
 
     protected $table = 'tours';
+
 
     protected $fillable = [
         'category_id',
@@ -30,6 +32,15 @@ class Tour extends Model
         'status',
         'average_rating',
         'review_count',
+    ];
+
+    protected $casts = [
+        'base_price' => 'decimal:2',
+        'discount_price' => 'decimal:2',
+        'max_slots' => 'integer',
+        'available_slots' => 'integer',
+        'average_rating' => 'decimal:2',
+        'review_count' => 'integer',
     ];
 
     /**
@@ -69,6 +80,19 @@ class Tour extends Model
     public function departures()
     {
         return $this->hasMany(TourDeparture::class);
+    }
+
+    public function bookings(): HasMany
+    {
+        return $this->hasMany(Booking::class);
+    }
+
+    public function agePricingRules(): HasMany
+    {
+        return $this->hasMany(TourAgePricingRule::class)
+            ->orderBy('sort_order')
+            ->orderBy('min_age')
+            ->orderBy('id');
     }
 
     /**

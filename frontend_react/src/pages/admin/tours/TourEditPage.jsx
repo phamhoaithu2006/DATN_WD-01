@@ -1,5 +1,6 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useCallback, useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import AdminPageHeader from '../../../components/admin/AdminPageHeader'
 import TourForm from '../../../components/admin/tours/TourForm'
 import tourApi from '../../../services/toursApi'
@@ -42,7 +43,9 @@ function TourEditPage() {
       const foundTour = tourList.find((item) => Number(item.id) === Number(id))
 
       if (!foundTour) {
-        alert('Không tìm thấy tour')
+        toast.error('Không tìm thấy tour', {
+          description: 'Tour này không tồn tại hoặc đã bị xóa.',
+        })
         navigate('/admin/tours')
         return
       }
@@ -53,7 +56,12 @@ function TourEditPage() {
       console.error('STATUS:', error.response?.status)
       console.error('DATA:', error.response?.data)
 
-      alert('Không thể tải thông tin tour')
+      toast.error('Không thể tải thông tin tour', {
+        description:
+          error.response?.data?.message ||
+          'Có lỗi xảy ra khi tải dữ liệu tour. Vui lòng thử lại.',
+      })
+
       navigate('/admin/tours')
     } finally {
       setLoading(false)
@@ -74,7 +82,10 @@ function TourEditPage() {
 
       await tourApi.update(id, payload)
 
-      alert('Cập nhật tour thành công')
+      toast.success('Thành công', {
+        description: 'Cập nhật tour thành công',
+      })
+
       navigate('/admin/tours')
     } catch (error) {
       console.error('UPDATE TOUR ERROR:', error)
@@ -85,16 +96,22 @@ function TourEditPage() {
       const errors = error.response?.data?.errors
 
       if (errors) {
-        alert(Object.values(errors).flat().join('\n'))
+        toast.error('Dữ liệu không hợp lệ', {
+          description: Object.values(errors).flat().join('\n'),
+        })
         return
       }
 
       if (message) {
-        alert(message)
+        toast.error('Cập nhật tour thất bại', {
+          description: message,
+        })
         return
       }
 
-      alert('Cập nhật tour thất bại')
+      toast.error('Cập nhật tour thất bại', {
+        description: 'Có lỗi xảy ra. Vui lòng kiểm tra lại dữ liệu và thử lại.',
+      })
     } finally {
       setSubmitting(false)
     }
@@ -111,7 +128,7 @@ function TourEditPage() {
   return (
     <div className="p-6">
       <AdminPageHeader
-        breadcrumb={["ViVuGo", "Quản Lý Tour", "Sửa tour"]}
+        breadcrumb={['ViVuGo', 'Quản Lý Tour', 'Sửa tour']}
         title="Sửa tour"
         description={`Cập nhật thông tin tour #${tour.id}`}
         actions={

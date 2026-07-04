@@ -32,6 +32,7 @@ class TourResource extends JsonResource
             'status' => $this->status,
             'average_rating' => $this->average_rating,
             'review_count' => $this->review_count,
+            'bookings_count' => (int) ($this->bookings_count ?? 0),
 
             // Kết hợp 2 trường dữ liệu thành một chuỗi hiển thị
             'duration'    => "{$this->duration_days} ngày {$this->duration_nights} đêm",
@@ -41,6 +42,18 @@ class TourResource extends JsonResource
                 'base'     => (float)$this->base_price,
                 'discount' => (float)$this->discount_price,
             ],
+            'age_pricing_rules' => $this->whenLoaded('agePricingRules', fn () => $this->agePricingRules->map(function ($rule) {
+                return [
+                    'id' => $rule->id,
+                    'label' => $rule->label,
+                    'min_age' => $rule->min_age,
+                    'max_age' => $rule->max_age,
+                    'pricing_type' => $rule->pricing_type,
+                    'price_value' => $rule->price_value,
+                    'sort_order' => $rule->sort_order,
+                    'is_active' => $rule->is_active,
+                ];
+            })->values()),
             'slots' => [
                 'max'       => $this->max_slots,
                 'available' => $this->available_slots,
@@ -75,6 +88,12 @@ class TourResource extends JsonResource
                 return $this->destination ? [
                     'id' => $this->destination->id,
                     'name' => $this->destination->name,
+                    'slug' => $this->destination->slug,
+                    'province_city' => $this->destination->province_city,
+                    'country' => $this->destination->country,
+                    'description' => $this->destination->description,
+                    'thumbnail_url' => $this->destination->thumbnail_url,
+                    'status' => $this->destination->status,
                 ] : null;
             }),
             'departures'  => $this->whenLoaded(

@@ -230,6 +230,7 @@ function TourListPage() {
   }
 
   const openActionModal = (type, tour) => {
+    setToast(null)
     setPendingAction({ type, tour })
   }
 
@@ -684,65 +685,89 @@ function TourListPage() {
       )}
 
       {pendingAction && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/45 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <div
-              className={`mx-auto flex h-14 w-14 items-center justify-center rounded-full ${
-                pendingAction.type === 'hide'
-                  ? 'bg-amber-50 text-amber-600'
-                  : 'bg-rose-50 text-rose-600'
-              }`}
-            >
-              {pendingAction.type === 'hide' ? (
-                <EyeOffIcon className="h-7 w-7" />
-              ) : (
-                <TrashIcon className="h-7 w-7" />
-              )}
-            </div>
-
-            <div className="mt-5 text-center">
-              <h2 className="text-lg font-semibold text-slate-800">
-                {pendingAction.type === 'hide' ? 'Ẩn tour này?' : 'Xóa tour này?'}
-              </h2>
-
-              <p className="mt-3 text-sm font-normal leading-6 text-slate-500">
-                Bạn có chắc muốn {pendingAction.type === 'hide' ? 'ẩn' : 'xóa'} tour{' '}
-                <span className="font-medium text-slate-700">
-                  {formatTourTitle(pendingAction.tour?.title || '') ||
-                    `#${pendingAction.tour?.id}`}
-                </span>{' '}
-                không?
-              </p>
-            </div>
-
-            <div className="mt-6 grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={closeActionModal}
-                disabled={Boolean(actionLoading)}
-                className="h-10 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Hủy
-              </button>
-
-              <button
-                type="button"
-                onClick={handleAction}
-                disabled={Boolean(actionLoading)}
-                className={`h-10 rounded-lg text-sm font-medium text-white shadow-sm transition disabled:cursor-not-allowed disabled:opacity-60 ${
+        <div className="fixed right-6 top-6 z-50 w-full max-w-sm">
+          <div
+            className={`rounded-2xl border bg-white p-4 shadow-xl ${
+              pendingAction.type === 'hide'
+                ? 'border-amber-100'
+                : 'border-rose-100'
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              <div
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
                   pendingAction.type === 'hide'
-                    ? 'bg-amber-500 hover:bg-amber-600'
-                    : 'bg-rose-500 hover:bg-rose-600'
+                    ? 'bg-amber-50 text-amber-600'
+                    : 'bg-rose-50 text-rose-600'
                 }`}
               >
-                {actionLoading
-                  ? pendingAction.type === 'hide'
-                    ? 'Đang ẩn...'
-                    : 'Đang xóa...'
-                  : pendingAction.type === 'hide'
-                    ? 'Ẩn tour'
-                    : 'Xóa tour'}
-              </button>
+                {pendingAction.type === 'hide' ? (
+                  <EyeOffIcon className="h-5 w-5" />
+                ) : (
+                  <TrashIcon className="h-5 w-5" />
+                )}
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-800">
+                      {pendingAction.type === 'hide'
+                        ? 'Xác nhận ẩn tour'
+                        : 'Xác nhận xóa tour'}
+                    </p>
+
+                    <p className="mt-1 text-sm font-normal leading-6 text-slate-500">
+                      Bạn có chắc muốn {pendingAction.type === 'hide' ? 'ẩn' : 'xóa'} tour{' '}
+                      <span className="font-medium text-slate-700">
+                        {formatTourTitle(pendingAction.tour?.title || '') ||
+                          `#${pendingAction.tour?.id}`}
+                      </span>{' '}
+                      không?
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={closeActionModal}
+                    disabled={Boolean(actionLoading)}
+                    className="rounded-md px-2 py-1 text-lg leading-none text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 disabled:cursor-not-allowed disabled:opacity-60"
+                    aria-label="Đóng xác nhận"
+                  >
+                    ×
+                  </button>
+                </div>
+
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={closeActionModal}
+                    disabled={Boolean(actionLoading)}
+                    className="h-9 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Hủy
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleAction}
+                    disabled={Boolean(actionLoading)}
+                    className={`h-9 rounded-lg text-sm font-medium text-white shadow-sm transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                      pendingAction.type === 'hide'
+                        ? 'bg-amber-500 hover:bg-amber-600'
+                        : 'bg-rose-500 hover:bg-rose-600'
+                    }`}
+                  >
+                    {actionLoading
+                      ? pendingAction.type === 'hide'
+                        ? 'Đang ẩn...'
+                        : 'Đang xóa...'
+                      : pendingAction.type === 'hide'
+                        ? 'Ẩn tour'
+                        : 'Xóa tour'}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>

@@ -441,6 +441,18 @@
   width: 40px;
 }
 
+.support-avatar.is-image {
+  background: #e2e8f0;
+  overflow: hidden;
+}
+
+.support-avatar img {
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
 .support-avatar.tone-0 {
   background: linear-gradient(135deg, #08b2ff, #0b74d3);
 }
@@ -1112,6 +1124,12 @@
   font-weight: 800;
   height: 64px;
   justify-content: center;
+  width: 64px;
+}
+
+.support-avatar-large {
+  font-size: 22px;
+  height: 64px;
   width: 64px;
 }
 
