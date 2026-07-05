@@ -296,7 +296,15 @@ function TourTypeListPage() {
             </p>
           </div>
 
-          <div className="flex shrink-0 items-center gap-3">
+          <div className="flex shrink-0 flex-wrap items-center gap-3">
+            <Link
+              to="/admin/tours"
+              className="inline-flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-md border border-slate-300 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+            >
+              <span className="text-lg leading-none">←</span>
+              Quay lại danh sách tour
+            </Link>
+
             <Link
               to="/admin/categories/create"
               className="inline-flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"

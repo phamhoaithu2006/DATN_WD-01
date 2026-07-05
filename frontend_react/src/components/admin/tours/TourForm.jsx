@@ -216,6 +216,336 @@ const normalizeAgePricingRulesForSubmit = (rules = []) => {
     .filter(Boolean)
 }
 
+const getBasePriceFromAgeRules = (rules = [], fallback = 0) => {
+  const prices = normalizeAgePricingRulesForSubmit(rules)
+    .map((rule) => Number(rule.price_value || 0))
+    .filter((price) => price > 0)
+
+  if (prices.length > 0) {
+    return Math.min(...prices)
+  }
+
+  return fallback || 0
+}
+
+
+const MAX_SUMMARY_LENGTH = 300
+const MAX_TITLE_LENGTH = 180
+const MAX_ALT_TEXT_LENGTH = 150
+const MAX_IMAGE_SIZE_MB = 5
+const MAX_GALLERY_IMAGES = 10
+const DOMESTIC_MAX_TOUR_DURATION_DAYS = 7
+const INTERNATIONAL_MAX_TOUR_DURATION_DAYS = 15
+const ALLOWED_STATUSES = ['draft', 'published', 'hidden']
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+
+const getDurationNightsFromDays = (value) => {
+  const days = Number(value)
+
+  if (!Number.isInteger(days) || days < 1) {
+    return ''
+  }
+
+  return Math.max(days - 1, 0)
+}
+
+const isIntegerGreaterOrEqual = (value, min) => {
+  const numberValue = Number(value)
+
+  return Number.isInteger(numberValue) && numberValue >= min
+}
+
+
+const normalizeTextForMatching = (value) => {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+}
+
+const getCategorySearchText = (category = {}) => {
+  if (!category || typeof category !== 'object') return ''
+
+  return normalizeTextForMatching(
+    [
+      category.type,
+      category.slug,
+      category.code,
+      category.name,
+      category.title,
+      category.category_name,
+      category.description,
+    ]
+      .filter(Boolean)
+      .join(' '),
+  )
+}
+
+const isInternationalCategory = (category) => {
+  const text = getCategorySearchText(category)
+
+  return [
+    'quoc te',
+    'nuoc ngoai',
+    'international',
+    'foreign',
+    'oversea',
+    'outbound',
+  ].some((keyword) => text.includes(keyword))
+}
+
+const getTourDurationLimit = (category) => {
+  if (isInternationalCategory(category)) {
+    return {
+      maxDays: INTERNATIONAL_MAX_TOUR_DURATION_DAYS,
+      label: 'quốc tế',
+    }
+  }
+
+  return {
+    maxDays: DOMESTIC_MAX_TOUR_DURATION_DAYS,
+    label: 'nội địa',
+  }
+}
+
+const isValidImageUrlOrPath = (value) => {
+  const raw = String(value || '').trim()
+
+  if (!raw) return true
+
+  if (
+    raw.startsWith('/storage') ||
+    raw.startsWith('storage') ||
+    raw.startsWith('/uploads') ||
+    raw.startsWith('uploads')
+  ) {
+    return true
+  }
+
+  try {
+    const url = new URL(raw)
+
+    return ['http:', 'https:'].includes(url.protocol)
+  } catch {
+    return false
+  }
+}
+
+const validateImageFile = (file, label) => {
+  if (!file) return ''
+
+  if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+    return `${label} chỉ hỗ trợ JPG, PNG hoặc WEBP.`
+  }
+
+  if (file.size > MAX_IMAGE_SIZE_MB * 1024 * 1024) {
+    return `${label} không được vượt quá ${MAX_IMAGE_SIZE_MB}MB.`
+  }
+
+  return ''
+}
+
+const validateAgePricingRules = (rules = []) => {
+  if (!Array.isArray(rules)) return ''
+
+  for (let index = 0; index < rules.length; index += 1) {
+    const rule = rules[index] || {}
+    const label = String(rule.label || '').trim()
+    const priceText = String(rule.price_value ?? '').trim()
+    const hasAnyValue = label || priceText
+
+    if (!hasAnyValue) {
+      continue
+    }
+
+    if (!label) {
+      return `Vui lòng nhập độ tuổi cho dòng giá #${index + 1}.`
+    }
+
+    if (!/\d+/.test(label)) {
+      return `Độ tuổi ở dòng giá #${index + 1} cần có số tuổi, ví dụ: 3-5 tuổi.`
+    }
+
+    if (priceText === '') {
+      return `Vui lòng nhập giá cho dòng giá #${index + 1}.`
+    }
+
+    const priceValue = Number(priceText)
+
+    if (!Number.isFinite(priceValue) || priceValue < 0) {
+      return `Giá ở dòng #${index + 1} không hợp lệ.`
+    }
+  }
+
+  return ''
+}
+
+const validateItinerary = (itinerary = [], durationDays = 1, strict = false) => {
+  if (!Array.isArray(itinerary)) return ''
+
+  const maxDay = Number(durationDays)
+
+  if (strict && itinerary.length === 0) {
+    return 'Vui lòng thêm ít nhất 1 chặng trong lịch trình trước khi hiển thị tour.'
+  }
+
+  for (let index = 0; index < itinerary.length; index += 1) {
+    const step = itinerary[index] || {}
+    const dayNumber = Number(step.day_number || 0)
+    const title = String(step.title || '').trim()
+    const imageError = (step.images || []).some(
+      (image) => !isValidImageUrlOrPath(image.image_url),
+    )
+
+    if (!Number.isInteger(dayNumber) || dayNumber < 1 || dayNumber > maxDay) {
+      return `Chặng #${index + 1} có ngày không hợp lệ.`
+    }
+
+    if (strict && !title) {
+      return `Vui lòng nhập tiêu đề cho chặng #${index + 1}.`
+    }
+
+    if (imageError) {
+      return `Link ảnh ở chặng #${index + 1} không hợp lệ.`
+    }
+  }
+
+  return ''
+}
+
+const validateTourForm = ({
+  formData,
+  thumbnailImage,
+  thumbnailPreview,
+  galleryImages,
+  status,
+  selectedCategory,
+}) => {
+  const submitStatus = status || formData.status || 'published'
+  const isStrictSubmit = submitStatus !== 'draft'
+  const title = String(formData.title || '').trim()
+  const summary = String(formData.summary || '').trim()
+  const description = String(formData.description || '').trim()
+  const basePrice = Number(formData.base_price)
+  const durationDays = Number(formData.duration_days)
+  const durationNights = getDurationNightsFromDays(formData.duration_days)
+  const durationLimit = getTourDurationLimit(selectedCategory)
+  const maxSlots = Number(formData.max_slots ?? 1)
+  const availableSlots = Number(formData.available_slots ?? maxSlots ?? 1)
+
+  if (!ALLOWED_STATUSES.includes(submitStatus)) {
+    return 'Trạng thái tour không hợp lệ.'
+  }
+
+  if (!formData.category_id) {
+    return 'Vui lòng chọn danh mục.'
+  }
+
+  if (!formData.destination_id) {
+    return 'Vui lòng chọn điểm đến.'
+  }
+
+  if (!title) {
+    return 'Vui lòng nhập tên tour.'
+  }
+
+  if (title.length < 5) {
+    return 'Tên tour cần có ít nhất 5 ký tự.'
+  }
+
+  if (title.length > MAX_TITLE_LENGTH) {
+    return `Tên tour không được vượt quá ${MAX_TITLE_LENGTH} ký tự.`
+  }
+
+  if (summary.length > MAX_SUMMARY_LENGTH) {
+    return `Tóm tắt không được vượt quá ${MAX_SUMMARY_LENGTH} ký tự.`
+  }
+
+  if (isStrictSubmit && !description) {
+    return 'Vui lòng nhập mô tả chi tiết trước khi hiển thị tour.'
+  }
+
+  if (isStrictSubmit && description.length < 20) {
+    return 'Mô tả chi tiết cần có ít nhất 20 ký tự.'
+  }
+
+  if (!isIntegerGreaterOrEqual(formData.duration_days, 1)) {
+    return 'Số ngày phải là số nguyên lớn hơn hoặc bằng 1.'
+  }
+
+  if (durationDays > durationLimit.maxDays) {
+    return `Số ngày không được vượt quá ${durationLimit.maxDays} ngày đối với tour ${durationLimit.label}.`
+  }
+
+  if (durationNights === '' || durationNights !== Math.max(durationDays - 1, 0)) {
+    return 'Số đêm phải bằng số ngày - 1.'
+  }
+
+  if (!Number.isFinite(basePrice) || basePrice < 0) {
+    return 'Giá gốc tour không hợp lệ.'
+  }
+
+  if (isStrictSubmit && basePrice <= 0) {
+    return 'Giá gốc tour phải lớn hơn 0 trước khi hiển thị tour.'
+  }
+
+  if (!Number.isInteger(maxSlots) || maxSlots < 1) {
+    return 'Số slot tối đa phải là số nguyên lớn hơn hoặc bằng 1.'
+  }
+
+  if (!Number.isInteger(availableSlots) || availableSlots < 0) {
+    return 'Số slot còn lại phải là số nguyên lớn hơn hoặc bằng 0.'
+  }
+
+  if (availableSlots > maxSlots) {
+    return 'Số slot còn lại không được lớn hơn số slot tối đa.'
+  }
+
+  const agePricingError = validateAgePricingRules(formData.age_pricing_rules)
+  if (agePricingError) {
+    return agePricingError
+  }
+
+  const itineraryError = validateItinerary(
+    formData.itinerary,
+    durationDays,
+    isStrictSubmit,
+  )
+  if (itineraryError) {
+    return itineraryError
+  }
+
+  if (isStrictSubmit && !thumbnailImage && !thumbnailPreview) {
+    return 'Vui lòng chọn ảnh đại diện trước khi hiển thị tour.'
+  }
+
+  const thumbnailError = validateImageFile(thumbnailImage, 'Ảnh đại diện')
+  if (thumbnailError) {
+    return thumbnailError
+  }
+
+  if ((galleryImages || []).length > MAX_GALLERY_IMAGES) {
+    return `Thư viện ảnh không được vượt quá ${MAX_GALLERY_IMAGES} ảnh.`
+  }
+
+  for (let index = 0; index < (galleryImages || []).length; index += 1) {
+    const galleryError = validateImageFile(
+      galleryImages[index],
+      `Ảnh thư viện #${index + 1}`,
+    )
+
+    if (galleryError) {
+      return galleryError
+    }
+  }
+
+  if (String(formData.thumbnail_alt_text || '').length > MAX_ALT_TEXT_LENGTH) {
+    return `Alt text không được vượt quá ${MAX_ALT_TEXT_LENGTH} ký tự.`
+  }
+
+  return ''
+}
+
 const getInitialFormData = (initialData = {}) => {
   let itineraryData = []
   if (Array.isArray(initialData.itinerary)) {
@@ -535,6 +865,15 @@ function TourForm({
   const handleChange = (e) => {
     const { name, value } = e.target
 
+    if (name === 'duration_days') {
+      setFormData((prev) => ({
+        ...prev,
+        duration_days: value,
+        duration_nights: getDurationNightsFromDays(value),
+      }))
+      return
+    }
+
     setFormData((prev) => ({
       ...prev,
       [name]: value,
@@ -832,23 +1171,20 @@ function TourForm({
   }
 
   const submitForm = (statusOverride) => {
-    if (!formData.category_id) {
-      toast.error('Vui lòng chọn danh mục')
-      return
-    }
+    const submitStatus = statusOverride || formData.status || 'published'
+    const durationNights = getDurationNightsFromDays(formData.duration_days)
 
-    if (!formData.destination_id) {
-      toast.error('Vui lòng chọn điểm đến')
-      return
-    }
+    const validationError = validateTourForm({
+      formData,
+      thumbnailImage,
+      thumbnailPreview,
+      galleryImages,
+      status: submitStatus,
+      selectedCategory,
+    })
 
-    if (!formData.title.trim()) {
-      toast.error('Vui lòng nhập tên tour')
-      return
-    }
-
-    if (Number(formData.base_price || 0) < 0) {
-      toast.error('Giá gốc tour không hợp lệ')
+    if (validationError) {
+      toast.error(validationError)
       return
     }
 
@@ -869,16 +1205,16 @@ function TourForm({
       JSON.stringify(normalizeItineraryForSubmit(formData.itinerary)),
     )
 
-    payload.append('duration_days', formData.duration_days || 1)
-    payload.append('duration_nights', formData.duration_nights || 0)
-    payload.append('base_price', formData.base_price || 0)
+    payload.append('duration_days', Number(formData.duration_days))
+    payload.append('duration_nights', durationNights)
+    payload.append('base_price', Number(formData.base_price || 0))
     payload.append('discount_price', 0)
-    payload.append('max_slots', formData.max_slots || 1)
+    payload.append('max_slots', Number(formData.max_slots ?? 1))
     payload.append(
       'available_slots',
-      formData.available_slots || formData.max_slots || 1,
+      Number(formData.available_slots ?? formData.max_slots ?? 1),
     )
-    payload.append('status', statusOverride || formData.status || 'published')
+    payload.append('status', submitStatus)
     payload.append('age_pricing_rules', JSON.stringify(agePricingRules))
 
     if (thumbnailImage) {
@@ -915,6 +1251,24 @@ function TourForm({
     !destinations.some(
       (item) => String(item.id) === String(formData.destination_id),
     )
+
+  const selectedCategory =
+    categories.find((item) => String(item.id) === String(formData.category_id)) ||
+    initialData?.category ||
+    initialData?.category_data ||
+    initialData?.categoryInfo ||
+    null
+  const durationLimit = getTourDurationLimit(selectedCategory)
+  const requestedDurationDays = Number(formData.duration_days || 1)
+  const visibleDurationDays = Math.max(
+    1,
+    Math.min(
+      Number.isFinite(requestedDurationDays) ? requestedDurationDays : 1,
+      durationLimit.maxDays,
+    ),
+  )
+  const isDurationDaysOverLimit =
+    Number(formData.duration_days) > durationLimit.maxDays
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -954,6 +1308,7 @@ function TourForm({
                   name="title"
                   value={formData.title}
                   onChange={handleChange}
+                  maxLength={MAX_TITLE_LENGTH}
                   placeholder="Nhập tên tour (ví dụ: Đà Nẵng - Hội An 3N2Đ)"
                   className={inputClass}
                 />
@@ -971,6 +1326,7 @@ function TourForm({
                   name="summary"
                   value={formData.summary}
                   onChange={handleChange}
+                  maxLength={MAX_SUMMARY_LENGTH}
                   placeholder="Nhập tóm tắt ngắn gọn về tour (hiển thị trên danh sách tour)..."
                   rows="3"
                   className={textareaClass}
@@ -1049,8 +1405,14 @@ function TourForm({
             />
 
             <div className="space-y-5">
+              {isDurationDaysOverLimit ? (
+                <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-xs font-semibold leading-5 text-amber-700">
+                  Số ngày tối đa cho tour {durationLimit.label} là {durationLimit.maxDays}. Lịch trình chỉ hiển thị tối đa {durationLimit.maxDays} ngày để tránh form bị quá tải; dữ liệu đã nhập không bị xóa.
+                </div>
+              ) : null}
+
               {Array.from({
-                length: Math.max(1, Number(formData.duration_days || 1)),
+                length: visibleDurationDays,
               }).map((_, dIdx) => {
                 const dayNum = dIdx + 1
                 const daySteps = formData.itinerary
@@ -1460,6 +1822,7 @@ function TourForm({
                   name="thumbnail_alt_text"
                   value={formData.thumbnail_alt_text}
                   onChange={handleChange}
+                  maxLength={MAX_ALT_TEXT_LENGTH}
                   placeholder="Mô tả ảnh (tùy chọn)..."
                   className={inputClass}
                 />
@@ -1587,11 +1950,17 @@ function TourForm({
                   <input
                     type="number"
                     name="duration_days"
+                    min="1"
+                    max={durationLimit.maxDays}
+                    step="1"
                     value={formData.duration_days}
                     onChange={handleChange}
                     placeholder="VD: 3"
                     className={inputClass}
                   />
+                  <p className="mt-1 text-[11px] font-semibold text-slate-400">
+                    Tối đa {durationLimit.maxDays} ngày với tour {durationLimit.label}.
+                  </p>
                 </div>
 
                 <div>
@@ -1599,11 +1968,14 @@ function TourForm({
                   <input
                     type="number"
                     name="duration_nights"
-                    value={formData.duration_nights}
-                    onChange={handleChange}
-                    placeholder="VD: 2"
-                    className={inputClass}
+                    value={getDurationNightsFromDays(formData.duration_days)}
+                    readOnly
+                    placeholder="Tự động"
+                    className={`${inputClass} cursor-not-allowed bg-slate-50 text-slate-500`}
                   />
+                  <p className="mt-1 text-[11px] font-semibold text-slate-400">
+                    Tự động tính bằng số ngày - 1.
+                  </p>
                 </div>
               </div>
 
@@ -1613,6 +1985,7 @@ function TourForm({
                   type="number"
                   name="base_price"
                   min="0"
+                  step="1000"
                   value={formData.base_price}
                   onChange={handleChange}
                   placeholder="VD: 1000000"

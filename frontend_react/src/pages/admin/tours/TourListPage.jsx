@@ -172,6 +172,43 @@ function CheckIcon({ className = 'h-5 w-5' }) {
   )
 }
 
+const TOUR_STATUS_CONFIG = {
+  published: {
+    label: 'Đang mở',
+    badgeClass: 'bg-emerald-50 text-emerald-700',
+    dotClass: 'bg-emerald-500',
+  },
+  draft: {
+    label: 'Bản nháp',
+    badgeClass: 'bg-amber-50 text-amber-700',
+    dotClass: 'bg-amber-500',
+  },
+  hidden: {
+    label: 'Tạm ẩn',
+    badgeClass: 'bg-slate-100 text-slate-600',
+    dotClass: 'bg-slate-400',
+  },
+}
+
+const getTourStatusConfig = (status) => {
+  const value = String(status || '').trim().toLowerCase()
+
+  return (
+    TOUR_STATUS_CONFIG[value] || {
+      label: status ? String(status) : '-',
+      badgeClass: 'bg-slate-100 text-slate-600',
+      dotClass: 'bg-slate-400',
+    }
+  )
+}
+
+const normalizeSearchText = (value) => {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+}
+
 function TourListPage() {
   const [tours, setTours] = useState([])
   const [loading, setLoading] = useState(true)
@@ -360,13 +397,14 @@ function TourListPage() {
     return '-'
   }
 
-  const filtered = tours.filter((tour) =>
-    `${tour.title || ''} ${tour.summary || ''} ${tour.status || ''} ${getCategoryName(
+  const filtered = tours.filter((tour) => {
+    const statusLabel = getTourStatusConfig(tour.status).label
+    const haystack = `${tour.title || ''} ${tour.summary || ''} ${tour.status || ''} ${statusLabel} ${getCategoryName(
       tour,
     )} ${getDestinationName(tour)}`
-      .toLowerCase()
-      .includes(keyword.toLowerCase()),
-  )
+
+    return normalizeSearchText(haystack).includes(normalizeSearchText(keyword))
+  })
 
   return (
     <div className="min-h-full bg-slate-50/70 px-8 py-8">
@@ -512,6 +550,7 @@ function TourListPage() {
               ) : (
                 filtered.map((tour) => {
                   const thumbnailUrl = getTourThumbnail(tour)
+                  const statusConfig = getTourStatusConfig(tour.status)
 
                   return (
                     <tr
@@ -571,24 +610,12 @@ function TourListPage() {
 
                       <td className="whitespace-nowrap px-5 py-4">
                         <span
-                          className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium ${
-                            tour.status === 'published'
-                              ? 'bg-emerald-50 text-emerald-700'
-                              : tour.status === 'draft'
-                                ? 'bg-amber-50 text-amber-700'
-                                : 'bg-slate-100 text-slate-600'
-                          }`}
+                          className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium ${statusConfig.badgeClass}`}
                         >
                           <span
-                            className={`h-1.5 w-1.5 rounded-full ${
-                              tour.status === 'published'
-                                ? 'bg-emerald-500'
-                                : tour.status === 'draft'
-                                  ? 'bg-amber-500'
-                                  : 'bg-slate-400'
-                            }`}
+                            className={`h-1.5 w-1.5 rounded-full ${statusConfig.dotClass}`}
                           />
-                          {tour.status || '-'}
+                          {statusConfig.label}
                         </span>
                       </td>
 
