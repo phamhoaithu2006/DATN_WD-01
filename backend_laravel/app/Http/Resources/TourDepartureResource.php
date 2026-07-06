@@ -39,9 +39,12 @@ class TourDepartureResource extends JsonResource
 
             // Chỉ trả về thông tin cơ bản của tour nếu quan hệ đã được load
             'tour' => $this->whenLoaded('tour', fn() => [
-                'id'    => $tour->id,
+                'id' => $tour->id,
                 'title' => $tour->title,
-                'slug'  => $tour->slug,
+                'slug' => $tour->slug,
+                'duration_days' => (int) $tour->duration_days,
+                'duration_nights' => (int) $tour->duration_nights,
+                'duration' => "{$tour->duration_days} ngày {$tour->duration_nights} đêm",
             ]),
         ];
     }

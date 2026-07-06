@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\TourDepartureResource;
 use App\Models\Tour;
 use App\Models\TourDeparture;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 class TourDepartureController extends Controller
@@ -41,13 +42,13 @@ class TourDepartureController extends Controller
 
         $validatedData = $request->validate([
             'departure_date' => 'required|date|after_or_equal:today',
-            'return_date' => 'nullable|date|after:departure_date',
             'price' => 'nullable|numeric|min:0',
             'total_slots' => 'required|integer|min:1',
             'status' => 'required|in:open,closed,completed,cancelled',
         ]);
 
         $validatedData['tour_id'] = $tour->id;
+        $validatedData['return_date'] = $this->calculateReturnDate($tour, $validatedData['departure_date']);
         $validatedData['booked_slots'] = 0;
 
         $departure = TourDeparture::create($validatedData);
@@ -65,16 +66,20 @@ class TourDepartureController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $departure = TourDeparture::findOrFail($id);
+        $departure = TourDeparture::with('tour')->findOrFail($id);
 
         $validatedData = $request->validate([
             'departure_date' => 'sometimes|required|date|after_or_equal:today',
-            'return_date' => 'nullable|date|after:'.($request->departure_date ?? $departure->departure_date?->format('Y-m-d') ?? 'today'),
             'price' => 'nullable|numeric|min:0',
             'total_slots' => 'sometimes|required|integer|min:'.($request->booked_slots ?? $departure->booked_slots),
             'booked_slots' => 'nullable|integer|min:0|max:'.($request->total_slots ?? $departure->total_slots),
             'status' => 'sometimes|required|in:open,closed,completed,cancelled',
         ]);
+
+        $departureDate = $validatedData['departure_date']
+            ?? $departure->departure_date?->format('Y-m-d');
+
+        $validatedData['return_date'] = $this->calculateReturnDate($departure->tour, $departureDate);
 
         $departure->update($validatedData);
 
@@ -109,5 +114,14 @@ class TourDepartureController extends Controller
             'status' => 'success',
             'message' => 'Đã xóa lịch khởi hành thành công',
         ]);
+    }
+
+    private function calculateReturnDate(Tour $tour, string $departureDate): string
+    {
+        $durationNights = max((int) $tour->duration_nights, 0);
+
+        return Carbon::parse($departureDate)
+            ->addDays($durationNights)
+            ->toDateString();
     }
 }

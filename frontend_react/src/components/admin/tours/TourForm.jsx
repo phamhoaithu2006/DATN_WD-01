@@ -216,19 +216,6 @@ const normalizeAgePricingRulesForSubmit = (rules = []) => {
     .filter(Boolean)
 }
 
-const getBasePriceFromAgeRules = (rules = [], fallback = 0) => {
-  const prices = normalizeAgePricingRulesForSubmit(rules)
-    .map((rule) => Number(rule.price_value || 0))
-    .filter((price) => price > 0)
-
-  if (prices.length > 0) {
-    return Math.min(...prices)
-  }
-
-  return fallback || 0
-}
-
-
 const MAX_SUMMARY_LENGTH = 300
 const MAX_TITLE_LENGTH = 180
 const MAX_ALT_TEXT_LENGTH = 150
@@ -1172,7 +1159,6 @@ function TourForm({
 
   const submitForm = (statusOverride) => {
     const submitStatus = statusOverride || formData.status || 'published'
-    const durationNights = getDurationNightsFromDays(formData.duration_days)
 
     const validationError = validateTourForm({
       formData,
@@ -1206,7 +1192,6 @@ function TourForm({
     )
 
     payload.append('duration_days', Number(formData.duration_days))
-    payload.append('duration_nights', durationNights)
     payload.append('base_price', Number(formData.base_price || 0))
     payload.append('discount_price', 0)
     payload.append('max_slots', Number(formData.max_slots ?? 1))

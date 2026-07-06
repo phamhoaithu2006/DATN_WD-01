@@ -1,5 +1,3 @@
-import React from "react";
-
 const CalendarIcon = ({ className = "h-4 w-4" }) => (
   <svg
     className={className}
@@ -89,8 +87,42 @@ const inputClass =
 const selectClass =
   "h-11 w-full rounded-lg border border-slate-300 bg-white pl-13 pr-9 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100";
 
+const formatDateInput = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+};
+
+const addDaysToDate = (dateString, days) => {
+  if (!dateString) return "";
+
+  const [year, month, day] = dateString.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+
+  if (Number.isNaN(date.getTime())) return "";
+
+  date.setDate(date.getDate() + days);
+
+  return formatDateInput(date);
+};
+
+const getDurationDays = (tour) => Number(tour?.duration_days || 0);
+
+const getDurationNights = (tour) => {
+  const nights = Number(tour?.duration_nights);
+
+  if (Number.isFinite(nights) && nights >= 0) {
+    return nights;
+  }
+
+  return Math.max(getDurationDays(tour) - 1, 0);
+};
+
 const TourDepartureForm = ({
   formData,
+  tour,
   onChange,
   onSubmit,
   submitText = "Lưu",
@@ -98,6 +130,13 @@ const TourDepartureForm = ({
   hideWrapper = false,
   hideActions = false,
 }) => {
+  const durationDays = getDurationDays(tour);
+  const durationNights = getDurationNights(tour);
+  const calculatedReturnDate =
+    durationDays > 0
+      ? addDaysToDate(formData?.departure_date || "", durationNights)
+      : "";
+
   const formFields = (
     <>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -134,12 +173,15 @@ const TourDepartureForm = ({
 
             <input
               type="date"
-              name="return_date"
-              value={formData?.return_date || ""}
-              onChange={onChange}
-              className={inputClass}
+              value={calculatedReturnDate}
+              readOnly
+              className={`${inputClass} cursor-not-allowed bg-slate-50 text-slate-500`}
             />
           </div>
+
+          <p className="mt-1 text-xs text-slate-500">
+            Tự động tính theo thời lượng tour gốc.
+          </p>
         </div>
 
         <div>
@@ -221,6 +263,18 @@ const TourDepartureForm = ({
         </div>
       </div>
 
+      <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
+        <div className="font-semibold">
+          {durationDays > 0
+            ? `${durationDays} ngày ${durationNights} đêm`
+            : "Chưa có thời lượng tour"}
+        </div>
+        <div className="mt-1 text-blue-700">
+          Ngày khởi hành: {formData?.departure_date || "Chưa chọn"} · Ngày về dự kiến:{" "}
+          {calculatedReturnDate || "Chưa xác định"}
+        </div>
+      </div>
+
       {!hideActions && (
         <div className="mt-5 flex justify-end gap-3 border-t border-slate-100 pt-5">
           {onCancel && (
@@ -259,7 +313,7 @@ const TourDepartureForm = ({
         </h2>
 
         <p className="mt-1 text-sm text-slate-500">
-          Nhập ngày đi, ngày về, giá tour, số chỗ và trạng thái lịch.
+          Nhập ngày khởi hành, giá tour, số chỗ và trạng thái lịch. Ngày về sẽ được tự động tính từ thời lượng tour gốc.
         </p>
       </div>
 

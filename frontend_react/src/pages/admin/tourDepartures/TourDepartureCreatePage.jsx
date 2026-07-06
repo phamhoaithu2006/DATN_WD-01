@@ -1,11 +1,10 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { tourDepartureApi } from "../../../services/tourDepartureApi";
 import TourDepartureForm from "../../../components/admin/tourDepartures/TourDepartureForm";
 
 const emptyForm = {
   departure_date: "",
-  return_date: "",
   price: "",
   total_slots: "",
   status: "open",
@@ -38,11 +37,11 @@ const TourDepartureCreatePage = () => {
     );
   };
 
-  useEffect(() => {
-    fetchTours();
-  }, []);
+  const selectedTour = tours.find(
+    (tour) => String(tour.id) === String(selectedTourId)
+  );
 
-  const fetchTours = async () => {
+  async function fetchTours() {
     try {
       const res = await tourDepartureApi.getTours();
       const list = getArrayFromResponse(res);
@@ -56,7 +55,12 @@ const TourDepartureCreatePage = () => {
       console.error(error);
       alert("Không tải được danh sách tour");
     }
-  };
+  }
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchTours();
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -77,7 +81,6 @@ const TourDepartureCreatePage = () => {
 
     const data = {
       departure_date: formData.departure_date,
-      return_date: formData.return_date || null,
       price: formData.price === "" ? null : Number(formData.price),
       total_slots: Number(formData.total_slots),
       status: formData.status,
@@ -133,6 +136,7 @@ const TourDepartureCreatePage = () => {
 
       <TourDepartureForm
         formData={formData}
+        tour={selectedTour}
         onChange={handleChange}
         onSubmit={handleSubmit}
         submitText="Thêm mới"

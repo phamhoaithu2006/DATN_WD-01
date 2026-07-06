@@ -146,6 +146,33 @@ test('admin can retrieve tour detail', function () {
         ->assertJsonPath('data.departures.0.price', 2100000.0);
 });
 
+test('admin can create tour without duration_nights and backend calculates it', function () {
+    $admin = createAdminUser();
+    Sanctum::actingAs($admin);
+
+    $payload = [
+        'category_id' => 1,
+        'destination_id' => 1,
+        'title' => 'Tour Auto Duration Nights',
+        'duration_days' => 4,
+        'base_price' => 1000000,
+        'max_slots' => 10,
+        'status' => 'draft',
+    ];
+
+    $response = $this->postJson('/api/admin/tours', $payload);
+
+    $response->assertStatus(201)
+        ->assertJsonPath('data.duration_days', 4)
+        ->assertJsonPath('data.duration_nights', 3);
+
+    $this->assertDatabaseHas('tours', [
+        'title' => 'Tour Auto Duration Nights',
+        'duration_days' => 4,
+        'duration_nights' => 3,
+    ]);
+});
+
 test('admin can create departure with valid data', function () {
     $admin = createAdminUser();
     Sanctum::actingAs($admin);
@@ -154,7 +181,7 @@ test('admin can create departure with valid data', function () {
 
     $payload = [
         'departure_date' => now()->addDays(2)->format('Y-m-d'),
-        'return_date' => now()->addDays(4)->format('Y-m-d'),
+        'return_date' => now()->addDays(10)->format('Y-m-d'),
         'price' => 1800000,
         'total_slots' => 15,
         'status' => 'open',
@@ -164,6 +191,7 @@ test('admin can create departure with valid data', function () {
 
     $response->assertStatus(201)
         ->assertJsonPath('status', 'success')
+        ->assertJsonPath('data.return_date', now()->addDays(3)->format('Y-m-d'))
         ->assertJsonPath('data.price', 1800000.0)
         ->assertJsonPath('data.total_slots', 15);
 
@@ -190,7 +218,7 @@ test('create departure validation fails with invalid dates', function () {
     $response = $this->postJson("/api/admin/tours/{$tour->id}/departures", $payload);
 
     $response->assertStatus(422)
-        ->assertJsonValidationErrors(['departure_date', 'return_date']);
+        ->assertJsonValidationErrors(['departure_date']);
 });
 
 /*
@@ -198,11 +226,14 @@ test('create departure validation fails with invalid dates', function () {
 | Test 3: Cập nhật Lịch khởi hành & Ràng buộc động (Date + Slots)
 |--------------------------------------------------------------------------
 */
-test('update departure validation checks return_date against existing departure_date', function () {
+test('update departure ignores submitted return_date and recalculates from tour duration', function () {
     $admin = createAdminUser();
     Sanctum::actingAs($admin);
 
-    $tour = createTestTour();
+    $tour = createTestTour([
+        'duration_days' => 3,
+        'duration_nights' => 2,
+    ]);
 
     $departure = TourDeparture::create([
         'tour_id' => $tour->id,
@@ -213,13 +244,20 @@ test('update departure validation checks return_date against existing departure_
         'status' => 'open',
     ]);
 
-    // Update return_date trước departure_date hiện tại (2026-07-01 < 2026-07-05)
     $response = $this->putJson("/api/admin/tours/departures/{$departure->id}", [
+        'departure_date' => '2026-08-01',
         'return_date' => '2026-07-01',
     ]);
 
-    $response->assertStatus(422)
-        ->assertJsonValidationErrors(['return_date']);
+    $response->assertOk()
+        ->assertJsonPath('data.departure_date', '2026-08-01')
+        ->assertJsonPath('data.return_date', '2026-08-03');
+
+    $this->assertDatabaseHas('tour_departures', [
+        'id' => $departure->id,
+        'departure_date' => '2026-08-01',
+        'return_date' => '2026-08-03',
+    ]);
 });
 
 test('update departure total_slots cannot be less than booked_slots', function () {
