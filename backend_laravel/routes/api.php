@@ -11,8 +11,6 @@ use App\Http\Controllers\Api\Admin\DestinationController;
 use App\Http\Controllers\Api\Admin\GuideController;
 use App\Http\Controllers\Api\Admin\LanguageController;
 use App\Http\Controllers\Api\Admin\NotificationController;
-use App\Http\Controllers\Api\Admin\PartnerController;
-use App\Http\Controllers\Api\Admin\PartnerServiceController;
 use App\Http\Controllers\Api\Admin\PaymentController;
 use App\Http\Controllers\Api\Admin\ReportController;
 use App\Http\Controllers\Api\Admin\ServiceCategoryController;
@@ -193,26 +191,6 @@ Route::prefix('admin')->group(function () {
     Route::put('languages/{languageId}/levels/{levelId}', [LanguageController::class, 'updateLevel']);
     Route::delete('languages/{languageId}/levels/{levelId}', [LanguageController::class, 'destroyLevel']);
 
-    // Quản lý đối tác
-    Route::get('partners/service-types', [PartnerController::class, 'serviceTypes']);
-    Route::get('partners/statistics', [PartnerController::class, 'statistics']);
-    Route::get('partners/trashed', [PartnerController::class, 'trashed']);
-    Route::patch('partners/{id}/restore', [PartnerController::class, 'restore']);
-    Route::delete('partners/{id}/force', [PartnerController::class, 'forceDestroy']);
-    Route::get('partners', [PartnerController::class, 'index']);
-    Route::post('partners', [PartnerController::class, 'store']);
-    Route::get('partners/{id}', [PartnerController::class, 'show']);
-    Route::put('partners/{id}', [PartnerController::class, 'update']);
-    Route::delete('partners/{id}', [PartnerController::class, 'destroy']);
-    Route::get('partners/{partnerId}/services', [PartnerServiceController::class, 'index']);
-    Route::post('partners/{partnerId}/services', [PartnerServiceController::class, 'store']);
-    Route::get('partners/{partnerId}/services/{id}', [PartnerServiceController::class, 'show']);
-    Route::put('partners/{partnerId}/services/{id}', [PartnerServiceController::class, 'update']);
-    Route::delete('partners/{partnerId}/services/{id}', [PartnerServiceController::class, 'destroy']);
-    Route::patch('partners/{partnerId}/services/{id}/restore', [PartnerServiceController::class, 'restore']);
-    Route::delete('partners/{partnerId}/services/{id}/force', [PartnerServiceController::class, 'forceDestroy']);
-    Route::post('partners/{id}/upload-logo', [PartnerController::class, 'uploadLogo']);
-    Route::delete('partners/{id}/delete-logo', [PartnerController::class, 'deleteLogo']);
     // Quản lý nhân viên hỗ trợ
     // Xem danh sách
     Route::get('/support-staff', [SupportStaffController::class, 'index']);

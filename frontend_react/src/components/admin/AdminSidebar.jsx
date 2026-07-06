@@ -87,21 +87,6 @@ const menuItems = [
     ),
   },
   {
-    label: 'Dịch Vụ Đối Tác',
-    path: '/admin/partners',
-    icon: (
-      <>
-        <path d="M4 21V7a2 2 0 0 1 2-2h5v16" />
-        <path d="M13 21V3h5a2 2 0 0 1 2 2v16" />
-        <path d="M8 9h1" />
-        <path d="M8 13h1" />
-        <path d="M16 7h1" />
-        <path d="M16 11h1" />
-        <path d="M2 21h20" />
-      </>
-    ),
-  },
-  {
     label: 'Báo Cáo & Thống Kê',
     path: '/admin/reports',
     icon: (

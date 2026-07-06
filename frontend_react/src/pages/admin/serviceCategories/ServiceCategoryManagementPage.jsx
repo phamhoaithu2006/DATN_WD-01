@@ -311,9 +311,9 @@ function ServiceCategoryManagementPage() {
         description="Quản lý nhóm dịch vụ dùng cho đối tác và các quy trình vận hành."
         actions={
           <>
-            <Link className="service-category-back-button" to="/admin/partners">
+            <Link className="service-category-back-button" to="/admin/categories">
               <span aria-hidden="true">←</span>
-              Quay lại danh sách đối tác
+              Quay lại danh sách loại dịch vụ
             </Link>
             <button
               className="service-category-primary-button"
