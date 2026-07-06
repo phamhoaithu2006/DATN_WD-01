@@ -90,7 +90,7 @@ function StatCard({ icon, title, value, description, tone = 'blue' }) {
   }
 
   return (
-    <div className="rounded-[22px] border border-sky-100 bg-white p-6 shadow-[0_10px_30px_rgba(14,165,233,0.08)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_38px_rgba(14,165,233,0.13)]">
+    <div className="rounded-[22px] border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
       <div className="flex items-center gap-4">
         <div className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-[18px] ring-1 ${toneClasses[tone]}`}>
           {icon}
@@ -226,9 +226,9 @@ function DestinationListPage() {
   }
 
   return (
-    <section className="min-h-screen bg-[#f3f8ff] px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
+    <section className="min-h-screen bg-slate-50 px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-[1240px] space-y-6">
-        <div className="border-b border-sky-100 pb-6">
+        <div className="border-b border-slate-200 pb-6">
           <div className="flex items-center gap-2 text-sm font-medium text-slate-500">
             <span className="text-sky-600">⌂</span>
             <span>Quản lý tour</span>
@@ -299,7 +299,7 @@ function DestinationListPage() {
           />
         </div>
 
-        <div className="rounded-[22px] border border-sky-100 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
+        <div className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm">
           <form onSubmit={handleSearch} className="flex flex-col gap-4 lg:flex-row lg:items-center">
             <div className="relative min-w-0 flex-1">
               <SearchIcon className="absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-sky-500" />
@@ -334,7 +334,7 @@ function DestinationListPage() {
           </form>
         </div>
 
-        <div className="overflow-hidden rounded-[22px] border border-sky-100 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
+        <div className="overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-sm">
           <div className="flex flex-col gap-3 px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-wrap items-center gap-3">
               <h2 className="text-xl font-bold text-slate-950">
@@ -359,7 +359,7 @@ function DestinationListPage() {
           <div className="overflow-x-auto px-5 pb-5">
             <table className="w-full min-w-[900px] overflow-hidden rounded-xl text-sm">
               <thead>
-                <tr className="bg-[#f6f9fd] text-left text-xs font-black uppercase tracking-wide text-slate-500">
+                <tr className="bg-slate-50 text-left text-xs font-black uppercase tracking-wide text-slate-500">
                   <th className="w-[72px] px-5 py-4">STT</th>
                   <th className="px-5 py-4">Điểm đến</th>
                   <th className="px-5 py-4">Vị trí</th>
@@ -369,7 +369,7 @@ function DestinationListPage() {
                 </tr>
               </thead>
 
-              <tbody className="divide-y divide-sky-50">
+              <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   <tr>
                     <td colSpan="6" className="px-5 py-16 text-center">
@@ -384,7 +384,7 @@ function DestinationListPage() {
                 ) : filteredDestinations.length === 0 ? (
                   <tr>
                     <td colSpan="6" className="px-5 py-16 text-center">
-                      <div className="mx-auto max-w-sm rounded-2xl bg-sky-50 px-6 py-8">
+                      <div className="mx-auto max-w-sm rounded-2xl bg-slate-50 px-6 py-8">
                         <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-white text-sky-500 shadow-sm">
                           <SearchIcon />
                         </div>
@@ -399,7 +399,7 @@ function DestinationListPage() {
                   </tr>
                 ) : (
                   filteredDestinations.map((destination, index) => (
-                    <tr key={destination.id} className="bg-white transition hover:bg-sky-50/40">
+                    <tr key={destination.id} className="bg-white transition hover:bg-slate-50">
                       <td className="px-5 py-4 font-bold text-slate-500">
                         {index + 1}
                       </td>
