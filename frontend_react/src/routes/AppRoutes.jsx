@@ -41,6 +41,7 @@ import AdminNotificationsPage from '../pages/admin/Notifications/AdminNotificati
 import TourDetailPage from '../pages/admin/tours/TourDetailPage';
 import LanguageManagementPage from '../pages/admin/language/LanguageManagementPage';
 import CertificateManagementPage from '../pages/admin/certificate/CertificateManagementPage'
+import GuideAssignmentPage from "../components/admin/tourDepartures/GuideAssignmentPage";
 
 
 
@@ -113,6 +114,7 @@ function AppRoutes() {
     <Route path="/admin/tours/hidden" element={adminPage(<TourHiddenPage />)} />
     <Route path="/admin/tours/:id" element={adminPage(<TourDetailPage />)} />
     {/* quản lý lịch khởi hành tour */}
+     <Route path="/admin/tour-departures/guide-assignments" element={adminPage(<GuideAssignmentPage />)}/>
     <Route path="/admin/tour-departures" element={adminPage(<TourDepartureListPage />)}/>
     <Route path="/admin/tour-departures/create" element={adminPage(<TourDepartureCreatePage />)}/>
     <Route path="/admin/tour-departures/:tourId/edit/:departureId"  element={adminPage(<TourDepartureEditPage />)}/>
@@ -133,6 +135,8 @@ function AppRoutes() {
     <Route path="/admin/certificates" element={adminPage(<CertificateManagementPage />)} />
     <Route path="/admin/*" element={<Navigate to="/admin" replace />} />
     <Route path="*" element={<Navigate to="/" replace />} />
+
+   
   </Routes>
   
 }

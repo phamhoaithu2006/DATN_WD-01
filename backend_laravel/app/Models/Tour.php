@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -54,24 +55,36 @@ class Tour extends Model
      * Điểm đến chính cũ của tour.
      * Dùng cột destination_id trong bảng tours.
      */
-    public function destination()
+    public function destination(): BelongsTo
     {
         return $this->belongsTo(Destination::class, 'destination_id');
     }
-
     /**
      * Nhiều điểm đến mới của tour.
      * Dùng bảng trung gian tour_destinations.
      */
+    // public function destinations(): BelongsToMany
+    // {
+    //     return $this->belongsToMany(
+    //         Destination::class,
+    //         'tour_destinations',
+    //         'tour_id',
+    //         'destination_id',
+    //     )
+    //         ->withPivot('sort_order')
+    //         ->orderBy('tour_destinations.sort_order');
+    //}
+
     public function destinations(): BelongsToMany
     {
         return $this->belongsToMany(
             Destination::class,
             'tour_destinations',
             'tour_id',
-            'destination_id',
+            'destination_id'
         )
             ->withPivot('sort_order')
+            ->withTimestamps()
             ->orderBy('tour_destinations.sort_order');
     }
 

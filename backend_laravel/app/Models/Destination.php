@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes; // Nếu có dùng xóa mềm
+use App\Models\Guide;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Destination extends Model
 {
@@ -42,4 +44,14 @@ class Destination extends Model
         // Mặc định Laravel sẽ tự hiểu khóa ngoại là category_id hoặc destination_id
         return $this->hasMany(Tour::class);
     }
+
+    public function guides(): BelongsToMany
+{
+    return $this->belongsToMany(
+        Guide::class,
+        'guide_destinations',
+        'destination_id',
+        'guide_id'
+    )->withTimestamps();
+}
 }
