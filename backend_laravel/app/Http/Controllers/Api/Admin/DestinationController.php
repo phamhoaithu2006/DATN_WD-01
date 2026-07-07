@@ -184,4 +184,22 @@ class DestinationController extends Controller
             'data' => $results
         ], 200);
     }
+
+    public function options()
+    {
+        $items = Destination::query()
+            ->where('status', 'active')
+            ->orderBy('province_city')
+            ->orderBy('name')
+            ->get([
+                'id',
+                'name',
+                'province_city',
+                'country',
+            ]);
+
+        return response()->json([
+            'data' => $items,
+        ]);
+    }
 }
