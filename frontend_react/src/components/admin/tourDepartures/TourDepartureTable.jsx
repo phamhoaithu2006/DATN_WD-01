@@ -1,4 +1,3 @@
-import React from "react";
 import { Link } from "react-router-dom";
 
 const EditIcon = ({ className = "w-4 h-4" }) => (
@@ -460,9 +459,25 @@ const TourDepartureTable = ({
                         </td>
 
                         <td className="px-4 py-4 text-right">
-                          <p className="font-black text-slate-950">
-                            {formatPrice(item.price)}
-                          </p>
+                          {item.discount_price ? (
+                            <div>
+                              <p className="text-xs font-bold text-slate-400 line-through">
+                                {formatPrice(item.base_price)}
+                              </p>
+                              <p className="font-black text-rose-600">
+                                {formatPrice(item.discount_price)}
+                              </p>
+                            </div>
+                          ) : (
+                            <p className="font-black text-slate-950">
+                              {formatPrice(item.base_price ?? item.price)}
+                            </p>
+                          )}
+                          {item.uses_tour_price ? (
+                            <p className="mt-1 text-[11px] font-bold text-blue-600">
+                              Dùng giá tour
+                            </p>
+                          ) : null}
                         </td>
 
                         <td className="px-4 py-4 text-center">

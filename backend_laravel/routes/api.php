@@ -281,28 +281,28 @@ Route::prefix('admin')->group(function () {
     Route::delete('/widgets/{id}', [WidgetController::class, 'destroy']);
     Route::patch('/widgets/{id}/toggle-status', [WidgetController::class, 'toggleStatus']);
 
-    // Quản lý thanh toán
-    Route::get('/payments', [PaymentController::class, 'index']);
-    Route::get('/payments/{id}', [PaymentController::class, 'show']);
-    Route::patch('/payments/{id}/confirm', [PaymentController::class, 'confirm']);
-    Route::patch('/payments/{id}/fail', [PaymentController::class, 'fail']);
-    Route::patch('/payments/{id}/refund', [PaymentController::class, 'refund']);
+    Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
+        // Quản lý thanh toán
+        Route::get('/payments', [PaymentController::class, 'index']);
+        Route::get('/payments/{id}', [PaymentController::class, 'show']);
+        Route::patch('/payments/{id}/confirm', [PaymentController::class, 'confirm']);
+        Route::patch('/payments/{id}/fail', [PaymentController::class, 'fail']);
+        Route::patch('/payments/{id}/refund', [PaymentController::class, 'refund']);
 
-    Route::middleware('auth:sanctum')->group(function () {
         Route::get('/profile', [AdminProfileController::class, 'show']);
         Route::put('/profile', [AdminProfileController::class, 'update']);
         Route::put('/profile/password', [AdminProfileController::class, 'changePassword']);
-    });
 
-    // ======Booking======
-    Route::prefix('bookings')->group(function () {
-        Route::get('/', [BookingController::class, 'index']);
-        Route::get('/statistics', [BookingController::class, 'statistics']);
-        Route::get('/{id}', [BookingController::class, 'show']);
-        Route::post('/', [BookingController::class, 'store']);
-        Route::put('/{id}', [BookingController::class, 'update']);
-        Route::patch('/{id}/cancel', [BookingController::class, 'softDelete']);
-        Route::delete('/{id}', [BookingController::class, 'destroy']);
+        // ======Booking======
+        Route::prefix('bookings')->group(function () {
+            Route::get('/', [BookingController::class, 'index']);
+            Route::get('/statistics', [BookingController::class, 'statistics']);
+            Route::get('/{id}', [BookingController::class, 'show']);
+            Route::post('/', [BookingController::class, 'store']);
+            Route::put('/{id}', [BookingController::class, 'update']);
+            Route::patch('/{id}/cancel', [BookingController::class, 'softDelete']);
+            Route::delete('/{id}', [BookingController::class, 'destroy']);
+        });
     });
 
     // ======Chức năng gửi thông báo======
@@ -336,8 +336,6 @@ Route::prefix('admin')->group(function () {
     //==========quản lý lịch trình============
     //Hiển thị danh sách user đặt tour
     Route::get('tour-departures/{tourDeparture}/booked-customers', [AdminTourDepartureBookingController::class, 'index']);
-
-    
 
     Route::prefix('tour-departures')->group(function () {
         Route::get(

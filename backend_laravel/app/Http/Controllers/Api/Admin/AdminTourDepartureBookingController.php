@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\TourDeparture;
+use App\Services\TourPricingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -20,7 +21,7 @@ class AdminTourDepartureBookingController extends Controller
         ]);
 
         $tourDeparture->load([
-            'tour:id,title,slug',
+            'tour:id,title,slug,base_price,discount_price',
         ]);
 
         $bookings = Booking::query()
@@ -120,6 +121,10 @@ class AdminTourDepartureBookingController extends Controller
             ];
         });
 
+        $pricingService = new TourPricingService();
+        $basePrice = $pricingService->resolveBasePrice($tourDeparture->tour, $tourDeparture);
+        $discountPrice = $pricingService->resolveDiscountPrice($tourDeparture->tour, $tourDeparture);
+
         return response()->json([
             'success' => true,
             'message' => 'Lấy danh sách khách hàng đặt tour thành công.',
@@ -133,7 +138,9 @@ class AdminTourDepartureBookingController extends Controller
                     'departure_date' => $tourDeparture->departure_date?->format('Y-m-d'),
                     'return_date' => $tourDeparture->return_date?->format('Y-m-d'),
 
-                    'price' => $tourDeparture->price,
+                    'base_price' => $basePrice,
+                    'discount_price' => $discountPrice,
+                    'price' => $discountPrice ?? $basePrice,
                     'total_slots' => (int) $tourDeparture->total_slots,
                     'booked_slots' => (int) $tourDeparture->booked_slots,
                     'available_slots' => max(

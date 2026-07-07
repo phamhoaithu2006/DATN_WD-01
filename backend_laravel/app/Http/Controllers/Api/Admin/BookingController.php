@@ -1,4 +1,5 @@
 <?php
+
 // app/Http/Controllers/Api/Admin/BookingController.php
 
 namespace App\Http\Controllers\Api\Admin;
@@ -8,19 +9,18 @@ use App\Models\Booking;
 use App\Models\Tour;
 use App\Models\TourDeparture;
 use App\Services\TourPricingService;
-use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
-use Illuminate\Support\Str;
-use Carbon\Carbon;
 
 class BookingController extends Controller
 {
     public function __construct(
         private readonly TourPricingService $tourPricingService
-    ) {
-    }
+    ) {}
 
     /**
      * GET /api/admin/bookings
@@ -29,17 +29,24 @@ class BookingController extends Controller
     public function index(Request $request)
     {
         $request->validate([
-            'search'         => 'nullable|string|max:100',
-            'status'         => ['nullable', Rule::in(['pending', 'confirmed', 'completed', 'cancelled'])],
+            'search' => 'nullable|string|max:100',
+            'status' => ['nullable', Rule::in(['pending', 'confirmed', 'completed', 'cancelled'])],
             'payment_status' => ['nullable', Rule::in(['unpaid', 'paid', 'failed', 'refunded'])],
-            'from_date'      => 'nullable|date',
-            'to_date'        => 'nullable|date|after_or_equal:from_date',
-            'per_page'       => 'nullable|integer|min:5|max:100',
-            'sort_by'        => ['nullable', Rule::in(['created_at', 'total_amount', 'booking_code'])],
-            'sort_dir'       => ['nullable', Rule::in(['asc', 'desc'])],
+            'from_date' => 'nullable|date',
+            'to_date' => 'nullable|date|after_or_equal:from_date',
+            'per_page' => 'nullable|integer|min:5|max:100',
+            'sort_by' => ['nullable', Rule::in(['created_at', 'total_amount', 'booking_code'])],
+            'sort_dir' => ['nullable', Rule::in(['asc', 'desc'])],
         ]);
 
-        $bookings = Booking::with(['user:id,full_name,email', 'tour:id,title', 'contact:booking_id,contact_name,contact_phone'])
+        $bookings = Booking::with([
+            'user:id,full_name,email',
+            'tour:id,title',
+            'contact:booking_id,contact_name,contact_phone',
+            'payment',
+            'participants:id,booking_id,full_name,phone,birth_date,gender,participant_type,unit_price',
+        ])
+            ->withCount('participants')
 
             ->search($request->search)
             ->filterStatus($request->status)
@@ -50,12 +57,12 @@ class BookingController extends Controller
 
         return response()->json([
             'success' => true,
-            'data'    => $bookings->items(),
-            'meta'    => [
+            'data' => $bookings->items(),
+            'meta' => [
                 'current_page' => $bookings->currentPage(),
-                'last_page'    => $bookings->lastPage(),
-                'per_page'     => $bookings->perPage(),
-                'total'        => $bookings->total(),
+                'last_page' => $bookings->lastPage(),
+                'per_page' => $bookings->perPage(),
+                'total' => $bookings->total(),
             ],
         ]);
     }
@@ -81,7 +88,7 @@ class BookingController extends Controller
 
         return response()->json([
             'success' => true,
-            'data'    => $stats,
+            'data' => $stats,
         ]);
     }
 
@@ -98,27 +105,29 @@ class BookingController extends Controller
             // 'promotion:id,code,discount_value', ← xóa dòng này
             'contact',
             'participants',
-            'statusHistories' => fn($q) => $q->latest(),
+            'payment',
+            'statusHistories' => fn ($q) => $q->latest(),
         ])->findOrFail($id);
 
         return response()->json([
             'success' => true,
-            'data'    => $booking,
+            'data' => $booking,
         ]);
     }
+
     // ─── Thêm/Tạo booking ─────────────────────────────────────────
     public function store(Request $request)
     {
         $data = $request->validate([
-            'user_id'          => 'required|exists:users,id',
-            'tour_id'          => 'required|exists:tours,id',
+            'user_id' => 'required|exists:users,id',
+            'tour_id' => 'required|exists:tours,id',
             'tour_departure_id' => 'nullable|exists:tour_departures,id',
-            'promotion_id'     => 'nullable|exists:promotions,id',
-            'staff_id'         => 'nullable|exists:users,id',
+            'promotion_id' => 'nullable|exists:promotions,id',
+            'staff_id' => 'nullable|exists:users,id',
             'number_of_people' => 'nullable|integer|min:1',
-            'unit_price'       => 'nullable|numeric|min:0',
-            'discount_amount'  => 'nullable|numeric|min:0',
-            'note'             => 'nullable|string',
+            'unit_price' => 'nullable|numeric|min:0',
+            'discount_amount' => 'nullable|numeric|min:0',
+            'note' => 'nullable|string',
             'contact' => 'nullable|array',
             'contact.contact_name' => 'required_with:contact|string|max:150',
             'contact.contact_email' => 'nullable|email|max:150',
@@ -138,9 +147,9 @@ class BookingController extends Controller
         $contact = $data['contact'] ?? null;
         unset($data['participants'], $data['contact']);
 
-        $data['booking_code']   = 'BK' . now()->format('Ymd') . strtoupper(Str::random(4));
+        $data['booking_code'] = 'BK'.now()->format('Ymd').strtoupper(Str::random(4));
         $data['discount_amount'] = $data['discount_amount'] ?? 0;
-        $data['status']         = 'pending';
+        $data['status'] = 'pending';
         $data['payment_status'] = 'unpaid';
 
         $booking = DB::transaction(function () use ($data, $participants, $contact) {
@@ -172,30 +181,37 @@ class BookingController extends Controller
                 $booking->participants()->createMany($pricingSummary['participants']);
             }
 
+            $booking->payment()->create([
+                'payment_method' => 'cod',
+                'amount' => $booking->total_amount,
+                'status' => 'pending',
+                'paid_at' => null,
+            ]);
+
             return $booking;
         });
 
         return response()->json([
             'success' => true,
             'message' => 'Tạo booking thành công.',
-            'data'    => $booking->load(['contact', 'participants']),
+            'data' => $booking->load(['contact', 'participants', 'payment']),
         ], 201);
     }
 
     // ─── Sửa booking ──────────────────────────────────────────────
     public function update(Request $request, $id)
     {
-        $booking = Booking::with(['tour.agePricingRules', 'tourDeparture', 'participants', 'contact'])->findOrFail($id);
+        $booking = Booking::with(['tour.agePricingRules', 'tourDeparture', 'participants', 'contact', 'payment'])->findOrFail($id);
 
         $data = $request->validate([
             'number_of_people' => 'sometimes|integer|min:1',
-            'unit_price'       => 'sometimes|numeric|min:0',
-            'discount_amount'  => 'sometimes|numeric|min:0',
-            'status'           => ['sometimes', Rule::in(['pending', 'confirmed', 'completed', 'cancelled'])],
-            'payment_status'   => ['sometimes', Rule::in(['unpaid', 'paid', 'failed', 'refunded'])],
-            'note'             => 'nullable|string',
-            'cancel_reason'    => 'nullable|string',
-            'staff_id'         => 'nullable|exists:users,id',
+            'unit_price' => 'sometimes|numeric|min:0',
+            'discount_amount' => 'sometimes|numeric|min:0',
+            'status' => ['sometimes', Rule::in(['pending', 'confirmed', 'completed', 'cancelled'])],
+            'payment_status' => ['prohibited'],
+            'note' => 'nullable|string',
+            'cancel_reason' => 'nullable|string',
+            'staff_id' => 'nullable|exists:users,id',
             'contact' => 'nullable|array',
             'contact.contact_name' => 'required_with:contact|string|max:150',
             'contact.contact_email' => 'nullable|email|max:150',
@@ -226,9 +242,9 @@ class BookingController extends Controller
         }
 
         if ($participants === null && (isset($data['unit_price']) || isset($data['number_of_people']) || isset($data['discount_amount']))) {
-            $unitPrice   = $data['unit_price']       ?? $booking->unit_price;
-            $numPeople   = $data['number_of_people'] ?? $booking->number_of_people;
-            $discount    = $data['discount_amount']  ?? $booking->discount_amount;
+            $unitPrice = $data['unit_price'] ?? $booking->unit_price;
+            $numPeople = $data['number_of_people'] ?? $booking->number_of_people;
+            $discount = $data['discount_amount'] ?? $booking->discount_amount;
             $data['total_amount'] = ($unitPrice * $numPeople) - $discount;
         }
 
@@ -238,7 +254,15 @@ class BookingController extends Controller
         }
 
         DB::transaction(function () use ($booking, $data, $participants, $contact, $pricingSummary) {
+            $shouldReleaseSlots = ($data['status'] ?? null) === 'cancelled'
+                && $booking->status !== 'cancelled';
+            $slotsToRelease = (int) $booking->number_of_people;
+
             $booking->update($data);
+
+            if ($shouldReleaseSlots) {
+                $this->releaseBookedSlots($booking, $slotsToRelease);
+            }
 
             if ($contact !== null) {
                 $booking->contact()->updateOrCreate(
@@ -256,15 +280,28 @@ class BookingController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Cập nhật booking thành công.',
-            'data'    => $booking->fresh(['contact', 'participants']),
+            'data' => $booking->fresh(['contact', 'participants', 'payment']),
         ]);
     }
 
     // ─── Xóa mềm ──────────────────────────────────────────────────
     public function softDelete($id)
     {
-        $booking = Booking::findOrFail($id);
-        $booking->update(['status' => 'cancelled', 'cancelled_at' => Carbon::now()]);
+        DB::transaction(function () use ($id): void {
+            $booking = Booking::query()
+                ->with('tourDeparture')
+                ->lockForUpdate()
+                ->findOrFail($id);
+
+            if ($booking->status === 'cancelled') {
+                return;
+            }
+
+            $slotsToRelease = (int) $booking->number_of_people;
+
+            $booking->update(['status' => 'cancelled', 'cancelled_at' => Carbon::now()]);
+            $this->releaseBookedSlots($booking, $slotsToRelease);
+        });
 
         return response()->json([
             'success' => true,
@@ -276,6 +313,14 @@ class BookingController extends Controller
     public function destroy($id)
     {
         $booking = Booking::findOrFail($id);
+
+        if ($booking->status !== 'cancelled') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Chỉ có thể xóa vĩnh viễn booking đã hủy.',
+            ], 422);
+        }
+
         $booking->delete();
 
         return response()->json([
@@ -311,6 +356,7 @@ class BookingController extends Controller
             ->isNotEmpty();
         $rows = [];
         $totalAmount = 0;
+        $adultCount = 0;
 
         foreach ($participants as $index => $participant) {
             $birthDate = Carbon::parse($participant['birth_date']);
@@ -322,10 +368,18 @@ class BookingController extends Controller
             );
             $rule = $pricing['rule'];
 
-            if ($hasActiveAgePricingRules && ! $rule) {
+            if (
+                $hasActiveAgePricingRules
+                && ! $rule
+                && ($participant['participant_type'] ?? 'adult') !== 'adult'
+            ) {
                 throw ValidationException::withMessages([
                     "participants.{$index}.birth_date" => 'Không tìm thấy quy tắc giá phù hợp cho hành khách này.',
                 ]);
+            }
+
+            if (! $rule) {
+                $adultCount += 1;
             }
 
             $rows[] = [
@@ -342,6 +396,12 @@ class BookingController extends Controller
             ];
 
             $totalAmount += $pricing['unit_price'];
+        }
+
+        if ($adultCount < 1) {
+            throw ValidationException::withMessages([
+                'participants' => 'Vui lòng nhập ít nhất 1 người lớn trước khi thêm trẻ em hoặc em bé.',
+            ]);
         }
 
         return [
@@ -362,5 +422,22 @@ class BookingController extends Controller
         }
 
         return 'adult';
+    }
+
+    private function releaseBookedSlots(Booking $booking, int $slotsToRelease): void
+    {
+        $departure = $booking->tourDeparture()
+            ->lockForUpdate()
+            ->first();
+
+        if (! $departure) {
+            return;
+        }
+
+        $departure->booked_slots = max(
+            0,
+            (int) $departure->booked_slots - $slotsToRelease
+        );
+        $departure->save();
     }
 }

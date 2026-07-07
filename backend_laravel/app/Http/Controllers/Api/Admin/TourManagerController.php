@@ -137,8 +137,8 @@ class TourManagerController extends Controller
             'itinerary.*.images.*.alt_text' => 'nullable|string|max:255',
             'itinerary.*.images.*.sort_order' => 'nullable|integer|min:0',
 
-            'duration_days' => 'required|integer',
-            'duration_nights' => 'required|integer',
+            'duration_days' => 'required|integer|min:1',
+            'duration_nights' => 'nullable|integer|min:0',
             'base_price' => 'required|numeric',
             'discount_price' => 'nullable|numeric',
             'max_slots' => 'required|integer',
@@ -152,6 +152,8 @@ class TourManagerController extends Controller
             'age_pricing_rules.*.sort_order' => 'nullable|integer|min:0',
             'age_pricing_rules.*.is_active' => 'nullable|boolean',
         ]);
+
+        $validatedData['duration_nights'] = max((int) $validatedData['duration_days'] - 1, 0);
 
         // Lấy user đang đăng nhập qua token Sanctum
         $user = $request->user();
@@ -277,8 +279,8 @@ class TourManagerController extends Controller
             'itinerary.*.images.*.image_url' => 'required_with:itinerary.*.images|string|max:500',
             'itinerary.*.images.*.alt_text' => 'nullable|string|max:255',
             'itinerary.*.images.*.sort_order' => 'nullable|integer|min:0',
-            'duration_days' => 'sometimes|required|integer',
-            'duration_nights' => 'sometimes|required|integer',
+            'duration_days' => 'sometimes|required|integer|min:1',
+            'duration_nights' => 'nullable|integer|min:0',
             'base_price' => 'sometimes|required|numeric',
             'discount_price' => 'nullable|numeric',
             'max_slots' => 'sometimes|required|integer',
@@ -296,6 +298,12 @@ class TourManagerController extends Controller
 
         if (isset($validatedData['title']) && ! $request->has('slug')) {
             $validatedData['slug'] = Str::slug($validatedData['title']);
+        }
+
+        if (isset($validatedData['duration_days'])) {
+            $validatedData['duration_nights'] = max((int) $validatedData['duration_days'] - 1, 0);
+        } else {
+            unset($validatedData['duration_nights']);
         }
 
         if (

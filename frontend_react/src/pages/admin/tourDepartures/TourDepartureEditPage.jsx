@@ -1,12 +1,12 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { tourDepartureApi } from "../../../services/tourDepartureApi";
 import TourDepartureForm from "../../../components/admin/tourDepartures/TourDepartureForm";
 
 const emptyForm = {
   departure_date: "",
-  return_date: "",
-  price: "",
+  base_price: "",
+  discount_price: "",
   total_slots: "",
   status: "open",
 };
@@ -16,6 +16,7 @@ const TourDepartureEditPage = () => {
   const { tourId, departureId } = useParams();
 
   const [formData, setFormData] = useState(emptyForm);
+  const [tour, setTour] = useState(null);
   const [loading, setLoading] = useState(false);
 
   const getArrayFromResponse = (res) => {
@@ -25,11 +26,7 @@ const TourDepartureEditPage = () => {
     return [];
   };
 
-  useEffect(() => {
-    fetchDeparture();
-  }, [tourId, departureId]);
-
-  const fetchDeparture = async () => {
+  async function fetchDeparture() {
     try {
       setLoading(true);
 
@@ -47,18 +44,24 @@ const TourDepartureEditPage = () => {
 
       setFormData({
         departure_date: departure.departure_date || "",
-        return_date: departure.return_date || "",
-        price: departure.price ?? "",
+        base_price: departure.departure_base_price ?? "",
+        discount_price: departure.departure_discount_price ?? "",
         total_slots: departure.total_slots ?? "",
         status: departure.status || "open",
       });
+      setTour(departure.tour || null);
     } catch (error) {
       console.error(error);
       alert("Không tải được thông tin lịch khởi hành");
     } finally {
       setLoading(false);
     }
-  };
+  }
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchDeparture();
+  }, [tourId, departureId]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -74,8 +77,8 @@ const TourDepartureEditPage = () => {
 
     const data = {
       departure_date: formData.departure_date,
-      return_date: formData.return_date || null,
-      price: formData.price === "" ? null : Number(formData.price),
+      base_price: formData.base_price === "" ? null : Number(formData.base_price),
+      discount_price: formData.discount_price === "" ? null : Number(formData.discount_price),
       total_slots: Number(formData.total_slots),
       status: formData.status,
     };
@@ -92,7 +95,8 @@ const TourDepartureEditPage = () => {
         error.response?.data?.message ||
         error.response?.data?.errors?.departure_date?.[0] ||
         error.response?.data?.errors?.return_date?.[0] ||
-        error.response?.data?.errors?.price?.[0] ||
+        error.response?.data?.errors?.base_price?.[0] ||
+        error.response?.data?.errors?.discount_price?.[0] ||
         error.response?.data?.errors?.total_slots?.[0] ||
         error.response?.data?.errors?.status?.[0] ||
         "Cập nhật lịch khởi hành thất bại";
@@ -116,6 +120,7 @@ const TourDepartureEditPage = () => {
 
       <TourDepartureForm
         formData={formData}
+        tour={tour}
         onChange={handleChange}
         onSubmit={handleSubmit}
         submitText="Cập nhật"

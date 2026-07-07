@@ -1,5 +1,5 @@
 import BookingBadge from './BookingBadge'
-import { paymentOptions, statusOptions } from './bookingConstants'
+import { statusOptions } from './bookingConstants'
 import {
   bookingDeparture,
   customerName,
@@ -14,9 +14,13 @@ function BookingDetailModal({ booking, busy, onClose, onPaymentChange, onStatusC
   const departure = bookingDeparture(booking)
   const participants = Array.isArray(booking.participants) ? booking.participants : []
   const contact = booking.contact || {}
+  const payment = booking.payment || null
   const departureText = departure
     ? `${formatDate(departure.departure_date)} - ${formatDate(departure.return_date)}`
     : 'Chưa có lịch khởi hành'
+  const paymentMethodLabel = payment?.payment_method === 'cod'
+    ? 'Thanh toán thủ công'
+    : payment?.payment_method || '--'
 
   return (
     <div className="booking-modal-backdrop" role="presentation" onMouseDown={onClose}>
@@ -94,18 +98,36 @@ function BookingDetailModal({ booking, busy, onClose, onPaymentChange, onStatusC
                   ))}
                 </select>
               </label>
-              <label>
-                Thanh toán
-                <select
-                  value={booking.payment_status || ''}
-                  disabled={busy}
-                  onChange={(event) => onPaymentChange(booking, event.target.value)}
-                >
-                  {paymentOptions.filter((item) => item.value).map((item) => (
-                    <option key={item.value} value={item.value}>{item.label}</option>
-                  ))}
-                </select>
-              </label>
+              <div className="booking-payment-actions">
+                <span>Thanh toán</span>
+                {payment ? (
+                  <div>
+                    <button
+                      type="button"
+                      disabled={busy || payment.status === 'success' || payment.status === 'refunded'}
+                      onClick={() => onPaymentChange(booking, 'confirm')}
+                    >
+                      Xác nhận
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy || payment.status === 'failed' || payment.status === 'success' || payment.status === 'refunded'}
+                      onClick={() => onPaymentChange(booking, 'fail')}
+                    >
+                      Thất bại
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy || payment.status !== 'success'}
+                      onClick={() => onPaymentChange(booking, 'refund')}
+                    >
+                      Hoàn tiền
+                    </button>
+                  </div>
+                ) : (
+                  <small>Chưa có bản ghi thanh toán</small>
+                )}
+              </div>
             </div>
             <dl className="booking-detail-list compact">
               <div>
@@ -116,17 +138,33 @@ function BookingDetailModal({ booking, busy, onClose, onPaymentChange, onStatusC
                 <dt>Ngày đặt</dt>
                 <dd>{formatDate(booking.created_at)}</dd>
               </div>
+              <div>
+                <dt>Phương thức</dt>
+                <dd>{paymentMethodLabel}</dd>
+              </div>
+              <div>
+                <dt>Số tiền thanh toán</dt>
+                <dd>{payment ? formatMoney(payment.amount) : '--'}</dd>
+              </div>
+              <div>
+                <dt>Mã giao dịch</dt>
+                <dd>{payment?.transaction_code || '--'}</dd>
+              </div>
+              <div>
+                <dt>Thời gian thanh toán</dt>
+                <dd>{formatDate(payment?.paid_at)}</dd>
+              </div>
             </dl>
           </section>
         </div>
 
-        {participants.length ? (
-          <section className="booking-detail-panel booking-participants-panel">
+        <section className="booking-detail-panel booking-participants-panel">
             <div className="booking-detail-panel-title">
               <span>Danh sách hành khách</span>
               <strong>{participants.length}</strong>
             </div>
-            <div className="booking-participant-list">
+            {participants.length ? (
+              <div className="booking-participant-list">
               {participants.map((participant, index) => (
                 <div className="booking-participant-item" key={participant.id || `${participant.full_name}-${index}`}>
                   <span>{index + 1}</span>
@@ -140,9 +178,13 @@ function BookingDetailModal({ booking, busy, onClose, onPaymentChange, onStatusC
                   <b>{formatMoney(participant.unit_price)}</b>
                 </div>
               ))}
-            </div>
-          </section>
-        ) : null}
+              </div>
+            ) : (
+              <div className="booking-participant-empty">
+                Booking này chưa có dữ liệu hành khách.
+              </div>
+            )}
+        </section>
 
         {booking.note || contact.special_request ? (
           <section className="booking-note">

@@ -1,4 +1,5 @@
 import axios from "axios";
+import apiClient from "./apiClient";
 
 const BASE_URL = "http://127.0.0.1:8000/api";
 const ADMIN_URL = `${BASE_URL}/admin`;
@@ -68,26 +69,15 @@ export const tourDepartureApi = {
   },
 
   create(tourId, data) {
-    return axios.post(
-      `${ADMIN_URL}/tours/${tourId}/departures`,
-      data,
-      getAuthConfig()
-    );
+    return apiClient.post(`/admin/tours/${tourId}/departures`, data);
   },
 
   update(id, data) {
-    return axios.put(
-      `${ADMIN_URL}/tours/departures/${id}`,
-      data,
-      getAuthConfig()
-    );
+    return apiClient.put(`/admin/tours/departures/${id}`, data);
   },
 
   remove(id) {
-    return axios.delete(
-      `${ADMIN_URL}/tours/departures/${id}`,
-      getAuthConfig()
-    );
+    return apiClient.delete(`/admin/tours/departures/${id}`);
   },
 
   /*

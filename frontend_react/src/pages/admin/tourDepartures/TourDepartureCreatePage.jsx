@@ -1,12 +1,13 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { NavLink, useNavigate, useSearchParams } from "react-router-dom";
 import { tourDepartureApi } from "../../../services/tourDepartureApi";
 import TourDepartureForm from "../../../components/admin/tourDepartures/TourDepartureForm";
 
 const emptyForm = {
   departure_date: "",
-  return_date: "",
   price: "",
+  base_price: "",
+  discount_price: "",
   total_slots: "",
   status: "open",
 };
@@ -68,6 +69,9 @@ const TourDepartureCreatePage = () => {
       selectedTourId
     )}`;
   }, [selectedTourId]);
+  const selectedTour = tours.find(
+    (tour) => String(tour.id) === String(selectedTourId)
+  );
 
   useEffect(() => {
     const fetchTours = async () => {
@@ -102,12 +106,6 @@ const TourDepartureCreatePage = () => {
 
     fetchTours();
   }, []);
-
-  useEffect(() => {
-    if (initialTourId) {
-      setSelectedTourId(initialTourId);
-    }
-  }, [initialTourId]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -161,6 +159,30 @@ const TourDepartureCreatePage = () => {
       return "Giá tour phải là số lớn hơn hoặc bằng 0.";
     }
 
+    if (
+      formData.base_price !== "" &&
+      (Number.isNaN(Number(formData.base_price)) ||
+        Number(formData.base_price) < 0)
+    ) {
+      return "GiÃ¡ gá»‘c pháº£i lÃ  sá»‘ lá»›n hÆ¡n hoáº·c báº±ng 0.";
+    }
+
+    if (
+      formData.discount_price !== "" &&
+      (Number.isNaN(Number(formData.discount_price)) ||
+        Number(formData.discount_price) < 0)
+    ) {
+      return "GiÃ¡ giáº£m pháº£i lÃ  sá»‘ lá»›n hÆ¡n hoáº·c báº±ng 0.";
+    }
+
+    if (
+      formData.base_price !== "" &&
+      formData.discount_price !== "" &&
+      Number(formData.discount_price) > Number(formData.base_price)
+    ) {
+      return "GiÃ¡ giáº£m khÃ´ng Ä‘Æ°á»£c lá»›n hÆ¡n giÃ¡ gá»‘c.";
+    }
+
     return "";
   };
 
@@ -176,8 +198,8 @@ const TourDepartureCreatePage = () => {
 
     const payload = {
       departure_date: formData.departure_date,
-      return_date: formData.return_date || null,
-      price: formData.price === "" ? null : Number(formData.price),
+      base_price: formData.base_price === "" ? null : Number(formData.base_price),
+      discount_price: formData.discount_price === "" ? null : Number(formData.discount_price),
       total_slots: Number(formData.total_slots),
       status: formData.status || "open",
     };
@@ -297,13 +319,14 @@ const TourDepartureCreatePage = () => {
       <div className={submitting ? "pointer-events-none opacity-60" : ""}>
         <TourDepartureForm
           formData={formData}
+          tour={selectedTour}
           onChange={handleChange}
           onSubmit={handleSubmit}
           submitText={submitting ? "Đang thêm..." : "Thêm mới"}
           onCancel={() => navigate("/admin/tour-departures")}
         />
       </div>
-    </div>
+    </div >
   );
 };
 

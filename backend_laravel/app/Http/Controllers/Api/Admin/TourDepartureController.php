@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\TourDepartureResource;
 use App\Models\Tour;
 use App\Models\TourDeparture;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class TourDepartureController extends Controller
 {
@@ -72,13 +74,16 @@ class TourDepartureController extends Controller
 
         $validatedData = $request->validate([
             'departure_date' => 'required|date|after_or_equal:today',
-            'return_date' => 'nullable|date|after:departure_date',
-            'price' => 'nullable|numeric|min:0',
+            'base_price' => 'nullable|required_with:discount_price|numeric|min:0',
+            'discount_price' => 'nullable|numeric|min:0|lte:base_price',
             'total_slots' => 'required|integer|min:1',
             'status' => 'required|in:open,closed,completed,cancelled',
         ]);
 
+        $this->normalizeDeparturePrices($validatedData);
+
         $validatedData['tour_id'] = $tour->id;
+        $validatedData['return_date'] = $this->calculateReturnDate($tour, $validatedData['departure_date']);
         $validatedData['booked_slots'] = 0;
 
         $departure = TourDeparture::create($validatedData);
@@ -96,16 +101,23 @@ class TourDepartureController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $departure = TourDeparture::findOrFail($id);
+        $departure = TourDeparture::with('tour')->findOrFail($id);
 
         $validatedData = $request->validate([
             'departure_date' => 'sometimes|required|date|after_or_equal:today',
-            'return_date' => 'nullable|date|after:' . ($request->departure_date ?? $departure->departure_date?->format('Y-m-d') ?? 'today'),
-            'price' => 'nullable|numeric|min:0',
-            'total_slots' => 'sometimes|required|integer|min:' . ($request->booked_slots ?? $departure->booked_slots),
-            'booked_slots' => 'nullable|integer|min:0|max:' . ($request->total_slots ?? $departure->total_slots),
+            'base_price' => 'nullable|required_with:discount_price|numeric|min:0',
+            'discount_price' => 'nullable|numeric|min:0|lte:base_price',
+            'total_slots' => 'sometimes|required|integer|min:'.($request->booked_slots ?? $departure->booked_slots),
+            'booked_slots' => 'nullable|integer|min:0|max:'.($request->total_slots ?? $departure->total_slots),
             'status' => 'sometimes|required|in:open,closed,completed,cancelled',
         ]);
+
+        $this->normalizeDeparturePrices($validatedData);
+
+        $departureDate = $validatedData['departure_date']
+            ?? $departure->departure_date?->format('Y-m-d');
+
+        $validatedData['return_date'] = $this->calculateReturnDate($departure->tour, $departureDate);
 
         $departure->update($validatedData);
 
@@ -140,5 +152,46 @@ class TourDepartureController extends Controller
             'status' => 'success',
             'message' => 'Đã xóa lịch khởi hành thành công',
         ]);
+    }
+
+    private function calculateReturnDate(Tour $tour, string $departureDate): string
+    {
+        $durationNights = max((int) $tour->duration_nights, 0);
+
+        return Carbon::parse($departureDate)
+            ->addDays($durationNights)
+            ->toDateString();
+    }
+
+    private function normalizeDeparturePrices(array &$data): void
+    {
+        $basePrice = $data['base_price'] ?? null;
+        $discountPrice = $data['discount_price'] ?? null;
+
+        if ($basePrice === '') {
+            $basePrice = null;
+        }
+
+        if ($discountPrice === '') {
+            $discountPrice = null;
+        }
+
+        if ($basePrice === null) {
+            $data['base_price'] = null;
+            $data['discount_price'] = null;
+            $data['price'] = null;
+
+            return;
+        }
+
+        if ($discountPrice !== null && (float) $discountPrice > (float) $basePrice) {
+            throw ValidationException::withMessages([
+                'discount_price' => ['Giá giảm của lịch không được lớn hơn giá gốc.'],
+            ]);
+        }
+
+        $data['base_price'] = (float) $basePrice;
+        $data['discount_price'] = $discountPrice !== null ? (float) $discountPrice : null;
+        $data['price'] = null;
     }
 }

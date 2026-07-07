@@ -41,20 +41,6 @@ function getRuleAgeHint(rule) {
   return `Từ ${rule.min_age} đến ${rule.max_age} tuổi`;
 }
 
-function getParticipantType(rule) {
-  if (!rule) return "adult";
-  if (Number(rule.max_age) <= 4) return "infant";
-  if (Number(rule.max_age) <= 10) return "child";
-  return "adult";
-}
-
-function getSuggestedBirthDate(rule) {
-  const today = new Date();
-  const age = rule?.min_age ?? 18;
-  today.setFullYear(today.getFullYear() - age);
-  return today.toISOString().split("T")[0];
-}
-
 function getPricingRuleText(rule) {
   if (rule.pricing_type === "free") return "miễn phí";
   if (rule.pricing_type === "fixed") return `${Number(rule.price_value || 0).toLocaleString("vi-VN")}đ`;
@@ -182,18 +168,17 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
   const activePricingRules = Array.isArray(tour.age_pricing_rules)
     ? tour.age_pricing_rules.filter((rule) => rule.is_active !== false)
     : [];
-  const bookingGroups = activePricingRules.length
-    ? activePricingRules
-    : [{
-      id: "adult_default",
-      label: "Người lớn",
-      min_age: 11,
-      max_age: null,
-      pricing_type: "percentage",
-      price_value: 100,
-      is_active: true,
-    }];
-  const defaultQuantityRule = bookingGroups.find((rule) => rule.max_age === null || rule.max_age === undefined) || bookingGroups[bookingGroups.length - 1];
+  const adultBookingGroup = {
+    id: "adult_default",
+    label: "Người lớn",
+    min_age: 11,
+    max_age: null,
+    pricing_type: "percentage",
+    price_value: 100,
+    is_active: true,
+  };
+  const bookingGroups = [adultBookingGroup, ...activePricingRules];
+  const defaultQuantityRule = adultBookingGroup;
   const effectiveQuantities = Object.keys(quantities).length
     ? quantities
     : { [defaultQuantityRule.id]: 1 };
@@ -204,6 +189,7 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
     return Math.round(adultPrice * Number(rule.price_value || 100) / 100);
   };
   const totalGuests = bookingGroups.reduce((sum, rule) => sum + getRuleQuantity(rule), 0);
+  const adultQuantity = getRuleQuantity(adultBookingGroup);
   const localTotal = bookingGroups.reduce((sum, rule) => sum + getRuleQuantity(rule) * getRuleUnitPrice(rule), 0);
   const finalTotal = Number(bookingPreview?.total_amount ?? localTotal);
   const availableSlots = Number(selectedDeparture?.available_slots || tour.slots?.available || 0);
@@ -251,7 +237,15 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
     .filter((item) => item.quantity > 0);
 
   const updateQuantity = (ruleId, nextQuantity) => {
-    const safeQuantity = Math.max(0, nextQuantity);
+    const isAdultGroup = ruleId === adultBookingGroup.id;
+    const safeQuantity = Math.max(isAdultGroup ? 1 : 0, nextQuantity);
+    const currentAdultQuantity = Number(effectiveQuantities[adultBookingGroup.id] || 0);
+
+    if (!isAdultGroup && currentAdultQuantity < 1 && safeQuantity > 0) {
+      setBookingError("Vui lòng chọn ít nhất 1 người lớn trước khi thêm trẻ em hoặc em bé.");
+      return;
+    }
+
     const nextTotal = totalGuests - Number(effectiveQuantities[ruleId] || 0) + safeQuantity;
 
     if (availableSlots > 0 && nextTotal > availableSlots) {
@@ -263,25 +257,13 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
     setQuantities((current) => ({ ...effectiveQuantities, ...current, [ruleId]: safeQuantity }));
   };
 
-  const syncParticipantsFromQuantities = () => {
-    const nextParticipants = [];
-
-    bookingGroups.forEach((rule) => {
-      const quantity = getRuleQuantity(rule);
-      for (let index = 0; index < quantity; index += 1) {
-        nextParticipants.push({
-          full_name: "",
-          phone: "",
-          birth_date: getSuggestedBirthDate(rule),
-          gender: "male",
-          identity_number: "",
-          participant_type: getParticipantType(rule),
-        });
-      }
-    });
-
-    setParticipants(nextParticipants);
-  };
+  const createParticipantTemplate = () => ({
+    full_name: "",
+    phone: "",
+    birth_date: "",
+    gender: "male",
+    identity_number: "",
+  });
 
   const updateContactField = (field, value) => {
     setContact((current) => ({ ...current, [field]: value }));
@@ -318,6 +300,11 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
         return;
       }
 
+      if (adultQuantity < 1) {
+        setBookingError("Vui lòng chọn ít nhất 1 người lớn để đặt tour.");
+        return;
+      }
+
       try {
         setPreviewLoading(true);
         const preview = await previewCustomerBooking({
@@ -332,7 +319,8 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
         setPreviewLoading(false);
       }
 
-      syncParticipantsFromQuantities();
+      const initialParticipants = Array.from({ length: totalGuests }, () => createParticipantTemplate());
+      setParticipants(initialParticipants);
       setCheckoutStep(2);
       return;
     }
@@ -344,11 +332,21 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
       }
 
       const hasMissingParticipant = participants.some((participant) => (
-        !participant.full_name || !participant.birth_date || !participant.participant_type
+        !participant.full_name || !participant.birth_date || !participant.gender
       ));
 
-      if (hasMissingParticipant) {
-        setBookingError("Vui lòng nhập đầy đủ họ tên, ngày sinh và nhóm hành khách.");
+      if (participants.length !== totalGuests || hasMissingParticipant) {
+        setBookingError(`Vui lòng nhập đầy đủ thông tin ${totalGuests} hành khách để phục vụ điểm danh tour.`);
+        return;
+      }
+
+      const todayStrLimit = new Date().toISOString().split("T")[0];
+      const hasFutureBirthDate = participants.some((participant) => (
+        participant.birth_date && participant.birth_date > todayStrLimit
+      ));
+
+      if (hasFutureBirthDate) {
+        setBookingError("Ngày sinh của hành khách không thể ở thời điểm tương lai.");
         return;
       }
 
@@ -383,6 +381,8 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
     .filter((t) => String(t.id) !== String(tourId) && String(t.slug) !== String(tourId))
     .slice(0, 3);
 
+  const todayStr = new Date().toISOString().split("T")[0];
+
   return (
     <div className="vg-tour-detail-page">
       {/* Redesigned Top Header (Above Gallery) */}
@@ -399,44 +399,6 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
 
           {/* Title */}
           <h1 className="vg-traveloka-title">{tour.title}</h1>
-
-          {/* Tags Pills Row */}
-          <div className="vg-title-tags-row">
-            {tour.category ? <span className="vg-title-tag-pill">{tour.category}</span> : null}
-            {tour.destination ? <span className="vg-title-tag-pill">{tour.destination}</span> : null}
-            {tour.duration ? <span className="vg-title-tag-pill">{tour.duration}</span> : null}
-            <span className="vg-title-tag-pill">{departures.length} lịch khởi hành đang mở</span>
-          </div>
-
-          {/* Ratings & Wishlist Row */}
-          <div className="vg-meta-row-traveloka">
-            <div className="vg-meta-left-traveloka">
-              {hasRating ? (
-                <>
-                  <span className="vg-rating-score-traveloka">★ {ratingAverage.toFixed(1)}/5</span>
-                  <a href="#reviews" className="vg-reviews-link-traveloka">({ratingCount} đánh giá)</a>
-                </>
-              ) : (
-                <span className="vg-reviews-link-traveloka">Chưa có đánh giá</span>
-              )}
-              <span className="meta-separator">•</span>
-              <span className="vg-booked-tag-traveloka">{bookingsCount} lượt đặt</span>
-              <span className="meta-separator">•</span>
-              <a href="#overview" className="vg-loc-link-traveloka">
-                <Icon name="mapPin" size={14} />
-                <span>{tour.destination}</span>
-              </a>
-            </div>
-
-            <button
-              className={`vg-wishlist-btn-traveloka ${isFavorite ? "is-active" : ""}`}
-              onClick={() => onFavorite(tour)}
-              aria-label="Thêm vào danh sách yêu thích"
-            >
-              <Icon name="heart" size={16} />
-              <span>{isFavorite ? "Đã lưu vào wishlist" : "Lưu vào wishlist"}</span>
-            </button>
-          </div>
         </div>
       </header>
 
@@ -475,52 +437,94 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
             )}
           </div>
 
-          {/* Highlights & Quick Price Card (2 columns) */}
-          <div className="vg-highlights-row-traveloka">
-            <div className="vg-highlights-card-traveloka">
-              <h3 style={{ fontSize: "1.15rem", fontWeight: "700", marginBottom: "12px", color: "#03121a" }}>
-                Điểm nhấn nổi bật của hành trình
-              </h3>
-              {tour.description ? (
-                <p className="vg-detail-summary-text">{tour.description}</p>
-              ) : tour.summary ? (
-                <p className="vg-detail-summary-text">{tour.summary}</p>
-              ) : (
-                <p className="vg-detail-summary-text">Tour này chưa cập nhật phần mô tả chi tiết.</p>
-              )}
-              <span className="see-more-link" onClick={scrollToOptions}>
-                Xem thêm tùy chọn gói &gt;
-              </span>
+                    {/* Post-Gallery Meta (Tags & Ratings) */}
+          <div className="vg-post-gallery-meta" style={{ marginTop: '24px', marginBottom: '32px' }}>
+            {/* Tags Pills Row */}
+            <div className="vg-title-tags-row">
+              {tour.category ? <span className="vg-title-tag-pill">{tour.category}</span> : null}
+              {tour.destination ? <span className="vg-title-tag-pill">{tour.destination}</span> : null}
+              {tour.duration ? <span className="vg-title-tag-pill">Thời lượng: {tour.duration}</span> : null}
+              <span className="vg-title-tag-pill">{departures.length} lịch khởi hành đang mở</span>
             </div>
 
-            <div className="vg-quick-action-card-traveloka">
-              <div className="vg-quick-price-box">
-                <span className="vg-quick-price-label">Giá tốt nhất từ trước đến nay</span>
-                <div className="vg-quick-price-value">
-                  {formatCurrency(displayBasePrice)}
-                  <span className="vg-quick-price-unit"> / khách</span>
-                </div>
+            {/* Ratings & Wishlist Row */}
+            <div className="vg-meta-row-traveloka" style={{ marginTop: '16px' }}>
+              <div className="vg-meta-left-traveloka">
+                {hasRating ? (
+                  <>
+                    <span className="vg-rating-score-traveloka">★ {ratingAverage.toFixed(1)}/5</span>
+                    <a href="#reviews" className="vg-reviews-link-traveloka">({ratingCount} đánh giá)</a>
+                  </>
+                ) : (
+                  <span className="vg-reviews-link-traveloka">Chưa có đánh giá</span>
+                )}
+                <span className="meta-separator">•</span>
+                <span className="vg-booked-tag-traveloka">{bookingsCount} lượt đặt</span>
+                <span className="meta-separator">•</span>
+                <a href="#overview" className="vg-loc-link-traveloka">
+                  <Icon name="mapPin" size={14} />
+                  <span>{tour.destination}</span>
+                </a>
               </div>
-              <button className="vg-btn-select-options" onClick={scrollToOptions}>
-                Chọn các tùy chọn gói
+
+              <button
+                className={`vg-wishlist-btn-traveloka ${isFavorite ? "is-active" : ""}`}
+                onClick={() => onFavorite(tour)}
+                aria-label="Thêm vào danh sách yêu thích"
+              >
+                <Icon name="heart" size={16} />
+                <span>{isFavorite ? "Đã lưu vào wishlist" : "Lưu vào wishlist"}</span>
               </button>
             </div>
           </div>
 
-          {/* Package Options Section Header */}
-          <h2 className="vg-package-options-section-title" ref={packageOptionsRef}>
-            {tour.title} Package Options
-          </h2>
+          {/* Tour Highlights Description */}
+          <div className="vg-tour-description-block" style={{ marginBottom: "32px", padding: "0 12px" }}>
+            <h3 style={{ fontSize: "1.2rem", fontWeight: "700", marginBottom: "12px", color: "#03121a" }}>
+              Điểm nhấn nổi bật của hành trình
+            </h3>
+            {tour.description ? (
+              <p className="vg-detail-summary-text" style={{ lineHeight: "1.6", color: "#333" }}>{tour.description}</p>
+            ) : tour.summary ? (
+              <p className="vg-detail-summary-text" style={{ lineHeight: "1.6", color: "#333" }}>{tour.summary}</p>
+            ) : (
+              <p className="vg-detail-summary-text" style={{ lineHeight: "1.6", color: "#333" }}>Tour này chưa cập nhật phần mô tả chi tiết.</p>
+            )}
+          </div>
 
           {/* Package Options Layout (2 columns) */}
           <div className="vg-package-options-layout-traveloka">
             {/* Left Column: Option selection form card */}
             <div className="vg-package-options-form-card">
+              {/* Step Progress Indicator */}
+              <div className="vg-checkout-steps-bar">
+                <div className={`step-item ${checkoutStep === 1 ? 'active' : checkoutStep > 1 ? 'completed' : ''}`}>
+                  <span className="step-num">{checkoutStep > 1 ? "✓" : "1"}</span>
+                  <span className="step-label">Chọn lịch đi</span>
+                </div>
+                <div className="step-line" />
+                <div className={`step-item ${checkoutStep === 2 ? 'active' : checkoutStep > 2 ? 'completed' : ''}`}>
+                  <span className="step-num">{checkoutStep > 2 ? "✓" : "2"}</span>
+                  <span className="step-label">Nhập thông tin</span>
+                </div>
+                <div className="step-line" />
+                <div className={`step-item ${checkoutStep === 3 ? 'active' : ''}`}>
+                  <span className="step-num">3</span>
+                  <span className="step-label">Thanh toán</span>
+                </div>
+              </div>
+
               <div className="vg-form-title-row">
-                <h3>Chọn các tùy chọn gói</h3>
-                <span className="vg-clear-all-link" onClick={handleClearAll}>
-                  Xóa tất cả
-                </span>
+                <h3>
+                  {checkoutStep === 1 && "Chọn ngày & số lượng"}
+                  {checkoutStep === 2 && "Thông tin liên hệ & hành khách"}
+                  {checkoutStep === 3 && "Xác nhận đặt tour"}
+                </h3>
+                {checkoutStep === 1 && (
+                  <span className="vg-clear-all-link" onClick={handleClearAll}>
+                    Xóa tất cả
+                  </span>
+                )}
               </div>
 
               {bookingError ? (
@@ -569,6 +573,8 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                       {bookingGroups.map((rule) => {
                         const quantity = getRuleQuantity(rule);
                         const unitPrice = getRuleUnitPrice(rule);
+                        const isAdultGroup = rule.id === adultBookingGroup.id;
+                        const cannotAddNonAdult = !isAdultGroup && adultQuantity < 1;
 
                         return (
                           <div className="vg-qty-row-traveloka" key={rule.id}>
@@ -580,7 +586,7 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                               <button
                                 type="button"
                                 className="vg-counter-btn"
-                                disabled={quantity <= 0}
+                                disabled={isAdultGroup ? quantity <= 1 : quantity <= 0}
                                 onClick={() => updateQuantity(rule.id, quantity - 1)}
                               >
                                 -
@@ -589,7 +595,7 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                               <button
                                 type="button"
                                 className="vg-counter-btn"
-                                disabled={availableSlots > 0 && totalGuests >= availableSlots}
+                                disabled={cannotAddNonAdult || (availableSlots > 0 && totalGuests >= availableSlots)}
                                 onClick={() => updateQuantity(rule.id, quantity + 1)}
                               >
                                 +
@@ -617,97 +623,111 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                       </div>
                       <div className="contact-preview-card" style={{ marginBottom: 12 }}>
                         <strong>{contact.contact_name || "Người đặt tour"}</strong>
-                        <span>{contact.contact_phone || "Chưa có số điện thoại"}</span>
-                        <span>{contact.contact_email || "Chưa có email"}</span>
+                        <span>Số điện thoại: {contact.contact_phone || "Chưa có số điện thoại"}</span>
+                        <span>Email: {contact.contact_email || "Chưa có email"}</span>
                       </div>
                       {useCustomContact && (
-                        <div className="checkout-grid" style={{ marginBottom: 12 }}>
+                        <div className="vg-checkout-grid" style={{ marginBottom: 12 }}>
                           <input
+                            className="vg-checkout-input"
                             value={contact.contact_name}
                             onChange={(e) => updateContactField("contact_name", e.target.value)}
                             placeholder="Họ tên liên hệ"
-                            style={{ padding: 10, borderRadius: 8, border: "1px solid #cbd5e1" }}
                           />
                           <input
+                            className="vg-checkout-input"
                             value={contact.contact_phone}
                             onChange={(e) => updateContactField("contact_phone", e.target.value)}
                             placeholder="Số điện thoại"
-                            style={{ padding: 10, borderRadius: 8, border: "1px solid #cbd5e1" }}
                           />
                           <input
+                            className="vg-checkout-input"
                             value={contact.contact_email}
                             onChange={(e) => updateContactField("contact_email", e.target.value)}
                             placeholder="Email liên hệ"
-                            style={{ padding: 10, borderRadius: 8, border: "1px solid #cbd5e1" }}
                           />
                           <input
+                            className="vg-checkout-input"
                             value={contact.address}
                             onChange={(e) => updateContactField("address", e.target.value)}
                             placeholder="Địa chỉ"
-                            style={{ padding: 10, borderRadius: 8, border: "1px solid #cbd5e1" }}
                           />
                         </div>
                       )}
                       <textarea
+                        className="vg-checkout-input"
                         value={contact.special_request}
                         onChange={(e) => updateContactField("special_request", e.target.value)}
                         placeholder="Yêu cầu đặc biệt nếu có (ăn chay, dị ứng, xe đẩy...)"
                         rows={3}
-                        style={{ width: "100%", padding: 10, borderRadius: 8, border: "1px solid #cbd5e1" }}
                       />
                     </section>
 
                     <section className="checkout-section" style={{ marginTop: 16 }}>
                       <div className="checkout-section-title" style={{ marginBottom: 12 }}>
                         <h4>Thông tin hành khách tham gia</h4>
-                        <span style={{ fontSize: "0.85rem", color: "#687176" }}>{participants.length} khách</span>
+                        <span style={{ fontSize: "0.85rem", color: "#687176" }}>{participants.length}/{totalGuests} khách</span>
                       </div>
                       {participants.map((p, index) => (
-                        <div className="participant-card" key={index} style={{ marginBottom: 14 }}>
-                          <strong style={{ display: "block", marginBottom: 8 }}>Hành khách {index + 1}</strong>
-                          <div className="checkout-grid">
-                            <input
-                              value={p.full_name}
-                              onChange={(e) => updateParticipantField(index, "full_name", e.target.value)}
-                              placeholder="Họ tên hành khách"
-                              style={{ padding: 8, borderRadius: 6, border: "1px solid #cbd5e1" }}
-                            />
-                            <input
-                              type="date"
-                              value={p.birth_date}
-                              onChange={(e) => updateParticipantField(index, "birth_date", e.target.value)}
-                              style={{ padding: 8, borderRadius: 6, border: "1px solid #cbd5e1" }}
-                            />
-                            <select
-                              value={p.gender}
-                              onChange={(e) => updateParticipantField(index, "gender", e.target.value)}
-                              style={{ padding: 8, borderRadius: 6, border: "1px solid #cbd5e1" }}
-                            >
-                              <option value="male">Nam</option>
-                              <option value="female">Nữ</option>
-                              <option value="other">Khác</option>
-                            </select>
-                            <select
-                              value={p.participant_type}
-                              onChange={(e) => updateParticipantField(index, "participant_type", e.target.value)}
-                              style={{ padding: 8, borderRadius: 6, border: "1px solid #cbd5e1" }}
-                            >
-                              <option value="adult">Người lớn</option>
-                              <option value="child">Trẻ em</option>
-                              <option value="infant">Em bé</option>
-                            </select>
-                            <input
-                              value={p.phone}
-                              onChange={(e) => updateParticipantField(index, "phone", e.target.value)}
-                              placeholder="Số điện thoại"
-                              style={{ padding: 8, borderRadius: 6, border: "1px solid #cbd5e1" }}
-                            />
-                            <input
-                              value={p.identity_number}
-                              onChange={(e) => updateParticipantField(index, "identity_number", e.target.value)}
-                              placeholder="CCCD/Hộ chiếu"
-                              style={{ padding: 8, borderRadius: 6, border: "1px solid #cbd5e1" }}
-                            />
+                        <div className="vg-participant-card" key={index}>
+                          <div className="vg-participant-card-header">
+                            <h5>Hành khách {index + 1}</h5>
+                            <span className={`vg-participant-status ${p.full_name && p.birth_date && p.gender ? 'is-complete' : 'is-missing'}`}>
+                              {p.full_name && p.birth_date && p.gender ? 'Đã đủ' : 'Thiếu thông tin'}
+                            </span>
+                          </div>
+                          <div className="vg-checkout-grid">
+                            <div className="vg-input-group full-width-tablet">
+                              <label>Họ tên hành khách *</label>
+                              <input
+                                className="vg-checkout-input"
+                                value={p.full_name}
+                                onChange={(e) => updateParticipantField(index, "full_name", e.target.value)}
+                                placeholder="Họ và tên như trong giấy tờ"
+                                required
+                              />
+                            </div>
+                            <div className="vg-input-group">
+                              <label>Ngày sinh *</label>
+                              <input
+                                className="vg-checkout-input"
+                                type="date"
+                                value={p.birth_date}
+                                onChange={(e) => updateParticipantField(index, "birth_date", e.target.value)}
+                                max={todayStr}
+                                required
+                              />
+                            </div>
+                            <div className="vg-input-group">
+                              <label>Giới tính</label>
+                              <select
+                                className="vg-checkout-input"
+                                value={p.gender}
+                                onChange={(e) => updateParticipantField(index, "gender", e.target.value)}
+                              >
+                                <option value="male">Nam</option>
+                                <option value="female">Nữ</option>
+                                <option value="other">Khác</option>
+                              </select>
+                            </div>
+                            <div className="vg-input-group">
+                              <label>Số điện thoại</label>
+                              <input
+                                className="vg-checkout-input"
+                                value={p.phone}
+                                onChange={(e) => updateParticipantField(index, "phone", e.target.value)}
+                                placeholder="Số điện thoại liên lạc"
+                              />
+                            </div>
+                            <div className="vg-input-group">
+                              <label>CCCD / Hộ chiếu</label>
+                              <input
+                                className="vg-checkout-input"
+                                value={p.identity_number}
+                                onChange={(e) => updateParticipantField(index, "identity_number", e.target.value)}
+                                placeholder="Số CCCD hoặc số hộ chiếu"
+                              />
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -717,13 +737,15 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
 
                 {checkoutStep === 3 && (
                   <div className="fake-payment-box" style={{ marginBottom: 20 }}>
-                    <h4>Thanh toán đặt chỗ giả lập</h4>
-                    <p style={{ color: "#687176", fontSize: "0.88rem", lineHeight: 1.5 }}>
-                      Hệ thống ViVuGo hiện đang chạy ở chế độ giả lập thử nghiệm. Bấm xác nhận đặt chỗ bên dưới để hoàn tất giao dịch.
+                    <div className="fake-payment-header">
+                      <Icon name="shield" size={24} />
+                      <h4>Thanh toán đặt chỗ an toàn</h4>
+                    </div>
+                    <p style={{ color: "#475569", fontSize: "0.88rem", lineHeight: 1.6, margin: "12px 0" }}>
+                      Hệ thống đang hoạt động ở chế độ thử nghiệm (Simulated Sandbox). Quý khách sẽ không bị trừ tiền thực tế. Vui lòng kiểm tra kỹ thông tin đơn hàng ở cột bên phải trước khi nhấn nút xác nhận đặt chỗ.
                     </p>
-                    <div className="breakdown-row total" style={{ marginTop: 14 }}>
-                      <span>Tổng tiền cần thanh toán</span>
-                      <strong style={{ fontSize: "1.4rem", color: "#ff5b00" }}>{formatCurrency(finalTotal)}</strong>
+                    <div className="fake-payment-warning">
+                      <span>✓ Bạn có thể hoàn hủy hoặc thay đổi thông tin theo chính sách của ViVuGo.</span>
                     </div>
                   </div>
                 )}
@@ -744,7 +766,6 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                       <button
                         type="button"
                         className="checkout-back-button"
-                        style={{ border: "1px solid #cbd5e1", borderRadius: 8, color: "#687176" }}
                         onClick={() => setCheckoutStep(checkoutStep - 1)}
                       >
                         Quay lại
@@ -765,71 +786,124 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
               </form>
             </div>
 
-            {/* Right Column: Package details and Itinerary timeline */}
+            {/* Right Column: Dynamic Booking Summary / Chi tiết đơn hàng */}
             <div className="vg-package-details-col-traveloka">
-              <div className="vg-package-details-card-traveloka">
-                <div className="vg-details-title-row">
-                  <h3>Package details</h3>
-                  <button className="vg-details-maximize-btn" onClick={() => setShowItineraryModal(true)}>
-                    <Icon name="maximize" size={16} />
-                  </button>
+              <div className="vg-booking-summary-card">
+                <div className="summary-header">
+                  <Icon name="briefcase" size={18} />
+                  <h3>Chi tiết đơn đặt tour</h3>
                 </div>
 
-                {/* Badges list */}
-                <div className="vg-details-badges-list">
-                  <span className="vg-details-badge-item">
-                    <span style={{ color: "#10b981", marginRight: 6 }}>✓</span>
-                    {departures.length} lịch khởi hành đang mở
-                  </span>
-                  <span className="vg-details-badge-item">
-                    <span style={{ color: "#10b981", marginRight: 6 }}>✓</span>
-                    Còn {availableSlots} chỗ ở lịch đang chọn
-                  </span>
-                  <span className="vg-details-badge-item">
-                    <span style={{ color: "#10b981", marginRight: 6 }}>✓</span>
-                    Giá người lớn: {formatCurrency(adultPrice)}
-                  </span>
-                </div>
-
-                {/* Collapsible vertical Itinerary timeline */}
-                <div
-                  className={`vg-itinerary-timeline-title-row ${itineraryCollapsed ? "is-collapsed" : ""}`}
-                  onClick={() => setItineraryCollapsed(!itineraryCollapsed)}
-                >
-                  <h4>
-                    <Icon name="calendar" size={16} />
-                    Lịch trình chuyến đi chi tiết
-                  </h4>
-                  <Icon name="chevronDown" size={16} />
-                </div>
-
-                <div className={`vg-itinerary-list-traveloka ${itineraryCollapsed ? "is-collapsed" : ""}`}>
-                  {itinerarySteps.length ? (
-                    itinerarySteps.map((step, idx) => (
-                      <div
-                        key={step.id || idx}
-                        className={`vg-itinerary-step-traveloka ${step.isGreen ? "is-green" : ""}`}
-                      >
-                        <span className={`vg-step-time-traveloka ${step.isGreen ? "is-green" : ""}`}>
-                          {step.time}
-                        </span>
-                        <span className="vg-step-title-traveloka">{step.title}</span>
-                        <span className="vg-step-desc-traveloka">{step.desc}</span>
-                        {step.transport ? <span className="vg-step-desc-traveloka">Phương tiện: {step.transport}</span> : null}
-                        {step.images.length ? (
-                          <div className="vg-step-images-grid-traveloka">
-                            {step.images.map((imgUrl, imgIdx) => (
-                              <img key={imgIdx} src={imgUrl} alt={`${step.title} preview ${imgIdx + 1}`} />
-                            ))}
-                          </div>
-                        ) : null}
-                      </div>
-                    ))
-                  ) : (
-                    <div className="vg-itinerary-step-traveloka">
-                      <span className="vg-step-title-traveloka">Chưa cập nhật lịch trình chi tiết.</span>
+                {/* Tour Info Block */}
+                <div className="summary-tour-block">
+                  <img src={tour.image} alt={tour.title} className="summary-tour-img" />
+                  <div className="summary-tour-details">
+                    <h4 className="summary-tour-title">{tour.title}</h4>
+                    <div className="summary-tour-meta">
+                      <span><Icon name="clock" size={12} /> {tour.duration}</span>
+                      {selectedDeparture && (
+                        <span><Icon name="calendar" size={12} /> Khởi hành: {selectedDeparture.departure_date}</span>
+                      )}
                     </div>
-                  )}
+                  </div>
+                </div>
+
+                {/* Price Breakdown Block */}
+                <div className="summary-price-breakdown">
+                  <h5>Tóm tắt chi phí</h5>
+                  <div className="price-rows">
+                    {bookingGroups.map((rule) => {
+                      const qty = getRuleQuantity(rule);
+                      if (qty <= 0) return null;
+                      const unitPrice = getRuleUnitPrice(rule);
+                      return (
+                        <div className="price-row" key={rule.id}>
+                          <span>{rule.label} (x{qty})</span>
+                          <strong>{formatCurrency(unitPrice * qty)}</strong>
+                        </div>
+                      );
+                    })}
+
+                    {bookingPreview?.discount_amount > 0 && (
+                      <div className="price-row discount">
+                        <span>Giảm giá</span>
+                        <strong>-{formatCurrency(Number(bookingPreview.discount_amount))}</strong>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="price-total-row">
+                    <span>Tổng cộng:</span>
+                    <strong className="total-amount">{formatCurrency(finalTotal)}</strong>
+                  </div>
+                </div>
+
+                {/* Contact Info Live Preview (Step 2 and 3) */}
+                {checkoutStep >= 2 && (
+                  <div className="summary-info-preview-block">
+                    <h5>Thông tin liên hệ</h5>
+                    <div className="preview-content">
+                      <p><strong>Người liên hệ:</strong> {contact.contact_name || <em className="placeholder-text">Chưa nhập</em>}</p>
+                      <p><strong>Số điện thoại:</strong> {contact.contact_phone || <em className="placeholder-text">Chưa nhập</em>}</p>
+                      <p><strong>Email:</strong> {contact.contact_email || <em className="placeholder-text">Chưa nhập</em>}</p>
+                      {contact.address && <p><strong>Địa chỉ:</strong> {contact.address}</p>}
+                      {contact.special_request && <p><strong>Yêu cầu đặc biệt:</strong> {contact.special_request}</p>}
+                    </div>
+                  </div>
+                )}
+
+                {/* Simulated Payment Info (Step 3) */}
+                {checkoutStep === 3 && (
+                  <div className="summary-info-preview-block payment-preview">
+                    <h5>Phương thức thanh toán</h5>
+                    <div className="preview-content">
+                      <p><strong>Cổng thanh toán:</strong> Giả lập kiểm thử ViVuGo</p>
+                      <p><strong>Trạng thái:</strong> Chờ xác nhận đặt chỗ</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Collapsible detailed itinerary */}
+                <div className="summary-itinerary-collapsible">
+                  <div
+                    className={`vg-itinerary-timeline-title-row ${itineraryCollapsed ? "is-collapsed" : ""}`}
+                    onClick={() => setItineraryCollapsed(!itineraryCollapsed)}
+                  >
+                    <h4>
+                      <Icon name="calendar" size={16} />
+                      Xem lịch trình chi tiết
+                    </h4>
+                    <Icon name="chevronDown" size={16} />
+                  </div>
+
+                  <div className={`vg-itinerary-list-traveloka ${itineraryCollapsed ? "is-collapsed" : ""}`}>
+                    {itinerarySteps.length ? (
+                      itinerarySteps.map((step, idx) => (
+                        <div
+                          key={step.id || idx}
+                          className={`vg-itinerary-step-traveloka ${step.isGreen ? "is-green" : ""}`}
+                        >
+                          <span className={`vg-step-time-traveloka ${step.isGreen ? "is-green" : ""}`}>
+                            {step.time}
+                          </span>
+                          <span className="vg-step-title-traveloka">{step.title}</span>
+                          <span className="vg-step-desc-traveloka">{step.desc}</span>
+                          {step.transport ? <span className="vg-step-desc-traveloka">Phương tiện: {step.transport}</span> : null}
+                          {step.images.length ? (
+                            <div className="vg-step-images-grid-traveloka">
+                              {step.images.map((imgUrl, imgIdx) => (
+                                <img key={imgIdx} src={imgUrl} alt={`${step.title} preview ${imgIdx + 1}`} />
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="vg-itinerary-step-traveloka">
+                        <span className="vg-step-title-traveloka">Chưa cập nhật lịch trình chi tiết.</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -1093,7 +1167,7 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
             </div>
 
             <div className="modal-actions">
-              <button className="btn-done" onClick={() => setBookingSuccess(false)}>
+              <button className="btn-done" onClick={() => navigate("/customer/bookings")}>
                 Hoàn thành
               </button>
               <button className="btn-support" onClick={() => navigate("/deals")}>

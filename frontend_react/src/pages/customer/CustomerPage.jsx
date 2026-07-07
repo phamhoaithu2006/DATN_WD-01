@@ -184,15 +184,14 @@ function normalizeTour(tour, index = 0) {
     "Chưa cập nhật";
 
   const basePrice = toNumber(
-    tour.min_departure_price ??
-      nextDeparture?.price ??
+    nextDeparture?.base_price ??
       tour.base_price ??
       tour.price?.base,
     fallback.price?.base || 0,
   );
 
   const discountValue =
-    tour.discount_price ?? tour.price?.discount ?? null;
+    nextDeparture?.discount_price ?? tour.discount_price ?? tour.price?.discount ?? null;
 
   const discountPrice =
     discountValue !== null && discountValue !== undefined
@@ -254,6 +253,11 @@ function normalizeTour(tour, index = 0) {
           departure_date: nextDeparture.departure_date,
           return_date: nextDeparture.return_date,
           price: toNumber(nextDeparture.price),
+          base_price: toNumber(nextDeparture.base_price),
+          discount_price:
+            nextDeparture.discount_price !== null && nextDeparture.discount_price !== undefined
+              ? toNumber(nextDeparture.discount_price)
+              : null,
           total_slots: toNumber(nextDeparture.total_slots),
           booked_slots: toNumber(nextDeparture.booked_slots),
           available_slots: getAvailableSlots(nextDeparture),
