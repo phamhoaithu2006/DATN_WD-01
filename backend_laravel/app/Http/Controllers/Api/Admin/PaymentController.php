@@ -72,13 +72,16 @@ class PaymentController extends Controller
 
     private function updateStatus(int $id, string $paymentStatus, string $bookingPaymentStatus, array $extraData, string $message): JsonResponse
     {
-        $payment = Payment::with('booking')->find($id);
+        $payment = DB::transaction(function () use ($id, $paymentStatus, $bookingPaymentStatus, $extraData) {
+            $payment = Payment::query()
+                ->with('booking')
+                ->lockForUpdate()
+                ->find($id);
 
-        if (! $payment) {
-            return $this->notFound();
-        }
+            if (! $payment) {
+                return null;
+            }
 
-        DB::transaction(function () use ($payment, $paymentStatus, $bookingPaymentStatus, $extraData) {
             $paymentData = array_filter([
                 'status' => $paymentStatus,
                 'transaction_code' => $extraData['transaction_code'] ?? $payment->transaction_code,
@@ -97,12 +100,18 @@ class PaymentController extends Controller
                     'payment_status' => $bookingPaymentStatus,
                 ]);
             }
+
+            return $payment->fresh(['booking.user']);
         });
+
+        if (! $payment) {
+            return $this->notFound();
+        }
 
         return response()->json([
             'status' => 'success',
             'message' => $message,
-            'data' => $payment->fresh(['booking.user']),
+            'data' => $payment,
         ]);
     }
 
