@@ -52,10 +52,10 @@ class TourDeparture extends Model
         return $this->hasMany(Booking::class);
     }
 
-    public function guideAssignments(): HasMany
-    {
-        return $this->hasMany(TourGuideAssignment::class);
-    }
+    // public function guideAssignments(): HasMany
+    // {
+    //     return $this->hasMany(TourGuideAssignment::class);
+    // }
 
     public function attendanceSessions(): HasMany
     {
@@ -73,5 +73,13 @@ class TourDeparture extends Model
     public function currentStage(): BelongsTo
     {
         return $this->belongsTo(TourDepartureStage::class, 'current_stage_id');
+    }
+
+    public function guideAssignments(): HasMany
+    {
+        return $this->hasMany(
+            TourGuideAssignment::class,
+            'tour_departure_id'
+        );
     }
 }

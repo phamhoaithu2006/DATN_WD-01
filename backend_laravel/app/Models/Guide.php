@@ -5,6 +5,10 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Models\Destination;
+use App\Models\TourGuideAssignment;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Guide extends Model
 {
@@ -65,4 +69,22 @@ class Guide extends Model
             'tour_departure_id'
         )->withPivot('status', 'note')->withTimestamps();
     }
+
+
+    public function destinations(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Destination::class,
+            'guide_destinations',
+            'guide_id',
+            'destination_id'
+        )->withTimestamps();
+    }
+
+    public function assignments(): HasMany
+    {
+        return $this->hasMany(TourGuideAssignment::class);
+    }
+
+    
 }

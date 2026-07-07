@@ -18,19 +18,50 @@ class TourDepartureController extends Controller
      */
     public function index($tourId)
     {
-        $tour = Tour::findOrFail($tourId);
+        $departures = TourDeparture::query()
+            ->where('tour_id', $tourId)
+            ->with([
+                'guideAssignments' => function ($query) {
+                    $query
+                        ->where('status', 'assigned')
+                        ->with([
+                            'guide:id,user_id,guide_code',
+                            'guide.user:id,full_name,email,avatar_url',
+                        ]);
+                },
+            ])
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->get();
 
-        $departures = $tour->departures()
-            ->orderBy('departure_date', 'asc')
-            ->paginate(10);
+        $departures->each(function ($departure) {
+            $assignedGuides = $departure->guideAssignments->values();
+
+            $leadAssignment = $assignedGuides->first(function ($assignment) {
+                return $assignment->status === 'assigned' &&
+                    ($assignment->role === 'lead' || !$assignment->role);
+            });
+
+            /*
+        | Các field này giúp TourDepartureTable hiển thị được:
+        | - HDV phụ trách
+        | - badge Đã phân công / Chưa phân công
+        */
+            $departure->setAttribute(
+                'assigned_guides',
+                $assignedGuides
+            );
+
+            $departure->setAttribute(
+                'assignment_state',
+                $leadAssignment ? 'assigned' : 'available'
+            );
+        });
 
         return response()->json([
-            'status' => 'success',
-            'message' => 'Lấy danh sách lịch khởi hành thành công',
-            'data' => TourDepartureResource::collection(
-                $departures->load('tour')
-            ),
-        ], 200, [], JSON_PRESERVE_ZERO_FRACTION);
+            'message' => 'Danh sách lịch khởi hành',
+            'data' => $departures,
+        ]);
     }
 
     /**
