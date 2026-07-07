@@ -8,9 +8,9 @@ use Illuminate\Validation\Validator;
 class StoreBookingRequest extends FormRequest
 {
     public function authorize(): bool
-{
-    return $this->user() !== null;
-}
+    {
+        return $this->user() !== null;
+    }
 
     public function rules(): array
     {
@@ -115,9 +115,10 @@ class StoreBookingRequest extends FormRequest
             ],
 
             'participants.*.gender' => [
-                'nullable',
+                'required',
                 'string',
                 'max:20',
+                'in:male,female,other',
             ],
 
             'participants.*.identity_number' => [
@@ -127,7 +128,7 @@ class StoreBookingRequest extends FormRequest
             ],
 
             'participants.*.participant_type' => [
-                'required',
+                'nullable',
                 'string',
                 'in:adult,child,infant',
             ],
@@ -148,7 +149,7 @@ class StoreBookingRequest extends FormRequest
                 ) {
                     $validator->errors()->add(
                         'participants',
-                        'Số lượng thành viên phải đúng bằng số người đặt tour.'
+                        'Số lượng hành khách phải đúng bằng số người tham gia để phục vụ điểm danh tour.'
                     );
                 }
 
@@ -162,7 +163,19 @@ class StoreBookingRequest extends FormRequest
                             'Tổng số lượng đã chọn phải đúng bằng số người đặt tour.'
                         );
                     }
+
+                    $adultQuantity = collect($quantitySummary)
+                        ->filter(fn ($item) => empty($item['rule_id']))
+                        ->sum(fn ($item) => (int) ($item['quantity'] ?? 0));
+
+                    if ($adultQuantity < 1) {
+                        $validator->errors()->add(
+                            'quantity_summary',
+                            'Vui lòng chọn ít nhất 1 người lớn trước khi thêm trẻ em hoặc em bé.'
+                        );
+                    }
                 }
+
             },
         ];
     }
@@ -171,7 +184,7 @@ class StoreBookingRequest extends FormRequest
     {
         return [
             'tour_departure_id.exists' => 'Lịch khởi hành không tồn tại.',
-            'participants.required' => 'Vui lòng nhập danh sách người tham gia.',
+            'participants.required' => 'Vui lòng nhập đầy đủ danh sách hành khách tham gia.',
             'quantity_summary.*.rule_id.exists' => 'Nhóm giá đã chọn không tồn tại.',
         ];
     }

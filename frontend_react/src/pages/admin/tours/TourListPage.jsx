@@ -3,6 +3,20 @@ import { Link } from 'react-router-dom'
 import AdminPageHeader from '../../../components/admin/AdminPageHeader'
 import tourApi from '../../../services/toursApi'
 
+const getRequestErrorMessage = (error, fallback) => {
+  const status = error?.response?.status
+
+  if (status === 401) {
+    return 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.'
+  }
+
+  if (status === 403) {
+    return 'Bạn không có quyền thực hiện thao tác này.'
+  }
+
+  return error?.response?.data?.message || fallback
+}
+
 function SearchIcon({ className = 'h-5 w-5' }) {
   return (
     <svg
@@ -239,6 +253,10 @@ function TourListPage() {
     } catch (e) {
       console.error('GET TOURS ERROR:', e)
       setTours([])
+      setToast({
+        type: 'error',
+        message: getRequestErrorMessage(e, 'Không tải được danh sách tour.'),
+      })
     } finally {
       setLoading(false)
     }

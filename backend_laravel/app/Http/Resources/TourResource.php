@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Services\TourPricingService;
 use DateTimeInterface;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -41,6 +42,7 @@ class TourResource extends JsonResource
         $pricingRules = $this->relationLoaded('agePricingRules')
             ? $this->agePricingRules
             : collect();
+        $pricingService = new TourPricingService();
 
         $itineraries = $this->relationLoaded('itineraries')
             ? $this->itineraries
@@ -155,7 +157,7 @@ class TourResource extends JsonResource
 
             'min_departure_price' => $this->resource->getAttribute('min_departure_price') !== null
                 ? (float) $this->resource->getAttribute('min_departure_price')
-                : null,
+                : (float) ($this->discount_price ?? $this->base_price ?? 0),
 
             'next_departure_date' => $this->formatDate(
                 $this->resource->getAttribute('next_departure_date')
@@ -166,21 +168,32 @@ class TourResource extends JsonResource
             ),
 
             'departures' => $departures
-                ->map(fn ($departure) => [
-                    'id' => $departure->id,
-                    'tour_id' => $departure->tour_id,
-                    'departure_date' => $this->formatDate($departure->departure_date),
-                    'return_date' => $this->formatDate($departure->return_date),
-                    'price' => (float) $departure->price,
-                    'total_slots' => (int) $departure->total_slots,
-                    'booked_slots' => (int) $departure->booked_slots,
-                    'available_slots' => max(
-                        0,
-                        (int) $departure->total_slots - (int) $departure->booked_slots
-                    ),
-                    'status' => $departure->status,
-                    'current_stage_id' => $departure->current_stage_id,
-                ])
+                ->map(function ($departure) use ($pricingService) {
+                    $basePrice = $pricingService->resolveBasePrice($this->resource, $departure);
+                    $discountPrice = $pricingService->resolveDiscountPrice($this->resource, $departure);
+
+                    return [
+                        'id' => $departure->id,
+                        'tour_id' => $departure->tour_id,
+                        'departure_date' => $this->formatDate($departure->departure_date),
+                        'return_date' => $this->formatDate($departure->return_date),
+                        'base_price' => $basePrice,
+                        'discount_price' => $discountPrice,
+                        'price' => $discountPrice ?? $basePrice,
+                        'departure_base_price' => $departure->base_price !== null ? (float) $departure->base_price : null,
+                        'departure_discount_price' => $departure->discount_price !== null ? (float) $departure->discount_price : null,
+                        'legacy_price' => $departure->price !== null ? (float) $departure->price : null,
+                        'uses_tour_price' => $departure->base_price === null && $departure->price === null,
+                        'total_slots' => (int) $departure->total_slots,
+                        'booked_slots' => (int) $departure->booked_slots,
+                        'available_slots' => max(
+                            0,
+                            (int) $departure->total_slots - (int) $departure->booked_slots
+                        ),
+                        'status' => $departure->status,
+                        'current_stage_id' => $departure->current_stage_id,
+                    ];
+                })
                 ->values()
                 ->all(),
 

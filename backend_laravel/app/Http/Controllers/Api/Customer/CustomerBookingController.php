@@ -19,8 +19,7 @@ class CustomerBookingController extends Controller
 {
     public function __construct(
         private readonly TourPricingService $tourPricingService
-    ) {
-    }
+    ) {}
 
     public function preview(Request $request): JsonResponse
     {
@@ -44,6 +43,12 @@ class CustomerBookingController extends Controller
         if ($summary['total_people'] < 1) {
             throw ValidationException::withMessages([
                 'quantity_summary' => 'Vui lòng chọn ít nhất 1 người tham gia.',
+            ]);
+        }
+
+        if ($summary['adult_count'] < 1) {
+            throw ValidationException::withMessages([
+                'quantity_summary' => 'Vui lòng chọn ít nhất 1 người lớn trước khi thêm trẻ em hoặc em bé.',
             ]);
         }
 
@@ -91,6 +96,24 @@ class CustomerBookingController extends Controller
             $this->ensureDepartureCanBeBooked($tour, $departure);
 
             $numberOfPeople = (int) $data['number_of_people'];
+            $quantitySummary = ! empty($data['quantity_summary'])
+                ? $data['quantity_summary']
+                : [
+                    ['rule_id' => null, 'quantity' => $numberOfPeople],
+                ];
+            $pricingSummary = $this->buildQuantityPricing($tour, $departure, $quantitySummary);
+
+            if ($pricingSummary['total_people'] < 1) {
+                throw ValidationException::withMessages([
+                    'quantity_summary' => 'Vui lòng chọn ít nhất 1 người tham gia.',
+                ]);
+            }
+
+            if ($pricingSummary['adult_count'] < 1) {
+                throw ValidationException::withMessages([
+                    'quantity_summary' => 'Vui lòng chọn ít nhất 1 người lớn trước khi thêm trẻ em hoặc em bé.',
+                ]);
+            }
 
             $availableSlots = (int) $departure->total_slots
                 - (int) $departure->booked_slots;
@@ -119,7 +142,7 @@ class CustomerBookingController extends Controller
             $hasActiveAgePricingRules = $tour->agePricingRules
                 ->where('is_active', true)
                 ->isNotEmpty();
-            $pricedParticipants = collect($data['participants'])
+            $pricedParticipants = collect($data['participants'] ?? [])
                 ->map(function (array $participant, int $index) use ($tour, $departure, $hasActiveAgePricingRules) {
                     $birthDate = Carbon::parse($participant['birth_date']);
                     $pricing = $this->tourPricingService->calculateParticipantPrice(
@@ -130,7 +153,11 @@ class CustomerBookingController extends Controller
                     );
                     $rule = $pricing['rule'];
 
-                    if ($hasActiveAgePricingRules && ! $rule) {
+                    if (
+                        $hasActiveAgePricingRules
+                        && ! $rule
+                        && ($participant['participant_type'] ?? 'adult') !== 'adult'
+                    ) {
                         throw ValidationException::withMessages([
                             "participants.{$index}.birth_date" => 'Không tìm thấy quy tắc giá phù hợp cho hành khách này.',
                         ]);
@@ -142,7 +169,7 @@ class CustomerBookingController extends Controller
                         'birth_date' => $birthDate->toDateString(),
                         'gender' => $participant['gender'] ?? null,
                         'identity_number' => $participant['identity_number'] ?? null,
-                        'participant_type' => $participant['participant_type'],
+                        'participant_type' => $participant['participant_type'] ?? $this->participantTypeFromPricingRule($rule),
                         'unit_price' => $pricing['unit_price'],
                         'pricing_rule_label' => $rule?->label ?? 'Người lớn mặc định',
                         'pricing_type' => $rule?->pricing_type ?? 'percentage',
@@ -151,22 +178,16 @@ class CustomerBookingController extends Controller
                     ];
                 });
 
-            if (! empty($data['quantity_summary'])) {
-                $this->ensureParticipantCountMatchesQuantitySummary(
-                    $data['quantity_summary'],
-                    $pricedParticipants->all()
-                );
-            }
-
             $participantsForInsert = $pricedParticipants
                 ->map(function (array $participant) {
                     unset($participant['_pricing_rule_id']);
+
                     return $participant;
                 });
-            $totalAmount = round(max(0, $pricedParticipants->sum('unit_price') - $discountAmount), 2);
+            $totalAmount = round(max(0, $pricingSummary['subtotal'] - $discountAmount), 2);
 
             $booking = Booking::create([
-                'booking_code' => 'BK-' . Str::upper((string) Str::ulid()),
+                'booking_code' => 'BK-'.Str::upper((string) Str::ulid()),
                 'user_id' => $user->id,
                 'tour_id' => $tour->id,
                 'tour_departure_id' => $departure->id,
@@ -197,6 +218,13 @@ class CustomerBookingController extends Controller
 
             $booking->participants()->createMany($participantsForInsert->all());
 
+            $booking->payment()->create([
+                'payment_method' => 'cod',
+                'amount' => $totalAmount,
+                'status' => 'pending',
+                'paid_at' => null,
+            ]);
+
             $booking->statusHistories()->create([
                 'changed_by' => $user->id,
                 'old_status' => null,
@@ -213,9 +241,10 @@ class CustomerBookingController extends Controller
 
         $booking->load([
             'tour:id,title,slug',
-            'tourDeparture:id,tour_id,departure_date,return_date,price,total_slots,booked_slots,status',
+            'tourDeparture:id,tour_id,departure_date,return_date,price,base_price,discount_price,total_slots,booked_slots,status',
             'contact',
             'participants',
+            'payment',
         ]);
 
         return response()->json([
@@ -261,6 +290,7 @@ class CustomerBookingController extends Controller
             ->keyBy('id');
         $groups = [];
         $totalPeople = 0;
+        $adultCount = 0;
         $subtotal = 0;
 
         foreach ($quantitySummary as $index => $item) {
@@ -273,7 +303,7 @@ class CustomerBookingController extends Controller
             $ruleId = $item['rule_id'] ?? null;
             $rule = $ruleId ? $activeRules->get((int) $ruleId) : null;
 
-            if ($activeRules->isNotEmpty() && ! $rule) {
+            if ($ruleId && ! $rule) {
                 throw ValidationException::withMessages([
                     "quantity_summary.{$index}.rule_id" => 'Nhóm giá đã chọn không hợp lệ cho tour này.',
                 ]);
@@ -282,6 +312,9 @@ class CustomerBookingController extends Controller
             $unitPrice = $this->calculateUnitPriceFromRule($adultPrice, $rule);
             $lineTotal = round($unitPrice * $quantity, 2);
             $totalPeople += $quantity;
+            if (! $rule) {
+                $adultCount += $quantity;
+            }
             $subtotal += $lineTotal;
 
             $groups[] = [
@@ -297,6 +330,7 @@ class CustomerBookingController extends Controller
 
         return [
             'adult_price' => $adultPrice,
+            'adult_count' => $adultCount,
             'total_people' => $totalPeople,
             'subtotal' => round($subtotal, 2),
             'groups' => $groups,
@@ -316,26 +350,12 @@ class CustomerBookingController extends Controller
         };
     }
 
-    private function ensureParticipantCountMatchesQuantitySummary(array $quantitySummary, array $participants): void
+    private function participantTypeFromPricingRule($rule): string
     {
-        $expected = collect($quantitySummary)
-            ->filter(fn ($item) => (int) ($item['quantity'] ?? 0) > 0)
-            ->mapWithKeys(fn ($item) => [
-                (string) ($item['rule_id'] ?? 'adult_default') => (int) $item['quantity'],
-            ]);
-
-        $actual = collect($participants)
-            ->groupBy(fn ($participant) => $participant['_pricing_rule_id'] === null
-                ? 'adult_default'
-                : (string) $participant['_pricing_rule_id'])
-            ->map(fn ($items) => $items->count());
-
-        foreach ($expected as $key => $count) {
-            if ((int) ($actual[$key] ?? 0) !== $count) {
-                throw ValidationException::withMessages([
-                    'participants' => 'Thông tin người tham gia chưa khớp với số lượng đã chọn.',
-                ]);
-            }
+        if (! $rule || $rule->max_age === null) {
+            return 'adult';
         }
+
+        return (int) $rule->max_age <= 4 ? 'infant' : 'child';
     }
 }

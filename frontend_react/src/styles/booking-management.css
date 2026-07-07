@@ -296,6 +296,25 @@
   margin-top: 3px;
 }
 
+.booking-participants-cell {
+  min-width: 180px;
+}
+
+.booking-participants-cell strong {
+  color: #061633;
+  display: block;
+  font-size: 15px;
+  line-height: 1.25;
+}
+
+.booking-participants-cell small {
+  color: #60718e;
+  display: block;
+  line-height: 1.35;
+  margin-top: 3px;
+  max-width: 240px;
+}
+
 .booking-avatar {
   align-items: center;
   border-radius: 12px;
@@ -660,6 +679,49 @@
   gap: 8px;
 }
 
+.booking-payment-actions {
+  color: #60718e;
+  display: grid;
+  font-size: 13px;
+  gap: 8px;
+}
+
+.booking-payment-actions > span {
+  font-weight: 700;
+}
+
+.booking-payment-actions > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.booking-payment-actions button {
+  background: #ffffff;
+  border: 1px solid #dbe5f2;
+  border-radius: 12px;
+  color: #0f172a;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  min-height: 38px;
+  padding: 0 12px;
+}
+
+.booking-payment-actions button:hover {
+  background: #f8fafc;
+}
+
+.booking-payment-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.booking-payment-actions small {
+  color: #ef4444;
+  font-weight: 700;
+}
+
 .booking-detail-controls select {
   background: #ffffff;
   border: 1px solid #dbe5f2;
@@ -719,6 +781,15 @@
 .booking-participant-item b {
   color: #047857;
   white-space: nowrap;
+}
+
+.booking-participant-empty {
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+  color: #64748b;
+  font-weight: 700;
+  padding: 14px;
 }
 
 .booking-note p {

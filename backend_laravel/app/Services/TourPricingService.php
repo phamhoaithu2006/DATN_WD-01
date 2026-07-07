@@ -9,17 +9,45 @@ use Carbon\CarbonInterface;
 
 class TourPricingService
 {
-    public function resolveAdultPrice(Tour $tour, ?TourDeparture $departure = null): float
+    public function resolveBasePrice(Tour $tour, ?TourDeparture $departure = null): float
     {
+        if ($departure && $departure->base_price !== null) {
+            return (float) $departure->base_price;
+        }
+
         if ($departure && $departure->price !== null) {
             return (float) $departure->price;
         }
 
-        if ($tour->discount_price !== null) {
-            return (float) $tour->discount_price;
+        return (float) $tour->base_price;
+    }
+
+    public function resolveDiscountPrice(Tour $tour, ?TourDeparture $departure = null): ?float
+    {
+        if ($departure && $departure->base_price !== null) {
+            return $departure->discount_price !== null
+                ? (float) $departure->discount_price
+                : null;
         }
 
-        return (float) $tour->base_price;
+        if ($departure && $departure->price !== null) {
+            return null;
+        }
+
+        return $tour->discount_price !== null
+            ? (float) $tour->discount_price
+            : null;
+    }
+
+    public function resolveAdultPrice(Tour $tour, ?TourDeparture $departure = null): float
+    {
+        $discountPrice = $this->resolveDiscountPrice($tour, $departure);
+
+        if ($discountPrice !== null) {
+            return $discountPrice;
+        }
+
+        return $this->resolveBasePrice($tour, $departure);
     }
 
     public function resolveRuleForAge(Tour $tour, int $age): ?TourAgePricingRule

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Guide;
 use App\Http\Controllers\Controller;
 use App\Models\Guide;
 use App\Models\TourDeparture;
+use App\Services\TourPricingService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -61,12 +62,17 @@ class GuideDashboardController extends Controller
         $tour = $departure->tour;
         $totalSlots = (int) ($departure->total_slots ?? 0);
         $bookedSlots = (int) ($departure->booked_slots ?? 0);
+        $pricingService = new TourPricingService();
+        $basePrice = $tour ? $pricingService->resolveBasePrice($tour, $departure) : 0;
+        $discountPrice = $tour ? $pricingService->resolveDiscountPrice($tour, $departure) : null;
 
         return [
             'id' => $departure->id,
             'departure_date' => optional($departure->departure_date)->toDateString(),
             'return_date' => optional($departure->return_date)->toDateString(),
-            'price' => (float) ($departure->price ?? $tour?->discount_price ?? $tour?->base_price ?? 0),
+            'base_price' => $basePrice,
+            'discount_price' => $discountPrice,
+            'price' => $discountPrice ?? $basePrice,
             'total_slots' => $totalSlots,
             'booked_slots' => $bookedSlots,
             'available_slots' => max($totalSlots - $bookedSlots, 0),

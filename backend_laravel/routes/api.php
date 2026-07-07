@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\Admin\ServiceCategoryController;
 use App\Http\Controllers\Api\Admin\SettingController;
 use App\Http\Controllers\Api\Admin\SupportStaffController;
 use App\Http\Controllers\Api\Admin\TourDepartureController;
+use App\Http\Controllers\Api\Admin\TourDepartureGuideAssignmentController;
 use App\Http\Controllers\Api\Admin\TourManagerController;
 use App\Http\Controllers\Api\Admin\WidgetController;
 use App\Http\Controllers\Api\AuthController;
@@ -60,7 +61,13 @@ Route::middleware(['auth:sanctum', 'role:customer'])->group(function () {
     Route::put('/profile/update', [CustomerController::class, 'updateProfile']);
     Route::put('/profile/change-password', [CustomerController::class, 'changePassword']);
 
-    // ======Thông báo khách hàng, hdv, nvht (dùng chung được hết)======
+    //đặt tour
+    Route::post('customer/bookings/preview', [CustomerBookingController::class, 'preview']);
+    Route::post('customer/bookings', [CustomerBookingController::class, 'store']);
+});
+
+Route::middleware(['auth:sanctum'])->group(function () {
+// ======Thông báo khách hàng, hdv, nvht (dùng chung được hết)======
     // Hiển thị danh sách thông báo của khách hàng
     Route::get('/notifications/customers', [NotificationCustomerController::class, 'getMyNotifications']);
     // Xem chi tiết thông báo
@@ -69,14 +76,7 @@ Route::middleware(['auth:sanctum', 'role:customer'])->group(function () {
     Route::get('/notifications/customers/unread-count', [NotificationCustomerController::class, 'getUnreadCount']);
     // API đánh dấu đã đọc (sử dụng PATCH vì cập nhật một phần dữ liệu)
     Route::patch('/notifications/customers/{id}/read', [NotificationCustomerController::class, 'markAsRead']);
-
-    //đặt tour
-    Route::post('customer/bookings/preview', [CustomerBookingController::class, 'preview']);
-    Route::post('customer/bookings', [CustomerBookingController::class, 'store']);
 });
-
-
-
 
 // ===================== Đặt lại mật khẩu user=============
 // xác nhận email or sdt, gửi otp
@@ -108,6 +108,10 @@ Route::get('/widgets', [PublicWidgetController::class, 'index']);
 
 // ======Admin======
 Route::prefix('admin')->group(function () {
+    Route::get(
+        'guides/destination-options',
+        [DestinationController::class, 'options']
+    );
     Route::get('/settings/public', [PublicSettingController::class, 'show']);
     Route::get('/widgets', [PublicWidgetController::class, 'index']);
     Route::middleware(['auth:sanctum', 'role:admin'])->get('/roles', [CustomerManagerController::class, 'index_role']);
@@ -277,28 +281,28 @@ Route::prefix('admin')->group(function () {
     Route::delete('/widgets/{id}', [WidgetController::class, 'destroy']);
     Route::patch('/widgets/{id}/toggle-status', [WidgetController::class, 'toggleStatus']);
 
-    // Quản lý thanh toán
-    Route::get('/payments', [PaymentController::class, 'index']);
-    Route::get('/payments/{id}', [PaymentController::class, 'show']);
-    Route::patch('/payments/{id}/confirm', [PaymentController::class, 'confirm']);
-    Route::patch('/payments/{id}/fail', [PaymentController::class, 'fail']);
-    Route::patch('/payments/{id}/refund', [PaymentController::class, 'refund']);
+    Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
+        // Quản lý thanh toán
+        Route::get('/payments', [PaymentController::class, 'index']);
+        Route::get('/payments/{id}', [PaymentController::class, 'show']);
+        Route::patch('/payments/{id}/confirm', [PaymentController::class, 'confirm']);
+        Route::patch('/payments/{id}/fail', [PaymentController::class, 'fail']);
+        Route::patch('/payments/{id}/refund', [PaymentController::class, 'refund']);
 
-    Route::middleware('auth:sanctum')->group(function () {
         Route::get('/profile', [AdminProfileController::class, 'show']);
         Route::put('/profile', [AdminProfileController::class, 'update']);
         Route::put('/profile/password', [AdminProfileController::class, 'changePassword']);
-    });
 
-    // ======Booking======
-    Route::prefix('bookings')->group(function () {
-        Route::get('/', [BookingController::class, 'index']);
-        Route::get('/statistics', [BookingController::class, 'statistics']);
-        Route::get('/{id}', [BookingController::class, 'show']);
-        Route::post('/', [BookingController::class, 'store']);
-        Route::put('/{id}', [BookingController::class, 'update']);
-        Route::patch('/{id}/cancel', [BookingController::class, 'softDelete']);
-        Route::delete('/{id}', [BookingController::class, 'destroy']);
+        // ======Booking======
+        Route::prefix('bookings')->group(function () {
+            Route::get('/', [BookingController::class, 'index']);
+            Route::get('/statistics', [BookingController::class, 'statistics']);
+            Route::get('/{id}', [BookingController::class, 'show']);
+            Route::post('/', [BookingController::class, 'store']);
+            Route::put('/{id}', [BookingController::class, 'update']);
+            Route::patch('/{id}/cancel', [BookingController::class, 'softDelete']);
+            Route::delete('/{id}', [BookingController::class, 'destroy']);
+        });
     });
 
     // ======Chức năng gửi thông báo======
@@ -331,8 +335,37 @@ Route::prefix('admin')->group(function () {
 
     //==========quản lý lịch trình============
     //Hiển thị danh sách user đặt tour
-    Route::get('tour-departures/{tourDeparture}/booked-customers',[AdminTourDepartureBookingController::class, 'index']);
+    Route::get('tour-departures/{tourDeparture}/booked-customers', [AdminTourDepartureBookingController::class, 'index']);
+
+    Route::prefix('tour-departures')->group(function () {
+        Route::get(
+            'guide-planning',
+            [TourDepartureGuideAssignmentController::class, 'planning']
+        );
+
+        Route::get(
+            '{departure}/guide-candidates',
+            [TourDepartureGuideAssignmentController::class, 'candidates']
+        );
+
+        Route::post(
+            '{departure}/auto-assign-guide',
+            [TourDepartureGuideAssignmentController::class, 'autoAssign']
+        );
+
+        Route::post(
+            '{departure}/assign-guide',
+            [TourDepartureGuideAssignmentController::class, 'assign']
+        );
+
+        Route::patch(
+            '{departure}/guide-assignments/{assignment}/cancel',
+            [TourDepartureGuideAssignmentController::class, 'cancel']
+        );
+    });
 });
+
+
 
 // =============================== Hướng dẫn viên ===============================
 Route::middleware('auth:sanctum')->group(function () {

@@ -1,7 +1,21 @@
-import React, { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { tourDepartureApi } from "../../../services/tourDepartureApi";
 import TourDepartureTable from "../../../components/admin/tourDepartures/TourDepartureTable";
+
+const getRequestErrorMessage = (error, fallback) => {
+  const status = error?.response?.status;
+
+  if (status === 401) {
+    return "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.";
+  }
+
+  if (status === 403) {
+    return "Bạn không có quyền thực hiện thao tác này.";
+  }
+
+  return error?.response?.data?.message || fallback;
+};
 
 const TourDepartureListPage = () => {
   const [tours, setTours] = useState([]);
@@ -33,7 +47,7 @@ const TourDepartureListPage = () => {
     return `Tour #${tour.id}`;
   };
 
-  const fetchTours = async () => {
+  const fetchTours = useCallback(async () => {
     try {
       const res = await tourDepartureApi.getTours();
       const list = getArrayFromResponse(res);
@@ -45,11 +59,11 @@ const TourDepartureListPage = () => {
       }
     } catch (error) {
       console.error(error);
-      alert("Không tải được danh sách tour");
+      alert(getRequestErrorMessage(error, "Không tải được danh sách tour"));
     }
-  };
+  }, []);
 
-  const fetchDepartures = async (tourId) => {
+  const fetchDepartures = useCallback(async (tourId) => {
     try {
       setLoading(true);
 
@@ -59,23 +73,31 @@ const TourDepartureListPage = () => {
       setDepartures(list);
     } catch (error) {
       console.error(error);
-      alert("Không tải được lịch khởi hành");
+      alert(getRequestErrorMessage(error, "Không tải được lịch khởi hành"));
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    fetchTours();
   }, []);
 
   useEffect(() => {
+    const timer = window.setTimeout(() => {
+      fetchTours();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [fetchTours]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
     if (selectedTourId) {
       fetchDepartures(selectedTourId);
     } else {
       setDepartures([]);
     }
-  }, [selectedTourId]);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [fetchDepartures, selectedTourId]);
 
   const handleDelete = async (id) => {
     if (!window.confirm("Bạn có chắc muốn xóa lịch khởi hành này không?")) {
@@ -88,7 +110,7 @@ const TourDepartureListPage = () => {
       fetchDepartures(selectedTourId);
     } catch (error) {
       console.error(error);
-      alert(error.response?.data?.message || "Xóa lịch khởi hành thất bại");
+      alert(getRequestErrorMessage(error, "Xóa lịch khởi hành thất bại"));
     }
   };
 

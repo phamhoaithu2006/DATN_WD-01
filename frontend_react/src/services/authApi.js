@@ -1,4 +1,5 @@
 import apiClient from './apiClient'
+import { clearSession } from './authStorage'
 
 export async function login(identifier, password, remember = false) {
   const response = await apiClient.post('/auth/login', {
@@ -21,8 +22,6 @@ export async function login(identifier, password, remember = false) {
     throw new Error('Đăng nhập thành công nhưng API không trả về token.')
   }
 
-  localStorage.setItem('token', token)
-
   return data
 }
 
@@ -33,5 +32,5 @@ export async function register(payload) {
 
 export async function logout() {
   await apiClient.post('/auth/logout')
-  localStorage.removeItem('token')
+  clearSession()
 }

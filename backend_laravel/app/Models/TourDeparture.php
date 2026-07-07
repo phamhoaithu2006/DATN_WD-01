@@ -15,6 +15,8 @@ class TourDeparture extends Model
         'departure_date',
         'return_date',
         'price',
+        'base_price',
+        'discount_price',
         'total_slots',
         'booked_slots',
         'status',
@@ -28,6 +30,8 @@ class TourDeparture extends Model
         'departure_date' => 'date',
         'return_date' => 'date',
         'price' => 'decimal:2',
+        'base_price' => 'decimal:2',
+        'discount_price' => 'decimal:2',
         'total_slots' => 'integer',
         'booked_slots' => 'integer',
     ];
@@ -48,10 +52,10 @@ class TourDeparture extends Model
         return $this->hasMany(Booking::class);
     }
 
-    public function guideAssignments(): HasMany
-    {
-        return $this->hasMany(TourGuideAssignment::class);
-    }
+    // public function guideAssignments(): HasMany
+    // {
+    //     return $this->hasMany(TourGuideAssignment::class);
+    // }
 
     public function attendanceSessions(): HasMany
     {
@@ -69,5 +73,13 @@ class TourDeparture extends Model
     public function currentStage(): BelongsTo
     {
         return $this->belongsTo(TourDepartureStage::class, 'current_stage_id');
+    }
+
+    public function guideAssignments(): HasMany
+    {
+        return $this->hasMany(
+            TourGuideAssignment::class,
+            'tour_departure_id'
+        );
     }
 }
