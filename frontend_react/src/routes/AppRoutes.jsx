@@ -45,6 +45,7 @@ import CertificateManagementPage from '../pages/admin/certificate/CertificateMan
 
 
 
+
 const protect = (page, allowedRoles = ['admin']) => (
   <ProtectedAdminRoute allowedRoles={allowedRoles}>{page}</ProtectedAdminRoute>
 )
@@ -114,6 +115,7 @@ function AppRoutes() {
     <Route path="/admin/tours/hidden" element={adminPage(<TourHiddenPage />)} />
     <Route path="/admin/tours/:id" element={adminPage(<TourDetailPage />)} />
     {/* quản lý lịch khởi hành tour */}
+    <Route path="/admin/tour-departures/guide-assignments" element={<Navigate to="/admin/tour-departures" replace />}/>
     <Route path="/admin/tour-departures" element={adminPage(<TourDepartureListPage />)}/>
     <Route path="/admin/tour-departures/create" element={adminPage(<TourDepartureCreatePage />)}/>
     <Route path="/admin/tour-departures/:tourId/edit/:departureId"  element={adminPage(<TourDepartureEditPage />)}/>

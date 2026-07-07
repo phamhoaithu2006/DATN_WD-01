@@ -80,6 +80,13 @@ export const tourDepartureApi = {
     return apiClient.delete(`/admin/tours/departures/${id}`);
   },
 
+  getBookedCustomers(departureId, params = {}) {
+    return axios.get(
+      `${ADMIN_URL}/tour-departures/${departureId}/booked-customers`,
+      getAuthConfig({ params })
+    )
+  },
+
   /*
   |--------------------------------------------------------------------------
   | PHÂN CÔNG HƯỚNG DẪN VIÊN

@@ -1,122 +1,315 @@
-import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { tourDepartureApi } from "../../../services/tourDepartureApi";
-import TourDepartureTable from "../../../components/admin/tourDepartures/TourDepartureTable";
+import { useCallback, useEffect, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { tourDepartureApi } from '../../../services/tourDepartureApi'
+import TourDepartureTable from '../../../components/admin/tourDepartures/TourDepartureTable'
+import { GuideAssignmentPanel } from './GuideAssignmentPage.jsx'
+import TourDepartureBookingModal from '../../../components/admin/tourDepartures/TourDepartureBookingModal.jsx'
 
-const getRequestErrorMessage = (error, fallback) => {
-  const status = error?.response?.status;
+function getArrayFromResponse(res) {
+  if (Array.isArray(res?.data?.data)) return res.data.data
+  if (Array.isArray(res?.data?.data?.data)) return res.data.data.data
+  if (Array.isArray(res?.data)) return res.data
 
-  if (status === 401) {
-    return "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.";
+  return []
+}
+
+function getTourName(tour) {
+  if (!tour) return 'Chưa chọn tour'
+
+  const name =
+    tour.name ||
+    tour.title ||
+    tour.tour_name ||
+    tour.name_tour ||
+    ''
+
+  if (name && !/^\d+$/.test(String(name).trim())) {
+    return name
   }
 
-  if (status === 403) {
-    return "Bạn không có quyền thực hiện thao tác này.";
+  return `Tour #${tour.id}`
+}
+
+
+function getRequestErrorMessage(error, fallback) {
+  const errors = error?.response?.data?.errors
+
+  if (errors) {
+    const firstError = Object.values(errors).flat()[0]
+
+    if (firstError) return firstError
   }
 
-  return error?.response?.data?.message || fallback;
-};
+  if (error?.response?.status === 401) {
+    return 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.'
+  }
 
-const TourDepartureListPage = () => {
-  const [tours, setTours] = useState([]);
-  const [selectedTourId, setSelectedTourId] = useState("");
-  const [departures, setDepartures] = useState([]);
-  const [loading, setLoading] = useState(false);
+  if (error?.response?.status === 403) {
+    return 'Bạn không có quyền thực hiện thao tác này.'
+  }
 
-  const getArrayFromResponse = (res) => {
-    if (Array.isArray(res?.data?.data)) return res.data.data;
-    if (Array.isArray(res?.data?.data?.data)) return res.data.data.data;
-    if (Array.isArray(res?.data)) return res.data;
-    return [];
-  };
+  return error?.response?.data?.message || fallback
+}
 
-  const getTourName = (tour) => {
-    if (!tour) return "Chưa chọn tour";
+function isLockedDeparture(departure) {
+  if (typeof departure?.is_locked === 'boolean') {
+    return departure.is_locked
+  }
 
-    const name =
-      tour.name ||
-      tour.title ||
-      tour.tour_name ||
-      tour.name_tour ||
-      "";
+  if (departure?.schedule_group === 'past') {
+    return true
+  }
 
-    if (name && !/^\d+$/.test(String(name).trim())) {
-      return name;
-    }
+  if (!departure?.departure_date) {
+    return false
+  }
 
-    return `Tour #${tour.id}`;
-  };
+  const departureDate = new Date(
+    `${String(departure.departure_date).slice(0, 10)}T00:00:00`
+  )
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  return departureDate <= today
+}
+
+function getBookingCount(departure) {
+  return Number(
+    departure?.active_bookings_count ??
+      departure?.bookings_count ??
+      departure?.bookings?.length ??
+      departure?.booked_slots ??
+      0
+  )
+}
+
+function hasActiveBookings(departure) {
+  if (typeof departure?.has_bookings === 'boolean') {
+    return departure.has_bookings
+  }
+
+  return getBookingCount(departure) > 0
+}
+
+export default function TourDepartureListPage() {
+  const navigate = useNavigate()
+
+  const [tours, setTours] = useState([])
+  const [selectedTourId, setSelectedTourId] = useState('')
+  const [departures, setDepartures] = useState([])
+  const [loading, setLoading] = useState(false)
+
+  const [activeTab, setActiveTab] = useState('departures')
+  const [scheduleFilter, setScheduleFilter] = useState('upcoming')
+  const [focusedDepartureId, setFocusedDepartureId] = useState(null)
+
+  const [detailOpen, setDetailOpen] = useState(false)
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [detailError, setDetailError] = useState('')
+  const [detailPayload, setDetailPayload] = useState(null)
+  const [detailDepartureId, setDetailDepartureId] = useState(null)
 
   const fetchTours = useCallback(async () => {
     try {
-      const res = await tourDepartureApi.getTours();
-      const list = getArrayFromResponse(res);
+      const response = await tourDepartureApi.getTours()
+      const list = getArrayFromResponse(response)
 
-      setTours(list);
+      setTours(list)
 
       if (list.length > 0) {
-        setSelectedTourId(String(list[0].id));
+        setSelectedTourId((currentId) => currentId || String(list[0].id))
       }
     } catch (error) {
-      console.error(error);
-      alert(getRequestErrorMessage(error, "Không tải được danh sách tour"));
+      console.error(error)
+      alert(getRequestErrorMessage(error, 'Không tải được danh sách tour'))
     }
-  }, []);
+  }, [])
 
   const fetchDepartures = useCallback(async (tourId) => {
+    if (!tourId) {
+      setDepartures([])
+      return
+    }
+
     try {
-      setLoading(true);
+      setLoading(true)
 
-      const res = await tourDepartureApi.getByTour(tourId);
-      const list = getArrayFromResponse(res);
+      const response = await tourDepartureApi.getByTour(tourId)
 
-      setDepartures(list);
+      setDepartures(getArrayFromResponse(response))
     } catch (error) {
-      console.error(error);
-      alert(getRequestErrorMessage(error, "Không tải được lịch khởi hành"));
+      console.error(error)
+      alert(
+        getRequestErrorMessage(error, 'Không tải được lịch khởi hành')
+      )
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  }, []);
+  }, [])
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      fetchTours();
-    }, 0);
-
-    return () => window.clearTimeout(timer);
-  }, [fetchTours]);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-    if (selectedTourId) {
-      fetchDepartures(selectedTourId);
-    } else {
-      setDepartures([]);
-    }
-    }, 0);
-
-    return () => window.clearTimeout(timer);
-  }, [fetchDepartures, selectedTourId]);
-
-  const handleDelete = async (id) => {
-    if (!window.confirm("Bạn có chắc muốn xóa lịch khởi hành này không?")) {
-      return;
-    }
+  const loadBookedCustomers = useCallback(async (departureId, page = 1) => {
+    if (!departureId) return
 
     try {
-      await tourDepartureApi.remove(id);
-      alert("Xóa lịch khởi hành thành công");
-      fetchDepartures(selectedTourId);
+      setDetailLoading(true)
+      setDetailError('')
+
+      const response = await tourDepartureApi.getBookedCustomers(
+        departureId,
+        {
+          page,
+          per_page: 10,
+        }
+      )
+
+      setDetailPayload(response?.data?.data || null)
     } catch (error) {
-      console.error(error);
-      alert(getRequestErrorMessage(error, "Xóa lịch khởi hành thất bại"));
+      console.error(error)
+
+      setDetailError(
+        getRequestErrorMessage(
+          error,
+          'Không tải được danh sách khách đặt tour.'
+        )
+      )
+    } finally {
+      setDetailLoading(false)
     }
-  };
+  }, [])
+
+  useEffect(() => {
+    void fetchTours()
+  }, [fetchTours])
+
+  useEffect(() => {
+    if (selectedTourId) {
+      void fetchDepartures(selectedTourId)
+      return
+    }
+
+    setDepartures([])
+  }, [selectedTourId, fetchDepartures])
+
+  const handleDelete = async (departure) => {
+    const item =
+      typeof departure === 'object'
+        ? departure
+        : departures.find(
+            (row) => String(row.id) === String(departure)
+          )
+
+    const departureId = item?.id || departure
+
+    if (!departureId) return
+
+    if (item && isLockedDeparture(item)) {
+      alert(
+        'Lịch khởi hành đã bắt đầu hoặc đã qua nên không thể xóa.'
+      )
+      return
+    }
+
+    if (item && hasActiveBookings(item)) {
+      alert(
+        'Lịch này đã có khách đặt tour nên không thể xóa trực tiếp.'
+      )
+      return
+    }
+
+    const confirmed = window.confirm(
+      'Bạn có chắc muốn xóa lịch khởi hành này không?'
+    )
+
+    if (!confirmed) return
+
+    try {
+      await tourDepartureApi.remove(departureId)
+
+      alert('Xóa lịch khởi hành thành công')
+
+      await fetchDepartures(selectedTourId)
+    } catch (error) {
+      console.error(error)
+      alert(
+        getRequestErrorMessage(error, 'Xóa lịch khởi hành thất bại')
+      )
+    }
+  }
+
+  const handleChangeTab = (tab) => {
+    setActiveTab(tab)
+    setFocusedDepartureId(null)
+  }
+
+  const openGuideAssignment = (departureId) => {
+    const departure = departures.find(
+      (item) => String(item.id) === String(departureId)
+    )
+
+    if (departure && isLockedDeparture(departure)) {
+      alert(
+        'Lịch khởi hành đã bắt đầu hoặc đã qua nên không thể phân công HDV.'
+      )
+      return
+    }
+
+    setFocusedDepartureId(departureId)
+    setActiveTab('guides')
+  }
+
+  const requestEdit = (departure) => {
+    if (!departure?.id) return
+
+    if (isLockedDeparture(departure)) {
+      alert(
+        'Lịch khởi hành đã bắt đầu hoặc đã qua nên không thể chỉnh sửa.'
+      )
+      return
+    }
+
+    if (hasActiveBookings(departure)) {
+      const bookingCount = getBookingCount(departure)
+
+      const confirmed = window.confirm(
+        `Lịch này đã có ${bookingCount} khách/đơn đặt tour. ` +
+          'Bạn có chắc muốn chỉnh sửa không?\n\n' +
+          'Sau khi cập nhật, hệ thống sẽ gửi thông báo cho khách hàng và HDV phụ trách.'
+      )
+
+      if (!confirmed) return
+
+      navigate(
+        `/admin/tour-departures/${selectedTourId}/edit/${departure.id}?confirmBookedChange=1`
+      )
+
+      return
+    }
+
+    navigate(
+      `/admin/tour-departures/${selectedTourId}/edit/${departure.id}`
+    )
+  }
+
+  const openDepartureDetail = async (departureId) => {
+    setDetailDepartureId(departureId)
+    setDetailPayload(null)
+    setDetailError('')
+    setDetailOpen(true)
+
+    await loadBookedCustomers(departureId)
+  }
+
+  const closeDepartureDetail = () => {
+    setDetailOpen(false)
+    setDetailPayload(null)
+    setDetailError('')
+    setDetailDepartureId(null)
+  }
 
   const selectedTour = tours.find(
     (tour) => String(tour.id) === String(selectedTourId)
-  );
+  )
 
   return (
     <div className="p-6">
@@ -127,12 +320,18 @@ const TourDepartureListPage = () => {
           </h1>
 
           <p className="mt-1 text-sm text-slate-500">
-            Chọn tour để xem danh sách lịch khởi hành.
+            Phân loại lịch sắp tới, lịch đã qua và phân công hướng dẫn viên.
           </p>
         </div>
 
         <Link
           to={`/admin/tour-departures/create?tourId=${selectedTourId}`}
+          onClick={(event) => {
+            if (!selectedTourId) {
+              event.preventDefault()
+              alert('Vui lòng chọn tour trước khi thêm lịch khởi hành.')
+            }
+          }}
           className="inline-flex h-10 items-center justify-center rounded-lg bg-blue-600 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700"
         >
           + Thêm lịch khởi hành
@@ -140,21 +339,26 @@ const TourDepartureListPage = () => {
       </div>
 
       <div className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="mb-3 flex flex-col gap-1">
+        <div className="mb-3">
           <label className="text-sm font-medium text-slate-700">
             Chọn tour
           </label>
 
-          <p className="text-sm text-slate-500">
+          <p className="mt-1 text-sm text-slate-500">
             {selectedTour
               ? `Đang xem: ${getTourName(selectedTour)}`
-              : "Chọn một tour để xem lịch khởi hành."}
+              : 'Chọn một tour để xem lịch khởi hành.'}
           </p>
         </div>
 
         <select
           value={selectedTourId}
-          onChange={(e) => setSelectedTourId(e.target.value)}
+          onChange={(event) => {
+            setSelectedTourId(event.target.value)
+            setFocusedDepartureId(null)
+            setActiveTab('departures')
+            setScheduleFilter('upcoming')
+          }}
           className="h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
         >
           <option value="">-- Chọn tour --</option>
@@ -167,19 +371,41 @@ const TourDepartureListPage = () => {
         </select>
       </div>
 
-      {loading ? (
-        <div className="rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-500 shadow-sm">
-          Đang tải lịch khởi hành...
-        </div>
-      ) : (
-        <TourDepartureTable
-          departures={departures}
-          selectedTourId={selectedTourId}
-          onDelete={handleDelete}
-        />
-      )}
-    </div>
-  );
-};
+      <TourDepartureTable
+        departures={departures}
+        loading={loading}
+        selectedTourId={selectedTourId}
+        activeTab={activeTab}
+        scheduleFilter={scheduleFilter}
+        onChangeTab={handleChangeTab}
+        onChangeScheduleFilter={setScheduleFilter}
+        onDelete={handleDelete}
+        onOpenAssignment={openGuideAssignment}
+        onRequestEdit={requestEdit}
+        onViewDetails={openDepartureDetail}
+        guideContent={
+          <GuideAssignmentPanel
+            embedded
+            selectedTourId={selectedTourId}
+            focusedDepartureId={focusedDepartureId}
+            onClearFocus={() => setFocusedDepartureId(null)}
+            onAssigned={() => fetchDepartures(selectedTourId)}
+          />
+        }
+      />
 
-export default TourDepartureListPage;
+      <TourDepartureBookingModal
+        open={detailOpen}
+        loading={detailLoading}
+        error={detailError}
+        payload={detailPayload}
+        onClose={closeDepartureDetail}
+        onPageChange={(page) => {
+          if (detailDepartureId) {
+            void loadBookedCustomers(detailDepartureId, page)
+          }
+        }}
+      />
+    </div>
+  )
+}
