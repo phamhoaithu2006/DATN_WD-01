@@ -32,6 +32,7 @@ import AuthPage from '../pages/auth/AuthPage'
 import ForgotPasswordPage from '../pages/auth/ForgotPasswordPage'
 import CustomerPage from '../pages/customer/CustomerPage'
 import GuideDashboardPage from '../pages/guide/GuideDashboardPage'
+import GuideNotificationsPage from '../pages/guide/GuideNotificationsPage'
 import GuideProfilePage from '../pages/guide/GuideProfilePage'
 import ReportStatisticsPage from '../pages/admin/reportStatistics/ReportStatisticsPage'
 import TourDepartureListPage from "../pages/admin/tourDepartures/TourDepartureListPage";
@@ -77,7 +78,7 @@ function AppRoutes() {
     <Route path="/guide/reviews" element={guidePage(<GuideComingSoonPage title="Đánh giá" />)} />
     <Route path="/guide/customers" element={guidePage(<GuideComingSoonPage title="Khách hàng" />)} />
     <Route path="/guide/messages" element={guidePage(<GuideComingSoonPage title="Tin nhắn" />)} />
-    <Route path="/guide/notifications" element={guidePage(<GuideComingSoonPage title="Thông báo" />)} />
+    <Route path="/guide/notifications" element={guidePage(<GuideNotificationsPage />)} />
     <Route path="/guide/profile" element={guidePage(<GuideProfilePage />)} />
     <Route path="/guide/settings" element={guidePage(<GuideComingSoonPage title="Cài đặt chung" />)} />
     <Route path="/admin/users" element={<Navigate to="/admin/users/customers" replace />} />
@@ -135,8 +136,6 @@ function AppRoutes() {
     <Route path="/admin/certificates" element={adminPage(<CertificateManagementPage />)} />
     <Route path="/admin/*" element={<Navigate to="/admin" replace />} />
     <Route path="*" element={<Navigate to="/" replace />} />
-
-   
   </Routes>
   
 }
