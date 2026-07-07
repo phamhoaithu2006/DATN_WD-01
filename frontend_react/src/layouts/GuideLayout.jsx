@@ -24,7 +24,6 @@ function GuideLayout({ children }) {
     try {
       await logoutApi()
     } catch {
-      // Token có thể đã hết hạn, vẫn cần xóa phiên local.
     }
 
     clearSession()
@@ -78,7 +77,20 @@ function GuideLayout({ children }) {
               </button>
             </div>
 
-            <div className="guide-topbar-user">
+            <div
+              className="guide-topbar-user"
+              role="button"
+              tabIndex={0}
+              title="Hồ sơ cá nhân"
+              aria-label="Mở hồ sơ cá nhân hướng dẫn viên"
+              onClick={() => navigate('/guide/profile')}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault()
+                  navigate('/guide/profile')
+                }
+              }}
+            >
               <span className="guide-topbar-avatar">
                 {getInitials(guide?.full_name || guide?.name || 'Hướng dẫn viên')}
               </span>

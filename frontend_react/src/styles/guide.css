@@ -424,6 +424,16 @@
   border-radius: 999px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   border: 1px solid #e2e8f0;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.guide-topbar-user:hover,
+.guide-topbar-user:focus-visible {
+  border-color: #1454f0;
+  box-shadow: 0 8px 18px rgba(20, 84, 240, 0.16);
+  outline: none;
+  transform: translateY(-1px);
 }
 
 .guide-topbar-avatar {
