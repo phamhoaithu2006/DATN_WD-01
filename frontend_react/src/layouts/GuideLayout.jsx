@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import GuideNotificationBell from '../components/guide/GuideNotificationBell'
 import GuideSidebar from '../components/guide/GuideSidebar'
 import { logout as logoutApi } from '../services/authApi'
 import { clearSession, readSession } from '../services/authStorage'
@@ -24,6 +25,7 @@ function GuideLayout({ children }) {
     try {
       await logoutApi()
     } catch {
+      // Token có thể đã hết hạn, vẫn cần xóa phiên local.
     }
 
     clearSession()
@@ -68,14 +70,7 @@ function GuideLayout({ children }) {
               <input type="text" placeholder="Tìm kiếm tour, khách hàng..." />
             </div>
 
-            <div className="guide-topbar-notif">
-              <button type="button" className="notif-btn" title="Thông báo">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                  <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-                </svg>
-              </button>
-            </div>
+            <GuideNotificationBell />
 
             <div
               className="guide-topbar-user"
