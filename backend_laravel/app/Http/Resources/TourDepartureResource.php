@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Services\TourPricingService;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class TourDepartureResource extends JsonResource
@@ -14,22 +15,25 @@ class TourDepartureResource extends JsonResource
      */
     public function toArray($request)
     {
-        // Logic Price Fallback: Nếu giá đợt đi (price) là null,
-        // hệ thống sẽ trả về giá trị mặc định được lấy từ base_price
-        // (hoặc discount_price nếu có) của Tour liên kết.
         $tour = $this->relationLoaded('tour') ? $this->tour : null;
-
-        $price = $this->price;
-        if ($price === null && $tour) {
-            $price = $tour->discount_price ?? $tour->base_price;
-        }
+        $pricingService = new TourPricingService();
+        $basePrice = $tour ? $pricingService->resolveBasePrice($tour, $this->resource) : (float) ($this->base_price ?? $this->price ?? 0);
+        $discountPrice = $tour ? $pricingService->resolveDiscountPrice($tour, $this->resource) : ($this->discount_price !== null ? (float) $this->discount_price : null);
+        $salePrice = $discountPrice ?? $basePrice;
+        $usesTourPrice = $this->base_price === null && $this->price === null;
 
         return [
             'id'             => $this->id,
             'tour_id'        => $this->tour_id,
             'departure_date' => $this->departure_date?->toDateString(),
             'return_date'    => $this->return_date?->toDateString(),
-            'price'          => (float) $price,
+            'base_price'     => $basePrice,
+            'discount_price' => $discountPrice,
+            'price'          => $salePrice,
+            'departure_base_price' => $this->base_price !== null ? (float) $this->base_price : null,
+            'departure_discount_price' => $this->discount_price !== null ? (float) $this->discount_price : null,
+            'legacy_price'   => $this->price !== null ? (float) $this->price : null,
+            'uses_tour_price' => $usesTourPrice,
             'total_slots'    => $this->total_slots,
             'booked_slots'   => $this->booked_slots,
             'available_slots' => $this->total_slots - $this->booked_slots,

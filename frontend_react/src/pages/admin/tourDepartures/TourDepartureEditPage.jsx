@@ -5,7 +5,8 @@ import TourDepartureForm from "../../../components/admin/tourDepartures/TourDepa
 
 const emptyForm = {
   departure_date: "",
-  price: "",
+  base_price: "",
+  discount_price: "",
   total_slots: "",
   status: "open",
 };
@@ -43,7 +44,8 @@ const TourDepartureEditPage = () => {
 
       setFormData({
         departure_date: departure.departure_date || "",
-        price: departure.price ?? "",
+        base_price: departure.departure_base_price ?? "",
+        discount_price: departure.departure_discount_price ?? "",
         total_slots: departure.total_slots ?? "",
         status: departure.status || "open",
       });
@@ -75,7 +77,8 @@ const TourDepartureEditPage = () => {
 
     const data = {
       departure_date: formData.departure_date,
-      price: formData.price === "" ? null : Number(formData.price),
+      base_price: formData.base_price === "" ? null : Number(formData.base_price),
+      discount_price: formData.discount_price === "" ? null : Number(formData.discount_price),
       total_slots: Number(formData.total_slots),
       status: formData.status,
     };
@@ -92,7 +95,8 @@ const TourDepartureEditPage = () => {
         error.response?.data?.message ||
         error.response?.data?.errors?.departure_date?.[0] ||
         error.response?.data?.errors?.return_date?.[0] ||
-        error.response?.data?.errors?.price?.[0] ||
+        error.response?.data?.errors?.base_price?.[0] ||
+        error.response?.data?.errors?.discount_price?.[0] ||
         error.response?.data?.errors?.total_slots?.[0] ||
         error.response?.data?.errors?.status?.[0] ||
         "Cập nhật lịch khởi hành thất bại";

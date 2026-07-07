@@ -120,6 +120,14 @@ const getDurationNights = (tour) => {
   return Math.max(getDurationDays(tour) - 1, 0);
 };
 
+const formatCurrency = (value) => {
+  const amount = Number(value || 0);
+
+  if (!Number.isFinite(amount) || amount <= 0) return "-";
+
+  return `${amount.toLocaleString("vi-VN")}đ`;
+};
+
 const TourDepartureForm = ({
   formData,
   tour,
@@ -136,6 +144,11 @@ const TourDepartureForm = ({
     durationDays > 0
       ? addDaysToDate(formData?.departure_date || "", durationNights)
       : "";
+  const inheritedBasePrice = Number(tour?.base_price || 0);
+  const inheritedDiscountPrice =
+    tour?.discount_price !== null && tour?.discount_price !== undefined
+      ? Number(tour.discount_price)
+      : null;
 
   const formFields = (
     <>
@@ -186,7 +199,7 @@ const TourDepartureForm = ({
 
         <div>
           <label className="mb-1.5 block text-sm font-medium text-slate-700">
-            Giá
+            Giá gốc riêng của lịch
           </label>
 
           <div className="relative">
@@ -196,17 +209,43 @@ const TourDepartureForm = ({
 
             <input
               type="number"
-              name="price"
-              value={formData?.price || ""}
+              name="base_price"
+              value={formData?.base_price || ""}
               onChange={onChange}
               min="0"
               className={inputClass}
-              placeholder="VD: 3500000"
+              placeholder="Để trống để dùng giá tour"
             />
           </div>
 
           <p className="mt-1 text-xs text-slate-500">
-            Nhập số tiền dạng số, ví dụ: 3500000
+            Giá tour gốc: {formatCurrency(inheritedBasePrice)}
+          </p>
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-slate-700">
+            Giá giảm riêng của lịch
+          </label>
+
+          <div className="relative">
+            <FieldIcon tone="yellow">
+              <MoneyIcon />
+            </FieldIcon>
+
+            <input
+              type="number"
+              name="discount_price"
+              value={formData?.discount_price || ""}
+              onChange={onChange}
+              min="0"
+              className={inputClass}
+              placeholder="Không bắt buộc"
+            />
+          </div>
+
+          <p className="mt-1 text-xs text-slate-500">
+            Giá giảm tour gốc: {formatCurrency(inheritedDiscountPrice)}
           </p>
         </div>
 

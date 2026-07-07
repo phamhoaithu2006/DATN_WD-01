@@ -47,6 +47,12 @@ class CustomerBookingController extends Controller
             ]);
         }
 
+        if ($summary['adult_count'] < 1) {
+            throw ValidationException::withMessages([
+                'quantity_summary' => 'Vui lòng chọn ít nhất 1 người lớn trước khi thêm trẻ em hoặc em bé.',
+            ]);
+        }
+
         if ($availableSlots < $summary['total_people']) {
             throw ValidationException::withMessages([
                 'quantity_summary' => "Lịch này chỉ còn {$availableSlots} chỗ trống.",
@@ -130,7 +136,11 @@ class CustomerBookingController extends Controller
                     );
                     $rule = $pricing['rule'];
 
-                    if ($hasActiveAgePricingRules && ! $rule) {
+                    if (
+                        $hasActiveAgePricingRules
+                        && ! $rule
+                        && ($participant['participant_type'] ?? 'adult') !== 'adult'
+                    ) {
                         throw ValidationException::withMessages([
                             "participants.{$index}.birth_date" => 'Không tìm thấy quy tắc giá phù hợp cho hành khách này.',
                         ]);
@@ -150,6 +160,16 @@ class CustomerBookingController extends Controller
                         '_pricing_rule_id' => $rule?->id,
                     ];
                 });
+
+            $adultParticipantCount = $pricedParticipants
+                ->filter(fn (array $participant) => $participant['_pricing_rule_id'] === null)
+                ->count();
+
+            if ($adultParticipantCount < 1) {
+                throw ValidationException::withMessages([
+                    'participants' => 'Vui lòng nhập ít nhất 1 người lớn trước khi thêm trẻ em hoặc em bé.',
+                ]);
+            }
 
             if (! empty($data['quantity_summary'])) {
                 $this->ensureParticipantCountMatchesQuantitySummary(
@@ -213,7 +233,7 @@ class CustomerBookingController extends Controller
 
         $booking->load([
             'tour:id,title,slug',
-            'tourDeparture:id,tour_id,departure_date,return_date,price,total_slots,booked_slots,status',
+            'tourDeparture:id,tour_id,departure_date,return_date,price,base_price,discount_price,total_slots,booked_slots,status',
             'contact',
             'participants',
         ]);
@@ -261,6 +281,7 @@ class CustomerBookingController extends Controller
             ->keyBy('id');
         $groups = [];
         $totalPeople = 0;
+        $adultCount = 0;
         $subtotal = 0;
 
         foreach ($quantitySummary as $index => $item) {
@@ -273,7 +294,7 @@ class CustomerBookingController extends Controller
             $ruleId = $item['rule_id'] ?? null;
             $rule = $ruleId ? $activeRules->get((int) $ruleId) : null;
 
-            if ($activeRules->isNotEmpty() && ! $rule) {
+            if ($ruleId && ! $rule) {
                 throw ValidationException::withMessages([
                     "quantity_summary.{$index}.rule_id" => 'Nhóm giá đã chọn không hợp lệ cho tour này.',
                 ]);
@@ -282,6 +303,9 @@ class CustomerBookingController extends Controller
             $unitPrice = $this->calculateUnitPriceFromRule($adultPrice, $rule);
             $lineTotal = round($unitPrice * $quantity, 2);
             $totalPeople += $quantity;
+            if (! $rule) {
+                $adultCount += $quantity;
+            }
             $subtotal += $lineTotal;
 
             $groups[] = [
@@ -297,6 +321,7 @@ class CustomerBookingController extends Controller
 
         return [
             'adult_price' => $adultPrice,
+            'adult_count' => $adultCount,
             'total_people' => $totalPeople,
             'subtotal' => round($subtotal, 2),
             'groups' => $groups,

@@ -182,7 +182,8 @@ test('admin can create departure with valid data', function () {
     $payload = [
         'departure_date' => now()->addDays(2)->format('Y-m-d'),
         'return_date' => now()->addDays(10)->format('Y-m-d'),
-        'price' => 1800000,
+        'base_price' => 2000000,
+        'discount_price' => 1800000,
         'total_slots' => 15,
         'status' => 'open',
     ];
@@ -193,11 +194,47 @@ test('admin can create departure with valid data', function () {
         ->assertJsonPath('status', 'success')
         ->assertJsonPath('data.return_date', now()->addDays(3)->format('Y-m-d'))
         ->assertJsonPath('data.price', 1800000.0)
+        ->assertJsonPath('data.base_price', 2000000.0)
+        ->assertJsonPath('data.discount_price', 1800000.0)
         ->assertJsonPath('data.total_slots', 15);
 
     $this->assertDatabaseHas('tour_departures', [
         'tour_id' => $tour->id,
+        'base_price' => 2000000,
+        'discount_price' => 1800000,
         'total_slots' => 15,
+    ]);
+});
+
+test('departure without own price inherits tour base and discount price', function () {
+    $admin = createAdminUser();
+    Sanctum::actingAs($admin);
+
+    $tour = createTestTour([
+        'base_price' => 10000000,
+        'discount_price' => 8000000,
+    ]);
+
+    $payload = [
+        'departure_date' => now()->addDays(3)->format('Y-m-d'),
+        'total_slots' => 12,
+        'status' => 'open',
+    ];
+
+    $response = $this->postJson("/api/admin/tours/{$tour->id}/departures", $payload);
+
+    $response->assertStatus(201)
+        ->assertJsonPath('data.base_price', 10000000.0)
+        ->assertJsonPath('data.discount_price', 8000000.0)
+        ->assertJsonPath('data.price', 8000000.0)
+        ->assertJsonPath('data.departure_base_price', null)
+        ->assertJsonPath('data.departure_discount_price', null)
+        ->assertJsonPath('data.uses_tour_price', true);
+
+    $this->assertDatabaseHas('tour_departures', [
+        'tour_id' => $tour->id,
+        'base_price' => null,
+        'discount_price' => null,
     ]);
 });
 

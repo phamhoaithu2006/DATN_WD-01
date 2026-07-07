@@ -311,6 +311,7 @@ class BookingController extends Controller
             ->isNotEmpty();
         $rows = [];
         $totalAmount = 0;
+        $adultCount = 0;
 
         foreach ($participants as $index => $participant) {
             $birthDate = Carbon::parse($participant['birth_date']);
@@ -322,10 +323,18 @@ class BookingController extends Controller
             );
             $rule = $pricing['rule'];
 
-            if ($hasActiveAgePricingRules && ! $rule) {
+            if (
+                $hasActiveAgePricingRules
+                && ! $rule
+                && ($participant['participant_type'] ?? 'adult') !== 'adult'
+            ) {
                 throw ValidationException::withMessages([
                     "participants.{$index}.birth_date" => 'Không tìm thấy quy tắc giá phù hợp cho hành khách này.',
                 ]);
+            }
+
+            if (! $rule) {
+                $adultCount += 1;
             }
 
             $rows[] = [
@@ -342,6 +351,12 @@ class BookingController extends Controller
             ];
 
             $totalAmount += $pricing['unit_price'];
+        }
+
+        if ($adultCount < 1) {
+            throw ValidationException::withMessages([
+                'participants' => 'Vui lòng nhập ít nhất 1 người lớn trước khi thêm trẻ em hoặc em bé.',
+            ]);
         }
 
         return [

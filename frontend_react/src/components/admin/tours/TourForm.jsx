@@ -123,54 +123,6 @@ const normalizeItineraryForSubmit = (itinerary = []) => {
   })
 }
 
-const parseAgeRangeLabel = (label) => {
-  const raw = String(label || '').trim().toLowerCase()
-
-  if (!raw) {
-    return { min_age: 0, max_age: null }
-  }
-
-  const numbers = raw.match(/\d+/g)?.map(Number) || []
-
-  if (numbers.length >= 2) {
-    const minAge = Math.min(numbers[0], numbers[1])
-    const maxAge = Math.max(numbers[0], numbers[1])
-
-    return { min_age: minAge, max_age: maxAge }
-  }
-
-  if (numbers.length === 1) {
-    const age = numbers[0]
-
-    if (
-      raw.includes('trên') ||
-      raw.includes('tren') ||
-      raw.includes('lớn hơn') ||
-      raw.includes('lon hon') ||
-      raw.includes('>') ||
-      raw.includes('+') ||
-      raw.includes('trở lên') ||
-      raw.includes('tro len')
-    ) {
-      return { min_age: raw.includes('trên') || raw.includes('tren') || raw.includes('>') ? age + 1 : age, max_age: null }
-    }
-
-    if (
-      raw.includes('dưới') ||
-      raw.includes('duoi') ||
-      raw.includes('nhỏ hơn') ||
-      raw.includes('nho hon') ||
-      raw.includes('<')
-    ) {
-      return { min_age: 0, max_age: Math.max(age - 1, 0) }
-    }
-
-    return { min_age: age, max_age: age }
-  }
-
-  return { min_age: 0, max_age: null }
-}
-
 const normalizeAgePricingRulesForForm = (initialData = {}) => {
   const rules = Array.isArray(initialData.age_pricing_rules)
     ? initialData.age_pricing_rules
@@ -178,15 +130,42 @@ const normalizeAgePricingRulesForForm = (initialData = {}) => {
       ? initialData.agePricingRules
       : []
 
-  return rules.map((rule, index) => ({
-    label: rule.label || '',
-    price_value: rule.price_value ?? '',
-    min_age: rule.min_age ?? 0,
-    max_age: rule.max_age ?? null,
-    pricing_type: rule.pricing_type || 'fixed',
-    sort_order: rule.sort_order ?? index,
-    is_active: rule.is_active ?? true,
-  }))
+  const findRule = (group) => {
+    const byLabel = rules.find((rule) =>
+      normalizeTextForMatching(rule.label).includes(group.matchLabel),
+    )
+
+    if (byLabel) return byLabel
+
+    return rules.find((rule) => {
+      const maxAge = rule.max_age === null || rule.max_age === undefined
+        ? null
+        : Number(rule.max_age)
+
+      if (group.key === 'infant') {
+        return maxAge !== null && maxAge <= 4
+      }
+
+      return maxAge !== null && maxAge > 4
+    })
+  }
+
+  return FIXED_AGE_PRICING_GROUPS.map((group, index) => {
+    const rule = findRule(group) || {}
+
+    return {
+      key: group.key,
+      label: group.label,
+      price_value: rule.pricing_type === 'fixed'
+        ? group.defaultPriceValue
+        : (rule.price_value ?? group.defaultPriceValue),
+      min_age: rule.min_age ?? group.defaultMinAge,
+      max_age: rule.max_age ?? group.defaultMaxAge,
+      pricing_type: rule.pricing_type === 'free' ? 'free' : group.defaultPricingType,
+      sort_order: rule.sort_order ?? index,
+      is_active: true,
+    }
+  })
 }
 
 const normalizeAgePricingRulesForSubmit = (rules = []) => {
@@ -194,21 +173,26 @@ const normalizeAgePricingRulesForSubmit = (rules = []) => {
 
   return rules
     .map((rule, index) => {
-      const label = String(rule.label || '').trim()
-      const priceValue = String(rule.price_value ?? '').trim()
+      const group = FIXED_AGE_PRICING_GROUPS.find((item) => item.key === rule.key)
+      const pricingType = rule.pricing_type === 'free' ? 'free' : 'percentage'
+      const minAge = Number(rule.min_age ?? group?.defaultMinAge ?? 0)
+      const maxAgeValue = rule.max_age === '' || rule.max_age === null || rule.max_age === undefined
+        ? null
+        : Number(rule.max_age)
+      const priceValue = pricingType === 'free'
+        ? 0
+        : Number(rule.price_value ?? group?.defaultPriceValue ?? 0)
 
-      if (!label || priceValue === '') {
+      if (!group || !Number.isFinite(minAge) || minAge < 0) {
         return null
       }
 
-      const parsedAges = parseAgeRangeLabel(label)
-
       return {
-        label,
-        min_age: parsedAges.min_age,
-        max_age: parsedAges.max_age,
-        pricing_type: 'fixed',
-        price_value: Number(priceValue) || 0,
+        label: group.label,
+        min_age: minAge,
+        max_age: Number.isFinite(maxAgeValue) ? maxAgeValue : null,
+        pricing_type: pricingType,
+        price_value: Number.isFinite(priceValue) ? priceValue : 0,
         sort_order: index,
         is_active: true,
       }
@@ -225,6 +209,36 @@ const DOMESTIC_MAX_TOUR_DURATION_DAYS = 7
 const INTERNATIONAL_MAX_TOUR_DURATION_DAYS = 15
 const ALLOWED_STATUSES = ['draft', 'published', 'hidden']
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+const FIXED_AGE_PRICING_GROUPS = [
+  {
+    key: 'child',
+    label: 'Trẻ em',
+    matchLabel: 'tre em',
+    defaultMinAge: 5,
+    defaultMaxAge: 10,
+    defaultPricingType: 'percentage',
+    defaultPriceValue: 75,
+  },
+  {
+    key: 'infant',
+    label: 'Em bé',
+    matchLabel: 'em be',
+    defaultMinAge: 0,
+    defaultMaxAge: 4,
+    defaultPricingType: 'free',
+    defaultPriceValue: 0,
+  },
+]
+
+const formatVnd = (value) => {
+  const amount = Number(value)
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return '0 đ'
+  }
+
+  return `${Math.round(amount).toLocaleString('vi-VN')} đ`
+}
 
 const getDurationNightsFromDays = (value) => {
   const days = Number(value)
@@ -337,30 +351,38 @@ const validateAgePricingRules = (rules = []) => {
 
   for (let index = 0; index < rules.length; index += 1) {
     const rule = rules[index] || {}
-    const label = String(rule.label || '').trim()
+    const label = rule.label || `Nhóm giá #${index + 1}`
+    const minAge = Number(rule.min_age)
+    const maxAge = rule.max_age === '' || rule.max_age === null || rule.max_age === undefined
+      ? null
+      : Number(rule.max_age)
+    const pricingType = rule.pricing_type || 'percentage'
     const priceText = String(rule.price_value ?? '').trim()
-    const hasAnyValue = label || priceText
 
-    if (!hasAnyValue) {
+    if (!Number.isInteger(minAge) || minAge < 0) {
+      return `Tuổi bắt đầu của ${label} không hợp lệ.`
+    }
+
+    if (maxAge !== null && (!Number.isInteger(maxAge) || maxAge < minAge)) {
+      return `Tuổi kết thúc của ${label} phải lớn hơn hoặc bằng tuổi bắt đầu.`
+    }
+
+    if (pricingType === 'free') {
       continue
     }
 
-    if (!label) {
-      return `Vui lòng nhập độ tuổi cho dòng giá #${index + 1}.`
-    }
-
-    if (!/\d+/.test(label)) {
-      return `Độ tuổi ở dòng giá #${index + 1} cần có số tuổi, ví dụ: 3-5 tuổi.`
-    }
-
     if (priceText === '') {
-      return `Vui lòng nhập giá cho dòng giá #${index + 1}.`
+      return `Vui lòng nhập giá trị cho ${label}.`
     }
 
     const priceValue = Number(priceText)
 
     if (!Number.isFinite(priceValue) || priceValue < 0) {
-      return `Giá ở dòng #${index + 1} không hợp lệ.`
+      return `Giá trị của ${label} không hợp lệ.`
+    }
+
+    if (pricingType === 'percentage' && priceValue > 100) {
+      return `Phần trăm giá của ${label} không được vượt quá 100%.`
     }
   }
 
@@ -768,7 +790,6 @@ function TourForm({
   const [galleryPreviews, setGalleryPreviews] = useState(() =>
     getInitialImagePreviews(initialData || {}),
   )
-
   if (initialDataKey !== prevInitialDataKey) {
     setPrevInitialDataKey(initialDataKey)
     setFormData(getInitialFormData(initialData || {}))
@@ -965,49 +986,6 @@ function TourForm({
         position: 'top-right',
       },
     )
-  }
-
-  const handleAddAgePricingRule = () => {
-    setFormData((prev) => ({
-      ...prev,
-      age_pricing_rules: [
-        ...(prev.age_pricing_rules || []),
-        {
-          label: '',
-          price_value: '',
-          pricing_type: 'fixed',
-          sort_order: prev.age_pricing_rules?.length || 0,
-          is_active: true,
-        },
-      ],
-    }))
-  }
-
-  const handleUpdateAgePricingRule = (indexToUpdate, field, value) => {
-    setFormData((prev) => ({
-      ...prev,
-      age_pricing_rules: (prev.age_pricing_rules || []).map((rule, index) =>
-        index === indexToUpdate ? { ...rule, [field]: value } : rule,
-      ),
-    }))
-  }
-
-  const handleRemoveAgePricingRule = (indexToRemove) => {
-    const rule = formData.age_pricing_rules?.[indexToRemove]
-
-    showConfirmToast({
-      title: 'Xóa mức giá này?',
-      description: `Mức giá “${rule?.label || `#${indexToRemove + 1}`}” sẽ bị xóa khỏi form.`,
-      confirmText: 'Xóa giá',
-      onConfirm: () => {
-        setFormData((prev) => ({
-          ...prev,
-          age_pricing_rules: (prev.age_pricing_rules || []).filter(
-            (_, index) => index !== indexToRemove,
-          ),
-        }))
-      },
-    })
   }
 
   const handleThumbnailChange = (e) => {
@@ -1976,83 +1954,10 @@ function TourForm({
                   placeholder="VD: 1000000"
                   className={inputClass}
                 />
+                <p className="mt-1.5 text-[12px] font-semibold text-slate-500">
+                  Giá hiển thị: <span className="font-black text-[#0575f9]">{formatVnd(formData.base_price)}</span>
+                </p>
               </div>
-
-              <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-3">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <div>
-                    <FieldLabel>Giá theo độ tuổi / phụ thu</FieldLabel>
-                    <p className="mt-1 text-[11px] font-semibold leading-5 text-slate-400">
-                      ví dụ: 3-5 tuổi, 10-15 tuổi, trên 18 tuổi.
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleAddAgePricingRule}
-                    className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg border border-blue-100 bg-white px-3 text-xs font-black text-blue-600 shadow-sm transition hover:bg-blue-50"
-                  >
-                    + Thêm giá
-                  </button>
-                </div>
-
-                <div className="space-y-2.5">
-                  {(formData.age_pricing_rules || []).length === 0 ? (
-                    <div className="rounded-xl border border-dashed border-slate-200 bg-white px-3 py-5 text-center text-xs font-semibold text-slate-400">
-                      Chưa có mức giá theo độ tuổi / phụ thu
-                    </div>
-                  ) : (
-                    (formData.age_pricing_rules || []).map((rule, index) => (
-                      <div
-                        key={index}
-                        className="grid grid-cols-[minmax(0,1fr)_130px_auto] items-end gap-2 rounded-xl border border-slate-100 bg-white p-2.5"
-                      >
-                        <div>
-                          <FieldLabel>Độ tuổi</FieldLabel>
-                          <input
-                            type="text"
-                            value={rule.label || ''}
-                            onChange={(e) =>
-                              handleUpdateAgePricingRule(
-                                index,
-                                'label',
-                                e.target.value,
-                              )
-                            }
-                            placeholder="VD: 3-5 tuổi"
-                            className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-800 outline-none transition focus:border-blue-500"
-                          />
-                        </div>
-
-                        <div>
-                          <FieldLabel>Giá / phụ thu</FieldLabel>
-                          <input
-                            type="number"
-                            min="0"
-                            value={rule.price_value ?? ''}
-                            onChange={(e) =>
-                              handleUpdateAgePricingRule(
-                                index,
-                                'price_value',
-                                e.target.value,
-                              )
-                            }
-                            placeholder="VD: 300000"
-                            className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-800 outline-none transition focus:border-blue-500"
-                          />
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveAgePricingRule(index)}
-                          className="mb-0.5 h-10 rounded-lg px-2 text-[11px] font-black text-red-500 transition hover:bg-red-50 hover:text-red-700"
-                        >
-                          Xóa
-                        </button>
-                      </div>
-                    ))
-                  )}
-                </div>
               </div>
             </div>
           </div>
@@ -2131,7 +2036,6 @@ function TourForm({
             </div>
           </div>
         </div>
-      </div>
     </form>
   )
 }

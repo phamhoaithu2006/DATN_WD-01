@@ -162,6 +162,30 @@ class StoreBookingRequest extends FormRequest
                             'Tổng số lượng đã chọn phải đúng bằng số người đặt tour.'
                         );
                     }
+
+                    $adultQuantity = collect($quantitySummary)
+                        ->filter(fn ($item) => empty($item['rule_id']))
+                        ->sum(fn ($item) => (int) ($item['quantity'] ?? 0));
+
+                    if ($adultQuantity < 1) {
+                        $validator->errors()->add(
+                            'quantity_summary',
+                            'Vui lòng chọn ít nhất 1 người lớn trước khi thêm trẻ em hoặc em bé.'
+                        );
+                    }
+                }
+
+                if (is_array($participants) && $participants !== []) {
+                    $adultParticipants = collect($participants)
+                        ->filter(fn ($participant) => ($participant['participant_type'] ?? null) === 'adult')
+                        ->count();
+
+                    if ($adultParticipants < 1) {
+                        $validator->errors()->add(
+                            'participants',
+                            'Vui lòng nhập ít nhất 1 người lớn trước khi thêm trẻ em hoặc em bé.'
+                        );
+                    }
                 }
             },
         ];

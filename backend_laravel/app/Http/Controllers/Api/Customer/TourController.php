@@ -95,7 +95,15 @@ class TourController extends Controller
     private function customerTourQuery(array $filters): Builder
     {
         return Tour::query()
+            ->select('tours.*')
             ->where('tours.status', 'published')
+            ->selectSub(function ($query) use ($filters) {
+                $query->from('tour_departures')
+                    ->selectRaw('MIN(' . $this->departureSalePriceExpression() . ')')
+                    ->whereColumn('tour_departures.tour_id', 'tours.id');
+
+                $this->applyDepartureConditions($query, $filters, false);
+            }, 'min_departure_price')
             ->with([
                 'category',
                 'destination',
@@ -118,6 +126,8 @@ class TourController extends Controller
                         'departure_date',
                         'return_date',
                         'price',
+                        'base_price',
+                        'discount_price',
                         'total_slots',
                         'booked_slots',
                         'status',
@@ -130,7 +140,7 @@ class TourController extends Controller
 
             // Giá thấp nhất của các lịch khởi hành còn mở.
             ->withMin([
-                'departures as min_departure_price' => function ($query) use ($filters) {
+                'departures as legacy_min_departure_price' => function ($query) use ($filters) {
                     $this->applyDepartureConditions($query, $filters);
                 },
             ], 'price')
@@ -154,7 +164,7 @@ class TourController extends Controller
      * Điều kiện chung của một lịch khởi hành được phép hiển thị/đặt.
      */
 
-    private function applyDepartureConditions($query, array $filters)
+    private function applyDepartureConditions($query, array $filters, bool $includePriceFilters = true)
     {
         $this->applyVisibleDepartures($query);
 
@@ -169,15 +179,26 @@ class TourController extends Controller
             );
         }
 
-        if (($filters['min_price'] ?? null) !== null) {
-            $query->where('price', '>=', $filters['min_price']);
+        if ($includePriceFilters && ($filters['min_price'] ?? null) !== null) {
+            $query->whereRaw($this->departureSalePriceExpression() . ' >= ?', [$filters['min_price']]);
         }
 
-        if (($filters['max_price'] ?? null) !== null) {
-            $query->where('price', '<=', $filters['max_price']);
+        if ($includePriceFilters && ($filters['max_price'] ?? null) !== null) {
+            $query->whereRaw($this->departureSalePriceExpression() . ' <= ?', [$filters['max_price']]);
         }
 
         return $query;
+    }
+
+    private function departureSalePriceExpression(): string
+    {
+        return 'CASE
+            WHEN tour_departures.base_price IS NOT NULL
+                THEN COALESCE(tour_departures.discount_price, tour_departures.base_price)
+            WHEN tour_departures.price IS NOT NULL
+                THEN tour_departures.price
+            ELSE COALESCE(tours.discount_price, tours.base_price)
+        END';
     }
 
     /**

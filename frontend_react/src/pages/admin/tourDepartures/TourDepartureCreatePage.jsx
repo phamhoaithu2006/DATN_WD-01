@@ -1,11 +1,26 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { tourDepartureApi } from "../../../services/tourDepartureApi";
 import TourDepartureForm from "../../../components/admin/tourDepartures/TourDepartureForm";
 
+const getRequestErrorMessage = (error, fallback) => {
+  const status = error?.response?.status;
+
+  if (status === 401) {
+    return "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.";
+  }
+
+  if (status === 403) {
+    return "Bạn không có quyền thực hiện thao tác này.";
+  }
+
+  return error?.response?.data?.message || fallback;
+};
+
 const emptyForm = {
   departure_date: "",
-  price: "",
+  base_price: "",
+  discount_price: "",
   total_slots: "",
   status: "open",
 };
@@ -41,7 +56,7 @@ const TourDepartureCreatePage = () => {
     (tour) => String(tour.id) === String(selectedTourId)
   );
 
-  async function fetchTours() {
+  const fetchTours = useCallback(async () => {
     try {
       const res = await tourDepartureApi.getTours();
       const list = getArrayFromResponse(res);
@@ -53,14 +68,17 @@ const TourDepartureCreatePage = () => {
       }
     } catch (error) {
       console.error(error);
-      alert("Không tải được danh sách tour");
+      alert(getRequestErrorMessage(error, "Không tải được danh sách tour"));
     }
-  }
+  }, [selectedTourId]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchTours();
-  }, []);
+    const timer = window.setTimeout(() => {
+      fetchTours();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [fetchTours]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -81,7 +99,8 @@ const TourDepartureCreatePage = () => {
 
     const data = {
       departure_date: formData.departure_date,
-      price: formData.price === "" ? null : Number(formData.price),
+      base_price: formData.base_price === "" ? null : Number(formData.base_price),
+      discount_price: formData.discount_price === "" ? null : Number(formData.discount_price),
       total_slots: Number(formData.total_slots),
       status: formData.status,
     };
@@ -95,10 +114,12 @@ const TourDepartureCreatePage = () => {
       console.error(error);
 
       const message =
+        getRequestErrorMessage(error, "") ||
         error.response?.data?.message ||
         error.response?.data?.errors?.departure_date?.[0] ||
         error.response?.data?.errors?.return_date?.[0] ||
-        error.response?.data?.errors?.price?.[0] ||
+        error.response?.data?.errors?.base_price?.[0] ||
+        error.response?.data?.errors?.discount_price?.[0] ||
         error.response?.data?.errors?.total_slots?.[0] ||
         error.response?.data?.errors?.status?.[0] ||
         "Thêm lịch khởi hành thất bại";

@@ -1,6 +1,7 @@
 export const USERS_KEY = 'skytrail_users'
 export const SESSION_KEY = 'skytrail_session'
 export const TOKEN_KEY = 'skytrail_token'
+const LEGACY_TOKEN_KEYS = ['token', 'admin_token', 'access_token', 'auth_token', 'authToken']
 
 export const demoUser = {
   full_name: 'Travel Explorer',
@@ -62,7 +63,12 @@ export function saveSession(user, remember = true) {
 }
 
 export function readToken() {
-  return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY)
+  return (
+    localStorage.getItem(TOKEN_KEY) ||
+    sessionStorage.getItem(TOKEN_KEY) ||
+    LEGACY_TOKEN_KEYS.map((key) => localStorage.getItem(key) || sessionStorage.getItem(key)).find(Boolean) ||
+    null
+  )
 }
 
 export function saveToken(token, remember = true) {
@@ -71,6 +77,11 @@ export function saveToken(token, remember = true) {
 
   otherStorage.removeItem(TOKEN_KEY)
   storage.setItem(TOKEN_KEY, token)
+
+  LEGACY_TOKEN_KEYS.forEach((key) => {
+    otherStorage.removeItem(key)
+  })
+  storage.setItem('token', token)
 }
 
 export function clearSession() {
@@ -78,4 +89,9 @@ export function clearSession() {
   localStorage.removeItem(TOKEN_KEY)
   sessionStorage.removeItem(SESSION_KEY)
   sessionStorage.removeItem(TOKEN_KEY)
+
+  LEGACY_TOKEN_KEYS.forEach((key) => {
+    localStorage.removeItem(key)
+    sessionStorage.removeItem(key)
+  })
 }
