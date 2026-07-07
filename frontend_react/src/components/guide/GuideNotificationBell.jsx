@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import {
   getGuideNotificationDetail,
   getGuideNotifications,
-  getGuideUnreadNotificationCount,
 } from '../../services/guideNotificationApi'
 
 function formatNotificationTime(value) {
@@ -48,13 +47,11 @@ function GuideNotificationBell() {
     setError('')
 
     try {
-      const [notificationPayload, count] = await Promise.all([
-        getGuideNotifications(1),
-        getGuideUnreadNotificationCount(),
-      ])
+      const notificationPayload = await getGuideNotifications(1)
+      const unreadTotal = notificationPayload.items.filter((item) => item.status === 'unread').length
 
       setNotifications(notificationPayload.items)
-      setUnreadCount(count)
+      setUnreadCount(unreadTotal)
     } catch {
       setError('Không tải được thông báo.')
     } finally {
