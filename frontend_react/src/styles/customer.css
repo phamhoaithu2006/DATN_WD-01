@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap");
+
 
 :root {
   --vg-blue: #0878e3;
@@ -14,7 +14,7 @@
   overflow: clip;
   background: #ffffff;
   color: var(--vg-ink);
-  font-family: "Poppins", sans-serif;
+  font-family: 'Inter', sans-serif;
   font-weight: 500;
   /* Default weight: Poppins Medium */
 }
@@ -26,31 +26,46 @@
   box-sizing: border-box;
 }
 
+/* Typography Base Reset */
 .vg-app p,
 .vg-app span,
-.vg-app a,
-.vg-app button,
-.vg-app input,
-.vg-app select,
-.vg-app label,
 .vg-app small,
 .vg-app li {
-  font-family: "Poppins", sans-serif;
-  font-weight: 500;
-  /* Poppins Medium */
+  font-family: 'Inter', sans-serif;
+  font-weight: 400; /* Regular for body text */
 }
 
-.vg-app h1,
-.vg-app h2,
+/* Interactive elements */
+.vg-app a,
+.vg-app button,
+.vg-app label,
+.vg-app input,
+.vg-app select {
+  font-family: 'Inter', sans-serif;
+  font-weight: 500; /* Medium for interactive elements */
+}
+
+/* Bold / Emphasized */
+.vg-app strong,
+.vg-app b {
+  font-family: 'Inter', sans-serif;
+  font-weight: 700; /* Bold */
+}
+
+/* Sub-headings */
 .vg-app h3,
 .vg-app h4,
 .vg-app h5,
-.vg-app h6,
-.vg-app strong,
-.vg-app b {
-  font-family: "Poppins", sans-serif;
-  font-weight: 600;
-  /* Poppins Semi-bold */
+.vg-app h6 {
+  font-family: 'Inter', sans-serif;
+  font-weight: 600; /* Semi-bold */
+}
+
+/* Main headings */
+.vg-app h1,
+.vg-app h2 {
+  font-family: 'Inter', sans-serif;
+  font-weight: 700; /* Bold */
 }
 
 .vg-app button,
@@ -3930,7 +3945,7 @@
 }
 
 .vg-detail-section h2 {
-  font-family: 'Poppins', sans-serif;
+  font-family: 'Inter', sans-serif;
   font-size: 22px;
   line-height: 29px;
   font-weight: 600;
@@ -4773,7 +4788,7 @@
 }
 
 .vg-detail-related-section .related-title {
-  font-family: 'Poppins', sans-serif;
+  font-family: 'Inter', sans-serif;
   font-size: 24px;
   line-height: 32px;
   font-weight: 600;
@@ -4842,7 +4857,7 @@
 }
 
 .vg-success-modal-card h2 {
-  font-family: 'Poppins', sans-serif;
+  font-family: 'Inter', sans-serif;
   font-size: 24px;
   line-height: 32px;
   font-weight: 600;
@@ -5016,7 +5031,7 @@
 }
 
 .vg-itinerary-sidebar-card h3 {
-  font-family: 'Poppins', sans-serif;
+  font-family: 'Inter', sans-serif;
   font-size: 18px;
   line-height: 24px;
   font-weight: 600;
@@ -5141,7 +5156,7 @@
 }
 
 .vg-itinerary-modal-card .modal-header-title h2 {
-  font-family: 'Poppins', sans-serif;
+  font-family: 'Inter', sans-serif;
   font-size: 26px;
   line-height: 34px;
   font-weight: 600;
@@ -5202,7 +5217,7 @@
 }
 
 .vg-klook-title {
-  font-family: 'Poppins', sans-serif;
+  font-family: 'Inter', sans-serif;
   font-size: 28px;
   line-height: 37px;
   font-weight: 600;
@@ -5470,7 +5485,7 @@
 
 .vg-booked-tag-traveloka {
   background: #fff5ec;
-  color: #ff5b00;
+  color: var(--vg-blue);
   font-weight: 700;
   padding: 2px 8px;
   border-radius: 4px;
@@ -5512,8 +5527,8 @@
 
 .vg-wishlist-btn-traveloka.is-active {
   background: #fff0f0;
-  border-color: #ff5b00;
-  color: #ff5b00;
+  border-color: var(--vg-blue);
+  color: var(--vg-blue);
 }
 
 .vg-wishlist-btn-traveloka.is-active .vg-icon {
@@ -5729,7 +5744,7 @@
 .vg-quick-price-value {
   font-size: 1.8rem;
   font-weight: 700;
-  color: #ff5b00;
+  color: var(--vg-blue);
   margin-top: 4px;
 }
 
@@ -5740,7 +5755,7 @@
 }
 
 .vg-btn-select-options {
-  background: #ff5b00;
+  background: var(--vg-blue);
   color: white;
   border: 0;
   padding: 14px 20px;
@@ -5753,7 +5768,7 @@
 }
 
 .vg-btn-select-options:hover {
-  background: #e65200;
+  background: var(--vg-blue-dark);
 }
 
 .vg-btn-select-options:active {
@@ -5768,7 +5783,7 @@
   margin-top: 40px;
   margin-bottom: 24px;
   padding-left: 12px;
-  border-left: 4px solid #ff5b00;
+  border-left: 4px solid var(--vg-blue);
   line-height: 1.3;
 }
 
@@ -5839,7 +5854,7 @@
   left: 14px;
   top: 50%;
   transform: translateY(-50%);
-  color: #ff5b00;
+  color: var(--vg-blue);
   pointer-events: none;
 }
 
@@ -5858,8 +5873,8 @@
 }
 
 .vg-date-input-field:focus {
-  border-color: #ff5b00;
-  box-shadow: 0 0 0 3px rgba(255, 91, 0, 0.15);
+  border-color: var(--vg-blue);
+  box-shadow: 0 0 0 3px rgba(8, 120, 227, 0.15);
 }
 
 /* Options group tags */
@@ -5895,17 +5910,17 @@
 }
 
 .vg-option-tag:hover {
-  border-color: #ff5b00;
-  color: #ff5b00;
+  border-color: var(--vg-blue);
+  color: var(--vg-blue);
   background-color: #fffaf7;
 }
 
 .vg-option-tag.is-active {
-  border-color: #ff5b00;
-  color: #ff5b00;
+  border-color: var(--vg-blue);
+  color: var(--vg-blue);
   background-color: #fff5f0;
   font-weight: 700;
-  box-shadow: 0 2px 6px rgba(255, 91, 0, 0.08);
+  box-shadow: 0 2px 6px rgba(8, 120, 227, 0.08);
 }
 
 /* Quantity Counter Section */
@@ -5969,8 +5984,8 @@
 }
 
 .vg-counter-btn:hover:not(:disabled) {
-  border-color: #ff5b00;
-  color: #ff5b00;
+  border-color: var(--vg-blue);
+  color: var(--vg-blue);
   background-color: #fffaf7;
 }
 
@@ -6007,7 +6022,7 @@
 .vg-summary-price-value {
   font-size: 1.6rem;
   font-weight: 700;
-  color: #ff5b00;
+  color: var(--vg-blue);
 }
 
 .vg-summary-price-label {
@@ -6038,7 +6053,7 @@
 }
 
 .vg-btn-book-traveloka {
-  background: #ff5b00;
+  background: var(--vg-blue);
   color: white;
   border: 0;
   padding: 12px 28px;
@@ -6050,7 +6065,7 @@
 }
 
 .vg-btn-book-traveloka:hover {
-  background: #e65200;
+  background: var(--vg-blue-dark);
 }
 
 /* Right Details Card */
@@ -6277,11 +6292,11 @@
 }
 
 .vg-checkout-steps-bar .step-item.active {
-  color: #ff5b00;
+  color: var(--vg-blue);
 }
 
 .vg-checkout-steps-bar .step-item.active .step-num {
-  background: #ff5b00;
+  background: var(--vg-blue);
   color: #ffffff;
 }
 
@@ -6342,8 +6357,8 @@
 }
 
 .vg-checkout-input:focus {
-  border-color: #ff5b00;
-  box-shadow: 0 0 0 3px rgba(255, 91, 0, 0.12);
+  border-color: var(--vg-blue);
+  box-shadow: 0 0 0 3px rgba(8, 120, 227, 0.12);
 }
 
 .vg-checkout-input::placeholder {
@@ -6473,7 +6488,7 @@ textarea.vg-checkout-input {
 }
 
 .vg-booking-summary-card .summary-header svg {
-  color: #ff5b00;
+  color: var(--vg-blue);
 }
 
 .vg-booking-summary-card .summary-tour-block {
@@ -6572,7 +6587,7 @@ textarea.vg-checkout-input {
 .vg-booking-summary-card .price-total-row .total-amount {
   font-size: 1.35rem;
   font-weight: 900;
-  color: #ff5b00;
+  color: var(--vg-blue);
 }
 
 /* Info Live Preview Blocks */

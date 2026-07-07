@@ -399,44 +399,6 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
 
           {/* Title */}
           <h1 className="vg-traveloka-title">{tour.title}</h1>
-
-          {/* Tags Pills Row */}
-          <div className="vg-title-tags-row">
-            {tour.category ? <span className="vg-title-tag-pill">{tour.category}</span> : null}
-            {tour.destination ? <span className="vg-title-tag-pill">{tour.destination}</span> : null}
-            {tour.duration ? <span className="vg-title-tag-pill">{tour.duration}</span> : null}
-            <span className="vg-title-tag-pill">{departures.length} lịch khởi hành đang mở</span>
-          </div>
-
-          {/* Ratings & Wishlist Row */}
-          <div className="vg-meta-row-traveloka">
-            <div className="vg-meta-left-traveloka">
-              {hasRating ? (
-                <>
-                  <span className="vg-rating-score-traveloka">★ {ratingAverage.toFixed(1)}/5</span>
-                  <a href="#reviews" className="vg-reviews-link-traveloka">({ratingCount} đánh giá)</a>
-                </>
-              ) : (
-                <span className="vg-reviews-link-traveloka">Chưa có đánh giá</span>
-              )}
-              <span className="meta-separator">•</span>
-              <span className="vg-booked-tag-traveloka">{bookingsCount} lượt đặt</span>
-              <span className="meta-separator">•</span>
-              <a href="#overview" className="vg-loc-link-traveloka">
-                <Icon name="mapPin" size={14} />
-                <span>{tour.destination}</span>
-              </a>
-            </div>
-
-            <button
-              className={`vg-wishlist-btn-traveloka ${isFavorite ? "is-active" : ""}`}
-              onClick={() => onFavorite(tour)}
-              aria-label="Thêm vào danh sách yêu thích"
-            >
-              <Icon name="heart" size={16} />
-              <span>{isFavorite ? "Đã lưu vào wishlist" : "Lưu vào wishlist"}</span>
-            </button>
-          </div>
         </div>
       </header>
 
@@ -475,42 +437,60 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
             )}
           </div>
 
-          {/* Highlights & Quick Price Card (2 columns) */}
-          <div className="vg-highlights-row-traveloka">
-            <div className="vg-highlights-card-traveloka">
-              <h3 style={{ fontSize: "1.15rem", fontWeight: "700", marginBottom: "12px", color: "#03121a" }}>
-                Điểm nhấn nổi bật của hành trình
-              </h3>
-              {tour.description ? (
-                <p className="vg-detail-summary-text">{tour.description}</p>
-              ) : tour.summary ? (
-                <p className="vg-detail-summary-text">{tour.summary}</p>
-              ) : (
-                <p className="vg-detail-summary-text">Tour này chưa cập nhật phần mô tả chi tiết.</p>
-              )}
-              <span className="see-more-link" onClick={scrollToOptions}>
-                Xem thêm tùy chọn gói &gt;
-              </span>
+                    {/* Post-Gallery Meta (Tags & Ratings) */}
+          <div className="vg-post-gallery-meta" style={{ marginTop: '24px', marginBottom: '32px' }}>
+            {/* Tags Pills Row */}
+            <div className="vg-title-tags-row">
+              {tour.category ? <span className="vg-title-tag-pill">{tour.category}</span> : null}
+              {tour.destination ? <span className="vg-title-tag-pill">{tour.destination}</span> : null}
+              {tour.duration ? <span className="vg-title-tag-pill">Thời lượng: {tour.duration}</span> : null}
+              <span className="vg-title-tag-pill">{departures.length} lịch khởi hành đang mở</span>
             </div>
 
-            <div className="vg-quick-action-card-traveloka">
-              <div className="vg-quick-price-box">
-                <span className="vg-quick-price-label">Giá tốt nhất từ trước đến nay</span>
-                <div className="vg-quick-price-value">
-                  {formatCurrency(displayBasePrice)}
-                  <span className="vg-quick-price-unit"> / khách</span>
-                </div>
+            {/* Ratings & Wishlist Row */}
+            <div className="vg-meta-row-traveloka" style={{ marginTop: '16px' }}>
+              <div className="vg-meta-left-traveloka">
+                {hasRating ? (
+                  <>
+                    <span className="vg-rating-score-traveloka">★ {ratingAverage.toFixed(1)}/5</span>
+                    <a href="#reviews" className="vg-reviews-link-traveloka">({ratingCount} đánh giá)</a>
+                  </>
+                ) : (
+                  <span className="vg-reviews-link-traveloka">Chưa có đánh giá</span>
+                )}
+                <span className="meta-separator">•</span>
+                <span className="vg-booked-tag-traveloka">{bookingsCount} lượt đặt</span>
+                <span className="meta-separator">•</span>
+                <a href="#overview" className="vg-loc-link-traveloka">
+                  <Icon name="mapPin" size={14} />
+                  <span>{tour.destination}</span>
+                </a>
               </div>
-              <button className="vg-btn-select-options" onClick={scrollToOptions}>
-                Chọn các tùy chọn gói
+
+              <button
+                className={`vg-wishlist-btn-traveloka ${isFavorite ? "is-active" : ""}`}
+                onClick={() => onFavorite(tour)}
+                aria-label="Thêm vào danh sách yêu thích"
+              >
+                <Icon name="heart" size={16} />
+                <span>{isFavorite ? "Đã lưu vào wishlist" : "Lưu vào wishlist"}</span>
               </button>
             </div>
           </div>
 
-          {/* Package Options Section Header */}
-          <h2 className="vg-package-options-section-title" ref={packageOptionsRef}>
-            {tour.title} Package Options
-          </h2>
+          {/* Tour Highlights Description */}
+          <div className="vg-tour-description-block" style={{ marginBottom: "32px", padding: "0 12px" }}>
+            <h3 style={{ fontSize: "1.2rem", fontWeight: "700", marginBottom: "12px", color: "#03121a" }}>
+              Điểm nhấn nổi bật của hành trình
+            </h3>
+            {tour.description ? (
+              <p className="vg-detail-summary-text" style={{ lineHeight: "1.6", color: "#333" }}>{tour.description}</p>
+            ) : tour.summary ? (
+              <p className="vg-detail-summary-text" style={{ lineHeight: "1.6", color: "#333" }}>{tour.summary}</p>
+            ) : (
+              <p className="vg-detail-summary-text" style={{ lineHeight: "1.6", color: "#333" }}>Tour này chưa cập nhật phần mô tả chi tiết.</p>
+            )}
+          </div>
 
           {/* Package Options Layout (2 columns) */}
           <div className="vg-package-options-layout-traveloka">
