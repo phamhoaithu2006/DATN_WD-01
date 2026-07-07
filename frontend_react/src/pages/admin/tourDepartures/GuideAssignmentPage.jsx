@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
-// import TourDepartureTabs from '../../../components/admin/tourDepartures/TourDepartureTable'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { tourDepartureApi } from '../../../services/tourDepartureApi'
 
 function unwrapList(response) {
@@ -7,6 +6,7 @@ function unwrapList(response) {
 
   if (Array.isArray(payload?.data)) return payload.data
   if (Array.isArray(payload?.data?.data)) return payload.data.data
+  if (Array.isArray(payload)) return payload
 
   return []
 }
@@ -18,13 +18,20 @@ function getError(error, fallback) {
     return Object.values(errors).flat().join(' ')
   }
 
+  if (error?.response?.status === 401) {
+    return 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.'
+  }
+
+  if (error?.response?.status === 403) {
+    return 'Bạn không có quyền thực hiện thao tác này.'
+  }
+
   return error?.response?.data?.message || fallback
 }
 
 function formatDate(value) {
   if (!value) return '—'
 
-  // Hỗ trợ cả "YYYY-MM-DD" lẫn "YYYY-MM-DDTHH:mm:ss..."
   const matchedDate = String(value).match(/^\d{4}-\d{2}-\d{2}/)
 
   if (!matchedDate) return '—'
@@ -60,10 +67,18 @@ function stateMeta(state) {
   }
 }
 
-export default function GuideAssignmentPage() {
-  const today = new Date().toISOString().slice(0, 10)
+function getTourId(item) {
+  return item?.tour_id || item?.tour?.id || item?.tourId || null
+}
 
-  const [from, setFrom] = useState(today)
+export function GuideAssignmentPanel({
+  selectedTourId = '',
+  focusedDepartureId = null,
+  onAssigned,
+  onClearFocus,
+  embedded = false,
+}) {
+  const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
@@ -94,9 +109,24 @@ export default function GuideAssignmentPage() {
     void fetchPlanning()
   }, [fetchPlanning])
 
+  const displayedRows = useMemo(() => {
+    return rows.filter((item) => {
+      if (focusedDepartureId) {
+        return String(item.id) === String(focusedDepartureId)
+      }
+
+      if (selectedTourId) {
+        return String(getTourId(item)) === String(selectedTourId)
+      }
+
+      return true
+    })
+  }, [rows, selectedTourId, focusedDepartureId])
+
   async function autoAssign(departureId) {
     try {
       setBusyId(departureId)
+      setMessage('')
       setError('')
 
       const response = await tourDepartureApi.autoAssignGuide(departureId)
@@ -106,6 +136,7 @@ export default function GuideAssignmentPage() {
       )
 
       await fetchPlanning()
+      await onAssigned?.()
     } catch (err) {
       setError(getError(err, 'Không thể tự động phân công HDV.'))
     } finally {
@@ -113,65 +144,83 @@ export default function GuideAssignmentPage() {
     }
   }
 
-  return (
-    <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Phân công HDV</h1>
+  const content = (
+    <div>
+      {!embedded ? (
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold text-slate-900">
+            Phân công HDV
+          </h2>
 
-        <p className="mt-1 text-gray-500">
-          Tự động chọn HDV đúng khu vực và còn thời gian nghỉ giữa các tour.
-        </p>
-      </div>
+          <p className="mt-1 text-slate-500">
+            Tự động chọn HDV đúng khu vực và còn thời gian nghỉ giữa các tour.
+          </p>
+        </div>
+      ) : null}
 
-      {/* <TourDepartureTabs /> */}
+      {focusedDepartureId ? (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-sky-50 p-3 text-sm text-sky-700">
+          <span>
+            Đang xem phân công của một lịch khởi hành được chọn.
+          </span>
+
+          <button
+            type="button"
+            onClick={onClearFocus}
+            className="rounded bg-white px-3 py-1.5 font-medium text-sky-700 ring-1 ring-sky-200"
+          >
+            Xem tất cả
+          </button>
+        </div>
+      ) : null}
 
       {message ? (
-        <div className="mb-4 rounded bg-emerald-50 p-3 text-emerald-700">
+        <div className="mb-4 rounded-lg bg-emerald-50 p-3 text-emerald-700">
           {message}
         </div>
       ) : null}
 
       {error ? (
-        <div className="mb-4 rounded bg-red-50 p-3 text-red-700">
+        <div className="mb-4 rounded-lg bg-red-50 p-3 text-red-700">
           {error}
         </div>
       ) : null}
 
-      <div className="mb-5 flex flex-wrap items-end gap-3 rounded-lg bg-white p-4 shadow">
-        <label className="text-sm">
+      <div className="mb-5 flex flex-wrap items-end gap-3 rounded-lg bg-slate-50 p-4">
+        <label className="text-sm font-medium text-slate-700">
           Từ ngày
 
           <input
-            className="mt-1 block rounded border px-3 py-2"
             type="date"
             value={from}
             onChange={(e) => setFrom(e.target.value)}
+            className="mt-1 block rounded border border-slate-300 bg-white px-3 py-2 font-normal"
           />
         </label>
 
-        <label className="text-sm">
+        <label className="text-sm font-medium text-slate-700">
           Đến ngày
 
           <input
-            className="mt-1 block rounded border px-3 py-2"
             type="date"
             value={to}
             onChange={(e) => setTo(e.target.value)}
+            className="mt-1 block rounded border border-slate-300 bg-white px-3 py-2 font-normal"
           />
         </label>
 
         <button
-          className="rounded bg-blue-600 px-4 py-2 text-white"
           type="button"
           onClick={fetchPlanning}
+          className="rounded bg-blue-600 px-4 py-2 text-white transition hover:bg-blue-700"
         >
           Lọc lịch
         </button>
       </div>
 
-      <div className="overflow-x-auto rounded-lg bg-white shadow">
+      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
         <table className="min-w-full text-sm">
-          <thead className="bg-gray-50 text-left text-gray-600">
+          <thead className="bg-slate-50 text-left text-slate-600">
             <tr>
               <th className="p-3">Tour / lịch khởi hành</th>
               <th className="p-3">Điểm đến</th>
@@ -184,35 +233,33 @@ export default function GuideAssignmentPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td
-                  className="p-6 text-center text-gray-500"
-                  colSpan="5"
-                >
+                <td colSpan="5" className="p-6 text-center text-slate-500">
                   Đang tải...
                 </td>
               </tr>
-            ) : rows.length === 0 ? (
+            ) : displayedRows.length === 0 ? (
               <tr>
-                <td
-                  className="p-6 text-center text-gray-500"
-                  colSpan="5"
-                >
+                <td colSpan="5" className="p-6 text-center text-slate-500">
                   Không có lịch trong khoảng đã chọn.
                 </td>
               </tr>
             ) : (
-              rows.map((item) => {
+              displayedRows.map((item) => {
                 const meta = stateMeta(item.assignment_state)
-                const guides = item.assigned_guides || []
+
+                const guides =
+                  item.assigned_guides ||
+                  item.guide_assignments ||
+                  []
 
                 return (
                   <tr key={item.id} className="border-t">
                     <td className="p-3">
                       <strong className="block">
-                        {item.tour_title || `Tour #${item.tour_id}`}
+                        {item.tour_title || `Tour #${getTourId(item)}`}
                       </strong>
 
-                      <span className="text-gray-500">
+                      <span className="text-slate-500">
                         {formatDate(item.departure_date)} –{' '}
                         {formatDate(
                           item.return_date || item.departure_date
@@ -232,6 +279,9 @@ export default function GuideAssignmentPage() {
                             .map(
                               (assignment) =>
                                 assignment.guide?.user?.full_name ||
+                                assignment.guide?.user?.name ||
+                                assignment.user?.full_name ||
+                                assignment.user?.name ||
                                 `HDV #${assignment.guide_id}`
                             )
                             .join(', ')
@@ -249,10 +299,10 @@ export default function GuideAssignmentPage() {
                     <td className="p-3">
                       {item.assignment_state === 'available' ? (
                         <button
-                          className="rounded bg-blue-600 px-3 py-2 text-white disabled:opacity-50"
                           type="button"
                           disabled={busyId === item.id}
                           onClick={() => autoAssign(item.id)}
+                          className="rounded bg-blue-600 px-3 py-2 text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {busyId === item.id
                             ? 'Đang phân...'
@@ -277,4 +327,16 @@ export default function GuideAssignmentPage() {
       </div>
     </div>
   )
+
+  if (embedded) {
+    return content
+  }
+
+  return (
+    <section className="rounded-xl border border-slate-200 bg-slate-50 p-6">
+      {content}
+    </section>
+  )
 }
+
+export default GuideAssignmentPanel
