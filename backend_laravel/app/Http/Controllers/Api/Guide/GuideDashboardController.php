@@ -13,11 +13,11 @@ use Illuminate\Support\Facades\DB;
 
 class GuideDashboardController extends Controller
 {
-    private function getGuide(Request $request): Guide
+    private function getGuide(Request $request): ?Guide
     {
         return Guide::with(['user:id,role_id,full_name,email,phone,avatar_url,status'])
             ->where('user_id', $request->user()->id)
-            ->firstOrFail();
+            ->first();
     }
 
     private function departureBaseQuery(Guide $guide)
@@ -30,11 +30,12 @@ class GuideDashboardController extends Controller
                 'tour:id,title,slug,summary,duration_days,duration_nights,base_price,discount_price,average_rating,review_count,destination_id,category_id',
                 'tour.destination:id,name,province_city',
                 'tour.category:id,name,slug',
+                'tour.thumbnail:id,tour_id,image_url,alt_text,is_thumbnail',
             ])
             ->addSelect([
                 'tour_departures.*',
                 'tga.status as assignment_status',
-                'tga.note as assignment_note',
+                DB::raw('COALESCE(tga.notes, tga.note) as assignment_note'),
             ]);
     }
 
@@ -101,6 +102,8 @@ class GuideDashboardController extends Controller
                     'name' => $tour->category->name,
                     'slug' => $tour->category->slug,
                 ] : null,
+                'thumbnail_url' => $tour->thumbnail?->image_url,
+                'thumbnail_alt' => $tour->thumbnail?->alt_text,
             ] : null,
         ];
     }
@@ -308,6 +311,69 @@ class GuideDashboardController extends Controller
     public function show(Request $request): JsonResponse
     {
         $guide = $this->getGuide($request);
+        if (!$guide) {
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Tài khoản chưa có hồ sơ hướng dẫn viên hoặc chưa được phân công tour.',
+                'data' => [
+                    'guide' => [
+                        'id' => null,
+                        'guide_code' => null,
+                        'experience_years' => 0,
+                        'average_rating' => 0,
+                        'review_count' => 0,
+                        'status' => null,
+                        'user' => $request->user(),
+                        'avatar_url' => $request->user()?->avatar_url,
+                    ],
+                    'summary' => [
+                        'period' => [
+                            'month' => [
+                                'label' => 'Tháng ' . Carbon::now()->month . '/' . Carbon::now()->year,
+                                'tour_count' => 0,
+                                'customer_count' => 0,
+                            ],
+                            'year' => [
+                                'label' => 'Năm ' . Carbon::now()->year,
+                                'tour_count' => 0,
+                                'customer_count' => 0,
+                            ],
+                        ],
+                        'tour_count_total' => 0,
+                        'upcoming_count' => 0,
+                        'ongoing_count' => 0,
+                        'today_count' => 0,
+                        'rating' => [
+                            'average' => 0,
+                            'review_count' => 0,
+                        ],
+                        'income' => [
+                            'year' => Carbon::now()->year,
+                            'month' => Carbon::now()->month,
+                            'current_month_revenue' => 0,
+                            'current_year_revenue' => 0,
+                        ],
+                        'notifications_count' => 0,
+                    ],
+                    'today_schedule' => [],
+                    'upcoming_tours' => [],
+                    'ongoing_tours' => [],
+                    'assigned_tours' => [],
+                    'income_rows' => [],
+                    'tour_overview' => [
+                        'total' => 0,
+                        'active' => 0,
+                        'completed' => 0,
+                        'ongoing' => 0,
+                        'upcoming' => 0,
+                        'cancelled' => 0,
+                        'segments' => [],
+                    ],
+                    'recent_reviews' => [],
+                ],
+            ]);
+        }
+
         $now = Carbon::now();
         $today = $now->toDateString();
         $month = $now->month;
