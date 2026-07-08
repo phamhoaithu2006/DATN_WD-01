@@ -7,13 +7,27 @@ use App\Models\Guide;
 use App\Models\TourDeparture;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class GuideTourController extends Controller
 {
-    private function getGuide(Request $request): Guide
+    private function getGuide(Request $request): ?Guide
     {
         return Guide::where('user_id', $request->user()->id)
-            ->firstOrFail();
+            ->first();
+    }
+
+    private function emptyPaginator(Request $request): array
+    {
+        $perPage = min($request->integer('per_page', 10), 50);
+
+        return [
+            'data' => [],
+            'current_page' => 1,
+            'last_page' => 1,
+            'per_page' => $perPage,
+            'total' => 0,
+        ];
     }
 
     private function baseQuery(Guide $guide)
@@ -26,11 +40,12 @@ class GuideTourController extends Controller
                 'tour:id,title,slug,summary,duration_days,duration_nights,base_price,discount_price,average_rating,review_count,destination_id,category_id',
                 'tour.destination:id,name,province_city',
                 'tour.category:id,name,slug',
+                'tour.thumbnail:id,tour_id,image_url,alt_text,is_thumbnail',
             ])
             ->addSelect([
                 'tour_departures.*',
                 'tga.status as assignment_status',
-                'tga.note as assignment_note',
+                DB::raw('COALESCE(tga.notes, tga.note) as assignment_note'),
             ]);
     }
 
@@ -63,6 +78,13 @@ class GuideTourController extends Controller
     public function index(Request $request)
     {
         $guide = $this->getGuide($request);
+        if (!$guide) {
+            return response()->json([
+                'message' => 'Tài khoản chưa có hồ sơ hướng dẫn viên hoặc chưa được phân công tour.',
+                'data' => $this->emptyPaginator($request),
+            ]);
+        }
+
         $query = $this->applyFilters($this->baseQuery($guide), $request);
         $query->orderBy('tour_departures.departure_date', 'asc');
 
@@ -76,6 +98,13 @@ class GuideTourController extends Controller
     public function upcoming(Request $request)
     {
         $guide = $this->getGuide($request);
+        if (!$guide) {
+            return response()->json([
+                'message' => 'Tài khoản chưa có hồ sơ hướng dẫn viên hoặc chưa được phân công tour.',
+                'data' => $this->emptyPaginator($request),
+            ]);
+        }
+
         $today = Carbon::today()->toDateString();
 
         $query = $this->baseQuery($guide)
@@ -93,6 +122,13 @@ class GuideTourController extends Controller
     public function ongoing(Request $request)
     {
         $guide = $this->getGuide($request);
+        if (!$guide) {
+            return response()->json([
+                'message' => 'Tài khoản chưa có hồ sơ hướng dẫn viên hoặc chưa được phân công tour.',
+                'data' => $this->emptyPaginator($request),
+            ]);
+        }
+
         $today = Carbon::today()->toDateString();
 
         $query = $this->baseQuery($guide)
@@ -114,6 +150,13 @@ class GuideTourController extends Controller
     public function completed(Request $request)
     {
         $guide = $this->getGuide($request);
+        if (!$guide) {
+            return response()->json([
+                'message' => 'Tài khoản chưa có hồ sơ hướng dẫn viên hoặc chưa được phân công tour.',
+                'data' => $this->emptyPaginator($request),
+            ]);
+        }
+
         $today = Carbon::today()->toDateString();
 
         $query = $this->baseQuery($guide)
@@ -137,6 +180,12 @@ class GuideTourController extends Controller
     public function show(Request $request, int $departureId)
     {
         $guide = $this->getGuide($request);
+        if (!$guide) {
+            return response()->json([
+                'message' => 'Tài khoản chưa có hồ sơ hướng dẫn viên hoặc chưa được phân công tour.',
+                'data' => null,
+            ]);
+        }
 
         $departure = TourDeparture::query()
             ->join('tour_guide_assignments as tga', 'tga.tour_departure_id', '=', 'tour_departures.id')
@@ -144,8 +193,10 @@ class GuideTourController extends Controller
             ->where('tga.status', '!=', 'cancelled')
             ->where('tour_departures.id', $departureId)
             ->with([
+                'tour:id,title,slug,summary,duration_days,duration_nights,base_price,discount_price,average_rating,review_count,destination_id,category_id',
                 'tour.category:id,name,slug',
                 'tour.destination:id,name,slug,province_city,country,description',
+                'tour.thumbnail:id,tour_id,image_url,alt_text,is_thumbnail',
                 'tour.itineraries' => fn($it) => $it
                     ->orderBy('day_number')
                     ->orderBy('sort_order'),
@@ -153,7 +204,7 @@ class GuideTourController extends Controller
             ->addSelect([
                 'tour_departures.*',
                 'tga.status as assignment_status',
-                'tga.note as assignment_note',
+                DB::raw('COALESCE(tga.notes, tga.note) as assignment_note'),
             ])
             ->firstOrFail();
 

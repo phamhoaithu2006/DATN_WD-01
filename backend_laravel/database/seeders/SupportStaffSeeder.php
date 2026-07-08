@@ -52,15 +52,20 @@ class SupportStaffSeeder extends Seeder
                 [
                     'name' => $user->full_name,
                     'email' => $user->email,
+
                     'role' => $profile['role'] ?? 'customer_service',
+                  
+                    'specialization' => 'noi_dia',
+                    'experience_years' => 0,
+                  
                     'status' => $status,
                     'performance_rating' => $profile['performance_rating'] ?? 5,
                     'hidden_at' => $status === 'hidden' ? $now : null,
 
                     
-                    'specialization' => 'noi_dia',
-                    'experience_years' => 0,
+                   
                     
+
                 ],
             );
         }

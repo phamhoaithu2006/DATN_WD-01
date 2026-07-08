@@ -34,6 +34,7 @@ import CustomerPage from '../pages/customer/CustomerPage'
 import GuideDashboardPage from '../pages/guide/GuideDashboardPage'
 import GuideNotificationsPage from '../pages/guide/GuideNotificationsPage'
 import GuideProfilePage from '../pages/guide/GuideProfilePage'
+import GuideToursPage from '../pages/guide/GuideToursPage'
 import ReportStatisticsPage from '../pages/admin/reportStatistics/ReportStatisticsPage'
 import TourDepartureListPage from "../pages/admin/tourDepartures/TourDepartureListPage";
 import TourDepartureCreatePage from "../pages/admin/tourDepartures/TourDepartureCreatePage";
@@ -72,7 +73,7 @@ function AppRoutes() {
     <Route path="/customer/settings" element={<CustomerPage />} />
     {/* Trang hướng dẫn viên */}
     <Route path="/guide" element={guidePage(<GuideDashboardPage />)} />
-    <Route path="/guide/tours" element={guidePage(<GuideComingSoonPage title="Tour của tôi" />)} />
+    <Route path="/guide/tours" element={guidePage(<GuideToursPage />)} />
     <Route path="/guide/schedule" element={guidePage(<GuideComingSoonPage title="Lịch làm việc" />)} />
     <Route path="/guide/history" element={guidePage(<GuideComingSoonPage title="Lịch sử Tour" />)} />
     <Route path="/guide/reviews" element={guidePage(<GuideComingSoonPage title="Đánh giá" />)} />

@@ -137,11 +137,17 @@ function statusLabel(item) {
 function TourRow({ item }) {
   const tour = item?.tour || {}
   const destination = tour.destination?.name || tour.destination?.province_city || 'Chưa có điểm đến'
+  const thumbnail = tour.thumbnail_url || tour.thumbnail?.image_url || tour.image_url
+  const thumbnailAlt = tour.thumbnail_alt || tour.thumbnail?.alt_text || tour.title || 'Ảnh tour'
 
   return (
     <article className="guide-tour-row">
       <div className="guide-tour-row-thumb" aria-hidden="true">
-        {tour.title ? initials(tour.title) : 'TG'}
+        {thumbnail ? (
+          <img src={thumbnail} alt={thumbnailAlt} />
+        ) : (
+          tour.title ? initials(tour.title) : 'TG'
+        )}
       </div>
       <div className="guide-tour-row-main">
         <div className="guide-tour-row-head">
@@ -344,11 +350,14 @@ function ReviewsCard({ guide, summary, reviews }) {
   )
 }
 
-function IncomeTable({ rows }) {
+function IncomeTable({ rows, summary }) {
+  const incomeYear = summary?.income?.year || new Date().getFullYear()
+  const incomeMonth = summary?.income?.month || new Date().getMonth() + 1
+
   return (
     <section className="guide-card guide-income-card">
       <div className="guide-card-header">
-        <SectionHeader title="Thống kê thu nhập" description="6 tháng đầu năm" />
+        <SectionHeader title="Thống kê thu nhập" description={`Năm ${incomeYear} · Tháng ${incomeMonth}`} />
       </div>
       <div className="guide-card-body guide-income-body">
         <table className="guide-income-table">
@@ -590,7 +599,7 @@ function GuideDashboardPage() {
                 />
               </div>
               <div className="guide-card-body">
-                <div className="guide-tour-list">
+          <div className="guide-tour-list">
                   {upcomingTours.length ? upcomingTours.slice(0, 3).map((item) => (
                     <TourRow key={item.id} item={item} />
                   )) : (
@@ -618,7 +627,7 @@ function GuideDashboardPage() {
             <ReviewsCard guide={guide} summary={summary} reviews={recentReviews} />
           </div>
 
-          <IncomeTable rows={incomeRows} />
+          <IncomeTable rows={incomeRows} summary={summary} />
         </>
       ) : null}
     </section>
