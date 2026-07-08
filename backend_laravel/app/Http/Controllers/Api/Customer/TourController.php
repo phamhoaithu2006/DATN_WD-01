@@ -5,110 +5,335 @@ namespace App\Http\Controllers\Api\Customer;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\TourResource;
 use App\Models\Tour;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
-
 
 class TourController extends Controller
 {
-//==============================================================BÊN GIAO DIỆN KHÁCH HÀNG==========================================================================
     /**
-     * Lấy danh sách tour cho khách hàng.
-     * Sử dụng phân trang và eager loading để tối ưu hiệu năng.
+     * Danh sách tour cho giao diện khách hàng.
+     * Có thể dùng trực tiếp endpoint này để search/filter luôn.
      */
     public function index_gdkh(Request $request)
     {
-        $tours = Tour::query()
-            ->where('status', 'published')       // Lọc dữ liệu: Chỉ lấy các tour đã xuất bản
-            ->with(['category', 'destination', 'itineraries.images'])  // Eager Loading: Load sẵn dữ liệu liên quan để tránh N+1 Query
-            ->orderBy('id', 'desc')              // Sắp xếp: Tour mới nhất lên đầu
-            ->paginate(12);                      // Phân trang: Giới hạn 12 kết quả mỗi lần gọi, tránh quá tải server/client
-
-        // Chuyển đổi collection dữ liệu sang định dạng JSON đã định nghĩa trong Resource
-        return TourResource::collection($tours);
+        return $this->getCustomerTourList($request);
     }
 
     /**
-     * Xem chi tiết một tour.
-     * Tìm kiếm theo slug thay vì ID để SEO thân thiện hơn.
+     * Giữ lại endpoint search cũ để Frontend không bị lỗi.
      */
-    public function show_gdkh($slug)
+    public function search_gdkh(Request $request)
     {
-        // Tìm kiếm tour theo slug và điều kiện xuất bản
-        $tour = Tour::where('slug', $slug)
-            ->where('status', 'published')
-            ->with(['category', 'destination', 'itineraries.images']) // Load kèm dữ liệu để Resource sử dụng
-            ->firstOrFail();                    // Nếu không tìm thấy, tự động bắn lỗi 404
+        return $this->getCustomerTourList($request);
+    }
 
-        // Trả về dạng object đơn lẻ
+    /**
+     * Giữ lại endpoint filter cũ để Frontend không bị lỗi.
+     */
+    public function filter_gdkh(Request $request)
+    {
+        return $this->getCustomerTourList($request);
+    }
+
+    /**
+     * Chi tiết tour theo slug.
+     */
+    public function show_gdkh(string $slug)
+    {
+        $tour = $this->customerTourQuery([])
+            ->where('tours.slug', $slug)
+            ->withCount([
+                'bookings as bookings_count' => function ($query) {
+                    $query->where('status', '!=', 'cancelled');
+                },
+            ])
+            ->firstOrFail();
+
         return new TourResource($tour);
     }
 
     /**
-     * Tìm kiếm tour theo yêu cầu từ client.
-     * Sử dụng Query Builder linh hoạt để xây dựng câu truy vấn theo điều kiện.
+     * Hàm dùng chung cho index, search và filter.
      */
-    public function search_gdkh(Request $request)
+    private function getCustomerTourList(Request $request)
     {
-        // Khởi tạo query với các điều kiện bắt buộc (status, quan hệ liên quan)
-        $query = Tour::query()
-            ->where('status', 'published') 
-            ->with(['category', 'destination', 'itineraries.images']);
+        $filters = $this->validateFilters($request);
 
-        // 1. Tìm kiếm theo tên (Từ khóa)
-        // Dùng 'when' để chỉ thêm điều kiện vào query nếu người dùng có nhập 'keyword'
-        $query->when($request->filled('keyword'), function ($q) use ($request) {
-            $q->where('title', 'LIKE', '%' . $request->keyword . '%');
-        });
+        $query = $this->customerTourQuery($filters);
 
-        // 2. Tìm kiếm theo điểm đến (destination_id)
-        $query->when($request->filled('destination_id'), function ($q) use ($request) {
-            $q->where('destination_id', $request->destination_id);
-        });
+        $this->applyTourFilters($query, $filters);
 
-        // 3. Tìm kiếm theo ngày khởi hành (start_date)
-        // whereDate giúp lấy chính xác ngày bất chấp giờ/phút/giây trong DB
-        $query->when($request->filled('start_date'), function ($q) use ($request) {
-            $q->whereDate('start_date', $request->start_date);
-        });
+        /*
+         * Khi có lọc ngày, số khách hoặc giá:
+         * phải đảm bảo TẤT CẢ điều kiện cùng khớp trên một tour_departure.
+         */
+        if ($this->hasDepartureFilters($filters)) {
+            $query->whereHas('departures', function ($departureQuery) use ($filters) {
+                $this->applyDepartureConditions($departureQuery, $filters);
+            });
+        }
 
-        // 4. Tìm kiếm theo số khách yêu cầu (available_slots)
-        // Kiểm tra xem số chỗ còn trống có đủ cho số lượng khách không
-        $query->when($request->filled('guests'), function ($q) use ($request) {
-            $q->where('available_slots', '>=', $request->guests);
-        });
+        $this->applySort($query, $filters['sort']);
 
-        // Thực thi query với phân trang để tối ưu bộ nhớ
-        $tours = $query->orderBy('id', 'desc')->paginate(12);
+        $tours = $query
+            ->paginate($filters['per_page'])
+            ->withQueryString();
 
         return TourResource::collection($tours);
     }
 
-    /**
-     * Lọc danh sách Tour dựa trên các tiêu chí cụ thể.
-     * Phù hợp cho tính năng Sidebar Filter trên giao diện người dùng.
-     */
-    public function filter_gdkh(Request $request)
+    private function applyVisibleDepartures($query)
     {
-        // Khởi tạo truy vấn với điều kiện cơ bản
-        $query = Tour::query()
-            ->where('status', 'published')
-            ->with(['category', 'destination', 'itineraries.images']);
+        return $query
+            ->where('status', 'open')
+            ->whereDate('departure_date', '>=', today());
+    }
 
-        // 1. Lọc theo danh mục (category_id)
-        $query->when($request->category_id, fn($q, $id) => $q->where('category_id', $id));
+    /**
+     * Query cơ bản dành cho khách hàng.
+     */
+    private function customerTourQuery(array $filters): Builder
+    {
+        return Tour::query()
+            ->select('tours.*')
+            ->where('tours.status', 'published')
+            ->selectSub(function ($query) use ($filters) {
+                $query->from('tour_departures')
+                    ->selectRaw('MIN(' . $this->departureSalePriceExpression() . ')')
+                    ->whereColumn('tour_departures.tour_id', 'tours.id');
 
-        // 2. Lọc theo khoảng giá (min_price đến max_price)
-        // Kết hợp cả hai để tạo khoảng lọc giá trị
-        $query->when($request->min_price, fn($q, $min) => $q->where('base_price', '>=', $min));
-        $query->when($request->max_price, fn($q, $max) => $q->where('base_price', '<=', $max));
+                $this->applyDepartureConditions($query, $filters, false);
+            }, 'min_departure_price')
+            ->with([
+                'category',
+                'destination',
+                'destinations',
+                'thumbnail',
+                'images',
+                'itineraries.images',
 
-        // 3. Lọc theo số ngày cố định
-        $query->when($request->duration_days, fn($q, $days) => $q->where('duration_days', $days));
+                'agePricingRules' => function ($query) {
+                    $query->where('is_active', true)
+                        ->orderBy('sort_order');
+                },
 
-        // // 4. Lọc theo số chỗ còn trống tối thiểu
-        // $query->when($request->min_slots, fn($q, $slots) => $q->where('available_slots', '>=', $slots));
+                'departures' => function ($query) {
+                    $this->applyVisibleDepartures($query);
 
-        // Trả về kết quả đã phân trang thông qua Resource
-        return TourResource::collection($query->paginate(12));
+                    $query->select([
+                        'id',
+                        'tour_id',
+                        'departure_date',
+                        'return_date',
+                        'price',
+                        'base_price',
+                        'discount_price',
+                        'total_slots',
+                        'booked_slots',
+                        'status',
+                        'current_stage_id',
+                    ])
+                        ->selectRaw('(total_slots - booked_slots) as available_slots')
+                        ->orderBy('departure_date');
+                },
+            ])
+
+            // Giá thấp nhất của các lịch khởi hành còn mở.
+            ->withMin([
+                'departures as legacy_min_departure_price' => function ($query) use ($filters) {
+                    $this->applyDepartureConditions($query, $filters);
+                },
+            ], 'price')
+
+            // Ngày khởi hành gần nhất.
+            ->withMin([
+                'departures as next_departure_date' => function ($query) use ($filters) {
+                    $this->applyDepartureConditions($query, $filters);
+                },
+            ], 'departure_date')
+
+            // Số lịch khởi hành còn có thể đặt.
+            ->withCount([
+                'departures as available_departures_count' => function ($query) use ($filters) {
+                    $this->applyDepartureConditions($query, $filters);
+                },
+            ]);
+    }
+
+    /**
+     * Điều kiện chung của một lịch khởi hành được phép hiển thị/đặt.
+     */
+
+    private function applyDepartureConditions($query, array $filters, bool $includePriceFilters = true)
+    {
+        $this->applyVisibleDepartures($query);
+
+        if (!empty($filters['departure_date'])) {
+            $query->whereDate('departure_date', $filters['departure_date']);
+        }
+
+        if (!empty($filters['guests'])) {
+            $query->whereRaw(
+                '(COALESCE(total_slots, 0) - COALESCE(booked_slots, 0)) >= ?',
+                [$filters['guests']]
+            );
+        }
+
+        if ($includePriceFilters && ($filters['min_price'] ?? null) !== null) {
+            $query->whereRaw($this->departureSalePriceExpression() . ' >= ?', [$filters['min_price']]);
+        }
+
+        if ($includePriceFilters && ($filters['max_price'] ?? null) !== null) {
+            $query->whereRaw($this->departureSalePriceExpression() . ' <= ?', [$filters['max_price']]);
+        }
+
+        return $query;
+    }
+
+    private function departureSalePriceExpression(): string
+    {
+        return 'CASE
+            WHEN tour_departures.base_price IS NOT NULL
+                THEN COALESCE(tour_departures.discount_price, tour_departures.base_price)
+            WHEN tour_departures.price IS NOT NULL
+                THEN tour_departures.price
+            ELSE COALESCE(tours.discount_price, tours.base_price)
+        END';
+    }
+
+    /**
+     * Lọc các thông tin nằm trong bảng tours.
+     */
+    private function applyTourFilters(Builder $query, array $filters): void
+    {
+        if (!empty($filters['keyword'])) {
+            $keyword = '%' . $filters['keyword'] . '%';
+
+            $query->where(function (Builder $subQuery) use ($keyword) {
+                $subQuery
+                    ->where('tours.title', 'like', $keyword)
+                    ->orWhere('tours.summary', 'like', $keyword)
+                    ->orWhere('tours.description', 'like', $keyword)
+                    ->orWhereHas('category', function (Builder $categoryQuery) use ($keyword) {
+                        $categoryQuery->where('name', 'like', $keyword);
+                    })
+                    ->orWhereHas('destination', function (Builder $destinationQuery) use ($keyword) {
+                        $destinationQuery->where('name', 'like', $keyword);
+                    })
+                    ->orWhereHas('destinations', function (Builder $destinationQuery) use ($keyword) {
+                        $destinationQuery->where('name', 'like', $keyword);
+                    });
+            });
+        }
+
+        if (!empty($filters['category_id'])) {
+            $query->where('tours.category_id', $filters['category_id']);
+        }
+
+        /*
+         * Hỗ trợ cả destination_id cũ trong bảng tours
+         * và bảng tour_destinations mới.
+         */
+        if (!empty($filters['destination_id'])) {
+            $destinationId = $filters['destination_id'];
+
+            $query->where(function (Builder $subQuery) use ($destinationId) {
+                $subQuery
+                    ->where('tours.destination_id', $destinationId)
+                    ->orWhereHas('destinations', function (Builder $destinationQuery) use ($destinationId) {
+                        $destinationQuery->whereKey($destinationId);
+                    });
+            });
+        }
+
+        if (!empty($filters['duration_days'])) {
+            $query->where('tours.duration_days', $filters['duration_days']);
+        }
+    }
+
+    private function hasDepartureFilters(array $filters): bool
+    {
+        return !empty($filters['departure_date'])
+            || !empty($filters['guests'])
+            || $filters['min_price'] !== null
+            || $filters['max_price'] !== null;
+    }
+
+    private function applySort(Builder $query, string $sort): void
+    {
+        switch ($sort) {
+            case 'price_asc':
+                $query->orderByRaw('min_departure_price IS NULL, min_departure_price ASC');
+                break;
+
+            case 'price_desc':
+                $query->orderByRaw('min_departure_price IS NULL, min_departure_price DESC');
+                break;
+
+            case 'departure_soon':
+                $query->orderByRaw('next_departure_date IS NULL, next_departure_date ASC');
+                break;
+
+            case 'rating_desc':
+                $query->orderByDesc('tours.average_rating')
+                    ->orderByDesc('tours.review_count');
+                break;
+
+            case 'duration_asc':
+                $query->orderBy('tours.duration_days');
+                break;
+
+            case 'duration_desc':
+                $query->orderByDesc('tours.duration_days');
+                break;
+
+            default:
+                $query->orderByDesc('tours.id');
+                break;
+        }
+    }
+
+    private function validateFilters(Request $request): array
+    {
+        $data = $request->validate([
+            'keyword' => ['nullable', 'string', 'max:255'],
+            'category_id' => ['nullable', 'integer', 'min:1'],
+            'destination_id' => ['nullable', 'integer', 'min:1'],
+
+            // API mới nên dùng departure_date.
+            // start_date giữ lại để Frontend cũ vẫn chạy.
+            'departure_date' => ['nullable', 'date'],
+            'start_date' => ['nullable', 'date'],
+
+            'guests' => ['nullable', 'integer', 'min:1'],
+            'min_slots' => ['nullable', 'integer', 'min:1'],
+
+            'min_price' => ['nullable', 'numeric', 'min:0'],
+            'max_price' => ['nullable', 'numeric', 'min:0'],
+
+            'duration_days' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:50'],
+
+            'sort' => [
+                'nullable',
+                'in:latest,price_asc,price_desc,departure_soon,rating_desc,duration_asc,duration_desc',
+            ],
+        ]);
+
+        return [
+            'keyword' => isset($data['keyword']) ? trim($data['keyword']) : null,
+            'category_id' => $data['category_id'] ?? null,
+            'destination_id' => $data['destination_id'] ?? null,
+
+            'departure_date' => $data['departure_date'] ?? $data['start_date'] ?? null,
+            'guests' => $data['guests'] ?? $data['min_slots'] ?? null,
+
+            'min_price' => $data['min_price'] ?? null,
+            'max_price' => $data['max_price'] ?? null,
+
+            'duration_days' => $data['duration_days'] ?? null,
+            'per_page' => (int) ($data['per_page'] ?? 12),
+            'sort' => $data['sort'] ?? 'latest',
+        ];
     }
 }

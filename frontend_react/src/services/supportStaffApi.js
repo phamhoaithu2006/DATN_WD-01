@@ -17,6 +17,15 @@ export const createSupportStaff = async (payload) =>
 export const updateSupportStaff = async (id, payload) =>
   (await apiClient.put(`${SUPPORT_STAFF_ENDPOINT}/${id}`, payload)).data
 
+export const uploadSupportStaffAvatar = async (id, file) => {
+  const formData = new FormData()
+  formData.append('avatar', file)
+  return (await apiClient.post(`${SUPPORT_STAFF_ENDPOINT}/${id}/avatar`, formData)).data
+}
+
+export const deleteSupportStaffAvatar = async (id) =>
+  (await apiClient.delete(`${SUPPORT_STAFF_ENDPOINT}/${id}/avatar`)).data
+
 export const deleteSupportStaff = async (id) =>
   (await apiClient.delete(`${SUPPORT_STAFF_ENDPOINT}/${id}`)).data
 

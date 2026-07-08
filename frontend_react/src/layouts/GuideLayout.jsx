@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import GuideNotificationBell from '../components/guide/GuideNotificationBell'
 import GuideSidebar from '../components/guide/GuideSidebar'
 import { logout as logoutApi } from '../services/authApi'
 import { clearSession, readSession } from '../services/authStorage'
@@ -55,7 +56,7 @@ function GuideLayout({ children }) {
               </svg>
             </button>
             <div className="guide-topbar-title">
-              <span>Bảng điều khiển HDV</span>
+              <span>Trang chủ</span>
               <strong>Chào mừng trở lại, {guide?.full_name || guide?.name || 'Hướng dẫn viên'}</strong>
             </div>
           </div>
@@ -66,20 +67,25 @@ function GuideLayout({ children }) {
                 <circle cx="11" cy="11" r="8" />
                 <line x1="21" y1="21" x2="16.65" y2="16.65" />
               </svg>
-              <input type="text" placeholder="Tìm kiếm nhanh tour, lịch trình..." />
+              <input type="text" placeholder="Tìm kiếm tour, khách hàng..." />
             </div>
 
-            <div className="guide-topbar-notif">
-              <button type="button" className="notif-btn" title="Thông báo">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                  <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-                </svg>
-                <span className="notif-badge">3</span>
-              </button>
-            </div>
+            <GuideNotificationBell />
 
-            <div className="guide-topbar-user">
+            <div
+              className="guide-topbar-user"
+              role="button"
+              tabIndex={0}
+              title="Hồ sơ cá nhân"
+              aria-label="Mở hồ sơ cá nhân hướng dẫn viên"
+              onClick={() => navigate('/guide/profile')}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault()
+                  navigate('/guide/profile')
+                }
+              }}
+            >
               <span className="guide-topbar-avatar">
                 {getInitials(guide?.full_name || guide?.name || 'Hướng dẫn viên')}
               </span>

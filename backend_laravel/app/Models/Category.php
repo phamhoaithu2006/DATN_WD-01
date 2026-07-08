@@ -14,6 +14,8 @@ class Category extends Model
         'name',
         'slug',
         'description',
+        'thumbnail_url',
+        'thumbnail_alt_text',
         'status',
     ];
 

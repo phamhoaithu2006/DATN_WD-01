@@ -1,33 +1,75 @@
 import { Link, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Icon from "../../components/customer/Icon";
 import TourCard from "../../components/customer/TourCard";
 import { demoDestinations } from "../../data/customerDemoData";
 
 function HomePage({
-  tours,
-  domesticTours,
-  internationalTours,
-  favorites,
+  tours = [],
+  domesticTours = [],
+  internationalTours = [],
+  favorites = [],
+  categories = [],
   onFavorite,
 }) {
   const navigate = useNavigate();
+
   const [search, setSearch] = useState({
     keyword: "",
-    start_date: "",
+    departure_date: "",
     guests: 2,
   });
 
-  const domesticTourCards = (domesticTours?.length ? domesticTours : tours || []).slice(0, 4);
-  const internationalTourCards = (internationalTours?.length ? internationalTours : tours || []).slice(0, 4);
+  const safeTours = Array.isArray(tours) ? tours : [];
+  const safeDomesticTours = Array.isArray(domesticTours)
+    ? domesticTours
+    : [];
+  const safeInternationalTours = Array.isArray(internationalTours)
+    ? internationalTours
+    : [];
+  const safeFavorites = Array.isArray(favorites) ? favorites : [];
+  const safeCategories = Array.isArray(categories) ? categories : [];
+
+  /*
+   * Không dùng slice(0, 4): trang chủ sẽ hiển thị toàn bộ tour
+   * mà CustomerPage truyền vào.
+   */
+  const domesticTourCards =
+    safeDomesticTours.length > 0 ? safeDomesticTours : safeTours;
+
+  const internationalTourCards =
+    safeInternationalTours.length > 0
+      ? safeInternationalTours
+      : safeTours;
   const destinationCards = demoDestinations.slice(0, 5);
+  const categoryTourCounts = useMemo(() => {
+    const counts = {};
+
+    for (const tour of safeTours) {
+      const categoryName = tour.category;
+
+      if (categoryName) {
+        counts[categoryName] = (counts[categoryName] || 0) + 1;
+      }
+    }
+
+    return counts;
+  }, [safeTours]);
 
   function submitSearch(event) {
     event.preventDefault();
     const params = new URLSearchParams();
-    if (search.keyword) params.set("q", search.keyword);
-    if (search.start_date) params.set("date", search.start_date);
-    if (search.guests) params.set("guests", search.guests);
+    if (search.keyword.trim()) {
+      params.set("q", search.keyword.trim());
+    }
+
+    if (search.departure_date) {
+      params.set("departure_date", search.departure_date);
+    }
+
+    if (search.guests) {
+      params.set("guests", search.guests);
+    }
     navigate(`/tours?${params.toString()}`);
   }
 
@@ -226,13 +268,11 @@ function HomePage({
                 <Icon name="calendar" size={16} /> Ngày khởi hành
               </span>
               <input
-                type="text"
-                placeholder="Chọn ngày đi"
-                onFocus={(e) => (e.target.type = "date")}
-                onBlur={(e) => (e.target.type = "text")}
-                value={search.start_date}
+                type="date"
+                min={new Date().toISOString().slice(0, 10)}
+                value={search.departure_date}
                 onChange={(event) =>
-                  setSearch({ ...search, start_date: event.target.value })
+                  setSearch({ ...search, departure_date: event.target.value })
                 }
               />
             </label>
@@ -265,14 +305,14 @@ function HomePage({
               <h2>Tour trong nước</h2>
               <p>Những hành trình được chọn lọc cho kỳ nghỉ ngắn ngày và cuối tuần.</p>
             </div>
-            <Link to="/tours">Xem tất cả →</Link>
+            <Link to="/tours?scope=domestic">Xem tất cả →</Link>
           </div>
           <div className="vg-tour-grid vg-tour-grid-wide">
             {domesticTourCards.map((tour) => (
               <TourCard
                 key={tour.id}
                 tour={tour}
-                favorite={favorites.includes(tour.id)}
+                favorite={safeFavorites.includes(tour.id)}
                 onFavorite={onFavorite}
               />
             ))}
@@ -288,14 +328,14 @@ function HomePage({
               <h2>Tour quốc tế</h2>
               <p>Gợi ý các hành trình nổi bật với trải nghiệm đa dạng và giá cạnh tranh.</p>
             </div>
-            <Link to="/deals">Xem tất cả →</Link>
+            <Link to="/tours?scope=international">Xem tất cả →</Link>
           </div>
           <div className="vg-tour-grid vg-tour-grid-wide">
             {internationalTourCards.map((tour) => (
               <TourCard
                 key={tour.id}
                 tour={tour}
-                favorite={favorites.includes(tour.id)}
+                favorite={safeFavorites.includes(tour.id)}
                 onFavorite={onFavorite}
               />
             ))}
@@ -344,30 +384,57 @@ function HomePage({
         </div>
       </section>
 
-      <section className="vg-home-section vg-home-section-alt">
-        <div className="vg-container">
-          <div className="vg-centered-heading">
-            <span className="vg-kicker">Điểm đến</span>
-            <h2>Khám phá các vùng đất được yêu thích</h2>
-            <p>Những cái tên nổi bật đang được đặt nhiều trong mùa du lịch này.</p>
+            {safeCategories.length > 0 ? (
+        <section className="vg-home-section vg-home-section-alt">
+          <div className="vg-container">
+            <div className="vg-centered-heading">
+              <span className="vg-kicker">Loại hình</span>
+              <h2>Những loại hình du lịch phổ biến</h2>
+              <p>Danh sách các loại hình tour hiện có trên hệ thống.</p>
+            </div>
+            <div className="vg-destination-grid vg-destination-grid-home">
+              {safeCategories.map((category) => (
+                <Link
+                  to={`/tours?category_id=${category.id}`}
+                  className="vg-destination-card"
+                  key={category.id}
+                >
+                  <img src={category.thumbnail_url || 'https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=1200&q=80'} alt={category.name} />
+                  <div>
+                    <h3>{category.name}</h3>
+                    <span>{categoryTourCounts[category.name] || 0} tour đang mở</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
           </div>
-          <div className="vg-destination-grid vg-destination-grid-home">
-            {destinationCards.map((destination) => (
-              <Link
-                to={`/tours?q=${encodeURIComponent(destination.name)}`}
-                className="vg-destination-card"
-                key={destination.name}
-              >
-                <img src={destination.image} alt={destination.name} />
-                <div>
-                  <h3>{destination.name}</h3>
-                  <span>{destination.tours} tour đang mở</span>
-                </div>
-              </Link>
-            ))}
+        </section>
+      ) : destinationCards.length > 0 ? (
+        <section className="vg-home-section vg-home-section-alt">
+          <div className="vg-container">
+            <div className="vg-centered-heading">
+              <span className="vg-kicker">Điểm đến</span>
+              <h2>Những điểm đến đang có tour mở bán</h2>
+              <p>Danh sách này được tổng hợp từ dữ liệu tour hiện có trên hệ thống.</p>
+            </div>
+            <div className="vg-destination-grid vg-destination-grid-home">
+              {destinationCards.map((destination) => (
+                <Link
+                  to={`/tours?q=${encodeURIComponent(destination.name)}`}
+                  className="vg-destination-card"
+                  key={destination.name}
+                >
+                  <img src={destination.image} alt={destination.name} />
+                  <div>
+                    <h3>{destination.name}</h3>
+                    <span>{destination.tours} tour đang mở</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      ) : null}
 
       <section className="vg-home-section vg-reviews-section" id="danh-gia">
         <div className="vg-container">

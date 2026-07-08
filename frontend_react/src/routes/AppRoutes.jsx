@@ -6,9 +6,6 @@ import BookingManagementPage from '../pages/admin/BookingManagementPage'
 import AdminDashboardPage from '../pages/admin/AdminDashboardPage'
 import GuideManagementPage from '../pages/admin/GuideManagementPage'
 import GuideTrashPage from '../pages/admin/GuideTrashPage'
-import PartnerManagementPage from '../pages/admin/partners/PartnerManagementPage'
-import PartnerTrashPage from '../pages/admin/partners/PartnerTrashPage'
-import ServiceCategoryManagementPage from '../pages/admin/serviceCategories/ServiceCategoryManagementPage'
 import SupportStaffManagementPage from '../pages/admin/SupportStaffManagementPage'
 import SupportStaffTrashPage from '../pages/admin/SupportStaffTrashPage'
 import UserManagementPage from '../pages/admin/UserManagementPage'
@@ -35,6 +32,8 @@ import AuthPage from '../pages/auth/AuthPage'
 import ForgotPasswordPage from '../pages/auth/ForgotPasswordPage'
 import CustomerPage from '../pages/customer/CustomerPage'
 import GuideDashboardPage from '../pages/guide/GuideDashboardPage'
+import GuideNotificationsPage from '../pages/guide/GuideNotificationsPage'
+import GuideProfilePage from '../pages/guide/GuideProfilePage'
 import ReportStatisticsPage from '../pages/admin/reportStatistics/ReportStatisticsPage'
 import TourDepartureListPage from "../pages/admin/tourDepartures/TourDepartureListPage";
 import TourDepartureCreatePage from "../pages/admin/tourDepartures/TourDepartureCreatePage";
@@ -46,17 +45,22 @@ import CertificateManagementPage from '../pages/admin/certificate/CertificateMan
 
 
 
+
 const protect = (page, allowedRoles = ['admin']) => (
   <ProtectedAdminRoute allowedRoles={allowedRoles}>{page}</ProtectedAdminRoute>
 )
 const adminPage = (page) => protect(<AdminLayout>{page}</AdminLayout>)
 const guidePage = (page) => protect(<GuideLayout>{page}</GuideLayout>, ['tour guide'])
 
+function GuideComingSoonPage({ title }) {
+  return <div className="guide-blank-page" aria-label={title} />
+}
+
 function AppRoutes() {
   return <Routes>
     {/* Quản lý người dùng */}
     <Route path="/" element={<CustomerPage />} />
-    <Route path="/tours" element={<CustomerPage />} />
+    <Route path="/tours/*" element={<CustomerPage />} />
     <Route path="/destinations" element={<CustomerPage />} />
     <Route path="/deals" element={<CustomerPage />} />
     <Route path="/customer/profile" element={<CustomerPage />} />
@@ -66,16 +70,17 @@ function AppRoutes() {
     <Route path="/customer/search" element={<CustomerPage />} />
     <Route path="/customer/bookings" element={<CustomerPage />} />
     <Route path="/customer/settings" element={<CustomerPage />} />
+    {/* Trang hướng dẫn viên */}
     <Route path="/guide" element={guidePage(<GuideDashboardPage />)} />
-    <Route path="/guide/tours" element={guidePage(<GuideDashboardPage />)} />
-    <Route path="/guide/schedule" element={guidePage(<GuideDashboardPage />)} />
-    <Route path="/guide/history" element={guidePage(<GuideDashboardPage />)} />
-    <Route path="/guide/reviews" element={guidePage(<GuideDashboardPage />)} />
-    <Route path="/guide/customers" element={guidePage(<GuideDashboardPage />)} />
-    <Route path="/guide/messages" element={guidePage(<GuideDashboardPage />)} />
-    <Route path="/guide/notifications" element={guidePage(<GuideDashboardPage />)} />
-    <Route path="/guide/profile" element={guidePage(<GuideDashboardPage />)} />
-    <Route path="/guide/settings" element={guidePage(<GuideDashboardPage />)} />
+    <Route path="/guide/tours" element={guidePage(<GuideComingSoonPage title="Tour của tôi" />)} />
+    <Route path="/guide/schedule" element={guidePage(<GuideComingSoonPage title="Lịch làm việc" />)} />
+    <Route path="/guide/history" element={guidePage(<GuideComingSoonPage title="Lịch sử Tour" />)} />
+    <Route path="/guide/reviews" element={guidePage(<GuideComingSoonPage title="Đánh giá" />)} />
+    <Route path="/guide/customers" element={guidePage(<GuideComingSoonPage title="Khách hàng" />)} />
+    <Route path="/guide/messages" element={guidePage(<GuideComingSoonPage title="Tin nhắn" />)} />
+    <Route path="/guide/notifications" element={guidePage(<GuideNotificationsPage />)} />
+    <Route path="/guide/profile" element={guidePage(<GuideProfilePage />)} />
+    <Route path="/guide/settings" element={guidePage(<GuideComingSoonPage title="Cài đặt chung" />)} />
     <Route path="/admin/users" element={<Navigate to="/admin/users/customers" replace />} />
     <Route path="/admin/users/customers" element={adminPage(<UserManagementPage roleName="customer" />)} />
     <Route path="/admin/users/admins" element={adminPage(<UserManagementPage roleName="admin" />)} />
@@ -110,6 +115,7 @@ function AppRoutes() {
     <Route path="/admin/tours/hidden" element={adminPage(<TourHiddenPage />)} />
     <Route path="/admin/tours/:id" element={adminPage(<TourDetailPage />)} />
     {/* quản lý lịch khởi hành tour */}
+    <Route path="/admin/tour-departures/guide-assignments" element={<Navigate to="/admin/tour-departures" replace />}/>
     <Route path="/admin/tour-departures" element={adminPage(<TourDepartureListPage />)}/>
     <Route path="/admin/tour-departures/create" element={adminPage(<TourDepartureCreatePage />)}/>
     <Route path="/admin/tour-departures/:tourId/edit/:departureId"  element={adminPage(<TourDepartureEditPage />)}/>
@@ -121,27 +127,19 @@ function AppRoutes() {
     {/* Quản lý hướng dẫn viên */}
     <Route path="/admin/guides" element={adminPage(<GuideManagementPage />)} />
     <Route path="/admin/guides/trash" element={adminPage(<GuideTrashPage />)} />
-    {/* Quản lý dịch vụ đối tác */}
-    <Route path="/admin/partners" element={adminPage(<PartnerManagementPage />)} />
-    <Route path="/admin/partners/trash" element={adminPage(<PartnerTrashPage />)} />
-    <Route path="/admin/service-categories" element={adminPage(<ServiceCategoryManagementPage />)} />
     {/* Quản lý nhân viên hỗ trợ */}
     <Route path="/admin/support" element={adminPage(<SupportStaffManagementPage />)} />
     <Route path="/admin/support/trash" element={adminPage(<SupportStaffTrashPage />)} />
     {/* Quản lý nhân Thông báo */}
-    <Route  path="/admin/notifications"  element={adminPage(<AdminNotificationsPage />)}/>
+    <Route path="/admin/notifications" element={adminPage(<AdminNotificationsPage />)} />
+    <Route path="/admin/languages" element={adminPage(<LanguageManagementPage />)} />
+    <Route path="/admin/certificates" element={adminPage(<CertificateManagementPage />)} />
     <Route path="/admin/*" element={<Navigate to="/admin" replace />} />
     <Route path="*" element={<Navigate to="/" replace />} />
-    <Route
-  path="/admin/languages"
-  element={adminPage(<LanguageManagementPage />)}
-/>
-    <Route
-      path="/admin/certificates"
-      element={adminPage(<CertificateManagementPage />)}
-    />
   </Routes>
   
 }
 
 export default AppRoutes
+
+

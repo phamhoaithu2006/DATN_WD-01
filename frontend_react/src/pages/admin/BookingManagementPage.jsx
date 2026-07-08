@@ -19,6 +19,7 @@ import {
   getBookingStatistics,
   updateBooking,
 } from '../../services/bookingApi'
+import { confirmPayment, failPayment, refundPayment } from '../../services/paymentApi'
 import '../../styles/booking-management.css'
 
 function BookingManagementPage() {
@@ -131,10 +132,30 @@ function BookingManagementPage() {
     }
   }
 
-  const updatePayment = async (booking, nextPaymentStatus) => {
-    setBusy(`${booking.id}-${nextPaymentStatus}`)
+  const updatePayment = async (booking, action) => {
+    const paymentId = booking.payment?.id
+
+    if (!paymentId) {
+      setNotice({ type: 'error', text: 'Booking này chưa có bản ghi thanh toán.' })
+      return
+    }
+
+    setBusy(`${booking.id}-${action}`)
     try {
-      const response = await updateBooking(booking.id, { payment_status: nextPaymentStatus })
+      const transactionCode = action === 'confirm'
+        ? window.prompt('Nhập mã giao dịch thanh toán thủ công (có thể để trống):')?.trim()
+        : undefined
+
+      if (action === 'confirm' && transactionCode === undefined) {
+        setBusy(null)
+        return
+      }
+
+      const response = action === 'confirm'
+        ? await confirmPayment(paymentId, transactionCode ? { transaction_code: transactionCode } : {})
+        : action === 'fail'
+          ? await failPayment(paymentId)
+          : await refundPayment(paymentId)
 
       setNotice({ type: 'success', text: response.message || 'Cập nhật thanh toán thành công.' })
       await load()
@@ -159,7 +180,7 @@ function BookingManagementPage() {
   }
 
   const removeBooking = async (booking) => {
-    if (!window.confirm(`Xóa vĩnh viễn booking ${booking.booking_code}?`)) return
+    if (!window.confirm('Xóa vĩnh viễn booking này?')) return
 
     setBusy(`delete-${booking.id}`)
     try {

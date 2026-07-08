@@ -87,59 +87,6 @@ const menuItems = [
     ),
   },
   {
-  label: 'Ngôn Ngữ',
-  path: '/admin/languages',
-  icon: (
-    <>
-      <path d="M4 5h16" />
-      <path d="M8 5v14" />
-      <path d="M4 19h16" />
-      <path d="M12 9l4 10" />
-      <path d="M10 15h4" />
-    </>
-  ),
-},
-{
-    label: 'Chứng Chỉ',
-    path: '/admin/certificates',
-    icon: (
-      <>
-        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-        <path d="M12 8v4" />
-        <path d="M12 16h.01" />
-      </>
-    ),
-  },
-  {
-    label: 'Loại Dịch Vụ',
-    path: '/admin/service-categories',
-    icon: (
-      <>
-        <path d="M5 7h14" />
-        <path d="M5 12h14" />
-        <path d="M5 17h14" />
-        <path d="M3 7h.01" />
-        <path d="M3 12h.01" />
-        <path d="M3 17h.01" />
-      </>
-    ),
-  },
-  {
-    label: 'Dịch Vụ Đối Tác',
-    path: '/admin/partners',
-    icon: (
-      <>
-        <path d="M4 21V7a2 2 0 0 1 2-2h5v16" />
-        <path d="M13 21V3h5a2 2 0 0 1 2 2v16" />
-        <path d="M8 9h1" />
-        <path d="M8 13h1" />
-        <path d="M16 7h1" />
-        <path d="M16 11h1" />
-        <path d="M2 21h20" />
-      </>
-    ),
-  },
-  {
     label: 'Báo Cáo & Thống Kê',
     path: '/admin/reports',
     icon: (
@@ -181,6 +128,7 @@ function AdminSidebar({ collapsed, onToggle, role = 'admin' }) {
     <aside className={collapsed ? 'admin-sidebar collapsed' : 'admin-sidebar'}>
       <div className="admin-brand">
         <BrandLogo className="admin-brand-link" to="/admin" />
+        <span className="admin-brand-subtitle">Admin panel</span>
       </div>
 
       <nav className="admin-nav" aria-label="Điều hướng quản trị">

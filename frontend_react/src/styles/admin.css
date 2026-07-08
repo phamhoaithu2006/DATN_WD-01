@@ -30,13 +30,13 @@
 }
 
 .admin-brand {
-  min-height: 108px;
+  min-height: 96px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   justify-content: center;
-  gap: 4px;
-  padding: 18px 17px 16px;
+  gap: 2px;
+  padding: 16px 17px 10px;
   border-bottom: 1px solid #e2e8f0;
 }
 
@@ -47,6 +47,7 @@
   min-width: 0;
   color: #0f172a;
   text-decoration: none;
+  align-self: flex-start;
 }
 
 .admin-brand-link .admin-brand-mark {
@@ -68,11 +69,16 @@
 }
 
 .admin-brand-subtitle {
-  margin-left: 66px;
+  width: 100%;
   color: #64748b;
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  line-height: 1.05;
+  margin-top: -2px;
+  text-align: left;
+  padding-left: 70px;
+  text-transform: uppercase;
 }
 
 .admin-brand .brand {
@@ -314,6 +320,31 @@
   justify-content: flex-end;
 }
 
+.guide-page .admin-page-header-actions {
+  flex-wrap: nowrap;
+}
+
+.guide-header-actions-group {
+  align-items: center;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.guide-header-links {
+  align-items: center;
+  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+  border: 1px solid #dbe5f2;
+  border-radius: 22px;
+  box-shadow: 0 10px 24px rgba(16, 33, 61, 0.06);
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px;
+}
+
 .guide-page {
   display: grid;
   gap: 22px;
@@ -354,6 +385,7 @@
 
 .guide-add-button,
 .guide-trash-button,
+.guide-section-link,
 .guide-modal-actions button:last-child {
   min-height: 46px;
   display: inline-flex;
@@ -368,6 +400,49 @@
   cursor: pointer;
   font: inherit;
   font-weight: 850;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease,
+    background 160ms ease, color 160ms ease, filter 160ms ease;
+}
+
+.guide-section-link {
+  border: 1px solid #dbe5f2;
+  border-radius: 16px;
+  background: #ffffff;
+  color: #0f172a;
+  text-decoration: none;
+  padding: 0 16px;
+  box-shadow: 0 4px 10px rgba(16, 33, 61, 0.04);
+  transition: transform 160ms ease, border-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
+}
+
+.guide-section-link-primary {
+  background: linear-gradient(180deg, #eff7ff 0%, #ffffff 100%);
+  border-color: #cfe3fb;
+  color: #0b74d3;
+}
+
+.guide-section-link-ghost {
+  background: linear-gradient(180deg, #ffffff 0%, #fafcff 100%);
+}
+
+.guide-section-link:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(16, 33, 61, 0.08);
+}
+
+.guide-section-link-primary:hover {
+  border-color: #0b74d3;
+  color: #0b74d3;
+  background: linear-gradient(180deg, #eaf5ff 0%, #ffffff 100%);
+}
+
+.guide-section-link-ghost:hover {
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.guide-section-link svg {
+  flex-shrink: 0;
 }
 
 .guide-trash-button {
@@ -379,9 +454,28 @@
   padding: 0 16px;
 }
 
+.guide-add-button:hover {
+  background: linear-gradient(135deg, #0b74d3, #0284c7);
+  box-shadow: 0 14px 28px rgba(11, 116, 211, 0.24);
+  transform: translateY(-1px);
+}
+
+.guide-add-button:focus-visible {
+  outline: 3px solid rgba(14, 165, 233, 0.28);
+  outline-offset: 2px;
+}
+
 .guide-trash-button:hover {
   border-color: #ef4444;
   color: #ef4444;
+  box-shadow: 0 10px 20px rgba(239, 68, 68, 0.1);
+  transform: translateY(-1px);
+}
+
+.guide-trash-button:focus-visible,
+.guide-section-link:focus-visible {
+  outline: 3px solid rgba(14, 165, 233, 0.22);
+  outline-offset: 2px;
 }
 
 .guide-add-button span {
@@ -1248,6 +1342,20 @@
     justify-content: flex-start;
   }
 
+  .guide-page .admin-page-header-actions {
+    flex-wrap: wrap;
+  }
+
+  .guide-header-actions-group,
+  .guide-header-links {
+    width: 100%;
+  }
+
+  .guide-header-links {
+    box-sizing: border-box;
+    flex-wrap: wrap;
+  }
+
   .guide-heading {
     align-items: flex-start;
     flex-direction: column;
@@ -1263,6 +1371,14 @@
   }
 
   .guide-add-button {
+    width: 100%;
+  }
+
+  .guide-trash-button {
+    width: 100%;
+  }
+
+  .guide-section-link {
     width: 100%;
   }
 }
@@ -1333,6 +1449,14 @@
   }
 
   .guide-add-button {
+    width: 100%;
+  }
+
+  .guide-trash-button {
+    width: 100%;
+  }
+
+  .guide-section-link {
     width: 100%;
   }
 }

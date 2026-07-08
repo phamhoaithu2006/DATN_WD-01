@@ -56,6 +56,11 @@ class SupportStaffSeeder extends Seeder
                     'status' => $status,
                     'performance_rating' => $profile['performance_rating'] ?? 5,
                     'hidden_at' => $status === 'hidden' ? $now : null,
+
+                    
+                    'specialization' => 'noi_dia',
+                    'experience_years' => 0,
+                    
                 ],
             );
         }

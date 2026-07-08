@@ -49,6 +49,40 @@ const formatDate = (dateValue) => {
   }).format(new Date(dateValue))
 }
 
+const ROLE_LABELS = {
+  admin: 'Quản trị viên',
+  customer: 'Khách hàng',
+  'support staff': 'Nhân viên hỗ trợ',
+  support_staff: 'Nhân viên hỗ trợ',
+  'tour guide': 'Hướng dẫn viên',
+  tour_guide: 'Hướng dẫn viên',
+  guide: 'Hướng dẫn viên',
+}
+
+const getRoleLabel = (role) => {
+  const raw = String(role?.name || role?.label || role?.slug || '').trim()
+  const key = raw.toLowerCase()
+  return ROLE_LABELS[key] || role?.name || role?.label || role?.slug || 'Vai trò'
+}
+
+const getComposeTargetLabel = (form, selectedUserIds, selectedRoleIds) => {
+  if (form.target_type === 'all') return 'Toàn bộ người dùng'
+
+  if (form.target_type === 'specific') {
+    return selectedUserIds.length > 0
+      ? `Người dùng đã chọn (${selectedUserIds.length})`
+      : 'Chưa chọn người nhận'
+  }
+
+  if (form.target_type === 'role') {
+    return selectedRoleIds.length > 0
+      ? `Theo vai trò (${selectedRoleIds.length})`
+      : 'Chưa chọn vai trò'
+  }
+
+  return 'Chưa chọn đối tượng nhận'
+}
+
 export default function AdminNotificationsPage() {
   const [tab, setTab] = useState('compose')
 
@@ -77,6 +111,12 @@ export default function AdminNotificationsPage() {
   const selectedUserIds = useMemo(
     () => selectedUsers.map((user) => Number(user.id)),
     [selectedUsers],
+  )
+
+  const previewRecipientLabel = getComposeTargetLabel(
+    form,
+    selectedUserIds,
+    selectedRoleIds,
   )
 
 
@@ -486,7 +526,7 @@ const openDraftDetail = async (id) => {
       </div>
 
       {tab === 'compose' && (
-        <div className="grid gap-6">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
           <div className="space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold text-slate-800">
@@ -506,7 +546,7 @@ const openDraftDetail = async (id) => {
 
             <div>
               <label className="text-sm font-bold text-slate-700">
-                Tiêu đề
+                Tiêu đề thông báo
               </label>
 
               <input
@@ -683,11 +723,11 @@ const openDraftDetail = async (id) => {
 
                             <span>
                                 <span className="block text-sm font-bold text-slate-800">
-                                {role.name}
+                                {getRoleLabel(role)}
                                 </span>
 
                                 <span className="mt-1 block text-xs text-slate-500">
-                                Gửi đến toàn bộ user có role này
+                                Gửi đến toàn bộ người dùng có vai trò này
                                 </span>
                             </span>
                             </label>
@@ -723,6 +763,45 @@ const openDraftDetail = async (id) => {
               </button>
             </div>
           </div>
+
+          <aside className="space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm xl:sticky xl:top-6">
+            <div>
+              <p className="text-lg font-bold text-slate-900">
+                Xem trước
+              </p>
+            </div>
+
+            <div className="rounded-2xl bg-slate-50 p-5">
+              <h3 className="text-2xl font-black text-slate-900">
+                {form.title?.trim() || 'Tiêu đề thông báo'}
+              </h3>
+              <p className="mt-3 whitespace-pre-wrap text-base leading-7 text-slate-600">
+                {form.message?.trim() || 'Nội dung thông báo sẽ hiện tại đây.'}
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-lg font-bold text-slate-900">
+                Đối tượng nhận
+              </p>
+              <div className="rounded-2xl bg-slate-50 p-4">
+                <p className="text-base font-semibold text-slate-700">
+                  {previewRecipientLabel}
+                </p>
+                <p className="mt-2 text-sm leading-6 text-slate-500">
+                  {form.target_type === 'specific'
+                    ? selectedUsers.length > 0
+                      ? selectedUsers.map((user) => user.full_name).join(', ')
+                      : 'Danh sách người dùng sẽ hiện tại đây.'
+                    : form.target_type === 'role'
+                      ? selectedRoleIds.length > 0
+                        ? `Đã chọn ${selectedRoleIds.length} vai trò.`
+                        : 'Danh sách vai trò sẽ hiện tại đây.'
+                      : 'Toàn bộ người dùng trong hệ thống.'}
+                </p>
+              </div>
+            </div>
+          </aside>
 
         </div>
       )}

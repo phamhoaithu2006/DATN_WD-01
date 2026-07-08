@@ -2,105 +2,254 @@
 
 namespace App\Http\Resources;
 
+use App\Services\TourPricingService;
+use DateTimeInterface;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class TourResource extends JsonResource
 {
-    /**
-     * Chuyển đổi resource thành mảng (để trả về JSON).
-     * * @param  \Illuminate\Http\Request  $request
-     * @return array
-     */
-    public function toArray($request)
+    public function toArray(Request $request): array
     {
+        /*
+         * Không dùng whenLoaded() để gán vào biến.
+         * whenLoaded() có thể trả MissingValue, sau đó truy cập ->name sẽ gây lỗi 500.
+         */
+        $category = $this->relationLoaded('category')
+            ? $this->category
+            : null;
+
+        $destination = $this->relationLoaded('destination')
+            ? $this->destination
+            : null;
+
+        $multiDestinations = $this->relationLoaded('destinations')
+            ? $this->destinations
+            : collect();
+
+        $thumbnail = $this->relationLoaded('thumbnail')
+            ? $this->thumbnail
+            : null;
+
+        $tourImages = $this->relationLoaded('images')
+            ? $this->images
+            : collect();
+
+        $departures = $this->relationLoaded('departures')
+            ? $this->departures
+            : collect();
+
+        $pricingRules = $this->relationLoaded('agePricingRules')
+            ? $this->agePricingRules
+            : collect();
+        $pricingService = new TourPricingService();
+
+        $itineraries = $this->relationLoaded('itineraries')
+            ? $this->itineraries
+            : collect();
+
+        $images = $tourImages
+            ->map(fn ($image) => [
+                'id' => $image->id,
+                'image_url' => $image->image_url,
+                'alt_text' => $image->alt_text,
+                'sort_order' => (int) $image->sort_order,
+                'is_thumbnail' => (bool) $image->is_thumbnail,
+            ])
+            ->values()
+            ->all();
+
+        $thumbnailUrl = $thumbnail?->image_url
+            ?? ($images[0]['image_url'] ?? null);
+
+        $itineraryData = $itineraries
+            ->map(function ($itinerary) {
+                $itineraryImages = $itinerary->relationLoaded('images')
+                    ? $itinerary->images
+                    : collect();
+
+                return [
+                    'id' => $itinerary->id,
+                    'day_number' => (int) $itinerary->day_number,
+                    'sort_order' => (int) $itinerary->sort_order,
+                    'type' => $itinerary->type,
+                    'title' => $itinerary->title,
+                    'start_time' => $itinerary->start_time,
+                    'end_time' => $itinerary->end_time,
+                    'duration' => $itinerary->duration,
+                    'transport' => $itinerary->transport,
+                    'description' => $itinerary->description,
+
+                    'images' => $itineraryImages
+                        ->map(fn ($image) => [
+                            'id' => $image->id,
+                            'image_url' => $image->image_url,
+                            'alt_text' => $image->alt_text,
+                            'sort_order' => (int) $image->sort_order,
+                        ])
+                        ->values()
+                        ->all(),
+                ];
+            })
+            ->values()
+            ->all();
+
         return [
-            'id'          => $this->id,
-            'category_id' => $this->category_id,
-            'destination_id' => $this->destination_id,
-            'created_by'  => $this->created_by,
-            'title'       => $this->title,
-            'slug'        => $this->slug,
-            'summary'     => $this->summary,
+            'id' => $this->id,
+            'title' => $this->title,
+            'slug' => $this->slug,
+            'summary' => $this->summary,
             'description' => $this->description,
-            'itinerary'   => TourItineraryResource::collection($this->whenLoaded('itineraries')),
-            'duration_days' => $this->duration_days,
-            'duration_nights' => $this->duration_nights,
+
+            'duration_days' => (int) $this->duration_days,
+            'duration_nights' => (int) $this->duration_nights,
+            'duration' => "{$this->duration_days} ngày {$this->duration_nights} đêm",
+
             'base_price' => (float) $this->base_price,
-            'discount_price' => $this->discount_price !== null ? (float) $this->discount_price : null,
-            'max_slots' => $this->max_slots,
-            'available_slots' => $this->available_slots,
+            'discount_price' => $this->discount_price !== null
+                ? (float) $this->discount_price
+                : null,
+
+            'max_slots' => (int) $this->max_slots,
+            'available_slots' => (int) $this->available_slots,
+
             'status' => $this->status,
-            'average_rating' => $this->average_rating,
-            'review_count' => $this->review_count,
+            'average_rating' => (float) $this->average_rating,
+            'review_count' => (int) $this->review_count,
 
-            // Kết hợp 2 trường dữ liệu thành một chuỗi hiển thị
-            'duration'    => "{$this->duration_days} ngày {$this->duration_nights} đêm",
-
-            // Gom nhóm các dữ liệu liên quan để API phản hồi gọn gàng hơn
-            'price' => [
-                'base'     => (float)$this->base_price,
-                'discount' => (float)$this->discount_price,
-            ],
-            'slots' => [
-                'max'       => $this->max_slots,
-                'available' => $this->available_slots,
-            ],
-            'rating' => [
-                'average' => $this->average_rating,
-                'count'   => $this->review_count,
-            ],
-
-            /**
-             * Sử dụng whenLoaded:
-             * Giúp tránh lỗi "Property access on null" và tối ưu hiệu năng.
-             * Chỉ lấy tên (name) nếu quan hệ đã được eager load (thông qua with() ở Controller).
-             */
-            // Giữ nguyên dữ liệu cũ
-            'category'    => $this->whenLoaded('category', fn() => optional($this->category)->name),
-            'destination' => $this->whenLoaded('destination', fn() => optional($this->destination)->name),
-
-            // Bổ sung thêm field mới để frontend dễ hiển thị tên
-            'category_name' => $this->whenLoaded('category', fn() => optional($this->category)->name),
-            'destination_name' => $this->whenLoaded('destination', fn() => optional($this->destination)->name),
-
-            // Bổ sung object đầy đủ nếu sau này cần dùng id + name
-            'category_info' => $this->whenLoaded('category', function () {
-                return $this->category ? [
-                    'id' => $this->category->id,
-                    'name' => $this->category->name,
-                ] : null;
-            }),
-
-            'destination_info' => $this->whenLoaded('destination', function () {
-                return $this->destination ? [
-                    'id' => $this->destination->id,
-                    'name' => $this->destination->name,
-                ] : null;
-            }),
-            'departures'  => $this->whenLoaded(
-                'departures',
-                fn() =>
-                TourDepartureResource::collection($this->departures)
-            ),
-            'thumbnail_url' => $this->thumbnail?->image_url,
-
-            'thumbnail' => $this->thumbnail ? [
-                'id' => $this->thumbnail->id,
-                'image_url' => $this->thumbnail->image_url,
-                'alt_text' => $this->thumbnail->alt_text,
-                'sort_order' => $this->thumbnail->sort_order,
-                'is_thumbnail' => $this->thumbnail->is_thumbnail,
+            'category' => $category?->name,
+            'category_name' => $category?->name,
+            'category_info' => $category ? [
+                'id' => $category->id,
+                'name' => $category->name,
+                'slug' => $category->slug,
             ] : null,
 
-            'images' => $this->images?->map(function ($image) {
-                return [
-                    'id' => $image->id,
-                    'image_url' => $image->image_url,
-                    'alt_text' => $image->alt_text,
-                    'sort_order' => $image->sort_order,
-                    'is_thumbnail' => $image->is_thumbnail,
-                ];
-            })->values(),
+            'destination' => $destination?->name,
+            'destination_name' => $destination?->name,
+            'destination_info' => $destination ? [
+                'id' => $destination->id,
+                'name' => $destination->name,
+                'slug' => $destination->slug,
+                'province_city' => $destination->province_city,
+                'country' => $destination->country,
+                'description' => $destination->description,
+                'thumbnail_url' => $destination->thumbnail_url,
+                'status' => $destination->status,
+            ] : null,
+
+            'destinations' => $multiDestinations
+                ->map(fn ($item) => [
+                    'id' => $item->id,
+                    'name' => $item->name,
+                    'slug' => $item->slug,
+                    'province_city' => $item->province_city,
+                    'country' => $item->country,
+                    'thumbnail_url' => $item->thumbnail_url,
+                    'sort_order' => (int) ($item->pivot?->sort_order ?? 0),
+                ])
+                ->values()
+                ->all(),
+
+            'thumbnail_url' => $thumbnailUrl,
+            'image' => $thumbnailUrl,
+            'images' => $images,
+
+            'min_departure_price' => $this->resource->getAttribute('min_departure_price') !== null
+                ? (float) $this->resource->getAttribute('min_departure_price')
+                : (float) ($this->discount_price ?? $this->base_price ?? 0),
+
+            'next_departure_date' => $this->formatDate(
+                $this->resource->getAttribute('next_departure_date')
+            ),
+
+            'available_departures_count' => (int) (
+                $this->resource->getAttribute('available_departures_count') ?? 0
+            ),
+
+            'departures' => $departures
+                ->map(function ($departure) use ($pricingService) {
+                    $basePrice = $pricingService->resolveBasePrice($this->resource, $departure);
+                    $discountPrice = $pricingService->resolveDiscountPrice($this->resource, $departure);
+
+                    return [
+                        'id' => $departure->id,
+                        'tour_id' => $departure->tour_id,
+                        'departure_date' => $this->formatDate($departure->departure_date),
+                        'return_date' => $this->formatDate($departure->return_date),
+                        'base_price' => $basePrice,
+                        'discount_price' => $discountPrice,
+                        'price' => $discountPrice ?? $basePrice,
+                        'departure_base_price' => $departure->base_price !== null ? (float) $departure->base_price : null,
+                        'departure_discount_price' => $departure->discount_price !== null ? (float) $departure->discount_price : null,
+                        'legacy_price' => $departure->price !== null ? (float) $departure->price : null,
+                        'uses_tour_price' => $departure->base_price === null && $departure->price === null,
+                        'total_slots' => (int) $departure->total_slots,
+                        'booked_slots' => (int) $departure->booked_slots,
+                        'available_slots' => max(
+                            0,
+                            (int) $departure->total_slots - (int) $departure->booked_slots
+                        ),
+                        'status' => $departure->status,
+                        'current_stage_id' => $departure->current_stage_id,
+                    ];
+                })
+                ->values()
+                ->all(),
+
+            'age_pricing_rules' => $pricingRules
+                ->map(fn ($rule) => [
+                    'id' => $rule->id,
+                    'label' => $rule->label,
+                    'min_age' => $rule->min_age,
+                    'max_age' => $rule->max_age,
+                    'pricing_type' => $rule->pricing_type,
+                    'price_value' => (float) $rule->price_value,
+                    'sort_order' => (int) $rule->sort_order,
+                    'is_active' => (bool) $rule->is_active,
+                ])
+                ->values()
+                ->all(),
+
+            /*
+             * Trả cả itinerary và itineraries
+             * để tương thích các component frontend cũ/mới.
+             */
+            'itineraries' => $itineraryData,
+            'itinerary' => $itineraryData,
+
+            'bookings_count' => (int) (
+                $this->resource->getAttribute('bookings_count') ?? 0
+            ),
+
+            'created_at' => $this->formatDateTime($this->created_at),
+            'updated_at' => $this->formatDateTime($this->updated_at),
         ];
+    }
+
+    private function formatDate(mixed $value): ?string
+    {
+        if (! $value) {
+            return null;
+        }
+
+        if ($value instanceof DateTimeInterface) {
+            return $value->format('Y-m-d');
+        }
+
+        return (string) $value;
+    }
+
+    private function formatDateTime(mixed $value): ?string
+    {
+        if (! $value) {
+            return null;
+        }
+
+        if ($value instanceof DateTimeInterface) {
+            return $value->format('Y-m-d H:i:s');
+        }
+
+        return (string) $value;
     }
 }

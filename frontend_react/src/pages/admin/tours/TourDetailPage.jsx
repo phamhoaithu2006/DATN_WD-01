@@ -62,16 +62,6 @@ function TagIcon({ className = 'h-5 w-5' }) {
   )
 }
 
-function PercentIcon({ className = 'h-5 w-5' }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="m19 5-14 14" />
-      <circle cx="7" cy="7" r="2.4" />
-      <circle cx="17" cy="17" r="2.4" />
-    </svg>
-  )
-}
-
 function StarIcon({ className = 'h-5 w-5' }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor">
@@ -105,17 +95,6 @@ function ClockIcon({ className = 'h-4 w-4' }) {
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="10" />
       <path d="M12 6v6l4 2" />
-    </svg>
-  )
-}
-
-function UsersIcon({ className = 'h-4 w-4' }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path d="M22 21v-2a4 4 0 0 0-3-3.9" />
-      <path d="M16 3.1a4 4 0 0 1 0 7.8" />
     </svg>
   )
 }
@@ -173,6 +152,54 @@ function formatMoney(value) {
   return `${new Intl.NumberFormat('vi-VN', {
     maximumFractionDigits: 0,
   }).format(number)}đ`
+}
+
+function getAgePricingRules(tour) {
+  const rules = Array.isArray(tour?.agePricingRules)
+    ? tour.agePricingRules
+    : Array.isArray(tour?.age_pricing_rules)
+      ? tour.age_pricing_rules
+      : []
+
+  return [...rules]
+    .filter((rule) => rule && Number(rule.is_active ?? 1) !== 0)
+    .sort((a, b) => Number(a.sort_order ?? 0) - Number(b.sort_order ?? 0))
+}
+
+function formatAgePricingLabel(rule) {
+  if (rule?.label) return rule.label
+
+  const minAge = rule?.min_age
+  const maxAge = rule?.max_age
+
+  if (minAge !== undefined && minAge !== null && maxAge !== undefined && maxAge !== null) {
+    return `${minAge} - ${maxAge} tuổi`
+  }
+
+  if (minAge !== undefined && minAge !== null) {
+    return `Từ ${minAge} tuổi trở lên`
+  }
+
+  if (maxAge !== undefined && maxAge !== null) {
+    return `Dưới ${maxAge} tuổi`
+  }
+
+  return 'Mức giá'
+}
+
+function formatAgePricingValue(rule, basePrice = 0) {
+  const pricingType = rule?.pricing_type || 'fixed'
+  const priceValue = Number(rule?.price_value || 0)
+
+  if (pricingType === 'free') {
+    return 'Miễn phí'
+  }
+
+  if (pricingType === 'percentage') {
+    return `${priceValue}% giá gốc`
+  }
+
+  return formatMoney(priceValue || basePrice)
 }
 
 function formatDate(value) {
@@ -527,7 +554,7 @@ function TourDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-full bg-[#f8fbff] px-6 py-7 text-slate-900 xl:px-8" style={{ fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif' }}>
+      <div className="min-h-full bg-[#f8fbff] px-6 py-7 text-slate-900 xl:px-8" style={{ fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
         <div className="rounded-[18px] border border-slate-100 bg-white p-12 text-center shadow-[0_24px_70px_rgba(15,23,42,0.08)] ring-1 ring-slate-100/80">
           <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-sky-100 border-t-[#0575f9]" />
           <p className="mt-4 text-sm font-semibold text-slate-500">Đang tải chi tiết tour...</p>
@@ -538,7 +565,7 @@ function TourDetailPage() {
 
   if (error || !tour) {
     return (
-      <div className="min-h-full bg-[#f8fbff] px-6 py-7 text-slate-900 xl:px-8" style={{ fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif' }}>
+      <div className="min-h-full bg-[#f8fbff] px-6 py-7 text-slate-900 xl:px-8" style={{ fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
         <div className="rounded-[18px] border border-rose-100 bg-white p-12 text-center shadow-[0_24px_70px_rgba(244,63,94,0.08)] ring-1 ring-rose-50">
           <p className="text-base font-bold text-rose-600">
             {error || 'Không tìm thấy tour.'}
@@ -563,11 +590,12 @@ function TourDetailPage() {
   const departures = Array.isArray(tour.departures) ? tour.departures : []
   const itineraryDays = Object.entries(groupedItineraries).sort(([a], [b]) => Number(a) - Number(b))
   const visibleGalleryImages = galleryImages.slice(0, 6)
+  const agePricingRules = getAgePricingRules(tour)
 
   return (
     <div
       className="min-h-full bg-gradient-to-br from-[#f8fbff] via-white to-sky-50/40 px-6 py-5 text-slate-900 xl:px-8 xl:py-6"
-      style={{ fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif' }}
+      style={{ fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}
     >
       <div className="mx-auto w-full max-w-[1480px]">
         <div className="mb-5 flex flex-wrap items-start justify-between gap-5 rounded-[22px] border border-white bg-white/70 p-4 shadow-[0_18px_46px_rgba(15,23,42,0.045)] backdrop-blur">
@@ -656,12 +684,6 @@ function TourDetailPage() {
                       value={`${tour.duration_days || 0}N / ${tour.duration_nights || 0}Đ`}
                       tone="amber"
                     />
-                    <MetricCard
-                      icon={UsersIcon}
-                      label="Số chỗ"
-                      value={`${tour.available_slots || 0}/${tour.max_slots || 0}`}
-                      tone="violet"
-                    />
                   </div>
                 </div>
               </div>
@@ -702,16 +724,9 @@ function TourDetailPage() {
               <div className="space-y-3">
                 <PriceInfoRow
                   icon={TagIcon}
-                  label="Giá gốc"
+                  label="Giá gốc tour"
                   value={formatMoney(basePrice)}
                   tone="sky"
-                  strike={discountPrice > 0}
-                />
-                <PriceInfoRow
-                  icon={PercentIcon}
-                  label="Giá khuyến mãi"
-                  value={discountPrice > 0 ? formatMoney(discountPrice) : 'Không có'}
-                  tone="emerald"
                 />
                 <PriceInfoRow
                   icon={StarIcon}
@@ -720,6 +735,50 @@ function TourDetailPage() {
                   tone="amber"
                   subText={`(${tour.review_count || 0} đánh giá)`}
                 />
+              </div>
+
+              <div className="mt-4 rounded-[16px] border border-slate-200 bg-slate-50/70 p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h3 className="text-[14px] font-black text-slate-900">
+                    Giá theo độ tuổi / phụ thu
+                  </h3>
+
+                  <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-slate-500 ring-1 ring-slate-200">
+                    {agePricingRules.length} mức giá
+                  </span>
+                </div>
+
+                <p className="mb-3 text-[12px] font-semibold leading-5 text-slate-500">
+                 
+                </p>
+
+                {agePricingRules.length > 0 ? (
+                  <div className="space-y-2">
+                    {agePricingRules.map((rule, index) => (
+                      <div
+                        key={rule.id || `${rule.label || 'age'}-${index}`}
+                        className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3.5 py-3 shadow-sm"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-[13px] font-black text-slate-800">
+                            {formatAgePricingLabel(rule)}
+                          </p>
+                          <p className="mt-0.5 text-[11px] font-semibold text-slate-400">
+                            Áp dụng khi đặt tour
+                          </p>
+                        </div>
+
+                        <p className="shrink-0 text-right text-[15px] font-black text-[#0575f9]">
+                          {formatAgePricingValue(rule, basePrice)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-dashed border-slate-200 bg-white px-3 py-5 text-center text-[13px] font-semibold text-slate-400">
+                    Chưa có giá theo độ tuổi / phụ thu.
+                  </div>
+                )}
               </div>
             </SectionCard>
 
@@ -807,7 +866,18 @@ function TourDetailPage() {
                         </td>
 
                         <td className="px-5 py-3.5 font-bold text-slate-900">
-                          {formatMoney(departure.price || departure.base_price || displayPrice)}
+                          {departure.discount_price ? (
+                            <div>
+                              <div className="text-xs text-slate-400 line-through">
+                                {formatMoney(departure.base_price || displayPrice)}
+                              </div>
+                              <div className="text-rose-600">
+                                {formatMoney(departure.discount_price)}
+                              </div>
+                            </div>
+                          ) : (
+                            formatMoney(departure.base_price || departure.price || displayPrice)
+                          )}
                         </td>
 
                         <td className="px-5 py-3.5 font-medium text-slate-700">
