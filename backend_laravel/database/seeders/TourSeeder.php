@@ -43,8 +43,8 @@ class TourSeeder extends Seeder
                     ['image_url' => 'https://images.unsplash.com/photo-1528127269322-539801943592', 'alt_text' => 'Hội An về đêm', 'sort_order' => 2, 'is_thumbnail' => false],
                 ],
                 'departures' => [
-                    ['departure_date' => now()->addDays(14)->toDateString(), 'return_date' => now()->addDays(16)->toDateString(), 'price' => 3890000, 'total_slots' => 30, 'booked_slots' => 6, 'status' => 'open'],
-                    ['departure_date' => now()->addDays(30)->toDateString(), 'return_date' => now()->addDays(32)->toDateString(), 'price' => 4090000, 'total_slots' => 30, 'booked_slots' => 0, 'status' => 'open'],
+                    ['departure_date' => now()->addDays(14)->toDateString(), 'return_date' => now()->addDays(16)->toDateString(), 'base_price' => 4290000, 'discount_price' => 3890000, 'total_slots' => 30, 'booked_slots' => 6, 'status' => 'open'],
+                    ['departure_date' => now()->addDays(30)->toDateString(), 'return_date' => now()->addDays(32)->toDateString(), 'base_price' => 4290000, 'discount_price' => 4090000, 'total_slots' => 30, 'booked_slots' => 0, 'status' => 'open'],
                 ],
             ],
             [
@@ -68,7 +68,7 @@ class TourSeeder extends Seeder
                     ['image_url' => 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e', 'alt_text' => 'Biển Phú Quốc', 'sort_order' => 1, 'is_thumbnail' => true],
                 ],
                 'departures' => [
-                    ['departure_date' => now()->addDays(20)->toDateString(), 'return_date' => now()->addDays(23)->toDateString(), 'price' => 6290000, 'total_slots' => 25, 'booked_slots' => 5, 'status' => 'open'],
+                    ['departure_date' => now()->addDays(20)->toDateString(), 'return_date' => now()->addDays(23)->toDateString(), 'base_price' => 6790000, 'discount_price' => 6290000, 'total_slots' => 25, 'booked_slots' => 5, 'status' => 'open'],
                 ],
             ],
             [
@@ -92,7 +92,7 @@ class TourSeeder extends Seeder
                     ['image_url' => 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee', 'alt_text' => 'Núi rừng Sa Pa', 'sort_order' => 1, 'is_thumbnail' => true],
                 ],
                 'departures' => [
-                    ['departure_date' => now()->addDays(10)->toDateString(), 'return_date' => now()->addDays(12)->toDateString(), 'price' => 3590000, 'total_slots' => 28, 'booked_slots' => 0, 'status' => 'open'],
+                    ['departure_date' => now()->addDays(10)->toDateString(), 'return_date' => now()->addDays(12)->toDateString(), 'base_price' => 3590000, 'discount_price' => null, 'total_slots' => 28, 'booked_slots' => 0, 'status' => 'open'],
                 ],
             ],
         ];

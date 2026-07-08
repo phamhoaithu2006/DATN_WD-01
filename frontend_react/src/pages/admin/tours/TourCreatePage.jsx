@@ -1,5 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
+import { toast } from 'sonner'
 import AdminPageHeader from '../../../components/admin/AdminPageHeader'
 import TourForm from '../../../components/admin/tours/TourForm'
 
@@ -28,7 +29,9 @@ function TourCreatePage() {
       const token = getAuthToken()
 
       if (!token) {
-        alert('Bạn chưa đăng nhập hoặc token không tồn tại. Vui lòng đăng nhập lại.')
+        toast.error('Bạn chưa đăng nhập', {
+          description: 'Token không tồn tại. Vui lòng đăng nhập lại.',
+        })
         return
       }
 
@@ -47,34 +50,52 @@ function TourCreatePage() {
         console.error('CREATE TOUR ERROR RESPONSE:', data)
 
         if (response.status === 401) {
-          alert('Bạn chưa đăng nhập hoặc token hết hạn')
+          toast.error('Bạn chưa đăng nhập', {
+            description: 'Token đã hết hạn. Vui lòng đăng nhập lại.',
+          })
           return
         }
 
         if (response.status === 404) {
-          alert('Không tìm thấy API /api/admin/tours. Kiểm tra Laravel route.')
+          toast.error('Không tìm thấy API', {
+            description: 'Không tìm thấy /api/admin/tours. Kiểm tra Laravel route.',
+          })
           return
         }
 
         if (response.status === 422 && data?.errors) {
-          alert(Object.values(data.errors).flat().join('\n'))
+          toast.error('Dữ liệu không hợp lệ', {
+            description: Object.values(data.errors).flat().join('\n'),
+          })
           return
         }
 
         if (data?.message) {
-          alert(data.message)
+          toast.error('Thêm tour thất bại', {
+            description: data.message,
+          })
           return
         }
 
-        alert('Thêm tour thất bại')
+        toast.error('Thêm tour thất bại', {
+          description: 'Vui lòng kiểm tra lại dữ liệu và thử lại.',
+        })
         return
       }
 
-      alert('Thêm tour thành công')
-      navigate('/admin/tours')
+      toast.success('Thành công', {
+        description: 'Thêm tour thành công',
+      })
+
+      window.setTimeout(() => {
+        navigate('/admin/tours')
+      }, 600)
     } catch (error) {
       console.error('CREATE TOUR ERROR:', error)
-      alert(error.message || 'Thêm tour thất bại')
+
+      toast.error('Thêm tour thất bại', {
+        description: error.message || 'Có lỗi xảy ra. Vui lòng thử lại.',
+      })
     } finally {
       setSubmitting(false)
     }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { categoryApi } from '../../../services/categoryApi'
@@ -175,7 +175,7 @@ function TourTypeListPage() {
     return []
   }
 
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     try {
       setLoading(true)
       setError('')
@@ -188,11 +188,15 @@ function TourTypeListPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
-    fetchCategories()
-  }, [])
+    const timer = setTimeout(() => {
+      void fetchCategories()
+    }, 0)
+
+    return () => clearTimeout(timer)
+  }, [fetchCategories])
 
   useEffect(() => {
     if (!message && !error) return
@@ -292,7 +296,15 @@ function TourTypeListPage() {
             </p>
           </div>
 
-          <div className="flex shrink-0 items-center gap-3">
+          <div className="flex shrink-0 flex-wrap items-center gap-3">
+            <Link
+              to="/admin/tours"
+              className="inline-flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-md border border-slate-300 bg-white px-5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+            >
+              <span className="text-lg leading-none">←</span>
+              Quay lại danh sách tour
+            </Link>
+
             <Link
               to="/admin/categories/create"
               className="inline-flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
@@ -417,9 +429,30 @@ function TourTypeListPage() {
                       </td>
 
                       <td className="px-5 py-4">
-                        <p className="font-semibold text-slate-900">
-                          {category.name || category.title || '-'}
-                        </p>
+                        <div className="flex items-center gap-3">
+                          <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+                            {category.thumbnail_url ? (
+                              <img
+                                src={category.thumbnail_url}
+                                alt={category.thumbnail_alt_text || category.name || 'Ảnh loại tour'}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center text-xs font-semibold text-slate-400">
+                                No img
+                              </div>
+                            )}
+                          </div>
+
+                          <div>
+                            <p className="font-semibold text-slate-900">
+                              {category.name || category.title || '-'}
+                            </p>
+                            <p className="text-xs text-slate-400">
+                              {category.thumbnail_alt_text || 'Chưa có mô tả ảnh'}
+                            </p>
+                          </div>
+                        </div>
                       </td>
 
                       <td className="px-5 py-4 text-slate-500">

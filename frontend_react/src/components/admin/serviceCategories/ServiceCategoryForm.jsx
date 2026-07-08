@@ -1,4 +1,5 @@
 const STATUS_OPTIONS = [
+  { value: '', label: 'Chọn trạng thái' },
   { value: 'true', label: 'Đang hoạt động' },
   { value: 'false', label: 'Ngừng hoạt động' },
 ]
@@ -38,12 +39,11 @@ function ServiceCategoryForm({
 
         <div className="service-category-form-grid">
           <label>
-            Tên loại dịch vụ <span>*</span>
+            Tên loại dịch vụ
             <input
               autoFocus
               value={values.name}
               onChange={(event) => onChange('name', event.target.value)}
-              placeholder="Ví dụ: Khách sạn"
             />
             {errors.name ? (
               <small className="service-category-field-error">{errors.name}</small>
@@ -51,13 +51,30 @@ function ServiceCategoryForm({
           </label>
 
           <label>
-            Trạng thái <span>*</span>
+            Trạng thái
             <select
-              value={String(values.status)}
-              onChange={(event) => onChange('status', event.target.value === 'true')}
+              required
+              value={
+                values.status === ''
+                  ? ''
+                  : values.status === true
+                    ? 'true'
+                    : 'false'
+              }
+              onChange={(event) => {
+                const nextValue = event.target.value
+                onChange(
+                  'status',
+                  nextValue === '' ? '' : nextValue === 'true',
+                )
+              }}
             >
               {STATUS_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
+                <option
+                  key={option.value || 'empty'}
+                  value={option.value}
+                  disabled={option.value === ''}
+                >
                   {option.label}
                 </option>
               ))}
@@ -73,7 +90,6 @@ function ServiceCategoryForm({
               rows="5"
               value={values.description}
               onChange={(event) => onChange('description', event.target.value)}
-              placeholder="Nhập mô tả ngắn về nhóm dịch vụ"
             />
             {errors.description ? (
               <small className="service-category-field-error">{errors.description}</small>

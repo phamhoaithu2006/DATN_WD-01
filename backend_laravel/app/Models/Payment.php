@@ -18,6 +18,7 @@ class Payment extends Model
     ];
 
     protected $casts = [
+        'amount' => 'decimal:2',
         'gateway_response' => 'array',
         'paid_at' => 'datetime',
     ];

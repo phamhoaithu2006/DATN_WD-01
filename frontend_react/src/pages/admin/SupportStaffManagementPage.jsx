@@ -1,15 +1,16 @@
 import { Link } from 'react-router-dom'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import AdminPageHeader from '../../components/admin/AdminPageHeader'
 import { getAccountRoles, getAccounts } from '../../services/adminAccountApi'
-
 import {
   createSupportStaff,
   deleteSupportStaff,
+  deleteSupportStaffAvatar,
   getSupportStaff,
   getSupportStaffStatistics,
   getSupportStaffs,
   updateSupportStaff,
+  uploadSupportStaffAvatar,
 } from '../../services/supportStaffApi'
 import '../../styles/support-staff.css'
 
@@ -21,10 +22,17 @@ const STATUS_OPTIONS = [
   { value: 'hidden', label: 'Tạm khóa' },
 ]
 
+const SPECIALIZATION_OPTIONS = [
+  { value: 'noi_dia', label: 'Nội địa' },
+  { value: 'quoc_te', label: 'Quốc tế' },
+]
+
 const EMPTY_FORM = {
   account_id: '',
   name: '',
   email: '',
+  specialization: '',
+  experience_years: '',
   status: '',
 }
 
@@ -62,17 +70,9 @@ function getServerMessage(error, fallback) {
 function getListData(payload) {
   const page = payload?.data?.data
 
-  if (Array.isArray(page)) {
-    return page
-  }
-
-  if (Array.isArray(payload?.data)) {
-    return payload.data
-  }
-
-  if (Array.isArray(payload)) {
-    return payload
-  }
+  if (Array.isArray(page)) return page
+  if (Array.isArray(payload?.data)) return payload.data
+  if (Array.isArray(payload)) return payload
 
   return []
 }
@@ -102,10 +102,12 @@ function getStatusLabel(status) {
   return STATUS_OPTIONS.find((item) => item.value === status)?.label || status
 }
 
-function getAccountLabel(account) {
-  const name = account?.full_name || account?.name || 'Chưa có tên'
+function getSpecializationLabel(value) {
+  return SPECIALIZATION_OPTIONS.find((item) => item.value === value)?.label || value || '—'
+}
 
-  return name
+function getAccountLabel(account) {
+  return account?.full_name || account?.name || 'Chưa có tên'
 }
 
 function getCurrentAccountId(staff, accounts) {
@@ -138,6 +140,20 @@ function validateForm(form, editing) {
     errors.account_id = 'Chọn NVHT'
   }
 
+  if (!form.specialization) {
+    errors.specialization = 'Vui lòng chọn chuyên môn.'
+  }
+
+  const experienceYears = Number(form.experience_years)
+
+  if (
+    form.experience_years === '' ||
+    !Number.isInteger(experienceYears) ||
+    experienceYears < 0
+  ) {
+    errors.experience_years = 'Số năm kinh nghiệm phải là số nguyên từ 0.'
+  }
+
   if (!form.status || !STATUS_OPTIONS.some((item) => item.value === form.status)) {
     errors.status = 'Trạng thái không hợp lệ.'
   }
@@ -147,6 +163,23 @@ function validateForm(form, editing) {
 
 function makeToast(type, text) {
   return { id: Date.now(), type, text }
+}
+
+function revokePreviewUrl(url) {
+  if (url?.startsWith('blob:')) {
+    URL.revokeObjectURL(url)
+  }
+}
+
+function SupportAvatar({ avatarUrl, name, tone = 0, className = '' }) {
+  return (
+    <span
+      className={`support-avatar ${avatarUrl ? 'is-image' : `tone-${tone % 5}`} ${className}`.trim()}
+      title={name}
+    >
+      {avatarUrl ? <img src={avatarUrl} alt={name || 'Ảnh đại diện'} /> : initials(name)}
+    </span>
+  )
 }
 
 function ActionIcon({ type }) {
@@ -188,18 +221,25 @@ function SupportStaffFormModal({
   errors,
   saving,
   accountOptions,
+  avatarFile,
+  avatarPreviewUrl,
+  avatarCurrentUrl,
+  avatarInputRef,
+  avatarRemoveRequested,
   onChange,
   onPickAccount,
+  onPickAvatar,
+  onOpenAvatarPicker,
+  onClearSelectedAvatar,
+  onRequestRemoveCurrentAvatar,
   onClose,
   onSubmit,
   editing,
 }) {
+  const avatarDisplayUrl = avatarPreviewUrl || (avatarRemoveRequested ? '' : avatarCurrentUrl)
+
   return (
-    <div
-      className="support-modal-backdrop"
-      role="presentation"
-      onMouseDown={onClose}
-    >
+    <div className="support-modal-backdrop" role="presentation" onMouseDown={onClose}>
       <form
         className="support-modal"
         noValidate
@@ -220,11 +260,7 @@ function SupportStaffFormModal({
           <label>
             Họ và tên
             {editing ? (
-              <input
-                value={form.name}
-                onChange={onChange('name')}
-                readOnly
-              />
+              <input value={form.name} onChange={onChange('name')} readOnly />
             ) : (
               <select value={form.account_id} onChange={onPickAccount}>
                 <option value="">Chọn NVHT</option>
@@ -237,6 +273,35 @@ function SupportStaffFormModal({
             )}
             {errors.name ? <span className="support-field-error">{errors.name}</span> : null}
             {errors.account_id ? <span className="support-field-error">{errors.account_id}</span> : null}
+          </label>
+
+          <label>
+            Chuyên môn
+            <select value={form.specialization} onChange={onChange('specialization')}>
+              <option value="" disabled>
+                Chọn chuyên môn
+              </option>
+              {SPECIALIZATION_OPTIONS.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+            {errors.specialization ? <span className="support-field-error">{errors.specialization}</span> : null}
+          </label>
+
+          <label>
+            Số năm kinh nghiệm
+            <input
+              min="0"
+              type="number"
+              value={form.experience_years}
+              onChange={onChange('experience_years')}
+              placeholder="Nhập số năm kinh nghiệm"
+            />
+            {errors.experience_years ? (
+              <span className="support-field-error">{errors.experience_years}</span>
+            ) : null}
           </label>
 
           <label>
@@ -253,6 +318,57 @@ function SupportStaffFormModal({
             </select>
             {errors.status ? <span className="support-field-error">{errors.status}</span> : null}
           </label>
+
+          <label className="support-form-wide">
+            Ảnh đại diện
+            <div className="guide-avatar-upload guide-avatar-upload-wide">
+              <input
+                ref={avatarInputRef}
+                accept="image/*"
+                className="guide-avatar-input"
+                type="file"
+                onChange={onPickAvatar}
+              />
+              <div className="guide-avatar-preview">
+                {avatarDisplayUrl ? (
+                  <img
+                    alt={form.name || 'Ảnh đại diện nhân viên hỗ trợ'}
+                    src={avatarDisplayUrl}
+                  />
+                ) : (
+                  <span>Chưa có ảnh</span>
+                )}
+              </div>
+              <div className="guide-avatar-upload-panel">
+                <button className="guide-avatar-upload-btn" type="button" onClick={onOpenAvatarPicker}>
+                  {avatarCurrentUrl ? 'Đổi ảnh đại diện' : 'Chọn ảnh đại diện'}
+                </button>
+                <span className="guide-avatar-upload-meta">
+                  {avatarFile
+                    ? `Đã chọn: ${avatarFile.name}`
+                    : avatarRemoveRequested
+                      ? 'Đã chọn xóa avatar hiện tại.'
+                    : avatarCurrentUrl
+                      ? 'Đang dùng ảnh đại diện hiện tại.'
+                      : 'Hỗ trợ JPG, PNG hoặc WebP tối đa 2MB.'}
+                </span>
+                {avatarFile ? (
+                  <button className="guide-avatar-action" type="button" onClick={onClearSelectedAvatar}>
+                    Hủy ảnh đã chọn
+                  </button>
+                ) : null}
+                {editing && (avatarCurrentUrl || avatarRemoveRequested) && !avatarFile ? (
+                  <button
+                    className="guide-avatar-action"
+                    type="button"
+                    onClick={onRequestRemoveCurrentAvatar}
+                  >
+                    {avatarRemoveRequested ? 'Hoàn tác xóa avatar' : 'Xóa avatar hiện tại'}
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          </label>
         </div>
 
         <div className="support-modal-actions">
@@ -268,13 +384,9 @@ function SupportStaffFormModal({
   )
 }
 
-function SupportStaffDetailModal({ staff, loading, onClose }) {
+function SupportStaffDetailModal({ staff, loading, deletingAvatar, onClose, onDeleteAvatar }) {
   return (
-    <div
-      className="support-modal-backdrop"
-      role="presentation"
-      onMouseDown={onClose}
-    >
+    <div className="support-modal-backdrop" role="presentation" onMouseDown={onClose}>
       <section
         className="support-modal support-detail-modal"
         onMouseDown={(event) => event.stopPropagation()}
@@ -294,12 +406,26 @@ function SupportStaffDetailModal({ staff, loading, onClose }) {
         ) : (
           <>
             <div className="support-detail-profile">
-              <span>{initials(staff?.name)}</span>
+              <SupportAvatar
+                avatarUrl={staff?.avatar_url}
+                className="support-avatar-large"
+                name={staff?.name}
+              />
               <div>
                 <h3>{staff?.name || '—'}</h3>
                 <em className={`support-status ${staff?.status || 'inactive'}`}>
                   {getStatusLabel(staff?.status)}
                 </em>
+                {staff?.avatar_url ? (
+                  <button
+                    className="guide-avatar-action"
+                    type="button"
+                    disabled={deletingAvatar}
+                    onClick={onDeleteAvatar}
+                  >
+                    {deletingAvatar ? 'Đang xóa avatar...' : 'Xóa avatar'}
+                  </button>
+                ) : null}
               </div>
             </div>
 
@@ -309,16 +435,20 @@ function SupportStaffDetailModal({ staff, loading, onClose }) {
                 <dd>{staff?.email || '—'}</dd>
               </div>
               <div>
+                <dt>Chuyên môn</dt>
+                <dd>{getSpecializationLabel(staff?.specialization)}</dd>
+              </div>
+              <div>
+                <dt>Số năm kinh nghiệm</dt>
+                <dd>{Number(staff?.experience_years || 0)} năm</dd>
+              </div>
+              <div>
                 <dt>Ngày tạo</dt>
                 <dd>{formatDateTime(staff?.created_at)}</dd>
               </div>
               <div>
                 <dt>Cập nhật gần nhất</dt>
                 <dd>{formatDateTime(staff?.updated_at)}</dd>
-              </div>
-              <div>
-                <dt>Ẩn từ</dt>
-                <dd>{formatDateTime(staff?.hidden_at)}</dd>
               </div>
             </dl>
 
@@ -347,6 +477,7 @@ function SupportStaffManagementPage() {
   })
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [specializationFilter, setSpecializationFilter] = useState('')
   const [page, setPage] = useState(1)
   const [pagination, setPagination] = useState({
     currentPage: 1,
@@ -357,6 +488,7 @@ function SupportStaffManagementPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [detailLoading, setDetailLoading] = useState(false)
+  const [avatarDeleting, setAvatarDeleting] = useState(false)
   const [formVisible, setFormVisible] = useState(false)
   const [editingStaff, setEditingStaff] = useState(null)
   const [detailStaff, setDetailStaff] = useState(null)
@@ -365,6 +497,11 @@ function SupportStaffManagementPage() {
   const [notice, setNotice] = useState(null)
   const [form, setForm] = useState(EMPTY_FORM)
   const [formErrors, setFormErrors] = useState({})
+  const [avatarFile, setAvatarFile] = useState(null)
+  const [avatarCurrentUrl, setAvatarCurrentUrl] = useState('')
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState('')
+  const [avatarRemoveRequested, setAvatarRemoveRequested] = useState(false)
+  const avatarInputRef = useRef(null)
 
   function handleStatCardClick(status) {
     setStatusFilter(status)
@@ -379,15 +516,26 @@ function SupportStaffManagementPage() {
     setNotice(null)
   }
 
+  function resetAvatarState(currentUrl = '') {
+    revokePreviewUrl(avatarPreviewUrl)
+    setAvatarFile(null)
+    setAvatarPreviewUrl('')
+    setAvatarCurrentUrl(currentUrl || '')
+    setAvatarRemoveRequested(false)
+  }
+
   function resetForm(nextEditing = null) {
     if (nextEditing) {
       setForm({
         account_id: getCurrentAccountId(nextEditing, accountOptions),
         name: nextEditing.name || '',
         email: nextEditing.email || '',
+        specialization: nextEditing.specialization || '',
+        experience_years: nextEditing.experience_years ?? '',
         status: nextEditing.status || '',
       })
       setEditingStaff(nextEditing)
+      resetAvatarState(nextEditing.avatar_url || '')
     } else {
       const defaultAccount = accountOptions.length === 1 ? accountOptions[0] : null
 
@@ -402,6 +550,7 @@ function SupportStaffManagementPage() {
           : EMPTY_FORM,
       )
       setEditingStaff(null)
+      resetAvatarState(defaultAccount?.avatar_url || '')
     }
 
     setFormErrors({})
@@ -420,6 +569,7 @@ function SupportStaffManagementPage() {
     setFormVisible(false)
     setEditingStaff(null)
     setFormErrors({})
+    resetAvatarState('')
   }
 
   function changeField(field) {
@@ -449,12 +599,57 @@ function SupportStaffManagementPage() {
       email: selectedAccount?.email || '',
     }))
 
+    setAvatarCurrentUrl(selectedAccount?.avatar_url || '')
     setFormErrors((current) => ({
       ...current,
       account_id: '',
       name: '',
       email: '',
     }))
+  }
+
+  function openAvatarPicker() {
+    avatarInputRef.current?.click()
+  }
+
+  function pickAvatar(event) {
+    const file = event.target.files?.[0] || null
+
+    if (!file) {
+      return
+    }
+
+    revokePreviewUrl(avatarPreviewUrl)
+    setAvatarFile(file)
+    setAvatarPreviewUrl(file ? URL.createObjectURL(file) : '')
+    setAvatarRemoveRequested(false)
+  }
+
+  function clearSelectedAvatar() {
+    revokePreviewUrl(avatarPreviewUrl)
+    setAvatarFile(null)
+    setAvatarPreviewUrl('')
+    setAvatarRemoveRequested(false)
+
+    if (avatarInputRef.current) {
+      avatarInputRef.current.value = ''
+    }
+  }
+
+  function requestRemoveCurrentAvatar() {
+    if (avatarRemoveRequested) {
+      setAvatarRemoveRequested(false)
+      return
+    }
+
+    revokePreviewUrl(avatarPreviewUrl)
+    setAvatarFile(null)
+    setAvatarPreviewUrl('')
+    setAvatarRemoveRequested(true)
+
+    if (avatarInputRef.current) {
+      avatarInputRef.current.value = ''
+    }
   }
 
   const loadStatistics = useCallback(async () => {
@@ -476,6 +671,7 @@ function SupportStaffManagementPage() {
           per_page: 10,
           search: search.trim() || undefined,
           status: statusFilter || undefined,
+          specialization: specializationFilter || undefined,
         })
 
         setStaffList(getListData(response))
@@ -486,7 +682,7 @@ function SupportStaffManagementPage() {
         setLoading(false)
       }
     },
-    [page, search, statusFilter],
+    [page, search, statusFilter, specializationFilter],
   )
 
   const loadAccounts = useCallback(async () => {
@@ -499,6 +695,7 @@ function SupportStaffManagementPage() {
 
       const accounts = await getAccounts({
         role_id: supportRole.id,
+        exclude_completed_support_staff: true,
       })
 
       setAccountOptions(Array.isArray(accounts) ? accounts : [])
@@ -546,6 +743,8 @@ function SupportStaffManagementPage() {
     return () => window.clearTimeout(timer)
   }, [notice])
 
+  useEffect(() => () => revokePreviewUrl(avatarPreviewUrl), [avatarPreviewUrl])
+
   async function handleSubmit(event) {
     event.preventDefault()
 
@@ -561,6 +760,8 @@ function SupportStaffManagementPage() {
     try {
       const payload = {
         role: 'customer_service',
+        specialization: form.specialization,
+        experience_years: Number(form.experience_years),
         status: form.status,
         ...(form.account_id ? { user_id: Number(form.account_id) } : {}),
       }
@@ -569,7 +770,30 @@ function SupportStaffManagementPage() {
         ? await updateSupportStaff(editingStaff.id, payload)
         : await createSupportStaff(payload)
 
-      openToast('success', response.message || (editingStaff ? 'Đã cập nhật nhân viên.' : 'Đã thêm nhân viên.'))
+      const savedStaff = response?.data || response?.data?.data
+      const savedStaffId = savedStaff?.id || editingStaff?.id
+      let avatarUploadFailed = false
+
+      if (avatarFile && savedStaffId) {
+        try {
+          await uploadSupportStaffAvatar(savedStaffId, avatarFile)
+        } catch {
+          avatarUploadFailed = true
+        }
+      } else if (editingStaff && avatarRemoveRequested && savedStaffId) {
+        try {
+          await deleteSupportStaffAvatar(savedStaffId)
+        } catch {
+          avatarUploadFailed = true
+        }
+      }
+
+      openToast(
+        'success',
+        `${response.message || (editingStaff ? 'Đã cập nhật nhân viên.' : 'Đã thêm nhân viên.')} ${
+          avatarUploadFailed ? 'Ảnh đại diện chưa tải lên được.' : ''
+        }`.trim(),
+      )
       closeForm()
       await refreshAll(page)
     } catch (error) {
@@ -604,6 +828,24 @@ function SupportStaffManagementPage() {
     }
   }
 
+  async function handleDeleteAvatar() {
+    if (!detailStaff?.id) return
+
+    setAvatarDeleting(true)
+
+    try {
+      const response = await deleteSupportStaffAvatar(detailStaff.id)
+      const nextStaff = response?.data || detailStaff
+      setDetailStaff(nextStaff)
+      openToast('success', response.message || 'Đã xóa avatar nhân viên hỗ trợ.')
+      await refreshAll(page)
+    } catch (error) {
+      openToast('error', getServerMessage(error, 'Không xóa được avatar nhân viên hỗ trợ.'))
+    } finally {
+      setAvatarDeleting(false)
+    }
+  }
+
   async function confirmDelete() {
     if (!deleteTarget) return
 
@@ -624,7 +866,7 @@ function SupportStaffManagementPage() {
   return (
     <section className="support-page">
       <AdminPageHeader
-        breadcrumb={["ViVuGo", "Quản Lý Nhân Viên Hỗ Trợ"]}
+        breadcrumb={['ViVuGo', 'Quản Lý Nhân Viên Hỗ Trợ']}
         title="Quản Lý Nhân Viên Hỗ Trợ"
         description="Quản lý tài khoản nhân viên hỗ trợ khách hàng."
         actions={
@@ -711,25 +953,41 @@ function SupportStaffManagementPage() {
                 </option>
               ))}
             </select>
+
+            <select
+              value={specializationFilter}
+              onChange={(event) => {
+                setSpecializationFilter(event.target.value)
+                setPage(1)
+              }}
+            >
+              <option value="">Tất cả chuyên môn</option>
+              {SPECIALIZATION_OPTIONS.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="support-table-wrap">
             <table className="support-table">
               <thead>
-              <tr>
-                <th>Avatar</th>
-                <th>Mã NV</th>
-                <th>Họ tên</th>
-                <th>Email</th>
-                <th>Trạng thái</th>
-                <th>Hành động</th>
-              </tr>
+                <tr>
+                  <th>Avatar</th>
+                  <th>Mã NV</th>
+                  <th>Họ tên</th>
+                  <th>Chuyên môn</th>
+                  <th>Kinh nghiệm</th>
+                  <th>Trạng thái</th>
+                  <th>Hành động</th>
+                </tr>
               </thead>
 
               <tbody>
                 {loading ? (
                   <tr>
-                    <td className="support-empty-row" colSpan="6">
+                    <td className="support-empty-row" colSpan="7">
                       <div className="support-loading">
                         <span />
                         <p>Đang tải danh sách nhân viên hỗ trợ...</p>
@@ -738,7 +996,7 @@ function SupportStaffManagementPage() {
                   </tr>
                 ) : staffList.length === 0 ? (
                   <tr>
-                    <td className="support-empty-row" colSpan="6">
+                    <td className="support-empty-row" colSpan="7">
                       <div className="support-empty-state">
                         <strong>Không tìm thấy nhân viên phù hợp</strong>
                         <span>Hãy thử đổi bộ lọc hoặc từ khóa tìm kiếm.</span>
@@ -749,22 +1007,17 @@ function SupportStaffManagementPage() {
                   staffList.map((staff, index) => (
                     <tr key={staff.id}>
                       <td>
-                        <span
-                          className={`support-avatar tone-${index % 5}`}
-                          title={staff.name}
-                        >
-                          {initials(staff.name)}
-                        </span>
+                        <SupportAvatar avatarUrl={staff.avatar_url} name={staff.name} tone={index} />
                       </td>
                       <td>
-                        <strong className="support-code">
-                          NV{String(staff.id).padStart(3, '0')}
-                        </strong>
+                        <strong className="support-code">NV{String(staff.id).padStart(3, '0')}</strong>
                       </td>
                       <td>
                         <strong className="support-name">{staff.name}</strong>
+                        <span className="support-email">{staff.email || '—'}</span>
                       </td>
-                      <td>{staff.email || '—'}</td>
+                      <td>{getSpecializationLabel(staff.specialization)}</td>
+                      <td>{Number(staff.experience_years || 0)} năm</td>
                       <td>
                         <span className={`support-status ${staff.status}`}>
                           {getStatusLabel(staff.status)}
@@ -820,9 +1073,7 @@ function SupportStaffManagementPage() {
             </span>
             <button
               type="button"
-              onClick={() =>
-                setPage((current) => Math.min(pagination.lastPage, current + 1))
-              }
+              onClick={() => setPage((current) => Math.min(pagination.lastPage, current + 1))}
               disabled={pagination.currentPage >= pagination.lastPage || loading}
               aria-label="Trang sau"
             >
@@ -838,8 +1089,17 @@ function SupportStaffManagementPage() {
           errors={formErrors}
           form={form}
           accountOptions={accountOptions}
+          avatarFile={avatarFile}
+          avatarPreviewUrl={avatarPreviewUrl}
+          avatarCurrentUrl={avatarCurrentUrl}
+          avatarInputRef={avatarInputRef}
+          avatarRemoveRequested={avatarRemoveRequested}
           onChange={changeField}
           onPickAccount={pickAccount}
+          onPickAvatar={pickAvatar}
+          onOpenAvatarPicker={openAvatarPicker}
+          onClearSelectedAvatar={clearSelectedAvatar}
+          onRequestRemoveCurrentAvatar={requestRemoveCurrentAvatar}
           onClose={closeForm}
           onSubmit={handleSubmit}
           saving={saving}
@@ -848,9 +1108,11 @@ function SupportStaffManagementPage() {
 
       {detailStaff ? (
         <SupportStaffDetailModal
-          loading={detailLoading}
-          onClose={() => setDetailStaff(null)}
           staff={detailStaff}
+          loading={detailLoading}
+          deletingAvatar={avatarDeleting}
+          onDeleteAvatar={handleDeleteAvatar}
+          onClose={() => setDetailStaff(null)}
         />
       ) : null}
 
@@ -862,15 +1124,11 @@ function SupportStaffManagementPage() {
             if (!deleting) setDeleteTarget(null)
           }}
         >
-          <div
-            className="support-delete-modal"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
+          <div className="support-delete-modal" onMouseDown={(event) => event.stopPropagation()}>
             <div className="support-delete-icon">!</div>
             <h3>Xóa nhân viên hỗ trợ?</h3>
             <p>
-              Bạn có chắc muốn xóa{' '}
-              <strong>{deleteTarget.name}</strong> khỏi hệ thống?
+              Bạn có chắc muốn xóa <strong>{deleteTarget.name}</strong> khỏi hệ thống?
               Thao tác này sẽ chuyển nhân viên vào thùng rác.
             </p>
             <div className="support-modal-actions">

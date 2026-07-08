@@ -1,4 +1,4 @@
-function formatDate(value) {
+﻿function formatDate(value) {
   if (!value) return '—'
 
   const date = new Date(value)
@@ -73,17 +73,15 @@ function ServiceCategoryTable({
             <tr>
               <th>STT</th>
               <th>Tên loại dịch vụ</th>
-              <th>Slug</th>
               <th>Mô tả</th>
               <th>Trạng thái</th>
-              <th>Ngày tạo</th>
               <th>Thao tác</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td className="service-category-empty-row" colSpan="7">
+                <td className="service-category-empty-row" colSpan="5">
                   <div className="service-category-loading">
                     <span />
                     <p>Đang tải danh sách loại dịch vụ...</p>
@@ -92,7 +90,7 @@ function ServiceCategoryTable({
               </tr>
             ) : error ? (
               <tr>
-                <td className="service-category-empty-row" colSpan="7">
+                <td className="service-category-empty-row" colSpan="5">
                   <div className="service-category-empty-state">
                     <strong>Không tải được dữ liệu</strong>
                     <span>{error}</span>
@@ -104,7 +102,7 @@ function ServiceCategoryTable({
               </tr>
             ) : items.length === 0 ? (
               <tr>
-                <td className="service-category-empty-row" colSpan="7">
+                <td className="service-category-empty-row" colSpan="5">
                   <div className="service-category-empty-state">
                     <strong>
                       {hasFilters
@@ -127,9 +125,6 @@ function ServiceCategoryTable({
                     <strong>{item.name}</strong>
                   </td>
                   <td>
-                    <code>{item.slug || '—'}</code>
-                  </td>
-                  <td>
                     <p className="service-category-description">
                       {item.description || '—'}
                     </p>
@@ -137,7 +132,6 @@ function ServiceCategoryTable({
                   <td>
                     <StatusBadge active={item.status} />
                   </td>
-                  <td>{formatDate(item.created_at)}</td>
                   <td>
                     <div className="service-category-actions">
                       <button
@@ -176,24 +170,10 @@ function ServiceCategoryTable({
 
       <div className="service-category-pagination">
         <div className="service-category-pagination-summary">
-          <span>{pagination.total} bản ghi</span>
           <span>
             Trang {pagination.currentPage} / {pagination.lastPage}
           </span>
         </div>
-
-        <label>
-          Hiển thị
-          <select
-            value={pagination.perPage}
-            disabled={loading}
-            onChange={(event) => onPerPageChange(Number(event.target.value))}
-          >
-            <option value={10}>10</option>
-            <option value={20}>20</option>
-            <option value={50}>50</option>
-          </select>
-        </label>
 
         <div className="service-category-page-buttons">
           <button
@@ -219,3 +199,4 @@ function ServiceCategoryTable({
 }
 
 export default ServiceCategoryTable
+

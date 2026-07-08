@@ -8,6 +8,8 @@ const api = axios.create({
   },
 })
 
+
+
 api.interceptors.request.use((config) => {
   const token = readToken()
 
@@ -19,18 +21,21 @@ api.interceptors.request.use((config) => {
 })
 
 export async function fetchTours(params = {}) {
-  const endpoint = params.keyword || params.destination_id || params.start_date || params.guests
-    ? '/tours/search'
-    : '/tours'
-  const response = await api.get(endpoint, { params })
+  const response = await api.get("/tours", { params });
 
-  return response.data?.data || []
+  return response.data?.data || [];
 }
 
 export async function filterTours(params = {}) {
   const response = await api.get('/tours/filter', { params })
 
   return response.data?.data || []
+}
+
+export async function fetchTourDetail(slug) {
+  const response = await api.get(`/tours/${slug}`)
+
+  return response.data?.data || response.data
 }
 
 export async function fetchWishlist() {
@@ -51,6 +56,18 @@ export async function fetchBookings() {
   return response.data?.data || []
 }
 
+export async function previewCustomerBooking(payload) {
+  const response = await api.post('/customer/bookings/preview', payload)
+
+  return response.data?.data || null
+}
+
+export async function createCustomerBooking(payload) {
+  const response = await api.post('/customer/bookings', payload)
+
+  return response.data?.data || response.data
+}
+
 export async function askTravelAssistant(message) {
   const response = await api.post('/travel-assistant', { message })
 
@@ -66,11 +83,23 @@ export async function removeWishlist(tourId) {
 }
 
 export async function updateProfile(payload) {
-  return api.put('/profile/update', payload)
+  const formData = new FormData();
+
+  // POST + _method=PUT để Laravel nhận được cả file avatar.
+  formData.append("_method", "PUT");
+  formData.append("full_name", String(payload.full_name || "").trim());
+  formData.append("phone", String(payload.phone || "").trim());
+
+  if (payload.avatar instanceof File) {
+    formData.append("avatar", payload.avatar);
+  }
+
+  return api.post("/profile/update", formData);
 }
 
 export async function changePassword(payload) {
   return api.put('/profile/change-password', payload)
 }
+
 
 export default api

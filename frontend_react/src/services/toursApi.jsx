@@ -1,56 +1,36 @@
-import axios from 'axios'
-
-const api = axios.create({
-  baseURL: 'http://127.0.0.1:8000/api',
-  headers: {
-    Accept: 'application/json',
-  },
-})
-
-api.interceptors.request.use((config) => {
-  const token =
-    localStorage.getItem('token') ||
-    localStorage.getItem('access_token') ||
-    localStorage.getItem('admin_token')
-
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
-  }
-
-  return config
-})
+import apiClient from './apiClient'
 
 const tourApi = {
   getAll() {
-    return api.get('/admin/tours')
+    return apiClient.get('/admin/tours')
   },
   getById(id) {
-    return api.get(`/admin/tours/${id}`)
+    return apiClient.get(`/admin/tours/${id}`)
   },
 
   getHidden() {
-    return api.get('/admin/tours/hidden-list')
+    return apiClient.get('/admin/tours/hidden-list')
   },
 
   create(data) {
-    return api.post('/admin/tours', data)
+    return apiClient.post('/admin/tours', data)
   },
 
   update(id, data) {
     data.append('_method', 'PUT')
-    return api.post(`/admin/tours/${id}`, data)
+    return apiClient.post(`/admin/tours/${id}`, data)
   },
 
   delete(id) {
-    return api.delete(`/admin/tours/${id}`)
+    return apiClient.delete(`/admin/tours/${id}`)
   },
 
   hide(id) {
-    return api.patch(`/admin/tours/${id}/hide`)
+    return apiClient.patch(`/admin/tours/${id}/hide`)
   },
 
   unhide(id) {
-    return api.patch(`/admin/tours/${id}/unhide`)
+    return apiClient.patch(`/admin/tours/${id}/unhide`)
   },
 }
 

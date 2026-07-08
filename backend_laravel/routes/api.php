@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\Admin\AdminProfileController;
+use App\Http\Controllers\Api\Admin\AdminTourDepartureBookingController;
 use App\Http\Controllers\Api\Admin\BookingController;
 use App\Http\Controllers\Api\Admin\CategoryController;
 use App\Http\Controllers\Api\Admin\CertificateController;
@@ -10,23 +11,24 @@ use App\Http\Controllers\Api\Admin\DestinationController;
 use App\Http\Controllers\Api\Admin\GuideController;
 use App\Http\Controllers\Api\Admin\LanguageController;
 use App\Http\Controllers\Api\Admin\NotificationController;
-use App\Http\Controllers\Api\Admin\PartnerController;
-use App\Http\Controllers\Api\Admin\PartnerServiceController;
 use App\Http\Controllers\Api\Admin\PaymentController;
 use App\Http\Controllers\Api\Admin\ReportController;
 use App\Http\Controllers\Api\Admin\ServiceCategoryController;
 use App\Http\Controllers\Api\Admin\SettingController;
 use App\Http\Controllers\Api\Admin\SupportStaffController;
 use App\Http\Controllers\Api\Admin\TourDepartureController;
+use App\Http\Controllers\Api\Admin\TourDepartureGuideAssignmentController;
 use App\Http\Controllers\Api\Admin\TourManagerController;
 use App\Http\Controllers\Api\Admin\WidgetController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\Customer\CustomerBookingController;
 use App\Http\Controllers\Api\Customer\CustomerController;
 use App\Http\Controllers\Api\Customer\CustomerDashboardController;
 use App\Http\Controllers\Api\Customer\NotificationCustomerController;
 use App\Http\Controllers\Api\Customer\TourController;
 use App\Http\Controllers\Api\Customer\WishlistController;
 use App\Http\Controllers\Api\Guide\GuideAttendanceController;
+use App\Http\Controllers\Api\Guide\GuideDashboardController;
 use App\Http\Controllers\Api\Guide\GuideProfileController;
 use App\Http\Controllers\Api\Guide\GuideTourController;
 use App\Http\Controllers\Api\PublicSettingController;
@@ -59,7 +61,13 @@ Route::middleware(['auth:sanctum', 'role:customer'])->group(function () {
     Route::put('/profile/update', [CustomerController::class, 'updateProfile']);
     Route::put('/profile/change-password', [CustomerController::class, 'changePassword']);
 
-    // ======Thông báo khách hàng, hdv, nvht (dùng chung được hết)======
+    //đặt tour
+    Route::post('customer/bookings/preview', [CustomerBookingController::class, 'preview']);
+    Route::post('customer/bookings', [CustomerBookingController::class, 'store']);
+});
+
+Route::middleware(['auth:sanctum'])->group(function () {
+// ======Thông báo khách hàng, hdv, nvht (dùng chung được hết)======
     // Hiển thị danh sách thông báo của khách hàng
     Route::get('/notifications/customers', [NotificationCustomerController::class, 'getMyNotifications']);
     // Xem chi tiết thông báo
@@ -100,6 +108,10 @@ Route::get('/widgets', [PublicWidgetController::class, 'index']);
 
 // ======Admin======
 Route::prefix('admin')->group(function () {
+    Route::get(
+        'guides/destination-options',
+        [DestinationController::class, 'options']
+    );
     Route::get('/settings/public', [PublicSettingController::class, 'show']);
     Route::get('/widgets', [PublicWidgetController::class, 'index']);
     Route::middleware(['auth:sanctum', 'role:admin'])->get('/roles', [CustomerManagerController::class, 'index_role']);
@@ -145,6 +157,7 @@ Route::prefix('admin')->group(function () {
     Route::get('guides/search', [GuideController::class, 'search']);
     Route::get('guides/filter', [GuideController::class, 'filter']);
     Route::get('guides/statistics', [GuideController::class, 'statistics']);
+    Route::get('guides/available-users', [GuideController::class, 'availableUsers']);
     Route::patch('guides/{id}/restore', [GuideController::class, 'restore']);
     Route::delete('guides/{id}/force', [GuideController::class, 'forceDelete']);
     Route::get('guides', [GuideController::class, 'index']);
@@ -182,26 +195,6 @@ Route::prefix('admin')->group(function () {
     Route::put('languages/{languageId}/levels/{levelId}', [LanguageController::class, 'updateLevel']);
     Route::delete('languages/{languageId}/levels/{levelId}', [LanguageController::class, 'destroyLevel']);
 
-    // Quản lý đối tác
-    Route::get('partners/service-types', [PartnerController::class, 'serviceTypes']);
-    Route::get('partners/statistics', [PartnerController::class, 'statistics']);
-    Route::get('partners/trashed', [PartnerController::class, 'trashed']);
-    Route::patch('partners/{id}/restore', [PartnerController::class, 'restore']);
-    Route::delete('partners/{id}/force', [PartnerController::class, 'forceDestroy']);
-    Route::get('partners', [PartnerController::class, 'index']);
-    Route::post('partners', [PartnerController::class, 'store']);
-    Route::get('partners/{id}', [PartnerController::class, 'show']);
-    Route::put('partners/{id}', [PartnerController::class, 'update']);
-    Route::delete('partners/{id}', [PartnerController::class, 'destroy']);
-    Route::get('partners/{partnerId}/services', [PartnerServiceController::class, 'index']);
-    Route::post('partners/{partnerId}/services', [PartnerServiceController::class, 'store']);
-    Route::get('partners/{partnerId}/services/{id}', [PartnerServiceController::class, 'show']);
-    Route::put('partners/{partnerId}/services/{id}', [PartnerServiceController::class, 'update']);
-    Route::delete('partners/{partnerId}/services/{id}', [PartnerServiceController::class, 'destroy']);
-    Route::patch('partners/{partnerId}/services/{id}/restore', [PartnerServiceController::class, 'restore']);
-    Route::delete('partners/{partnerId}/services/{id}/force', [PartnerServiceController::class, 'forceDestroy']);
-    Route::post('partners/{id}/upload-logo', [PartnerController::class, 'uploadLogo']);
-    Route::delete('partners/{id}/delete-logo', [PartnerController::class, 'deleteLogo']);
     // Quản lý nhân viên hỗ trợ
     // Xem danh sách
     Route::get('/support-staff', [SupportStaffController::class, 'index']);
@@ -215,6 +208,10 @@ Route::prefix('admin')->group(function () {
     Route::get('/support-staff/{id}', [SupportStaffController::class, 'show']);
     // Sửa thông tin
     Route::put('/support-staff/{id}', [SupportStaffController::class, 'update']);
+    // Upload avatar
+    Route::post('/support-staff/{id}/avatar', [SupportStaffController::class, 'uploadAvatar']);
+    // Xóa avatar
+    Route::delete('/support-staff/{id}/avatar', [SupportStaffController::class, 'deleteAvatar']);
     // Xóa thông tin
     Route::delete('/support-staff/{id}', [SupportStaffController::class, 'destroy']);
     // Khôi phục từ thùng rác
@@ -284,28 +281,28 @@ Route::prefix('admin')->group(function () {
     Route::delete('/widgets/{id}', [WidgetController::class, 'destroy']);
     Route::patch('/widgets/{id}/toggle-status', [WidgetController::class, 'toggleStatus']);
 
-    // Quản lý thanh toán
-    Route::get('/payments', [PaymentController::class, 'index']);
-    Route::get('/payments/{id}', [PaymentController::class, 'show']);
-    Route::patch('/payments/{id}/confirm', [PaymentController::class, 'confirm']);
-    Route::patch('/payments/{id}/fail', [PaymentController::class, 'fail']);
-    Route::patch('/payments/{id}/refund', [PaymentController::class, 'refund']);
+    Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
+        // Quản lý thanh toán
+        Route::get('/payments', [PaymentController::class, 'index']);
+        Route::get('/payments/{id}', [PaymentController::class, 'show']);
+        Route::patch('/payments/{id}/confirm', [PaymentController::class, 'confirm']);
+        Route::patch('/payments/{id}/fail', [PaymentController::class, 'fail']);
+        Route::patch('/payments/{id}/refund', [PaymentController::class, 'refund']);
 
-    Route::middleware('auth:sanctum')->group(function () {
         Route::get('/profile', [AdminProfileController::class, 'show']);
         Route::put('/profile', [AdminProfileController::class, 'update']);
         Route::put('/profile/password', [AdminProfileController::class, 'changePassword']);
-    });
 
-    // ======Booking======
-    Route::prefix('bookings')->group(function () {
-        Route::get('/', [BookingController::class, 'index']);
-        Route::get('/statistics', [BookingController::class, 'statistics']);
-        Route::get('/{id}', [BookingController::class, 'show']);
-        Route::post('/', [BookingController::class, 'store']);
-        Route::put('/{id}', [BookingController::class, 'update']);
-        Route::patch('/{id}/cancel', [BookingController::class, 'softDelete']);
-        Route::delete('/{id}', [BookingController::class, 'destroy']);
+        // ======Booking======
+        Route::prefix('bookings')->group(function () {
+            Route::get('/', [BookingController::class, 'index']);
+            Route::get('/statistics', [BookingController::class, 'statistics']);
+            Route::get('/{id}', [BookingController::class, 'show']);
+            Route::post('/', [BookingController::class, 'store']);
+            Route::put('/{id}', [BookingController::class, 'update']);
+            Route::patch('/{id}/cancel', [BookingController::class, 'softDelete']);
+            Route::delete('/{id}', [BookingController::class, 'destroy']);
+        });
     });
 
     // ======Chức năng gửi thông báo======
@@ -335,12 +332,46 @@ Route::prefix('admin')->group(function () {
     Route::get('/notifications/get-all-send', [NotificationController::class, 'getAllSentNotifications']);
     // Thu hồi lại thông báo đã gửi
     Route::delete('/notifications/revoke/{draft_id}', [NotificationController::class, 'revoke']);
+
+    //==========quản lý lịch trình============
+    //Hiển thị danh sách user đặt tour
+    Route::get('tour-departures/{tourDeparture}/booked-customers', [AdminTourDepartureBookingController::class, 'index']);
+
+    Route::prefix('tour-departures')->group(function () {
+        Route::get(
+            'guide-planning',
+            [TourDepartureGuideAssignmentController::class, 'planning']
+        );
+
+        Route::get(
+            '{departure}/guide-candidates',
+            [TourDepartureGuideAssignmentController::class, 'candidates']
+        );
+
+        Route::post(
+            '{departure}/auto-assign-guide',
+            [TourDepartureGuideAssignmentController::class, 'autoAssign']
+        );
+
+        Route::post(
+            '{departure}/assign-guide',
+            [TourDepartureGuideAssignmentController::class, 'assign']
+        );
+
+        Route::patch(
+            '{departure}/guide-assignments/{assignment}/cancel',
+            [TourDepartureGuideAssignmentController::class, 'cancel']
+        );
+    });
 });
+
+
 
 // =============================== Hướng dẫn viên ===============================
 Route::middleware('auth:sanctum')->group(function () {
     // Lấy thông tin hdv
     Route::get('/guide/profile', [GuideProfileController::class, 'show']);
+    Route::get('/guide/dashboard', [GuideDashboardController::class, 'show']);
     // Sửa thông tin hdv
     Route::put('/guide/profile', [GuideProfileController::class, 'update']);
     // Sửa lại pass khi nhớ mk cũ

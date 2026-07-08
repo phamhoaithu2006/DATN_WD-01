@@ -45,7 +45,14 @@ class Booking extends Model
     ];
 
     // Khai báo các cột ngày tháng để Laravel tự động xử lý
-    protected $dates = ['cancelled_at', 'created_at', 'updated_at'];
+    // protected $dates = ['cancelled_at', 'created_at', 'updated_at'];
+    protected $casts = [
+        'number_of_people' => 'integer',
+        'unit_price' => 'decimal:2',
+        'discount_amount' => 'decimal:2',
+        'total_amount' => 'decimal:2',
+        'cancelled_at' => 'datetime',
+    ];
 
     public function user(): BelongsTo
     {

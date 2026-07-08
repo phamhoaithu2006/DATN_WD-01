@@ -5,6 +5,28 @@ import axios from 'axios'
 
 const API_URL = 'http://127.0.0.1:8000/api/admin'
 
+const buildCategoryFormData = (data, method = 'POST') => {
+  const formData = new FormData()
+
+  if (method !== 'POST') {
+    formData.append('_method', method)
+  }
+
+  formData.append('name', data.name || '')
+  formData.append('description', data.description || '')
+  formData.append('status', data.status || 'active')
+
+  if (Object.prototype.hasOwnProperty.call(data, 'thumbnail_alt_text')) {
+    formData.append('thumbnail_alt_text', data.thumbnail_alt_text || '')
+  }
+
+  if (data.thumbnail_image instanceof File) {
+    formData.append('thumbnail_image', data.thumbnail_image)
+  }
+
+  return formData
+}
+
 export const categoryApi = {
   // Lấy tất cả danh sách loại tour
   getAll() {
@@ -20,12 +42,20 @@ export const categoryApi = {
 
   // Thêm mới loại tour
   create(data) {
-    return axios.post(`${API_URL}/categories`, data)
+    return axios.post(`${API_URL}/categories`, buildCategoryFormData(data), {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
   },
 
   // Cập nhật loại tour
   update(id, data) {
-    return axios.put(`${API_URL}/categories/${id}`, data)
+    return axios.post(`${API_URL}/categories/${id}`, buildCategoryFormData(data, 'PUT'), {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
   },
 
   // Xóa loại tour
