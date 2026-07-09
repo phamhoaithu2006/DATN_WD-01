@@ -1272,7 +1272,7 @@ function TourForm({
                   value={formData.title}
                   onChange={handleChange}
                   maxLength={MAX_TITLE_LENGTH}
-                  placeholder="Nhập tên tour (ví dụ: Đà Nẵng - Hội An 3N2Đ)"
+                  placeholder="Nhập tên tour..."
                   className={inputClass}
                 />
               </div>
@@ -1290,7 +1290,7 @@ function TourForm({
                   value={formData.summary}
                   onChange={handleChange}
                   maxLength={MAX_SUMMARY_LENGTH}
-                  placeholder="Nhập tóm tắt ngắn gọn về tour (hiển thị trên danh sách tour)..."
+                  placeholder="Nhập tóm tắt ngắn gọn về tour..."
                   rows="3"
                   className={textareaClass}
                 />
@@ -1918,10 +1918,9 @@ function TourForm({
                     step="1"
                     value={formData.duration_days}
                     onChange={handleChange}
-                    placeholder="VD: 3"
                     className={inputClass}
                   />
-                  <p className="mt-1 text-[11px] font-semibold text-slate-400">
+                  <p className="mt-1 whitespace-nowrap text-[10px] font-semibold leading-4 text-slate-400">
                     Tối đa {durationLimit.maxDays} ngày với tour {durationLimit.label}.
                   </p>
                 </div>
@@ -1933,10 +1932,9 @@ function TourForm({
                     name="duration_nights"
                     value={getDurationNightsFromDays(formData.duration_days)}
                     readOnly
-                    placeholder="Tự động"
                     className={`${inputClass} cursor-not-allowed bg-slate-50 text-slate-500`}
                   />
-                  <p className="mt-1 text-[11px] font-semibold text-slate-400">
+                  <p className="mt-1 whitespace-nowrap text-[10px] font-semibold leading-4 text-slate-400">
                     Tự động tính bằng số ngày - 1.
                   </p>
                 </div>
@@ -1951,7 +1949,6 @@ function TourForm({
                   step="1000"
                   value={formData.base_price}
                   onChange={handleChange}
-                  placeholder="VD: 1000000"
                   className={inputClass}
                 />
                 <p className="mt-1.5 text-[12px] font-semibold text-slate-500">

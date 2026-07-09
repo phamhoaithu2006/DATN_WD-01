@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+﻿import { Link } from 'react-router-dom'
 
 const GuideIcon = ({ className = 'w-4 h-4' }) => (
   <svg
@@ -564,50 +564,55 @@ export default function TourDepartureTable({
                           </td>
 
                           <td className="px-4 py-4">
-                            <div className="flex flex-wrap justify-center gap-2">
-                              {typeof onViewDetails === 'function' ? (
-                                <button
-                                  type="button"
-                                  onClick={() => onViewDetails(item.id)}
-                                  className="inline-flex items-center gap-1 rounded-lg bg-violet-50 px-3 py-2 text-xs font-bold text-violet-700"
-                                >
-                                  <DetailIcon />
-                                  Chi tiết
-                                </button>
-                              ) : null}
+                            <div className="flex flex-col items-center gap-2">
+                              <div className="flex flex-wrap justify-center gap-2">
+                                {typeof onViewDetails === 'function' ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => onViewDetails(item.id)}
+                                    className="inline-flex items-center gap-1 rounded-lg bg-violet-50 px-3 py-2 text-xs font-bold text-violet-700"
+                                  >
+                                    <DetailIcon />
+                                    Chi tiết
+                                  </button>
+                                ) : null}
 
-                              {locked ? (
-                                <span className="inline-flex items-center rounded-lg bg-slate-200 px-3 py-2 text-xs font-bold text-slate-600">
-                                  Đã khóa
-                                </span>
-                              ) : (
-                                <>
-                                  {typeof onOpenAssignment ===
-                                  'function' ? (
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        onOpenAssignment(item.id)
-                                      }
-                                      className="inline-flex items-center gap-1 rounded-lg bg-sky-50 px-3 py-2 text-xs font-bold text-sky-700"
-                                    >
-                                      <GuideIcon />
-                                      {leadAssignment
-                                        ? 'Xem HDV'
-                                        : 'Phân HDV'}
-                                    </button>
-                                  ) : (
-                                    <Link
-                                      to={getAssignmentLink(item.id)}
-                                      className="inline-flex items-center gap-1 rounded-lg bg-sky-50 px-3 py-2 text-xs font-bold text-sky-700"
-                                    >
-                                      <GuideIcon />
-                                      Phân HDV
-                                    </Link>
-                                  )}
+                                {locked ? (
+                                  <span className="inline-flex items-center rounded-lg bg-slate-200 px-3 py-2 text-xs font-bold text-slate-600">
+                                    Đã khóa
+                                  </span>
+                                ) : (
+                                  <>
+                                    {typeof onOpenAssignment ===
+                                    'function' ? (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          onOpenAssignment(item.id)
+                                        }
+                                        className="inline-flex items-center gap-1 rounded-lg bg-sky-50 px-3 py-2 text-xs font-bold text-sky-700"
+                                      >
+                                        <GuideIcon />
+                                        {leadAssignment
+                                          ? 'Xem HDV'
+                                          : 'Phân HDV'}
+                                      </button>
+                                    ) : (
+                                      <Link
+                                        to={getAssignmentLink(item.id)}
+                                        className="inline-flex items-center gap-1 rounded-lg bg-sky-50 px-3 py-2 text-xs font-bold text-sky-700"
+                                      >
+                                        <GuideIcon />
+                                        Phân HDV
+                                      </Link>
+                                    )}
+                                  </>
+                                )}
+                              </div>
 
-                                  {typeof onRequestEdit ===
-                                  'function' ? (
+                              {!locked ? (
+                                <div className="flex flex-wrap justify-center gap-2">
+                                  {typeof onRequestEdit === 'function' ? (
                                     <button
                                       type="button"
                                       title={
@@ -641,8 +646,8 @@ export default function TourDepartureTable({
                                       Xóa
                                     </button>
                                   ) : null}
-                                </>
-                              )}
+                                </div>
+                              ) : null}
                             </div>
                           </td>
                         </tr>

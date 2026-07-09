@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import { tourDepartureApi } from '../../../services/tourDepartureApi'
 import TourDepartureTable from '../../../components/admin/tourDepartures/TourDepartureTable'
 import { GuideAssignmentPanel } from './GuideAssignmentPage.jsx'
@@ -117,9 +118,6 @@ export default function TourDepartureListPage() {
 
       setTours(list)
 
-      if (list.length > 0) {
-        setSelectedTourId((currentId) => currentId || String(list[0].id))
-      }
     } catch (error) {
       console.error(error)
       alert(getRequestErrorMessage(error, 'Không tải được danh sách tour'))
@@ -329,7 +327,9 @@ export default function TourDepartureListPage() {
           onClick={(event) => {
             if (!selectedTourId) {
               event.preventDefault()
-              alert('Vui lòng chọn tour trước khi thêm lịch khởi hành.')
+              toast.error('Vui lòng chọn tour trước khi thêm lịch khởi hành.', {
+                position: 'top-right',
+              })
             }
           }}
           className="inline-flex h-10 items-center justify-center rounded-lg bg-blue-600 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700"
