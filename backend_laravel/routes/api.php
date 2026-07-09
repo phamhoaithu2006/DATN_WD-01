@@ -67,7 +67,7 @@ Route::middleware(['auth:sanctum', 'role:customer'])->group(function () {
 });
 
 Route::middleware(['auth:sanctum'])->group(function () {
-// ======Thông báo khách hàng, hdv, nvht (dùng chung được hết)======
+    // ======Thông báo khách hàng, hdv, nvht (dùng chung được hết)======
     // Hiển thị danh sách thông báo của khách hàng
     Route::get('/notifications/customers', [NotificationCustomerController::class, 'getMyNotifications']);
     // Xem chi tiết thông báo
@@ -362,6 +362,17 @@ Route::prefix('admin')->group(function () {
             '{departure}/guide-assignments/{assignment}/cancel',
             [TourDepartureGuideAssignmentController::class, 'cancel']
         );
+
+        Route::get(
+            '{departure}/direct-guide-candidates',
+            [TourDepartureGuideAssignmentController::class, 'directCandidates']
+        );
+
+        Route::post(
+            '{departure}/direct-assign-guide',
+            [TourDepartureGuideAssignmentController::class, 'directAssign']
+        );
+
     });
 });
 

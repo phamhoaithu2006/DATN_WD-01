@@ -202,4 +202,6 @@ class DestinationController extends Controller
             'data' => $items,
         ]);
     }
+
+    
 }
