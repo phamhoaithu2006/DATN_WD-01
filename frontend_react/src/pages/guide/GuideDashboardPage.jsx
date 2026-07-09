@@ -12,6 +12,14 @@ const moneyFormatter = new Intl.NumberFormat('vi-VN', {
 const numberFormatter = new Intl.NumberFormat('vi-VN')
 
 const weekdayLabels = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN']
+const HERO_IMAGE_POOL = [
+  'https://picsum.photos/seed/guide-dashboard-1/1600/480',
+  'https://picsum.photos/seed/guide-dashboard-2/1600/480',
+  'https://picsum.photos/seed/guide-dashboard-3/1600/480',
+  'https://picsum.photos/seed/guide-dashboard-4/1600/480',
+  'https://picsum.photos/seed/guide-dashboard-5/1600/480',
+  'https://picsum.photos/seed/guide-dashboard-6/1600/480',
+]
 
 function formatMoney(value) {
   const number = Number(value || 0)
@@ -77,6 +85,26 @@ function monthLabel(date) {
   }).format(date)
 }
 
+function formatDateKey(value) {
+  const raw = String(value || '').slice(0, 10)
+  const [year, month, day] = raw.split('-')
+  if (!year || !month || !day) return raw || 'Chưa xác định'
+  return `${day}/${month}/${year}`
+}
+
+function toLocalDateKey(date) {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('-')
+}
+
+function getRandomHeroImage() {
+  const index = Math.floor(Math.random() * HERO_IMAGE_POOL.length)
+  return HERO_IMAGE_POOL[index]
+}
+
 function SectionHeader({ title, description, action }) {
   return (
     <div className="guide-section-header">
@@ -89,13 +117,9 @@ function SectionHeader({ title, description, action }) {
   )
 }
 
-function StatCard({ title, value, subtitle, tone = 'blue', badge, onClick, active = false, icon }) {
+function StatCard({ title, value, subtitle, tone = 'blue', badge, icon }) {
   return (
-    <button
-      type="button"
-      className={`guide-stat-card tone-${tone} ${active ? 'is-active' : ''}`}
-      onClick={onClick}
-    >
+    <div className={`guide-stat-card tone-${tone}`}>
       <div className="guide-stat-card-head">
         <span className="guide-stat-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -107,7 +131,7 @@ function StatCard({ title, value, subtitle, tone = 'blue', badge, onClick, activ
       <span className="guide-stat-title">{title}</span>
       <strong className="guide-stat-value">{value}</strong>
       {subtitle ? <span className="guide-stat-subtitle">{subtitle}</span> : null}
-    </button>
+    </div>
   )
 }
 
@@ -160,16 +184,25 @@ function TourRow({ item }) {
           <Pill tone={statusTone(item?.assignment_status || item?.status)}>{statusLabel(item)}</Pill>
         </div>
         <div className="guide-tour-row-meta">
-          <span>{formatTime(item?.departure_date)}</span>
-          <span>{formatMoneyCompact(item?.price)}</span>
-          <span>{formatNumber(item?.available_slots)} chỗ trống</span>
+          <span>
+            <small>Giờ khởi hành</small>
+            <strong>{formatTime(item?.departure_date)}</strong>
+          </span>
+          <span>
+            <small>Giá tour</small>
+            <strong>{formatMoneyCompact(item?.price)}</strong>
+          </span>
+          <span>
+            <small>Chỗ trống</small>
+            <strong>{formatNumber(item?.available_slots)}</strong>
+          </span>
         </div>
       </div>
     </article>
   )
 }
 
-function CalendarCard({ monthDate, onPrev, onNext, eventsByDate, selectedDate }) {
+function CalendarCard({ monthDate, onPrev, onNext, eventsByDate, selectedDate, onSelectDate }) {
   const days = useMemo(() => {
     const year = monthDate.getFullYear()
     const month = monthDate.getMonth()
@@ -213,15 +246,18 @@ function CalendarCard({ monthDate, onPrev, onNext, eventsByDate, selectedDate })
           {days.map((date, index) => {
             if (!date) return <div key={`empty-${index}`} className="guide-calendar-cell empty" />
 
-            const key = date.toISOString().slice(0, 10)
+            const key = toLocalDateKey(date)
             const events = eventsByDate.get(key) || []
             const isToday = selectedDate && key === selectedDate
             const isCurrentMonth = date.getMonth() === monthDate.getMonth()
 
             return (
-              <div
+              <button
+                type="button"
                 key={key}
-                className={`guide-calendar-cell ${isToday ? 'is-selected' : ''} ${isCurrentMonth ? '' : 'is-muted'}`}
+                className={`guide-calendar-cell ${events.length ? 'has-events' : ''} ${isToday ? 'is-selected' : ''} ${isCurrentMonth ? '' : 'is-muted'}`}
+                onClick={() => onSelectDate?.(key)}
+                aria-pressed={isToday}
               >
                 <span>{date.getDate()}</span>
                 <div className="guide-calendar-dots">
@@ -229,14 +265,13 @@ function CalendarCard({ monthDate, onPrev, onNext, eventsByDate, selectedDate })
                     <i key={`${key}-${dotIndex}`} className={`tone-${tone}`} />
                   ))}
                 </div>
-              </div>
+              </button>
             )
           })}
         </div>
         <div className="guide-calendar-legend">
           <span><i className="tone-blue" /> Tour đã lên lịch</span>
           <span><i className="tone-green" /> Tour đang diễn ra</span>
-          <span><i className="tone-orange" /> Cuộc hẹn</span>
           <span><i className="tone-red" /> Nghỉ phép</span>
         </div>
       </div>
@@ -403,9 +438,8 @@ function GuideDashboardPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [dashboard, setDashboard] = useState(null)
-  const [tourPeriod, setTourPeriod] = useState('month')
-  const [customerPeriod, setCustomerPeriod] = useState('month')
   const [calendarOffset, setCalendarOffset] = useState(0)
+  const [selectedDate, setSelectedDate] = useState('')
 
   useEffect(() => {
     let mounted = true
@@ -436,8 +470,7 @@ function GuideDashboardPage() {
   const guide = dashboard?.guide || {}
   const summary = dashboard?.summary || {}
   const periodStats = summary.period || {}
-  const selectedTourStats = periodStats[tourPeriod] || {}
-  const selectedCustomerStats = periodStats[customerPeriod] || {}
+  const monthStats = periodStats.month || {}
 
   const todaySchedule = useMemo(() => dashboard?.today_schedule ?? [], [dashboard?.today_schedule])
   const upcomingTours = useMemo(() => dashboard?.upcoming_tours ?? [], [dashboard?.upcoming_tours])
@@ -446,13 +479,40 @@ function GuideDashboardPage() {
   const incomeRows = useMemo(() => dashboard?.income_rows ?? [], [dashboard?.income_rows])
   const tourOverview = dashboard?.tour_overview || {}
   const recentReviews = useMemo(() => dashboard?.recent_reviews ?? [], [dashboard?.recent_reviews])
+  const [heroImage] = useState(() => getRandomHeroImage())
 
-  const avatarSrc = mediaUrl(guide.avatar_url || guide.user?.avatar_url)
   const fullName = guide.user?.full_name || guide.user?.name || 'Hướng dẫn viên'
   const today = useMemo(() => new Date(), [])
+  const todayKey = toLocalDateKey(today)
   const visibleMonth = useMemo(() => new Date(today.getFullYear(), today.getMonth() + calendarOffset, 1), [today, calendarOffset])
   const calendarKey = visibleMonth.toISOString().slice(0, 7)
-  const selectedDate = today.toISOString().slice(0, 10)
+  const heroDate = new Intl.DateTimeFormat('vi-VN', {
+    weekday: 'long',
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  }).format(today)
+
+  const allGuideTours = useMemo(() => {
+    const map = new Map()
+
+    ;[...upcomingTours, ...ongoingTours, ...todaySchedule, ...assignedTours].forEach((item) => {
+      const key = item?.id ?? `${item?.departure_date || ''}-${item?.tour?.title || ''}`
+      if (!map.has(key)) {
+        map.set(key, item)
+      }
+    })
+
+    return Array.from(map.values()).sort((a, b) => new Date(a?.departure_date || 0) - new Date(b?.departure_date || 0))
+  }, [assignedTours, ongoingTours, todaySchedule, upcomingTours])
+
+  const selectedDayTours = useMemo(() => {
+    if (!selectedDate) return upcomingTours.slice(0, 3)
+
+    return allGuideTours.filter((item) => String(item?.departure_date || '').slice(0, 10) === selectedDate)
+  }, [allGuideTours, selectedDate, upcomingTours])
+
+  const selectedDayLabel = selectedDate ? formatDateKey(selectedDate) : 'Tuần này'
 
   const calendarEvents = useMemo(() => {
     const buckets = new Map()
@@ -466,22 +526,13 @@ function GuideDashboardPage() {
 
     upcomingTours.forEach((item) => push(item.departure_date, 'blue'))
     ongoingTours.forEach((item) => push(item.departure_date, 'green'))
-    todaySchedule.forEach((item) => push(item.departure_date, 'orange'))
     assignedTours.forEach((item) => push(item.departure_date, 'red'))
 
     return buckets
-  }, [assignedTours, calendarKey, ongoingTours, todaySchedule, upcomingTours])
+  }, [assignedTours, calendarKey, ongoingTours, upcomingTours])
 
   const monthIncome = Number(summary.income?.current_month_revenue || 0)
   const yearIncome = Number(summary.income?.current_year_revenue || 0)
-  const totalTours = Number(summary.tour_count_total || 0)
-
-  const heroDate = new Intl.DateTimeFormat('vi-VN', {
-    weekday: 'long',
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-  }).format(today)
 
   return (
     <section className="guide-dashboard-overview">
@@ -501,29 +552,34 @@ function GuideDashboardPage() {
 
       {!loading && !error ? (
         <>
-          <header className="guide-dashboard-hero">
+          <header
+            className="guide-dashboard-hero guide-dashboard-hero-banner"
+            style={
+              heroImage
+                ? {
+                    backgroundImage: `linear-gradient(135deg, rgba(15, 23, 42, 0.74) 0%, rgba(15, 23, 42, 0.52) 42%, rgba(15, 23, 42, 0.36) 100%), url(${heroImage})`,
+                  }
+                : undefined
+            }
+          >
             <div className="guide-dashboard-hero-copy">
-              <span className="guide-dashboard-kicker">{heroDate}</span>
+              <span className="guide-dashboard-kicker">Tour của tôi</span>
               <h1>Xin chào, {fullName} 👋</h1>
               <p>
-                Trang chủ này gom nhanh tour được phân công,
-                lịch trình hôm nay, đánh giá gần đây và thống kê doanh thu để HDV nhìn tổng quan thật nhanh.
+                Trang chủ này gom nhanh tour được phân công, lịch trình hôm nay, đánh giá gần đây và thống kê doanh thu để HDV nhìn tổng quan thật nhanh.
               </p>
               <div className="guide-dashboard-hero-actions">
                 <a href="#today-schedule" className="guide-primary-action">Xem tour hôm nay</a>
                 <a href="#work-calendar" className="guide-secondary-action">Lịch làm việc</a>
               </div>
             </div>
-            <div className="guide-dashboard-hero-visual" aria-hidden="true">
-              <div className="guide-hero-shape shape-one" />
-              <div className="guide-hero-shape shape-two" />
-              <div className="guide-hero-card">
-                <div className="guide-hero-card-avatar">
-                  {avatarSrc ? <img src={avatarSrc} alt={fullName} /> : initials(fullName)}
-                </div>
-                <span>{guide.guide_code || 'HDV'}</span>
-                <strong>{formatNumber(totalTours)} tour đã dẫn</strong>
-                <small>{formatNumber(summary.rating?.review_count || guide.review_count)} lượt đánh giá</small>
+            <div className="guide-dashboard-hero-meta" aria-hidden="true">
+              <div className="guide-dashboard-hero-meta-chip">
+                <span>{heroDate}</span>
+              </div>
+              <div className="guide-dashboard-hero-meta-stats">
+                <strong>{formatNumber(summary.tour_count_total || 0)}</strong>
+                <span>tour được phân công</span>
               </div>
             </div>
           </header>
@@ -531,11 +587,10 @@ function GuideDashboardPage() {
           <div className="guide-stats-grid">
             <StatCard
               title="Tổng tour đã dẫn"
-              value={formatNumber(tourPeriod === 'month' ? selectedTourStats.tour_count : periodStats.year?.tour_count)}
-              subtitle={`Đang xem ${tourPeriod === 'month' ? selectedTourStats.label : periodStats.year?.label || 'theo năm'} - bấm để đổi`}
+              value={formatNumber(monthStats.tour_count)}
+              subtitle={monthStats.label || 'Tháng này'}
               tone="blue"
-              active={tourPeriod === 'month'}
-              badge={tourPeriod === 'month' ? 'Tháng' : 'Năm'}
+              badge="Tháng"
               icon={(
                 <>
                   <path d="M4 19.5V5.5" />
@@ -545,7 +600,6 @@ function GuideDashboardPage() {
                   <path d="M20 7v10" />
                 </>
               )}
-              onClick={() => setTourPeriod((current) => (current === 'month' ? 'year' : 'month'))}
             />
             <StatCard
               title="Đánh giá trung bình"
@@ -560,11 +614,10 @@ function GuideDashboardPage() {
             />
             <StatCard
               title="Tổng lượt khách"
-              value={formatNumber(customerPeriod === 'month' ? selectedCustomerStats.customer_count : periodStats.year?.customer_count)}
-              subtitle={`Đang xem ${customerPeriod === 'month' ? selectedCustomerStats.label : periodStats.year?.label || 'theo năm'} - bấm để đổi`}
+              value={formatNumber(monthStats.customer_count)}
+              subtitle={monthStats.label || 'Tháng này'}
               tone="green"
-              active={customerPeriod === 'month'}
-              badge={customerPeriod === 'month' ? 'Tháng' : 'Năm'}
+              badge="Tháng"
               icon={(
                 <>
                   <circle cx="9" cy="8" r="3" />
@@ -573,7 +626,6 @@ function GuideDashboardPage() {
                   <path d="M14.5 15.5h6" />
                 </>
               )}
-              onClick={() => setCustomerPeriod((current) => (current === 'month' ? 'year' : 'month'))}
             />
             <StatCard
               title="Thu nhập tháng này"
@@ -594,19 +646,28 @@ function GuideDashboardPage() {
               <div className="guide-card-header">
                 <SectionHeader
                   title="Tour sắp tới"
-                  description={`${upcomingTours.length} tour trong tuần này`}
+                  description={
+                    selectedDate
+                      ? `${selectedDayTours.length} tour trong ngày ${selectedDayLabel}`
+                      : `${upcomingTours.length} tour trong tuần này`
+                  }
                   action={<Link to="/guide/tours" className="guide-card-link">Xem tất cả →</Link>}
                 />
               </div>
               <div className="guide-card-body">
-          <div className="guide-tour-list">
-                  {upcomingTours.length ? upcomingTours.slice(0, 3).map((item) => (
+                <div className="guide-tour-list">
+                  {selectedDate ? selectedDayTours.map((item) => (
                     <TourRow key={item.id} item={item} />
-                  )) : (
+                  )) : upcomingTours.slice(0, 3).map((item) => (
+                    <TourRow key={item.id} item={item} />
+                  ))}
+                  {!selectedDayTours.length ? (
                     <div className="guide-empty-card">
-                      <strong>Chưa có tour sắp tới</strong>
+                      <strong>
+                        {selectedDate ? `Chưa có tour trong ngày ${selectedDayLabel}` : 'Chưa có tour sắp tới'}
+                      </strong>
                     </div>
-                  )}
+                  ) : null}
                 </div>
               </div>
             </section>
@@ -617,7 +678,8 @@ function GuideDashboardPage() {
                 onPrev={() => setCalendarOffset((current) => current - 1)}
                 onNext={() => setCalendarOffset((current) => current + 1)}
                 eventsByDate={calendarEvents}
-                selectedDate={selectedDate}
+                selectedDate={selectedDate || todayKey}
+                onSelectDate={(dateKey) => setSelectedDate((current) => (current === dateKey ? '' : dateKey))}
               />
             </div>
           </div>

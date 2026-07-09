@@ -42,8 +42,8 @@ class TourManagerController extends Controller
             $query->where('base_price', '<=', $request->price_to);
         }
 
-        // Giữ nguyên logic sắp xếp và phân trang theo ID giảm dần của bạn
-        $tours = $query->orderBy('id', 'desc')->paginate(10);
+        // Sắp xếp theo ID tăng dần để STT hiển thị từ bé đến lớn
+        $tours = $query->orderBy('id', 'asc')->paginate(10);
         $tours->getCollection()->transform(fn($tour) => (new TourResource($tour))->resolve($request));
 
         return response()->json([
@@ -91,8 +91,8 @@ class TourManagerController extends Controller
             $query->where('base_price', '<=', $request->price_to);
         }
 
-        // Giữ nguyên logic sắp xếp và phân trang theo ID giảm dần của bạn
-        $tours = $query->orderBy('id', 'desc')->paginate(10);
+        // Sắp xếp theo ID tăng dần để STT hiển thị từ bé đến lớn
+        $tours = $query->orderBy('id', 'asc')->paginate(10);
         $tours->getCollection()->transform(fn($tour) => (new TourResource($tour))->resolve($request));
 
         return response()->json([
@@ -480,7 +480,7 @@ class TourManagerController extends Controller
     {
         $tours = Tour::with(['category', 'destination', 'thumbnail', 'images', 'itineraries.images', 'agePricingRules'])
             ->where('status', 'hidden')
-            ->orderBy('id', 'desc')
+            ->orderBy('id', 'asc')
             ->paginate(10);
         $tours->getCollection()->transform(fn($tour) => (new TourResource($tour))->resolve(request()));
 

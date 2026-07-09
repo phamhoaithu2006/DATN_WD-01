@@ -516,6 +516,18 @@
   white-space: nowrap;
   max-width: 100%;
 }
+
+.user-avatar-hint {
+  background: #f8fafc;
+  border: 1px dashed #d9e4f0;
+  border-radius: 14px;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+  margin: 0 0 17px;
+  padding: 12px 14px;
+}
 .user-form-grid label {
   color: #334b6c;
   font-size: 13px;

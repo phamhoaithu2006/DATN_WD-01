@@ -108,6 +108,33 @@ class GuideDashboardController extends Controller
         ];
     }
 
+    private function buildHeroImages($departures): array
+    {
+        return collect($departures)
+            ->filter(fn ($departure) => !empty($departure['tour']['thumbnail_url']))
+            ->unique('tour.id')
+            ->take(6)
+            ->map(function ($departure) {
+                $tour = $departure['tour'] ?? [];
+                $destination = $tour['destination']['name'] ?? $tour['destination']['province_city'] ?? 'Điểm đến nổi bật';
+
+                return [
+                    'id' => $departure['id'],
+                    'image_url' => $tour['thumbnail_url'],
+                    'image_alt' => $tour['thumbnail_alt'] ?? $tour['title'] ?? 'Ảnh tour',
+                    'title' => $tour['title'] ?? 'Tour được phân công',
+                    'destination' => $destination,
+                    'departure_date' => $departure['departure_date'] ?? null,
+                    'status' => $departure['assignment_status'] ?? $departure['status'] ?? null,
+                    'tone' => $departure['assignment_status'] === 'cancelled'
+                        ? 'red'
+                        : (($departure['assignment_status'] ?? $departure['status'] ?? '') === 'completed' ? 'blue' : 'green'),
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
     private function countTourDepartures(Guide $guide, int $year, ?int $month = null): int
     {
         $query = DB::table('tour_departures')
@@ -427,6 +454,13 @@ class GuideDashboardController extends Controller
         $incomeRows = $this->buildIncomeRows($guide, $year, $month);
         $tourOverview = $this->buildTourOverview($guide, $now);
         $recentReviews = $this->buildRecentReviews($guide);
+        $heroImages = $this->buildHeroImages(
+            $upcomingDepartures
+                ->concat($ongoingDepartures)
+                ->concat($todaySchedule)
+                ->concat($allDepartures->take(6))
+                ->values()
+        );
         $currentMonthIncome = collect($incomeRows)->last();
 
         $summary = [
@@ -483,6 +517,7 @@ class GuideDashboardController extends Controller
                 'income_rows' => $incomeRows,
                 'tour_overview' => $tourOverview,
                 'recent_reviews' => $recentReviews,
+                'hero_images' => $heroImages,
             ],
         ]);
     }

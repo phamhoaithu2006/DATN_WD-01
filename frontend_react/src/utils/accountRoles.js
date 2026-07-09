@@ -1,7 +1,7 @@
 const roleLabels = {
   customer: "Khách Hàng",
   admin: "Admin",
-  "support staff": "NV Hỗ Trợ",
+  "support staff": "Nhân Viên Hỗ Trợ",
   "tour guide": "Hướng Dẫn Viên",
 };
 export const roleLabel = (role) =>
