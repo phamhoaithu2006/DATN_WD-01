@@ -132,6 +132,39 @@ export const tourDepartureApi = {
       getAuthConfig()
     );
   },
+
+  getDirectGuideCandidates(departureId, params = {}) {
+    return axios.get(
+      `${ADMIN_URL}/tour-departures/${departureId}/direct-guide-candidates`,
+      getAuthConfig({ params })
+    )
+  },
+
+  directAssignGuide(departureId, guideId, options = {}) {
+    return axios.post(
+      `${ADMIN_URL}/tour-departures/${departureId}/direct-assign-guide`,
+      {
+        guide_id: Number(guideId),
+        force_area_mismatch: Boolean(options.forceAreaMismatch),
+      },
+      getAuthConfig()
+    )
+  },
+
+  getDestinationOptions(params = {}) {
+    return axios.get(
+      `${ADMIN_URL}/guides/destination-options`,
+      getAuthConfig({ params })
+    )
+  },
+
+  getLanguages(params = {}) {
+    return axios.get(
+      `${ADMIN_URL}/languages`,
+      getAuthConfig({ params })
+    )
+  },
+  
 };
 
 export default tourDepartureApi;

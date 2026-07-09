@@ -3,11 +3,15 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Guide;
+use App\Models\Notification;
 use App\Models\TourDeparture;
 use App\Models\TourGuideAssignment;
 use App\Services\GuideAssignmentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class TourDepartureGuideAssignmentController extends Controller
 {
@@ -57,7 +61,7 @@ class TourDepartureGuideAssignmentController extends Controller
 
         $departures->setCollection(
             $departures->getCollection()->map(
-                fn (TourDeparture $departure) => $this->formatPlanningItem(
+                fn(TourDeparture $departure) => $this->formatPlanningItem(
                     $departure,
                     $service
                 )
@@ -93,6 +97,8 @@ class TourDepartureGuideAssignmentController extends Controller
             auth()->id()
         );
 
+        $this->notifyGuideAssigned($assignment, $departure);
+
         return response()->json([
             'message' => 'Đã tự động phân công HDV.',
             'data' => $assignment,
@@ -114,6 +120,8 @@ class TourDepartureGuideAssignmentController extends Controller
             auth()->id()
         );
 
+        $this->notifyGuideAssigned($assignment, $departure);
+
         return response()->json([
             'message' => 'Đã phân công HDV.',
             'data' => $assignment,
@@ -129,12 +137,29 @@ class TourDepartureGuideAssignmentController extends Controller
             404
         );
 
-        $assignment->update([
-            'status' => 'cancelled',
+        $assignment->loadMissing([
+            'guide.user:id,full_name,email',
         ]);
 
+        $departure->loadMissing([
+            'tour:id,title',
+        ]);
+
+        DB::transaction(function () use ($assignment, $departure) {
+            /*
+         * Gửi thông báo trước khi xóa,
+         * vì sau khi xóa có thể mất relation guide/user.
+         */
+            $this->notifyGuideAssignmentRemoved($assignment, $departure);
+
+            /*
+         * Xóa cứng khỏi bảng tour_guide_assignments.
+         */
+            $assignment->delete();
+        });
+
         return response()->json([
-            'message' => 'Đã hủy phân công HDV.',
+            'message' => 'Đã hoàn tác phân công HDV.',
         ]);
     }
 
@@ -148,8 +173,8 @@ class TourDepartureGuideAssignmentController extends Controller
             ->values();
 
         $leadAssignment = $assignedGuides->first(
-            fn ($assignment) =>
-                $assignment->status === 'assigned' &&
+            fn($assignment) =>
+            $assignment->status === 'assigned' &&
                 $assignment->role === 'lead'
         );
 
@@ -218,5 +243,478 @@ class TourDepartureGuideAssignmentController extends Controller
         }
 
         return $destinations;
+    }
+
+    //
+    private function notifyGuideAssigned(
+        TourGuideAssignment $assignment,
+        TourDeparture $departure
+    ): void {
+        try {
+            $assignment->loadMissing([
+                'guide.user:id,full_name,email',
+            ]);
+
+            $departure->loadMissing([
+                'tour:id,title',
+            ]);
+
+            $guideUserId =
+                $assignment->guide?->user_id
+                ?? $assignment->guide?->user?->id;
+
+            if (!$guideUserId) {
+                return;
+            }
+
+            $tourTitle = $departure->tour?->title ?? 'tour';
+
+            $departureDate = $departure->departure_date
+                ? \Carbon\Carbon::parse($departure->departure_date)->format('d/m/Y')
+                : 'chưa xác định';
+
+            $returnDate = $departure->return_date
+                ? \Carbon\Carbon::parse($departure->return_date)->format('d/m/Y')
+                : $departureDate;
+
+            Notification::insert([
+                'draft_id' => null,
+                'user_id' => $guideUserId,
+                'title' => 'Bạn có lịch hướng dẫn mới',
+                'message' => "Bạn vừa được phân công làm HDV cho {$tourTitle}, khởi hành ngày {$departureDate}, kết thúc ngày {$returnDate}. Vui lòng kiểm tra lịch làm việc của bạn.",
+                'type' => 'system',
+                'status' => 'unread',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    //gửi thông báo khi hoàn tác lại phân công 
+    private function notifyGuideAssignmentCancelled(
+        TourGuideAssignment $assignment,
+        TourDeparture $departure
+    ): void {
+        try {
+            $guideUserId =
+                $assignment->guide?->user_id
+                ?? $assignment->guide?->user?->id;
+
+            if (!$guideUserId) {
+                return;
+            }
+
+            $tourTitle = $departure->tour?->title ?? 'tour';
+
+            $departureDate = $departure->departure_date
+                ? \Carbon\Carbon::parse($departure->departure_date)->format('d/m/Y')
+                : 'chưa xác định';
+
+            $returnDate = $departure->return_date
+                ? \Carbon\Carbon::parse($departure->return_date)->format('d/m/Y')
+                : $departureDate;
+
+            Notification::insert([
+                'draft_id' => null,
+                'user_id' => $guideUserId,
+                'title' => 'Lịch hướng dẫn đã được hoàn tác',
+                'message' => "Bạn không còn được phân công làm HDV cho {$tourTitle}, khởi hành ngày {$departureDate}, kết thúc ngày {$returnDate}. Vui lòng kiểm tra lại lịch làm việc.",
+                'type' => 'system',
+                'status' => 'unread',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    private function notifyGuideAssignmentRemoved(
+        TourGuideAssignment $assignment,
+        TourDeparture $departure
+    ): void {
+        try {
+            $guideUserId =
+                $assignment->guide?->user_id
+                ?? $assignment->guide?->user?->id;
+
+            if (!$guideUserId) {
+                return;
+            }
+
+            $tourTitle = $departure->tour?->title ?? 'tour';
+
+            $departureDate = $departure->departure_date
+                ? \Carbon\Carbon::parse($departure->departure_date)->format('d/m/Y')
+                : 'chưa xác định';
+
+            $returnDate = $departure->return_date
+                ? \Carbon\Carbon::parse($departure->return_date)->format('d/m/Y')
+                : $departureDate;
+
+            Notification::insert([
+                'draft_id' => null,
+                'user_id' => $guideUserId,
+                'title' => 'Lịch hướng dẫn đã được hoàn tác',
+                'message' => "Bạn không còn được phân công làm HDV cho {$tourTitle}, khởi hành ngày {$departureDate}, kết thúc ngày {$returnDate}. Vui lòng kiểm tra lại lịch làm việc.",
+                'type' => 'system',
+                'status' => 'unread',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    public function directCandidates(
+        Request $request,
+        TourDeparture $departure
+    ) {
+        $validated = $request->validate([
+            'mode' => ['nullable', 'in:eligible,all'],
+            'keyword' => ['nullable', 'string', 'max:255'],
+            'from' => ['nullable', 'date'],
+            'to' => ['nullable', 'date', 'after_or_equal:from'],
+            'destination_id' => ['nullable', 'integer', 'exists:destinations,id'],
+            'language_ids' => ['nullable', 'array'],
+            'language_ids.*' => ['integer', 'exists:languages,id'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        $departure->loadMissing([
+            'tour:id,title,destination_id',
+            'tour.destination:id,name,province_city,country',
+            'tour.destinations:id,name,province_city,country',
+        ]);
+
+        $from = $validated['from'] ?? $departure->departure_date;
+        $to = $validated['to'] ?? ($departure->return_date ?: $departure->departure_date);
+        $mode = $validated['mode'] ?? 'eligible';
+
+        $languageIds = collect($validated['language_ids'] ?? [])
+            ->filter(fn($id) => $id !== null && $id !== '')
+            ->map(fn($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        $tourDestinations = $departure->tour?->destinations?->pluck('id') ?? collect();
+
+        if ($tourDestinations->isEmpty() && $departure->tour?->destination_id) {
+            $tourDestinations = collect([
+                $departure->tour->destination_id,
+            ]);
+        }
+
+        $tourDestinationIds = $tourDestinations
+            ->map(fn($id) => (int) $id)
+            ->values();
+
+        $query = Guide::query()
+            ->with([
+                'user:id,full_name,email,phone,avatar_url',
+                'destinations:id,name,province_city,country',
+            ]);
+
+        if (Schema::hasColumn('guides', 'status')) {
+            $query->where('status', 'active');
+        }
+
+        if (!empty($validated['keyword'])) {
+            $keyword = trim($validated['keyword']);
+
+            $query->where(function ($q) use ($keyword) {
+                $q->where('guide_code', 'like', "%{$keyword}%")
+                    ->orWhereHas('user', function ($userQuery) use ($keyword) {
+                        $userQuery
+                            ->where('full_name', 'like', "%{$keyword}%")
+                            ->orWhere('email', 'like', "%{$keyword}%")
+                            ->orWhere('phone', 'like', "%{$keyword}%");
+                    });
+            });
+        }
+
+        if (!empty($validated['destination_id'])) {
+            $destinationId = (int) $validated['destination_id'];
+
+            $query->whereHas('destinations', function ($q) use ($destinationId) {
+                $q->where('destinations.id', $destinationId);
+            });
+        }
+
+        if ($mode === 'eligible' && $tourDestinationIds->isNotEmpty()) {
+            $query->whereHas('destinations', function ($q) use ($tourDestinationIds) {
+                $q->whereIn('destinations.id', $tourDestinationIds);
+            });
+        }
+
+        if ($languageIds->isNotEmpty()) {
+            $query->whereExists(function ($subQuery) use ($languageIds) {
+                $subQuery
+                    ->select(DB::raw(1))
+                    ->from('guide_languages')
+                    ->whereColumn('guide_languages.guide_id', 'guides.id')
+                    ->whereIn('guide_languages.language_id', $languageIds);
+            });
+        }
+
+        $guides = $query
+            ->orderByDesc('id')
+            ->paginate($validated['per_page'] ?? 20);
+
+        $guides->setCollection(
+            $guides->getCollection()->map(function (Guide $guide) use (
+                $departure,
+                $from,
+                $to,
+                $tourDestinationIds
+            ) {
+                $guideDestinationIds = $guide->destinations
+                    ?->pluck('id')
+                    ->map(fn($id) => (int) $id)
+                    ->values() ?? collect();
+
+                $isAreaMatch = $tourDestinationIds->isNotEmpty()
+                    && $guideDestinationIds
+                    ->intersect($tourDestinationIds)
+                    ->isNotEmpty();
+
+                $conflictingAssignments = TourGuideAssignment::query()
+                    ->where('guide_id', $guide->id)
+                    ->where('status', 'assigned')
+                    ->where('tour_departure_id', '!=', $departure->id)
+                    ->whereHas('departure', function ($q) use ($from, $to) {
+                        $q->whereDate('departure_date', '<=', $to)
+                            ->whereRaw(
+                                'DATE(COALESCE(return_date, departure_date)) >= ?',
+                                [$from]
+                            );
+                    })
+                    ->with([
+                        'departure:id,tour_id,departure_date,return_date,status',
+                        'departure.tour:id,title',
+                    ])
+                    ->get();
+
+                $assignedTours = TourGuideAssignment::query()
+                    ->where('guide_id', $guide->id)
+                    ->where('status', 'assigned')
+                    ->with([
+                        'departure:id,tour_id,departure_date,return_date,status',
+                        'departure.tour:id,title',
+                    ])
+                    ->orderByDesc('assigned_at')
+                    ->limit(20)
+                    ->get();
+
+                $guideLanguages = DB::table('guide_languages')
+                    ->join('languages', 'languages.id', '=', 'guide_languages.language_id')
+                    ->where('guide_languages.guide_id', $guide->id)
+                    ->select([
+                        'languages.id',
+                        'languages.name',
+                    ])
+                    ->get();
+
+                $isAvailable = $conflictingAssignments->isEmpty();
+
+                $blockingReasons = [];
+
+                if (!$isAvailable) {
+                    $blockingReasons[] = 'HDV đã có lịch trong khoảng thời gian này.';
+                }
+
+                if (!$isAreaMatch) {
+                    $blockingReasons[] = 'HDV không phụ trách khu vực của tour.';
+                }
+
+                $avatarUrl =
+                    $guide->user?->avatar_url
+                    ?? $guide->avatar_url
+                    ?? null;
+
+                return [
+                    'id' => $guide->id,
+                    'guide_code' => $guide->guide_code ?? null,
+                    'avatar_url' => $avatarUrl,
+                    'user' => $guide->user,
+                    'destinations' => $guide->destinations,
+                    'languages' => $guideLanguages,
+                    'is_area_match' => $isAreaMatch,
+                    'is_available' => $isAvailable,
+                    'is_eligible' => $isAvailable && $isAreaMatch,
+                    'blocking_reasons' => $blockingReasons,
+                    'conflicting_assignments' => $conflictingAssignments,
+                    'assigned_tours' => $assignedTours,
+                ];
+            })
+        );
+
+        return response()->json([
+            'message' => 'Danh sách HDV cho phân công trực tiếp',
+            'data' => $guides,
+        ]);
+    }
+
+    public function directAssign(
+        Request $request,
+        TourDeparture $departure
+    ) {
+        $validated = $request->validate([
+            'guide_id' => ['required', 'integer', 'exists:guides,id'],
+            'force_area_mismatch' => ['nullable', 'boolean'],
+        ]);
+
+        $departure->loadMissing([
+            'tour:id,title,destination_id',
+            'tour.destination:id,name,province_city,country',
+            'tour.destinations:id,name,province_city,country',
+        ]);
+
+        $guide = Guide::query()
+            ->with([
+                'user:id,full_name,email,phone',
+                'destinations:id,name,province_city,country',
+            ])
+            ->findOrFail($validated['guide_id']);
+
+        $from = $departure->departure_date;
+        $to = $departure->return_date ?: $departure->departure_date;
+
+        $hasScheduleConflict = TourGuideAssignment::query()
+            ->where('guide_id', $guide->id)
+            ->where('status', 'assigned')
+            ->where('tour_departure_id', '!=', $departure->id)
+            ->whereHas('departure', function ($q) use ($from, $to) {
+                $q->whereDate('departure_date', '<=', $to)
+                    ->whereDate(
+                        DB::raw('COALESCE(return_date, departure_date)'),
+                        '>=',
+                        $from
+                    );
+            })
+            ->exists();
+
+        if ($hasScheduleConflict) {
+            return response()->json([
+                'message' => 'HDV này đã có lịch trong khoảng thời gian tour.',
+                'code' => 'GUIDE_SCHEDULE_CONFLICT',
+            ], 422);
+        }
+
+        $tourDestinations = $departure->tour?->destinations?->pluck('id') ?? collect();
+
+        if ($tourDestinations->isEmpty() && $departure->tour?->destination_id) {
+            $tourDestinations = collect([
+                $departure->tour->destination_id,
+            ]);
+        }
+
+        $guideDestinationIds = $guide->destinations
+            ?->pluck('id')
+            ->map(fn($id) => (int) $id)
+            ->values() ?? collect();
+
+        $isAreaMatch = $tourDestinations->isNotEmpty() &&
+            $guideDestinationIds
+            ->intersect($tourDestinations->map(fn($id) => (int) $id))
+            ->isNotEmpty();
+
+        $forceAreaMismatch = filter_var(
+            $validated['force_area_mismatch'] ?? false,
+            FILTER_VALIDATE_BOOLEAN
+        );
+
+        if (!$isAreaMatch && !$forceAreaMismatch) {
+            return response()->json([
+                'message' => 'HDV này không phụ trách khu vực của tour. Bạn có chắc muốn phân công không?',
+                'code' => 'AREA_MISMATCH_CONFIRM_REQUIRED',
+            ], 409);
+        }
+
+        $assignment = null;
+
+        DB::transaction(function () use (
+            $departure,
+            $guide,
+            &$assignment
+        ) {
+            /*
+         * Nếu lịch đã có HDV cũ thì xóa để thay bằng HDV mới.
+         * Vì bạn đang muốn hoàn tác/xóa thật record khỏi DB.
+         */
+            TourGuideAssignment::query()
+                ->where('tour_departure_id', $departure->id)
+                ->where('role', 'lead')
+                ->delete();
+
+            $assignment = TourGuideAssignment::create([
+                'tour_departure_id' => $departure->id,
+                'guide_id' => $guide->id,
+                'role' => 'lead',
+                'status' => 'assigned',
+                'assigned_by' => auth()->id(),
+                'assigned_at' => now(),
+            ]);
+
+            $this->notifyGuideDirectAssigned($assignment, $departure);
+        });
+
+        return response()->json([
+            'message' => $isAreaMatch
+                ? 'Đã phân công HDV.'
+                : 'Đã phân công HDV ngoài khu vực phụ trách.',
+            'data' => $assignment->load([
+                'guide.user:id,full_name,email,phone',
+            ]),
+        ], 201);
+    }
+
+    private function notifyGuideDirectAssigned(
+        TourGuideAssignment $assignment,
+        TourDeparture $departure
+    ): void {
+        try {
+            $assignment->loadMissing([
+                'guide.user:id,full_name,email',
+            ]);
+
+            $departure->loadMissing([
+                'tour:id,title',
+            ]);
+
+            $guideUserId =
+                $assignment->guide?->user_id
+                ?? $assignment->guide?->user?->id;
+
+            if (!$guideUserId) {
+                return;
+            }
+
+            $tourTitle = $departure->tour?->title ?? 'tour';
+
+            $departureDate = $departure->departure_date
+                ? \Carbon\Carbon::parse($departure->departure_date)->format('d/m/Y')
+                : 'chưa xác định';
+
+            $returnDate = $departure->return_date
+                ? \Carbon\Carbon::parse($departure->return_date)->format('d/m/Y')
+                : $departureDate;
+
+            Notification::insert([
+                'draft_id' => null,
+                'user_id' => $guideUserId,
+                'title' => 'Bạn có lịch hướng dẫn mới',
+                'message' => "Bạn vừa được phân công làm HDV cho {$tourTitle}, khởi hành ngày {$departureDate}, kết thúc ngày {$returnDate}. Vui lòng kiểm tra lịch làm việc của bạn.",
+                'type' => 'system',
+                'status' => 'unread',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 }
