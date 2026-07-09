@@ -9,10 +9,8 @@ const emptyProfileForm = {
   full_name: '',
   email: '',
   phone: '',
-  certificate_type: '',
   experience_years: 0,
   status: 'active',
-  avatar: null,
 }
 
 const emptyPasswordForm = {
@@ -49,7 +47,6 @@ function GuideProfilePage() {
   const [guide, setGuide] = useState(null)
   const [profileForm, setProfileForm] = useState(emptyProfileForm)
   const [passwordForm, setPasswordForm] = useState(emptyPasswordForm)
-  const [avatarPreview, setAvatarPreview] = useState('')
   const [loading, setLoading] = useState(true)
   const [savingProfile, setSavingProfile] = useState(false)
   const [savingPassword, setSavingPassword] = useState(false)
@@ -58,7 +55,7 @@ function GuideProfilePage() {
 
   const user = guide?.user || {}
   const displayName = user.full_name || profileForm.full_name || 'Hướng dẫn viên'
-  const avatarUrl = avatarPreview || user.avatar_url || guide?.avatar_url || ''
+  const avatarUrl = user.avatar_url || guide?.avatar_url || ''
 
   const certificateList = useMemo(
     () => (guide?.certificates || []).filter((item) => item?.name),
@@ -87,10 +84,8 @@ function GuideProfilePage() {
           full_name: data?.user?.full_name || '',
           email: data?.user?.email || '',
           phone: data?.user?.phone || '',
-          certificate_type: data?.certificate_type || '',
           experience_years: data?.experience_years ?? 0,
           status: data?.status || 'active',
-          avatar: null,
         })
       } catch (loadError) {
         if (active) {
@@ -116,12 +111,6 @@ function GuideProfilePage() {
     }))
   }
 
-  function handleAvatarChange(event) {
-    const file = event.target.files?.[0] || null
-    setProfileForm((current) => ({ ...current, avatar: file }))
-    setAvatarPreview(file ? URL.createObjectURL(file) : '')
-  }
-
   function handlePasswordChange(event) {
     const { name, value } = event.target
     setPasswordForm((current) => ({ ...current, [name]: value }))
@@ -138,8 +127,6 @@ function GuideProfilePage() {
       const refreshed = normalizeGuidePayload(await getGuideProfile())
 
       setGuide(refreshed)
-      setProfileForm((current) => ({ ...current, avatar: null }))
-      setAvatarPreview('')
       setMessage(response.message || 'Đã cập nhật hồ sơ hướng dẫn viên.')
     } catch (saveError) {
       setError(getErrorMessage(saveError, 'Cập nhật hồ sơ thất bại.'))
@@ -187,9 +174,7 @@ function GuideProfilePage() {
           <div>
             <span className="guide-profile-kicker">Hồ sơ cá nhân</span>
             <h1>{displayName}</h1>
-            <p>
-              {guide?.guide_code || 'Chưa có mã HDV'} · {profileForm.certificate_type || 'Chưa cập nhật hạng thẻ'}
-            </p>
+            <p>{guide?.guide_code || 'Chưa có mã HDV'}</p>
           </div>
         </div>
 
@@ -251,16 +236,6 @@ function GuideProfilePage() {
             </label>
 
             <label className="guide-field">
-              <span>Loại thẻ/chứng nhận</span>
-              <input
-                name="certificate_type"
-                value={profileForm.certificate_type}
-                onChange={handleProfileChange}
-                placeholder="Nội địa, quốc tế..."
-              />
-            </label>
-
-            <label className="guide-field">
               <span>Số năm kinh nghiệm</span>
               <input
                 name="experience_years"
@@ -277,11 +252,6 @@ function GuideProfilePage() {
                 <option value="active">Đang hoạt động</option>
                 <option value="inactive">Tạm dừng</option>
               </select>
-            </label>
-
-            <label className="guide-field guide-field-wide">
-              <span>Avatar</span>
-              <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handleAvatarChange} />
             </label>
           </div>
 
