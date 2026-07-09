@@ -44,6 +44,22 @@ class GuideController extends Controller
     {
         return Guide::query()
             ->with($this->guideRelations())
+            ->withCount([
+                'assignments as assigned_tours_count' => function ($query) {
+                    $query
+                        ->where('status', '!=', 'cancelled')
+                        ->whereHas('departure', function ($departureQuery) {
+                            $departureQuery->where('status', '!=', 'cancelled');
+                        });
+                },
+                'assignments as current_tours_count' => function ($query) {
+                    $query
+                        ->where('status', '!=', 'cancelled')
+                        ->whereHas('departure', function ($departureQuery) {
+                            $departureQuery->where('status', '!=', 'cancelled');
+                        });
+                },
+            ])
             ->whereHas('user');
     }
 

@@ -51,16 +51,37 @@ export const USER_ROLE_PAGES = [
   },
 ];
 
+const ROLE_ENTITY_LABELS = {
+  customer: "khách hàng",
+  admin: "quản trị viên",
+  "support staff": "nhân viên hỗ trợ",
+  "tour guide": "hướng dẫn viên",
+};
+
+const ROLE_ENTITY_LABEL_CAPS = {
+  customer: "Khách hàng",
+  admin: "Quản trị viên",
+  "support staff": "Nhân viên hỗ trợ",
+  "tour guide": "Hướng dẫn viên",
+};
+
+const getRoleEntityLabel = (roleName) => ROLE_ENTITY_LABELS[roleName] || "người dùng";
+const getRoleEntityLabelCaps = (roleName) => ROLE_ENTITY_LABEL_CAPS[roleName] || "Người dùng";
+
 const messageFrom = (error) =>
   Object.values(error.response?.data?.errors || {}).flat()[0] ||
   error.response?.data?.message ||
   "Không thể xử lý yêu cầu.";
 
-const cleanPayload = (form, isEditing) => {
+const cleanPayload = (form, isEditing, allowAvatar = true) => {
   const payload = {
     ...form,
     role_id: form.role_id ? Number(form.role_id) : "",
   };
+
+  if (!allowAvatar) {
+    delete payload.avatar;
+  }
 
   if (isEditing && !payload.password) {
     delete payload.password;
@@ -108,6 +129,9 @@ function UserManagementPage({ roleName = "customer" }) {
       USER_ROLE_PAGES[0],
     [roleName],
   );
+  const entityLabel = getRoleEntityLabel(rolePage.name);
+  const entityLabelCaps = getRoleEntityLabelCaps(rolePage.name);
+  const showAvatar = !["support staff", "tour guide"].includes(rolePage.name);
   const [customers, setCustomers] = useState([]);
   const [roles, setRoles] = useState([]);
   const [search, setSearch] = useState("");
@@ -117,6 +141,7 @@ function UserManagementPage({ roleName = "customer" }) {
   const [editing, setEditing] = useState(undefined);
   const [detail, setDetail] = useState(null);
   const [notice, setNotice] = useState(null);
+  const [currentRoleId, setCurrentRoleId] = useState(rolePage.fallbackId);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -144,6 +169,7 @@ function UserManagementPage({ roleName = "customer" }) {
         ? resolvedRoles
         : [...resolvedRoles, selectedRole];
 
+      setCurrentRoleId(selectedRole.id);
       setCustomers(withResolvedRoles(list, rolesWithCurrent));
       setRoles(rolesWithCurrent);
     } catch (error) {
@@ -186,9 +212,9 @@ function UserManagementPage({ roleName = "customer" }) {
       const response = editing
         ? await updateAccount(
             editing.id,
-            cleanPayload(form, true),
+            cleanPayload(form, true, showAvatar),
           )
-        : await createAccount(cleanPayload(form, false));
+        : await createAccount(cleanPayload(form, false, showAvatar));
 
       setNotice({ type: "success", text: response.message });
       setEditing(undefined);
@@ -242,7 +268,7 @@ function UserManagementPage({ roleName = "customer" }) {
             onClick={() => setEditing(null)}
           >
             <span aria-hidden="true">＋</span>
-            Thêm Người Dùng
+            Thêm {entityLabelCaps}
           </button>
         }
       />
@@ -289,9 +315,13 @@ function UserManagementPage({ roleName = "customer" }) {
         <UserFormModal
           customer={editing}
           roles={roles}
+          selectedRoleId={String(currentRoleId || rolePage.fallbackId || "")}
+          entityLabel={entityLabel}
+          entityDescription={`Thông tin tài khoản ${entityLabel} ViVuGo`}
           saving={saving}
           onClose={() => setEditing(undefined)}
           onSave={save}
+          showAvatar={showAvatar}
         />
       ) : null}
 

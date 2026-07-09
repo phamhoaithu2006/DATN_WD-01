@@ -351,7 +351,7 @@ function LanguageManagementPage() {
       <div className="support-content-grid">
         <div className="support-main-panel">
           <div className="support-table-wrap">
-            <table className="support-table">
+            <table className="support-table language-table">
               <thead>
                 <tr>
                   <th>STT</th>

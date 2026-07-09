@@ -69,6 +69,15 @@
   flex-shrink: 0;
 }
 
+.brand .brand-name-primary,
+.brand .brand-name-accent,
+.vg-logo .brand-name-primary,
+.vg-logo .brand-name-accent,
+.brand-name-primary,
+.brand-name-accent {
+  font-weight: 900;
+}
+
 .brand-name-primary,
 .vg-logo-name .brand-name-primary {
   color: #1454f0;

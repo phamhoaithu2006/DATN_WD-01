@@ -37,6 +37,7 @@ class SupportStaffController extends Controller
         if ($staff?->user) {
             $staff->setAttribute('name', $staff->user->full_name);
             $staff->setAttribute('email', $staff->user->email);
+            $staff->setAttribute('phone', $staff->user->phone);
             $staff->setAttribute('avatar_url', $staff->user->avatar_url);
         }
 
@@ -50,24 +51,70 @@ class SupportStaffController extends Controller
         return $staff;
     }
 
-    public function index(Request $request)
+    private function applySupportStaffFilters($query, Request $request): void
     {
-        $query = $this->supportStaffQuery();
-
         if ($request->filled('search')) {
             $search = $request->string('search')->trim();
             $query->where(function ($subQuery) use ($search) {
                 $subQuery
-                    ->where('support_staff.name', 'like', '%' . $search . '%')
+                    ->whereRaw("CONCAT('NV', LPAD(support_staff.id, 3, '0')) like ?", ['%' . $search . '%'])
+                    ->orWhere('support_staff.name', 'like', '%' . $search . '%')
                     ->orWhere('support_staff.email', 'like', '%' . $search . '%')
                     ->orWhereHas('user', function ($userQuery) use ($search) {
                         $userQuery
                             ->where('full_name', 'like', '%' . $search . '%')
-                            ->orWhere('email', 'like', '%' . $search . '%');
+                            ->orWhere('email', 'like', '%' . $search . '%')
+                            ->orWhere('phone', 'like', '%' . $search . '%');
                     })
                     ->orWhere('role', 'like', '%' . $search . '%');
             });
         }
+
+        if ($request->filled('code')) {
+            $code = $request->string('code')->trim();
+            $query->where(function ($subQuery) use ($code) {
+                $subQuery->whereRaw("CONCAT('NV', LPAD(support_staff.id, 3, '0')) like ?", ['%' . $code . '%']);
+
+                if (preg_match('/^\d+$/', (string) $code)) {
+                    $subQuery->orWhere('support_staff.id', (int) $code);
+                }
+            });
+        }
+
+        if ($request->filled('name')) {
+            $name = $request->string('name')->trim();
+            $query->where(function ($subQuery) use ($name) {
+                $subQuery
+                    ->where('support_staff.name', 'like', '%' . $name . '%')
+                    ->orWhereHas('user', function ($userQuery) use ($name) {
+                        $userQuery->where('full_name', 'like', '%' . $name . '%');
+                    });
+            });
+        }
+
+        if ($request->filled('email')) {
+            $email = $request->string('email')->trim();
+            $query->where(function ($subQuery) use ($email) {
+                $subQuery
+                    ->where('support_staff.email', 'like', '%' . $email . '%')
+                    ->orWhereHas('user', function ($userQuery) use ($email) {
+                        $userQuery->where('email', 'like', '%' . $email . '%');
+                    });
+            });
+        }
+
+        if ($request->filled('phone')) {
+            $phone = $request->string('phone')->trim();
+            $query->whereHas('user', function ($userQuery) use ($phone) {
+                $userQuery->where('phone', 'like', '%' . $phone . '%');
+            });
+        }
+    }
+
+    public function index(Request $request)
+    {
+        $query = $this->supportStaffQuery();
+        $this->applySupportStaffFilters($query, $request);
 
         if ($request->filled('role')) {
             $query->where('role', $request->input('role'));
@@ -272,21 +319,7 @@ class SupportStaffController extends Controller
     public function trashed(Request $request)
     {
         $query = SupportStaff::onlyTrashed()->with(['user.role']);
-
-        if ($request->filled('search')) {
-            $search = $request->string('search')->trim();
-            $query->where(function ($subQuery) use ($search) {
-                $subQuery
-                    ->where('support_staff.name', 'like', '%' . $search . '%')
-                    ->orWhere('support_staff.email', 'like', '%' . $search . '%')
-                    ->orWhereHas('user', function ($userQuery) use ($search) {
-                        $userQuery
-                            ->where('full_name', 'like', '%' . $search . '%')
-                            ->orWhere('email', 'like', '%' . $search . '%');
-                    })
-                    ->orWhere('role', 'like', '%' . $search . '%');
-            });
-        }
+        $this->applySupportStaffFilters($query, $request);
 
         $perPage = max((int) $request->input('per_page', 10), 1);
         $staff = $query->latest('deleted_at')->paginate($perPage);

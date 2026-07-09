@@ -120,13 +120,13 @@ function getDestinationLabel(destination) {
   return [name, provinceCity].filter(Boolean).join(' - ') || '-'
 }
 
-function getGuideDestinationLabel(guide) {
+function getGuideDestinationLabel(guide, fallback = 'Chưa cập nhật khu vực') {
   const destinations = Array.isArray(guide?.destinations)
     ? guide.destinations
     : []
 
   if (destinations.length === 0) {
-    return 'Chưa cập nhật khu vực'
+    return fallback
   }
 
   return destinations.map(getDestinationLabel).join(', ')
@@ -182,7 +182,9 @@ function toCertificateRows(experiences = []) {
 function makePayload(form) {
   return {
     user_id: form.user_id ? Number(form.user_id) : null,
-    destination_ids: (form.destination_ids || []).map(Number),
+    destination_ids: (form.destination_ids || [])
+      .filter(Boolean)
+      .map(Number),
     experience_years: Number(form.experience_years),
     status: form.status,
     languages: (form.languages || [])
@@ -204,10 +206,10 @@ function validateForm(form) {
   const errors = {}
   const currentYear = new Date().getFullYear()
   const experienceYears = Number(form.experience_years)
-
-  const destinationIds = Array.isArray(form.destination_ids)
+  const rawDestinationIds = Array.isArray(form.destination_ids)
     ? form.destination_ids
     : []
+  const selectedDestinationIds = rawDestinationIds.filter(Boolean)
 
   const languages = Array.isArray(form.languages)
     ? form.languages
@@ -221,10 +223,6 @@ function validateForm(form) {
     errors.user_id = 'Vui lòng chọn tài khoản HDV.'
   }
 
-  if (destinationIds.length === 0) {
-    errors.destination_ids = 'Vui lòng chọn ít nhất một khu vực phụ trách.'
-  }
-
   if (
     form.experience_years === '' ||
     !Number.isInteger(experienceYears) ||
@@ -235,6 +233,16 @@ function validateForm(form) {
 
   if (!GUIDE_STATUSES.includes(form.status)) {
     errors.status = 'Vui lòng chọn trạng thái.'
+  }
+
+  if (selectedDestinationIds.length === 0) {
+    errors.destination_ids = 'Vui lòng chọn ít nhất một khu vực phụ trách.'
+  } else if (rawDestinationIds.some((item) => !item)) {
+    errors.destination_ids = 'Mỗi dòng khu vực cần chọn một điểm đến.'
+  } else if (
+    new Set(selectedDestinationIds).size !== selectedDestinationIds.length
+  ) {
+    errors.destination_ids = 'Không chọn trùng khu vực.'
   }
 
   if (languages.length === 0) {
@@ -528,21 +536,34 @@ function GuideManagementPage() {
     }))
   }
 
-  function toggleDestination(destinationId) {
-    const id = String(destinationId)
+  function updateDestination(index, value) {
+    setForm((current) => ({
+      ...current,
+      destination_ids: current.destination_ids.map((item, itemIndex) =>
+        itemIndex === index ? value : item,
+      ),
+    }))
 
-    setForm((current) => {
-      const selectedIds = Array.isArray(current.destination_ids)
-        ? current.destination_ids
-        : []
+    setFormErrors((current) => ({
+      ...current,
+      destination_ids: '',
+    }))
+  }
 
-      return {
-        ...current,
-        destination_ids: selectedIds.includes(id)
-          ? selectedIds.filter((item) => item !== id)
-          : [...selectedIds, id],
-      }
-    })
+  function addDestination() {
+    setForm((current) => ({
+      ...current,
+      destination_ids: [...current.destination_ids, ''],
+    }))
+  }
+
+  function removeDestination(index) {
+    setForm((current) => ({
+      ...current,
+      destination_ids: current.destination_ids.filter(
+        (_, itemIndex) => itemIndex !== index,
+      ),
+    }))
 
     setFormErrors((current) => ({
       ...current,
@@ -699,6 +720,7 @@ function GuideManagementPage() {
   function openCreateForm() {
     setForm({
       ...DEFAULT_FORM,
+      destination_ids: [''],
       languages: [{ ...EMPTY_LANGUAGE_ROW }],
       experiences: [{ ...EMPTY_CERTIFICATE_ROW }],
     })
@@ -716,9 +738,11 @@ function GuideManagementPage() {
   }
 
   function openEditForm(guide) {
+    const destinationRows = toDestinationIds(guide.destinations)
+
     setForm({
       user_id: String(guide.user_id || guide.user?.id || ''),
-      destination_ids: toDestinationIds(guide.destinations),
+      destination_ids: destinationRows.length > 0 ? destinationRows : [''],
       experience_years: String(guide.experience_years ?? ''),
       status: guide.status || '',
       languages: toLanguageRows(guide.languages),
@@ -741,12 +765,6 @@ function GuideManagementPage() {
   }
 
   function closeForm() {
-    setForm(DEFAULT_FORM)
-    resetAvatarState()
-    setEditingGuideId(null)
-    setEditingGuideCode('')
-    setEditingUser(null)
-    setFormErrors({})
     setIsFormOpen(false)
   }
 
@@ -1054,7 +1072,7 @@ function GuideManagementPage() {
                 }))
               }}
             >
-              <option value="all">Tất cả khu vực</option>
+              <option value="all">Tất cả chuyên môn</option>
 
               {destinations.map((destination) => (
                 <option key={destination.id} value={destination.id}>
@@ -1071,7 +1089,6 @@ function GuideManagementPage() {
                   <th>Avatar</th>
                   <th>Mã HDV</th>
                   <th>Họ và tên</th>
-                  <th>Khu vực phụ trách</th>
                   <th>Kinh nghiệm</th>
                   <th>Ngoại ngữ</th>
                   <th>Tour phụ trách</th>
@@ -1083,7 +1100,7 @@ function GuideManagementPage() {
               <tbody>
                 {isLoading ? (
                   <tr>
-                    <td className="support-empty-row" colSpan="9">
+                    <td className="support-empty-row" colSpan="8">
                       <div className="support-loading">
                         <span />
                         <p>Đang tải danh sách HDV...</p>
@@ -1094,7 +1111,7 @@ function GuideManagementPage() {
 
                 {!isLoading && guides.length === 0 ? (
                   <tr>
-                    <td colSpan="9">Chưa có hướng dẫn viên.</td>
+                    <td colSpan="8">Chưa có hướng dẫn viên.</td>
                   </tr>
                 ) : null}
 
@@ -1124,10 +1141,6 @@ function GuideManagementPage() {
                         <td>
                           <strong>{getUserName(guide)}</strong>
                           <span>{guide.user?.email || 'Chưa có email'}</span>
-                        </td>
-
-                        <td>
-                          <span>{getGuideDestinationLabel(guide)}</span>
                         </td>
 
                         <td>{guide.experience_years ?? 0} năm</td>
@@ -1292,33 +1305,67 @@ function GuideManagementPage() {
                 ) : null}
               </label>
 
-              <fieldset className="guide-form-wide">
-                <legend>Khu vực phụ trách</legend>
+              <label className="guide-form-wide">
+                Khu vực phụ trách
 
                 <div className="guide-repeat-list">
                   {destinations.length > 0 ? (
-                    destinations.map((destination) => {
-                      const checked = form.destination_ids.includes(
-                        String(destination.id),
-                      )
+                    <>
+                      {form.destination_ids.map((destinationId, index) => {
+                        const selectedDestinationIds = form.destination_ids
+                          .filter((_, itemIndex) => itemIndex !== index)
+                          .filter(Boolean)
 
-                      return (
-                        <label
-                          className="guide-repeat-row"
-                          key={destination.id}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() =>
-                              toggleDestination(destination.id)
-                            }
-                          />
+                        return (
+                          <div
+                            className="guide-repeat-row guide-area-row"
+                            key={`destination-${index}`}
+                          >
+                            <select
+                              value={destinationId}
+                              onChange={(event) =>
+                                updateDestination(index, event.target.value)
+                              }
+                            >
+                              <option value="" disabled>
+                                Chọn khu vực
+                              </option>
 
-                          <span>{getDestinationLabel(destination)}</span>
-                        </label>
-                      )
-                    })
+                              {destinations
+                                .filter(
+                                  (destination) =>
+                                    !selectedDestinationIds.includes(
+                                      String(destination.id),
+                                    ),
+                                )
+                                .map((destination) => (
+                                  <option
+                                    key={destination.id}
+                                    value={destination.id}
+                                  >
+                                    {getDestinationLabel(destination)}
+                                  </option>
+                                ))}
+                            </select>
+
+                            <button
+                              type="button"
+                              onClick={() => removeDestination(index)}
+                            >
+                              Xóa
+                            </button>
+                          </div>
+                        )
+                      })}
+
+                      <button
+                        className="guide-repeat-add"
+                        type="button"
+                        onClick={addDestination}
+                      >
+                        Thêm khu vực
+                      </button>
+                    </>
                   ) : (
                     <p className="guide-empty-text">
                       Chưa có khu vực. Hãy tạo điểm đến trước.
@@ -1331,7 +1378,7 @@ function GuideManagementPage() {
                     {formErrors.destination_ids}
                   </span>
                 ) : null}
-              </fieldset>
+              </label>
 
               <label>
                 Số năm kinh nghiệm
@@ -1627,10 +1674,6 @@ function GuideManagementPage() {
             </div>
 
             <div className="guide-modal-actions">
-              <button type="button" onClick={closeForm}>
-                Hủy
-              </button>
-
               <button disabled={isSaving} type="submit">
                 {isSaving
                   ? 'Đang lưu...'
@@ -1679,7 +1722,9 @@ function GuideManagementPage() {
                 <h3>{getUserName(detailGuide)}</h3>
 
                 <div className="guide-detail-topline">
-                  <p>{getGuideDestinationLabel(detailGuide)}</p>
+                  {getGuideDestinationLabel(detailGuide, '') ? (
+                    <p>{getGuideDestinationLabel(detailGuide, '')}</p>
+                  ) : null}
 
                   <span
                     className={`guide-status ${detailGuide.status || ''}`}
@@ -1729,9 +1774,15 @@ function GuideManagementPage() {
             <div className="guide-detail-section">
               <h3>Khu vực phụ trách</h3>
 
-              <p className="guide-empty-text">
-                {getGuideDestinationLabel(detailGuide)}
-              </p>
+              {getGuideDestinationLabel(detailGuide, '') ? (
+                <p className="guide-empty-text">
+                  {getGuideDestinationLabel(detailGuide, '')}
+                </p>
+              ) : (
+                <p className="guide-empty-text">
+                  Chưa có khu vực phụ trách
+                </p>
+              )}
             </div>
 
             <div className="guide-detail-section">

@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+﻿import { Link } from 'react-router-dom'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import AdminPageHeader from '../../components/admin/AdminPageHeader'
 import { getAccountRoles, getAccounts } from '../../services/adminAccountApi'
@@ -331,10 +331,7 @@ function SupportStaffFormModal({
               />
               <div className="guide-avatar-preview">
                 {avatarDisplayUrl ? (
-                  <img
-                    alt={form.name || 'Ảnh đại diện nhân viên hỗ trợ'}
-                    src={avatarDisplayUrl}
-                  />
+                  <img alt={form.name || 'Ảnh đại diện nhân viên hỗ trợ'} src={avatarDisplayUrl} />
                 ) : (
                   <span>Chưa có ảnh</span>
                 )}
@@ -433,6 +430,10 @@ function SupportStaffDetailModal({ staff, loading, deletingAvatar, onClose, onDe
               <div>
                 <dt>Email</dt>
                 <dd>{staff?.email || '—'}</dd>
+              </div>
+              <div>
+                <dt>SĐT</dt>
+                <dd>{staff?.phone || '—'}</dd>
               </div>
               <div>
                 <dt>Chuyên môn</dt>
@@ -935,7 +936,7 @@ function SupportStaffManagementPage() {
                   setSearch(event.target.value)
                   setPage(1)
                 }}
-                placeholder="Tìm theo tên..."
+                placeholder="Tìm theo mã NVHT, tên, email hoặc SĐT"
               />
             </label>
 

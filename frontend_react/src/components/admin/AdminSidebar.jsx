@@ -1,5 +1,4 @@
-﻿import { NavLink } from 'react-router-dom'
-import BrandLogo from '../BrandLogo'
+import { NavLink } from 'react-router-dom'
 
 const menuItems = [
   {
@@ -127,8 +126,31 @@ function AdminSidebar({ collapsed, onToggle, role = 'admin' }) {
   return (
     <aside className={collapsed ? 'admin-sidebar collapsed' : 'admin-sidebar'}>
       <div className="admin-brand">
-        <BrandLogo className="admin-brand-link" to="/admin" />
-        <span className="admin-brand-subtitle">Admin panel</span>
+        <NavLink className="admin-brand-link" to="/admin">
+          <span className="admin-brand-logo-mark" aria-hidden="true">
+            <svg viewBox="0 0 48 48" role="img" aria-hidden="true">
+              <text
+                x="24"
+                y="31"
+                fill="#fff"
+                fontFamily="Segoe UI Symbol, Noto Sans Symbols 2, Apple Symbols, sans-serif"
+                fontSize="34"
+                fontWeight="700"
+                textAnchor="middle"
+                transform="rotate(-18 24 24)"
+              >
+                ✈
+              </text>
+            </svg>
+          </span>
+          <div className="admin-brand-text-col">
+            <span className="admin-brand-name">
+              <span className="brand-name-primary">ViVu</span>
+              <span className="brand-name-accent">Go</span>
+            </span>
+            <span className="admin-brand-subtitle">ADMIN PANEL</span>
+          </div>
+        </NavLink>
       </div>
 
       <nav className="admin-nav" aria-label="Điều hướng quản trị">

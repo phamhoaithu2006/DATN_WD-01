@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { roleLabel } from "../../../utils/accountRoles";
 import { mediaUrl } from "../../../utils/mediaUrl";
 
@@ -132,8 +132,25 @@ function validateUserForm(form, isEditing) {
   return errors;
 }
 
-function UserFormModal({ customer, roles = [], saving, onClose, onSave }) {
-  const [form, setForm] = useState(() => formFromCustomer(customer, roles));
+function UserFormModal({
+  customer,
+  roles = [],
+  selectedRoleId = "",
+  entityLabel = "người dùng",
+  entityDescription = "Thông tin tài khoản người dùng ViVuGo",
+  saving,
+  onClose,
+  onSave,
+  showAvatar = true,
+}) {
+  const [form, setForm] = useState(() =>
+    customer
+      ? formFromCustomer(customer, roles)
+      : {
+          ...emptyForm,
+          role_id: selectedRoleId || defaultRoleId(roles),
+        },
+  );
   const [avatarPreview, setAvatarPreview] = useState(() => mediaUrl(customer?.avatar_url));
   const [avatarName, setAvatarName] = useState("");
   const [avatarFailed, setAvatarFailed] = useState(false);
@@ -160,6 +177,8 @@ function UserFormModal({ customer, roles = [], saving, onClose, onSave }) {
   const fieldClass = (key) => (errors[key] ? "is-invalid" : undefined);
   const errorFor = (key) =>
     errors[key] ? <small className="user-field-error">{errors[key]}</small> : null;
+  const modalTitle = customer ? `Cập nhật ${entityLabel}` : `Thêm ${entityLabel}`;
+  const submitLabel = customer ? "Lưu thay đổi" : `Thêm ${entityLabel}`;
 
   const submit = (event) => {
     event.preventDefault();
@@ -185,45 +204,47 @@ function UserFormModal({ customer, roles = [], saving, onClose, onSave }) {
       <form className="user-modal" onSubmit={submit} onMouseDown={(event) => event.stopPropagation()} noValidate>
         <div className="user-modal-heading">
           <div>
-            <h2>{customer ? "Cập nhật người dùng" : "Thêm người dùng"}</h2>
-            <p>Thông tin tài khoản người dùng ViVuGo</p>
+            <h2>{modalTitle}</h2>
+            <p>{entityDescription}</p>
           </div>
           <button type="button" onClick={onClose}>
             ×
           </button>
         </div>
 
-        <div className="user-avatar-field">
-          <span>Ảnh đại diện</span>
-          <div className="user-avatar-picker">
-            <span className={`user-avatar user-avatar-preview ${canShowAvatar ? "is-image" : "blue"}`}>
-              {canShowAvatar ? (
-                <img
-                  src={avatarPreview}
-                  alt={form.full_name || "Ảnh đại diện"}
-                  onError={() => setAvatarFailed(true)}
-                />
-              ) : (
-                initials(form.full_name)
-              )}
-            </span>
-            <div className="user-avatar-upload">
-              <label className="user-avatar-upload-button">
-                <input
-                  accept="image/jpeg,image/png,image/webp"
-                  type="file"
-                  onChange={changeAvatar}
-                />
-                <span>{customer ? "Đổi ảnh" : "Chọn ảnh"}</span>
-              </label>
-              <small>
-                {avatarName ||
-                  (customer?.avatar_url ? "Đang dùng ảnh hiện tại" : "JPG, PNG hoặc WebP")}
-              </small>
-              {errorFor("avatar")}
+        {showAvatar ? (
+          <div className="user-avatar-field">
+            <span>Ảnh đại diện</span>
+            <div className="user-avatar-picker">
+              <span className={`user-avatar user-avatar-preview ${canShowAvatar ? "is-image" : "blue"}`}>
+                {canShowAvatar ? (
+                  <img
+                    src={avatarPreview}
+                    alt={form.full_name || "Ảnh đại diện"}
+                    onError={() => setAvatarFailed(true)}
+                  />
+                ) : (
+                  initials(form.full_name)
+                )}
+              </span>
+              <div className="user-avatar-upload">
+                <label className="user-avatar-upload-button">
+                  <input
+                    accept="image/jpeg,image/png,image/webp"
+                    type="file"
+                    onChange={changeAvatar}
+                  />
+                  <span>{customer ? "Đổi ảnh" : "Chọn ảnh"}</span>
+                </label>
+                <small>
+                  {avatarName ||
+                    (customer?.avatar_url ? "Đang dùng ảnh hiện tại" : "JPG, PNG hoặc WebP")}
+                </small>
+                {errorFor("avatar")}
+              </div>
             </div>
           </div>
-        </div>
+        ) : null}
 
         <div className="user-form-grid">
           <label>
@@ -298,7 +319,7 @@ function UserFormModal({ customer, roles = [], saving, onClose, onSave }) {
             Hủy
           </button>
           <button className="primary" disabled={saving} type="submit">
-            {saving ? "Đang lưu..." : customer ? "Lưu thay đổi" : "Thêm người dùng"}
+            {saving ? "Đang lưu..." : submitLabel}
           </button>
         </div>
       </form>
