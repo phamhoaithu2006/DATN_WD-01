@@ -1,4 +1,45 @@
+import axios from "axios";
 import apiClient from "./apiClient";
+
+const BASE_URL = "http://127.0.0.1:8000/api";
+const ADMIN_URL = `${BASE_URL}/admin`;
+
+const getToken = () => {
+  return (
+    localStorage.getItem("token") ||
+    localStorage.getItem("admin_token") ||
+    localStorage.getItem("access_token") ||
+    ""
+  );
+};
+
+const formatBearerToken = (token) => {
+  if (!token) return "";
+
+  return token.startsWith("Bearer ")
+    ? token
+    : `Bearer ${token}`;
+};
+
+const getAuthConfig = (config = {}) => {
+  const token = getToken();
+
+  return {
+    ...config,
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+
+      ...(token
+        ? {
+            Authorization: formatBearerToken(token),
+          }
+        : {}),
+
+      ...(config.headers || {}),
+    },
+  };
+};
 
 export const tourDepartureApi = {
   /*
@@ -6,9 +47,12 @@ export const tourDepartureApi = {
   | TOUR
   |--------------------------------------------------------------------------
   */
+
   getTours(params = {}) {
-    // Đã sửa: Dùng apiClient thay cho axios để tránh lỗi thiếu getToken/getAuthConfig
-    return apiClient.get(`/admin/tours`, { params });
+    return axios.get(
+      `${ADMIN_URL}/tours`,
+      getAuthConfig({ params })
+    );
   },
 
   /*
@@ -16,8 +60,12 @@ export const tourDepartureApi = {
   | LỊCH KHỞI HÀNH
   |--------------------------------------------------------------------------
   */
+
   getByTour(tourId, params = {}) {
-    return apiClient.get(`/admin/tours/${tourId}/departures`, { params });
+    return axios.get(
+      `${ADMIN_URL}/tours/${tourId}/departures`,
+      getAuthConfig({ params })
+    );
   },
 
   create(tourId, data) {
@@ -33,9 +81,9 @@ export const tourDepartureApi = {
   },
 
   getBookedCustomers(departureId, params = {}) {
-    return apiClient.get(
-      `/admin/tour-departures/${departureId}/booked-customers`,
-      { params }
+    return axios.get(
+      `${ADMIN_URL}/tour-departures/${departureId}/booked-customers`,
+      getAuthConfig({ params })
     )
   },
 
@@ -44,36 +92,44 @@ export const tourDepartureApi = {
   | PHÂN CÔNG HƯỚNG DẪN VIÊN
   |--------------------------------------------------------------------------
   */
+
   getGuidePlanning(params = {}) {
-    return apiClient.get("/admin/tour-departures/guide-planning", { params });
+    return axios.get(
+      `${ADMIN_URL}/tour-departures/guide-planning`,
+      getAuthConfig({ params })
+    );
   },
 
   getGuideCandidates(departureId) {
-    return apiClient.get(
-      `/admin/tour-departures/${departureId}/guide-candidates`
+    return axios.get(
+      `${ADMIN_URL}/tour-departures/${departureId}/guide-candidates`,
+      getAuthConfig()
     );
   },
 
   autoAssignGuide(departureId) {
-    return apiClient.post(
-      `/admin/tour-departures/${departureId}/auto-assign-guide`,
-      {}
+    return axios.post(
+      `${ADMIN_URL}/tour-departures/${departureId}/auto-assign-guide`,
+      {},
+      getAuthConfig()
     );
   },
 
   assignGuide(departureId, guideId) {
-    return apiClient.post(
-      `/admin/tour-departures/${departureId}/assign-guide`,
+    return axios.post(
+      `${ADMIN_URL}/tour-departures/${departureId}/assign-guide`,
       {
         guide_id: Number(guideId),
-      }
+      },
+      getAuthConfig()
     );
   },
 
   cancelGuideAssignment(departureId, assignmentId) {
-    return apiClient.patch(
-      `/admin/tour-departures/${departureId}/guide-assignments/${assignmentId}/cancel`,
-      {}
+    return axios.patch(
+      `${ADMIN_URL}/tour-departures/${departureId}/guide-assignments/${assignmentId}/cancel`,
+      {},
+      getAuthConfig()
     );
   },
 
