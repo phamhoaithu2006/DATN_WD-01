@@ -6,9 +6,9 @@ export const tourDepartureApi = {
   | TOUR
   |--------------------------------------------------------------------------
   */
-
   getTours(params = {}) {
-    return apiClient.get("/admin/tours", { params });
+    // Đã sửa: Dùng apiClient thay cho axios để tránh lỗi thiếu getToken/getAuthConfig
+    return apiClient.get(`/admin/tours`, { params });
   },
 
   /*
@@ -16,7 +16,6 @@ export const tourDepartureApi = {
   | LỊCH KHỞI HÀNH
   |--------------------------------------------------------------------------
   */
-
   getByTour(tourId, params = {}) {
     return apiClient.get(`/admin/tours/${tourId}/departures`, { params });
   },
@@ -45,7 +44,6 @@ export const tourDepartureApi = {
   | PHÂN CÔNG HƯỚNG DẪN VIÊN
   |--------------------------------------------------------------------------
   */
-
   getGuidePlanning(params = {}) {
     return apiClient.get("/admin/tour-departures/guide-planning", { params });
   },
