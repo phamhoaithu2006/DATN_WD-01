@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import AdminPageHeader from '../../../components/admin/AdminPageHeader'
 import tourApi from '../../../services/toursApi'
@@ -219,7 +219,7 @@ const getTourStatusConfig = (status) => {
 const normalizeSearchText = (value) => {
   return String(value || '')
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
 }
 
@@ -231,6 +231,19 @@ function TourListPage() {
   const [actionLoading, setActionLoading] = useState(null)
   const [pendingAction, setPendingAction] = useState(null)
   const [toast, setToast] = useState(null)
+  const [isFilterOpen, setIsFilterOpen] = useState(false)
+  const [filters, setFilters] = useState({
+    status: '',
+    category: '',
+    destination: '',
+    duration: '',
+  })
+  const [appliedFilters, setAppliedFilters] = useState({
+    status: '',
+    category: '',
+    destination: '',
+    duration: '',
+  })
 
   const getData = (res) => {
     if (Array.isArray(res)) return res
@@ -415,14 +428,70 @@ function TourListPage() {
     return '-'
   }
 
-  const filtered = tours.filter((tour) => {
-    const statusLabel = getTourStatusConfig(tour.status).label
-    const haystack = `${tour.title || ''} ${tour.summary || ''} ${tour.status || ''} ${statusLabel} ${getCategoryName(
-      tour,
-    )} ${getDestinationName(tour)}`
+  const categoryOptions = useMemo(() => {
+    return [...new Set(tours.map(getCategoryName).filter((value) => value && value !== '-'))]
+      .sort((a, b) => a.localeCompare(b, 'vi'))
+  }, [tours])
 
-    return normalizeSearchText(haystack).includes(normalizeSearchText(keyword))
-  })
+  const destinationOptions = useMemo(() => {
+    return [...new Set(tours.map(getDestinationName).filter((value) => value && value !== '-'))]
+      .sort((a, b) => a.localeCompare(b, 'vi'))
+  }, [tours])
+
+  const activeFilterCount = Object.values(appliedFilters).filter(Boolean).length
+
+  const handleApplyFilters = () => {
+    setAppliedFilters(filters)
+    setIsFilterOpen(false)
+  }
+
+  const handleResetFilters = () => {
+    const emptyFilters = {
+      status: '',
+      category: '',
+      destination: '',
+      duration: '',
+    }
+
+    setFilters(emptyFilters)
+    setAppliedFilters(emptyFilters)
+  }
+
+  const filtered = useMemo(() => {
+    const normalizedKeyword = normalizeSearchText(keyword)
+
+    return tours.filter((tour) => {
+      const status = String(tour.status || '').trim().toLowerCase()
+      const category = getCategoryName(tour)
+      const destination = getDestinationName(tour)
+      const days = Number(tour.duration_days || 0)
+      const statusLabel = getTourStatusConfig(status).label
+      const haystack = `${tour.title || ''} ${tour.summary || ''} ${status} ${statusLabel} ${category} ${destination}`
+
+      const matchesKeyword =
+        !normalizedKeyword ||
+        normalizeSearchText(haystack).includes(normalizedKeyword)
+      const matchesStatus =
+        !appliedFilters.status || status === appliedFilters.status
+      const matchesCategory =
+        !appliedFilters.category || category === appliedFilters.category
+      const matchesDestination =
+        !appliedFilters.destination || destination === appliedFilters.destination
+
+      let matchesDuration = true
+      if (appliedFilters.duration === '1-2') matchesDuration = days >= 1 && days <= 2
+      if (appliedFilters.duration === '3-5') matchesDuration = days >= 3 && days <= 5
+      if (appliedFilters.duration === '6+') matchesDuration = days >= 6
+
+      return (
+        matchesKeyword &&
+        matchesStatus &&
+        matchesCategory &&
+        matchesDestination &&
+        matchesDuration
+      )
+    })
+  }, [tours, keyword, appliedFilters])
 
   return (
     <div className="min-h-full bg-slate-50/70 px-8 py-8">
@@ -494,13 +563,121 @@ function TourListPage() {
 
           <button
             type="button"
+            onClick={() => setIsFilterOpen((prev) => !prev)}
+            aria-expanded={isFilterOpen}
             className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-violet-100 bg-violet-50 px-4 text-sm font-medium text-violet-700 transition hover:border-violet-200 hover:bg-violet-100"
           >
             <FilterIcon className="h-4 w-4" />
             Bộ lọc
-            <ChevronDownIcon className="h-4 w-4" />
+            {activeFilterCount > 0 && (
+              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-violet-600 px-1.5 text-[11px] font-semibold text-white">
+                {activeFilterCount}
+              </span>
+            )}
+            <ChevronDownIcon
+              className={`h-4 w-4 transition-transform ${isFilterOpen ? 'rotate-180' : ''}`}
+            />
           </button>
         </div>
+
+        {isFilterOpen && (
+          <div className="mt-4 border-t border-slate-100 pt-4">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-medium text-slate-600">
+                  Trạng thái
+                </span>
+                <select
+                  value={filters.status}
+                  onChange={(e) =>
+                    setFilters((prev) => ({ ...prev, status: e.target.value }))
+                  }
+                  className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-violet-400 focus:ring-3 focus:ring-violet-50"
+                >
+                  <option value="">Tất cả trạng thái</option>
+                  <option value="published">Đang mở</option>
+                  <option value="draft">Bản nháp</option>
+                  <option value="hidden">Tạm ẩn</option>
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-medium text-slate-600">
+                  Danh mục
+                </span>
+                <select
+                  value={filters.category}
+                  onChange={(e) =>
+                    setFilters((prev) => ({ ...prev, category: e.target.value }))
+                  }
+                  className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-violet-400 focus:ring-3 focus:ring-violet-50"
+                >
+                  <option value="">Tất cả danh mục</option>
+                  {categoryOptions.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-medium text-slate-600">
+                  Điểm đến
+                </span>
+                <select
+                  value={filters.destination}
+                  onChange={(e) =>
+                    setFilters((prev) => ({ ...prev, destination: e.target.value }))
+                  }
+                  className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-violet-400 focus:ring-3 focus:ring-violet-50"
+                >
+                  <option value="">Tất cả điểm đến</option>
+                  {destinationOptions.map((destination) => (
+                    <option key={destination} value={destination}>
+                      {destination}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-medium text-slate-600">
+                  Thời lượng
+                </span>
+                <select
+                  value={filters.duration}
+                  onChange={(e) =>
+                    setFilters((prev) => ({ ...prev, duration: e.target.value }))
+                  }
+                  className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-violet-400 focus:ring-3 focus:ring-violet-50"
+                >
+                  <option value="">Tất cả thời lượng</option>
+                  <option value="1-2">1 - 2 ngày</option>
+                  <option value="3-5">3 - 5 ngày</option>
+                  <option value="6+">Từ 6 ngày</option>
+                </select>
+              </label>
+            </div>
+
+            <div className="mt-4 flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
+              >
+                Xóa bộ lọc
+              </button>
+              <button
+                type="button"
+                onClick={handleApplyFilters}
+                className="h-10 rounded-lg bg-violet-600 px-5 text-sm font-medium text-white shadow-sm transition hover:bg-violet-700"
+              >
+                Áp dụng
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
@@ -560,7 +737,7 @@ function TourListPage() {
                         Không có dữ liệu
                       </p>
                       <p className="mt-1 text-sm font-normal text-slate-500">
-                        Chưa tìm thấy tour phù hợp với từ khóa hiện tại.
+                        Chưa tìm thấy tour phù hợp với từ khóa hoặc bộ lọc hiện tại.
                       </p>
                     </div>
                   </td>
@@ -624,7 +801,7 @@ function TourListPage() {
                         {tour.duration_nights || 0}Đ
                       </td>
 
-                      
+
 
                       <td className="whitespace-nowrap px-5 py-4">
                         <span
@@ -688,17 +865,15 @@ function TourListPage() {
       {toast && (
         <div className="fixed right-6 top-6 z-50 w-full max-w-sm">
           <div
-            className={`rounded-2xl border bg-white p-4 shadow-xl ${
-              toast.type === 'success' ? 'border-emerald-100' : 'border-rose-100'
-            }`}
+            className={`rounded-2xl border bg-white p-4 shadow-xl ${toast.type === 'success' ? 'border-emerald-100' : 'border-rose-100'
+              }`}
           >
             <div className="flex items-start gap-3">
               <div
-                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
-                  toast.type === 'success'
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${toast.type === 'success'
                     ? 'bg-emerald-50 text-emerald-600'
                     : 'bg-rose-50 text-rose-600'
-                }`}
+                  }`}
               >
                 {toast.type === 'success' ? (
                   <CheckIcon className="h-5 w-5" />
@@ -732,19 +907,17 @@ function TourListPage() {
       {pendingAction && (
         <div className="fixed right-6 top-6 z-50 w-full max-w-sm">
           <div
-            className={`rounded-2xl border bg-white p-4 shadow-xl ${
-              pendingAction.type === 'hide'
+            className={`rounded-2xl border bg-white p-4 shadow-xl ${pendingAction.type === 'hide'
                 ? 'border-amber-100'
                 : 'border-rose-100'
-            }`}
+              }`}
           >
             <div className="flex items-start gap-3">
               <div
-                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
-                  pendingAction.type === 'hide'
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${pendingAction.type === 'hide'
                     ? 'bg-amber-50 text-amber-600'
                     : 'bg-rose-50 text-rose-600'
-                }`}
+                  }`}
               >
                 {pendingAction.type === 'hide' ? (
                   <EyeOffIcon className="h-5 w-5" />
@@ -797,11 +970,10 @@ function TourListPage() {
                     type="button"
                     onClick={handleAction}
                     disabled={Boolean(actionLoading)}
-                    className={`h-9 rounded-lg text-sm font-medium text-white shadow-sm transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                      pendingAction.type === 'hide'
+                    className={`h-9 rounded-lg text-sm font-medium text-white shadow-sm transition disabled:cursor-not-allowed disabled:opacity-60 ${pendingAction.type === 'hide'
                         ? 'bg-amber-500 hover:bg-amber-600'
                         : 'bg-rose-500 hover:bg-rose-600'
-                    }`}
+                      }`}
                   >
                     {actionLoading
                       ? pendingAction.type === 'hide'

@@ -386,7 +386,7 @@ export default function TourDepartureListPage() {
         guideContent={
           <GuideAssignmentPanel
             embedded
-            selectedTourId={selectedTourId}
+            selectedTourId={selectedTourId}   
             focusedDepartureId={focusedDepartureId}
             onClearFocus={() => setFocusedDepartureId(null)}
             onAssigned={() => fetchDepartures(selectedTourId)}

@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\ServiceCategory;
 use Illuminate\Database\Seeder;
+use Faker\Factory;
 
 class ServiceCategorySeeder extends Seeder
 {
