@@ -2,16 +2,10 @@
 
 namespace App\Models;
 
-use App\Models\BookingContact;
-use App\Models\BookingParticipant;
-use App\Models\BookingStatusHistory;
-use App\Models\Tour;
-use App\Models\TourDeparture;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Booking extends Model
 {
@@ -41,7 +35,7 @@ class Booking extends Model
         // Ghi chú & Hủy tour
         'note',
         'cancel_reason',
-        'cancelled_at'
+        'cancelled_at',
     ];
 
     // Khai báo các cột ngày tháng để Laravel tự động xử lý
@@ -85,6 +79,10 @@ class Booking extends Model
         return $this->hasMany(BookingStatusHistory::class);
     }
 
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(Review::class);
+    }
 
     public function tourDeparture(): BelongsTo
     {
@@ -96,13 +94,11 @@ class Booking extends Model
     {
         return $query->when(
             $keyword,
-            fn($q) =>
-            $q->where('booking_code', 'like', "%{$keyword}%")
-                ->orWhereHas('user', fn($u) => $u->where('full_name', 'like', "%{$keyword}%"))
+            fn ($q) => $q->where('booking_code', 'like', "%{$keyword}%")
+                ->orWhereHas('user', fn ($u) => $u->where('full_name', 'like', "%{$keyword}%"))
                 ->orWhereHas(
                     'contact',
-                    fn($c) =>
-                    $c->where('contact_name', 'like', "%{$keyword}%")
+                    fn ($c) => $c->where('contact_name', 'like', "%{$keyword}%")
                         ->orWhere('contact_phone', 'like', "%{$keyword}%")
                 )
         );
@@ -110,18 +106,18 @@ class Booking extends Model
 
     public function scopeFilterStatus($query, $status)
     {
-        return $query->when($status, fn($q) => $q->where('status', $status));
+        return $query->when($status, fn ($q) => $q->where('status', $status));
     }
 
     public function scopeFilterPaymentStatus($query, $paymentStatus)
     {
-        return $query->when($paymentStatus, fn($q) => $q->where('payment_status', $paymentStatus));
+        return $query->when($paymentStatus, fn ($q) => $q->where('payment_status', $paymentStatus));
     }
 
     public function scopeFilterDate($query, $from, $to)
     {
         return $query
-            ->when($from, fn($q) => $q->whereDate('created_at', '>=', $from))
-            ->when($to,   fn($q) => $q->whereDate('created_at', '<=', $to));
+            ->when($from, fn ($q) => $q->whereDate('created_at', '>=', $from))
+            ->when($to, fn ($q) => $q->whereDate('created_at', '<=', $to));
     }
 }

@@ -52,6 +52,11 @@ class TourDeparture extends Model
         return $this->hasMany(Booking::class);
     }
 
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(Review::class);
+    }
+
     // public function guideAssignments(): HasMany
     // {
     //     return $this->hasMany(TourGuideAssignment::class);

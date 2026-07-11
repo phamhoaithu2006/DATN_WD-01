@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Guide;
 
 use App\Http\Controllers\Controller;
 use App\Models\Guide;
+use App\Models\Review;
 use App\Models\TourDeparture;
 use App\Services\TourPricingService;
 use Carbon\Carbon;
@@ -63,7 +64,7 @@ class GuideDashboardController extends Controller
         $tour = $departure->tour;
         $totalSlots = (int) ($departure->total_slots ?? 0);
         $bookedSlots = (int) ($departure->booked_slots ?? 0);
-        $pricingService = new TourPricingService();
+        $pricingService = new TourPricingService;
         $basePrice = $tour ? $pricingService->resolveBasePrice($tour, $departure) : 0;
         $discountPrice = $tour ? $pricingService->resolveDiscountPrice($tour, $departure) : null;
 
@@ -111,7 +112,7 @@ class GuideDashboardController extends Controller
     private function buildHeroImages($departures): array
     {
         return collect($departures)
-            ->filter(fn ($departure) => !empty($departure['tour']['thumbnail_url']))
+            ->filter(fn ($departure) => ! empty($departure['tour']['thumbnail_url']))
             ->unique('tour.id')
             ->take(6)
             ->map(function ($departure) {
@@ -189,7 +190,7 @@ class GuideDashboardController extends Controller
 
             $items[] = [
                 'month_number' => $month,
-                'label' => 'Tháng ' . $month,
+                'label' => 'Tháng '.$month,
                 'revenue' => $revenue,
                 'guests' => (int) ($row->guests ?? 0),
                 'booking_count' => (int) ($row->booking_count ?? 0),
@@ -292,29 +293,18 @@ class GuideDashboardController extends Controller
 
     private function buildRecentReviews(Guide $guide)
     {
-        return DB::table('reviews')
-            ->join('users', 'users.id', '=', 'reviews.user_id')
-            ->join('tours', 'tours.id', '=', 'reviews.tour_id')
-            ->join('tour_departures', 'tour_departures.tour_id', '=', 'tours.id')
-            ->join('tour_guide_assignments as tga', 'tga.tour_departure_id', '=', 'tour_departures.id')
-            ->where('tga.guide_id', $guide->id)
-            ->where('tga.status', '!=', 'cancelled')
-            ->where('reviews.status', 'visible')
-            ->select([
-                'reviews.id',
-                'reviews.rating',
-                'reviews.comment',
-                'reviews.created_at',
-                'users.full_name as reviewer_name',
-                'users.avatar_url as reviewer_avatar',
-                'tours.title as tour_title',
+        return Review::query()
+            ->visible()
+            ->where('guide_id', $guide->id)
+            ->with([
+                'tour:id,title',
+                'user:id,full_name,avatar_url',
             ])
-            ->distinct()
-            ->orderByDesc('reviews.created_at')
+            ->latest('created_at')
             ->limit(3)
             ->get()
-            ->map(function ($review) {
-                $name = $review->reviewer_name ?: 'Khách hàng';
+            ->map(function (Review $review) {
+                $name = $review->user?->full_name ?: 'Khach hang';
                 $initials = collect(explode(' ', trim($name)))
                     ->filter()
                     ->take(2)
@@ -325,11 +315,11 @@ class GuideDashboardController extends Controller
                     'id' => $review->id,
                     'rating' => (int) ($review->rating ?? 0),
                     'comment' => $review->comment,
-                    'created_at' => optional($review->created_at)->toDateTimeString(),
+                    'created_at' => $review->created_at?->toDateTimeString(),
                     'reviewer_name' => $name,
-                    'reviewer_avatar' => $review->reviewer_avatar,
+                    'reviewer_avatar' => $review->user?->avatar_url,
                     'reviewer_initials' => $initials,
-                    'tour_title' => $review->tour_title,
+                    'tour_title' => $review->tour?->title,
                 ];
             })
             ->values();
@@ -338,7 +328,7 @@ class GuideDashboardController extends Controller
     public function show(Request $request): JsonResponse
     {
         $guide = $this->getGuide($request);
-        if (!$guide) {
+        if (! $guide) {
             return response()->json([
                 'status' => 'success',
                 'message' => 'Tài khoản chưa có hồ sơ hướng dẫn viên hoặc chưa được phân công tour.',
@@ -356,12 +346,12 @@ class GuideDashboardController extends Controller
                     'summary' => [
                         'period' => [
                             'month' => [
-                                'label' => 'Tháng ' . Carbon::now()->month . '/' . Carbon::now()->year,
+                                'label' => 'Tháng '.Carbon::now()->month.'/'.Carbon::now()->year,
                                 'tour_count' => 0,
                                 'customer_count' => 0,
                             ],
                             'year' => [
-                                'label' => 'Năm ' . Carbon::now()->year,
+                                'label' => 'Năm '.Carbon::now()->year,
                                 'tour_count' => 0,
                                 'customer_count' => 0,
                             ],
@@ -466,12 +456,12 @@ class GuideDashboardController extends Controller
         $summary = [
             'period' => [
                 'month' => [
-                    'label' => 'Tháng ' . $month . '/' . $year,
+                    'label' => 'Tháng '.$month.'/'.$year,
                     'tour_count' => $this->countTourDepartures($guide, $year, $month),
                     'customer_count' => $this->countCustomers($guide, $year, $month),
                 ],
                 'year' => [
-                    'label' => 'Năm ' . $year,
+                    'label' => 'Năm '.$year,
                     'tour_count' => $this->countTourDepartures($guide, $year),
                     'customer_count' => $this->countCustomers($guide, $year),
                 ],

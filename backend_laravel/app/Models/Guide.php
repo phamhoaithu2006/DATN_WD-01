@@ -2,13 +2,11 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use App\Models\Destination;
-use App\Models\TourGuideAssignment;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Guide extends Model
 {
@@ -55,6 +53,7 @@ class Guide extends Model
     {
         return $this->hasMany(GuideExperience::class);
     }
+
     public function tourGuideAssignments()
     {
         return $this->hasMany(TourGuideAssignment::class);
@@ -69,7 +68,6 @@ class Guide extends Model
             'tour_departure_id'
         )->withPivot('status', 'note')->withTimestamps();
     }
-
 
     public function destinations(): BelongsToMany
     {
@@ -86,5 +84,8 @@ class Guide extends Model
         return $this->hasMany(TourGuideAssignment::class);
     }
 
-    
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(Review::class);
+    }
 }
