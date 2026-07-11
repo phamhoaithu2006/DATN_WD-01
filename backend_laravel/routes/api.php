@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Api\Admin\AdminNotificationBellController;
+use App\Http\Controllers\Api\Admin\AdminNotificationController;
 use App\Http\Controllers\Api\Admin\AdminProfileController;
 use App\Http\Controllers\Api\Admin\AdminTourDepartureBookingController;
 use App\Http\Controllers\Api\Admin\BookingController;
@@ -107,7 +109,7 @@ Route::get('/settings/public', [PublicSettingController::class, 'show']);
 Route::get('/widgets', [PublicWidgetController::class, 'index']);
 
 // ======Admin======
-Route::prefix('admin')->group(function () {
+Route::prefix('admin') ->middleware('auth:sanctum')->group(function () {
     Route::get(
         'guides/destination-options',
         [DestinationController::class, 'options']
@@ -372,8 +374,17 @@ Route::prefix('admin')->group(function () {
             '{departure}/direct-assign-guide',
             [TourDepartureGuideAssignmentController::class, 'directAssign']
         );
-
     });
+
+    // //Thông báo admin
+    // Route::get('notifications/unread-count', [AdminNotificationController::class, 'unreadCount']);
+    // Route::patch('notifications/read-all', [AdminNotificationController::class, 'markAllAsRead']);
+    // Route::get('notifications', [AdminNotificationController::class, 'index']);
+    // Route::patch('notifications/{id}/read', [AdminNotificationController::class, 'markAsRead']);
+    Route::get('notification-bell/unread-count', [AdminNotificationBellController::class, 'unreadCount']);
+    Route::get('notification-bell', [AdminNotificationBellController::class, 'index']);
+    Route::patch('notification-bell/read-all', [AdminNotificationBellController::class, 'markAllAsRead']);
+    Route::patch('notification-bell/{id}/read', [AdminNotificationBellController::class, 'markAsRead']);
 });
 
 
