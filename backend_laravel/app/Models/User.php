@@ -15,7 +15,7 @@ use Laravel\Sanctum\HasApiTokens;
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable, SoftDeletes, HasApiTokens;
+    use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
 
     /**
      * Các thuộc tính được phép gán dữ liệu hàng loạt (Mass Assignment).
@@ -29,7 +29,7 @@ class User extends Authenticatable
         'avatar_url',
         'status',
         'otp',
-        'otp_expires_at'
+        'otp_expires_at',
     ];
 
     /**
@@ -50,6 +50,7 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
     public function guide()
     {
         return $this->hasOne(Guide::class);
@@ -69,6 +70,11 @@ class User extends Authenticatable
     public function bookings(): HasMany
     {
         return $this->hasMany(Booking::class, 'user_id', 'id');
+    }
+
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(Review::class);
     }
 
     public function wishlists()

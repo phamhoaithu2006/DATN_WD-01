@@ -73,7 +73,7 @@ class Tour extends Model
     //     )
     //         ->withPivot('sort_order')
     //         ->orderBy('tour_destinations.sort_order');
-    //}
+    // }
 
     public function destinations(): BelongsToMany
     {
@@ -120,6 +120,11 @@ class Tour extends Model
     /**
      * Quy tắc giá theo độ tuổi.
      */
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(Review::class, 'tour_id');
+    }
+
     public function agePricingRules(): HasMany
     {
         return $this->hasMany(TourAgePricingRule::class, 'tour_id')

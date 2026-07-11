@@ -24,12 +24,14 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\Customer\CustomerBookingController;
 use App\Http\Controllers\Api\Customer\CustomerController;
 use App\Http\Controllers\Api\Customer\CustomerDashboardController;
+use App\Http\Controllers\Api\Customer\GuideReviewController as CustomerGuideReviewController;
 use App\Http\Controllers\Api\Customer\NotificationCustomerController;
 use App\Http\Controllers\Api\Customer\TourController;
 use App\Http\Controllers\Api\Customer\WishlistController;
 use App\Http\Controllers\Api\Guide\GuideAttendanceController;
 use App\Http\Controllers\Api\Guide\GuideDashboardController;
 use App\Http\Controllers\Api\Guide\GuideProfileController;
+use App\Http\Controllers\Api\Guide\GuideReviewController as GuideGuideReviewController;
 use App\Http\Controllers\Api\Guide\GuideTourController;
 use App\Http\Controllers\Api\PublicSettingController;
 use App\Http\Controllers\Api\PublicWidgetController;
@@ -61,9 +63,13 @@ Route::middleware(['auth:sanctum', 'role:customer'])->group(function () {
     Route::put('/profile/update', [CustomerController::class, 'updateProfile']);
     Route::put('/profile/change-password', [CustomerController::class, 'changePassword']);
 
-    //đặt tour
+    // đặt tour
     Route::post('customer/bookings/preview', [CustomerBookingController::class, 'preview']);
     Route::post('customer/bookings', [CustomerBookingController::class, 'store']);
+    Route::get('customer/guide-reviewable-bookings', [CustomerGuideReviewController::class, 'reviewableBookings']);
+    Route::post('customer/guide-reviews', [CustomerGuideReviewController::class, 'store']);
+    Route::get('customer/guides/{guide}/reviews', [CustomerGuideReviewController::class, 'guideReviews'])->whereNumber('guide');
+    Route::get('customer/guides/{guide}/tour-history', [CustomerGuideReviewController::class, 'guideTourHistory'])->whereNumber('guide');
 });
 
 Route::middleware(['auth:sanctum'])->group(function () {
@@ -333,8 +339,8 @@ Route::prefix('admin')->group(function () {
     // Thu hồi lại thông báo đã gửi
     Route::delete('/notifications/revoke/{draft_id}', [NotificationController::class, 'revoke']);
 
-    //==========quản lý lịch trình============
-    //Hiển thị danh sách user đặt tour
+    // ==========quản lý lịch trình============
+    // Hiển thị danh sách user đặt tour
     Route::get('tour-departures/{tourDeparture}/booked-customers', [AdminTourDepartureBookingController::class, 'index']);
 
     Route::prefix('tour-departures')->group(function () {
@@ -376,13 +382,14 @@ Route::prefix('admin')->group(function () {
     });
 });
 
-
-
 // =============================== Hướng dẫn viên ===============================
 Route::middleware('auth:sanctum')->group(function () {
     // Lấy thông tin hdv
     Route::get('/guide/profile', [GuideProfileController::class, 'show']);
     Route::get('/guide/dashboard', [GuideDashboardController::class, 'show']);
+    // Lấy danh sách đánh giá của hdv và lịch sử tour của hdv
+    Route::get('/guide/reviews', [GuideGuideReviewController::class, 'reviews']);
+    Route::get('/guide/tour-history', [GuideGuideReviewController::class, 'tourHistory']);
     // Sửa thông tin hdv
     Route::put('/guide/profile', [GuideProfileController::class, 'update']);
     // Sửa lại pass khi nhớ mk cũ
