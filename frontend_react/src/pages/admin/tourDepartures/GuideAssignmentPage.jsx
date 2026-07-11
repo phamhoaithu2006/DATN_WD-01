@@ -29,6 +29,27 @@ function getError(error, fallback) {
   return error?.response?.data?.message || fallback
 }
 
+function isDateRangeInvalid(from, to) {
+  return Boolean(from && to && to < from)
+}
+
+function fieldInputClass(hasError, baseClass = '') {
+  const normalClass = 'border-slate-300 focus:border-blue-500 focus:ring-blue-100'
+  const errorClass = 'border-rose-500 bg-rose-50/40 text-rose-900 focus:border-rose-500 focus:ring-rose-100'
+
+  return `${baseClass} ${hasError ? errorClass : normalClass}`
+}
+
+function FieldError({ message }) {
+  if (!message) return null
+
+  return (
+    <p className="mt-1 text-xs font-bold text-rose-600">
+      {message}
+    </p>
+  )
+}
+
 function toDateInputValue(value) {
   if (!value) return ''
 
@@ -67,6 +88,121 @@ function formatDateShort(value) {
     month: '2-digit',
     year: 'numeric',
   }).format(date)
+}
+
+
+const ALL_PLANNING_FROM = '1900-01-01'
+const ALL_PLANNING_TO = '2099-12-31'
+
+function getMonthKey(value) {
+  const rawDate = toDateInputValue(value)
+
+  return rawDate ? rawDate.slice(0, 7) : ''
+}
+
+function formatMonthLabel(monthKey) {
+  if (!monthKey) return 'Không rõ tháng'
+
+  const [year, month] = String(monthKey).split('-').map(Number)
+  const date = new Date(year, month - 1, 1)
+
+  if (Number.isNaN(date.getTime())) return monthKey
+
+  return new Intl.DateTimeFormat('vi-VN', {
+    month: 'long',
+    year: 'numeric',
+  }).format(date)
+}
+
+function getMonthRange(monthKey) {
+  if (!monthKey || monthKey === 'all') return null
+
+  const [year, month] = String(monthKey).split('-').map(Number)
+
+  if (!year || !month) return null
+
+  const firstDate = new Date(year, month - 1, 1)
+  const lastDate = new Date(year, month, 0)
+
+  if (Number.isNaN(firstDate.getTime()) || Number.isNaN(lastDate.getTime())) {
+    return null
+  }
+
+  const toKey = (date) => {
+    const y = date.getFullYear()
+    const m = String(date.getMonth() + 1).padStart(2, '0')
+    const d = String(date.getDate()).padStart(2, '0')
+
+    return `${y}-${m}-${d}`
+  }
+
+  return {
+    from: toKey(firstDate),
+    to: toKey(lastDate),
+  }
+}
+
+function getYearKey(value) {
+  const rawDate = toDateInputValue(value)
+
+  return rawDate ? rawDate.slice(0, 4) : ''
+}
+
+function getMonthNumberKey(value) {
+  const rawDate = toDateInputValue(value)
+
+  return rawDate ? rawDate.slice(5, 7) : ''
+}
+
+function getDepartureScheduleGroup(item) {
+  const scheduleGroup = item?.schedule_group
+
+  if (['upcoming', 'ongoing', 'past'].includes(scheduleGroup)) {
+    return scheduleGroup
+  }
+
+  const today = new Date()
+  const year = today.getFullYear()
+  const month = String(today.getMonth() + 1).padStart(2, '0')
+  const day = String(today.getDate()).padStart(2, '0')
+  const todayKey = `${year}-${month}-${day}`
+
+  const departureDate = toDateInputValue(item?.departure_date)
+  const returnDate = toDateInputValue(item?.return_date) || departureDate
+
+  if (!departureDate) return 'upcoming'
+
+  if (todayKey < departureDate) return 'upcoming'
+
+  if (todayKey >= departureDate && todayKey <= returnDate) {
+    return 'ongoing'
+  }
+
+  return 'past'
+}
+
+function isDepartureActionable(item) {
+  return ['upcoming', 'ongoing'].includes(getDepartureScheduleGroup(item))
+}
+
+function getAssignmentRowClass(item) {
+  if (!isDepartureActionable(item)) {
+    return 'border-l-4 border-slate-300 bg-slate-50/80 hover:bg-slate-50'
+  }
+
+  if (isDepartureAssigned(item)) {
+    return 'border-l-4 border-emerald-300 bg-emerald-50/70 hover:bg-emerald-50'
+  }
+
+  return 'border-l-4 border-rose-300 bg-rose-50/75 hover:bg-rose-50'
+}
+
+function getAssignmentCellClass(item) {
+  if (isDepartureAssigned(item)) {
+    return 'font-bold text-emerald-800'
+  }
+
+  return 'font-bold text-rose-700'
 }
 
 function stateMeta(state) {
@@ -129,6 +265,31 @@ function getActiveAssignment(item) {
   )
 }
 
+function isDepartureAssigned(item) {
+  return (
+    item?.assignment_state === 'assigned' ||
+    getActiveAssignments(item).length > 0
+  )
+}
+
+function compareDeparturesForAssignment(a, b) {
+  const aAssigned = isDepartureAssigned(a) ? 1 : 0
+  const bAssigned = isDepartureAssigned(b) ? 1 : 0
+
+  if (aAssigned !== bAssigned) {
+    return aAssigned - bAssigned
+  }
+
+  const aDate = toDateInputValue(a?.departure_date) || '9999-12-31'
+  const bDate = toDateInputValue(b?.departure_date) || '9999-12-31'
+
+  if (aDate !== bDate) {
+    return aDate.localeCompare(bDate)
+  }
+
+  return Number(a?.id || 0) - Number(b?.id || 0)
+}
+
 function getGuideName(assignment) {
   return (
     assignment?.guide?.user?.full_name ||
@@ -157,6 +318,45 @@ function getAssignmentGuideCode(assignment) {
     assignment?.guide?.id ||
     ''
   )
+}
+
+function getAssignmentGuideId(assignment) {
+  const id = assignment?.guide_id || assignment?.guide?.id || null
+
+  return id ? String(id) : ''
+}
+
+function getGuideCandidateId(guide) {
+  const id = guide?.id || guide?.guide_id || null
+
+  return id ? String(id) : ''
+}
+
+function sortGuidesByAvailability(items = []) {
+  return [...items].sort((a, b) => {
+    const aAvailable = a?.is_available !== false ? 1 : 0
+    const bAvailable = b?.is_available !== false ? 1 : 0
+
+    if (aAvailable !== bAvailable) {
+      return bAvailable - aAvailable
+    }
+
+    const aEligible = a?.is_eligible ? 1 : 0
+    const bEligible = b?.is_eligible ? 1 : 0
+
+    if (aEligible !== bEligible) {
+      return bEligible - aEligible
+    }
+
+    const aAreaMatch = a?.is_area_match ? 1 : 0
+    const bAreaMatch = b?.is_area_match ? 1 : 0
+
+    if (aAreaMatch !== bAreaMatch) {
+      return bAreaMatch - aAreaMatch
+    }
+
+    return getGuideDisplayName(a).localeCompare(getGuideDisplayName(b), 'vi')
+  })
 }
 
 function getAssignmentGuideAvatar(assignment) {
@@ -275,6 +475,69 @@ function getDepartureDateRange(item) {
   return `${formatDate(item?.departure_date)} – ${formatDate(
     item?.return_date || item?.departure_date
   )}`
+}
+
+
+function hasDepartureAssignedGuide(item) {
+  return getActiveAssignments(item).length > 0 || item?.assignment_state === 'assigned'
+}
+
+function getDepartureSortDateKey(item) {
+  return toDateInputValue(item?.departure_date) || '9999-12-31'
+}
+
+function sortDirectDepartureOptions(items = [], selectedId = '') {
+  const selectedValue = selectedId ? String(selectedId) : ''
+
+  return [...items].sort((a, b) => {
+    const aSelected = selectedValue && String(a?.id) === selectedValue ? 1 : 0
+    const bSelected = selectedValue && String(b?.id) === selectedValue ? 1 : 0
+
+    if (aSelected !== bSelected) return bSelected - aSelected
+
+    const aAssigned = hasDepartureAssignedGuide(a) ? 1 : 0
+    const bAssigned = hasDepartureAssignedGuide(b) ? 1 : 0
+
+    if (aAssigned !== bAssigned) return aAssigned - bAssigned
+
+    const dateCompare = getDepartureSortDateKey(a).localeCompare(
+      getDepartureSortDateKey(b)
+    )
+
+    if (dateCompare !== 0) return dateCompare
+
+    return Number(a?.id || 0) - Number(b?.id || 0)
+  })
+}
+
+function getDirectDepartureCardTone(item, isSelected = false) {
+  if (isSelected) {
+    return {
+      card: 'border-emerald-300 bg-emerald-50 text-emerald-950 shadow-sm ring-2 ring-emerald-100',
+      title: 'text-emerald-950',
+      meta: 'text-emerald-700',
+      badge: 'bg-emerald-600 text-white ring-emerald-200',
+      badgeText: 'Đang chọn',
+    }
+  }
+
+  if (!hasDepartureAssignedGuide(item)) {
+    return {
+      card: 'border-rose-200 bg-rose-50/80 text-rose-950 hover:border-rose-300 hover:bg-rose-50',
+      title: 'text-rose-900',
+      meta: 'text-rose-700',
+      badge: 'bg-rose-100 text-rose-700 ring-rose-200',
+      badgeText: 'Chưa phân công',
+    }
+  }
+
+  return {
+    card: 'border-slate-200 bg-white text-slate-800 hover:border-blue-200 hover:bg-blue-50/40',
+    title: 'text-slate-900',
+    meta: 'text-slate-500',
+    badge: 'bg-emerald-50 text-emerald-700 ring-emerald-100',
+    badgeText: 'Đã phân công',
+  }
 }
 
 function getDestinationNames(destinations = []) {
@@ -476,6 +739,105 @@ function CalendarFilter({ from, to, onChangeFrom, onChangeTo, selectedDeparture 
   )
 }
 
+
+function InlineTourDetailCard({ tour = {}, departure = {} }) {
+  const tourId = tour?.id || departure?.tour_id || null
+  const title = tour?.title || `Tour #${tourId || ''}`
+  const description =
+    tour?.description ||
+    tour?.short_description ||
+    tour?.summary ||
+    tour?.overview ||
+    ''
+
+  const destinationName =
+    tour?.destination?.name ||
+    getDestinationNames(tour?.destinations || departure?.destinations || [])
+
+  const price =
+    tour?.price ||
+    tour?.adult_price ||
+    tour?.base_price ||
+    tour?.selling_price ||
+    ''
+
+  const duration =
+    tour?.duration ||
+    tour?.duration_days ||
+    tour?.number_of_days ||
+    tour?.days ||
+    ''
+
+  return (
+    <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50 p-3 text-sm">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-bold uppercase tracking-wide text-blue-500">
+            Chi tiết tour
+          </p>
+
+          <h4 className="mt-1 break-words font-black text-slate-900">
+            {title}
+          </h4>
+        </div>
+
+        {tourId ? (
+          <span className="rounded-full bg-white px-2 py-1 text-xs font-bold text-blue-700">
+            #{tourId}
+          </span>
+        ) : null}
+      </div>
+
+      <div className="mt-3 grid gap-2 text-slate-600 sm:grid-cols-2">
+        <p>
+          <span className="font-bold text-slate-800">Ngày đi:</span>{' '}
+          {formatDateShort(departure?.departure_date)}
+        </p>
+
+        <p>
+          <span className="font-bold text-slate-800">Ngày về:</span>{' '}
+          {formatDateShort(departure?.return_date || departure?.departure_date)}
+        </p>
+
+        {destinationName && destinationName !== 'Chưa gắn điểm đến' ? (
+          <p>
+            <span className="font-bold text-slate-800">Điểm đến:</span>{' '}
+            {destinationName}
+          </p>
+        ) : null}
+
+        {duration ? (
+          <p>
+            <span className="font-bold text-slate-800">Thời lượng:</span>{' '}
+            {duration}
+          </p>
+        ) : null}
+
+        {price ? (
+          <p>
+            <span className="font-bold text-slate-800">Giá:</span>{' '}
+            {typeof price === 'number' ? price.toLocaleString('vi-VN') : price}
+          </p>
+        ) : null}
+
+        {departure?.status ? (
+          <p>
+            <span className="font-bold text-slate-800">Trạng thái lịch:</span>{' '}
+            {departure.status}
+          </p>
+        ) : null}
+      </div>
+
+      {description ? (
+        <div className="mt-3 rounded-lg bg-white/80 p-3 text-slate-600">
+          <p className="font-bold text-slate-800">Mô tả</p>
+          <p className="mt-1 whitespace-pre-line">{description}</p>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 function DirectGuideAssignmentPanel({
   departureOptions = [],
   focusedDepartureId = null,
@@ -499,6 +861,9 @@ function DirectGuideAssignmentPanel({
   const [busyGuideId, setBusyGuideId] = useState(null)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const [openedTourCardKey, setOpenedTourCardKey] = useState(null)
+  const [departureDropdownOpen, setDepartureDropdownOpen] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState({})
 
   const selectedDeparture = useMemo(() => {
     return departureOptions.find(
@@ -509,6 +874,68 @@ function DirectGuideAssignmentPanel({
   const selectedDepartureAssignments = useMemo(() => {
     return getActiveAssignments(selectedDeparture)
   }, [selectedDeparture])
+
+  const sortedDepartureOptions = useMemo(() => {
+    return sortDirectDepartureOptions(departureOptions, departureId)
+  }, [departureOptions, departureId])
+
+  const selectedDepartureHasAssignedGuide = selectedDepartureAssignments.length > 0
+  const selectedDepartureTone = selectedDeparture
+    ? getDirectDepartureCardTone(selectedDeparture, true)
+    : null
+
+  const selectedDepartureAssignedGuideIds = useMemo(() => {
+    return new Set(
+      selectedDepartureAssignments
+        .map((assignment) => getAssignmentGuideId(assignment))
+        .filter(Boolean)
+    )
+  }, [selectedDepartureAssignments])
+
+  const visibleGuides = useMemo(() => {
+    const filteredGuides = guides.filter((guide) => {
+      const guideId = getGuideCandidateId(guide)
+
+      return guideId && !selectedDepartureAssignedGuideIds.has(guideId)
+    })
+
+    return sortGuidesByAvailability(filteredGuides)
+  }, [guides, selectedDepartureAssignedGuideIds])
+
+  function clearFieldError(fieldName) {
+    setFieldErrors((current) => {
+      if (!current[fieldName]) return current
+
+      const next = { ...current }
+      delete next[fieldName]
+
+      return next
+    })
+  }
+
+  function validateDirectFilters(options = {}) {
+    const { requireDeparture = false } = options
+    const nextErrors = {}
+
+    if (requireDeparture && !departureId) {
+      nextErrors.departureId = 'Vui lòng chọn lịch khởi hành.'
+    }
+
+    if (isDateRangeInvalid(from, to)) {
+      nextErrors.to = 'Đến ngày phải lớn hơn hoặc bằng Từ ngày.'
+    }
+
+    setFieldErrors(nextErrors)
+
+    const firstError = Object.values(nextErrors)[0]
+
+    if (firstError) {
+      setError(firstError)
+      return false
+    }
+
+    return true
+  }
 
   const fetchDestinationOptions = useCallback(async () => {
     if (typeof tourDepartureApi.getDestinationOptions !== 'function') {
@@ -577,13 +1004,16 @@ function DirectGuideAssignmentPanel({
   useEffect(() => {
     if (focusedDepartureId) {
       setDepartureId(String(focusedDepartureId))
+      clearFieldError('departureId')
+      setDepartureDropdownOpen(false)
       return
     }
 
-    if (!departureId && departureOptions.length > 0) {
-      setDepartureId(String(departureOptions[0].id))
+    if (!departureId && sortedDepartureOptions.length > 0) {
+      setDepartureId(String(sortedDepartureOptions[0].id))
+      clearFieldError('departureId')
     }
-  }, [focusedDepartureId, departureId, departureOptions])
+  }, [focusedDepartureId, departureId, sortedDepartureOptions])
 
   useEffect(() => {
     if (!selectedDeparture) return
@@ -596,9 +1026,19 @@ function DirectGuideAssignmentPanel({
     )
   }, [selectedDeparture])
 
-  const fetchGuides = useCallback(async () => {
+  const fetchGuides = useCallback(async (extraHiddenGuideIds = []) => {
     if (!departureId) {
       setGuides([])
+      return
+    }
+
+    if (isDateRangeInvalid(from, to)) {
+      setGuides([])
+      setFieldErrors((current) => ({
+        ...current,
+        to: 'Đến ngày phải lớn hơn hoặc bằng Từ ngày.',
+      }))
+      setError('Đến ngày phải lớn hơn hoặc bằng Từ ngày.')
       return
     }
 
@@ -619,7 +1059,19 @@ function DirectGuideAssignmentPanel({
         }
       )
 
-      setGuides(unwrapList(response))
+      const hiddenGuideIds = new Set(
+        extraHiddenGuideIds
+          .map((id) => String(id))
+          .filter(Boolean)
+      )
+
+      setGuides(
+        sortGuidesByAvailability(unwrapList(response)).filter((candidate) => {
+          const candidateId = getGuideCandidateId(candidate)
+
+          return candidateId && !hiddenGuideIds.has(candidateId)
+        })
+      )
     } catch (err) {
       setError(getError(err, 'Không tải được danh sách HDV.'))
     } finally {
@@ -632,8 +1084,12 @@ function DirectGuideAssignmentPanel({
   }, [fetchGuides])
 
   async function assignGuide(guide, forceAreaMismatch = false) {
-    if (!departureId) {
-      setError('Vui lòng chọn lịch khởi hành trước khi phân công.')
+    if (!validateDirectFilters({ requireDeparture: true })) {
+      return
+    }
+
+    if (!guide?.id) {
+      setError('Vui lòng chọn HDV cần phân công.')
       return
     }
 
@@ -651,9 +1107,14 @@ function DirectGuideAssignmentPanel({
       )
 
       setMessage(response.data?.message || 'Đã phân công HDV.')
-      await fetchGuides()
+      setGuides((current) =>
+        current.filter(
+          (item) => getGuideCandidateId(item) !== String(guide.id)
+        )
+      )
       await onRefreshPlanning?.()
-      await onAssigned?.()
+      await onAssigned?.({ departureId, type: 'assigned' })
+      await fetchGuides([guide.id])
     } catch (err) {
       const code = err?.response?.data?.code
 
@@ -687,41 +1148,155 @@ function DirectGuideAssignmentPanel({
             Chọn lịch và khoảng thời gian để kiểm tra HDV còn trống lịch.
           </p>
 
-          <label className="mt-4 block text-sm font-medium text-slate-700">
-            Chọn lịch
-            <select
-              value={departureId}
-              onChange={(event) => {
-                setDepartureId(event.target.value)
-                setGuides([])
-                setMessage('')
-                setError('')
-              }}
-              className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-            >
-              <option value="">-- Chọn lịch khởi hành --</option>
+          <div className="mt-4">
+            <div className="mb-1 flex items-center justify-between gap-3">
+              <span className="text-sm font-medium text-slate-700">
+                Chọn lịch
+              </span>
 
-              {departureOptions.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {getDepartureTitle(item)} · {formatDateShort(item.departure_date)}
-                </option>
-              ))}
-            </select>
-          </label>
+              <span className="text-xs font-bold text-slate-500">
+                {sortedDepartureOptions.filter((item) => !hasDepartureAssignedGuide(item)).length} chưa phân công
+              </span>
+            </div>
+
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setDepartureDropdownOpen((current) => !current)}
+                className={`flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left text-sm outline-none transition focus:ring-2 ${
+                  fieldErrors.departureId
+                    ? 'border-rose-500 bg-rose-50/50 text-rose-900 focus:border-rose-500 focus:ring-rose-100'
+                    : selectedDepartureTone?.card || 'border-slate-300 bg-white text-slate-800 focus:border-blue-500 focus:ring-blue-100'
+                }`}
+              >
+                <span className="min-w-0">
+                  {selectedDeparture ? (
+                    <>
+                      <span className={`block truncate font-black ${selectedDepartureTone?.title || 'text-slate-900'}`}>
+                        {selectedDepartureHasAssignedGuide ? 'Đã phân công' : 'Chưa phân công'} · {getDepartureTitle(selectedDeparture)}
+                      </span>
+                      <span className={`mt-0.5 block truncate text-xs font-semibold ${selectedDepartureTone?.meta || 'text-slate-500'}`}>
+                        {getDepartureDateRange(selectedDeparture)}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-slate-500">-- Chọn lịch khởi hành --</span>
+                  )}
+                </span>
+
+                <span className="flex shrink-0 items-center gap-2">
+                  {selectedDeparture ? (
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ring-1 ${selectedDepartureTone?.badge || 'bg-slate-100 text-slate-600 ring-slate-200'}`}>
+                      {selectedDepartureTone?.badgeText || 'Đang chọn'}
+                    </span>
+                  ) : null}
+
+                  <svg
+                    viewBox="0 0 20 20"
+                    className={`h-4 w-4 text-slate-500 transition ${departureDropdownOpen ? 'rotate-180' : ''}`}
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.168l3.71-3.938a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </span>
+              </button>
+
+              <FieldError message={fieldErrors.departureId} />
+
+              {departureDropdownOpen ? (
+                <div className="absolute left-0 right-0 z-40 mt-2 max-h-80 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
+                  {sortedDepartureOptions.length === 0 ? (
+                    <div className="rounded-lg bg-slate-50 px-3 py-4 text-center text-sm text-slate-500">
+                      Chưa có lịch khởi hành.
+                    </div>
+                  ) : (
+                    sortedDepartureOptions.map((item) => {
+                      const isSelected = String(item.id) === String(departureId)
+                      const tone = getDirectDepartureCardTone(item, isSelected)
+
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => {
+                            setDepartureId(String(item.id))
+                            clearFieldError('departureId')
+                            setGuides([])
+                            setMessage('')
+                            setError('')
+                            setOpenedTourCardKey(null)
+                            setDepartureDropdownOpen(false)
+                          }}
+                          className={`relative mb-2 w-full rounded-xl border px-3 py-3 text-left transition last:mb-0 ${tone.card}`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className={`truncate text-sm font-black ${tone.title}`}>
+                                {getDepartureTitle(item)}
+                              </p>
+
+                              <p className={`mt-1 text-xs font-semibold ${tone.meta}`}>
+                                {getDepartureDateRange(item)}
+                              </p>
+                            </div>
+
+                            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black ring-1 ${tone.badge}`}>
+                              {tone.badgeText}
+                            </span>
+                          </div>
+                        </button>
+                      )
+                    })
+                  )}
+                </div>
+              ) : null}
+            </div>
+
+            {departureDropdownOpen ? (
+              <p className="mt-2 text-xs text-slate-500">
+                Danh sách đã được ẩn trong ô chọn lịch. Lịch chưa phân công được đưa lên trước để dễ chọn.
+              </p>
+            ) : null}
+          </div>
 
           {selectedDeparture ? (
-            <div className="mt-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-800">
-              <p className="font-bold text-blue-900">
-                {getDepartureTitle(selectedDeparture)}
-              </p>
+            <div className={`mt-4 rounded-lg border p-3 text-sm ${selectedDepartureTone?.card || 'border-blue-100 bg-blue-50 text-blue-800'}`}>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className={`font-bold ${selectedDepartureTone?.title || 'text-blue-900'}`}>
+                    {getDepartureTitle(selectedDeparture)}
+                  </p>
 
-              <p className="mt-1">
-                {getDepartureDateRange(selectedDeparture)}
-              </p>
+                  <p className={`mt-1 ${selectedDepartureTone?.meta || 'text-blue-700'}`}>
+                    {getDepartureDateRange(selectedDeparture)}
+                  </p>
+                </div>
 
-              <p className="mt-1">
+                <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-black ring-1 ${selectedDepartureTone?.badge || 'bg-blue-100 text-blue-700 ring-blue-200'}`}>
+                  {selectedDepartureHasAssignedGuide
+                    ? 'Đang đổi / cập nhật'
+                    : 'Đang chọn để phân công'}
+                </span>
+              </div>
+
+              <p className="mt-3 text-sm text-slate-700">
                 Điểm đến: {getDestinationNames(selectedDeparture.destinations)}
               </p>
+
+              {!selectedDepartureHasAssignedGuide ? (
+                <div className="mt-3 rounded-lg border border-rose-200 bg-white/80 p-2 text-sm font-bold text-rose-700">
+                  Lịch này chưa được phân công HDV. Danh sách HDV bên phải đang dùng để phân công mới.
+                </div>
+              ) : (
+                <div className="mt-3 rounded-lg border border-emerald-200 bg-white/80 p-2 text-sm font-bold text-emerald-700">
+                  Lịch này đã có HDV. Khi chọn HDV bên phải, hệ thống sẽ đổi/cập nhật HDV phụ trách.
+                </div>
+              )}
 
               <div className="mt-3 rounded-lg bg-white/80 p-3 text-slate-700">
                 <p className="font-bold text-slate-900">
@@ -807,9 +1382,17 @@ function DirectGuideAssignmentPanel({
                 <input
                   type="date"
                   value={from}
-                  onChange={(event) => setFrom(event.target.value)}
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  onChange={(event) => {
+                    setFrom(event.target.value)
+                    clearFieldError('from')
+                    clearFieldError('to')
+                  }}
+                  className={fieldInputClass(
+                    fieldErrors.from,
+                    'mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none transition focus:ring-2'
+                  )}
                 />
+                <FieldError message={fieldErrors.from} />
               </label>
 
               <label className="block text-sm font-medium text-slate-700">
@@ -817,9 +1400,16 @@ function DirectGuideAssignmentPanel({
                 <input
                   type="date"
                   value={to}
-                  onChange={(event) => setTo(event.target.value)}
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  onChange={(event) => {
+                    setTo(event.target.value)
+                    clearFieldError('to')
+                  }}
+                  className={fieldInputClass(
+                    fieldErrors.to,
+                    'mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none transition focus:ring-2'
+                  )}
                 />
+                <FieldError message={fieldErrors.to} />
               </label>
             </div>
 
@@ -847,7 +1437,11 @@ function DirectGuideAssignmentPanel({
 
             <button
               type="button"
-              onClick={fetchGuides}
+              onClick={() => {
+                if (validateDirectFilters({ requireDeparture: true })) {
+                  void fetchGuides()
+                }
+              }}
               disabled={!departureId || loading}
               className="w-full rounded-lg bg-blue-600 px-4 py-2 font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -1006,12 +1600,12 @@ function DirectGuideAssignmentPanel({
             <div className="col-span-full rounded-xl border border-dashed border-slate-300 p-8 text-center text-slate-500">
               Đang tải danh sách HDV...
             </div>
-          ) : guides.length === 0 ? (
+          ) : visibleGuides.length === 0 ? (
             <div className="col-span-full rounded-xl border border-dashed border-slate-300 p-8 text-center text-slate-500">
               Không có HDV phù hợp với bộ lọc.
             </div>
           ) : (
-            guides.map((guide) => {
+            visibleGuides.map((guide) => {
               const isAvailable = guide.is_available !== false
               const isAreaMatch = Boolean(guide.is_area_match)
               const assignedTours = Array.isArray(guide.assigned_tours)
@@ -1121,14 +1715,17 @@ function DirectGuideAssignmentPanel({
 
                     <div className="mt-3 space-y-2">
                       {assignedTours.length > 0 ? (
-                        assignedTours.map((assignment) => {
+                        assignedTours.map((assignment, assignmentIndex) => {
                           const departure = assignment.departure || {}
                           const tour = departure.tour || {}
                           const tourId = tour.id || departure.tour_id
+                          const tourCardKey = `${guide.id}-${
+                            assignment.id || tourId || assignmentIndex
+                          }`
 
                           return (
                             <div
-                              key={assignment.id}
+                              key={assignment.id || tourCardKey}
                               className="rounded-lg border border-slate-200 bg-white p-3 text-sm"
                             >
                               <p className="font-bold text-slate-900">
@@ -1143,12 +1740,26 @@ function DirectGuideAssignmentPanel({
                               </p>
 
                               {tourId ? (
-                                <a
-                                  href={`/admin/tours/${tourId}`}
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setOpenedTourCardKey((current) =>
+                                      current === tourCardKey ? null : tourCardKey
+                                    )
+                                  }
                                   className="mt-2 inline-flex text-sm font-bold text-blue-600 hover:text-blue-700"
                                 >
-                                  Xem chi tiết tour
-                                </a>
+                                  {openedTourCardKey === tourCardKey
+                                    ? 'Ẩn chi tiết tour'
+                                    : 'Xem chi tiết tour'}
+                                </button>
+                              ) : null}
+
+                              {openedTourCardKey === tourCardKey ? (
+                                <InlineTourDetailCard
+                                  tour={tour}
+                                  departure={departure}
+                                />
                               ) : null}
                             </div>
                           )
@@ -1163,7 +1774,12 @@ function DirectGuideAssignmentPanel({
 
                   <button
                     type="button"
-                    disabled={!isAvailable || busyGuideId === guide.id}
+                    disabled={
+                      !isAvailable ||
+                      !departureId ||
+                      isDateRangeInvalid(from, to) ||
+                      busyGuideId === guide.id
+                    }
                     onClick={() => assignGuide(guide)}
                     className="mt-4 w-full rounded-lg bg-blue-600 px-4 py-2 font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
@@ -1196,22 +1812,66 @@ export function GuideAssignmentPanel({
   )
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
+  const [scheduleTimeFilter, setScheduleTimeFilter] = useState('active')
+  const [monthFilter, setMonthFilter] = useState('all')
+  const [yearFilter, setYearFilter] = useState('all')
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [busyId, setBusyId] = useState(null)
+  const [assignmentFilter, setAssignmentFilter] = useState('all')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const [autoValidationErrors, setAutoValidationErrors] = useState({})
+
+  function clearAutoValidationError(fieldName) {
+    setAutoValidationErrors((current) => {
+      if (!current[fieldName]) return current
+
+      const next = { ...current }
+      delete next[fieldName]
+
+      return next
+    })
+  }
+
+  function validateAutoFilters() {
+    const nextErrors = {}
+
+    if (isDateRangeInvalid(from, to)) {
+      nextErrors.to = 'Đến ngày phải lớn hơn hoặc bằng Từ ngày.'
+    }
+
+    setAutoValidationErrors(nextErrors)
+
+    const firstError = Object.values(nextErrors)[0]
+
+    if (firstError) {
+      setError(firstError)
+      return false
+    }
+
+    return true
+  }
 
   const fetchPlanning = useCallback(async () => {
+    if (isDateRangeInvalid(from, to)) {
+      setAutoValidationErrors((current) => ({
+        ...current,
+        to: 'Đến ngày phải lớn hơn hoặc bằng Từ ngày.',
+      }))
+      setError('Đến ngày phải lớn hơn hoặc bằng Từ ngày.')
+      return
+    }
+
     try {
       setLoading(true)
       setError('')
 
       const response = await tourDepartureApi.getGuidePlanning({
-        from: from || undefined,
-        to: to || undefined,
+        from: from || ALL_PLANNING_FROM,
+        to: to || ALL_PLANNING_TO,
         tour_id: selectedTourId || undefined,
-        per_page: 50,
+        per_page: 100,
       })
 
       setRows(unwrapList(response))
@@ -1232,7 +1892,7 @@ export function GuideAssignmentPanel({
     }
   }, [focusedDepartureId])
 
-  const displayedRows = useMemo(() => {
+  const scopedRows = useMemo(() => {
     return rows.filter((item) => {
       if (focusedDepartureId) {
         return String(item.id) === String(focusedDepartureId)
@@ -1246,7 +1906,188 @@ export function GuideAssignmentPanel({
     })
   }, [rows, selectedTourId, focusedDepartureId])
 
+  const monthOptions = useMemo(() => {
+    return Array.from({ length: 12 }, (_, index) => {
+      const value = String(index + 1).padStart(2, '0')
+
+      return {
+        key: value,
+        label: `Tháng ${index + 1}`,
+      }
+    })
+  }, [])
+
+  const yearOptions = useMemo(() => {
+    const years = new Set()
+
+    scopedRows.forEach((item) => {
+      const year = getYearKey(item?.departure_date)
+
+      if (year) {
+        years.add(year)
+      }
+    })
+
+    return Array.from(years)
+      .sort((a, b) => Number(b) - Number(a))
+      .map((year) => ({
+        key: year,
+        label: `Năm ${year}`,
+      }))
+  }, [scopedRows])
+
+  const monthYearFilteredRows = useMemo(() => {
+    return scopedRows.filter((item) => {
+      const month = getMonthNumberKey(item?.departure_date)
+      const year = getYearKey(item?.departure_date)
+
+      if (monthFilter !== 'all' && month !== monthFilter) {
+        return false
+      }
+
+      if (yearFilter !== 'all' && year !== yearFilter) {
+        return false
+      }
+
+      return true
+    })
+  }, [scopedRows, monthFilter, yearFilter])
+
+  const scheduleFilterCounts = useMemo(() => {
+    return monthYearFilteredRows.reduce(
+      (acc, item) => {
+        const group = getDepartureScheduleGroup(item)
+
+        if (group === 'upcoming') acc.upcoming += 1
+        if (group === 'ongoing') acc.ongoing += 1
+        if (group === 'past') acc.past += 1
+        if (isDepartureActionable(item)) acc.active += 1
+
+        acc.all += 1
+
+        return acc
+      },
+      {
+        active: 0,
+        upcoming: 0,
+        ongoing: 0,
+        past: 0,
+        all: 0,
+      }
+    )
+  }, [monthYearFilteredRows])
+
+  const scheduleFilterTabs = useMemo(() => {
+    return [
+      {
+        key: 'active',
+        label: 'Sắp tới / đang diễn ra',
+        count: scheduleFilterCounts.active,
+      },
+      {
+        key: 'upcoming',
+        label: 'Sắp tới',
+        count: scheduleFilterCounts.upcoming,
+      },
+      {
+        key: 'ongoing',
+        label: 'Đang diễn ra',
+        count: scheduleFilterCounts.ongoing,
+      },
+      {
+        key: 'past',
+        label: 'Đã qua',
+        count: scheduleFilterCounts.past,
+      },
+      {
+        key: 'all',
+        label: 'Tất cả',
+        count: scheduleFilterCounts.all,
+      },
+    ]
+  }, [scheduleFilterCounts])
+
+  const baseDisplayedRows = useMemo(() => {
+    return monthYearFilteredRows.filter((item) => {
+      const group = getDepartureScheduleGroup(item)
+
+      if (scheduleTimeFilter === 'active') {
+        return ['upcoming', 'ongoing'].includes(group)
+      }
+
+      if (scheduleTimeFilter === 'all') {
+        return true
+      }
+
+      return group === scheduleTimeFilter
+    })
+  }, [monthYearFilteredRows, scheduleTimeFilter])
+
+  const assignmentFilterCounts = useMemo(() => {
+    return baseDisplayedRows.reduce(
+      (acc, item) => {
+        if (isDepartureAssigned(item)) {
+          acc.assigned += 1
+        } else {
+          acc.unassigned += 1
+        }
+
+        acc.all += 1
+
+        return acc
+      },
+      {
+        all: 0,
+        unassigned: 0,
+        assigned: 0,
+      }
+    )
+  }, [baseDisplayedRows])
+
+  const assignmentFilterTabs = useMemo(() => {
+    return [
+      { key: 'all', label: 'Tất cả', count: assignmentFilterCounts.all },
+      {
+        key: 'unassigned',
+        label: 'Chưa phân công',
+        count: assignmentFilterCounts.unassigned,
+      },
+      {
+        key: 'assigned',
+        label: 'Đã phân công',
+        count: assignmentFilterCounts.assigned,
+      },
+    ]
+  }, [assignmentFilterCounts])
+
+  const displayedRows = useMemo(() => {
+    return baseDisplayedRows
+      .filter((item) => {
+        if (assignmentFilter === 'assigned') {
+          return isDepartureAssigned(item)
+        }
+
+        if (assignmentFilter === 'unassigned') {
+          return !isDepartureAssigned(item)
+        }
+
+        return true
+      })
+      .sort(compareDeparturesForAssignment)
+  }, [baseDisplayedRows, assignmentFilter])
+
+  const actionableDirectDepartureOptions = useMemo(() => {
+    return displayedRows.filter((item) => isDepartureActionable(item))
+  }, [displayedRows])
+
   async function autoAssign(departureId) {
+    const departure = rows.find((item) => String(item.id) === String(departureId))
+
+    if (departure && !isDepartureActionable(departure)) {
+      setError('Lịch khởi hành đã qua nên chỉ được xem, không thể phân công HDV.')
+      return
+    }
+
     try {
       setBusyId(departureId)
       setMessage('')
@@ -1259,7 +2100,7 @@ export function GuideAssignmentPanel({
       )
 
       await fetchPlanning()
-      await onAssigned?.()
+      await onAssigned?.({ departureId, type: 'assigned' })
     } catch (err) {
       setError(getError(err, 'Không thể tự động phân công HDV.'))
     } finally {
@@ -1268,6 +2109,11 @@ export function GuideAssignmentPanel({
   }
 
   async function undoAssignment(item) {
+    if (!isDepartureActionable(item)) {
+      setError('Lịch khởi hành đã qua nên chỉ được xem, không thể hoàn tác phân công.')
+      return
+    }
+
     const assignment = getActiveAssignment(item)
 
     if (!assignment?.id) {
@@ -1296,7 +2142,7 @@ export function GuideAssignmentPanel({
       )
 
       await fetchPlanning()
-      await onAssigned?.()
+      await onAssigned?.({ departureId: item.id, type: 'cancelled' })
     } catch (err) {
       setError(getError(err, 'Không thể hoàn tác phân công HDV.'))
     } finally {
@@ -1305,6 +2151,11 @@ export function GuideAssignmentPanel({
   }
 
   function openDirectAssignment(item) {
+    if (!isDepartureActionable(item)) {
+      setMessage('Lịch khởi hành đã qua nên chỉ được xem, không thể phân công HDV.')
+      return
+    }
+
     setDirectDepartureId(String(item.id))
     setAssignMode('direct')
     setMessage(
@@ -1317,22 +2168,65 @@ export function GuideAssignmentPanel({
 
   const autoAssignmentContent = (
     <>
-      <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+      <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
         <span className="font-bold">Lưu ý:</span>{' '}
-        Mặc định hệ thống chỉ hiển thị lịch khởi hành từ hôm nay đến 3 tháng tới.
-        Với các lịch khởi hành xa hơn, vui lòng chọn khoảng thời gian ở bộ lọc bên dưới.
+        Mặc định danh sách chỉ hiển thị lịch sắp tới và đang diễn ra. Lịch đã qua chỉ hiện khi chọn bộ lọc Đã qua.
       </div>
 
       <div className="mb-5 flex flex-wrap items-end gap-3 rounded-lg bg-slate-50 p-4">
+        <label className="text-sm font-medium text-slate-700">
+          Tháng
+
+          <select
+            value={monthFilter}
+            onChange={(event) => setMonthFilter(event.target.value)}
+            className="mt-1 block min-w-[150px] rounded border border-slate-300 bg-white px-3 py-2 font-normal"
+          >
+            <option value="all">Tất cả tháng</option>
+
+            {monthOptions.map((month) => (
+              <option key={month.key} value={month.key}>
+                {month.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="text-sm font-medium text-slate-700">
+          Năm
+
+          <select
+            value={yearFilter}
+            onChange={(event) => setYearFilter(event.target.value)}
+            className="mt-1 block min-w-[130px] rounded border border-slate-300 bg-white px-3 py-2 font-normal"
+          >
+            <option value="all">Tất cả năm</option>
+
+            {yearOptions.map((year) => (
+              <option key={year.key} value={year.key}>
+                {year.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
         <label className="text-sm font-medium text-slate-700">
           Từ ngày
 
           <input
             type="date"
             value={from}
-            onChange={(event) => setFrom(event.target.value)}
-            className="mt-1 block rounded border border-slate-300 bg-white px-3 py-2 font-normal"
+            onChange={(event) => {
+              setFrom(event.target.value)
+              clearAutoValidationError('from')
+              clearAutoValidationError('to')
+            }}
+            className={fieldInputClass(
+              autoValidationErrors.from,
+              'mt-1 block rounded border bg-white px-3 py-2 font-normal outline-none transition focus:ring-2'
+            )}
           />
+          <FieldError message={autoValidationErrors.from} />
         </label>
 
         <label className="text-sm font-medium text-slate-700">
@@ -1341,18 +2235,84 @@ export function GuideAssignmentPanel({
           <input
             type="date"
             value={to}
-            onChange={(event) => setTo(event.target.value)}
-            className="mt-1 block rounded border border-slate-300 bg-white px-3 py-2 font-normal"
+            onChange={(event) => {
+              setTo(event.target.value)
+              clearAutoValidationError('to')
+            }}
+            className={fieldInputClass(
+              autoValidationErrors.to,
+              'mt-1 block rounded border bg-white px-3 py-2 font-normal outline-none transition focus:ring-2'
+            )}
           />
+          <FieldError message={autoValidationErrors.to} />
         </label>
 
         <button
           type="button"
-          onClick={fetchPlanning}
+          onClick={() => {
+            if (validateAutoFilters()) {
+              void fetchPlanning()
+            }
+          }}
           className="rounded bg-blue-600 px-4 py-2 text-white transition hover:bg-blue-700"
         >
           Lọc lịch
         </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setScheduleTimeFilter('active')
+            setMonthFilter('all')
+            setYearFilter('all')
+            setAssignmentFilter('all')
+            setFrom('')
+            setTo('')
+          }}
+          className="rounded bg-white px-4 py-2 font-bold text-slate-600 ring-1 ring-slate-200 transition hover:bg-slate-100"
+        >
+          Xem tất cả
+        </button>
+      </div>
+
+      <div className="mb-4 flex flex-wrap gap-2">
+        {scheduleFilterTabs.map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => setScheduleTimeFilter(tab.key)}
+            className={`rounded-lg px-4 py-2 text-sm font-bold transition ${
+              scheduleTimeFilter === tab.key
+                ? 'bg-slate-900 text-white'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            {tab.label} ({tab.count})
+          </button>
+        ))}
+      </div>
+
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-2">
+          {assignmentFilterTabs.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setAssignmentFilter(tab.key)}
+              className={`rounded-lg px-4 py-2 text-sm font-bold transition ${
+                assignmentFilter === tab.key
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              {tab.label} ({tab.count})
+            </button>
+          ))}
+        </div>
+
+        <p className="text-sm font-medium text-slate-500">
+          Ưu tiên hiển thị lịch chưa phân công trước.
+        </p>
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
@@ -1377,22 +2337,30 @@ export function GuideAssignmentPanel({
             ) : displayedRows.length === 0 ? (
               <tr>
                 <td colSpan="5" className="p-6 text-center text-slate-500">
-                  Không có lịch trong khoảng đã chọn.
+                  {assignmentFilter === 'assigned'
+                    ? 'Không có lịch đã phân công trong khoảng đã chọn.'
+                    : assignmentFilter === 'unassigned'
+                      ? 'Không có lịch chưa phân công trong khoảng đã chọn.'
+                      : scheduleTimeFilter === 'past'
+                        ? 'Không có lịch đã qua trong bộ lọc hiện tại.'
+                        : 'Không có lịch trong bộ lọc hiện tại.'}
                 </td>
               </tr>
             ) : (
               displayedRows.map((item) => {
                 const activeAssignments = getActiveAssignments(item)
-                const hasAssignedGuide =
-                  item.assignment_state === 'assigned' ||
-                  activeAssignments.length > 0
+                const hasAssignedGuide = isDepartureAssigned(item)
+                const actionable = isDepartureActionable(item)
 
                 const meta = stateMeta(
                   hasAssignedGuide ? 'assigned' : item.assignment_state
                 )
 
                 return (
-                  <tr key={item.id} className="border-t">
+                  <tr
+                    key={item.id}
+                    className={`border-t transition ${getAssignmentRowClass(item)}`}
+                  >
                     <td className="p-3">
                       <strong className="block">
                         {getDepartureTitle(item)}
@@ -1401,6 +2369,22 @@ export function GuideAssignmentPanel({
                       <span className="text-slate-500">
                         {getDepartureDateRange(item)}
                       </span>
+
+                      <span
+                        className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                          getDepartureScheduleGroup(item) === 'past'
+                            ? 'bg-slate-200 text-slate-600'
+                            : getDepartureScheduleGroup(item) === 'ongoing'
+                              ? 'bg-sky-100 text-sky-700'
+                              : 'bg-blue-100 text-blue-700'
+                        }`}
+                      >
+                        {getDepartureScheduleGroup(item) === 'past'
+                          ? 'Đã qua'
+                          : getDepartureScheduleGroup(item) === 'ongoing'
+                            ? 'Đang diễn ra'
+                            : 'Sắp tới'}
+                      </span>
                     </td>
 
                     <td className="p-3">
@@ -1408,11 +2392,17 @@ export function GuideAssignmentPanel({
                     </td>
 
                     <td className="p-3">
-                      {activeAssignments.length > 0
-                        ? activeAssignments
+                      {activeAssignments.length > 0 ? (
+                        <span className={getAssignmentCellClass(item)}>
+                          {activeAssignments
                             .map((assignment) => getGuideName(assignment))
-                            .join(', ')
-                        : `Chưa phân (${item.available_guide_count || 0} HDV hợp lệ)`}
+                            .join(', ')}
+                        </span>
+                      ) : (
+                        <span className={getAssignmentCellClass(item)}>
+                          Chưa phân ({item.available_guide_count || 0} HDV hợp lệ)
+                        </span>
+                      )}
                     </td>
 
                     <td className="p-3">
@@ -1424,7 +2414,13 @@ export function GuideAssignmentPanel({
                     </td>
 
                     <td className="p-3">
-                      {hasAssignedGuide ? (
+                      {!actionable ? (
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded bg-slate-200 px-3 py-2 text-xs font-bold text-slate-600">
+                            Đã qua - chỉ xem
+                          </span>
+                        </div>
+                      ) : hasAssignedGuide ? (
                         <div className="flex flex-wrap gap-2">
                           <button
                             type="button"
@@ -1587,7 +2583,7 @@ export function GuideAssignmentPanel({
 
       {assignMode === 'direct' ? (
         <DirectGuideAssignmentPanel
-          departureOptions={displayedRows}
+          departureOptions={actionableDirectDepartureOptions}
           focusedDepartureId={directDepartureId || focusedDepartureId}
           onAssigned={onAssigned}
           onRefreshPlanning={fetchPlanning}

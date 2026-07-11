@@ -7,6 +7,7 @@ use App\Http\Resources\TourDepartureResource;
 use App\Models\Booking;
 use App\Models\Tour;
 use App\Models\TourDeparture;
+use App\Services\AdminNotificationService;
 use App\Services\TourDepartureChangeNotificationService;
 use App\Services\TourDepartureMutationGuard;
 use Carbon\Carbon;
@@ -171,6 +172,9 @@ class TourDepartureController extends Controller
 
         $departure = TourDeparture::create($validatedData);
 
+        app(AdminNotificationService::class)
+            ->notifyTourDepartureCreated($departure, $request->user());
+
         return response()->json([
             'status' => 'success',
             'message' => 'Thêm lịch khởi hành thành công',
@@ -187,7 +191,8 @@ class TourDepartureController extends Controller
         Request $request,
         $id,
         TourDepartureMutationGuard $guard,
-        TourDepartureChangeNotificationService $notificationService
+        TourDepartureChangeNotificationService $notificationService,
+        AdminNotificationService $adminNotificationService
     ) {
         $tourDeparture = TourDeparture::with('tour')->findOrFail($id);
 
@@ -360,6 +365,8 @@ class TourDepartureController extends Controller
             $changes,
             $changeReason,
             $notificationService,
+            $adminNotificationService,
+            $request,
             &$notificationResult
         ) {
             $tourDeparture->save();
@@ -375,6 +382,13 @@ class TourDepartureController extends Controller
                         $changeReason
                     );
             }
+
+            $adminNotificationService->notifyTourDepartureUpdated(
+                $tourDeparture,
+                $request->user(),
+                $changes,
+                $changeReason
+            );
         });
 
         return response()->json([
@@ -392,6 +406,7 @@ class TourDepartureController extends Controller
      * DELETE /api/admin/tours/departures/{id}
      */
     public function destroy(
+        Request $request,
         $id,
         TourDepartureMutationGuard $guard
     ) {
@@ -406,7 +421,14 @@ class TourDepartureController extends Controller
             ], 422);
         }
 
-        $departure->delete();
+        DB::transaction(function () use ($departure, $request) {
+            $departure->loadMissing('tour:id,title');
+
+            app(AdminNotificationService::class)
+                ->notifyTourDepartureDeleted($departure, $request->user());
+
+            $departure->delete();
+        });
 
         return response()->json([
             'status' => 'success',

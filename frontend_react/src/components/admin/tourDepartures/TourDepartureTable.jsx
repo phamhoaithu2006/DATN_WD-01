@@ -1,4 +1,6 @@
-﻿import { Link } from 'react-router-dom'
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
+import adminNotificationApi from '../../../services/adminNotificationApi'
 
 const GuideIcon = ({ className = 'w-4 h-4' }) => (
   <svg
@@ -42,6 +44,22 @@ const EditIcon = ({ className = 'w-4 h-4' }) => (
   >
     <path d="M12 20h9" />
     <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+  </svg>
+)
+
+
+const ClockIcon = ({ className = 'w-4 h-4' }) => (
+  <svg
+    className={className}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 7v5l3 2" />
   </svg>
 )
 
@@ -187,23 +205,26 @@ function getAssignmentMeta(departure) {
   if (leadAssignment || departure.assignment_state === 'assigned') {
     return {
       text: 'Đã phân công',
-      badge: 'bg-emerald-50 text-emerald-700 ring-emerald-100',
-      row: 'bg-emerald-50/25',
+      badge: 'bg-emerald-100 text-emerald-700 ring-emerald-200',
+      row: 'bg-emerald-50/70 hover:bg-emerald-100/60',
+      border: 'border-l-4 border-emerald-300',
     }
   }
 
   if (departure.assignment_state === 'blocked') {
     return {
       text: 'Hết HDV phù hợp',
-      badge: 'bg-rose-50 text-rose-700 ring-rose-100',
-      row: 'bg-rose-50/25',
+      badge: 'bg-rose-100 text-rose-700 ring-rose-200',
+      row: 'bg-rose-50/80 hover:bg-rose-100/60',
+      border: 'border-l-4 border-rose-300',
     }
   }
 
   return {
     text: 'Chưa phân công',
-    badge: 'bg-amber-50 text-amber-700 ring-amber-100',
-    row: 'bg-amber-50/20',
+    badge: 'bg-rose-100 text-rose-700 ring-rose-200',
+    row: 'bg-rose-50/80 hover:bg-rose-100/60',
+    border: 'border-l-4 border-rose-300',
   }
 }
 
@@ -219,27 +240,51 @@ function getRemainSlotClass(remainSlots) {
   return 'text-emerald-600 bg-emerald-50 ring-emerald-100'
 }
 
-function isLockedDeparture(departure) {
-  if (typeof departure?.is_locked === 'boolean') {
-    return departure.is_locked
-  }
+function getDateKey(value) {
+  if (!value) return ''
 
-  if (departure?.schedule_group === 'past') {
-    return true
-  }
+  const matchedDate = String(value).match(/^\d{4}-\d{2}-\d{2}/)
 
-  if (!departure?.departure_date) {
-    return false
-  }
+  return matchedDate ? matchedDate[0] : ''
+}
 
-  const departureDate = new Date(
-    `${String(departure.departure_date).slice(0, 10)}T00:00:00`
-  )
-
+function getTodayKey() {
   const today = new Date()
-  today.setHours(0, 0, 0, 0)
+  const year = today.getFullYear()
+  const month = String(today.getMonth() + 1).padStart(2, '0')
+  const day = String(today.getDate()).padStart(2, '0')
 
-  return departureDate <= today
+  return `${year}-${month}-${day}`
+}
+
+function getDepartureTimeGroup(departure) {
+  const scheduleGroup = departure?.schedule_group
+
+  if (['upcoming', 'ongoing', 'past'].includes(scheduleGroup)) {
+    return scheduleGroup
+  }
+
+  const today = getTodayKey()
+  const departureDate = getDateKey(departure?.departure_date)
+  const returnDate = getDateKey(departure?.return_date) || departureDate
+
+  if (!departureDate) {
+    return 'upcoming'
+  }
+
+  if (today < departureDate) {
+    return 'upcoming'
+  }
+
+  if (today >= departureDate && today <= returnDate) {
+    return 'ongoing'
+  }
+
+  return 'past'
+}
+
+function isLockedDeparture(departure) {
+  return getDepartureTimeGroup(departure) === 'past'
 }
 
 function getBookingCount(departure) {
@@ -260,6 +305,353 @@ function hasActiveBookings(departure) {
   return getBookingCount(departure) > 0
 }
 
+function hasAssignedGuide(departure) {
+  const leadAssignment = getLeadAssignment(departure)
+
+  return Boolean(leadAssignment || departure?.assignment_state === 'assigned')
+}
+
+function hasNewFlag(setValue, id) {
+  if (!id) return false
+
+  const value = String(id)
+
+  if (setValue instanceof Set) {
+    return setValue.has(value)
+  }
+
+  if (Array.isArray(setValue)) {
+    return setValue.map(String).includes(value)
+  }
+
+  return false
+}
+
+function isAssignmentWarningTarget(departure) {
+  return ['upcoming', 'ongoing'].includes(getDepartureTimeGroup(departure))
+}
+
+function sortByAssignmentState(items = []) {
+  return [...items].sort((a, b) => {
+    const aAssigned = hasAssignedGuide(a) ? 1 : 0
+    const bAssigned = hasAssignedGuide(b) ? 1 : 0
+
+    if (aAssigned !== bAssigned) {
+      return aAssigned - bAssigned
+    }
+
+    const aDate = getDateKey(a?.departure_date)
+    const bDate = getDateKey(b?.departure_date)
+
+    if (aDate !== bDate) {
+      return aDate.localeCompare(bDate)
+    }
+
+    return Number(a?.id || 0) - Number(b?.id || 0)
+  })
+}
+
+function getAssignmentFilterEmptyText(scheduleFilter, assignmentFilter) {
+  if (assignmentFilter === 'unassigned') {
+    return 'Không có lịch chưa phân công trong nhóm này.'
+  }
+
+  if (assignmentFilter === 'assigned') {
+    return 'Không có lịch đã phân công trong nhóm này.'
+  }
+
+  if (scheduleFilter === 'ongoing') {
+    return 'Không có lịch đang diễn ra.'
+  }
+
+  if (scheduleFilter === 'past') {
+    return 'Không có lịch đã qua.'
+  }
+
+  if (scheduleFilter === 'all') {
+    return 'Không có lịch khởi hành.'
+  }
+
+  return 'Không có lịch sắp tới.'
+}
+
+function buildPageNumbers(currentPage, totalPages) {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1)
+  }
+
+  const pages = new Set([1, totalPages, currentPage])
+
+  if (currentPage > 1) pages.add(currentPage - 1)
+  if (currentPage < totalPages) pages.add(currentPage + 1)
+
+  if (currentPage <= 3) {
+    pages.add(2)
+    pages.add(3)
+    pages.add(4)
+  }
+
+  if (currentPage >= totalPages - 2) {
+    pages.add(totalPages - 1)
+    pages.add(totalPages - 2)
+    pages.add(totalPages - 3)
+  }
+
+  return Array.from(pages)
+    .filter((page) => page >= 1 && page <= totalPages)
+    .sort((a, b) => a - b)
+}
+
+
+function parseNotificationData(value) {
+  if (!value) return {}
+
+  if (typeof value === 'object') return value
+
+  try {
+    return JSON.parse(value)
+  } catch (error) {
+    return {}
+  }
+}
+
+function getNotificationList(response) {
+  const payload = response?.data ?? response
+  const data = payload?.data ?? payload
+
+  if (Array.isArray(data?.data)) return data.data
+  if (Array.isArray(data)) return data
+  if (Array.isArray(payload?.notifications)) return payload.notifications
+
+  return []
+}
+
+function isDepartureHistoryNotification(item) {
+  const data = parseNotificationData(item?.data)
+  const source = data?.source
+
+  if (['tour_departure', 'guide_assignment'].includes(source)) {
+    return true
+  }
+
+  const text = `${item?.title || ''} ${item?.message || ''}`.toLowerCase()
+
+  return (
+    text.includes('lịch khởi hành') ||
+    text.includes('phân công') ||
+    text.includes('hdv') ||
+    text.includes('hướng dẫn')
+  )
+}
+
+function formatHistoryTime(value) {
+  if (!value) return ''
+
+  const date = new Date(String(value).replace(' ', 'T'))
+
+  if (Number.isNaN(date.getTime())) return ''
+
+  return date.toLocaleString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function DepartureHistoryButton() {
+  const [open, setOpen] = useState(false)
+  const [items, setItems] = useState([])
+  const [loading, setLoading] = useState(false)
+  const panelRef = useRef(null)
+
+  const unreadItems = items.filter((item) => item.status === 'unread')
+  const unreadCount = unreadItems.length
+
+  const fetchHistory = useCallback(async () => {
+    try {
+      setLoading(true)
+
+      const response = await adminNotificationApi.getList({
+        per_page: 50,
+      })
+
+      const list = getNotificationList(response)
+        .filter(isDepartureHistoryNotification)
+        .slice(0, 30)
+
+      setItems(list)
+    } catch (error) {
+      console.error(error)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void fetchHistory()
+
+    const handleChanged = () => {
+      void fetchHistory()
+    }
+
+    window.addEventListener('focus', handleChanged)
+    window.addEventListener('admin-notification:changed', handleChanged)
+
+    return () => {
+      window.removeEventListener('focus', handleChanged)
+      window.removeEventListener('admin-notification:changed', handleChanged)
+    }
+  }, [fetchHistory])
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (panelRef.current && !panelRef.current.contains(event.target)) {
+        void closeHistory()
+      }
+    }
+
+    if (open) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [open, unreadItems])
+
+  async function markUnreadAsRead() {
+    const ids = unreadItems
+      .map((item) => item.id)
+      .filter(Boolean)
+
+    if (ids.length === 0) return
+
+    try {
+      await Promise.all(
+        ids.map((id) => adminNotificationApi.markAsRead(id))
+      )
+
+      setItems((current) =>
+        current.map((item) =>
+          ids.includes(item.id) ? { ...item, status: 'read' } : item
+        )
+      )
+
+      window.dispatchEvent(new Event('admin-notification:changed'))
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
+  async function closeHistory() {
+    setOpen(false)
+    await markUnreadAsRead()
+    await fetchHistory()
+  }
+
+  async function toggleHistory() {
+    if (open) {
+      await closeHistory()
+      return
+    }
+
+    setOpen(true)
+    await fetchHistory()
+  }
+
+  return (
+    <div ref={panelRef} className="relative">
+      <button
+        type="button"
+        onClick={toggleHistory}
+        className="relative inline-flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-xs font-black text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-100 hover:text-blue-700"
+        title="Xem lịch sử thao tác lịch khởi hành và phân công HDV"
+      >
+        <ClockIcon />
+        Lịch sử thao tác
+
+        {unreadCount > 0 ? (
+          <span className="absolute -right-2 -top-2 inline-flex min-w-[22px] items-center justify-center rounded-full bg-rose-600 px-1.5 py-0.5 text-[11px] font-black leading-none text-white ring-2 ring-white">
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </span>
+        ) : null}
+      </button>
+
+      {open ? (
+        <div className="absolute right-0 z-40 mt-3 w-[440px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+            <div>
+              <h3 className="font-black text-slate-900">Lịch sử thao tác</h3>
+              <p className="text-xs text-slate-500">
+                {unreadCount > 0
+                  ? `${unreadCount} thao tác mới`
+                  : 'Không có thao tác mới'}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={closeHistory}
+              className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600 transition hover:bg-slate-200"
+            >
+              Đóng
+            </button>
+          </div>
+
+          <div className="max-h-[420px] overflow-y-auto p-3">
+            {loading ? (
+              <div className="rounded-xl bg-slate-50 p-5 text-center text-sm text-slate-500">
+                Đang tải lịch sử...
+              </div>
+            ) : items.length === 0 ? (
+              <div className="rounded-xl bg-slate-50 p-5 text-center text-sm text-slate-500">
+                Chưa có lịch sử thao tác.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {items.map((item) => {
+                  const unread = item.status === 'unread'
+
+                  return (
+                    <article
+                      key={item.id}
+                      className={`relative rounded-xl border p-3 ${
+                        unread
+                          ? 'border-rose-200 bg-rose-50/70'
+                          : 'border-slate-100 bg-slate-50'
+                      }`}
+                    >
+                      {unread ? (
+                        <span className="absolute right-3 top-3 rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-black text-white">
+                          NEW
+                        </span>
+                      ) : null}
+
+                      <h4 className="pr-14 text-sm font-black text-slate-900">
+                        {item.title || 'Thông báo'}
+                      </h4>
+
+                      <p className="mt-1 whitespace-pre-line pr-2 text-xs leading-5 text-slate-600">
+                        {item.message || item.content || ''}
+                      </p>
+
+                      <p className="mt-2 text-[11px] font-bold text-slate-400">
+                        {formatHistoryTime(item.created_at)}
+                      </p>
+                    </article>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 export default function TourDepartureTable({
   departures = [],
   loading = false,
@@ -267,6 +659,7 @@ export default function TourDepartureTable({
   onDelete,
   onOpenAssignment,
   onViewDetails,
+  assignmentWarningCount,
   onRequestEdit,
   activeTab = 'departures',
   scheduleFilter = 'upcoming',
@@ -274,7 +667,13 @@ export default function TourDepartureTable({
   onChangeScheduleFilter,
   guideContent,
   assignmentPath = '/admin/tour-departures/guide-assignments',
+  newDepartureIds = new Set(),
+  newAssignmentDepartureIds = new Set(),
 }) {
+  const [assignmentFilter, setAssignmentFilter] = useState('all')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(5)
+
   const getEditLink = (departureId) => {
     if (selectedTourId) {
       return `/admin/tour-departures/${selectedTourId}/edit/${departureId}`
@@ -297,20 +696,93 @@ export default function TourDepartureTable({
   const isDeparturesTab = activeTab === 'departures'
   const isGuidesTab = activeTab === 'guides'
 
-  const upcomingRows = departures.filter(
-    (item) => !isLockedDeparture(item)
+  const unassignedDepartureCount = useMemo(() => {
+    if (Number.isFinite(Number(assignmentWarningCount))) {
+      return Number(assignmentWarningCount)
+    }
+
+    return departures.filter(
+      (item) => isAssignmentWarningTarget(item) && !hasAssignedGuide(item)
+    ).length
+  }, [departures, assignmentWarningCount])
+
+  const groupedRows = useMemo(() => {
+    const upcomingRows = departures.filter(
+      (item) => getDepartureTimeGroup(item) === 'upcoming'
+    )
+
+    const ongoingRows = departures.filter(
+      (item) => getDepartureTimeGroup(item) === 'ongoing'
+    )
+
+    const pastRows = departures.filter(
+      (item) => getDepartureTimeGroup(item) === 'past'
+    )
+
+    return {
+      upcoming: upcomingRows,
+      ongoing: ongoingRows,
+      past: pastRows,
+      all: departures,
+    }
+  }, [departures])
+
+  const scheduleTabs = useMemo(
+    () => [
+      { key: 'upcoming', label: 'Sắp tới', rows: groupedRows.upcoming },
+      { key: 'ongoing', label: 'Đang diễn ra', rows: groupedRows.ongoing },
+      { key: 'past', label: 'Đã qua', rows: groupedRows.past },
+      { key: 'all', label: 'Tất cả', rows: groupedRows.all },
+    ],
+    [groupedRows]
   )
 
-  const pastRows = departures.filter((item) =>
-    isLockedDeparture(item)
-  )
+  const scheduleRows = useMemo(() => {
+    const rows =
+      scheduleTabs.find((tab) => tab.key === scheduleFilter)?.rows ||
+      groupedRows.upcoming
 
-  const displayedRows =
-    scheduleFilter === 'past'
-      ? pastRows
-      : scheduleFilter === 'all'
-        ? departures
-        : upcomingRows
+    return sortByAssignmentState(rows)
+  }, [scheduleTabs, scheduleFilter, groupedRows.upcoming])
+
+  const assignmentFilterTabs = useMemo(() => {
+    const activeRows = scheduleRows.filter((item) =>
+      isAssignmentWarningTarget(item)
+    )
+    const unassignedRows = activeRows.filter((item) => !hasAssignedGuide(item))
+    const assignedRows = activeRows.filter((item) => hasAssignedGuide(item))
+
+    return [
+      { key: 'all', label: 'Tất cả phân công', rows: scheduleRows },
+      { key: 'unassigned', label: 'Chưa phân công', rows: unassignedRows },
+      { key: 'assigned', label: 'Đã phân công', rows: assignedRows },
+    ]
+  }, [scheduleRows])
+
+  const displayedRows = useMemo(() => {
+    return (
+      assignmentFilterTabs.find((tab) => tab.key === assignmentFilter)?.rows ||
+      scheduleRows
+    )
+  }, [assignmentFilterTabs, assignmentFilter, scheduleRows])
+
+  const totalRows = displayedRows.length
+  const totalPages = Math.max(Math.ceil(totalRows / pageSize), 1)
+  const safePage = Math.min(currentPage, totalPages)
+  const pageStartIndex = (safePage - 1) * pageSize
+  const pageEndIndex = pageStartIndex + pageSize
+  const paginatedRows = displayedRows.slice(pageStartIndex, pageEndIndex)
+  const visibleStart = totalRows === 0 ? 0 : pageStartIndex + 1
+  const visibleEnd = Math.min(pageEndIndex, totalRows)
+  const pageNumbers = buildPageNumbers(safePage, totalPages)
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [scheduleFilter, assignmentFilter, pageSize, activeTab])
+
+  useEffect(() => {
+    setCurrentPage((page) => Math.min(page, totalPages))
+  }, [totalPages])
 
   return (
     <div className="rounded-[22px] border border-slate-200 bg-white shadow-sm">
@@ -333,7 +805,7 @@ export default function TourDepartureTable({
           <div className="rounded-full bg-slate-50 px-4 py-2 text-sm font-bold text-slate-600">
             {isGuidesTab
               ? 'Phân công HDV'
-              : `${displayedRows.length}/${departures.length} lịch`}
+              : `${visibleStart}-${visibleEnd}/${totalRows} lịch`}
           </div>
         </div>
 
@@ -353,7 +825,7 @@ export default function TourDepartureTable({
           <button
             type="button"
             onClick={() => onChangeTab?.('guides')}
-            className={`inline-flex items-center gap-2 rounded-t-xl border border-b-0 px-4 py-2.5 text-sm font-black transition ${
+            className={`relative inline-flex items-center gap-2 rounded-t-xl border border-b-0 px-4 py-2.5 text-sm font-black transition ${
               isGuidesTab
                 ? 'border-slate-200 bg-white text-blue-600'
                 : 'border-transparent text-slate-500 hover:border-slate-200 hover:bg-slate-50 hover:text-slate-900'
@@ -361,6 +833,15 @@ export default function TourDepartureTable({
           >
             <GuideIcon />
             Phân công HDV
+
+            {unassignedDepartureCount > 0 ? (
+              <span
+                className="absolute -right-2 -top-2 inline-flex min-w-[22px] items-center justify-center rounded-full bg-rose-600 px-1.5 py-0.5 text-[11px] font-black leading-none text-white ring-2 ring-white"
+                title={`${unassignedDepartureCount} lịch sắp tới/đang diễn ra chưa phân công`}
+              >
+                {unassignedDepartureCount > 99 ? '99+' : unassignedDepartureCount}
+              </span>
+            ) : null}
           </button>
         </div>
       </div>
@@ -375,41 +856,52 @@ export default function TourDepartureTable({
         ) : (
           <>
             <div className="mb-4 flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => onChangeScheduleFilter?.('upcoming')}
-                className={`rounded-lg px-4 py-2 text-sm font-bold transition ${
-                  scheduleFilter === 'upcoming'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                Sắp tới ({upcomingRows.length})
-              </button>
+              {scheduleTabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => onChangeScheduleFilter?.(tab.key)}
+                  className={`rounded-lg px-4 py-2 text-sm font-bold transition ${
+                    scheduleFilter === tab.key
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {tab.label} ({tab.rows.length})
+                </button>
+              ))}
+            </div>
 
-              <button
-                type="button"
-                onClick={() => onChangeScheduleFilter?.('past')}
-                className={`rounded-lg px-4 py-2 text-sm font-bold transition ${
-                  scheduleFilter === 'past'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                Đã bắt đầu / đã qua ({pastRows.length})
-              </button>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <div className="flex flex-wrap gap-2">
+                {assignmentFilterTabs.map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setAssignmentFilter(tab.key)}
+                    className={`rounded-lg px-4 py-2 text-sm font-bold transition ${
+                      assignmentFilter === tab.key
+                        ? 'bg-slate-900 text-white'
+                        : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    {tab.label} ({tab.rows.length})
+                  </button>
+                ))}
+              </div>
 
-              <button
-                type="button"
-                onClick={() => onChangeScheduleFilter?.('all')}
-                className={`rounded-lg px-4 py-2 text-sm font-bold transition ${
-                  scheduleFilter === 'all'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                Tất cả ({departures.length})
-              </button>
+              <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500">
+                <DepartureHistoryButton />
+
+                <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2.5 py-1 font-bold text-rose-700 ring-1 ring-rose-100">
+                  <span className="h-2 w-2 rounded-full bg-rose-500" />
+                  Chưa phân công
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 font-bold text-emerald-700 ring-1 ring-emerald-100">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                  Đã phân công
+                </span>
+              </div>
             </div>
 
             <div className="overflow-x-auto rounded-xl border border-slate-200">
@@ -447,13 +939,14 @@ export default function TourDepartureTable({
                         colSpan="12"
                         className="px-4 py-14 text-center text-slate-500"
                       >
-                        {scheduleFilter === 'past'
-                          ? 'Không có lịch đã bắt đầu hoặc đã qua.'
-                          : 'Không có lịch khởi hành phù hợp.'}
+                        {getAssignmentFilterEmptyText(
+                          scheduleFilter,
+                          assignmentFilter
+                        )}
                       </td>
                     </tr>
                   ) : (
-                    displayedRows.map((item, index) => {
+                    paginatedRows.map((item, index) => {
                       const totalSlots = Number(item.total_slots || 0)
                       const bookedSlots = Number(item.booked_slots || 0)
                       const remainSlots = Math.max(
@@ -464,6 +957,11 @@ export default function TourDepartureTable({
                       const assignmentMeta = getAssignmentMeta(item)
                       const statusMeta = getStatusMeta(item.status)
                       const leadAssignment = getLeadAssignment(item)
+                      const isNewDeparture = hasNewFlag(newDepartureIds, item.id)
+                      const isNewAssignment = hasNewFlag(
+                        newAssignmentDepartureIds,
+                        item.id
+                      )
 
                       const locked = isLockedDeparture(item)
                       const booked = hasActiveBookings(item)
@@ -472,18 +970,24 @@ export default function TourDepartureTable({
                       return (
                         <tr
                           key={item.id}
-                          className={`text-slate-700 ${
-                            locked
-                              ? 'bg-slate-50 text-slate-500'
-                              : assignmentMeta.row
+                          className={`text-slate-700 transition ${assignmentMeta.row} ${assignmentMeta.border} ${
+                            locked ? 'text-slate-500' : ''
                           }`}
                         >
                           <td className="px-4 py-4 text-center">
-                            {index + 1}
+                            {pageStartIndex + index + 1}
                           </td>
 
-                          <td className="px-4 py-4 font-semibold">
-                            {formatDate(item.departure_date)}
+                          <td className="relative px-4 py-4 font-semibold">
+                            {isNewDeparture ? (
+                              <span className="absolute right-2 top-2 rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-black uppercase leading-none text-white shadow-sm ring-2 ring-white">
+                                NEW
+                              </span>
+                            ) : null}
+
+                            <span className={isNewDeparture ? 'inline-block pr-12' : ''}>
+                              {formatDate(item.departure_date)}
+                            </span>
                           </td>
 
                           <td className="px-4 py-4 font-semibold">
@@ -523,22 +1027,30 @@ export default function TourDepartureTable({
                           </td>
 
                           <td className="px-4 py-4">
-                            {leadAssignment ? (
-                              <div>
-                                <p className="font-bold text-slate-900">
-                                  {getGuideName(leadAssignment)}
-                                </p>
+                            <div className="space-y-1">
+                              {isNewAssignment ? (
+                                <span className="inline-flex rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-black uppercase leading-none text-white shadow-sm">
+                                  NEW phân công
+                                </span>
+                              ) : null}
 
-                                <p className="text-xs text-slate-500">
-                                  {leadAssignment.guide?.guide_code ||
-                                    'HDV chính'}
-                                </p>
-                              </div>
-                            ) : (
-                              <span className="text-slate-500">
-                                Chưa có HDV
-                              </span>
-                            )}
+                              {leadAssignment ? (
+                                <div>
+                                  <p className="font-bold text-slate-900">
+                                    {getGuideName(leadAssignment)}
+                                  </p>
+
+                                  <p className="text-xs text-slate-500">
+                                    {leadAssignment.guide?.guide_code ||
+                                      'HDV chính'}
+                                  </p>
+                                </div>
+                              ) : (
+                                <span className="font-bold text-rose-700">
+                                  Chưa có HDV
+                                </span>
+                              )}
+                            </div>
                           </td>
 
                           <td className="px-4 py-4 text-center">
@@ -564,55 +1076,63 @@ export default function TourDepartureTable({
                           </td>
 
                           <td className="px-4 py-4">
-                            <div className="flex flex-col items-center gap-2">
-                              <div className="flex flex-wrap justify-center gap-2">
-                                {typeof onViewDetails === 'function' ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => onViewDetails(item.id)}
-                                    className="inline-flex items-center gap-1 rounded-lg bg-violet-50 px-3 py-2 text-xs font-bold text-violet-700"
-                                  >
-                                    <DetailIcon />
-                                    Chi tiết
-                                  </button>
-                                ) : null}
+                            <div className="flex flex-wrap justify-center gap-2">
+                              {typeof onViewDetails === 'function' ? (
+                                <button
+                                  type="button"
+                                  onClick={() => onViewDetails(item.id)}
+                                  className="inline-flex items-center gap-1 rounded-lg bg-violet-50 px-3 py-2 text-xs font-bold text-violet-700"
+                                >
+                                  <DetailIcon />
+                                  Chi tiết
+                                </button>
+                              ) : null}
 
-                                {locked ? (
+                              {locked ? (
+                                <>
+                                  {leadAssignment && typeof onOpenAssignment === 'function' ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => onOpenAssignment(item.id)}
+                                      className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700"
+                                    >
+                                      <GuideIcon />
+                                      Xem HDV
+                                    </button>
+                                  ) : null}
+
                                   <span className="inline-flex items-center rounded-lg bg-slate-200 px-3 py-2 text-xs font-bold text-slate-600">
-                                    Đã khóa
+                                    Đã qua - chỉ xem
                                   </span>
-                                ) : (
-                                  <>
-                                    {typeof onOpenAssignment ===
-                                    'function' ? (
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          onOpenAssignment(item.id)
-                                        }
-                                        className="inline-flex items-center gap-1 rounded-lg bg-sky-50 px-3 py-2 text-xs font-bold text-sky-700"
-                                      >
-                                        <GuideIcon />
-                                        {leadAssignment
-                                          ? 'Xem HDV'
-                                          : 'Phân HDV'}
-                                      </button>
-                                    ) : (
-                                      <Link
-                                        to={getAssignmentLink(item.id)}
-                                        className="inline-flex items-center gap-1 rounded-lg bg-sky-50 px-3 py-2 text-xs font-bold text-sky-700"
-                                      >
-                                        <GuideIcon />
-                                        Phân HDV
-                                      </Link>
-                                    )}
-                                  </>
-                                )}
-                              </div>
+                                </>
+                              ) : (
+                                <>
+                                  {typeof onOpenAssignment ===
+                                  'function' ? (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        onOpenAssignment(item.id)
+                                      }
+                                      className="inline-flex items-center gap-1 rounded-lg bg-sky-50 px-3 py-2 text-xs font-bold text-sky-700"
+                                    >
+                                      <GuideIcon />
+                                      {leadAssignment
+                                        ? 'Xem HDV'
+                                        : 'Phân HDV'}
+                                    </button>
+                                  ) : (
+                                    <Link
+                                      to={getAssignmentLink(item.id)}
+                                      className="inline-flex items-center gap-1 rounded-lg bg-sky-50 px-3 py-2 text-xs font-bold text-sky-700"
+                                    >
+                                      <GuideIcon />
+                                      Phân HDV
+                                    </Link>
+                                  )}
 
-                              {!locked ? (
-                                <div className="flex flex-wrap justify-center gap-2">
-                                  {typeof onRequestEdit === 'function' ? (
+                                  {typeof onRequestEdit ===
+                                  'function' ? (
                                     <button
                                       type="button"
                                       title={
@@ -646,8 +1166,8 @@ export default function TourDepartureTable({
                                       Xóa
                                     </button>
                                   ) : null}
-                                </div>
-                              ) : null}
+                                </>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -656,6 +1176,99 @@ export default function TourDepartureTable({
                   )}
                 </tbody>
               </table>
+            </div>
+
+            <div className="mt-4 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-wrap items-center gap-3">
+                <span>
+                  Hiển thị{' '}
+                  <strong className="text-slate-900">
+                    {visibleStart}-{visibleEnd}
+                  </strong>{' '}
+                  trên <strong className="text-slate-900">{totalRows}</strong>{' '}
+                  lịch
+                </span>
+
+                <label className="flex items-center gap-2">
+                  <span>Số dòng:</span>
+                  <select
+                    value={pageSize}
+                    onChange={(event) => setPageSize(Number(event.target.value))}
+                    className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  >
+                    {[5, 10, 20, 50].map((size) => (
+                      <option key={size} value={size}>
+                        {size}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-1">
+                <button
+                  type="button"
+                  disabled={safePage <= 1}
+                  onClick={() => setCurrentPage(1)}
+                  className="rounded-lg border border-slate-200 px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Đầu
+                </button>
+
+                <button
+                  type="button"
+                  disabled={safePage <= 1}
+                  onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
+                  className="rounded-lg border border-slate-200 px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Trước
+                </button>
+
+                {pageNumbers.map((page, index) => {
+                  const previousPage = pageNumbers[index - 1]
+                  const needsDots = previousPage && page - previousPage > 1
+
+                  return (
+                    <span key={page} className="inline-flex items-center gap-1">
+                      {needsDots ? (
+                        <span className="px-2 text-slate-400">...</span>
+                      ) : null}
+
+                      <button
+                        type="button"
+                        onClick={() => setCurrentPage(page)}
+                        className={`rounded-lg border px-3 py-2 font-bold transition ${
+                          safePage === page
+                            ? 'border-blue-600 bg-blue-600 text-white'
+                            : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    </span>
+                  )
+                })}
+
+                <button
+                  type="button"
+                  disabled={safePage >= totalPages}
+                  onClick={() =>
+                    setCurrentPage((page) => Math.min(page + 1, totalPages))
+                  }
+                  className="rounded-lg border border-slate-200 px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Sau
+                </button>
+
+                <button
+                  type="button"
+                  disabled={safePage >= totalPages}
+                  onClick={() => setCurrentPage(totalPages)}
+                  className="rounded-lg border border-slate-200 px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Cuối
+                </button>
+              </div>
             </div>
           </>
         )}
