@@ -60,9 +60,6 @@ const GuideIcon = ({ className }) => (
 const SupportIcon = ({ className }) => (
   <Icon className={className}><path d="M4 13a8 8 0 0 1 16 0" /><path d="M4 13v4a2 2 0 0 0 2 2h1v-8H6a2 2 0 0 0-2 2Z" /><path d="M20 13v4a2 2 0 0 1-2 2h-1v-8h1a2 2 0 0 1 2 2Z" /></Icon>
 )
-const PartnerIcon = ({ className }) => (
-  <Icon className={className}><path d="M4 21V7a2 2 0 0 1 2-2h5v16" /><path d="M13 21V3h5a2 2 0 0 1 2 2v16" /><path d="M8 9h1" /><path d="M8 13h1" /><path d="M16 7h1" /><path d="M16 11h1" /><path d="M2 21h20" /></Icon>
-)
 const RefreshIcon = ({ className }) => (
   <Icon className={className}><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" /><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /><path d="M3 21v-5h5" /></Icon>
 )
@@ -215,7 +212,6 @@ function AdminDashboardPage() {
   const bookingStats = snapshot?.bookingStats ?? EMPTY_OBJECT
   const customerStats = snapshot?.customerStats ?? EMPTY_OBJECT
   const guideStats = snapshot?.guideStats ?? EMPTY_OBJECT
-  const partnerStats = snapshot?.partnerStats ?? EMPTY_OBJECT
   const supportStats = snapshot?.supportStats ?? EMPTY_OBJECT
   const tourStats = snapshot?.tourStats ?? EMPTY_OBJECT
   const recentBookings = snapshot?.recentBookings ?? EMPTY_ARRAY
@@ -292,14 +288,6 @@ function AdminDashboardPage() {
       icon: <SupportIcon className="h-6 w-6" />,
       tone: 'slate',
     },
-    {
-      key: 'partners',
-      title: 'Đối tác',
-      value: formatNumber(partnerStats.total),
-      description: `${formatNumber(partnerStats.active)} đối tác hoạt động`,
-      icon: <PartnerIcon className="h-6 w-6" />,
-      tone: 'blue',
-    },
   ]
 
   const exportCsv = () => {
@@ -315,7 +303,6 @@ function AdminDashboardPage() {
       ['Tổng khách hàng', customerStats.total_users || 0],
       ['Hướng dẫn viên', guideStats.total || 0],
       ['Nhân viên hỗ trợ', supportStats.total || 0],
-      ['Đối tác', partnerStats.total || 0],
       [],
       ['Tour nổi bật', 'Điểm đến', 'Booking', 'Doanh thu'],
       ...(tourStats.top_tours || []).map((tour) => [
@@ -393,13 +380,13 @@ function AdminDashboardPage() {
       ) : null}
 
       {loading ? (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, index) => (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, index) => (
             <div key={index} className="h-32 animate-pulse rounded-3xl bg-white shadow-sm" />
           ))}
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {statCards.map((card, index) => (
             <div key={card.key} className="dashboard-fade-up" style={{ animationDelay: `${index * 70}ms` }}>
               <StatCard {...card} />
