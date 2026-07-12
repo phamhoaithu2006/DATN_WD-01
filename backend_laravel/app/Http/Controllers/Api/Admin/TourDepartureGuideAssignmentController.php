@@ -8,6 +8,7 @@ use App\Models\Notification;
 use App\Models\TourDeparture;
 use App\Models\TourGuideAssignment;
 use App\Services\GuideAssignmentService;
+use App\Services\AdminNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -98,6 +99,7 @@ class TourDepartureGuideAssignmentController extends Controller
         );
 
         $this->notifyGuideAssigned($assignment, $departure);
+        $this->notifyAdminGuideAutoAssigned($departure, $assignment);
 
         return response()->json([
             'message' => 'Đã tự động phân công HDV.',
@@ -121,6 +123,7 @@ class TourDepartureGuideAssignmentController extends Controller
         );
 
         $this->notifyGuideAssigned($assignment, $departure);
+        $this->notifyAdminGuideDirectAssigned($departure, $assignment);
 
         return response()->json([
             'message' => 'Đã phân công HDV.',
@@ -151,6 +154,7 @@ class TourDepartureGuideAssignmentController extends Controller
          * vì sau khi xóa có thể mất relation guide/user.
          */
             $this->notifyGuideAssignmentRemoved($assignment, $departure);
+            $this->notifyAdminGuideAssignmentCancelled($departure, $assignment);
 
             /*
          * Xóa cứng khỏi bảng tour_guide_assignments.
@@ -390,9 +394,25 @@ class TourDepartureGuideAssignmentController extends Controller
             'tour.destinations:id,name,province_city,country',
         ]);
 
-        $from = $validated['from'] ?? $departure->departure_date;
-        $to = $validated['to'] ?? ($departure->return_date ?: $departure->departure_date);
+        $fromRaw = $validated['from']
+            ?? $departure->departure_date
+            ?? now()->toDateString();
+
+        $toRaw = $validated['to']
+            ?? ($departure->return_date ?: $departure->departure_date)
+            ?? $fromRaw;
+
+        $from = \Carbon\Carbon::parse($fromRaw)->toDateString();
+        $to = \Carbon\Carbon::parse($toRaw)->toDateString();
+
+        if ($to < $from) {
+            $to = $from;
+        }
+
         $mode = $validated['mode'] ?? 'eligible';
+
+        $assignmentHasDeletedAt = Schema::hasColumn('tour_guide_assignments', 'deleted_at');
+        $guideLanguageHasDeletedAt = Schema::hasColumn('guide_languages', 'deleted_at');
 
         $languageIds = collect($validated['language_ids'] ?? [])
             ->filter(fn($id) => $id !== null && $id !== '')
@@ -418,15 +438,32 @@ class TourDepartureGuideAssignmentController extends Controller
                 'destinations:id,name,province_city,country',
             ]);
 
+        /*
+     * Không hiển thị HDV đã được phân công cho chính lịch khởi hành này.
+     * Dùng cho cả phân công mới và đổi HDV trực tiếp.
+     */
+        $query->whereNotExists(function ($subQuery) use ($departure, $assignmentHasDeletedAt) {
+            $subQuery
+                ->select(DB::raw(1))
+                ->from('tour_guide_assignments as current_assignments')
+                ->whereColumn('current_assignments.guide_id', 'guides.id')
+                ->where('current_assignments.tour_departure_id', $departure->id)
+                ->where('current_assignments.status', 'assigned');
+
+            if ($assignmentHasDeletedAt) {
+                $subQuery->whereNull('current_assignments.deleted_at');
+            }
+        });
+
         if (Schema::hasColumn('guides', 'status')) {
-            $query->where('status', 'active');
+            $query->where('guides.status', 'active');
         }
 
         if (!empty($validated['keyword'])) {
             $keyword = trim($validated['keyword']);
 
             $query->where(function ($q) use ($keyword) {
-                $q->where('guide_code', 'like', "%{$keyword}%")
+                $q->where('guides.guide_code', 'like', "%{$keyword}%")
                     ->orWhereHas('user', function ($userQuery) use ($keyword) {
                         $userQuery
                             ->where('full_name', 'like', "%{$keyword}%")
@@ -451,25 +488,66 @@ class TourDepartureGuideAssignmentController extends Controller
         }
 
         if ($languageIds->isNotEmpty()) {
-            $query->whereExists(function ($subQuery) use ($languageIds) {
+            $query->whereExists(function ($subQuery) use ($languageIds, $guideLanguageHasDeletedAt) {
                 $subQuery
                     ->select(DB::raw(1))
                     ->from('guide_languages')
                     ->whereColumn('guide_languages.guide_id', 'guides.id')
                     ->whereIn('guide_languages.language_id', $languageIds);
+
+                if ($guideLanguageHasDeletedAt) {
+                    $subQuery->whereNull('guide_languages.deleted_at');
+                }
             });
         }
 
+        /*
+     * Subquery đếm số lịch bị trùng.
+     * Dùng để sort:
+     * - conflict_count = 0 => trống lịch, lên đầu
+     * - conflict_count > 0 => bận lịch, xuống cuối
+     */
+        $conflictCountQuery = TourGuideAssignment::query()
+            ->selectRaw('COUNT(*)')
+            ->whereColumn('tour_guide_assignments.guide_id', 'guides.id')
+            ->where('tour_guide_assignments.status', 'assigned')
+            ->where('tour_guide_assignments.tour_departure_id', '!=', $departure->id)
+            ->whereHas('departure', function ($q) use ($from, $to) {
+                $q->whereDate('departure_date', '<=', $to)
+                    ->whereRaw(
+                        'DATE(COALESCE(return_date, departure_date)) >= ?',
+                        [$from]
+                    );
+            });
+
+        if ($assignmentHasDeletedAt) {
+            $conflictCountQuery->whereNull('tour_guide_assignments.deleted_at');
+        }
+
         $guides = $query
-            ->orderByDesc('id')
+            ->orderBy($conflictCountQuery, 'asc')
+            ->orderByDesc('guides.id')
             ->paginate($validated['per_page'] ?? 20);
+
+        $languageColumns = ['languages.id'];
+
+        if (Schema::hasColumn('languages', 'name')) {
+            $languageColumns[] = 'languages.name';
+        } elseif (Schema::hasColumn('languages', 'language_name')) {
+            $languageColumns[] = DB::raw('languages.language_name as name');
+        } else {
+            $languageColumns[] = DB::raw('NULL as name');
+        }
 
         $guides->setCollection(
             $guides->getCollection()->map(function (Guide $guide) use (
                 $departure,
                 $from,
                 $to,
-                $tourDestinationIds
+                $tourDestinationIds,
+                $assignmentHasDeletedAt,
+                $guideLanguageHasDeletedAt,
+                $languageColumns
             ) {
                 $guideDestinationIds = $guide->destinations
                     ?->pluck('id')
@@ -481,7 +559,7 @@ class TourDepartureGuideAssignmentController extends Controller
                     ->intersect($tourDestinationIds)
                     ->isNotEmpty();
 
-                $conflictingAssignments = TourGuideAssignment::query()
+                $conflictingAssignmentsQuery = TourGuideAssignment::query()
                     ->where('guide_id', $guide->id)
                     ->where('status', 'assigned')
                     ->where('tour_departure_id', '!=', $departure->id)
@@ -495,10 +573,15 @@ class TourDepartureGuideAssignmentController extends Controller
                     ->with([
                         'departure:id,tour_id,departure_date,return_date,status',
                         'departure.tour:id,title',
-                    ])
-                    ->get();
+                    ]);
 
-                $assignedTours = TourGuideAssignment::query()
+                if ($assignmentHasDeletedAt) {
+                    $conflictingAssignmentsQuery->whereNull('tour_guide_assignments.deleted_at');
+                }
+
+                $conflictingAssignments = $conflictingAssignmentsQuery->get();
+
+                $assignedToursQuery = TourGuideAssignment::query()
                     ->where('guide_id', $guide->id)
                     ->where('status', 'assigned')
                     ->with([
@@ -506,17 +589,24 @@ class TourDepartureGuideAssignmentController extends Controller
                         'departure.tour:id,title',
                     ])
                     ->orderByDesc('assigned_at')
-                    ->limit(20)
-                    ->get();
+                    ->limit(20);
 
-                $guideLanguages = DB::table('guide_languages')
+                if ($assignmentHasDeletedAt) {
+                    $assignedToursQuery->whereNull('tour_guide_assignments.deleted_at');
+                }
+
+                $assignedTours = $assignedToursQuery->get();
+
+                $guideLanguagesQuery = DB::table('guide_languages')
                     ->join('languages', 'languages.id', '=', 'guide_languages.language_id')
                     ->where('guide_languages.guide_id', $guide->id)
-                    ->select([
-                        'languages.id',
-                        'languages.name',
-                    ])
-                    ->get();
+                    ->select($languageColumns);
+
+                if ($guideLanguageHasDeletedAt) {
+                    $guideLanguagesQuery->whereNull('guide_languages.deleted_at');
+                }
+
+                $guideLanguages = $guideLanguagesQuery->get();
 
                 $isAvailable = $conflictingAssignments->isEmpty();
 
@@ -635,21 +725,53 @@ class TourDepartureGuideAssignmentController extends Controller
         }
 
         $assignment = null;
+        $isReplacing = false;
 
         DB::transaction(function () use (
             $departure,
             $guide,
-            &$assignment
+            &$assignment,
+            &$isReplacing
         ) {
             /*
-         * Nếu lịch đã có HDV cũ thì xóa để thay bằng HDV mới.
-         * Vì bạn đang muốn hoàn tác/xóa thật record khỏi DB.
+         * Lấy HDV cũ đang được phân công cho lịch này.
          */
-            TourGuideAssignment::query()
+            $oldAssignment = TourGuideAssignment::query()
+                ->with([
+                    'guide.user:id,full_name,email,phone',
+                ])
                 ->where('tour_departure_id', $departure->id)
                 ->where('role', 'lead')
-                ->delete();
+                ->where('status', 'assigned')
+                ->first();
 
+            /*
+         * Nếu chọn lại đúng HDV đang phân công thì không tạo lại,
+         * không gửi thông báo trùng.
+         */
+            if ($oldAssignment && (int) $oldAssignment->guide_id === (int) $guide->id) {
+                $assignment = $oldAssignment;
+                return;
+            }
+
+            /*
+         * Nếu có HDV cũ, gửi thông báo cho HDV cũ rồi xoá assignment cũ.
+         */
+            if ($oldAssignment) {
+                $isReplacing = true;
+
+                $this->notifyGuideDirectReplaced(
+                    $oldAssignment,
+                    $departure,
+                    $guide
+                );
+
+                $oldAssignment->delete();
+            }
+
+            /*
+         * Tạo phân công mới.
+         */
             $assignment = TourGuideAssignment::create([
                 'tour_departure_id' => $departure->id,
                 'guide_id' => $guide->id,
@@ -659,14 +781,41 @@ class TourDepartureGuideAssignmentController extends Controller
                 'assigned_at' => now(),
             ]);
 
+            $assignment->load([
+                'guide.user:id,full_name,email,phone',
+            ]);
+
+            /*
+         * Gửi thông báo cho HDV mới.
+         */
             $this->notifyGuideDirectAssigned($assignment, $departure);
+
+            /*
+         * Gửi thông báo cho các tài khoản admin về thao tác phân công/đổi HDV.
+         */
+            if ($oldAssignment) {
+                $this->notifyAdminGuideReplaced(
+                    $departure,
+                    $oldAssignment,
+                    $assignment
+                );
+            } else {
+                $this->notifyAdminGuideDirectAssigned(
+                    $departure,
+                    $assignment
+                );
+            }
         });
 
         return response()->json([
-            'message' => $isAreaMatch
-                ? 'Đã phân công HDV.'
-                : 'Đã phân công HDV ngoài khu vực phụ trách.',
-            'data' => $assignment->load([
+            'message' => $isReplacing
+                ? ($isAreaMatch
+                    ? 'Đã đổi HDV trực tiếp.'
+                    : 'Đã đổi sang HDV ngoài khu vực phụ trách.')
+                : ($isAreaMatch
+                    ? 'Đã phân công HDV.'
+                    : 'Đã phân công HDV ngoài khu vực phụ trách.'),
+            'data' => $assignment?->load([
                 'guide.user:id,full_name,email,phone',
             ]),
         ], 201);
@@ -717,4 +866,143 @@ class TourDepartureGuideAssignmentController extends Controller
             report($e);
         }
     }
+
+    private function notifyGuideDirectReplaced(
+        TourGuideAssignment $oldAssignment,
+        TourDeparture $departure,
+        Guide $newGuide
+    ): void {
+        try {
+            $oldUserId =
+                $oldAssignment->guide?->user_id
+                ?? $oldAssignment->guide?->user?->id;
+
+            if (!$oldUserId) {
+                return;
+            }
+
+            $departure->loadMissing([
+                'tour:id,title',
+            ]);
+
+            $newGuide->loadMissing([
+                'user:id,full_name,email',
+            ]);
+
+            $tourTitle = $departure->tour?->title ?? 'tour';
+
+            $departureDate = $departure->departure_date
+                ? \Carbon\Carbon::parse($departure->departure_date)->format('d/m/Y')
+                : 'chưa xác định';
+
+            $returnDate = $departure->return_date
+                ? \Carbon\Carbon::parse($departure->return_date)->format('d/m/Y')
+                : $departureDate;
+
+            $newGuideName =
+                $newGuide->user?->full_name
+                ?? $newGuide->guide_code
+                ?? 'HDV khác';
+
+            Notification::insert([
+                'draft_id' => null,
+                'user_id' => $oldUserId,
+                'title' => 'Lịch hướng dẫn đã được thay đổi',
+                'message' => "Bạn không còn được phân công làm HDV cho {$tourTitle}, khởi hành ngày {$departureDate}, kết thúc ngày {$returnDate}. Lịch này đã được chuyển sang {$newGuideName}. Vui lòng kiểm tra lại lịch làm việc.",
+                'type' => 'system',
+                'status' => 'unread',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    private function notifyAdminGuideAutoAssigned(
+        TourDeparture $departure,
+        TourGuideAssignment $assignment
+    ): void {
+        try {
+            $assignment->loadMissing([
+                'guide.user:id,full_name,email',
+            ]);
+
+            app(AdminNotificationService::class)
+                ->notifyGuideAutoAssigned(
+                    $departure,
+                    $assignment->guide,
+                    auth()->user()
+                );
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    private function notifyAdminGuideDirectAssigned(
+        TourDeparture $departure,
+        TourGuideAssignment $assignment
+    ): void {
+        try {
+            $assignment->loadMissing([
+                'guide.user:id,full_name,email',
+            ]);
+
+            app(AdminNotificationService::class)
+                ->notifyGuideDirectAssigned(
+                    $departure,
+                    $assignment->guide,
+                    auth()->user()
+                );
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    private function notifyAdminGuideReplaced(
+        TourDeparture $departure,
+        TourGuideAssignment $oldAssignment,
+        TourGuideAssignment $newAssignment
+    ): void {
+        try {
+            $oldAssignment->loadMissing([
+                'guide.user:id,full_name,email',
+            ]);
+
+            $newAssignment->loadMissing([
+                'guide.user:id,full_name,email',
+            ]);
+
+            app(AdminNotificationService::class)
+                ->notifyGuideReplaced(
+                    $departure,
+                    $oldAssignment->guide,
+                    $newAssignment->guide,
+                    auth()->user()
+                );
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    private function notifyAdminGuideAssignmentCancelled(
+        TourDeparture $departure,
+        TourGuideAssignment $assignment
+    ): void {
+        try {
+            $assignment->loadMissing([
+                'guide.user:id,full_name,email',
+            ]);
+
+            app(AdminNotificationService::class)
+                ->notifyGuideAssignmentCancelled(
+                    $departure,
+                    $assignment->guide,
+                    auth()->user()
+                );
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
 }

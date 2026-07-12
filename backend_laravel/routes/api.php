@@ -1,5 +1,8 @@
 <?php
 
+use App\Http\Controllers\Api\Admin\AdminGuideReplacementRequestController;
+use App\Http\Controllers\Api\Admin\AdminNotificationBellController;
+use App\Http\Controllers\Api\Admin\AdminNotificationController;
 use App\Http\Controllers\Api\Admin\AdminProfileController;
 use App\Http\Controllers\Api\Admin\AdminTourDepartureBookingController;
 use App\Http\Controllers\Api\Admin\BookingController;
@@ -113,7 +116,7 @@ Route::get('/settings/public', [PublicSettingController::class, 'show']);
 Route::get('/widgets', [PublicWidgetController::class, 'index']);
 
 // ======Admin======
-Route::prefix('admin')->group(function () {
+Route::prefix('admin') ->middleware('auth:sanctum')->group(function () {
     Route::get(
         'guides/destination-options',
         [DestinationController::class, 'options']
@@ -379,8 +382,40 @@ Route::prefix('admin')->group(function () {
             '{departure}/direct-assign-guide',
             [TourDepartureGuideAssignmentController::class, 'directAssign']
         );
-
     });
+
+    // //Thông báo admin
+    // Route::get('notifications/unread-count', [AdminNotificationController::class, 'unreadCount']);
+    // Route::patch('notifications/read-all', [AdminNotificationController::class, 'markAllAsRead']);
+    // Route::get('notifications', [AdminNotificationController::class, 'index']);
+    // Route::patch('notifications/{id}/read', [AdminNotificationController::class, 'markAsRead']);
+    Route::get('notification-bell/unread-count', [AdminNotificationBellController::class, 'unreadCount']);
+    Route::get('notification-bell', [AdminNotificationBellController::class, 'index']);
+    Route::patch('notification-bell/read-all', [AdminNotificationBellController::class, 'markAllAsRead']);
+    Route::patch('notification-bell/{id}/read', [AdminNotificationBellController::class, 'markAsRead']);
+
+    /*
+    |--------------------------------------------------------------------------
+    | ADMIN ROUTES
+    |--------------------------------------------------------------------------
+    | Đặt trong group admin auth:sanctum.
+    | Route này phục vụ màn admin: đưa tour có yêu cầu đổi HDV lên đầu,
+    | admin có nút Duyệt / Không duyệt.
+    */
+    Route::get(
+        'guide-replacement-requests',
+        [AdminGuideReplacementRequestController::class, 'index']
+    );
+
+    Route::post(
+        'guide-replacement-requests/{id}/approve',
+        [AdminGuideReplacementRequestController::class, 'approve']
+    );
+
+    Route::post(
+        'guide-replacement-requests/{id}/reject',
+        [AdminGuideReplacementRequestController::class, 'reject']
+    );
 });
 
 // =============================== Hướng dẫn viên ===============================
@@ -411,4 +446,17 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/guide/tours/{tourDeparture}/stages', [GuideAttendanceController::class, 'stages']);
     Route::post('/guide/tours/{tourDeparture}/stages/advance', [GuideAttendanceController::class, 'advanceStage']);
     Route::get('/guide/tours/{departureId}', [GuideTourController::class, 'show']);
+
+        Route::post(
+        '/guide/tours/{tourDeparture}/replacement-requests',
+        [GuideTourController::class, 'requestReplacement']
+    );
+
+    Route::get(
+        '/guide/tours/{tourDeparture}/replacement-requests/status',
+        [GuideTourController::class, 'replacementRequestStatus']
+    );
 });
+
+
+

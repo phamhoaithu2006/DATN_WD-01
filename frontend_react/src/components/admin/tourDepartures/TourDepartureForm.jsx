@@ -82,11 +82,33 @@ const FieldIcon = ({ children, tone = 'blue' }) => {
   )
 }
 
-const inputClass =
-  'h-11 w-full rounded-lg border border-slate-300 bg-white pl-14 pr-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500'
+const baseInputClass =
+  'h-11 w-full rounded-lg border bg-white pl-14 pr-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500'
 
-const selectClass =
-  'h-11 w-full rounded-lg border border-slate-300 bg-white pl-14 pr-9 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500'
+const baseSelectClass =
+  'h-11 w-full rounded-lg border bg-white pl-14 pr-9 text-sm text-slate-800 outline-none transition disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500'
+
+function getInputClass(error, extraClass = '') {
+  const stateClass = error
+    ? 'border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-100'
+    : 'border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
+
+  return [baseInputClass, stateClass, extraClass].filter(Boolean).join(' ')
+}
+
+function getSelectClass(error, extraClass = '') {
+  const stateClass = error
+    ? 'border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-100'
+    : 'border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
+
+  return [baseSelectClass, stateClass, extraClass].filter(Boolean).join(' ')
+}
+
+function FieldError({ message }) {
+  if (!message) return null
+
+  return <p className="mt-1 text-xs font-semibold text-red-600">{message}</p>
+}
 
 function formatDateInput(date) {
   const year = date.getFullYear()
@@ -182,6 +204,7 @@ function CurrencyInput({
   onChange,
   disabled = false,
   placeholder,
+  error = '',
 }) {
   const [isFocused, setIsFocused] = useState(false)
 
@@ -213,7 +236,7 @@ function CurrencyInput({
         onChange={handleChange}
         inputMode="numeric"
         disabled={disabled}
-        className={`${inputClass} pr-16`}
+        className={getInputClass(error, 'pr-16')}
         placeholder={placeholder}
       />
 
@@ -234,6 +257,7 @@ export default function TourDepartureForm({
   hideWrapper = false,
   hideActions = false,
   disabled = false,
+  fieldErrors = {},
 }) {
   const durationDays = getDurationDays(tour)
   const durationNights = getDurationNights(tour)
@@ -246,6 +270,7 @@ export default function TourDepartureForm({
 
   const inheritedBasePrice = tour?.base_price ?? tour?.price ?? null
   const inheritedDiscountPrice = tour?.discount_price ?? null
+  const getError = (name) => fieldErrors?.[name] || ''
 
   const formFields = (
     <>
@@ -265,11 +290,11 @@ export default function TourDepartureForm({
               name="departure_date"
               value={departureDate}
               onChange={onChange}
-              required
               disabled={disabled}
-              className={inputClass}
+              className={getInputClass(getError('departure_date'))}
             />
           </div>
+          <FieldError message={getError('departure_date')} />
         </div>
 
         <div>
@@ -286,7 +311,7 @@ export default function TourDepartureForm({
               type="date"
               value={calculatedReturnDate}
               readOnly
-              className={`${inputClass} cursor-not-allowed bg-slate-50 text-slate-500`}
+              className={getInputClass('', 'cursor-not-allowed bg-slate-50 text-slate-500')}
             />
           </div>
 
@@ -297,7 +322,7 @@ export default function TourDepartureForm({
 
         <div>
           <label className="mb-1.5 block text-sm font-medium text-slate-700">
-            Giá gốc riêng của lịch
+            Giá gốc riêng của lịch <span className="text-red-500">*</span>
           </label>
 
           <CurrencyInput
@@ -305,8 +330,10 @@ export default function TourDepartureForm({
             value={formData.base_price}
             onChange={onChange}
             disabled={disabled}
-            placeholder="Để trống để dùng giá tour"
+            placeholder="Nhập giá gốc của lịch"
+            error={getError('base_price')}
           />
+          <FieldError message={getError('base_price')} />
 
           <p className="mt-1 text-xs text-slate-500">
             Giá tour gốc: {formatCurrency(inheritedBasePrice)}
@@ -324,7 +351,9 @@ export default function TourDepartureForm({
             onChange={onChange}
             disabled={disabled}
             placeholder="Không bắt buộc"
+            error={getError('discount_price')}
           />
+          <FieldError message={getError('discount_price')} />
 
           <p className="mt-1 text-xs text-slate-500">
             Giá giảm tour gốc: {formatCurrency(inheritedDiscountPrice)}
@@ -347,12 +376,12 @@ export default function TourDepartureForm({
               value={formData.total_slots ?? ''}
               onChange={onChange}
               min="1"
-              required
               disabled={disabled}
-              className={inputClass}
+              className={getInputClass(getError('total_slots'))}
               placeholder="VD: 30"
             />
           </div>
+          <FieldError message={getError('total_slots')} />
         </div>
 
         <div>
@@ -369,9 +398,8 @@ export default function TourDepartureForm({
               name="status"
               value={formData.status || 'open'}
               onChange={onChange}
-              required
               disabled={disabled}
-              className={selectClass}
+              className={getSelectClass(getError('status'))}
             >
               <option value="open">Đang mở</option>
               <option value="closed">Đã đóng</option>
@@ -383,6 +411,7 @@ export default function TourDepartureForm({
               ▾
             </span>
           </div>
+          <FieldError message={getError('status')} />
         </div>
       </div>
 
@@ -431,6 +460,7 @@ export default function TourDepartureForm({
   return (
     <form
       onSubmit={onSubmit}
+      noValidate
       className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
     >
       <div className="mb-5 border-b border-slate-100 pb-4">

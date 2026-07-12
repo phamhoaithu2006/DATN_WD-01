@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   useNavigate,
   useParams,
@@ -99,8 +99,91 @@ function getErrorMessage(error, fallback) {
   return error?.response?.data?.message || fallback
 }
 
+function getBackendFieldErrors(error) {
+  const errors = error?.response?.data?.errors
+
+  if (!errors) return {}
+
+  return Object.fromEntries(
+    Object.entries(errors).map(([field, messages]) => [
+      field,
+      Array.isArray(messages) ? messages[0] : String(messages),
+    ])
+  )
+}
+
+function todayKey() {
+  const today = new Date()
+  const year = today.getFullYear()
+  const month = String(today.getMonth() + 1).padStart(2, '0')
+  const day = String(today.getDate()).padStart(2, '0')
+
+  return `${year}-${month}-${day}`
+}
+
+function isBlank(value) {
+  return value === null || value === undefined || String(value).trim() === ''
+}
+
+function isNonNegativeNumber(value) {
+  if (isBlank(value)) return true
+
+  const number = Number(value)
+
+  return Number.isFinite(number) && number >= 0
+}
+
+function validateTourDepartureEditForm(formData, changeReason) {
+  const errors = {}
+
+  if (isBlank(formData.departure_date)) {
+    errors.departure_date = 'Vui lòng chọn ngày khởi hành.'
+  } else if (toDateInputValue(formData.departure_date) < todayKey()) {
+    errors.departure_date = 'Ngày khởi hành không được nhỏ hơn ngày hiện tại.'
+  }
+
+  const totalSlots = Number(formData.total_slots)
+
+  if (isBlank(formData.total_slots)) {
+    errors.total_slots = 'Vui lòng nhập tổng số chỗ.'
+  } else if (!Number.isInteger(totalSlots) || totalSlots <= 0) {
+    errors.total_slots = 'Tổng số chỗ phải là số nguyên lớn hơn 0.'
+  }
+
+  if (isBlank(formData.status)) {
+    errors.status = 'Vui lòng chọn trạng thái.'
+  }
+
+  if (isBlank(formData.base_price)) {
+    errors.base_price = 'Vui lòng nhập giá gốc.'
+  } else if (!isNonNegativeNumber(formData.base_price)) {
+    errors.base_price = 'Giá gốc phải là số lớn hơn hoặc bằng 0.'
+  }
+
+  if (!isNonNegativeNumber(formData.discount_price)) {
+    errors.discount_price = 'Giá giảm phải là số lớn hơn hoặc bằng 0.'
+  }
+
+  if (
+    !errors.base_price &&
+    !errors.discount_price &&
+    !isBlank(formData.base_price) &&
+    !isBlank(formData.discount_price) &&
+    Number(formData.discount_price) >= Number(formData.base_price)
+  ) {
+    errors.discount_price = 'Giá giảm phải nhỏ hơn giá gốc.'
+  }
+
+  if (changeReason.trim().length < 3) {
+    errors.change_reason = 'Vui lòng nhập lý do thay đổi ít nhất 3 ký tự.'
+  }
+
+  return errors
+}
+
 export default function TourDepartureEditPage() {
   const navigate = useNavigate()
+  const reasonRef = useRef(null)
   const { tourId, departureId } = useParams()
   const [searchParams] = useSearchParams()
 
@@ -119,6 +202,8 @@ export default function TourDepartureEditPage() {
   )
 
   const [changeReason, setChangeReason] = useState('')
+  const [fieldErrors, setFieldErrors] = useState({})
+  const [formError, setFormError] = useState('')
 
   const fetchDeparture = useCallback(async () => {
     try {
@@ -212,6 +297,34 @@ export default function TourDepartureEditPage() {
     void fetchDeparture()
   }, [fetchDeparture])
 
+  const clearFieldError = (name) => {
+    setFieldErrors((current) => {
+      if (!current[name]) return current
+
+      const next = { ...current }
+      delete next[name]
+
+      return next
+    })
+  }
+
+  const scrollToFirstError = (errors) => {
+    const firstFieldName = Object.keys(errors)[0]
+
+    if (!firstFieldName) return
+
+    const element =
+      firstFieldName === 'change_reason'
+        ? reasonRef.current
+        : document.querySelector(`[name="${firstFieldName}"]`)
+
+    element?.focus?.()
+    element?.scrollIntoView?.({
+      behavior: 'smooth',
+      block: 'center',
+    })
+  }
+
   const handleChange = (event) => {
     const { name, value } = event.target
 
@@ -219,16 +332,16 @@ export default function TourDepartureEditPage() {
       ...current,
       [name]: value,
     }))
+
+    clearFieldError(name)
+    setFormError('')
   }
 
   const updateDeparture = async (confirmBookedChange) => {
     const payload = {
       departure_date: toDateInputValue(formData.departure_date),
 
-      base_price:
-        formData.base_price === ''
-          ? null
-          : Number(formData.base_price),
+      base_price: Number(formData.base_price),
 
       discount_price:
         formData.discount_price === ''
@@ -248,30 +361,12 @@ export default function TourDepartureEditPage() {
   const handleSubmit = async (event) => {
     event.preventDefault()
 
-    if (!formData.departure_date) {
-      alert('Vui lòng chọn ngày khởi hành.')
-      return
-    }
+    const errors = validateTourDepartureEditForm(formData, changeReason)
 
-    if (
-      !formData.total_slots ||
-      Number(formData.total_slots) <= 0
-    ) {
-      alert('Tổng số chỗ phải lớn hơn 0.')
-      return
-    }
-
-    if (
-      formData.base_price !== '' &&
-      formData.discount_price !== '' &&
-      Number(formData.discount_price) > Number(formData.base_price)
-    ) {
-      alert('Giá giảm không được lớn hơn giá gốc.')
-      return
-    }
-
-    if (changeReason.trim().length < 3) {
-      alert('Vui lòng nhập lý do thay đổi ít nhất 3 ký tự.')
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors)
+      setFormError('Vui lòng kiểm tra lại các trường bắt buộc.')
+      scrollToFirstError(errors)
       return
     }
 
@@ -295,6 +390,7 @@ export default function TourDepartureEditPage() {
 
     try {
       setSaving(true)
+      setFormError('')
 
       await updateDeparture(confirmBookedChange)
 
@@ -331,23 +427,39 @@ export default function TourDepartureEditPage() {
         } catch (retryError) {
           console.error(retryError)
 
-          alert(
-            getErrorMessage(
-              retryError,
-              'Cập nhật lịch khởi hành thất bại.'
+          const backendFieldErrors = getBackendFieldErrors(retryError)
+
+          if (Object.keys(backendFieldErrors).length > 0) {
+            setFieldErrors(backendFieldErrors)
+            setFormError('Vui lòng kiểm tra lại các trường bắt buộc.')
+            scrollToFirstError(backendFieldErrors)
+          } else {
+            setFormError(
+              getErrorMessage(
+                retryError,
+                'Cập nhật lịch khởi hành thất bại.'
+              )
             )
-          )
+          }
 
           return
         }
       }
 
-      alert(
-        getErrorMessage(
-          error,
-          'Cập nhật lịch khởi hành thất bại.'
+      const backendFieldErrors = getBackendFieldErrors(error)
+
+      if (Object.keys(backendFieldErrors).length > 0) {
+        setFieldErrors(backendFieldErrors)
+        setFormError('Vui lòng kiểm tra lại các trường bắt buộc.')
+        scrollToFirstError(backendFieldErrors)
+      } else {
+        setFormError(
+          getErrorMessage(
+            error,
+            'Cập nhật lịch khởi hành thất bại.'
+          )
         )
-      )
+      }
     } finally {
       setSaving(false)
     }
@@ -386,20 +498,41 @@ export default function TourDepartureEditPage() {
         </div>
       ) : null}
 
+      {formError ? (
+        <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+          {formError}
+        </div>
+      ) : null}
+
       <div className="mb-5 rounded-xl border border-blue-100 bg-blue-50 p-5">
         <label className="mb-2 block text-sm font-bold text-slate-800">
           Lý do thay đổi lịch <span className="text-red-500">*</span>
         </label>
 
         <textarea
+          ref={reasonRef}
           value={changeReason}
-          onChange={(event) => setChangeReason(event.target.value)}
+          onChange={(event) => {
+            setChangeReason(event.target.value)
+            clearFieldError('change_reason')
+            setFormError('')
+          }}
           disabled={saving}
           rows={4}
           maxLength={1000}
           placeholder="Ví dụ: Điều chỉnh lịch do thay đổi chuyến bay hoặc yêu cầu vận hành..."
-          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100"
+          className={`w-full rounded-lg border bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 disabled:cursor-not-allowed disabled:bg-slate-100 ${
+            fieldErrors.change_reason
+              ? 'border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-100'
+              : 'border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
+          }`}
         />
+
+        {fieldErrors.change_reason ? (
+          <p className="mt-1 text-xs font-semibold text-red-600">
+            {fieldErrors.change_reason}
+          </p>
+        ) : null}
 
         <p className="mt-2 text-xs text-slate-500">
           Tên tour, thông tin cũ và thông tin mới sẽ do hệ thống tự động lấy.
@@ -413,6 +546,7 @@ export default function TourDepartureEditPage() {
         onSubmit={handleSubmit}
         submitText={saving ? 'Đang cập nhật...' : 'Cập nhật'}
         disabled={saving}
+        fieldErrors={fieldErrors}
         onCancel={() => navigate('/admin/tour-departures')}
       />
     </div>

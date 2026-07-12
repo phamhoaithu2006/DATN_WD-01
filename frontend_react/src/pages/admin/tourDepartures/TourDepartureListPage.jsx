@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { toast } from 'sonner'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { tourDepartureApi } from '../../../services/tourDepartureApi'
+import adminGuideReplacementRequestApi from '../../../services/adminGuideReplacementRequestApi'
 import TourDepartureTable from '../../../components/admin/tourDepartures/TourDepartureTable'
 import { GuideAssignmentPanel } from './GuideAssignmentPage.jsx'
 import TourDepartureBookingModal from '../../../components/admin/tourDepartures/TourDepartureBookingModal.jsx'
@@ -10,6 +10,16 @@ function getArrayFromResponse(res) {
   if (Array.isArray(res?.data?.data)) return res.data.data
   if (Array.isArray(res?.data?.data?.data)) return res.data.data.data
   if (Array.isArray(res?.data)) return res.data
+
+  return []
+}
+
+function getReplacementRequestList(response) {
+  const payload = response?.data ?? response
+  const data = payload?.data ?? payload
+
+  if (Array.isArray(data?.data)) return data.data
+  if (Array.isArray(data)) return data
 
   return []
 }
@@ -52,27 +62,28 @@ function getRequestErrorMessage(error, fallback) {
   return error?.response?.data?.message || fallback
 }
 
-function isLockedDeparture(departure) {
-  if (typeof departure?.is_locked === 'boolean') {
-    return departure.is_locked
-  }
+function FieldError({ message }) {
+  if (!message) return null
 
-  if (departure?.schedule_group === 'past') {
+  return (
+    <p className="mt-1 text-xs font-bold text-rose-600">
+      {message}
+    </p>
+  )
+}
+
+function isLockedDeparture(departure) {
+  const group = getDepartureTimeGroup(departure)
+
+  if (group === 'past') {
     return true
   }
 
-  if (!departure?.departure_date) {
+  if (group === 'upcoming' || group === 'ongoing') {
     return false
   }
 
-  const departureDate = new Date(
-    `${String(departure.departure_date).slice(0, 10)}T00:00:00`
-  )
-
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-
-  return departureDate <= today
+  return false
 }
 
 function getBookingCount(departure) {
@@ -93,17 +104,157 @@ function hasActiveBookings(departure) {
   return getBookingCount(departure) > 0
 }
 
+function getDateKey(value) {
+  if (!value) return ''
+
+  const matchedDate = String(value).match(/^\d{4}-\d{2}-\d{2}/)
+
+  return matchedDate ? matchedDate[0] : ''
+}
+
+function getTodayKey() {
+  const today = new Date()
+  const year = today.getFullYear()
+  const month = String(today.getMonth() + 1).padStart(2, '0')
+  const day = String(today.getDate()).padStart(2, '0')
+
+  return `${year}-${month}-${day}`
+}
+
+function getDepartureTimeGroup(departure) {
+  const scheduleGroup = departure?.schedule_group
+
+  if (['upcoming', 'ongoing', 'past'].includes(scheduleGroup)) {
+    return scheduleGroup
+  }
+
+  const today = getTodayKey()
+  const departureDate = getDateKey(departure?.departure_date)
+  const returnDate = getDateKey(departure?.return_date) || departureDate
+
+  if (!departureDate) return 'upcoming'
+  if (today < departureDate) return 'upcoming'
+  if (today >= departureDate && today <= returnDate) return 'ongoing'
+
+  return 'past'
+}
+
+function isAssignmentWarningTarget(departure) {
+  return ['upcoming', 'ongoing'].includes(getDepartureTimeGroup(departure))
+}
+
+function getAssignments(departure) {
+  if (Array.isArray(departure?.assigned_guides)) return departure.assigned_guides
+  if (Array.isArray(departure?.guide_assignments)) return departure.guide_assignments
+  if (Array.isArray(departure?.guideAssignments)) return departure.guideAssignments
+
+  return []
+}
+
+function hasAssignedGuide(departure) {
+  const activeAssignments = getAssignments(departure).filter(
+    (assignment) => !assignment.status || assignment.status === 'assigned'
+  )
+
+  return Boolean(activeAssignments.length > 0 || departure?.assignment_state === 'assigned')
+}
+
+function getTourIdFromDeparture(departure) {
+  return departure?.tour_id || departure?.tour?.id || departure?.tourId || null
+}
+
+function countNeedAssignment(items = []) {
+  return items.filter(
+    (item) => isAssignmentWarningTarget(item) && !hasAssignedGuide(item)
+  ).length
+}
+
+function getMenuBadgeLabel(count) {
+  if (count <= 0) return ''
+
+  return count > 99 ? '99+' : String(count)
+}
+
+
+function formatReplacementDate(value) {
+  if (!value) return '-'
+
+  const raw = String(value).slice(0, 10)
+  const date = new Date(`${raw}T00:00:00`)
+
+  if (Number.isNaN(date.getTime())) return raw || '-'
+
+  return date.toLocaleDateString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
+}
+
+function formatReplacementDateTime(value) {
+  if (!value) return '-'
+
+  const date = new Date(String(value).replace(' ', 'T'))
+
+  if (Number.isNaN(date.getTime())) return '-'
+
+  return date.toLocaleString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function getReplacementGuideName(request) {
+  return (
+    request?.current_guide_name ||
+    request?.guide_name ||
+    request?.current_guide?.user?.full_name ||
+    request?.guide?.user?.full_name ||
+    `HDV #${request?.current_guide_id || request?.guide_id || ''}`
+  )
+}
+
+function getReplacementTourTitle(request) {
+  return (
+    request?.tour_title ||
+    request?.tour?.title ||
+    `Tour #${request?.tour_id || request?.tour_departure_id || ''}`
+  )
+}
+
+function getReplacementReason(request) {
+  return request?.reason || request?.request_reason || 'Không có lý do.'
+}
+
 export default function TourDepartureListPage() {
   const navigate = useNavigate()
+  const location = useLocation()
 
   const [tours, setTours] = useState([])
   const [selectedTourId, setSelectedTourId] = useState('')
+  const [fieldErrors, setFieldErrors] = useState({})
   const [departures, setDepartures] = useState([])
+  const [allDepartures, setAllDepartures] = useState([])
   const [loading, setLoading] = useState(false)
+  const [replacementRequests, setReplacementRequests] = useState([])
+  const [replacementPanelOpen, setReplacementPanelOpen] = useState(false)
+  const [highlightedReplacementDepartureId, setHighlightedReplacementDepartureId] = useState(null)
 
   const [activeTab, setActiveTab] = useState('departures')
   const [scheduleFilter, setScheduleFilter] = useState('upcoming')
   const [focusedDepartureId, setFocusedDepartureId] = useState(null)
+
+  /*
+   * NEW chỉ tồn tại trong phiên render hiện tại.
+   * Reload trang hoặc chuyển route khác rồi quay lại thì state này mất.
+   */
+  const [newDepartureIds, setNewDepartureIds] = useState(() => new Set())
+  const [newAssignmentDepartureIds, setNewAssignmentDepartureIds] = useState(
+    () => new Set()
+  )
 
   const [detailOpen, setDetailOpen] = useState(false)
   const [detailLoading, setDetailLoading] = useState(false)
@@ -117,25 +268,78 @@ export default function TourDepartureListPage() {
       const list = getArrayFromResponse(response)
 
       setTours(list)
-
     } catch (error) {
       console.error(error)
       alert(getRequestErrorMessage(error, 'Không tải được danh sách tour'))
     }
   }, [])
 
-  const fetchDepartures = useCallback(async (tourId) => {
-    if (!tourId) {
-      setDepartures([])
-      return
-    }
+  const normalizeDeparturesForTour = useCallback((items = [], tour) => {
+    return items.map((departure) => ({
+      ...departure,
+      tour_id: departure.tour_id || tour?.id || departure.tour?.id,
+      tour: departure.tour || tour || null,
+      tour_title: departure.tour_title || (tour ? getTourName(tour) : undefined),
+    }))
+  }, [])
 
+  const replaceDeparturesForTour = useCallback((current, tourId, items) => {
+    const value = String(tourId)
+    const filteredCurrent = current.filter((departure) => {
+      return String(getTourIdFromDeparture(departure)) !== value
+    })
+
+    return [...filteredCurrent, ...items]
+  }, [])
+
+  const fetchDepartures = useCallback(async (tourId = '', sourceTours = tours) => {
     try {
       setLoading(true)
 
-      const response = await tourDepartureApi.getByTour(tourId)
+      if (tourId) {
+        const selectedTour = sourceTours.find(
+          (tour) => String(tour.id) === String(tourId)
+        )
+        const response = await tourDepartureApi.getByTour(tourId)
+        const list = normalizeDeparturesForTour(
+          getArrayFromResponse(response),
+          selectedTour
+        )
 
-      setDepartures(getArrayFromResponse(response))
+        setDepartures(list)
+        setAllDepartures((current) =>
+          replaceDeparturesForTour(current, tourId, list)
+        )
+        return
+      }
+
+      if (typeof tourDepartureApi.getAllDepartures === 'function') {
+        const response = await tourDepartureApi.getAllDepartures()
+        const list = getArrayFromResponse(response)
+
+        setDepartures(list)
+        setAllDepartures(list)
+        return
+      }
+
+      if (!sourceTours.length) {
+        setDepartures([])
+        setAllDepartures([])
+        return
+      }
+
+      const responses = await Promise.all(
+        sourceTours.map(async (tour) => {
+          const response = await tourDepartureApi.getByTour(tour.id)
+
+          return normalizeDeparturesForTour(getArrayFromResponse(response), tour)
+        })
+      )
+
+      const list = responses.flat()
+
+      setDepartures(list)
+      setAllDepartures(list)
     } catch (error) {
       console.error(error)
       alert(
@@ -144,7 +348,35 @@ export default function TourDepartureListPage() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [tours, normalizeDeparturesForTour, replaceDeparturesForTour])
+
+
+const fetchReplacementRequests = useCallback(async () => {
+  try {
+    const response = await adminGuideReplacementRequestApi.list({
+      status: 'pending',
+      per_page: 100,
+    })
+
+    const list = getReplacementRequestList(response)
+
+    setReplacementRequests(list)
+
+    if (list.length > 0) {
+      setReplacementPanelOpen(true)
+    }
+
+    window.dispatchEvent(
+      new CustomEvent('admin-guide-replacement:changed', {
+        detail: {
+          count: list.length,
+        },
+      })
+    )
+  } catch (error) {
+    console.error(error)
+  }
+}, [])
 
   const loadBookedCustomers = useCallback(async (departureId, page = 1) => {
     if (!departureId) return
@@ -181,13 +413,83 @@ export default function TourDepartureListPage() {
   }, [fetchTours])
 
   useEffect(() => {
-    if (selectedTourId) {
-      void fetchDepartures(selectedTourId)
-      return
+    void fetchDepartures(selectedTourId)
+  }, [selectedTourId, fetchDepartures])
+
+  useEffect(() => {
+    void fetchReplacementRequests()
+  }, [fetchReplacementRequests])
+
+  useEffect(() => {
+    const state = location.state || {}
+    const nextNewDepartureIds = new Set()
+    const nextNewAssignmentDepartureIds = new Set()
+
+    const createdId =
+      state.newDepartureId ||
+      state.createdDepartureId ||
+      state.departureId ||
+      null
+
+    const assignedId =
+      state.newAssignmentDepartureId ||
+      state.assignedDepartureId ||
+      null
+
+    if (createdId) {
+      nextNewDepartureIds.add(String(createdId))
     }
 
-    setDepartures([])
-  }, [selectedTourId, fetchDepartures])
+    if (assignedId) {
+      nextNewAssignmentDepartureIds.add(String(assignedId))
+    }
+
+    if (nextNewDepartureIds.size > 0) {
+      setNewDepartureIds(nextNewDepartureIds)
+    }
+
+    if (nextNewAssignmentDepartureIds.size > 0) {
+      setNewAssignmentDepartureIds(nextNewAssignmentDepartureIds)
+    }
+
+    if (createdId || assignedId) {
+      navigate(location.pathname + location.search, {
+        replace: true,
+        state: null,
+      })
+    }
+  }, [
+    location.pathname,
+    location.search,
+    location.state,
+    navigate,
+  ])
+
+
+useEffect(() => {
+  const params = new URLSearchParams(location.search)
+  const shouldOpenReplacement =
+    params.get('openReplacementRequests') === '1' ||
+    params.get('replacementRequest') === '1'
+
+  if (!shouldOpenReplacement) return
+
+  const departureId =
+    params.get('departureId') ||
+    params.get('tourDepartureId') ||
+    null
+
+  setActiveTab('departures')
+  setScheduleFilter('all')
+  setReplacementPanelOpen(true)
+
+  if (departureId) {
+    setHighlightedReplacementDepartureId(String(departureId))
+    setFocusedDepartureId(null)
+  }
+
+  void fetchReplacementRequests()
+}, [location.search, fetchReplacementRequests])
 
   const handleDelete = async (departure) => {
     const item =
@@ -223,6 +525,18 @@ export default function TourDepartureListPage() {
 
     try {
       await tourDepartureApi.remove(departureId)
+
+      setNewDepartureIds((current) => {
+        const next = new Set(current)
+        next.delete(String(departureId))
+        return next
+      })
+
+      setNewAssignmentDepartureIds((current) => {
+        const next = new Set(current)
+        next.delete(String(departureId))
+        return next
+      })
 
       alert('Xóa lịch khởi hành thành công')
 
@@ -266,6 +580,13 @@ export default function TourDepartureListPage() {
       return
     }
 
+    const tourId = selectedTourId || departure.tour_id || departure.tour?.id
+
+    if (!tourId) {
+      alert('Không xác định được tour của lịch khởi hành này.')
+      return
+    }
+
     if (hasActiveBookings(departure)) {
       const bookingCount = getBookingCount(departure)
 
@@ -278,14 +599,14 @@ export default function TourDepartureListPage() {
       if (!confirmed) return
 
       navigate(
-        `/admin/tour-departures/${selectedTourId}/edit/${departure.id}?confirmBookedChange=1`
+        `/admin/tour-departures/${tourId}/edit/${departure.id}?confirmBookedChange=1`
       )
 
       return
     }
 
     navigate(
-      `/admin/tour-departures/${selectedTourId}/edit/${departure.id}`
+      `/admin/tour-departures/${tourId}/edit/${departure.id}`
     )
   }
 
@@ -305,9 +626,183 @@ export default function TourDepartureListPage() {
     setDetailDepartureId(null)
   }
 
+  const handleAssigned = async (payload = null) => {
+    const isObjectPayload =
+      payload && typeof payload === 'object' && !Array.isArray(payload)
+
+    const targetDepartureId =
+      (isObjectPayload ? payload.departureId : payload) ||
+      focusedDepartureId ||
+      null
+
+    const actionType = isObjectPayload
+      ? payload.type || 'assigned'
+      : 'assigned'
+
+    /*
+     * Chỉ hiện NEW phân công khi vừa tạo/phân công HDV mới.
+     * Hoàn tác/hủy phân công vẫn refresh danh sách nhưng không gắn NEW.
+     */
+    if (targetDepartureId && actionType === 'assigned') {
+      setNewAssignmentDepartureIds((current) => {
+        const next = new Set(current)
+        next.add(String(targetDepartureId))
+        return next
+      })
+    }
+
+    await fetchDepartures(selectedTourId)
+  }
+
+
+const approveReplacementRequest = async (request) => {
+  const requestId = request?.id || request?.request_id
+
+  if (!requestId) return
+
+  const confirmed = window.confirm(
+    'Duyệt yêu cầu đổi HDV này? Hệ thống sẽ tự động tìm HDV khác đang trống lịch và phân công thay thế.'
+  )
+
+  if (!confirmed) return
+
+  try {
+    await adminGuideReplacementRequestApi.approve(requestId)
+    alert('Đã duyệt yêu cầu đổi HDV và phân công HDV thay thế.')
+    await fetchReplacementRequests()
+    await fetchDepartures(selectedTourId)
+    window.dispatchEvent(new Event('admin-notification:changed'))
+    window.dispatchEvent(new Event('admin-guide-replacement:changed'))
+    window.dispatchEvent(new Event('tourDepartureNeedAssignmentCountChanged'))
+  } catch (error) {
+    console.error(error)
+    alert(
+      getRequestErrorMessage(
+        error,
+        'Duyệt yêu cầu đổi HDV thất bại.'
+      )
+    )
+  }
+}
+
+const rejectReplacementRequest = async (request) => {
+  const requestId = request?.id || request?.request_id
+
+  if (!requestId) return
+
+  const note = window.prompt(
+    'Nhập ghi chú/lý do không duyệt gửi lại cho HDV:',
+    ''
+  )
+
+  if (note === null) return
+
+  try {
+    await adminGuideReplacementRequestApi.reject(requestId, {
+      admin_note: note,
+    })
+    alert('Đã từ chối yêu cầu đổi HDV.')
+    await fetchReplacementRequests()
+    await fetchDepartures(selectedTourId)
+    window.dispatchEvent(new Event('admin-notification:changed'))
+    window.dispatchEvent(new Event('admin-guide-replacement:changed'))
+    window.dispatchEvent(new Event('tourDepartureNeedAssignmentCountChanged'))
+  } catch (error) {
+    console.error(error)
+    alert(
+      getRequestErrorMessage(
+        error,
+        'Từ chối yêu cầu đổi HDV thất bại.'
+      )
+    )
+  }
+}
+
   const selectedTour = tours.find(
     (tour) => String(tour.id) === String(selectedTourId)
   )
+
+  const assignmentWarningCount = useMemo(() => {
+    return countNeedAssignment(allDepartures)
+  }, [allDepartures])
+
+  const tourAssignmentWarningCounts = useMemo(() => {
+    const map = new Map()
+
+    allDepartures.forEach((departure) => {
+      if (!isAssignmentWarningTarget(departure) || hasAssignedGuide(departure)) {
+        return
+      }
+
+      const tourId = getTourIdFromDeparture(departure)
+
+      if (!tourId) return
+
+      const key = String(tourId)
+
+      map.set(key, (map.get(key) || 0) + 1)
+    })
+
+    return map
+  }, [allDepartures])
+
+  function clearFieldError(fieldName) {
+    setFieldErrors((current) => {
+      if (!current[fieldName]) return current
+
+      const next = { ...current }
+      delete next[fieldName]
+
+      return next
+    })
+  }
+
+  function validateBeforeCreateDeparture() {
+    if (selectedTourId) {
+      clearFieldError('selectedTourId')
+      return true
+    }
+
+    setFieldErrors((current) => ({
+      ...current,
+      selectedTourId: 'Vui lòng chọn tour trước khi thêm lịch khởi hành.',
+    }))
+
+    return false
+  }
+
+  useEffect(() => {
+    const urgentCount = assignmentWarningCount + replacementRequests.length
+    const label = getMenuBadgeLabel(urgentCount)
+
+    try {
+      window.localStorage.setItem(
+        'tourDepartureNeedAssignmentCount',
+        String(urgentCount)
+      )
+      window.localStorage.setItem(
+        'tourDepartureNeedAssignmentOnlyCount',
+        String(assignmentWarningCount)
+      )
+      window.localStorage.setItem(
+        'tourDepartureReplacementRequestCount',
+        String(replacementRequests.length)
+      )
+    } catch (error) {
+      console.error(error)
+    }
+
+    window.dispatchEvent(
+      new CustomEvent('tourDepartureNeedAssignmentCountChanged', {
+        detail: {
+          count: urgentCount,
+          assignmentCount: assignmentWarningCount,
+          replacementRequestCount: replacementRequests.length,
+          label,
+        },
+      })
+    )
+  }, [assignmentWarningCount, replacementRequests.length])
 
   return (
     <div className="p-6">
@@ -325,11 +820,8 @@ export default function TourDepartureListPage() {
         <Link
           to={`/admin/tour-departures/create?tourId=${selectedTourId}`}
           onClick={(event) => {
-            if (!selectedTourId) {
+            if (!validateBeforeCreateDeparture()) {
               event.preventDefault()
-              toast.error('Vui lòng chọn tour trước khi thêm lịch khởi hành.', {
-                position: 'top-right',
-              })
             }
           }}
           className="inline-flex h-10 items-center justify-center rounded-lg bg-blue-600 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700"
@@ -346,8 +838,14 @@ export default function TourDepartureListPage() {
 
           <p className="mt-1 text-sm text-slate-500">
             {selectedTour
-              ? `Đang xem: ${getTourName(selectedTour)}`
-              : 'Chọn một tour để xem lịch khởi hành.'}
+              ? `Đang lọc theo tour: ${getTourName(selectedTour)}`
+              : 'Đang xem: Tất cả lịch khởi hành.'}
+
+            {assignmentWarningCount > 0 ? (
+              <span className="ml-2 inline-flex rounded-full bg-rose-50 px-2 py-0.5 text-xs font-black text-rose-700 ring-1 ring-rose-100">
+                {assignmentWarningCount} lịch sắp tới/đang diễn ra chưa phân công
+              </span>
+            ) : null}
           </p>
         </div>
 
@@ -355,21 +853,139 @@ export default function TourDepartureListPage() {
           value={selectedTourId}
           onChange={(event) => {
             setSelectedTourId(event.target.value)
+            clearFieldError('selectedTourId')
             setFocusedDepartureId(null)
             setActiveTab('departures')
             setScheduleFilter('upcoming')
           }}
-          className="h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+          className={`h-11 w-full rounded-lg border bg-white px-3 text-sm outline-none transition focus:ring-2 ${
+            fieldErrors.selectedTourId
+              ? 'border-rose-500 bg-rose-50/40 text-rose-900 focus:border-rose-500 focus:ring-rose-100'
+              : 'border-slate-300 text-slate-800 focus:border-blue-500 focus:ring-blue-100'
+          }`}
         >
-          <option value="">-- Chọn tour --</option>
+          <option value="">
+            {assignmentWarningCount > 0
+              ? `-- Tất cả tour -- (${assignmentWarningCount} chưa phân công)`
+              : '-- Tất cả tour --'}
+          </option>
 
-          {tours.map((tour) => (
-            <option key={tour.id} value={tour.id}>
-              {getTourName(tour)}
-            </option>
-          ))}
+          {tours.map((tour) => {
+            const warningCount = tourAssignmentWarningCounts.get(String(tour.id)) || 0
+
+            return (
+              <option key={tour.id} value={tour.id}>
+                {warningCount > 0
+                  ? `${getTourName(tour)} (${warningCount} chưa phân công)`
+                  : getTourName(tour)}
+              </option>
+            )
+          })}
         </select>
+        <FieldError message={fieldErrors.selectedTourId} />
       </div>
+
+
+{replacementRequests.length > 0 ? (
+  <div className="mb-5 rounded-2xl border border-orange-200 bg-orange-50 text-orange-950 shadow-sm">
+    <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <p className="text-sm font-black uppercase tracking-wide text-orange-700">
+          Yêu cầu đổi HDV
+        </p>
+        <h3 className="mt-1 text-lg font-black">
+          Có {replacementRequests.length} yêu cầu đổi HDV đang chờ duyệt
+        </h3>
+        <p className="mt-1 text-sm text-orange-700">
+          Các yêu cầu được gom vào danh sách bên dưới. Lý do, bằng chứng và nút Duyệt / Không duyệt nằm trong danh sách này.
+        </p>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => {
+          setReplacementPanelOpen((current) => !current)
+          setActiveTab('departures')
+          setScheduleFilter('all')
+        }}
+        className="rounded-xl bg-orange-600 px-4 py-2 text-sm font-black text-white transition hover:bg-orange-700"
+      >
+        {replacementPanelOpen ? 'Ẩn yêu cầu' : 'Xem yêu cầu'}
+      </button>
+    </div>
+
+    {replacementPanelOpen ? (
+      <div className="border-t border-orange-200 bg-white/60 px-5 py-4">
+        <div className="grid gap-3">
+          {replacementRequests.map((request) => (
+            <article
+              key={request.id || request.request_id}
+              className="rounded-2xl border border-orange-200 bg-white p-4 shadow-sm"
+            >
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full bg-orange-100 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-orange-700 ring-1 ring-orange-200">
+                      Chờ duyệt đổi HDV
+                    </span>
+                    <span className="text-xs font-semibold text-slate-500">
+                      Gửi lúc {formatReplacementDateTime(request.created_at)}
+                    </span>
+                  </div>
+
+                  <h4 className="mt-2 text-base font-black text-slate-950">
+                    {getReplacementTourTitle(request)}
+                  </h4>
+
+                  <p className="mt-1 text-sm font-semibold text-slate-600">
+                    HDV yêu cầu: {getReplacementGuideName(request)} · Ngày đi {formatReplacementDate(request.departure_date)} · Ngày về {formatReplacementDate(request.return_date || request.departure_date)}
+                  </p>
+
+                  <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                    <p className="text-xs font-black uppercase tracking-wide text-slate-500">
+                      Lý do
+                    </p>
+                    <p className="mt-1 whitespace-pre-line text-sm leading-6 text-slate-800">
+                      {getReplacementReason(request)}
+                    </p>
+                  </div>
+
+                  {request.evidence_path ? (
+                    <a
+                      href={`/storage/${request.evidence_path}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-2 inline-flex text-sm font-bold text-blue-700 hover:text-blue-800"
+                    >
+                      Xem bằng chứng
+                    </a>
+                  ) : null}
+                </div>
+
+                <div className="flex shrink-0 flex-wrap gap-2 lg:justify-end">
+                  <button
+                    type="button"
+                    onClick={() => approveReplacementRequest(request)}
+                    className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-black text-white transition hover:bg-emerald-700"
+                  >
+                    Chấp nhận
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => rejectReplacementRequest(request)}
+                    className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-black text-white transition hover:bg-rose-700"
+                  >
+                    Không chấp nhận
+                  </button>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+    ) : null}
+  </div>
+) : null}
 
       <TourDepartureTable
         departures={departures}
@@ -383,13 +999,20 @@ export default function TourDepartureListPage() {
         onOpenAssignment={openGuideAssignment}
         onRequestEdit={requestEdit}
         onViewDetails={openDepartureDetail}
+        assignmentWarningCount={assignmentWarningCount}
+        newDepartureIds={newDepartureIds}
+        newAssignmentDepartureIds={newAssignmentDepartureIds}
+        replacementRequests={replacementRequests}
+        highlightedReplacementDepartureId={highlightedReplacementDepartureId}
+        onApproveReplacementRequest={approveReplacementRequest}
+        onRejectReplacementRequest={rejectReplacementRequest}
         guideContent={
           <GuideAssignmentPanel
             embedded
-            selectedTourId={selectedTourId}   
+            selectedTourId={selectedTourId}
             focusedDepartureId={focusedDepartureId}
             onClearFocus={() => setFocusedDepartureId(null)}
-            onAssigned={() => fetchDepartures(selectedTourId)}
+            onAssigned={handleAssigned}
           />
         }
       />

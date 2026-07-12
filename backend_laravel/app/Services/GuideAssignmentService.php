@@ -10,6 +10,7 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 class GuideAssignmentService
@@ -188,32 +189,141 @@ class GuideAssignmentService
         );
 
         /*
-        | Ưu tiên:
-        | 1. HDV có ít tour tương lai hơn
-        | 2. Nhiều năm kinh nghiệm hơn
-        | 3. ID nhỏ hơn
+        | Ưu tiên tự động phân công công bằng:
+        | 1. HDV có tổng số ngày tour đã nhận ít hơn
+        | 2. Nếu bằng ngày, HDV có số tour ít hơn
+        | 3. Nếu vẫn bằng, HDV lâu chưa được phân công hơn
+        | 4. Nếu vẫn bằng, ưu tiên kinh nghiệm rồi ID nhỏ hơn
         */
-        return $query
-            ->withCount([
-                'assignments as upcoming_assignments_count' => function (
-                    Builder $assignmentQuery
-                ) {
-                    $assignmentQuery
-                        ->where('status', 'assigned')
-                        ->whereHas(
-                            'departure',
-                            function (Builder $departureQuery) {
-                                $departureQuery->whereRaw(
-                                    'COALESCE(return_date, departure_date) >= ?',
-                                    [today()->toDateString()]
-                                );
-                            }
-                        );
-                },
+        return $this->applyFairWorkloadOrder($query, $departure);
+    }
+
+    /**
+     * Sắp xếp HDV theo tải công việc để tự động phân công công bằng hơn.
+     *
+     * Cách cân bằng:
+     * - Chỉ xét các HDV đã qua đủ điều kiện ở eligibleGuidesQuery().
+     * - Tính tải công việc trong cùng năm với lịch khởi hành đang phân công.
+     * - Ưu tiên người có tổng số ngày tour ít hơn trước.
+     * - Sau đó xét số lượng tour, thời điểm phân công gần nhất, kinh nghiệm và ID.
+     */
+    private function applyFairWorkloadOrder(
+        Builder $query,
+        TourDeparture $departure
+    ): Builder {
+        [$startDate] = $this->dateRange($departure);
+
+        $workloadFrom = $startDate
+            ->copy()
+            ->startOfYear()
+            ->toDateString();
+
+        $workloadTo = $startDate
+            ->copy()
+            ->endOfYear()
+            ->toDateString();
+
+        $assignmentDeletedAtCondition = Schema::hasColumn(
+            'tour_guide_assignments',
+            'deleted_at'
+        )
+            ? 'AND {alias}.deleted_at IS NULL'
+            : '';
+
+        $countDeletedAtCondition = str_replace(
+            '{alias}',
+            'tga_count',
+            $assignmentDeletedAtCondition
+        );
+
+        $daysDeletedAtCondition = str_replace(
+            '{alias}',
+            'tga_days',
+            $assignmentDeletedAtCondition
+        );
+
+        $lastDeletedAtCondition = str_replace(
+            '{alias}',
+            'tga_last',
+            $assignmentDeletedAtCondition
+        );
+
+        /*
+        | Đếm số tour HDV đã nhận trong năm của lịch khởi hành.
+        */
+        $workloadCountSql = "
+            SELECT COUNT(*)
+            FROM tour_guide_assignments AS tga_count
+            INNER JOIN tour_departures AS td_count
+                ON td_count.id = tga_count.tour_departure_id
+            WHERE tga_count.guide_id = guides.id
+                AND tga_count.status = 'assigned'
+                AND tga_count.tour_departure_id != ?
+                {$countDeletedAtCondition}
+                AND DATE(td_count.departure_date) <= ?
+                AND DATE(COALESCE(td_count.return_date, td_count.departure_date)) >= ?
+        ";
+
+        /*
+        | Tính tổng số ngày tour HDV đã nhận trong năm.
+        | Tour dài ngày sẽ được tính nặng hơn tour ngắn ngày.
+        */
+        $workloadDaysSql = "
+            SELECT COALESCE(
+                SUM(
+                    DATEDIFF(
+                        DATE(COALESCE(td_days.return_date, td_days.departure_date)),
+                        DATE(td_days.departure_date)
+                    ) + 1
+                ),
+                0
+            )
+            FROM tour_guide_assignments AS tga_days
+            INNER JOIN tour_departures AS td_days
+                ON td_days.id = tga_days.tour_departure_id
+            WHERE tga_days.guide_id = guides.id
+                AND tga_days.status = 'assigned'
+                AND tga_days.tour_departure_id != ?
+                {$daysDeletedAtCondition}
+                AND DATE(td_days.departure_date) <= ?
+                AND DATE(COALESCE(td_days.return_date, td_days.departure_date)) >= ?
+        ";
+
+        /*
+        | Lấy lần phân công gần nhất.
+        | Người lâu chưa nhận việc sẽ được ưu tiên hơn nếu tải công việc bằng nhau.
+        */
+        $lastAssignedSql = "
+            SELECT MAX(tga_last.assigned_at)
+            FROM tour_guide_assignments AS tga_last
+            WHERE tga_last.guide_id = guides.id
+                AND tga_last.status = 'assigned'
+                {$lastDeletedAtCondition}
+        ";
+
+        $query
+            ->select('guides.*')
+            ->selectRaw("({$workloadDaysSql}) AS workload_days", [
+                $departure->id,
+                $workloadTo,
+                $workloadFrom,
             ])
-            ->orderBy('upcoming_assignments_count')
-            ->orderByDesc('experience_years')
-            ->orderBy('id');
+            ->selectRaw("({$workloadCountSql}) AS workload_count", [
+                $departure->id,
+                $workloadTo,
+                $workloadFrom,
+            ])
+            ->selectRaw("({$lastAssignedSql}) AS last_assigned_at")
+            ->orderBy('workload_days', 'asc')
+            ->orderBy('workload_count', 'asc')
+            ->orderByRaw('last_assigned_at IS NULL DESC')
+            ->orderBy('last_assigned_at', 'asc');
+
+        if (Schema::hasColumn('guides', 'experience_years')) {
+            $query->orderByDesc('experience_years');
+        }
+
+        return $query->orderBy('guides.id', 'asc');
     }
 
     /**

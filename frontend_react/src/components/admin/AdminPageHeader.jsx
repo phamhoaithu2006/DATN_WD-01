@@ -1,3 +1,5 @@
+import AdminNotificationBell from './notifications/AdminNotificationBell'
+
 function renderCrumb(crumb, index) {
   if (crumb == null) return null
 
@@ -22,18 +24,24 @@ function AdminPageHeader({
   description,
   actions = null,
   className = '',
+  showNotificationBell = true,
 }) {
   const items = (Array.isArray(breadcrumb) ? breadcrumb : [breadcrumb]).filter(
-    (item) => item != null && String(item).trim() !== '',
+    (item) => item != null && String(item).trim() !== ''
   )
+
   const classes = ['admin-page-header', className].filter(Boolean).join(' ')
+  const hasRightActions = showNotificationBell || Boolean(actions)
 
   return (
     <section className={classes}>
       <div className="admin-page-breadcrumb">
         {items.map((item, index) => (
           <span className="admin-page-breadcrumb-item" key={index}>
-            {index > 0 ? <span className="admin-page-breadcrumb-separator">/</span> : null}
+            {index > 0 ? (
+              <span className="admin-page-breadcrumb-separator">/</span>
+            ) : null}
+
             {renderCrumb(item, index)}
           </span>
         ))}
@@ -41,10 +49,16 @@ function AdminPageHeader({
 
       <div className="admin-page-header-row">
         <div className="admin-page-header-content">
-          <h1>{title}</h1>
+          {title ? <h1>{title}</h1> : null}
           {description ? <p>{description}</p> : null}
         </div>
-        {actions ? <div className="admin-page-header-actions">{actions}</div> : null}
+
+        {hasRightActions ? (
+          <div className="admin-page-header-actions">
+            {showNotificationBell ? <AdminNotificationBell /> : null}
+            {actions}
+          </div>
+        ) : null}
       </div>
     </section>
   )
