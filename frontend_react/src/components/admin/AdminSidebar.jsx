@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { tourDepartureApi } from '../../services/tourDepartureApi'
+import adminGuideReplacementRequestApi from '../../services/adminGuideReplacementRequestApi'
 
 const menuItems = [
   {
@@ -129,6 +130,17 @@ function unwrapList(response) {
   if (Array.isArray(payload?.data)) return payload.data
   if (Array.isArray(payload?.data?.data)) return payload.data.data
   if (Array.isArray(payload)) return payload
+
+  return []
+}
+
+
+function unwrapReplacementList(response) {
+  const payload = response?.data ?? response
+  const data = payload?.data ?? payload
+
+  if (Array.isArray(data?.data)) return data.data
+  if (Array.isArray(data)) return data
 
   return []
 }
@@ -262,11 +274,24 @@ function AdminSidebar({
         departures = responses.flat()
       }
 
-      const count = uniqueDepartures(departures).filter(
+      const assignmentCount = uniqueDepartures(departures).filter(
         isActionableUnassignedDeparture
       ).length
 
-      setInternalWarningCount(count)
+      let replacementRequestCount = 0
+
+      try {
+        const replacementResponse = await adminGuideReplacementRequestApi.list({
+          status: 'pending',
+          per_page: 100,
+        })
+
+        replacementRequestCount = unwrapReplacementList(replacementResponse).length
+      } catch (replacementError) {
+        console.error(replacementError)
+      }
+
+      setInternalWarningCount(assignmentCount + replacementRequestCount)
     } catch (error) {
       console.error(error)
       setInternalWarningCount(0)
@@ -285,11 +310,13 @@ function AdminSidebar({
     window.addEventListener('focus', handleRefresh)
     window.addEventListener('tour-departures:changed', handleRefresh)
     window.addEventListener('tour-departure-assignment:changed', handleRefresh)
+    window.addEventListener('admin-guide-replacement:changed', handleRefresh)
 
     return () => {
       window.removeEventListener('focus', handleRefresh)
       window.removeEventListener('tour-departures:changed', handleRefresh)
       window.removeEventListener('tour-departure-assignment:changed', handleRefresh)
+      window.removeEventListener('admin-guide-replacement:changed', handleRefresh)
     }
   }, [loadTourDepartureWarningCount])
 
@@ -354,8 +381,8 @@ function AdminSidebar({
 
               {badgeCount > 0 ? (
                 <span
-                  aria-label={`${badgeCount} lịch khởi hành chưa phân công`}
-                  title={`${badgeCount} lịch sắp tới/đang diễn ra chưa phân công HDV`}
+                  aria-label={`${badgeCount} việc cần xử lý trong lịch khởi hành`}
+                  title={`${badgeCount} việc cần xử lý: lịch chưa phân công hoặc yêu cầu đổi HDV`}
                   style={{
                     position: 'absolute',
                     right: collapsed ? 8 : 12,

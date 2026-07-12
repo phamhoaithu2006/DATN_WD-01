@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import adminNotificationApi from '../../../services/adminNotificationApi'
 
 function getNotificationList(response) {
@@ -51,7 +52,54 @@ function getNotificationTypeLabel(type) {
   return map[type] || type || 'Thông báo'
 }
 
+
+function parseNotificationData(notification) {
+  const data = notification?.data
+
+  if (!data) return {}
+  if (typeof data === 'object') return data
+
+  try {
+    return JSON.parse(data)
+  } catch {
+    return {}
+  }
+}
+
+function isGuideReplacementNotification(notification) {
+  const data = parseNotificationData(notification)
+  const title = String(notification?.title || '').toLowerCase()
+  const message = String(notification?.message || '').toLowerCase()
+
+  return (
+    data?.source === 'guide_replacement_request' ||
+    data?.type === 'guide_replacement_request' ||
+    title.includes('đổi hdv') ||
+    title.includes('doi hdv') ||
+    message.includes('đổi hdv') ||
+    message.includes('doi hdv')
+  )
+}
+
+function getReplacementDepartureId(notification) {
+  const data = parseNotificationData(notification)
+
+  return data?.tour_departure_id || data?.departure_id || data?.tourDepartureId || null
+}
+
+function getReplacementRequestId(notification) {
+  const data = parseNotificationData(notification)
+
+  return (
+    data?.replacement_request_id ||
+    data?.guide_replacement_request_id ||
+    data?.request_id ||
+    null
+  )
+}
+
 export default function AdminNotificationBell() {
+  const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
   const [notifications, setNotifications] = useState([])
@@ -164,33 +212,62 @@ export default function AdminNotificationBell() {
     }
   }
 
-  async function openDetail(notification) {
-    setSelectedNotification(notification)
 
-    if (!notification?.id || notification.status === 'read') {
-      return
-    }
+async function markOneAsRead(notification) {
+  if (!notification?.id || notification.status === 'read') return
 
-    try {
-      await adminNotificationApi.markAsRead(notification.id)
-      setNotifications((current) =>
-        current.map((item) =>
-          String(item.id) === String(notification.id)
-            ? { ...item, status: 'read' }
-            : item
-        )
-      )
-      setSelectedNotification((current) =>
-        current && String(current.id) === String(notification.id)
-          ? { ...current, status: 'read' }
-          : current
-      )
-      await fetchUnreadCount()
-      window.dispatchEvent(new Event('admin-notification:changed'))
-    } catch (error) {
-      console.error(error)
-    }
+  await adminNotificationApi.markAsRead(notification.id)
+
+  setNotifications((current) =>
+    current.map((item) =>
+      String(item.id) === String(notification.id)
+        ? { ...item, status: 'read' }
+        : item
+    )
+  )
+
+  setSelectedNotification((current) =>
+    current && String(current.id) === String(notification.id)
+      ? { ...current, status: 'read' }
+      : current
+  )
+
+  await fetchUnreadCount()
+  window.dispatchEvent(new Event('admin-notification:changed'))
+}
+
+async function goToGuideReplacementRequest(notification) {
+  try {
+    await markOneAsRead(notification)
+  } catch (error) {
+    console.error(error)
   }
+
+  const departureId = getReplacementDepartureId(notification)
+  const requestId = getReplacementRequestId(notification)
+  const params = new URLSearchParams()
+
+  params.set('openReplacementRequests', '1')
+  if (departureId) params.set('departureId', departureId)
+  if (requestId) params.set('replacementRequestId', requestId)
+
+  setOpen(false)
+  navigate(`/admin/tour-departures?${params.toString()}`)
+}
+
+async function openDetail(notification) {
+  /*
+   * Click ở danh sách bên trái chỉ mở nội dung chi tiết bên phải.
+   * Không tự chuyển trang ở đây để admin đọc nội dung trước.
+   */
+  setSelectedNotification(notification)
+
+  try {
+    await markOneAsRead(notification)
+  } catch (error) {
+    console.error(error)
+  }
+}
 
   return (
     <div ref={dropdownRef} className="relative">
@@ -325,7 +402,29 @@ export default function AdminNotificationBell() {
 
             <div className="max-h-[520px] overflow-y-auto bg-slate-50/70 p-4">
               {selectedNotification ? (
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div
+                  role={isGuideReplacementNotification(selectedNotification) ? 'button' : undefined}
+                  tabIndex={isGuideReplacementNotification(selectedNotification) ? 0 : undefined}
+                  onClick={() => {
+                    if (isGuideReplacementNotification(selectedNotification)) {
+                      void goToGuideReplacementRequest(selectedNotification)
+                    }
+                  }}
+                  onKeyDown={(event) => {
+                    if (
+                      isGuideReplacementNotification(selectedNotification) &&
+                      (event.key === 'Enter' || event.key === ' ')
+                    ) {
+                      event.preventDefault()
+                      void goToGuideReplacementRequest(selectedNotification)
+                    }
+                  }}
+                  className={`rounded-2xl border border-slate-200 bg-white p-5 shadow-sm ${
+                    isGuideReplacementNotification(selectedNotification)
+                      ? 'cursor-pointer transition hover:border-orange-300 hover:bg-orange-50/40 hover:shadow-md'
+                      : ''
+                  }`}
+                >
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <span className="inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-blue-700 ring-1 ring-blue-100">
@@ -359,6 +458,12 @@ export default function AdminNotificationBell() {
                         'Không có nội dung.'}
                     </p>
                   </div>
+
+                  {isGuideReplacementNotification(selectedNotification) ? (
+                    <div className="mt-4 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm font-bold text-orange-800">
+                      Bấm vào thẻ chi tiết này để đi tới danh sách yêu cầu đổi HDV đang chờ xử lý.
+                    </div>
+                  ) : null}
                 </div>
               ) : (
                 <div className="flex h-full min-h-[300px] items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-center">

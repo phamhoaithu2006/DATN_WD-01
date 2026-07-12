@@ -7,6 +7,7 @@ import {
   getGuideTourOngoing,
   getGuideTourUpcoming,
   getGuideTours,
+  requestGuideReplacement,
 } from '../../services/guideTourApi'
 
 const TAB_CONFIG = {
@@ -36,11 +37,16 @@ function formatDate(value) {
   if (!value) return 'Chưa xác định'
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
-  return new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(date)
+  return new Intl.DateTimeFormat('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(date)
 }
 
 function formatMoney(value) {
   const number = Number(value || 0)
+
   return new Intl.NumberFormat('vi-VN', {
     style: 'currency',
     currency: 'VND',
@@ -50,6 +56,7 @@ function formatMoney(value) {
 
 function formatNumber(value) {
   const number = Number(value || 0)
+
   return new Intl.NumberFormat('vi-VN').format(Number.isFinite(number) ? number : 0)
 }
 
@@ -66,6 +73,7 @@ function initials(name) {
 function normalizePaginator(payload) {
   const paginator = payload?.data || {}
   const items = Array.isArray(paginator.data) ? paginator.data : []
+
   return {
     items,
     meta: {
@@ -81,16 +89,40 @@ function getDestination(item) {
   return item?.tour?.destination?.name || item?.tour?.destination?.province_city || 'Chưa có điểm đến'
 }
 
-function getTourState(item) {
+function toDateOnly(value) {
+  if (!value) return null
+
+  const raw = String(value).slice(0, 10)
+  const [year, month, day] = raw.split('-').map(Number)
+
+  if (!year || !month || !day) return null
+
+  const date = new Date(year, month - 1, day)
+  date.setHours(0, 0, 0, 0)
+
+  return date
+}
+
+function getToday() {
   const today = new Date()
-  const departureDate = item?.departure_date ? new Date(item.departure_date) : null
-  const returnDate = item?.return_date ? new Date(item.return_date) : departureDate
+  today.setHours(0, 0, 0, 0)
+
+  return today
+}
+
+function getTourState(item) {
+  const today = getToday()
+  const departureDate = toDateOnly(item?.departure_date)
+  const returnDate = toDateOnly(item?.return_date) || departureDate
   const status = String(item?.status || '').toLowerCase()
 
-  if (status === 'cancelled') return 'cancelled'
+  if (status === 'cancelled' || status === 'canceled') return 'cancelled'
   if (status === 'completed') return 'completed'
   if (departureDate && departureDate > today) return 'upcoming'
-  if (returnDate && returnDate >= today) return 'ongoing'
+  if (departureDate && returnDate && departureDate <= today && returnDate >= today) {
+    return 'ongoing'
+  }
+
   return 'completed'
 }
 
@@ -100,6 +132,7 @@ function getTourStateLabel(item) {
   if (state === 'ongoing') return 'Đang dẫn tour'
   if (state === 'completed') return 'Hoàn thành'
   if (state === 'cancelled') return 'Đã hủy'
+
   return 'Đã phân công'
 }
 
@@ -109,6 +142,7 @@ function getTourStateTone(item) {
   if (state === 'ongoing') return 'amber'
   if (state === 'completed') return 'blue'
   if (state === 'cancelled') return 'red'
+
   return 'blue'
 }
 
@@ -132,9 +166,72 @@ function cleanFilters(filters) {
 }
 
 function compareDepartureDate(a, b) {
-  const aTime = new Date(a?.departure_date || 0).getTime()
-  const bTime = new Date(b?.departure_date || 0).getTime()
+  const aTime = toDateOnly(a?.departure_date)?.getTime() || 0
+  const bTime = toDateOnly(b?.departure_date)?.getTime() || 0
   return aTime - bTime
+}
+
+function getTourSortRank(item) {
+  const state = getTourState(item)
+
+  if (state === 'ongoing') return 1
+  if (state === 'upcoming') return 2
+  if (state === 'completed') return 3
+  if (state === 'cancelled') return 4
+
+  return 5
+}
+
+function getAssignmentKey(item) {
+  return String(
+    item?.assignment_id ||
+      item?.assignment?.id ||
+      item?.tour_guide_assignment_id ||
+      item?.id ||
+      '',
+  )
+}
+
+function hasPendingReplacement(item) {
+  return Boolean(
+    item?.replacement_request_pending ||
+      item?.pending_replacement_request ||
+      item?.guide_replacement_request?.status === 'pending',
+  )
+}
+
+function canRequestReplacement(item) {
+  const state = getTourState(item)
+
+  if (!['upcoming', 'ongoing'].includes(state)) {
+    return {
+      ok: false,
+      reason: 'Tour đã qua hoặc đã hủy nên không thể yêu cầu đổi HDV.',
+    }
+  }
+
+  if (hasPendingReplacement(item)) {
+    return {
+      ok: false,
+      reason: 'Tour này đã có yêu cầu đổi HDV đang chờ duyệt.',
+    }
+  }
+
+  const departureDate = toDateOnly(item?.departure_date)
+  const minDate = getToday()
+  minDate.setDate(minDate.getDate() + 5)
+
+  if (departureDate && departureDate < minDate) {
+    return {
+      ok: false,
+      reason: 'Yêu cầu đổi HDV cần gửi trước ngày khởi hành ít nhất 5 ngày.',
+    }
+  }
+
+  return {
+    ok: true,
+    reason: '',
+  }
 }
 
 function getRandomHeroImage() {
@@ -163,15 +260,32 @@ function TourStatCard({ label, value, icon, tone, hint, active, onClick }) {
   )
 }
 
-function TourRow({ item, active, onDetail }) {
+function TourRow({ item, active, isNew, onDetail, onRequestChange }) {
   const image = getTourImage(item)
   const title = item?.tour?.title || 'Tour được phân công'
   const note = item?.assignment_note || item?.assignment?.note || item?.notes || 'Chưa có ghi chú phân công.'
   const statusLabel = getTourStateLabel(item)
   const statusTone = getTourStateTone(item)
+  const state = getTourState(item)
+  const requestState = canRequestReplacement(item)
 
   return (
-    <article className={`guide-tour-row-card ${active ? 'is-active' : ''}`}>
+    <article
+      className={[
+        'guide-tour-row-card',
+        `state-${state}`,
+        active ? 'is-active' : '',
+        isNew ? 'is-new' : '',
+        hasPendingReplacement(item) ? 'has-replacement-request' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
+      {isNew ? <span className="guide-tour-new-badge">NEW</span> : null}
+      {hasPendingReplacement(item) ? (
+        <span className="guide-tour-request-badge">Đang chờ đổi HDV</span>
+      ) : null}
+
       <button type="button" className="guide-tour-row-main" onClick={onDetail}>
         <div className="guide-tour-row-image-wrap">
           {image ? (
@@ -215,13 +329,35 @@ function TourRow({ item, active, onDetail }) {
         <button type="button" className="guide-tour-detail-btn" onClick={onDetail}>
           Chi tiết
         </button>
+
+        <button
+          type="button"
+          className="guide-tour-change-btn"
+          disabled={!requestState.ok}
+          onClick={() => onRequestChange(item)}
+          title={requestState.reason || 'Yêu cầu đổi HDV'}
+        >
+          Yêu cầu đổi HDV
+        </button>
+
+        {!requestState.ok ? (
+          <small className="guide-tour-change-hint">{requestState.reason}</small>
+        ) : null}
       </div>
     </article>
   )
 }
 
-function TourDetailModal({ open, item, loading, onClose }) {
+function TourDetailModal({
+  open,
+  item,
+  loading,
+  isNew,
+  onClose,
+  onRequestChange,
+}) {
   const image = getTourImage(item)
+  const requestState = item ? canRequestReplacement(item) : { ok: false, reason: '' }
 
   if (!open) return null
 
@@ -231,6 +367,8 @@ function TourDetailModal({ open, item, loading, onClose }) {
         <button type="button" className="guide-tour-modal-close" onClick={onClose} aria-label="Đóng">
           ×
         </button>
+
+        {isNew ? <span className="guide-tour-modal-new">NEW</span> : null}
 
         <div className="guide-tour-modal-hero">
           <div className="guide-tour-modal-image-wrap">
@@ -245,6 +383,20 @@ function TourDetailModal({ open, item, loading, onClose }) {
             <span className={`guide-tour-pill tone-${getTourStateTone(item)}`}>{getTourStateLabel(item)}</span>
             <h3>{item?.tour?.title || 'Chi tiết tour'}</h3>
             <p>{getDestination(item)}</p>
+
+            <button
+              type="button"
+              className="guide-tour-modal-request-btn"
+              disabled={!requestState.ok}
+              onClick={() => onRequestChange(item)}
+              title={requestState.reason || 'Yêu cầu đổi HDV'}
+            >
+              Yêu cầu đổi HDV
+            </button>
+
+            {!requestState.ok && requestState.reason ? (
+              <small className="guide-tour-modal-request-hint">{requestState.reason}</small>
+            ) : null}
           </div>
         </div>
 
@@ -304,6 +456,78 @@ function TourDetailModal({ open, item, loading, onClose }) {
   )
 }
 
+function ReplacementRequestModal({
+  open,
+  item,
+  reason,
+  evidence,
+  errors,
+  submitting,
+  onReasonChange,
+  onEvidenceChange,
+  onClose,
+  onSubmit,
+}) {
+  if (!open || !item) return null
+
+  return (
+    <div className="guide-tour-modal-backdrop" role="presentation" onClick={onClose}>
+      <div className="guide-replace-modal" role="dialog" aria-modal="true" aria-label="Yêu cầu đổi HDV" onClick={(event) => event.stopPropagation()}>
+        <button type="button" className="guide-tour-modal-close" onClick={onClose} aria-label="Đóng">
+          ×
+        </button>
+
+        <div className="guide-replace-modal-head">
+          <span>Yêu cầu đổi HDV</span>
+          <h3>{item?.tour?.title || 'Tour được phân công'}</h3>
+          <p>
+            Vui lòng gửi yêu cầu trước ngày khởi hành ít nhất 5 ngày. Admin sẽ duyệt và tự động phân công HDV khác nếu yêu cầu được chấp nhận.
+          </p>
+        </div>
+
+        <form className="guide-replace-form" onSubmit={onSubmit} noValidate>
+          <label>
+            <span>
+              Lý do xin đổi HDV <b>*</b>
+            </span>
+            <textarea
+              value={reason}
+              onChange={(event) => onReasonChange(event.target.value)}
+              rows={5}
+              disabled={submitting}
+              placeholder="Ví dụ: Tôi có việc gia đình đột xuất, cần xin đổi HDV phụ trách tour này..."
+              className={errors.reason ? 'is-invalid' : ''}
+            />
+            {errors.reason ? <small>{errors.reason}</small> : null}
+          </label>
+
+          <label>
+            <span>Ảnh / file bằng chứng nếu cần</span>
+            <input
+              type="file"
+              accept="image/*,.pdf"
+              disabled={submitting}
+              onChange={(event) => onEvidenceChange(event.target.files?.[0] || null)}
+              className={errors.evidence ? 'is-invalid' : ''}
+            />
+            {evidence ? <em>Đã chọn: {evidence.name}</em> : null}
+            {errors.evidence ? <small>{errors.evidence}</small> : null}
+          </label>
+
+          <div className="guide-replace-form-actions">
+            <button type="button" onClick={onClose} disabled={submitting}>
+              Hủy
+            </button>
+            <button type="submit" disabled={submitting}>
+              {submitting ? 'Đang gửi...' : 'Gửi yêu cầu'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 function GuideToursPage() {
   const [activeTab, setActiveTab] = useState('all')
   const [filters, setFilters] = useState({
@@ -324,7 +548,17 @@ function GuideToursPage() {
   const [selectedTourDetail, setSelectedTourDetail] = useState(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [heroImage, setHeroImage] = useState(getRandomHeroImage())
+  const [newTourIds, setNewTourIds] = useState(() => new Set())
+  const [replaceModalOpen, setReplaceModalOpen] = useState(false)
+  const [replaceTarget, setReplaceTarget] = useState(null)
+  const [replaceReason, setReplaceReason] = useState('')
+  const [replaceEvidence, setReplaceEvidence] = useState(null)
+  const [replaceErrors, setReplaceErrors] = useState({})
+  const [replaceSubmitting, setReplaceSubmitting] = useState(false)
+
   const selectedTourIdRef = useRef(selectedTourId)
+  const knownAssignmentIdsRef = useRef(new Set())
+  const initializedAssignmentsRef = useRef(false)
 
   useEffect(() => {
     selectedTourIdRef.current = selectedTourId
@@ -339,6 +573,30 @@ function GuideToursPage() {
   }, [])
 
   useEffect(() => {
+    function handleNewAssignment(event) {
+      const ids = Array.isArray(event.detail?.ids) ? event.detail.ids : []
+
+      if (ids.length === 0) return
+
+      setNewTourIds((current) => {
+        const next = new Set(current)
+
+        ids.forEach((id) => {
+          if (id) next.add(String(id))
+        })
+
+        return next
+      })
+    }
+
+    window.addEventListener('guide-tour:new-assignment-detected', handleNewAssignment)
+
+    return () => {
+      window.removeEventListener('guide-tour:new-assignment-detected', handleNewAssignment)
+    }
+  }, [])
+
+  useEffect(() => {
     let mounted = true
 
     async function loadTours() {
@@ -348,39 +606,54 @@ function GuideToursPage() {
 
       try {
         const params = { page, per_page: 5, ...cleanFilters(appliedFilters) }
-        const [all, upcoming, ongoing, completed] = await Promise.all([
-          RESPONSE_FETCHERS.all(params),
-          RESPONSE_FETCHERS.upcoming(params),
-          RESPONSE_FETCHERS.ongoing(params),
-          RESPONSE_FETCHERS.completed(params),
+        const [all, upcoming, ongoing, completed, activePayload] = await Promise.all([
+          getGuideTours({ per_page: 1 }),
+          getGuideTourUpcoming({ per_page: 1 }),
+          getGuideTourOngoing({ per_page: 1 }),
+          getGuideTourCompleted({ per_page: 1 }),
+          RESPONSE_FETCHERS[activeTab](params),
         ])
 
         if (!mounted) return
 
-        const normalized = {
-          all: normalizePaginator(all),
-          upcoming: normalizePaginator(upcoming),
-          ongoing: normalizePaginator(ongoing),
-          completed: normalizePaginator(completed),
+        const active = normalizePaginator(activePayload)
+        const nextItems = active.items
+        const currentAssignmentIds = new Set(nextItems.map(getAssignmentKey).filter(Boolean))
+
+        if (!initializedAssignmentsRef.current) {
+          knownAssignmentIdsRef.current = currentAssignmentIds
+          initializedAssignmentsRef.current = true
+        } else {
+          const detectedNewIds = [...currentAssignmentIds].filter(
+            (id) => !knownAssignmentIdsRef.current.has(id),
+          )
+
+          if (detectedNewIds.length > 0) {
+            setNewTourIds((current) => {
+              const next = new Set(current)
+              detectedNewIds.forEach((id) => next.add(String(id)))
+              return next
+            })
+          }
+
+          knownAssignmentIdsRef.current = new Set([
+            ...knownAssignmentIdsRef.current,
+            ...currentAssignmentIds,
+          ])
         }
 
+        setItems(nextItems)
+        setMeta(active.meta)
         setTabTotals({
-          all: normalized.all.meta.total,
-          upcoming: normalized.upcoming.meta.total,
-          ongoing: normalized.ongoing.meta.total,
-          completed: normalized.completed.meta.total,
+          all: normalizePaginator(all).meta.total,
+          upcoming: normalizePaginator(upcoming).meta.total,
+          ongoing: normalizePaginator(ongoing).meta.total,
+          completed: normalizePaginator(completed).meta.total,
         })
 
-        const nextItems = normalized[activeTab]?.items || normalized.all.items
-        const nextMeta = normalized[activeTab]?.meta || normalized.all.meta
-
-        setItems(nextItems)
-        setMeta(nextMeta)
-
         const currentSelectedId = selectedTourIdRef.current
-        const nextSelectedId = nextItems.some((item) => item.id === currentSelectedId)
-          ? currentSelectedId
-          : nextItems[0]?.id || null
+        const stillExists = nextItems.some((item) => item.id === currentSelectedId)
+        const nextSelectedId = stillExists ? currentSelectedId : nextItems[0]?.id || null
 
         if (nextSelectedId !== currentSelectedId) {
           setSelectedTourId(nextSelectedId)
@@ -437,19 +710,36 @@ function GuideToursPage() {
   const modalItem = selectedTourDetail || currentItem
   const heroItem = currentItem || items[0] || null
   const guide = readSession()
+
   const visibleItems = useMemo(() => {
     const sorted = [...items]
 
-    if (filters.sort_by === 'soon') {
-      sorted.sort(compareDepartureDate)
-    } else if (filters.sort_by === 'oldest') {
-      sorted.sort((a, b) => compareDepartureDate(b, a))
-    } else if (filters.sort_by === 'latest') {
-      sorted.sort((a, b) => compareDepartureDate(b, a))
-    }
+    sorted.sort((a, b) => {
+      const aKey = getAssignmentKey(a)
+      const bKey = getAssignmentKey(b)
+      const aNew = newTourIds.has(aKey) ? 1 : 0
+      const bNew = newTourIds.has(bKey) ? 1 : 0
+
+      if (aNew !== bNew) return bNew - aNew
+
+      const aPending = hasPendingReplacement(a) ? 1 : 0
+      const bPending = hasPendingReplacement(b) ? 1 : 0
+
+      if (aPending !== bPending) return bPending - aPending
+
+      const rankDiff = getTourSortRank(a) - getTourSortRank(b)
+
+      if (rankDiff !== 0) return rankDiff
+
+      if (filters.sort_by === 'oldest' || filters.sort_by === 'latest') {
+        return compareDepartureDate(b, a)
+      }
+
+      return compareDepartureDate(a, b)
+    })
 
     return sorted
-  }, [filters.sort_by, items])
+  }, [filters.sort_by, items, newTourIds])
 
   const selectedCount = Number(meta.total || 0)
 
@@ -484,10 +774,113 @@ function GuideToursPage() {
     setPage(1)
   }
 
+  function clearNewFlag(item) {
+    const key = getAssignmentKey(item)
+
+    if (!key) return
+
+    setNewTourIds((current) => {
+      if (!current.has(key)) return current
+
+      const next = new Set(current)
+      next.delete(key)
+
+      if (next.size === 0) {
+        window.dispatchEvent(new Event('guide-tour:new-assignment-cleared'))
+      }
+
+      return next
+    })
+  }
+
   function openDetail(item) {
+    clearNewFlag(item)
     setSelectedTourId(item.id)
     setDetailOpen(true)
     setSelectedTourDetail(null)
+  }
+
+  function openReplacementRequest(item) {
+    const requestState = canRequestReplacement(item)
+
+    if (!requestState.ok) {
+      setError(requestState.reason)
+      return
+    }
+
+    clearNewFlag(item)
+    setReplaceTarget(item)
+    setReplaceReason('')
+    setReplaceEvidence(null)
+    setReplaceErrors({})
+    setReplaceModalOpen(true)
+  }
+
+  function validateReplacementForm() {
+    const errors = {}
+
+    if (!replaceReason.trim()) {
+      errors.reason = 'Vui lòng nhập lý do xin đổi HDV.'
+    } else if (replaceReason.trim().length < 10) {
+      errors.reason = 'Lý do cần ít nhất 10 ký tự.'
+    }
+
+    if (replaceEvidence && replaceEvidence.size > 5 * 1024 * 1024) {
+      errors.evidence = 'File bằng chứng không được vượt quá 5MB.'
+    }
+
+    return errors
+  }
+
+  async function submitReplacementRequest(event) {
+    event.preventDefault()
+
+    const errors = validateReplacementForm()
+
+    if (Object.keys(errors).length > 0) {
+      setReplaceErrors(errors)
+      return
+    }
+
+    try {
+      setReplaceSubmitting(true)
+      setReplaceErrors({})
+      setError('')
+      setMessage('')
+
+      await requestGuideReplacement(replaceTarget.id, {
+        reason: replaceReason.trim(),
+        evidence: replaceEvidence,
+      })
+
+      setMessage('Đã gửi yêu cầu đổi HDV. Admin sẽ xem xét và phản hồi.')
+      setReplaceModalOpen(false)
+      setReplaceTarget(null)
+      setItems((current) =>
+        current.map((item) =>
+          item.id === replaceTarget.id
+            ? {
+                ...item,
+                replacement_request_pending: true,
+              }
+            : item,
+        ),
+      )
+      window.dispatchEvent(new Event('guide-notification:changed'))
+    } catch (submitError) {
+      const payloadErrors = submitError?.response?.data?.errors
+
+      if (payloadErrors) {
+        setReplaceErrors({
+          reason: payloadErrors.reason?.[0],
+          evidence: payloadErrors.evidence?.[0],
+        })
+      }
+
+      setError(submitError?.response?.data?.message || 'Không gửi được yêu cầu đổi HDV.')
+    } finally {
+      setReplaceSubmitting(false)
+    }
   }
 
   return (
@@ -502,7 +895,7 @@ function GuideToursPage() {
           <h1>Xin chào, {guide?.full_name || guide?.name || 'HDV'}</h1>
           <p>
             {heroItem?.tour?.title
-              ? `Bạn đang có ${formatNumber(tabTotals.all)} tour được phân công, hãy theo dõi lịch khởi hành và mở chi tiết nhanh chóng.`
+              ? `Bạn đang có ${formatNumber(tabTotals.all)} tour được phân công. Tour đang dẫn được ưu tiên lên đầu, tour sắp diễn ra ở giữa và tour đã qua xuống cuối.`
               : 'Bạn đang xem danh sách tour được phân công, có thể lọc theo thời gian và điểm đến.'}
           </p>
         </div>
@@ -547,51 +940,51 @@ function GuideToursPage() {
         />
       </section>
 
-        <form className="guide-tour-filter-bar" onSubmit={handleSearchSubmit}>
-          <label className="guide-tour-filter-field search">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="11" cy="11" r="8" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-            <input
-              type="text"
-              value={filters.keyword}
-              onChange={(event) => updateFilter('keyword', event.target.value)}
-              placeholder="Tìm kiếm tour..."
-            />
-          </label>
+      <form className="guide-tour-filter-bar" onSubmit={handleSearchSubmit}>
+        <label className="guide-tour-filter-field search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input
+            type="text"
+            value={filters.keyword}
+            onChange={(event) => updateFilter('keyword', event.target.value)}
+            placeholder="Tìm kiếm tour..."
+          />
+        </label>
 
-          <label className="guide-tour-filter-field">
-            <select
-              value={filters.sort_by}
-              onChange={(event) => handleSortChange(event.target.value)}
-              aria-label="Lọc sắp xếp"
-            >
-              <option value="default">Sắp xếp</option>
-              <option value="latest">Mới nhất</option>
-              <option value="soon">Sớm nhất</option>
-              <option value="oldest">Cũ nhất</option>
-            </select>
-          </label>
+        <label className="guide-tour-filter-field">
+          <select
+            value={filters.sort_by}
+            onChange={(event) => handleSortChange(event.target.value)}
+            aria-label="Lọc sắp xếp"
+          >
+            <option value="default">Ưu tiên trạng thái</option>
+            <option value="soon">Ngày gần nhất</option>
+            <option value="latest">Ngày xa nhất</option>
+            <option value="oldest">Cũ nhất</option>
+          </select>
+        </label>
 
-          <label className="guide-tour-filter-field">
-            <input
-              type="date"
-              value={filters.from_date}
-              onChange={(event) => updateFilter('from_date', event.target.value)}
-              aria-label="Ngày"
-            />
-          </label>
+        <label className="guide-tour-filter-field">
+          <input
+            type="date"
+            value={filters.from_date}
+            onChange={(event) => updateFilter('from_date', event.target.value)}
+            aria-label="Ngày"
+          />
+        </label>
 
-          <div className="guide-tour-filter-actions">
-            <button type="submit" className="guide-tour-filter-submit">
-              Lọc
-            </button>
-            <button type="button" className="guide-tour-filter-reset" onClick={handleResetFilters}>
-              Đặt lại
-            </button>
-          </div>
-        </form>
+        <div className="guide-tour-filter-actions">
+          <button type="submit" className="guide-tour-filter-submit">
+            Lọc
+          </button>
+          <button type="button" className="guide-tour-filter-reset" onClick={handleResetFilters}>
+            Đặt lại
+          </button>
+        </div>
+      </form>
 
       {(error || message) && (
         <div className={error ? 'guide-profile-alert is-error' : 'guide-profile-alert'}>{error || message}</div>
@@ -619,7 +1012,9 @@ function GuideToursPage() {
                   key={item.id}
                   item={item}
                   active={selectedTourId === item.id}
+                  isNew={newTourIds.has(getAssignmentKey(item))}
                   onDetail={() => openDetail(item)}
+                  onRequestChange={openReplacementRequest}
                 />
               ))}
             </div>
@@ -636,6 +1031,7 @@ function GuideToursPage() {
                 </button>
                 <div className="guide-tour-page-numbers">
                   <span className="is-active">{formatNumber(meta.current_page)}</span>
+                  <small>/ {formatNumber(meta.last_page)}</small>
                 </div>
                 <button
                   type="button"
@@ -657,10 +1053,36 @@ function GuideToursPage() {
         open={detailOpen}
         item={modalItem}
         loading={detailLoading}
+        isNew={modalItem ? newTourIds.has(getAssignmentKey(modalItem)) : false}
+        onRequestChange={openReplacementRequest}
         onClose={() => {
           setDetailOpen(false)
           setSelectedTourDetail(null)
         }}
+      />
+
+      <ReplacementRequestModal
+        open={replaceModalOpen}
+        item={replaceTarget}
+        reason={replaceReason}
+        evidence={replaceEvidence}
+        errors={replaceErrors}
+        submitting={replaceSubmitting}
+        onReasonChange={(value) => {
+          setReplaceReason(value)
+          setReplaceErrors((current) => ({ ...current, reason: '' }))
+        }}
+        onEvidenceChange={(file) => {
+          setReplaceEvidence(file)
+          setReplaceErrors((current) => ({ ...current, evidence: '' }))
+        }}
+        onClose={() => {
+          if (!replaceSubmitting) {
+            setReplaceModalOpen(false)
+            setReplaceTarget(null)
+          }
+        }}
+        onSubmit={submitReplacementRequest}
       />
     </div>
   )
