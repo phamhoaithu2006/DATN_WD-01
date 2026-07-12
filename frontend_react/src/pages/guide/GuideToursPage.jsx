@@ -727,13 +727,21 @@ function GuideToursPage() {
 
       if (aPending !== bPending) return bPending - aPending
 
+      if (filters.sort_by === 'soon') {
+        return compareDepartureDate(a, b)
+      }
+
+      if (filters.sort_by === 'latest') {
+        return compareDepartureDate(b, a)
+      }
+
+      if (filters.sort_by === 'oldest') {
+        return compareDepartureDate(a, b)
+      }
+
       const rankDiff = getTourSortRank(a) - getTourSortRank(b)
 
       if (rankDiff !== 0) return rankDiff
-
-      if (filters.sort_by === 'oldest' || filters.sort_by === 'latest') {
-        return compareDepartureDate(b, a)
-      }
 
       return compareDepartureDate(a, b)
     })
@@ -960,10 +968,10 @@ function GuideToursPage() {
             onChange={(event) => handleSortChange(event.target.value)}
             aria-label="Lọc sắp xếp"
           >
-            <option value="default">Ưu tiên trạng thái</option>
+            <option value="default">Trạng thái ưu tiên</option>
             <option value="soon">Ngày gần nhất</option>
             <option value="latest">Ngày xa nhất</option>
-            <option value="oldest">Cũ nhất</option>
+            <option value="oldest">Ngày cũ nhất</option>
           </select>
         </label>
 

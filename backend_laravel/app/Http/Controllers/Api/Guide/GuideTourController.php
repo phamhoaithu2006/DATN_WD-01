@@ -424,6 +424,7 @@ class GuideTourController extends Controller
             $tourTitle,
             $guideName,
             $departureDate,
+            $returnDate,
             $reason,
             $departure,
             $guide,
