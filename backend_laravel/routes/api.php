@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\Admin\AdminGuideReplacementRequestController;
 use App\Http\Controllers\Api\Admin\AdminNotificationBellController;
 use App\Http\Controllers\Api\Admin\AdminNotificationController;
 use App\Http\Controllers\Api\Admin\AdminProfileController;
@@ -391,6 +392,29 @@ Route::prefix('admin') ->middleware('auth:sanctum')->group(function () {
     Route::get('notification-bell', [AdminNotificationBellController::class, 'index']);
     Route::patch('notification-bell/read-all', [AdminNotificationBellController::class, 'markAllAsRead']);
     Route::patch('notification-bell/{id}/read', [AdminNotificationBellController::class, 'markAsRead']);
+
+    /*
+    |--------------------------------------------------------------------------
+    | ADMIN ROUTES
+    |--------------------------------------------------------------------------
+    | Đặt trong group admin auth:sanctum.
+    | Route này phục vụ màn admin: đưa tour có yêu cầu đổi HDV lên đầu,
+    | admin có nút Duyệt / Không duyệt.
+    */
+    Route::get(
+        'guide-replacement-requests',
+        [AdminGuideReplacementRequestController::class, 'index']
+    );
+
+    Route::post(
+        'guide-replacement-requests/{id}/approve',
+        [AdminGuideReplacementRequestController::class, 'approve']
+    );
+
+    Route::post(
+        'guide-replacement-requests/{id}/reject',
+        [AdminGuideReplacementRequestController::class, 'reject']
+    );
 });
 
 // =============================== Hướng dẫn viên ===============================
@@ -421,4 +445,17 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/guide/tours/{tourDeparture}/stages', [GuideAttendanceController::class, 'stages']);
     Route::post('/guide/tours/{tourDeparture}/stages/advance', [GuideAttendanceController::class, 'advanceStage']);
     Route::get('/guide/tours/{departureId}', [GuideTourController::class, 'show']);
+
+        Route::post(
+        '/guide/tours/{tourDeparture}/replacement-requests',
+        [GuideTourController::class, 'requestReplacement']
+    );
+
+    Route::get(
+        '/guide/tours/{tourDeparture}/replacement-requests/status',
+        [GuideTourController::class, 'replacementRequestStatus']
+    );
 });
+
+
+
