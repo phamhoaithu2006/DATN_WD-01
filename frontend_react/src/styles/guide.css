@@ -1,10 +1,12 @@
-﻿.guide-shell {
+.guide-shell {
+  height: 100svh;
   min-height: 100svh;
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);
   background: #f8fafc;
   color: #1e293b;
   transition: grid-template-columns 180ms ease;
+  overflow: hidden;
 }
 
 .guide-shell.sidebar-collapsed {
@@ -14,13 +16,18 @@
 .guide-sidebar {
   position: sticky;
   top: 0;
-  min-height: 100svh;
+  align-self: start;
+  height: 100svh;
+  max-height: 100svh;
   display: flex;
   flex-direction: column;
   padding: 24px 18px;
   background: #ffffff;
   color: #334155;
   border-right: 1px solid #e2e8f0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  z-index: 20;
 }
 
 .guide-brand {
@@ -242,7 +249,8 @@
   border-radius: 12px;
   transition: background 150ms ease;
   width: 100%;
-  margin-top: 8px;
+  margin-top: auto;
+  margin-bottom: 4px;
 }
 
 .guide-logout-button:hover {
@@ -262,7 +270,9 @@
 
 .guide-main {
   min-width: 0;
+  height: 100svh;
   padding: 32px;
+  overflow-y: auto;
 }
 
 /* Topbar restyling */
@@ -449,15 +459,20 @@
 }
 
 .guide-topbar-avatar {
-  width: 36px;
-  height: 36px;
-  display: grid;
-  place-items: center;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 999px;
   background: #1454f0;
   color: #ffffff;
-  font-size: 0.85rem;
-  font-weight: 700;
+  font-size: 0.74rem;
+  font-weight: 800;
+  font-family: inherit;
+  line-height: 1;
+  text-align: center;
+  letter-spacing: -0.01em;
   overflow: hidden;
   flex-shrink: 0;
 }
@@ -501,67 +516,28 @@
   top: calc(100% + 10px);
   right: 0;
   z-index: 45;
-  width: 280px;
-  padding: 10px;
+  width: 228px;
+  max-width: calc(100vw - 24px);
+  padding: 6px;
   border: 1px solid #e2e8f0;
-  border-radius: 14px;
+  border-radius: 12px;
   background: #ffffff;
-  box-shadow: 0 22px 45px rgba(15, 23, 42, 0.18);
-}
-
-.guide-account-summary {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 10px 12px;
-  border-bottom: 1px solid #eef2f7;
-  margin-bottom: 8px;
-}
-
-.guide-account-avatar {
-  width: 42px;
-  height: 42px;
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  overflow: hidden;
-  border-radius: 999px;
-  background: #1454f0;
-  color: #ffffff;
-  font-size: 0.9rem;
-  font-weight: 800;
-}
-
-.guide-account-summary strong,
-.guide-account-summary span {
-  display: block;
-}
-
-.guide-account-summary strong {
-  color: #0f172a;
-  font-size: 0.92rem;
-}
-
-.guide-account-summary span {
-  margin-top: 2px;
-  color: #64748b;
-  font-size: 0.78rem;
-  word-break: break-word;
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.14);
 }
 
 .guide-account-dropdown button {
   width: 100%;
-  min-height: 42px;
+  min-height: 38px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   border: none;
   border-radius: 10px;
   background: transparent;
   color: #334155;
   cursor: pointer;
   font: inherit;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   font-weight: 700;
   text-align: left;
   padding: 0 10px;
@@ -575,8 +551,8 @@
 }
 
 .guide-account-dropdown button svg {
-  width: 18px;
-  height: 18px;
+  width: 17px;
+  height: 17px;
   fill: none;
   stroke: currentColor;
   stroke-linecap: round;
@@ -663,13 +639,18 @@
   .guide-shell,
   .guide-shell.sidebar-collapsed {
     grid-template-columns: 1fr;
+    height: auto;
+    min-height: 100svh;
+    overflow: visible;
   }
 
   .guide-sidebar {
     position: static;
-    min-height: auto;
+    height: auto;
+    max-height: none;
     border-right: none;
     border-bottom: 1px solid #e2e8f0;
+    overflow: visible;
   }
 
   .guide-nav {
@@ -680,7 +661,9 @@
   }
 
   .guide-main {
+    height: auto;
     padding: 24px;
+    overflow: visible;
   }
 
   .guide-topbar {
@@ -2037,6 +2020,14 @@
 .guide-empty-text {
   color: #64748b;
   font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.guide-field-hint {
+  display: block;
+  margin-top: 6px;
+  color: #64748b;
+  font-size: 0.78rem;
   line-height: 1.45;
 }
 
@@ -3750,6 +3741,8 @@
     flex: 0 0 auto;
   }
 }
+
+
 
 /* Guide tour state colors, NEW badge, and replacement request modal */
 

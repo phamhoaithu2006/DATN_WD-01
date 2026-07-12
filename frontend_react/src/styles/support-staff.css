@@ -1123,6 +1123,16 @@
   margin-top: 6px;
 }
 
+.support-field-hint {
+  color: #64748b;
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  margin-top: 8px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
 .guide-avatar-upload {
   display: grid;
   gap: 12px;

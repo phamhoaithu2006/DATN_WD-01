@@ -25,46 +25,40 @@ class CustomerManagerController extends Controller
         $roleName = $user->role?->name;
 
         if ($roleName === 'support staff') {
-            $this->restoreOrCreateSupportStaff($user);
+            $this->restoreSupportStaff($user);
         } else {
             $this->archiveSupportStaff($user);
         }
 
         if ($roleName === 'tour guide') {
-            $this->restoreOrCreateGuide($user);
+            $this->restoreGuide($user);
         } else {
             $this->archiveGuide($user);
         }
     }
 
-    private function restoreOrCreateSupportStaff(User $user): void
+    private function restoreSupportStaff(User $user): void
     {
         $staff = SupportStaff::withTrashed()
             ->where('user_id', $user->id)
             ->orWhere('email', $user->email)
             ->first();
 
-        $payload = [
+        if (!$staff) {
+            return;
+        }
+
+        if ($staff->trashed()) {
+            $staff->restore();
+        }
+
+        $staff->update([
             'user_id' => $user->id,
             'name' => $user->full_name,
             'email' => $user->email,
             'role' => 'customer_service',
             'status' => $user->status === 'inactive' ? 'inactive' : 'active',
             'hidden_at' => null,
-        ];
-
-        if ($staff) {
-            if ($staff->trashed()) {
-                $staff->restore();
-            }
-
-            $staff->update($payload);
-            return;
-        }
-
-        SupportStaff::create([
-            ...$payload,
-            'performance_rating' => 5,
         ]);
     }
 
@@ -84,31 +78,38 @@ class CustomerManagerController extends Controller
         $staff->delete();
     }
 
-    private function restoreOrCreateGuide(User $user): void
+    private function restoreGuide(User $user): void
     {
         $guide = Guide::withTrashed()->where('user_id', $user->id)->first();
 
-        $payload = [
-            'user_id' => $user->id,
-            'experience_years' => $guide?->experience_years ?? 0,
-            'average_rating' => $guide?->average_rating ?? 0,
-            'review_count' => $guide?->review_count ?? 0,
-            'status' => $user->status === 'inactive' ? 'inactive' : 'active',
-        ];
-
         if ($guide) {
+            if ($this->isPlaceholderGuide($guide)) {
+                if (!$guide->trashed()) {
+                    $guide->delete();
+                }
+
+                return;
+            }
+
             if ($guide->trashed()) {
                 $guide->restore();
             }
 
-            $guide->update($payload);
-            return;
+            $guide->update([
+                'user_id' => $user->id,
+                'status' => $user->status === 'inactive' ? 'inactive' : 'active',
+            ]);
         }
+    }
 
-        Guide::create([
-            ...$payload,
-            'guide_code' => $this->generateGuideCode(),
-        ]);
+    private function isPlaceholderGuide(Guide $guide): bool
+    {
+        return (int) $guide->experience_years === 0
+            && (float) $guide->average_rating === 0.0
+            && (int) $guide->review_count === 0
+            && !$guide->destinations()->exists()
+            && !$guide->languages()->exists()
+            && !$guide->experiences()->exists();
     }
 
     private function archiveGuide(User $user): void

@@ -5,6 +5,9 @@ const SUPPORT_STAFF_ENDPOINT = '/admin/support-staff'
 export const getSupportStaffStatistics = async () =>
   (await apiClient.get(`${SUPPORT_STAFF_ENDPOINT}/statistics`)).data
 
+export const getAvailableSupportStaffUsers = async () =>
+  (await apiClient.get(`${SUPPORT_STAFF_ENDPOINT}/available-users`)).data
+
 export const getSupportStaffs = async (params) =>
   (await apiClient.get(SUPPORT_STAFF_ENDPOINT, { params })).data
 

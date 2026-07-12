@@ -334,6 +334,7 @@ function GuideManagementPage() {
   const [certificates, setCertificates] = useState([])
   const [destinations, setDestinations] = useState([])
   const [availableUsers, setAvailableUsers] = useState([])
+  const [availableUsersLoading, setAvailableUsersLoading] = useState(false)
 
   const [form, setForm] = useState(DEFAULT_FORM)
   const [editingGuideId, setEditingGuideId] = useState(null)
@@ -413,18 +414,15 @@ function GuideManagementPage() {
         languageResponse,
         certificateResponse,
         destinationResponse,
-        availableUserResponse,
       ] = await Promise.all([
         apiClient.get('/admin/languages'),
         apiClient.get('/admin/certificates'),
         apiClient.get('/admin/guides/destination-options'),
-        apiClient.get('/admin/guides/available-users'),
       ])
 
       setLanguages(unwrapList(languageResponse))
       setCertificates(unwrapList(certificateResponse))
       setDestinations(unwrapList(destinationResponse))
-      setAvailableUsers(unwrapList(availableUserResponse))
     } catch (requestError) {
       setError(
         getErrorMessage(
@@ -432,6 +430,24 @@ function GuideManagementPage() {
           'Không tải được danh mục ngôn ngữ, chứng chỉ hoặc khu vực.',
         ),
       )
+    }
+  }, [])
+
+  const loadAvailableUsers = useCallback(async () => {
+    setAvailableUsersLoading(true)
+
+    try {
+      const response = await apiClient.get('/admin/guides/available-users')
+      setAvailableUsers(unwrapList(response))
+    } catch (requestError) {
+      setError(
+        getErrorMessage(
+          requestError,
+          'Không tải được danh sách tài khoản HDV chưa có hồ sơ.',
+        ),
+      )
+    } finally {
+      setAvailableUsersLoading(false)
     }
   }, [])
 
@@ -735,6 +751,7 @@ function GuideManagementPage() {
     setIsFormOpen(true)
 
     void loadCatalogs()
+    void loadAvailableUsers()
   }
 
   function openEditForm(guide) {
@@ -762,6 +779,7 @@ function GuideManagementPage() {
     setIsFormOpen(true)
 
     void loadCatalogs()
+    void loadAvailableUsers()
   }
 
   function closeForm() {
@@ -830,10 +848,11 @@ function GuideManagementPage() {
         }
       }
 
-      await Promise.all([
+      await Promise.allSettled([
         loadGuides(pagination.currentPage),
         loadStatistics(),
         loadCatalogs(),
+        loadAvailableUsers(),
       ])
 
       closeForm()
@@ -1288,7 +1307,9 @@ function GuideManagementPage() {
                   }
                 >
                   <option value="" disabled>
-                    Chọn HDV
+                    {availableUsersLoading
+                      ? 'Đang tải tài khoản...'
+                      : 'Chọn tài khoản HDV chưa có hồ sơ'}
                   </option>
 
                   {selectableUsers.map((user) => (
@@ -1297,6 +1318,10 @@ function GuideManagementPage() {
                     </option>
                   ))}
                 </select>
+
+                <small className="guide-field-hint">
+                  Chỉ hiển thị tài khoản HDV chưa tạo hồ sơ hướng dẫn viên.
+                </small>
 
                 {formErrors.user_id ? (
                   <span className="guide-field-error">

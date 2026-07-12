@@ -35,13 +35,12 @@ const normalizeList = (payload) => {
 }
 
 export const getAdminDashboardSnapshot = async (year) => {
-  const [overviewPayload, chartsPayload, bookingStatsPayload, customerStatsPayload, guideStatsPayload, partnerStatsPayload, supportStatsPayload, tourStatsPayload, bookingsPayload, toursPayload] = await Promise.all([
+  const [overviewPayload, chartsPayload, bookingStatsPayload, customerStatsPayload, guideStatsPayload, supportStatsPayload, tourStatsPayload, bookingsPayload, toursPayload] = await Promise.all([
     safeGet('/admin/reports/overview', { params: { year } }),
     safeGet('/admin/reports/charts', { params: { year } }),
     safeGet('/admin/bookings/statistics'),
     safeGet('/admin/customers/statistics'),
     safeGet('/admin/guides/statistics'),
-    safeGet('/admin/partners/statistics'),
     safeGet('/admin/support-staff/statistics'),
     safeGet('/admin/tours/statistics', { params: { year } }),
     safeGet('/admin/bookings', { params: { per_page: 5, sort_by: 'created_at', sort_dir: 'desc' } }),
@@ -54,7 +53,6 @@ export const getAdminDashboardSnapshot = async (year) => {
     bookingStats: unwrapData(bookingStatsPayload),
     customerStats: unwrapData(customerStatsPayload),
     guideStats: unwrapData(guideStatsPayload),
-    partnerStats: unwrapData(partnerStatsPayload),
     supportStats: unwrapData(supportStatsPayload),
     tourStats: unwrapData(tourStatsPayload),
     recentBookings: normalizeList(bookingsPayload),
