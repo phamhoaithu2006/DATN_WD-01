@@ -16,8 +16,8 @@ class SupportStaffController extends Controller
     private const STATUSES = ['active', 'inactive', 'hidden'];
     private const SPECIALIZATIONS = ['noi_dia', 'quoc_te'];
     private const SPECIALIZATION_LABELS = [
-        'noi_dia' => 'Nội địa',
-        'quoc_te' => 'Quốc tế',
+        'noi_dia' => 'Ná»™i Ä‘á»‹a',
+        'quoc_te' => 'Quá»‘c táº¿',
     ];
 
     private function supportStaffQuery()
@@ -29,7 +29,12 @@ class SupportStaffController extends Controller
                 $query->whereHas('role', function ($roleQuery) {
                     $roleQuery->where('name', 'support staff');
                 });
-            });
+            })
+            ->whereNotNull('specialization')
+            ->where('specialization', '!=', '')
+            ->whereNotNull('experience_years')
+            ->whereNotNull('status')
+            ->where('status', '!=', '');
     }
 
     private function hydrateSupportStaff($staff)
@@ -49,6 +54,17 @@ class SupportStaffController extends Controller
         }
 
         return $staff;
+    }
+
+    private function hasCompleteSupportStaffProfile(?SupportStaff $staff): bool
+    {
+        if (!$staff) {
+            return false;
+        }
+
+        return filled($staff->specialization)
+            && $staff->experience_years !== null
+            && filled($staff->status);
     }
 
     private function applySupportStaffFilters($query, Request $request): void
@@ -142,7 +158,7 @@ class SupportStaffController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Lấy danh sách nhân viên hỗ trợ thành công',
+            'message' => 'Láº¥y danh sÃ¡ch nhÃ¢n viÃªn há»— trá»£ thÃ nh cÃ´ng',
             'data' => $staff,
         ]);
     }
@@ -175,7 +191,7 @@ class SupportStaffController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Lấy thống kê nhân viên hỗ trợ thành công',
+            'message' => 'Láº¥y thá»‘ng kÃª nhÃ¢n viÃªn há»— trá»£ thÃ nh cÃ´ng',
             'data' => [
                 'total' => (int) ($totals->total ?? 0),
                 'active' => (int) ($totals->active ?? 0),
@@ -188,13 +204,42 @@ class SupportStaffController extends Controller
         ]);
     }
 
+    public function availableUsers()
+    {
+        $users = User::query()
+            ->whereHas('role', function ($roleQuery) {
+                $roleQuery->where('name', 'support staff');
+            })
+            ->whereDoesntHave('supportStaff', function ($supportStaffQuery) {
+                $supportStaffQuery
+                    ->whereNotNull('specialization')
+                    ->where('specialization', '!=', '')
+                    ->whereNotNull('experience_years')
+                    ->whereNotNull('status')
+                    ->where('status', '!=', '');
+            })
+            ->orderBy('full_name')
+            ->get([
+                'id',
+                'full_name',
+                'email',
+                'phone',
+                'avatar_url',
+            ]);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Danh sÃ¡ch user chÆ°a cÃ³ há»“ sÆ¡ NVHT',
+            'data' => $users,
+        ]);
+    }
+
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
             'user_id' => [
                 'required',
                 'integer',
-                Rule::unique('support_staff', 'user_id')->whereNull('deleted_at'),
                 Rule::exists('users', 'id'),
             ],
             'specialization' => ['required', 'string', Rule::in(self::SPECIALIZATIONS)],
@@ -213,6 +258,7 @@ class SupportStaffController extends Controller
 
         $data = $validator->validated();
         $user = User::with('role')->findOrFail($data['user_id']);
+        $staff = SupportStaff::withTrashed()->where('user_id', $user->id)->first();
 
         if (($user->role?->name ?? null) !== 'support staff') {
             return response()->json([
@@ -221,12 +267,28 @@ class SupportStaffController extends Controller
             ], 422);
         }
 
+        if ($this->hasCompleteSupportStaffProfile($staff)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Tài khoản này đã có hồ sơ NVHT hoàn chỉnh.',
+            ], 422);
+        }
+
         $data['name'] = $user->full_name;
         $data['email'] = $user->email;
         $data['status'] = $data['status'] ?? 'active';
         $data['hidden_at'] = $data['status'] === 'hidden' ? Carbon::now() : null;
 
-        $staff = SupportStaff::create($data);
+        if ($staff) {
+            if ($staff->trashed()) {
+                $staff->restore();
+            }
+
+            $staff->update($data);
+        } else {
+            $staff = SupportStaff::create($data);
+        }
+
         $staff->load('user.role');
         $this->hydrateSupportStaff($staff);
 
@@ -282,7 +344,7 @@ class SupportStaffController extends Controller
             if (($user->role?->name ?? null) !== 'support staff') {
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'Tài khoản phải có role NVHT.',
+                    'message' => 'TÃ i khoáº£n pháº£i cÃ³ role NVHT.',
                 ], 422);
             }
 
@@ -300,7 +362,7 @@ class SupportStaffController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Cập nhật thông tin nhân viên thành công',
+            'message' => 'Cáº­p nháº­t thÃ´ng tin nhÃ¢n viÃªn thÃ nh cÃ´ng',
             'data' => $staff,
         ]);
     }
@@ -312,7 +374,7 @@ class SupportStaffController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Đã chuyển nhân viên hỗ trợ vào thùng rác',
+            'message' => 'ÄÃ£ chuyá»ƒn nhÃ¢n viÃªn há»— trá»£ vÃ o thÃ¹ng rÃ¡c',
         ]);
     }
 
@@ -327,7 +389,7 @@ class SupportStaffController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Lấy danh sách nhân viên trong thùng rác thành công',
+            'message' => 'Láº¥y danh sÃ¡ch nhÃ¢n viÃªn trong thÃ¹ng rÃ¡c thÃ nh cÃ´ng',
             'data' => $staff,
         ]);
     }
@@ -340,7 +402,7 @@ class SupportStaffController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Khôi phục nhân viên hỗ trợ thành công',
+            'message' => 'KhÃ´i phá»¥c nhÃ¢n viÃªn há»— trá»£ thÃ nh cÃ´ng',
             'data' => $staff,
         ]);
     }
@@ -352,7 +414,7 @@ class SupportStaffController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Xóa vĩnh viễn nhân viên hỗ trợ thành công',
+            'message' => 'XÃ³a vÄ©nh viá»…n nhÃ¢n viÃªn há»— trá»£ thÃ nh cÃ´ng',
         ]);
     }
     public function uploadAvatar(Request $request, $id)
@@ -362,7 +424,7 @@ class SupportStaffController extends Controller
         if (!$staff->user) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'NhÃ¢n viÃªn há»— trá»£ chÆ°a liÃªn káº¿t tÃ i khoáº£n.',
+                'message' => 'NhÃƒÂ¢n viÃƒÂªn hÃ¡Â»â€” trÃ¡Â»Â£ chÃ†Â°a liÃƒÂªn kÃ¡ÂºÂ¿t tÃƒÂ i khoÃ¡ÂºÂ£n.',
             ], 422);
         }
 
@@ -384,7 +446,7 @@ class SupportStaffController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Cáº­p nháº­t áº£nh Ä‘áº¡i diá»‡n nhÃ¢n viÃªn há»— trá»£ thÃ nh cÃ´ng',
+            'message' => 'CÃ¡ÂºÂ­p nhÃ¡ÂºÂ­t Ã¡ÂºÂ£nh Ã„â€˜Ã¡ÂºÂ¡i diÃ¡Â»â€¡n nhÃƒÂ¢n viÃƒÂªn hÃ¡Â»â€” trÃ¡Â»Â£ thÃƒÂ nh cÃƒÂ´ng',
             'data' => $staff,
         ]);
     }
@@ -396,7 +458,7 @@ class SupportStaffController extends Controller
         if (!$staff->user) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'NhÃ¢n viÃªn há»— trá»£ chÆ°a liÃªn káº¿t tÃ i khoáº£n.',
+                'message' => 'NhÃƒÂ¢n viÃƒÂªn hÃ¡Â»â€” trÃ¡Â»Â£ chÃ†Â°a liÃƒÂªn kÃ¡ÂºÂ¿t tÃƒÂ i khoÃ¡ÂºÂ£n.',
             ], 422);
         }
 
@@ -411,7 +473,7 @@ class SupportStaffController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'message' => 'XÃ³a áº£nh Ä‘áº¡i diá»‡n nhÃ¢n viÃªn há»— trá»£ thÃ nh cÃ´ng',
+            'message' => 'XÃƒÂ³a Ã¡ÂºÂ£nh Ã„â€˜Ã¡ÂºÂ¡i diÃ¡Â»â€¡n nhÃƒÂ¢n viÃƒÂªn hÃ¡Â»â€” trÃ¡Â»Â£ thÃƒÂ nh cÃƒÂ´ng',
             'data' => $staff,
         ]);
     }

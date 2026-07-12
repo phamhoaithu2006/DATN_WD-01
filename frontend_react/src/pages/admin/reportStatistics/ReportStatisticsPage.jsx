@@ -125,10 +125,10 @@ function StatCard({ title, value, description, icon, tone = 'blue', trend, delay
       className={`group relative overflow-hidden bg-gradient-to-br ${t.grad} p-5 before:absolute before:inset-y-0 before:left-0 before:w-1 before:content-[''] hover:-translate-y-1 hover:shadow-[0_20px_48px_rgba(15,23,42,0.12)] ${t.glow} ${t.accent}`}
       style={{ animationDelay: `${delay}ms` }}
     >
-      <div className="report-fade-up flex items-start justify-between gap-4">
+      <div className="report-fade-up flex h-full min-h-[150px] flex-col justify-between gap-4">
         <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className={`text-sm font-bold ${t.title}`}>{title}</p>
+          <div className="flex items-center justify-between gap-3">
+            <p className={`whitespace-nowrap text-[0.76rem] font-bold leading-tight tracking-[-0.01em] ${t.title}`}>{title}</p>
             <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide ${t.badge}`}>
               <span className="relative flex h-1.5 w-1.5">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-current opacity-60" />
@@ -137,17 +137,17 @@ function StatCard({ title, value, description, icon, tone = 'blue', trend, delay
               Live
             </span>
           </div>
-          <h3 className="mt-3 truncate text-[28px] font-black leading-tight text-slate-950">
+          <h3 className="mt-3 whitespace-nowrap text-[clamp(1.45rem,2.05vw,2rem)] font-black leading-[1.02] tracking-[-0.05em] text-slate-950">
             {value}
           </h3>
-          <div className="mt-2 flex items-center gap-2">
+          <div className="mt-3 flex flex-wrap items-center gap-2">
             {trend != null && (
               <span className={`inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[11px] font-bold ${trend >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
                 <TrendUpIcon className={`h-3 w-3 ${trend < 0 ? 'rotate-180' : ''}`} />
                 {Math.abs(trend)}%
               </span>
             )}
-            <p className="truncate text-xs text-slate-500">{description}</p>
+            <p className="min-w-0 flex-1 overflow-hidden whitespace-nowrap text-ellipsis text-xs leading-5 text-slate-500">{description}</p>
           </div>
         </div>
         <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${t.iconBg} ${t.iconText} shadow-lg ring-8 ${t.ring} transition duration-300 group-hover:scale-110 group-hover:rotate-12`}>
@@ -548,7 +548,7 @@ function ReportStatisticsPage() {
       ['Tổng doanh thu năm', overview?.total_revenue_year || 0],
       ['Tổng số booking', overview?.total_bookings_year || 0],
       ['Tỉ lệ hoàn thành tour', `${overview?.tour_completion_rate || 0}%`],
-      ['TB doanh thu/tháng', overview?.average_revenue_per_booking_month || 0],
+      ['Trung bình doanh thu tháng', overview?.average_revenue_per_booking_month || 0],
       [],
       ['Top điểm đến', 'Tỉnh / Thành phố', 'Số booking', 'Số khách'],
       ...topDestinations.map((d) => [
@@ -655,7 +655,7 @@ function ReportStatisticsPage() {
             <StatCard title="Tổng doanh thu năm" value={formatCurrency(overview?.total_revenue_year)} description={`Năm ${overview?.year || year}`} icon={<RevenueIcon className="h-7 w-7" />} tone="blue" trend={12} delay={120} />
             <StatCard title="Tổng số booking" value={formatNumber(overview?.total_bookings_year)} description="Tất cả booking trong năm" icon={<BookingIcon className="h-7 w-7" />} tone="emerald" trend={8} delay={200} />
             <StatCard title="Tỉ lệ hoàn thành tour" value={`${overview?.tour_completion_rate || 0}%`} description="Booking có trạng thái hoàn thành" icon={<CompletionIcon className="h-7 w-7" />} tone="violet" trend={5} delay={280} />
-            <StatCard title="TB doanh thu/tháng" value={formatCurrency(overview?.average_revenue_per_booking_month)} description="Trung bình booking đã thanh toán" icon={<AverageIcon className="h-7 w-7" />} tone="orange" trend={-3} delay={360} />
+            <StatCard title="Trung bình doanh thu tháng" value={formatCurrency(overview?.average_revenue_per_booking_month)} description="Trung bình booking đã thanh toán" icon={<AverageIcon className="h-7 w-7" />} tone="orange" trend={-3} delay={360} />
           </section>
 
           {/* CHARTS */}

@@ -53,15 +53,6 @@ const guideMenuItems = [
     ),
   },
   {
-    label: 'Tin nhắn',
-    path: '/guide/messages',
-    icon: (
-      <>
-        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-      </>
-    ),
-  },
-  {
     label: 'Thông báo',
     path: '/guide/notifications',
     icon: (

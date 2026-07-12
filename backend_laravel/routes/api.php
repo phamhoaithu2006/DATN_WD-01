@@ -206,6 +206,7 @@ Route::prefix('admin')->group(function () {
     Route::get('/support-staff', [SupportStaffController::class, 'index']);
     // Tính tổng số lượng
     Route::get('/support-staff/statistics', [SupportStaffController::class, 'statistics']);
+    Route::get('/support-staff/available-users', [SupportStaffController::class, 'availableUsers']);
     // Thùng rác
     Route::get('/support-staff/trashed', [SupportStaffController::class, 'trashed']);
     // Thêm thông tin

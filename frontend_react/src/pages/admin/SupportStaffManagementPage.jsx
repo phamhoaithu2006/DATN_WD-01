@@ -1,8 +1,8 @@
 ﻿import { Link } from 'react-router-dom'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import AdminPageHeader from '../../components/admin/AdminPageHeader'
-import { getAccountRoles, getAccounts } from '../../services/adminAccountApi'
 import {
+  getAvailableSupportStaffUsers,
   createSupportStaff,
   deleteSupportStaff,
   deleteSupportStaffAvatar,
@@ -262,14 +262,19 @@ function SupportStaffFormModal({
             {editing ? (
               <input value={form.name} onChange={onChange('name')} readOnly />
             ) : (
-              <select value={form.account_id} onChange={onPickAccount}>
-                <option value="">Chọn NVHT</option>
-                {accountOptions.map((account) => (
-                  <option key={account.id} value={account.id}>
-                    {getAccountLabel(account)}
-                  </option>
-                ))}
-              </select>
+              <>
+                <select value={form.account_id} onChange={onPickAccount}>
+                  <option value="">Chọn tài khoản NVHT chưa có hồ sơ</option>
+                  {accountOptions.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {getAccountLabel(account)}
+                    </option>
+                  ))}
+                </select>
+                <small className="support-field-hint">
+                  Chỉ hiển thị tài khoản NVHT chưa tạo hồ sơ nhân viên hỗ trợ.
+                </small>
+              </>
             )}
             {errors.name ? <span className="support-field-error">{errors.name}</span> : null}
             {errors.account_id ? <span className="support-field-error">{errors.account_id}</span> : null}
@@ -688,21 +693,11 @@ function SupportStaffManagementPage() {
 
   const loadAccounts = useCallback(async () => {
     try {
-      const roleList = await getAccountRoles().catch(() => [])
-      const supportRole = roleList.find((role) => role.name === SUPPORT_STAFF_ROLE_NAME) || {
-        id: 1,
-        name: SUPPORT_STAFF_ROLE_NAME,
-      }
-
-      const accounts = await getAccounts({
-        role_id: supportRole.id,
-        exclude_completed_support_staff: true,
-      })
-
-      setAccountOptions(Array.isArray(accounts) ? accounts : [])
+      const response = await getAvailableSupportStaffUsers()
+      setAccountOptions(Array.isArray(response?.data) ? response.data : [])
     } catch (error) {
       setAccountOptions([])
-      openToast('error', getServerMessage(error, 'Không tải được danh sách user NVHT.'))
+      openToast('error', getServerMessage(error, 'Không tải được danh sách tài khoản NVHT.'))
     }
   }, [])
 
