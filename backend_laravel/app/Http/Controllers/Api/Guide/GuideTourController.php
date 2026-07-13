@@ -429,7 +429,8 @@ class GuideTourController extends Controller
             $departure,
             $guide,
             $now,
-            $replacementRequestId
+            $replacementRequestId,
+            $returnDate
         ) {
             $row = [
                 'draft_id' => null,
@@ -445,9 +446,14 @@ class GuideTourController extends Controller
             if (Schema::hasColumn('notifications', 'data')) {
                 $row['data'] = json_encode([
                     'source' => 'guide_replacement_request',
+                    'type' => 'guide_replacement_request',
+                    'action' => 'created',
                     'replacement_request_id' => $replacementRequestId,
                     'tour_departure_id' => $departure->id,
+                    'departure_id' => $departure->id,
                     'guide_id' => $guide->id,
+                    'departure_date' => $departure->departure_date?->toDateString(),
+                    'return_date' => $departure->return_date?->toDateString(),
                 ]);
             }
 
