@@ -9,6 +9,7 @@ use App\Models\TourDeparture;
 use App\Models\TourGuideAssignment;
 use App\Services\GuideAssignmentService;
 use App\Services\AdminNotificationService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -207,8 +208,14 @@ class TourDepartureGuideAssignmentController extends Controller
             'id' => $departure->id,
             'tour_id' => $departure->tour_id,
             'tour_title' => $departure->tour?->title,
-            'departure_date' => $departure->departure_date,
-            'return_date' => $departure->return_date,
+            'departure_date' => $this->dateOnly(
+                $departure->getRawOriginal('departure_date')
+                    ?? $departure->departure_date
+            ),
+            'return_date' => $this->dateOnly(
+                $departure->getRawOriginal('return_date')
+                    ?? $departure->return_date
+            ),
             'status' => $departure->status,
 
             'destinations' => $destinations->values(),
@@ -1003,6 +1010,18 @@ class TourDepartureGuideAssignmentController extends Controller
         } catch (\Throwable $e) {
             report($e);
         }
+    }
+
+    /**
+     * Trả ngày dưới dạng YYYY-MM-DD, không serialize Carbon thành UTC.
+     */
+    private function dateOnly(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return Carbon::parse($value)->toDateString();
     }
 
 }

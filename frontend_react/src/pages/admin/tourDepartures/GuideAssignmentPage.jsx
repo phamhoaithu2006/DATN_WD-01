@@ -58,36 +58,30 @@ function toDateInputValue(value) {
   return matchedDate ? matchedDate[0] : ''
 }
 
+// Không dùng new Date()/Intl cho ngày dạng YYYY-MM-DD để tránh lệch timezone.
 function formatDate(value) {
   const rawDate = toDateInputValue(value)
 
   if (!rawDate) return '—'
 
-  const [year, month, day] = rawDate.split('-').map(Number)
-  const date = new Date(year, month - 1, day)
+  const [year, month, day] = rawDate.split('-')
 
-  if (Number.isNaN(date.getTime())) return '—'
+  if (!year || !month || !day) return '—'
 
-  return new Intl.DateTimeFormat('vi-VN', {
-    dateStyle: 'medium',
-  }).format(date)
+  return `${day}/${month}/${year}`
 }
 
+// Không dùng new Date()/Intl cho ngày dạng YYYY-MM-DD để tránh lệch timezone.
 function formatDateShort(value) {
   const rawDate = toDateInputValue(value)
 
   if (!rawDate) return '—'
 
-  const [year, month, day] = rawDate.split('-').map(Number)
-  const date = new Date(year, month - 1, day)
+  const [year, month, day] = rawDate.split('-')
 
-  if (Number.isNaN(date.getTime())) return '—'
+  if (!year || !month || !day) return '—'
 
-  return new Intl.DateTimeFormat('vi-VN', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  }).format(date)
+  return `${day}/${month}/${year}`
 }
 
 
@@ -103,15 +97,11 @@ function getMonthKey(value) {
 function formatMonthLabel(monthKey) {
   if (!monthKey) return 'Không rõ tháng'
 
-  const [year, month] = String(monthKey).split('-').map(Number)
-  const date = new Date(year, month - 1, 1)
+  const [year, month] = String(monthKey).split('-')
 
-  if (Number.isNaN(date.getTime())) return monthKey
+  if (!year || !month) return monthKey
 
-  return new Intl.DateTimeFormat('vi-VN', {
-    month: 'long',
-    year: 'numeric',
-  }).format(date)
+  return `Tháng ${Number(month)}/${year}`
 }
 
 function getMonthRange(monthKey) {
@@ -324,6 +314,16 @@ function getAssignmentGuideId(assignment) {
   const id = assignment?.guide_id || assignment?.guide?.id || null
 
   return id ? String(id) : ''
+}
+
+function getAssignmentGuideFilterValue(assignment) {
+  const id = getAssignmentGuideId(assignment)
+
+  if (id) return `id:${id}`
+
+  const name = getGuideName(assignment)
+
+  return name ? `name:${String(name).trim().toLowerCase()}` : ''
 }
 
 function getGuideCandidateId(guide) {
@@ -1819,6 +1819,7 @@ export function GuideAssignmentPanel({
   const [loading, setLoading] = useState(true)
   const [busyId, setBusyId] = useState(null)
   const [assignmentFilter, setAssignmentFilter] = useState('all')
+  const [guideFilter, setGuideFilter] = useState('all')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [autoValidationErrors, setAutoValidationErrors] = useState({})
@@ -1953,6 +1954,30 @@ export function GuideAssignmentPanel({
     })
   }, [scopedRows, monthFilter, yearFilter])
 
+  const guideFilterOptions = useMemo(() => {
+    const guides = new Map()
+
+    monthYearFilteredRows.forEach((item) => {
+      getActiveAssignments(item).forEach((assignment) => {
+        const value = getAssignmentGuideFilterValue(assignment)
+        const label = getGuideName(assignment)
+
+        if (value && label && !guides.has(value)) {
+          guides.set(value, label)
+        }
+      })
+    })
+
+    return Array.from(guides.entries())
+      .sort(([, aLabel], [, bLabel]) =>
+        String(aLabel).localeCompare(String(bLabel), 'vi')
+      )
+      .map(([value, label]) => ({
+        value,
+        label,
+      }))
+  }, [monthYearFilteredRows])
+
   const scheduleFilterCounts = useMemo(() => {
     return monthYearFilteredRows.reduce(
       (acc, item) => {
@@ -2023,8 +2048,24 @@ export function GuideAssignmentPanel({
     })
   }, [monthYearFilteredRows, scheduleTimeFilter])
 
+  const guideFilteredRows = useMemo(() => {
+    if (guideFilter === 'all') {
+      return baseDisplayedRows
+    }
+
+    if (guideFilter === 'none') {
+      return baseDisplayedRows.filter((item) => !isDepartureAssigned(item))
+    }
+
+    return baseDisplayedRows.filter((item) =>
+      getActiveAssignments(item).some(
+        (assignment) => getAssignmentGuideFilterValue(assignment) === guideFilter
+      )
+    )
+  }, [baseDisplayedRows, guideFilter])
+
   const assignmentFilterCounts = useMemo(() => {
-    return baseDisplayedRows.reduce(
+    return guideFilteredRows.reduce(
       (acc, item) => {
         if (isDepartureAssigned(item)) {
           acc.assigned += 1
@@ -2042,7 +2083,7 @@ export function GuideAssignmentPanel({
         assigned: 0,
       }
     )
-  }, [baseDisplayedRows])
+  }, [guideFilteredRows])
 
   const assignmentFilterTabs = useMemo(() => {
     return [
@@ -2061,7 +2102,7 @@ export function GuideAssignmentPanel({
   }, [assignmentFilterCounts])
 
   const displayedRows = useMemo(() => {
-    return baseDisplayedRows
+    return guideFilteredRows
       .filter((item) => {
         if (assignmentFilter === 'assigned') {
           return isDepartureAssigned(item)
@@ -2074,7 +2115,7 @@ export function GuideAssignmentPanel({
         return true
       })
       .sort(compareDeparturesForAssignment)
-  }, [baseDisplayedRows, assignmentFilter])
+  }, [guideFilteredRows, assignmentFilter])
 
   const actionableDirectDepartureOptions = useMemo(() => {
     return displayedRows.filter((item) => isDepartureActionable(item))
@@ -2211,6 +2252,25 @@ export function GuideAssignmentPanel({
         </label>
 
         <label className="text-sm font-medium text-slate-700">
+          HDV
+
+          <select
+            value={guideFilter}
+            onChange={(event) => setGuideFilter(event.target.value)}
+            className="mt-1 block min-w-[190px] rounded border border-slate-300 bg-white px-3 py-2 font-normal"
+          >
+            <option value="all">Tất cả HDV</option>
+            <option value="none">Chưa có HDV</option>
+
+            {guideFilterOptions.map((guide) => (
+              <option key={guide.value} value={guide.value}>
+                {guide.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="text-sm font-medium text-slate-700">
           Từ ngày
 
           <input
@@ -2266,6 +2326,7 @@ export function GuideAssignmentPanel({
             setMonthFilter('all')
             setYearFilter('all')
             setAssignmentFilter('all')
+            setGuideFilter('all')
             setFrom('')
             setTo('')
           }}

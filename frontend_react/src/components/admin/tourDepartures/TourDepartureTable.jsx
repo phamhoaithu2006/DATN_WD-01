@@ -81,19 +81,16 @@ const TrashIcon = ({ className = 'w-4 h-4' }) => (
   </svg>
 )
 
+// Không dùng new Date() cho ngày dạng YYYY-MM-DD để tránh lệch timezone.
 function formatDate(value) {
   if (!value) return '-'
 
-  const rawDate = String(value).slice(0, 10)
-  const date = new Date(`${rawDate}T00:00:00`)
+  const raw = String(value).slice(0, 10)
+  const [year, month, day] = raw.split('-')
 
-  if (Number.isNaN(date.getTime())) return '-'
+  if (!year || !month || !day) return '-'
 
-  return date.toLocaleDateString('vi-VN', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  })
+  return `${day}/${month}/${year}`
 }
 
 function formatDateTime(value) {

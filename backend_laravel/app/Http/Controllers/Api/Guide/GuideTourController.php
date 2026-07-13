@@ -34,7 +34,20 @@ class GuideTourController extends Controller
 
     private function baseQuery(Guide $guide)
     {
-        return TourDeparture::query()
+        $assignmentNoteExpression = 'NULL as assignment_note';
+
+        if (
+            Schema::hasColumn('tour_guide_assignments', 'notes') &&
+            Schema::hasColumn('tour_guide_assignments', 'note')
+        ) {
+            $assignmentNoteExpression = 'COALESCE(tga.notes, tga.note) as assignment_note';
+        } elseif (Schema::hasColumn('tour_guide_assignments', 'notes')) {
+            $assignmentNoteExpression = 'tga.notes as assignment_note';
+        } elseif (Schema::hasColumn('tour_guide_assignments', 'note')) {
+            $assignmentNoteExpression = 'tga.note as assignment_note';
+        }
+
+        $query = TourDeparture::query()
             ->join('tour_guide_assignments as tga', 'tga.tour_departure_id', '=', 'tour_departures.id')
             ->where('tga.guide_id', $guide->id)
             ->where('tga.status', '!=', 'cancelled')
@@ -48,16 +61,23 @@ class GuideTourController extends Controller
                 'tour_departures.*',
                 'tga.id as assignment_id',
                 'tga.status as assignment_status',
-                DB::raw('COALESCE(tga.notes, tga.note) as assignment_note'),
-            ])
-            ->selectSub(function ($query) use ($guide) {
-                $query
+                DB::raw($assignmentNoteExpression),
+            ]);
+
+        if (Schema::hasTable('guide_replacement_requests')) {
+            $query->selectSub(function ($subQuery) use ($guide) {
+                $subQuery
                     ->from('guide_replacement_requests as grr')
                     ->selectRaw('COUNT(*)')
                     ->whereColumn('grr.tour_departure_id', 'tour_departures.id')
                     ->where('grr.current_guide_id', $guide->id)
                     ->where('grr.status', 'pending');
             }, 'replacement_request_pending');
+        } else {
+            $query->addSelect(DB::raw('0 as replacement_request_pending'));
+        }
+
+        return $query;
     }
 
     private function applyFilters($query, Request $request)
@@ -106,20 +126,22 @@ class GuideTourController extends Controller
                 ",
                 [$today, $today, $today]
             )
-            ->orderByRaw(
-                "
-                CASE
-                    WHEN EXISTS (
-                        SELECT 1
-                        FROM guide_replacement_requests grr
-                        WHERE grr.tour_departure_id = tour_departures.id
-                            AND grr.status = 'pending'
-                    )
-                    THEN 0
-                    ELSE 1
-                END ASC
-                "
-            )
+            ->when(Schema::hasTable('guide_replacement_requests'), function ($sortQuery) {
+                $sortQuery->orderByRaw(
+                    "
+                    CASE
+                        WHEN EXISTS (
+                            SELECT 1
+                            FROM guide_replacement_requests grr
+                            WHERE grr.tour_departure_id = tour_departures.id
+                                AND grr.status = 'pending'
+                        )
+                        THEN 0
+                        ELSE 1
+                    END ASC
+                    "
+                );
+            })
             ->orderBy('tour_departures.departure_date', 'asc');
     }
 
@@ -260,14 +282,18 @@ class GuideTourController extends Controller
                 'tga.status as assignment_status',
                 DB::raw('COALESCE(tga.notes, tga.note) as assignment_note'),
             ])
-            ->selectSub(function ($query) use ($guide) {
-                $query
-                    ->from('guide_replacement_requests as grr')
-                    ->selectRaw('COUNT(*)')
-                    ->whereColumn('grr.tour_departure_id', 'tour_departures.id')
-                    ->where('grr.current_guide_id', $guide->id)
-                    ->where('grr.status', 'pending');
-            }, 'replacement_request_pending')
+            ->when(Schema::hasTable('guide_replacement_requests'), function ($detailQuery) use ($guide) {
+                $detailQuery->selectSub(function ($subQuery) use ($guide) {
+                    $subQuery
+                        ->from('guide_replacement_requests as grr')
+                        ->selectRaw('COUNT(*)')
+                        ->whereColumn('grr.tour_departure_id', 'tour_departures.id')
+                        ->where('grr.current_guide_id', $guide->id)
+                        ->where('grr.status', 'pending');
+                }, 'replacement_request_pending');
+            }, function ($detailQuery) {
+                $detailQuery->addSelect(DB::raw('0 as replacement_request_pending'));
+            })
             ->firstOrFail();
 
         return response()->json([
@@ -424,7 +450,6 @@ class GuideTourController extends Controller
             $tourTitle,
             $guideName,
             $departureDate,
-            $returnDate,
             $reason,
             $departure,
             $guide,

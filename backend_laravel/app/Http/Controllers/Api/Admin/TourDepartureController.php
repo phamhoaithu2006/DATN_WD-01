@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\TourDepartureResource;
 use App\Models\Booking;
 use App\Models\Tour;
 use App\Models\TourDeparture;
@@ -116,7 +115,9 @@ class TourDepartureController extends Controller
 
         return response()->json([
             'message' => 'Danh sách lịch khởi hành',
-            'data' => $departures,
+            'data' => $departures
+                ->map(fn (TourDeparture $departure) => $this->serializeDeparture($departure))
+                ->values(),
         ]);
     }
 
@@ -178,7 +179,7 @@ class TourDepartureController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Thêm lịch khởi hành thành công',
-            'data' => new TourDepartureResource(
+            'data' => $this->serializeDeparture(
                 $departure->load('tour')
             ),
         ], 201, [], JSON_PRESERVE_ZERO_FRACTION);
@@ -333,7 +334,7 @@ class TourDepartureController extends Controller
         if (empty($changes)) {
             return response()->json([
                 'message' => 'Không có thông tin nào thay đổi.',
-                'data' => $tourDeparture,
+                'data' => $this->serializeDeparture($tourDeparture),
             ]);
         }
 
@@ -396,7 +397,9 @@ class TourDepartureController extends Controller
                 ? 'Cập nhật thành công và đã gửi thông báo.'
                 : 'Cập nhật lịch khởi hành thành công.',
 
-            'data' => $tourDeparture->fresh()->load('tour'),
+            'data' => $this->serializeDeparture(
+                $tourDeparture->fresh()->load('tour')
+            ),
             'changes' => $changes,
             'notification' => $notificationResult,
         ]);
@@ -537,4 +540,36 @@ class TourDepartureController extends Controller
         $payload['discount_price'] =
             $priceData['discount_price'];
     }
+    /**
+     * Chuẩn hóa ngày nghiệp vụ trước khi trả JSON.
+     *
+     * Không trả Carbon trực tiếp vì Laravel có thể serialize sang UTC,
+     * khiến frontend ở múi giờ Việt Nam nhìn thấy ngày bị lùi một ngày.
+     */
+    private function serializeDeparture(TourDeparture $departure): array
+    {
+        $data = $departure->toArray();
+
+        $data['departure_date'] = $this->dateOnly(
+            $departure->getRawOriginal('departure_date')
+                ?? $departure->departure_date
+        );
+
+        $data['return_date'] = $this->dateOnly(
+            $departure->getRawOriginal('return_date')
+                ?? $departure->return_date
+        );
+
+        return $data;
+    }
+
+    private function dateOnly(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return Carbon::parse($value)->toDateString();
+    }
+
 }
