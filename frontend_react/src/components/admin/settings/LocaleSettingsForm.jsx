@@ -3,7 +3,7 @@ import SettingField from "./SettingField";
 function LocaleSettingsForm({ settings, updateField }) {
   return (
     <div className="setting-form-grid">
-      <SettingField label="Ngôn ngữ mặc định">
+      <SettingField label="Ngôn ngữ mặc định" required>
         <select
           value={settings.default_language}
           onChange={(e) => updateField("default_language", e.target.value)}
@@ -12,7 +12,7 @@ function LocaleSettingsForm({ settings, updateField }) {
           <option value="en">English</option>
         </select>
       </SettingField>
-      <SettingField label="Múi giờ">
+      <SettingField label="Múi giờ" required>
         <select
           value={settings.timezone}
           onChange={(e) => updateField("timezone", e.target.value)}
@@ -22,7 +22,7 @@ function LocaleSettingsForm({ settings, updateField }) {
           <option value="Asia/Bangkok">Asia/Bangkok</option>
         </select>
       </SettingField>
-      <SettingField label="Định dạng ngày">
+      <SettingField label="Định dạng ngày" required>
         <select
           value={settings.date_format}
           onChange={(e) => updateField("date_format", e.target.value)}
@@ -32,7 +32,7 @@ function LocaleSettingsForm({ settings, updateField }) {
           <option value="mm/dd/yyyy">mm/dd/yyyy</option>
         </select>
       </SettingField>
-      <SettingField label="Tiền tệ">
+      <SettingField label="Tiền tệ" required>
         <select
           value={settings.currency}
           onChange={(e) => updateField("currency", e.target.value)}

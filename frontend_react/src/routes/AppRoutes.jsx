@@ -32,9 +32,16 @@ import AuthPage from '../pages/auth/AuthPage'
 import ForgotPasswordPage from '../pages/auth/ForgotPasswordPage'
 import CustomerPage from '../pages/customer/CustomerPage'
 import GuideDashboardPage from '../pages/guide/GuideDashboardPage'
+import GuideHistoryPage from '../pages/guide/GuideHistoryPage'
 import GuideNotificationsPage from '../pages/guide/GuideNotificationsPage'
 import GuideProfilePage from '../pages/guide/GuideProfilePage'
 import GuideToursPage from '../pages/guide/GuideToursPage'
+import SupportLayout from '../layouts/SupportLayout'
+import SupportDashboardPage from '../pages/support/SupportDashboardPage'
+import SupportProfilePage from '../pages/support/SupportProfilePage'
+import SupportNotificationsPage from '../pages/support/SupportNotificationsPage'
+import SupportRequestsPage from '../pages/support/SupportRequestsPage'
+import SupportWorkSchedulePage from '../pages/support/SupportWorkSchedulePage'
 import ReportStatisticsPage from '../pages/admin/reportStatistics/ReportStatisticsPage'
 import TourDepartureListPage from "../pages/admin/tourDepartures/TourDepartureListPage";
 import TourDepartureCreatePage from "../pages/admin/tourDepartures/TourDepartureCreatePage";
@@ -52,6 +59,8 @@ const protect = (page, allowedRoles = ['admin']) => (
 )
 const adminPage = (page) => protect(<AdminLayout>{page}</AdminLayout>)
 const guidePage = (page) => protect(<GuideLayout>{page}</GuideLayout>, ['tour guide'])
+const supportPage = (page) =>
+  protect(<SupportLayout>{page}</SupportLayout>, ['support staff'])
 
 function GuideComingSoonPage({ title }) {
   return <div className="guide-blank-page" aria-label={title} />
@@ -74,14 +83,18 @@ function AppRoutes() {
     {/* Trang hướng dẫn viên */}
     <Route path="/guide" element={guidePage(<GuideDashboardPage />)} />
     <Route path="/guide/tours" element={guidePage(<GuideToursPage />)} />
-    <Route path="/guide/schedule" element={guidePage(<GuideComingSoonPage title="Lịch làm việc" />)} />
-    <Route path="/guide/history" element={guidePage(<GuideComingSoonPage title="Lịch sử Tour" />)} />
+    <Route path="/guide/schedule" element={guidePage(<GuideComingSoonPage title="Tour của tôi" />)} />
+    <Route path="/guide/history" element={guidePage(<GuideHistoryPage />)} />
     <Route path="/guide/reviews" element={guidePage(<GuideComingSoonPage title="Đánh giá" />)} />
     <Route path="/guide/customers" element={guidePage(<GuideComingSoonPage title="Khách hàng" />)} />
     <Route path="/guide/messages" element={guidePage(<GuideComingSoonPage title="Tin nhắn" />)} />
     <Route path="/guide/notifications" element={guidePage(<GuideNotificationsPage />)} />
     <Route path="/guide/profile" element={guidePage(<GuideProfilePage />)} />
-    <Route path="/guide/settings" element={guidePage(<GuideComingSoonPage title="Cài đặt chung" />)} />
+    <Route path="/support" element={supportPage(<SupportDashboardPage />)} />
+    <Route path="/support/profile" element={supportPage(<SupportProfilePage />)} />
+    <Route path="/support/work-schedule" element={supportPage(<SupportWorkSchedulePage />)} />
+    <Route path="/support/requests" element={supportPage(<SupportRequestsPage />)} />
+    <Route path="/support/notifications" element={supportPage(<SupportNotificationsPage />)} />
     <Route path="/admin/users" element={<Navigate to="/admin/users/customers" replace />} />
     <Route path="/admin/users/customers" element={adminPage(<UserManagementPage roleName="customer" />)} />
     <Route path="/admin/users/admins" element={adminPage(<UserManagementPage roleName="admin" />)} />

@@ -4,21 +4,10 @@ import {
   getGuideNotifications,
   markGuideNotificationAsRead,
 } from '../../services/guideNotificationApi'
+import { formatDateTimeDdMmYyyy } from '../../utils/dateFormat'
 
 function formatDateTime(value) {
-  if (!value) return 'Chưa có thời gian'
-
-  try {
-    return new Intl.DateTimeFormat('vi-VN', {
-      hour: '2-digit',
-      minute: '2-digit',
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    }).format(new Date(value))
-  } catch {
-    return value
-  }
+  return formatDateTimeDdMmYyyy(value, '?')
 }
 
 function normalizeNotification(notification) {
@@ -133,7 +122,7 @@ function GuideNotificationsPage() {
         <div>
           <span>Trung tâm thông báo</span>
           <h1>Thông báo của hướng dẫn viên</h1>
-          <p>Nhận thông tin phân công tour và các tin nhắn admin gửi cho bạn.</p>
+          <p>Nhận các thông báo bên admin gửi cho bạn.</p>
         </div>
 
         <div className="guide-notifications-summary">
@@ -166,7 +155,14 @@ function GuideNotificationsPage() {
       </section>
 
       <section className="guide-notifications-grid">
-        <div className="guide-notifications-list-panel">
+        <div
+          className={[
+            'guide-notifications-list-panel',
+            loading || filteredNotifications.length === 0 ? 'is-empty' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        >
           {loading ? (
             <div className="guide-notification-empty large">Đang tải thông báo...</div>
           ) : filteredNotifications.length > 0 ? (
@@ -196,7 +192,14 @@ function GuideNotificationsPage() {
           )}
         </div>
 
-        <article className="guide-notification-reader">
+        <article
+          className={[
+            'guide-notification-reader',
+            !selectedNotification ? 'is-empty' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        >
           {selectedNotification ? (
             <>
               <div className="guide-notification-reader-head">

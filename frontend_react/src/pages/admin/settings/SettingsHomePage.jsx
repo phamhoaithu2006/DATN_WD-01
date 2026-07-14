@@ -13,7 +13,7 @@ function SettingsHomePage() {
         <AdminPageHeader
           breadcrumb={["ViVuGo", "Cài Đặt Hệ Thống"]}
           title="Cài Đặt Hệ Thống"
-          description="Chọn một chức năng để cấu hình hệ thống ViVuGo"
+          description="Chọn một chức năng để cấu hình hệ thống ViVuGo."
         />
         <SettingDashboard
           sections={settingSections}

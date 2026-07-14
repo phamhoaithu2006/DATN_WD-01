@@ -385,20 +385,21 @@ function AdminSidebar({
                   title={`${badgeCount} việc cần xử lý: lịch chưa phân công hoặc yêu cầu đổi HDV`}
                   style={{
                     position: 'absolute',
-                    right: collapsed ? 8 : 12,
-                    top: collapsed ? 6 : 8,
+                    right: collapsed ? 6 : 24,
+                    top: collapsed ? 6 : '50%',
+                    transform: collapsed ? 'none' : 'translateY(-50%)',
                     display: 'inline-flex',
-                    minWidth: 18,
-                    height: 18,
+                    minWidth: collapsed ? 16 : 18,
+                    height: collapsed ? 16 : 18,
                     alignItems: 'center',
                     justifyContent: 'center',
                     borderRadius: 999,
                     background: '#ef4444',
                     color: '#fff',
-                    fontSize: 11,
+                    fontSize: collapsed ? 10 : 11,
                     fontWeight: 800,
                     lineHeight: 1,
-                    padding: '0 5px',
+                    padding: collapsed ? '0 4px' : '0 5px',
                     boxShadow: '0 0 0 2px #fff',
                   }}
                 >

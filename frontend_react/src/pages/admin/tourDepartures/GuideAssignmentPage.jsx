@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { tourDepartureApi } from '../../../services/tourDepartureApi'
 
+import { formatDateDdMmYyyy, formatDateTimeDdMmYyyy } from '../../../utils/dateFormat'
 function unwrapList(response) {
   const payload = response?.data
 
@@ -59,18 +60,7 @@ function toDateInputValue(value) {
 }
 
 function formatDate(value) {
-  const rawDate = toDateInputValue(value)
-
-  if (!rawDate) return '—'
-
-  const [year, month, day] = rawDate.split('-').map(Number)
-  const date = new Date(year, month - 1, day)
-
-  if (Number.isNaN(date.getTime())) return '—'
-
-  return new Intl.DateTimeFormat('vi-VN', {
-    dateStyle: 'medium',
-  }).format(date)
+  return formatDateDdMmYyyy(value, '-')
 }
 
 function formatDateShort(value) {

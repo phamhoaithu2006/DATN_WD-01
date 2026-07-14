@@ -99,7 +99,7 @@ function TourHiddenPage() {
       <AdminPageHeader
         breadcrumb={["ViVuGo", "Quản Lý Tour", "Tour đã ẩn"]}
         title="Tour đã ẩn"
-        description="Danh sách các tour đang bị ẩn khỏi hệ thống"
+        description="Danh sách các tour đang bị ẩn khỏi hệ thống."
         actions={
           <Link
             to="/admin/tours"

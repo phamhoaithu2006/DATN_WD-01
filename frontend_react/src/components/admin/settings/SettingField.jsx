@@ -1,7 +1,10 @@
-function SettingField({ label, hint, children }) {
+function SettingField({ label, hint, children, required = false }) {
   return (
     <label className="setting-field">
-      <span>{label}</span>
+      <span>
+        {label}
+        {required ? <span className="text-red-500"> *</span> : null}
+      </span>
       {children}
       {hint ? <small>{hint}</small> : null}
     </label>

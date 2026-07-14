@@ -39,7 +39,7 @@ function ServiceCategoryForm({
 
         <div className="service-category-form-grid">
           <label>
-            Tên loại dịch vụ
+            Tên loại dịch vụ <span className="text-red-500">*</span>
             <input
               autoFocus
               value={values.name}
@@ -51,7 +51,7 @@ function ServiceCategoryForm({
           </label>
 
           <label>
-            Trạng thái
+            Trạng thái <span className="text-red-500">*</span>
             <select
               required
               value={
