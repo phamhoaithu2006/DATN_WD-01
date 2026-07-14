@@ -1,7 +1,9 @@
-﻿﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import apiClient from '../../services/apiClient'
+import adminGuideLeaveRequestApi from '../../services/adminGuideLeaveRequestApi.js'
 import AdminPageHeader from '../../components/admin/AdminPageHeader'
+import AdminGuideLeaveRequestsPanel from '../../components/admin/guides/AdminGuideLeaveRequestsPanel.jsx'
 import Icon from '../../components/customer/Icon'
 import '../../styles/support-staff.css'
 
@@ -311,6 +313,7 @@ async function deleteAvatar(guideId) {
 }
 
 function GuideManagementPage() {
+  const [searchParams] = useSearchParams()
   const [guides, setGuides] = useState([])
 
   const [statistics, setStatistics] = useState({
@@ -323,6 +326,17 @@ function GuideManagementPage() {
   const [keyword, setKeyword] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [destinationFilter, setDestinationFilter] = useState('all')
+  const [leaveStatusFilter, setLeaveStatusFilter] = useState('all')
+
+  const [leavePanelOpen, setLeavePanelOpen] = useState(
+    searchParams.get('openLeaveRequests') === '1',
+  )
+  const [leaveSummary, setLeaveSummary] = useState({
+    pending_count: 0,
+    processed_count: 0,
+    resting_guides_count: 0,
+    busy_guides_count: 0,
+  })
 
   const [pagination, setPagination] = useState({
     currentPage: 1,
@@ -359,9 +373,13 @@ function GuideManagementPage() {
   const [error, setError] = useState('')
   const [formErrors, setFormErrors] = useState({})
 
+  const highlightedLeaveRequestId = searchParams.get('leaveRequestId') || ''
+  const leavePendingCount = Number(leaveSummary.pending_count || 0)
+
   const hasFilter =
     statusFilter !== 'all' ||
-    destinationFilter !== 'all'
+    destinationFilter !== 'all' ||
+    leaveStatusFilter !== 'all'
 
   const filteredStatusStatistics = useMemo(
     () => ({
@@ -405,6 +423,24 @@ function GuideManagementPage() {
       setStatistics(next)
     } catch {
       // Không chặn màn hình khi phần thống kê lỗi.
+    }
+  }, [])
+
+  const loadLeaveSummary = useCallback(async () => {
+    try {
+      const response = await adminGuideLeaveRequestApi.list({
+        status: 'all',
+        per_page: 1,
+      })
+
+      setLeaveSummary(response?.summary || {
+        pending_count: 0,
+        processed_count: 0,
+        resting_guides_count: 0,
+        busy_guides_count: 0,
+      })
+    } catch {
+      // Không chặn màn hình khi thống kê đơn nghỉ lỗi.
     }
   }, [])
 
@@ -479,6 +515,10 @@ function GuideManagementPage() {
           params.destination_id = destinationFilter
         }
 
+        if (leaveStatusFilter !== 'all') {
+          params.leave_status = leaveStatusFilter
+        }
+
         const response = await apiClient.get(endpoint, { params })
 
         setGuides(unwrapList(response))
@@ -494,17 +534,39 @@ function GuideManagementPage() {
         setIsLoading(false)
       }
     },
-    [destinationFilter, hasFilter, keyword, statusFilter],
+    [destinationFilter, hasFilter, keyword, leaveStatusFilter, statusFilter],
   )
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      loadCatalogs()
-      loadStatistics()
-    }, 0)
+    void loadCatalogs()
+    void loadStatistics()
+    void loadLeaveSummary()
+  }, [loadCatalogs, loadLeaveSummary, loadStatistics])
 
-    return () => window.clearTimeout(timer)
-  }, [loadCatalogs, loadStatistics])
+  useEffect(() => {
+    function reloadGuideLeaveRequests() {
+      void loadLeaveSummary()
+      void loadGuides(pagination.currentPage)
+    }
+
+    window.addEventListener(
+      'admin-guide-leave-request:changed',
+      reloadGuideLeaveRequests,
+    )
+
+    return () => {
+      window.removeEventListener(
+        'admin-guide-leave-request:changed',
+        reloadGuideLeaveRequests,
+      )
+    }
+  }, [loadGuides, loadLeaveSummary, pagination.currentPage])
+
+  useEffect(() => {
+    if (searchParams.get('openLeaveRequests') === '1') {
+      setLeavePanelOpen(true)
+    }
+  }, [searchParams])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -754,8 +816,8 @@ function GuideManagementPage() {
     setNotice('')
     setIsFormOpen(true)
 
-    loadCatalogs()
-    loadAvailableUsers()
+    void loadCatalogs()
+    void loadAvailableUsers()
   }
 
   function openEditForm(guide) {
@@ -782,8 +844,8 @@ function GuideManagementPage() {
     setNotice('')
     setIsFormOpen(true)
 
-    loadCatalogs()
-    loadAvailableUsers()
+    void loadCatalogs()
+    void loadAvailableUsers()
   }
 
   function closeForm() {
@@ -918,6 +980,18 @@ function GuideManagementPage() {
   function selectStatistic(status) {
     setStatusFilter(status)
     setDestinationFilter('all')
+    setLeaveStatusFilter('all')
+
+    setPagination((current) => ({
+      ...current,
+      currentPage: 1,
+    }))
+  }
+
+  function selectLeaveStatistic(status) {
+    setStatusFilter('all')
+    setDestinationFilter('all')
+    setLeaveStatusFilter(status)
 
     setPagination((current) => ({
       ...current,
@@ -931,6 +1005,7 @@ function GuideManagementPage() {
         breadcrumb={['ViVuGo', 'Quản Lý Hướng Dẫn Viên']}
         title="Quản Lý Hướng Dẫn Viên"
         description="Quản lý thông tin, khu vực phụ trách và phân công hướng dẫn viên."
+        showNotificationBell={false}
         actions={
           <div className="guide-header-actions-group">
             <div className="guide-header-links">
@@ -950,6 +1025,18 @@ function GuideManagementPage() {
                 Chứng chỉ
               </Link>
             </div>
+
+            <button
+              type="button"
+              className={`admin-guide-leave-menu-button ${leavePanelOpen ? 'active' : ''}`}
+              onClick={() => setLeavePanelOpen((current) => !current)}
+            >
+              Đơn xin nghỉ
+
+              {leavePendingCount > 0 ? (
+                <span>{leavePendingCount > 99 ? '99+' : leavePendingCount}</span>
+              ) : null}
+            </button>
 
             <Link className="guide-trash-button" to="/admin/guides/trash">
               <Icon name="trash" size={16} />
@@ -1044,7 +1131,32 @@ function GuideManagementPage() {
           <span>Tạm khóa</span>
           <small>Tạm ẩn HDV</small>
         </button>
+
+        <button
+          className={`guide-stat-card blue ${
+            leaveStatusFilter === 'resting' ? 'is-active' : ''
+          }`}
+          type="button"
+          onClick={() => selectLeaveStatistic('resting')}
+        >
+          <strong>{leaveSummary.resting_guides_count || 0}</strong>
+          <span>HDV đang nghỉ</span>
+          <small>Đơn đã duyệt trong hôm nay</small>
+        </button>
+
+        <button
+          className={`guide-stat-card amber ${
+            leaveStatusFilter === 'busy_leave' ? 'is-active' : ''
+          }`}
+          type="button"
+          onClick={() => selectLeaveStatistic('busy_leave')}
+        >
+          <strong>{leaveSummary.busy_guides_count || 0}</strong>
+          <span>Bận vì đơn nghỉ</span>
+          <small>Đơn chờ duyệt hoặc đã duyệt</small>
+        </button>
       </div>
+
 
       <div className="guide-content-grid">
         <div className="guide-main-panel">
@@ -1102,6 +1214,22 @@ function GuideManagementPage() {
                   {getDestinationLabel(destination)}
                 </option>
               ))}
+            </select>
+
+            <select
+              value={leaveStatusFilter}
+              onChange={(event) => {
+                setLeaveStatusFilter(event.target.value)
+                setPagination((current) => ({
+                  ...current,
+                  currentPage: 1,
+                }))
+              }}
+            >
+              <option value="all">Tất cả trạng thái nghỉ</option>
+              <option value="resting">Đang nghỉ</option>
+              <option value="busy_leave">Bận vì đơn nghỉ</option>
+              <option value="available_leave">Không có đơn nghỉ</option>
             </select>
           </div>
 
@@ -1300,7 +1428,7 @@ function GuideManagementPage() {
 
             <div className="guide-form-grid">
               <label>
-                Họ và tên <span className="text-red-500">*</span>
+                Họ và tên
 
                 <select
                   required
@@ -1324,7 +1452,7 @@ function GuideManagementPage() {
                 </select>
 
                 <small className="guide-field-hint">
-                  Chỉ hiển thị tài khoản chưa tạo hồ sơ hướng dẫn viên.
+                  Chỉ hiển thị tài khoản HDV chưa tạo hồ sơ hướng dẫn viên.
                 </small>
 
                 {formErrors.user_id ? (
@@ -1335,7 +1463,7 @@ function GuideManagementPage() {
               </label>
 
               <label className="guide-form-wide">
-                Khu vực phụ trách <span className="text-red-500">*</span>
+                Khu vực phụ trách
 
                 <div className="guide-repeat-list">
                   {destinations.length > 0 ? (
@@ -1410,7 +1538,7 @@ function GuideManagementPage() {
               </label>
 
               <label>
-                Số năm kinh nghiệm <span className="text-red-500">*</span>
+                Số năm kinh nghiệm
 
                 <input
                   min="0"
@@ -1430,7 +1558,7 @@ function GuideManagementPage() {
               </label>
 
               <label>
-                Trạng thái <span className="text-red-500">*</span>
+                Trạng thái
 
                 <select
                   value={form.status}
@@ -1457,7 +1585,7 @@ function GuideManagementPage() {
               </label>
 
               <label className="guide-form-wide">
-                Ngoại ngữ <span className="text-red-500">*</span>
+                Ngoại ngữ
 
                 <div className="guide-repeat-list">
                   {form.languages.map((language, index) => {
@@ -1552,7 +1680,7 @@ function GuideManagementPage() {
               </label>
 
               <label className="guide-form-wide">
-                Chứng chỉ <span className="text-red-500">*</span>
+                Chứng chỉ
 
                 <div className="guide-repeat-list">
                   {form.experiences.map((experience, index) => {
@@ -1857,6 +1985,28 @@ function GuideManagementPage() {
                 <p className="guide-empty-text">Chưa có chứng chỉ.</p>
               )}
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {leavePanelOpen ? (
+        <div
+          className="admin-guide-leave-card-backdrop"
+          role="presentation"
+          onMouseDown={() => setLeavePanelOpen(false)}
+        >
+          <div
+            className="admin-guide-leave-card-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Quản lý đơn xin nghỉ HDV"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <AdminGuideLeaveRequestsPanel
+              open={leavePanelOpen}
+              highlightRequestId={highlightedLeaveRequestId}
+              onClose={() => setLeavePanelOpen(false)}
+            />
           </div>
         </div>
       ) : null}

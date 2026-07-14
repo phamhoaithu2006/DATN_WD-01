@@ -1,6 +1,6 @@
-﻿.guide-shell {
-  height: 100vh;
-  min-height: 100vh;
+.guide-shell {
+  height: 100svh;
+  min-height: 100svh;
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);
   background: #f8fafc;
@@ -17,8 +17,8 @@
   position: sticky;
   top: 0;
   align-self: start;
-  height: 100vh;
-  max-height: 100vh;
+  height: 100svh;
+  max-height: 100svh;
   display: flex;
   flex-direction: column;
   padding: 24px 18px;
@@ -270,7 +270,7 @@
 
 .guide-main {
   min-width: 0;
-  height: 100vh;
+  height: 100svh;
   padding: 32px;
   overflow-y: auto;
 }
@@ -365,7 +365,7 @@
   border-radius: 99px;
   padding: 0 16px 0 38px;
   font-size: 0.85rem;
-  font-weight: 500;
+  font-weight: 550;
   color: #1e293b;
   outline: none;
   transition: all 0.2s ease;
@@ -614,58 +614,25 @@
 
 .guide-sidebar.collapsed .guide-brand-subtitle,
 .guide-sidebar.collapsed .guide-menu-header,
-.guide-sidebar.collapsed .guide-nav-label,
-.guide-sidebar.collapsed .guide-logout-label {
+.guide-sidebar.collapsed .guide-nav-link span,
+.guide-sidebar.collapsed .guide-logout-button span {
   display: none;
 }
 
 .guide-sidebar.collapsed .guide-nav-link {
-  display: grid;
-  grid-template-columns: 1fr;
-  place-items: center;
   justify-content: center;
   padding: 0;
   width: 48px;
   height: 48px;
   border-radius: 12px;
-}
-
-.guide-sidebar.collapsed .guide-nav-link.active {
-  color: #1454f0;
-  background: rgba(20, 84, 240, 0.08);
-  box-shadow: none;
-}
-
-.guide-sidebar.collapsed .guide-nav-link.active::after {
-  display: none;
-}
-
-.guide-sidebar.collapsed .guide-nav-link.active .guide-nav-icon {
-  stroke: #1454f0;
 }
 
 .guide-sidebar.collapsed .guide-logout-button {
-  display: grid;
-  grid-template-columns: 1fr;
-  place-items: center;
   justify-content: center;
   padding: 0;
   width: 48px;
   height: 48px;
   border-radius: 12px;
-}
-
-.guide-sidebar.collapsed .guide-nav-icon-wrap {
-  width: 20px;
-  height: 20px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.guide-sidebar.collapsed .guide-nav-icon,
-.guide-sidebar.collapsed .guide-logout-icon {
-  display: block;
 }
 
 @media (max-width: 900px) {
@@ -673,7 +640,7 @@
   .guide-shell.sidebar-collapsed {
     grid-template-columns: 1fr;
     height: auto;
-    min-height: 100vh;
+    min-height: 100svh;
     overflow: visible;
   }
 
@@ -723,7 +690,7 @@
 }
 
 .guide-blank-page {
-  min-height: calc(100vh - 120px);
+  min-height: calc(100svh - 120px);
   background: #ffffff;
 }
 
@@ -901,6 +868,7 @@
   border-radius: 22px;
   background: rgba(15, 23, 42, 0.28);
   border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(10px);
 }
 
 .guide-dashboard-hero-meta-chip {
@@ -1899,91 +1867,6 @@
   line-height: 1.55;
 }
 
-.guide-profile-detail-list {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px 18px;
-}
-
-.guide-profile-detail-list div {
-  display: grid;
-  gap: 6px;
-  padding: 14px 16px;
-  border: 1px solid #d9e1ec;
-  border-radius: 18px;
-  background: #f8fbff;
-}
-
-.guide-profile-detail-list dt {
-  color: #64748b;
-  font-size: 0.8rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.guide-profile-detail-list dd {
-  margin: 0;
-  color: #0f172a;
-  font-size: 0.98rem;
-  font-weight: 700;
-  word-break: break-word;
-}
-
-.guide-profile-note {
-  display: flex;
-  align-items: center;
-  min-height: 180px;
-  padding: 22px;
-  border: 1px dashed #d9e1ec;
-  border-radius: 22px;
-  background: linear-gradient(180deg, rgba(248, 251, 255, 0.95), rgba(255, 255, 255, 0.98));
-  color: #475569;
-  font-size: 0.98rem;
-  line-height: 1.7;
-}
-
-.guide-detail-stack {
-  display: grid;
-  gap: 12px;
-}
-
-.guide-detail-item {
-  display: grid;
-  gap: 6px;
-  padding: 14px 16px;
-  border: 1px solid #d9e1ec;
-  border-radius: 18px;
-  background: #f8fbff;
-}
-
-.guide-detail-item.is-tight {
-  display: inline-flex;
-  align-items: center;
-  width: fit-content;
-  min-height: 0;
-  padding: 12px 16px;
-}
-
-.guide-detail-item span {
-  color: #64748b;
-  font-size: 0.8rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.guide-detail-item strong {
-  color: #0f172a;
-  font-size: 0.98rem;
-  font-weight: 700;
-  word-break: break-word;
-}
-
-.guide-detail-item.is-tight strong {
-  line-height: 1.2;
-}
-
 .guide-profile-status {
   flex-shrink: 0;
   padding: 6px 10px;
@@ -2020,13 +1903,6 @@
   grid-column: 1 / -1;
 }
 
-.guide-profile-password-row {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-}
-
 .guide-field span {
   color: #334155;
   font-size: 0.85rem;
@@ -2034,8 +1910,7 @@
 }
 
 .guide-field input,
-.guide-field select,
-.guide-field textarea {
+.guide-field select {
   width: 100%;
   min-height: 44px;
   box-sizing: border-box;
@@ -2057,16 +1932,8 @@
   padding: 10px 12px;
 }
 
-.guide-field textarea {
-  min-height: 220px;
-  padding: 12px 12px;
-  line-height: 1.65;
-  resize: vertical;
-}
-
 .guide-field input:focus,
-.guide-field select:focus,
-.guide-field textarea:focus {
+.guide-field select:focus {
   border-color: #1591f2;
   background: #ffffff;
   box-shadow: 0 0 0 3px rgba(21, 145, 242, 0.12);
@@ -2095,9 +1962,8 @@
 }
 
 .guide-secondary-button {
-  background: #1454f0;
+  background: #0f172a;
   color: #ffffff;
-  box-shadow: 0 10px 18px rgba(20, 84, 240, 0.18);
 }
 
 .guide-primary-button:hover,
@@ -2189,10 +2055,6 @@
   }
 
   .guide-profile-form-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .guide-profile-detail-list {
     grid-template-columns: 1fr;
   }
 }
@@ -2453,14 +2315,11 @@
   display: grid;
   grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.1fr);
   gap: 18px;
-  align-items: stretch;
+  align-items: start;
 }
 
 .guide-notifications-list-panel,
 .guide-notification-reader {
-  min-height: 320px;
-  display: flex;
-  flex-direction: column;
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 18px;
@@ -2468,29 +2327,10 @@
   box-shadow: 0 16px 36px rgba(15, 23, 42, 0.06);
 }
 
-.guide-notifications-list-panel {
-  height: 100%;
-}
-
-.guide-notifications-list-panel.is-empty,
-.guide-notification-reader.is-empty {
-  justify-content: center;
-}
-
-.guide-notifications-list-panel.is-empty .guide-notification-empty.large,
-.guide-notification-reader.is-empty .guide-notification-empty.large {
-  flex: 1;
-  display: grid;
-  place-items: center;
-}
-
-.guide-notification-list {
-  flex: 1;
-}
-
 .guide-notification-reader {
   position: sticky;
   top: 18px;
+  min-height: 360px;
 }
 
 .guide-notification-reader-head {
@@ -2529,357 +2369,6 @@
   white-space: pre-wrap;
 }
 
-.support-notifications-page {
-  gap: 20px;
-}
-
-.support-notifications-hero {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 170px;
-  gap: 18px;
-  padding: 24px;
-  border: 1px solid #dbeafe;
-  border-radius: 24px;
-  background:
-    radial-gradient(circle at top left, rgba(20, 84, 240, 0.12), transparent 30%),
-    linear-gradient(135deg, #ffffff 0%, #f8fbff 100%);
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.06);
-}
-
-.support-notifications-hero-copy {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 10px;
-}
-
-.support-notifications-kicker {
-  width: fit-content;
-  display: inline-flex;
-  padding: 7px 12px;
-  border-radius: 999px;
-  background: rgba(20, 84, 240, 0.08);
-  color: #1454f0;
-  font-size: 0.75rem;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.support-notifications-hero-copy h1 {
-  margin: 0;
-  color: #0f172a;
-  font-size: clamp(1.7rem, 3vw, 2.3rem);
-  line-height: 1.1;
-}
-
-.support-notifications-hero-copy p {
-  max-width: 68ch;
-  margin: 0;
-  color: #64748b;
-  font-size: 0.98rem;
-  line-height: 1.7;
-}
-
-.support-notifications-hero-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 6px;
-}
-
-.support-notifications-hero-actions button,
-.support-inbox-filter button {
-  min-height: 42px;
-  padding: 0 16px;
-  border: 1px solid #dbe3ef;
-  border-radius: 999px;
-  background: #ffffff;
-  color: #475569;
-  font: inherit;
-  font-weight: 800;
-  cursor: pointer;
-  transition:
-    transform 150ms ease,
-    background 150ms ease,
-    border-color 150ms ease,
-    color 150ms ease,
-    box-shadow 150ms ease;
-}
-
-.support-notifications-hero-actions button.active,
-.support-inbox-filter button.active {
-  background: #1454f0;
-  border-color: #1454f0;
-  color: #ffffff;
-  box-shadow: 0 12px 24px rgba(20, 84, 240, 0.18);
-}
-
-.support-notifications-summary-card {
-  display: grid;
-  align-content: center;
-  justify-items: center;
-  gap: 6px;
-  width: 100%;
-  min-width: 0;
-  max-width: 170px;
-  padding: 12px 12px;
-  border-radius: 16px;
-  background: linear-gradient(180deg, #eef5ff 0%, #ffffff 100%);
-  border: 1px solid #dbeafe;
-  text-align: center;
-  justify-self: end;
-  align-self: center;
-}
-
-.support-notifications-summary-card span {
-  color: #64748b;
-  font-size: 0.82rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.support-notifications-summary-card strong {
-  color: #1454f0;
-  font-size: 1.9rem;
-  line-height: 1;
-}
-
-.support-notifications-summary-card.is-compose {
-  display: none;
-}
-
-.support-notifications-summary-card small {
-  color: #64748b;
-  font-size: 0.85rem;
-}
-
-.support-compose-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(300px, 0.85fr);
-  gap: 18px;
-  align-items: start;
-}
-
-.support-compose-panel,
-.support-compose-preview,
-.support-inbox-panel,
-.support-reader {
-  border: 1px solid #e2e8f0;
-  border-radius: 20px;
-  background: #ffffff;
-  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.06);
-}
-
-.support-compose-panel {
-  display: grid;
-  gap: 14px;
-  padding: 22px;
-}
-
-.support-compose-head span,
-.support-inbox-head span {
-  color: #1454f0;
-  font-size: 0.76rem;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.support-compose-head h2,
-.support-inbox-head strong {
-  margin: 4px 0 0;
-  color: #0f172a;
-  font-size: 1.25rem;
-}
-
-.support-compose-head p,
-.support-inbox-head div > span {
-  color: #64748b;
-  line-height: 1.6;
-}
-
-.support-compose-head > div {
-  display: grid;
-  gap: 4px;
-}
-
-.support-compose-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.support-compose-hint {
-  display: grid;
-  gap: 4px;
-  color: #475569;
-}
-
-.support-compose-hint strong {
-  color: #0f172a;
-  font-size: 0.92rem;
-}
-
-.support-compose-hint span {
-  font-size: 0.88rem;
-  line-height: 1.6;
-}
-
-.support-compose-preview {
-  display: grid;
-  gap: 14px;
-  padding: 16px;
-  background: linear-gradient(180deg, #fbfdff 0%, #ffffff 100%);
-}
-
-.support-compose-preview-card {
-  display: grid;
-  gap: 10px;
-  padding: 18px;
-  border-radius: 18px;
-  border: 1px solid #dbeafe;
-  background:
-    radial-gradient(circle at top right, rgba(20, 84, 240, 0.08), transparent 24%),
-    #ffffff;
-}
-
-.support-compose-preview-card span {
-  color: #1454f0;
-  font-size: 0.76rem;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.support-compose-preview-card strong {
-  color: #0f172a;
-  font-size: 1.05rem;
-}
-
-.support-compose-preview-card p {
-  margin: 0;
-  color: #475569;
-  line-height: 1.7;
-  white-space: pre-wrap;
-}
-
-.support-compose-preview-note {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 14px 16px;
-  border-radius: 16px;
-  background: #f8fbff;
-  border: 1px solid #e2e8f0;
-}
-
-.support-compose-preview-note-label {
-  color: #0f172a;
-}
-
-.support-compose-preview-note-value {
-  color: #64748b;
-  font-weight: 600;
-}
-
-.support-compose-preview-note-label,
-.support-compose-preview-note-value {
-  font-size: 0.9rem;
-  line-height: 1.4;
-}
-
-.support-inbox-panel {
-  padding: 18px;
-  min-height: 320px;
-  display: flex;
-  flex-direction: column;
-}
-
-.support-inbox-panel.is-empty,
-.support-reader.is-empty {
-  justify-content: center;
-}
-
-.support-inbox-panel.is-empty .guide-notification-empty.large,
-.support-reader.is-empty .guide-notification-empty.large {
-  flex: 1;
-  min-height: 0;
-  display: grid;
-  place-items: center;
-  padding: 0;
-}
-
-.support-inbox-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding-bottom: 16px;
-  margin-bottom: 16px;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.support-inbox-head > div {
-  display: flex;
-  align-items: center;
-  min-height: 42px;
-  gap: 8px;
-  white-space: nowrap;
-}
-
-.support-inbox-filter {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  width: min(100%, 440px);
-}
-
-.support-inbox-filter button {
-  min-height: 38px;
-  padding: 0 14px;
-  width: 100%;
-}
-
-.support-notification-list {
-  gap: 10px;
-}
-
-.support-notification-item-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.support-notification-item-head span {
-  flex-shrink: 0;
-  padding: 4px 8px;
-  border-radius: 999px;
-  background: #eff6ff;
-  color: #1454f0;
-  font-size: 0.72rem;
-  font-weight: 900;
-}
-
-.guide-notification-dot.is-unread {
-  background: #1454f0;
-  box-shadow: 0 0 0 5px rgba(20, 84, 240, 0.1);
-}
-
-.support-reader {
-  position: sticky;
-  top: 18px;
-  min-height: 320px;
-}
-
-.support-reader-head {
-  padding-bottom: 14px;
-}
-
 @media (max-width: 900px) {
   .guide-notifications-header,
   .guide-notification-reader-head {
@@ -2892,21 +2381,6 @@
 
   .guide-notification-reader {
     position: static;
-  }
-
-  .support-notifications-hero,
-  .support-compose-layout,
-  .guide-notifications-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .support-inbox-head {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .support-inbox-filter {
-    width: 100%;
   }
 }
 
@@ -2976,6 +2450,7 @@
   border-radius: 22px;
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(10px);
 }
 
 .guide-tours-hero-panel strong {
@@ -3614,7 +3089,7 @@
   appearance: none;
   border: 1px solid #e5e7eb;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 14px;
   padding: 16px;
   border-radius: 18px;
@@ -3631,52 +3106,39 @@
 }
 
 .guide-tour-stat-icon {
-  width: 52px;
-  height: 52px;
+  width: 44px;
+  height: 44px;
   display: grid;
   place-items: center;
   border-radius: 14px;
   background: #eff6ff;
-  color: #1d4ed8;
+  color: #2563eb;
   flex-shrink: 0;
-  margin-top: 2px;
-  box-shadow: 0 8px 16px rgba(29, 78, 216, 0.12);
 }
 
 .guide-tour-stat-icon svg {
-  width: 25px;
-  height: 25px;
-  stroke-width: 2.4;
+  width: 20px;
+  height: 20px;
 }
 
 .guide-tour-stat-card.tone-green .guide-tour-stat-icon {
-  background: #16a34a;
-  color: #ffffff;
-  box-shadow: 0 8px 16px rgba(22, 163, 74, 0.18);
+  background: #ecfdf5;
+  color: #059669;
 }
 
 .guide-tour-stat-card.tone-amber .guide-tour-stat-icon {
-  background: #d97706;
-  color: #ffffff;
-  box-shadow: 0 8px 16px rgba(217, 119, 6, 0.18);
+  background: #fffbeb;
+  color: #d97706;
 }
 
 .guide-tour-stat-card.tone-red .guide-tour-stat-icon {
-  background: #e11d48;
-  color: #ffffff;
-  box-shadow: 0 8px 16px rgba(225, 29, 72, 0.16);
-}
-
-.guide-tour-stat-card.tone-blue .guide-tour-stat-icon {
-  background: #1d4ed8;
-  color: #ffffff;
-  box-shadow: 0 8px 16px rgba(29, 78, 216, 0.16);
+  background: #fef2f2;
+  color: #dc2626;
 }
 
 .guide-tour-stat-copy {
   display: grid;
   gap: 4px;
-  min-width: 0;
 }
 
 .guide-tour-stat-copy span {
@@ -4064,12 +3526,13 @@
   place-items: center;
   padding: 24px;
   background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(6px);
 }
 
 .guide-tour-modal {
   position: relative;
   width: min(920px, 100%);
-  max-height: min(90vh, 960px);
+  max-height: min(90svh, 960px);
   overflow: auto;
   border-radius: 24px;
   border: 1px solid #e5e7eb;
@@ -4097,14 +3560,14 @@
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr);
   gap: 16px;
-  align-items: flex-start;
+  align-items: center;
 }
 
 .guide-tour-modal-image-wrap {
-  height: 180px;
+  min-height: 180px;
   border-radius: 20px;
   overflow: hidden;
-  background: #ffffff;
+  background: linear-gradient(135deg, #dbeafe, #bfdbfe);
 }
 
 .guide-tour-modal-image-wrap img {
@@ -4125,13 +3588,13 @@
 }
 
 .guide-tour-modal-copy h3 {
-  margin: 10px 0 8px;
+  margin: 10px 0 6px;
   color: #0f172a;
   font-size: 1.5rem;
 }
 
 .guide-tour-modal-copy p {
-  margin: 4px 0 0;
+  margin: 0;
   color: #64748b;
 }
 
@@ -4164,41 +3627,6 @@
   font-size: 0.98rem;
 }
 
-.guide-tour-modal-request-float {
-  min-height: 38px;
-  border: 0;
-  border-radius: 999px;
-  padding: 0 14px;
-  background: #2563eb;
-  color: #ffffff;
-  font-size: 12px;
-  font-weight: 900;
-  cursor: pointer;
-  transition: 0.18s ease;
-}
-
-.guide-tour-modal-request-inline {
-  position: absolute;
-  top: 18px;
-  right: 18px;
-  z-index: 3;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 8px;
-  max-width: calc(100% - 36px);
-}
-
-.guide-tour-modal-request-float:hover:not(:disabled) {
-  background: #1d4ed8;
-}
-
-.guide-tour-modal-request-float:disabled {
-  cursor: not-allowed;
-  background: #cbd5e1;
-  color: #64748b;
-}
-
 .guide-tour-modal-section {
   margin-top: 18px;
 }
@@ -4215,26 +3643,18 @@
   line-height: 1.7;
 }
 
-.guide-tour-modal-content-box {
+.guide-tour-modal-note {
   padding: 14px 16px;
   border-radius: 16px;
-  border: 1px dashed #dbe3ef;
-  background: #f8fafc;
-}
-
-.guide-tour-modal-content-box p {
-  margin: 0;
-  color: #64748b;
-  font-size: 0.95rem;
-  font-weight: 700;
-  line-height: 1.55;
-}
-
-.guide-tour-modal-note {
-  color: #64748b;
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
 }
 
 .guide-tour-modal-empty {
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: #f8fafc;
+  border: 1px dashed #dbe3ef;
   color: #64748b;
   font-weight: 700;
 }
@@ -4267,10 +3687,8 @@
 }
 
 .guide-tour-modal-step p {
-  color: #64748b;
-  font-size: 0.92rem;
-  font-weight: 700;
-  line-height: 1.55;
+  color: #475569;
+  font-size: 0.86rem;
 }
 
 @media (max-width: 1200px) {
@@ -4357,7 +3775,7 @@
 
 .guide-tour-row-card.state-ongoing {
   border-color: #f59e0b;
-  background: linear-gradient(135deg, #fff7ed 0%, #fff 62%);
+  background: linear-gradient(135deg, #fffbeb 0%, #fff 62%);
 }
 
 .guide-tour-row-card.state-upcoming {
@@ -4366,8 +3784,8 @@
 }
 
 .guide-tour-row-card.state-completed {
-  border-color: #60a5fa;
-  background: linear-gradient(135deg, #eff6ff 0%, #fff 62%);
+  border-color: #cbd5e1;
+  background: linear-gradient(135deg, #f8fafc 0%, #fff 62%);
   opacity: 0.92;
 }
 
@@ -4435,39 +3853,13 @@
   color: #64748b;
 }
 
-.guide-tour-change-hint {
-  display: block;
-  margin: 0 auto;
-  width: 100%;
-  max-width: 280px;
-  color: #dc2626;
-  font-size: 9.5px;
-  font-weight: 800;
-  line-height: 1.15;
-  text-align: center;
-  text-wrap: balance;
-  white-space: normal;
-  overflow: visible;
-  text-overflow: clip;
-}
-
+.guide-tour-change-hint,
 .guide-tour-modal-request-hint {
-  max-width: 240px;
-  color: #dc2626;
+  max-width: 190px;
+  color: #b45309;
   font-size: 11px;
   font-weight: 700;
-  line-height: 1.25;
   text-align: right;
-}
-
-.guide-tour-modal-request-hint-inline {
-  max-width: 240px;
-  color: #dc2626;
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1.25;
-  text-align: right;
-  text-wrap: balance;
 }
 
 .guide-replace-modal {
@@ -4530,7 +3922,8 @@
   color: #e11d48;
 }
 
-.guide-replace-form textarea {
+.guide-replace-form textarea,
+.guide-replace-form input[type='file'] {
   width: 100%;
   border: 1px solid #cbd5e1;
   border-radius: 14px;
@@ -4541,149 +3934,10 @@
   transition: 0.2s ease;
 }
 
-.guide-replace-form textarea:focus {
+.guide-replace-form textarea:focus,
+.guide-replace-form input[type='file']:focus {
   border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
-}
-
-.guide-replace-file-input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-
-.guide-replace-file-trigger {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: fit-content;
-  min-height: 42px;
-  border: 1px solid #cbd5e1;
-  border-radius: 12px;
-  padding: 0 14px;
-  background: #f8fafc;
-  color: #334155;
-  font-weight: 800;
-  cursor: pointer;
-  transition: 0.2s ease;
-}
-
-.guide-replace-file-trigger:hover:not(:disabled) {
-  border-color: #2563eb;
-  color: #1d4ed8;
-}
-
-.guide-replace-file-trigger.is-invalid {
-  border-color: #f43f5e;
-  background: #fff1f2;
-}
-
-.guide-replace-file-name {
-  font-style: normal;
-}
-
-.guide-replace-file-preview {
-  display: grid;
-  place-items: center;
-  min-height: 132px;
-  padding: 14px;
-  border: 1px solid #dbe3ef;
-  border-radius: 14px;
-  background: #f8fafc;
-}
-
-.guide-replace-file-preview-image,
-.guide-replace-file-preview-fallback {
-  width: 100%;
-  height: 100%;
-  border-radius: 12px;
-  object-fit: cover;
-  display: block;
-  background: #e2e8f0;
-}
-
-.guide-replace-file-preview-fallback {
-  display: grid;
-  place-items: center;
-  gap: 6px;
-  color: #1d4ed8;
-  font-weight: 900;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  font-size: 1.35rem;
-  padding: 12px;
-  text-align: center;
-  overflow: hidden;
-}
-
-.guide-replace-file-preview-fallback small {
-  max-width: 100%;
-  color: #64748b;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0;
-  text-transform: none;
-  word-break: break-all;
-}
-
-.guide-replace-file-preview-empty {
-  color: #64748b;
-  font-weight: 700;
-}
-
-.guide-replace-evidence-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
-  align-items: stretch;
-}
-
-.guide-replace-file-actions {
-  display: grid;
-  gap: 10px;
-  align-content: end;
-}
-
-.guide-replace-file-actions .guide-replace-file-trigger {
-  width: 100%;
-  min-width: 132px;
-}
-
-.guide-replace-file-actions .guide-replace-file-remove {
-  width: 100%;
-}
-
-.guide-replace-file-remove {
-  min-height: 42px;
-  border: 1px solid #fecaca;
-  border-radius: 12px;
-  padding: 0 14px;
-  background: #fff1f2;
-  color: #b91c1c;
-  font-weight: 800;
-  cursor: pointer;
-  transition: 0.2s ease;
-}
-
-.guide-replace-file-remove:hover:not(:disabled) {
-  border-color: #ef4444;
-  background: #fee2e2;
-}
-
-@media (max-width: 640px) {
-  .guide-replace-evidence-row {
-    grid-template-columns: 1fr;
-  }
-
-  .guide-replace-file-actions {
-    grid-template-columns: 1fr;
-  }
 }
 
 .guide-replace-form textarea.is-invalid,
@@ -4802,7 +4056,7 @@
   grid-template-columns: minmax(0, 1fr) 170px;
   align-items: stretch;
   gap: 16px;
-  min-height: 152px;
+  min-height: 128px;
   border: 1px solid #e2e8f0;
   border-radius: 18px;
   background: #ffffff;
@@ -4812,9 +4066,9 @@
 }
 
 .guide-tour-row-card:hover {
-  border-color: #e2e8f0;
-  box-shadow: none;
-  transform: none;
+  transform: translateY(-1px);
+  border-color: #bfdbfe;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.08);
 }
 
 .guide-tour-row-card.is-active {
@@ -4824,17 +4078,17 @@
 
 .guide-tour-row-card.state-ongoing {
   border-color: #f59e0b;
-  background: linear-gradient(135deg, #fff7ed 0%, #ffffff 58%);
+  background: linear-gradient(135deg, #fffbeb 0%, #ffffff 58%);
 }
 
 .guide-tour-row-card.state-upcoming {
-  border-color: #22c55e;
+  border-color: #86efac;
   background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 58%);
 }
 
 .guide-tour-row-card.state-completed {
-  border-color: #60a5fa;
-  background: linear-gradient(135deg, #eff6ff 0%, #ffffff 62%);
+  border-color: #cbd5e1;
+  background: linear-gradient(135deg, #f8fafc 0%, #ffffff 62%);
 }
 
 .guide-tour-row-card.state-cancelled {
@@ -4853,7 +4107,6 @@
   text-align: left;
   cursor: pointer;
   min-width: 0;
-  align-items: stretch;
 }
 
 .guide-tour-row-image-wrap {
@@ -4885,9 +4138,8 @@
 .guide-tour-row-content {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: center;
   min-width: 0;
-  min-height: 100%;
 }
 
 .guide-tour-row-head {
@@ -4960,7 +4212,6 @@
 
 .guide-tour-row-meta span {
   min-width: 0;
-  min-height: 56px;
   border-radius: 12px;
   border: 1px solid #e2e8f0;
   background: rgba(255, 255, 255, 0.78);
@@ -4987,7 +4238,14 @@
 }
 
 .guide-tour-row-note {
-  display: none;
+  margin-top: 9px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.45;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .guide-tour-row-actions {
@@ -5036,6 +4294,15 @@
 .guide-tour-change-btn:disabled {
   cursor: not-allowed;
   opacity: 0.7;
+}
+
+.guide-tour-change-hint {
+  display: block;
+  color: #c2410c;
+  font-size: 10.5px;
+  font-weight: 800;
+  line-height: 1.35;
+  text-align: center;
 }
 
 .guide-tour-new-badge,
@@ -5106,799 +4373,6 @@
   color: #64748b;
 }
 
-/* Guide schedule */
-
-.guide-schedule-page {
-  display: grid;
-  gap: 18px;
-}
-
-.guide-schedule-header {
-  display: flex;
-  align-items: stretch;
-  justify-content: space-between;
-  gap: 18px;
-  padding: 24px;
-  border: 1px solid #e2e8f0;
-  border-radius: 22px;
-  background: #ffffff;
-  box-shadow: 0 16px 38px rgba(15, 23, 42, 0.06);
-}
-
-.guide-schedule-header span,
-.guide-schedule-panel > span,
-.guide-schedule-panel-head span,
-.guide-schedule-history-panel > span {
-  color: #2563eb;
-  font-size: 12px;
-  font-weight: 900;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.guide-schedule-header h1 {
-  margin: 6px 0 8px;
-  color: #0f172a;
-  font-size: 30px;
-  line-height: 1.12;
-}
-
-.guide-schedule-header p {
-  max-width: 70ch;
-  margin: 0;
-  color: #64748b;
-  line-height: 1.65;
-}
-
-.guide-schedule-summary {
-  min-width: 240px;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  align-content: center;
-  gap: 6px 10px;
-  padding: 16px;
-  border-radius: 18px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  text-align: center;
-}
-
-.guide-schedule-summary strong {
-  color: #0f172a;
-  font-size: 26px;
-  line-height: 1;
-}
-
-.guide-schedule-summary span {
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 800;
-  text-transform: none;
-  letter-spacing: 0;
-}
-
-.guide-schedule-layout {
-  display: grid;
-  grid-template-columns: 340px minmax(0, 1fr);
-  gap: 18px;
-  align-items: start;
-}
-
-.guide-schedule-sidebar,
-.guide-schedule-content,
-.guide-schedule-panel,
-.guide-schedule-history-panel {
-  border: 1px solid #e2e8f0;
-  border-radius: 22px;
-  background: #ffffff;
-  box-shadow: 0 16px 38px rgba(15, 23, 42, 0.05);
-}
-
-.guide-schedule-sidebar {
-  position: sticky;
-  top: 0;
-  overflow: hidden;
-}
-
-.guide-schedule-tabs {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
-  padding: 12px;
-  border-bottom: 1px solid #e2e8f0;
-  background: #f8fafc;
-}
-
-.guide-schedule-tabs button {
-  min-height: 48px;
-  display: grid;
-  gap: 3px;
-  border: 0;
-  border-radius: 14px;
-  background: transparent;
-  color: #475569;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 900;
-  cursor: pointer;
-}
-
-.guide-schedule-tabs button span {
-  color: inherit;
-  font-size: 16px;
-}
-
-.guide-schedule-tabs button.is-active {
-  background: #2563eb;
-  color: #ffffff;
-}
-
-.guide-schedule-tour-list {
-  display: grid;
-  gap: 10px;
-  max-height: calc(100svh - 300px);
-  min-height: 320px;
-  overflow: auto;
-  padding: 14px;
-}
-
-.guide-schedule-tour-card {
-  display: grid;
-  gap: 5px;
-  width: 100%;
-  border: 1px solid #e2e8f0;
-  border-left: 5px solid #cbd5e1;
-  border-radius: 16px;
-  background: #ffffff;
-  padding: 13px 14px;
-  text-align: left;
-  cursor: pointer;
-}
-
-.guide-schedule-tour-card:hover,
-.guide-schedule-tour-card.is-active {
-  border-color: #93c5fd;
-  border-left-color: #2563eb;
-  box-shadow: 0 12px 26px rgba(37, 99, 235, 0.12);
-}
-
-.guide-schedule-tour-card.state-ongoing {
-  border-left-color: #f59e0b;
-}
-
-.guide-schedule-tour-card.state-upcoming {
-  border-left-color: #22c55e;
-}
-
-.guide-schedule-tour-card.state-completed {
-  border-left-color: #64748b;
-}
-
-.guide-schedule-tour-date {
-  color: #2563eb;
-  font-size: 11px;
-  font-weight: 900;
-  text-transform: uppercase;
-}
-
-.guide-schedule-tour-card strong {
-  color: #0f172a;
-  font-size: 15px;
-  line-height: 1.32;
-}
-
-.guide-schedule-tour-card small,
-.guide-schedule-tour-card em {
-  color: #64748b;
-  font-size: 12px;
-  font-style: normal;
-  font-weight: 700;
-}
-
-.guide-schedule-content {
-  padding: 18px;
-}
-
-.guide-schedule-detail-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.guide-schedule-runtime {
-  display: inline-flex;
-  width: fit-content;
-  border-radius: 999px;
-  padding: 6px 10px;
-  background: #eff6ff;
-  color: #1d4ed8;
-  font-size: 11px;
-  font-weight: 900;
-}
-
-.guide-schedule-runtime.runtime-ongoing {
-  background: #fef3c7;
-  color: #b45309;
-}
-
-.guide-schedule-runtime.runtime-upcoming {
-  background: #dcfce7;
-  color: #15803d;
-}
-
-.guide-schedule-runtime.runtime-completed {
-  background: #f1f5f9;
-  color: #475569;
-}
-
-.guide-schedule-detail-head h2 {
-  margin: 10px 0 6px;
-  color: #0f172a;
-  font-size: 24px;
-  line-height: 1.2;
-}
-
-.guide-schedule-detail-head p {
-  margin: 0;
-  color: #64748b;
-  font-weight: 700;
-}
-
-.guide-schedule-date-box {
-  min-width: 190px;
-  display: grid;
-  gap: 4px;
-  align-content: center;
-  border-radius: 16px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  padding: 14px;
-}
-
-.guide-schedule-date-box span,
-.guide-schedule-date-box small {
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.guide-schedule-date-box strong {
-  color: #0f172a;
-  font-size: 20px;
-}
-
-.guide-schedule-stats {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-  margin: 16px 0;
-}
-
-.guide-schedule-stats article {
-  display: grid;
-  gap: 5px;
-  border-radius: 16px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  padding: 14px;
-}
-
-.guide-schedule-stats span {
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 900;
-}
-
-.guide-schedule-stats strong {
-  color: #0f172a;
-  font-size: 26px;
-  line-height: 1;
-}
-
-.guide-schedule-panels {
-  display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.65fr);
-  gap: 16px;
-  align-items: start;
-}
-
-.guide-schedule-panel {
-  padding: 16px;
-}
-
-.guide-schedule-panel.compact {
-  display: grid;
-  gap: 10px;
-}
-
-.guide-schedule-side-panels {
-  display: grid;
-  gap: 16px;
-}
-
-.guide-schedule-panel-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.guide-schedule-panel-head h3,
-.guide-schedule-panel.compact h3,
-.guide-schedule-history-panel h3 {
-  margin: 6px 0 0;
-  color: #0f172a;
-  font-size: 18px;
-}
-
-.guide-schedule-panel-head button,
-.guide-schedule-actions button,
-.guide-schedule-secondary-btn {
-  min-height: 38px;
-  border: 0;
-  border-radius: 12px;
-  background: #2563eb;
-  color: #ffffff;
-  padding: 0 13px;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 900;
-  cursor: pointer;
-}
-
-.guide-schedule-panel-head button:hover,
-.guide-schedule-actions button:hover:not(:disabled),
-.guide-schedule-secondary-btn:hover {
-  background: #1d4ed8;
-}
-
-.guide-schedule-note {
-  margin: 0 0 12px;
-  border-radius: 14px;
-  background: #fffbeb;
-  border: 1px solid #fde68a;
-  color: #92400e;
-  padding: 10px 12px;
-  font-size: 13px;
-  font-weight: 800;
-}
-
-.guide-schedule-filters {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 190px;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.guide-schedule-filters input,
-.guide-schedule-filters select {
-  min-height: 40px;
-  border: 1px solid #cbd5e1;
-  border-radius: 12px;
-  background: #ffffff;
-  color: #0f172a;
-  padding: 0 12px;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.guide-schedule-customers {
-  display: grid;
-  gap: 10px;
-}
-
-.guide-schedule-customer-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 130px 170px;
-  gap: 10px;
-  align-items: center;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 12px;
-}
-
-.guide-schedule-customer-main {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(140px, 0.7fr);
-  gap: 12px;
-  border: 0;
-  background: transparent;
-  padding: 0;
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.guide-schedule-customer-main strong {
-  display: block;
-  color: #0f172a;
-  font-size: 14px;
-  line-height: 1.3;
-}
-
-.guide-schedule-customer-main span,
-.guide-schedule-customer-main small {
-  display: block;
-  margin-top: 3px;
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.guide-schedule-status {
-  justify-self: start;
-  border-radius: 999px;
-  padding: 6px 10px;
-  background: #f1f5f9;
-  color: #475569;
-  font-size: 11px;
-  font-weight: 900;
-}
-
-.guide-schedule-status.status-checked_in {
-  background: #dbeafe;
-  color: #1d4ed8;
-}
-
-.guide-schedule-status.status-checked_out {
-  background: #dcfce7;
-  color: #15803d;
-}
-
-.guide-schedule-status.status-absent {
-  background: #ffe4e6;
-  color: #be123c;
-}
-
-.guide-schedule-actions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.guide-schedule-actions button:disabled {
-  cursor: not-allowed;
-  background: #e2e8f0;
-  color: #64748b;
-}
-
-.guide-schedule-secondary-btn {
-  background: #f1f5f9;
-  color: #334155;
-}
-
-.guide-schedule-panel.compact p {
-  margin: 0;
-  color: #475569;
-  line-height: 1.65;
-}
-
-.guide-schedule-panel dl {
-  display: grid;
-  gap: 8px;
-  margin: 4px 0 0;
-}
-
-.guide-schedule-panel dl div {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  border-top: 1px dashed #e2e8f0;
-  padding-top: 8px;
-}
-
-.guide-schedule-panel dt,
-.guide-schedule-panel dd {
-  margin: 0;
-  color: #64748b;
-  font-size: 13px;
-  font-weight: 800;
-}
-
-.guide-schedule-panel dd {
-  color: #0f172a;
-  text-align: right;
-}
-
-.guide-schedule-stage-list {
-  display: grid;
-  gap: 8px;
-}
-
-.guide-schedule-stage-list article {
-  display: grid;
-  grid-template-columns: 70px minmax(0, 1fr);
-  gap: 4px 10px;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  padding: 10px;
-}
-
-.guide-schedule-stage-list article.stage-in_progress {
-  border-color: #f59e0b;
-  background: #fffbeb;
-}
-
-.guide-schedule-stage-list article.stage-completed {
-  background: #f8fafc;
-}
-
-.guide-schedule-stage-list strong {
-  color: #2563eb;
-  font-size: 12px;
-}
-
-.guide-schedule-stage-list span {
-  color: #0f172a;
-  font-size: 13px;
-  font-weight: 800;
-}
-
-.guide-schedule-stage-list small {
-  grid-column: 2;
-  color: #64748b;
-  font-size: 11px;
-  font-weight: 800;
-}
-
-.guide-schedule-empty {
-  min-height: 140px;
-  display: grid;
-  place-items: center;
-  color: #64748b;
-  font-weight: 800;
-  text-align: center;
-}
-
-.guide-schedule-empty.large {
-  min-height: 460px;
-}
-
-.guide-schedule-history-panel {
-  position: fixed;
-  top: 24px;
-  right: 24px;
-  z-index: 70;
-  width: min(420px, calc(100vw - 32px));
-  max-height: calc(100svh - 48px);
-  overflow: auto;
-  padding: 18px;
-}
-
-.guide-schedule-history-panel > button {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 34px;
-  height: 34px;
-  border: 0;
-  border-radius: 999px;
-  background: #f1f5f9;
-  color: #0f172a;
-  font-size: 22px;
-  cursor: pointer;
-}
-
-.guide-schedule-history-panel p {
-  color: #475569;
-  line-height: 1.55;
-}
-
-.guide-schedule-history-list {
-  display: grid;
-  gap: 10px;
-  margin-top: 12px;
-}
-
-.guide-schedule-history-list article {
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  padding: 12px;
-}
-
-.guide-schedule-history-list strong,
-.guide-schedule-history-list small,
-.guide-schedule-history-list p,
-.guide-schedule-history-list em {
-  display: block;
-  margin: 0 0 4px;
-}
-
-.guide-schedule-history-list strong {
-  color: #0f172a;
-}
-
-.guide-schedule-history-list small {
-  color: #2563eb;
-  font-weight: 900;
-}
-
-.guide-schedule-history-list em {
-  color: #92400e;
-  font-size: 12px;
-  font-style: normal;
-  font-weight: 800;
-}
-
-.guide-schedule-header.simple {
-  align-items: center;
-}
-
-.guide-schedule-header.simple h1 {
-  margin-bottom: 0;
-}
-
-.guide-schedule-panels.one-column {
-  grid-template-columns: 1fr;
-}
-
-.guide-schedule-stage-tabs {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 10px;
-  margin-bottom: 14px;
-}
-
-.guide-schedule-stage-tabs button {
-  display: grid;
-  gap: 4px;
-  min-height: 64px;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  background: #ffffff;
-  padding: 10px 12px;
-  color: #334155;
-  text-align: left;
-  cursor: pointer;
-}
-
-.guide-schedule-stage-tabs button:hover,
-.guide-schedule-stage-tabs button.is-active {
-  border-color: #2563eb;
-  background: #eff6ff;
-}
-
-.guide-schedule-stage-tabs strong {
-  color: #2563eb;
-  font-size: 12px;
-  font-weight: 900;
-}
-
-.guide-schedule-stage-tabs span {
-  color: #0f172a;
-  font-size: 13px;
-  font-weight: 800;
-  line-height: 1.3;
-}
-
-.guide-schedule-session-bar {
-  display: grid;
-  grid-template-columns: minmax(260px, 1fr) repeat(3, minmax(110px, 0.28fr));
-  gap: 10px;
-  margin-bottom: 14px;
-}
-
-.guide-schedule-session-bar label,
-.guide-schedule-session-bar > div {
-  display: grid;
-  gap: 5px;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  background: #f8fafc;
-  padding: 10px 12px;
-}
-
-.guide-schedule-session-bar span {
-  color: #64748b;
-  font-size: 11px;
-  font-weight: 900;
-  text-transform: uppercase;
-}
-
-.guide-schedule-session-bar strong {
-  color: #0f172a;
-  font-size: 20px;
-  line-height: 1;
-}
-
-.guide-schedule-session-bar select {
-  min-height: 38px;
-  border: 1px solid #cbd5e1;
-  border-radius: 10px;
-  background: #ffffff;
-  color: #0f172a;
-  padding: 0 10px;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 800;
-}
-
-.guide-schedule-customer-header,
-.guide-schedule-customer-row.compact-table {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 92px 92px 170px;
-  gap: 10px;
-  align-items: center;
-}
-
-.guide-schedule-customer-header {
-  margin-bottom: 8px;
-  padding: 0 12px;
-}
-
-.guide-schedule-customer-header span {
-  color: #64748b;
-  font-size: 11px;
-  font-weight: 900;
-  text-transform: uppercase;
-}
-
-.guide-schedule-yesno {
-  width: fit-content;
-  min-width: 58px;
-  border-radius: 999px;
-  padding: 6px 10px;
-  font-size: 12px;
-  font-weight: 900;
-  text-align: center;
-}
-
-.guide-schedule-yesno.is-yes {
-  background: #dcfce7;
-  color: #15803d;
-}
-
-.guide-schedule-yesno.is-no {
-  background: #f1f5f9;
-  color: #64748b;
-}
-
-@media (max-width: 1240px) {
-  .guide-schedule-layout,
-  .guide-schedule-panels {
-    grid-template-columns: 1fr;
-  }
-
-  .guide-schedule-sidebar {
-    position: static;
-  }
-
-  .guide-schedule-tour-list {
-    max-height: none;
-    min-height: 0;
-  }
-}
-
-@media (max-width: 820px) {
-  .guide-schedule-header,
-  .guide-schedule-detail-head,
-  .guide-schedule-panel-head {
-    flex-direction: column;
-  }
-
-  .guide-schedule-summary,
-  .guide-schedule-stats,
-  .guide-schedule-filters,
-  .guide-schedule-session-bar,
-  .guide-schedule-customer-header,
-  .guide-schedule-customer-row,
-  .guide-schedule-customer-row.compact-table,
-  .guide-schedule-customer-main {
-    grid-template-columns: 1fr;
-  }
-
-  .guide-schedule-date-box {
-    min-width: 0;
-  }
-
-  .guide-schedule-actions {
-    grid-template-columns: 1fr;
-  }
-}
-
 @media (max-width: 1100px) {
   .guide-tour-row-card {
     grid-template-columns: 1fr;
@@ -5941,3 +4415,647 @@
   }
 }
 
+
+/* ================= GUIDE LEAVE REQUEST WIDGET ================= */
+
+.guide-leave-widget {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.guide-leave-topbar-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  border: 1px solid #dbeafe;
+  border-radius: 999px;
+  background: #eff6ff;
+  padding: 0 14px;
+  color: #1d4ed8;
+  font-weight: 900;
+  cursor: pointer;
+  transition: 0.18s ease;
+}
+
+.guide-leave-topbar-button:hover {
+  border-color: #93c5fd;
+  background: #dbeafe;
+}
+
+.guide-leave-topbar-button svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.guide-leave-topbar-button strong {
+  position: absolute;
+  right: -5px;
+  top: -7px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #e11d48;
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  line-height: 1;
+  box-shadow: 0 4px 12px rgba(225, 29, 72, 0.28);
+}
+
+.guide-leave-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 12px);
+  z-index: 80;
+  width: min(980px, calc(100vw - 32px));
+  max-height: calc(100vh - 120px);
+  overflow: auto;
+  border: 1px solid #dbeafe;
+  border-radius: 24px;
+  background: white;
+  box-shadow: 0 28px 80px rgba(15, 23, 42, 0.18);
+  padding: 18px;
+}
+
+.guide-leave-panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.guide-leave-panel-head span {
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.guide-leave-panel-head h3 {
+  margin: 4px 0 4px;
+  color: #0f172a;
+  font-size: 22px;
+  font-weight: 950;
+}
+
+.guide-leave-panel-head p {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.guide-leave-panel-head > button {
+  border: 0;
+  border-radius: 12px;
+  background: #f1f5f9;
+  padding: 9px 13px;
+  color: #475569;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.guide-leave-alert {
+  margin-top: 14px;
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-weight: 800;
+}
+
+.guide-leave-alert.success {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.guide-leave-alert.error {
+  background: #fff1f2;
+  color: #be123c;
+  border: 1px solid #fecdd3;
+}
+
+.guide-leave-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.guide-leave-summary-grid div {
+  border-radius: 18px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  padding: 14px;
+}
+
+.guide-leave-summary-grid strong {
+  display: block;
+  color: #2563eb;
+  font-size: 24px;
+  font-weight: 950;
+}
+
+.guide-leave-summary-grid span {
+  display: block;
+  margin-top: 3px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.guide-leave-grid {
+  display: grid;
+  grid-template-columns: 380px minmax(0, 1fr);
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.guide-leave-form-card,
+.guide-leave-list-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  background: white;
+  padding: 16px;
+}
+
+.guide-leave-form-card h4,
+.guide-leave-list-card h4 {
+  margin: 0 0 14px;
+  color: #0f172a;
+  font-size: 16px;
+  font-weight: 950;
+}
+
+.guide-leave-calendar {
+  border: 1px solid #dbeafe;
+  border-radius: 16px;
+  background: #eff6ff;
+  padding: 12px;
+  margin-bottom: 14px;
+}
+
+.guide-leave-calendar-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.guide-leave-calendar-head button {
+  width: 32px;
+  height: 30px;
+  border: 0;
+  border-radius: 10px;
+  background: white;
+  color: #1d4ed8;
+  font-size: 18px;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.guide-leave-weekdays,
+.guide-leave-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  text-align: center;
+}
+
+.guide-leave-weekdays span {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.guide-leave-days button,
+.guide-leave-days span {
+  min-height: 34px;
+  border: 0;
+  border-radius: 10px;
+  background: white;
+  color: #334155;
+  font-weight: 900;
+}
+
+.guide-leave-days button {
+  cursor: pointer;
+}
+
+.guide-leave-days button:hover:not(:disabled) {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.guide-leave-days button.selected {
+  background: #2563eb;
+  color: white;
+}
+
+.guide-leave-days button:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.guide-leave-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.guide-leave-form-card label {
+  display: block;
+  margin-bottom: 12px;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.guide-leave-form-card input,
+.guide-leave-form-card textarea {
+  width: 100%;
+  margin-top: 6px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: white;
+  padding: 10px 12px;
+  color: #0f172a;
+  outline: none;
+}
+
+.guide-leave-form-card input:focus,
+.guide-leave-form-card textarea:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.guide-leave-form-card input.error,
+.guide-leave-form-card textarea.error {
+  border-color: #e11d48;
+  background: #fff1f2;
+}
+
+.guide-leave-form-card small {
+  display: block;
+  margin-top: 5px;
+  color: #e11d48;
+  font-weight: 800;
+}
+
+.guide-leave-file-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 12px;
+}
+
+.guide-leave-file-list span {
+  border-radius: 999px;
+  background: #f1f5f9;
+  padding: 5px 9px;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.guide-leave-form-card > button[type='submit'] {
+  width: 100%;
+  border: 0;
+  border-radius: 14px;
+  background: #2563eb;
+  padding: 12px 14px;
+  color: white;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.guide-leave-form-card > button[type='submit']:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.guide-leave-list-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.guide-leave-list-head div {
+  display: flex;
+  gap: 6px;
+}
+
+.guide-leave-list-head button {
+  border: 0;
+  border-radius: 999px;
+  background: #f1f5f9;
+  padding: 7px 10px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.guide-leave-list-head button.active {
+  background: #2563eb;
+  color: white;
+}
+
+.guide-leave-empty {
+  border: 1px dashed #cbd5e1;
+  border-radius: 16px;
+  padding: 28px;
+  text-align: center;
+  color: #64748b;
+  font-weight: 800;
+}
+
+.guide-leave-request-list {
+  display: grid;
+  gap: 10px;
+  max-height: 520px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.guide-leave-request-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  padding: 13px;
+  background: #f8fafc;
+}
+
+.guide-leave-request-item.pending {
+  border-color: #fed7aa;
+  background: #fff7ed;
+}
+
+.guide-leave-request-item.approved {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.guide-leave-request-item.rejected {
+  border-color: #fecdd3;
+  background: #fff1f2;
+}
+
+.guide-leave-request-item.cancelled {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.guide-leave-request-item h5 {
+  margin: 8px 0 5px;
+  color: #0f172a;
+  font-size: 15px;
+  font-weight: 950;
+}
+
+.guide-leave-request-item p {
+  margin: 0;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.leave-status {
+  display: inline-flex;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 950;
+}
+
+.leave-status.pending {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+.leave-status.approved {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.leave-status.rejected {
+  background: #ffe4e6;
+  color: #be123c;
+}
+
+.leave-status.cancelled {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.guide-leave-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.guide-leave-attachments a {
+  border-radius: 999px;
+  background: white;
+  padding: 5px 8px;
+  color: #2563eb;
+  font-size: 11px;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.guide-leave-request-item > button {
+  align-self: flex-start;
+  border: 0;
+  border-radius: 12px;
+  background: #ffe4e6;
+  padding: 8px 10px;
+  color: #be123c;
+  font-weight: 900;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+@media (max-width: 980px) {
+  .guide-leave-panel {
+    right: -80px;
+  }
+
+  .guide-leave-grid,
+  .guide-leave-summary-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .guide-leave-panel {
+    right: -16px;
+    width: calc(100vw - 20px);
+  }
+
+  .guide-leave-form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .guide-leave-list-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+/* Lịch xin nghỉ: tô vàng toàn bộ ngày có tour được phân công */
+.guide-leave-calendar .guide-leave-days button.assigned-tour,
+.guide-leave-calendar .guide-leave-days button[data-assigned-tour='1'] {
+  position: relative !important;
+  border: 1px solid #f59e0b !important;
+  background: #fef3c7 !important;
+  color: #92400e !important;
+  opacity: 1 !important;
+}
+
+.guide-leave-calendar .guide-leave-days button.assigned-tour:hover:not(:disabled),
+.guide-leave-calendar .guide-leave-days button[data-assigned-tour='1']:hover:not(:disabled) {
+  background: #fde68a !important;
+  color: #78350f !important;
+}
+
+.guide-leave-calendar .guide-leave-days button.assigned-tour::after,
+.guide-leave-calendar .guide-leave-days button[data-assigned-tour='1']::after {
+  content: "";
+  position: absolute;
+  right: 5px;
+  top: 5px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #f97316;
+  box-shadow: 0 0 0 2px #fffbeb;
+}
+
+.guide-leave-calendar .guide-leave-days button.assigned-tour.selected,
+.guide-leave-calendar .guide-leave-days button[data-assigned-tour='1'].selected {
+  border-color: #1d4ed8 !important;
+  background: linear-gradient(135deg, #2563eb 0%, #2563eb 52%, #f59e0b 53%, #f59e0b 100%) !important;
+  color: #ffffff !important;
+}
+
+.guide-leave-calendar .guide-leave-days button.assigned-tour:disabled,
+.guide-leave-calendar .guide-leave-days button[data-assigned-tour='1']:disabled {
+  background: #fef3c7 !important;
+  color: #b45309 !important;
+  opacity: 0.72 !important;
+}
+
+.guide-leave-calendar .guide-leave-days button.assigned-tour span,
+.guide-leave-calendar .guide-leave-days button[data-assigned-tour='1'] span {
+  position: relative;
+  z-index: 1;
+}
+
+.guide-leave-calendar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.guide-leave-calendar-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.guide-leave-calendar-legend i {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  border-radius: 4px;
+}
+
+.guide-leave-calendar-legend i.selected {
+  background: #2563eb;
+}
+
+.guide-leave-calendar-legend i.assigned-tour {
+  border: 1px solid #f59e0b;
+  background: #fef3c7;
+}
+
+/* Card đơn xin nghỉ hiện trong vùng trống của trang Quản lý HDV */
+.admin-guide-leave-inline-area {
+  width: 100%;
+  margin: 22px 0;
+  display: flex;
+  justify-content: center;
+  animation: adminGuideLeaveFadeIn 0.18s ease;
+}
+
+.admin-guide-leave-inline-card {
+  width: min(1120px, 100%);
+  border-radius: 26px;
+  background: #ffffff;
+  box-shadow: 0 22px 60px rgba(15, 23, 42, 0.12);
+  overflow: hidden;
+}
+
+/* bỏ margin ngoài của panel để card nằm gọn trong khung */
+.admin-guide-leave-inline-card .admin-guide-leave-panel {
+  margin: 0;
+  border-radius: 26px;
+}
+
+/* nếu card đang quá cao thì giới hạn chiều cao và cho scroll bên trong */
+.admin-guide-leave-inline-card {
+  max-height: 680px;
+  overflow-y: auto;
+}
+
+/* làm đẹp thanh scroll */
+.admin-guide-leave-inline-card::-webkit-scrollbar {
+  width: 8px;
+}
+
+.admin-guide-leave-inline-card::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 999px;
+}
+
+.admin-guide-leave-inline-card::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+}
+
+.admin-guide-leave-inline-card::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+@keyframes adminGuideLeaveFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

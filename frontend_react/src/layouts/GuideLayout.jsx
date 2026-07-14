@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import GuideLeaveRequestWidget from "../components/guide/GuideLeaveRequestWidget";
 import GuideNotificationBell from "../components/guide/GuideNotificationBell";
 import GuideSidebar from "../components/guide/GuideSidebar";
 import { logout as logoutApi } from "../services/authApi";
@@ -53,15 +54,14 @@ function GuideLayout({ children }) {
   }
 
   return (
-    <div
-      className={collapsed ? "guide-shell sidebar-collapsed" : "guide-shell"}
-    >
+    <div className={collapsed ? "guide-shell sidebar-collapsed" : "guide-shell"}>
       <GuideSidebar
         collapsed={collapsed}
         guide={guide}
         onLogout={handleLogout}
         onToggle={() => setCollapsed((current) => !current)}
       />
+
       <main className="guide-main">
         <div className="guide-topbar">
           <div className="guide-topbar-left-section">
@@ -84,6 +84,7 @@ function GuideLayout({ children }) {
                 <line x1="3" y1="18" x2="21" y2="18" />
               </svg>
             </button>
+
             <div className="guide-topbar-title">
               <span>Trang chủ</span>
               <strong>Chào mừng trở lại, {guideName}</strong>
@@ -104,6 +105,8 @@ function GuideLayout({ children }) {
               </svg>
               <input type="text" placeholder="Tìm kiếm tour, khách hàng..." />
             </div>
+
+            <GuideLeaveRequestWidget />
 
             <GuideNotificationBell />
 
@@ -128,17 +131,27 @@ function GuideLayout({ children }) {
                   <strong>{guideName}</strong>
                   <span>Hướng dẫn viên</span>
                 </div>
-                <svg
-                  className="guide-account-caret"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
+                <svg className="guide-account-caret" viewBox="0 0 24 24" aria-hidden="true">
                   <polyline points="6 9 12 15 18 9" />
                 </svg>
               </button>
 
               {accountMenuOpen && (
                 <div className="guide-account-dropdown" role="menu">
+                  <div className="guide-account-summary">
+                    <span className="guide-account-avatar">
+                      {guideAvatar ? (
+                        <img src={guideAvatar} alt={guideName} />
+                      ) : (
+                        getInitials(guideName)
+                      )}
+                    </span>
+                    <div>
+                      <strong>{guideName}</strong>
+                      <span>{guide?.email || "Hướng dẫn viên"}</span>
+                    </div>
+                  </div>
+
                   <button type="button" role="menuitem" onClick={goToProfile}>
                     <svg viewBox="0 0 24 24" aria-hidden="true">
                       <path d="M20 21a8 8 0 0 0-16 0" />
@@ -151,6 +164,7 @@ function GuideLayout({ children }) {
             </div>
           </div>
         </div>
+
         {children}
       </main>
     </div>

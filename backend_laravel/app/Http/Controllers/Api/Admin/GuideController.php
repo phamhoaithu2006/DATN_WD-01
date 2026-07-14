@@ -8,6 +8,7 @@ use App\Models\Guide;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 
 class GuideController extends Controller
@@ -60,7 +61,74 @@ class GuideController extends Controller
                         });
                 },
             ])
+            ->when(Schema::hasTable('guide_leave_requests'), function ($query) {
+                $today = now()->toDateString();
+
+                $query
+                    ->selectSub(function ($subQuery) {
+                        $subQuery
+                            ->from('guide_leave_requests as glr_pending')
+                            ->selectRaw('COUNT(*)')
+                            ->whereColumn('glr_pending.guide_id', 'guides.id')
+                            ->where('glr_pending.status', 'pending');
+                    }, 'pending_leave_requests_count')
+                    ->selectSub(function ($subQuery) use ($today) {
+                        $subQuery
+                            ->from('guide_leave_requests as glr_current')
+                            ->selectRaw('COUNT(*)')
+                            ->whereColumn('glr_current.guide_id', 'guides.id')
+                            ->where('glr_current.status', 'approved')
+                            ->whereDate('glr_current.start_date', '<=', $today)
+                            ->whereDate('glr_current.end_date', '>=', $today);
+                    }, 'current_leave_requests_count')
+                    ->selectSub(function ($subQuery) use ($today) {
+                        $subQuery
+                            ->from('guide_leave_requests as glr_busy')
+                            ->selectRaw('COUNT(*)')
+                            ->whereColumn('glr_busy.guide_id', 'guides.id')
+                            ->whereIn('glr_busy.status', ['pending', 'approved'])
+                            ->whereDate('glr_busy.end_date', '>=', $today);
+                    }, 'busy_leave_requests_count');
+            })
             ->whereHas('user');
+    }
+
+    public function leaveSummary()
+    {
+        if (!Schema::hasTable('guide_leave_requests')) {
+            return response()->json([
+                'message' => 'Thống kê đơn nghỉ HDV',
+                'data' => [
+                    'pending_leave_requests_count' => 0,
+                    'resting_guides_count' => 0,
+                    'busy_leave_guides_count' => 0,
+                ],
+            ]);
+        }
+
+        $today = now()->toDateString();
+
+        return response()->json([
+            'message' => 'Thống kê đơn nghỉ HDV',
+            'data' => [
+                'pending_leave_requests_count' => DB::table('guide_leave_requests')
+                    ->where('status', 'pending')
+                    ->count(),
+
+                'resting_guides_count' => DB::table('guide_leave_requests')
+                    ->where('status', 'approved')
+                    ->whereDate('start_date', '<=', $today)
+                    ->whereDate('end_date', '>=', $today)
+                    ->distinct('guide_id')
+                    ->count('guide_id'),
+
+                'busy_leave_guides_count' => DB::table('guide_leave_requests')
+                    ->whereIn('status', ['pending', 'approved'])
+                    ->whereDate('end_date', '>=', $today)
+                    ->distinct('guide_id')
+                    ->count('guide_id'),
+            ],
+        ]);
     }
 
     /**
@@ -137,6 +205,49 @@ class GuideController extends Controller
 
         if ($request->filled('status')) {
             $query->where('status', $request->input('status'));
+        }
+
+        if (
+            $request->filled('leave_status') &&
+            $request->input('leave_status') !== 'all' &&
+            Schema::hasTable('guide_leave_requests')
+        ) {
+            $leaveStatus = $request->input('leave_status');
+            $today = now()->toDateString();
+
+            if ($leaveStatus === 'resting') {
+                $query->whereExists(function ($subQuery) use ($today) {
+                    $subQuery
+                        ->select(DB::raw(1))
+                        ->from('guide_leave_requests as glr')
+                        ->whereColumn('glr.guide_id', 'guides.id')
+                        ->where('glr.status', 'approved')
+                        ->whereDate('glr.start_date', '<=', $today)
+                        ->whereDate('glr.end_date', '>=', $today);
+                });
+            }
+
+            if ($leaveStatus === 'busy_leave') {
+                $query->whereExists(function ($subQuery) use ($today) {
+                    $subQuery
+                        ->select(DB::raw(1))
+                        ->from('guide_leave_requests as glr')
+                        ->whereColumn('glr.guide_id', 'guides.id')
+                        ->whereIn('glr.status', ['pending', 'approved'])
+                        ->whereDate('glr.end_date', '>=', $today);
+                });
+            }
+
+            if ($leaveStatus === 'available_leave') {
+                $query->whereNotExists(function ($subQuery) use ($today) {
+                    $subQuery
+                        ->select(DB::raw(1))
+                        ->from('guide_leave_requests as glr')
+                        ->whereColumn('glr.guide_id', 'guides.id')
+                        ->whereIn('glr.status', ['pending', 'approved'])
+                        ->whereDate('glr.end_date', '>=', $today);
+                });
+            }
         }
 
         if ($request->filled('experience_years')) {

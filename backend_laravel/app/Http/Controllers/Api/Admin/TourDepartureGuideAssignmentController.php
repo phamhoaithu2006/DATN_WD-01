@@ -217,8 +217,6 @@ class TourDepartureGuideAssignmentController extends Controller
                     ?? $departure->return_date
             ),
             'status' => $departure->status,
-            'schedule_group' => $this->getScheduleGroup($departure),
-            'is_locked' => $this->isLockedDeparture($departure),
 
             'destinations' => $destinations->values(),
 
@@ -228,59 +226,6 @@ class TourDepartureGuideAssignmentController extends Controller
 
             'assignment_state' => $assignmentState,
         ];
-    }
-
-    private function getScheduleGroup(
-        TourDeparture $departure,
-        ?Carbon $today = null
-    ): string {
-        $today = ($today ?: now())->copy()->startOfDay();
-
-        $status = strtolower((string) $departure->status);
-
-        if (in_array($status, ['cancelled', 'canceled'], true)) {
-            return 'cancelled';
-        }
-
-        if ($status === 'completed') {
-            return 'completed';
-        }
-
-        $departureDate = $this->dateOnly(
-            $departure->getRawOriginal('departure_date')
-                ?? $departure->departure_date
-        );
-
-        $returnDate = $this->dateOnly(
-            $departure->getRawOriginal('return_date')
-                ?? $departure->return_date
-        ) ?: $departureDate;
-
-        if (!$departureDate) {
-            return 'upcoming';
-        }
-
-        $start = Carbon::parse($departureDate)->startOfDay();
-        $end = Carbon::parse($returnDate)->startOfDay();
-
-        if ($start->gt($today)) {
-            return 'upcoming';
-        }
-
-        if ($start->lte($today) && $end->gte($today)) {
-            return 'ongoing';
-        }
-
-        return 'past';
-    }
-
-    private function isLockedDeparture(TourDeparture $departure): bool
-    {
-        return in_array($this->getScheduleGroup($departure), [
-            'past',
-            'completed',
-            'cancelled',
-        ], true);
     }
 
     /**
@@ -475,6 +420,9 @@ class TourDepartureGuideAssignmentController extends Controller
 
         $assignmentHasDeletedAt = Schema::hasColumn('tour_guide_assignments', 'deleted_at');
         $guideLanguageHasDeletedAt = Schema::hasColumn('guide_languages', 'deleted_at');
+        $hasGuideLeaveRequests = Schema::hasTable('guide_leave_requests');
+        $leaveRequestHasDeletedAt = $hasGuideLeaveRequests
+            && Schema::hasColumn('guide_leave_requests', 'deleted_at');
 
         $languageIds = collect($validated['language_ids'] ?? [])
             ->filter(fn($id) => $id !== null && $id !== '')
@@ -586,7 +534,25 @@ class TourDepartureGuideAssignmentController extends Controller
             $conflictCountQuery->whereNull('tour_guide_assignments.deleted_at');
         }
 
+        $leaveConflictCountQuery = null;
+
+        if ($hasGuideLeaveRequests) {
+            $leaveConflictCountQuery = DB::table('guide_leave_requests')
+                ->selectRaw('COUNT(*)')
+                ->whereColumn('guide_leave_requests.guide_id', 'guides.id')
+                ->whereIn('guide_leave_requests.status', ['pending', 'approved'])
+                ->whereDate('guide_leave_requests.start_date', '<=', $to)
+                ->whereDate('guide_leave_requests.end_date', '>=', $from);
+
+            if ($leaveRequestHasDeletedAt) {
+                $leaveConflictCountQuery->whereNull('guide_leave_requests.deleted_at');
+            }
+        }
+
         $guides = $query
+            ->when($leaveConflictCountQuery, function ($candidateQuery) use ($leaveConflictCountQuery) {
+                $candidateQuery->orderBy($leaveConflictCountQuery, 'asc');
+            })
             ->orderBy($conflictCountQuery, 'asc')
             ->orderByDesc('guides.id')
             ->paginate($validated['per_page'] ?? 20);
@@ -609,7 +575,9 @@ class TourDepartureGuideAssignmentController extends Controller
                 $tourDestinationIds,
                 $assignmentHasDeletedAt,
                 $guideLanguageHasDeletedAt,
-                $languageColumns
+                $languageColumns,
+                $hasGuideLeaveRequests,
+                $leaveRequestHasDeletedAt
             ) {
                 $guideDestinationIds = $guide->destinations
                     ?->pluck('id')
@@ -643,6 +611,29 @@ class TourDepartureGuideAssignmentController extends Controller
 
                 $conflictingAssignments = $conflictingAssignmentsQuery->get();
 
+                $leaveRequests = collect();
+
+                if ($hasGuideLeaveRequests) {
+                    $leaveQuery = DB::table('guide_leave_requests')
+                        ->where('guide_id', $guide->id)
+                        ->whereIn('status', ['pending', 'approved'])
+                        ->whereDate('start_date', '<=', $to)
+                        ->whereDate('end_date', '>=', $from)
+                        ->select([
+                            'id',
+                            'start_date',
+                            'end_date',
+                            'status',
+                            'reason',
+                        ]);
+
+                    if ($leaveRequestHasDeletedAt) {
+                        $leaveQuery->whereNull('deleted_at');
+                    }
+
+                    $leaveRequests = $leaveQuery->get();
+                }
+
                 $assignedToursQuery = TourGuideAssignment::query()
                     ->where('guide_id', $guide->id)
                     ->where('status', 'assigned')
@@ -670,12 +661,18 @@ class TourDepartureGuideAssignmentController extends Controller
 
                 $guideLanguages = $guideLanguagesQuery->get();
 
-                $isAvailable = $conflictingAssignments->isEmpty();
+                $hasLeaveConflict = $leaveRequests->isNotEmpty();
+                $hasTourConflict = $conflictingAssignments->isNotEmpty();
+                $isAvailable = !$hasTourConflict && !$hasLeaveConflict;
 
                 $blockingReasons = [];
 
-                if (!$isAvailable) {
+                if ($hasTourConflict) {
                     $blockingReasons[] = 'HDV đã có lịch trong khoảng thời gian này.';
+                }
+
+                if ($hasLeaveConflict) {
+                    $blockingReasons[] = 'HDV có đơn xin nghỉ đang chờ duyệt hoặc đã duyệt trong khoảng thời gian này.';
                 }
 
                 if (!$isAreaMatch) {
@@ -699,6 +696,7 @@ class TourDepartureGuideAssignmentController extends Controller
                     'is_eligible' => $isAvailable && $isAreaMatch,
                     'blocking_reasons' => $blockingReasons,
                     'conflicting_assignments' => $conflictingAssignments,
+                    'leave_requests' => $leaveRequests,
                     'assigned_tours' => $assignedTours,
                 ];
             })
@@ -754,6 +752,25 @@ class TourDepartureGuideAssignmentController extends Controller
                 'message' => 'HDV này đã có lịch trong khoảng thời gian tour.',
                 'code' => 'GUIDE_SCHEDULE_CONFLICT',
             ], 422);
+        }
+
+        if (Schema::hasTable('guide_leave_requests')) {
+            $leaveConflictQuery = DB::table('guide_leave_requests')
+                ->where('guide_id', $guide->id)
+                ->whereIn('status', ['pending', 'approved'])
+                ->whereDate('start_date', '<=', $to)
+                ->whereDate('end_date', '>=', $from);
+
+            if (Schema::hasColumn('guide_leave_requests', 'deleted_at')) {
+                $leaveConflictQuery->whereNull('deleted_at');
+            }
+
+            if ($leaveConflictQuery->exists()) {
+                return response()->json([
+                    'message' => 'HDV này đang có đơn xin nghỉ trong khoảng thời gian tour.',
+                    'code' => 'GUIDE_LEAVE_CONFLICT',
+                ], 422);
+            }
         }
 
         $tourDestinations = $departure->tour?->destinations?->pluck('id') ?? collect();
