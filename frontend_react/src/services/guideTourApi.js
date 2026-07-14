@@ -45,3 +45,5 @@ export const getGuideReplacementRequestStatus = async (departureId) =>
       `/guide/tours/${departureId}/replacement-requests/status`,
     ),
   )
+export const getGuideReviews = async (params = {}) =>
+  unwrap(await apiClient.get('/guide/reviews', { params }))
