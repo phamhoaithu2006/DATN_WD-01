@@ -9,6 +9,7 @@ use App\Models\TourDeparture;
 use App\Models\TourGuideAssignment;
 use App\Services\GuideAssignmentService;
 use App\Services\AdminNotificationService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -207,9 +208,17 @@ class TourDepartureGuideAssignmentController extends Controller
             'id' => $departure->id,
             'tour_id' => $departure->tour_id,
             'tour_title' => $departure->tour?->title,
-            'departure_date' => $departure->departure_date,
-            'return_date' => $departure->return_date,
+            'departure_date' => $this->dateOnly(
+                $departure->getRawOriginal('departure_date')
+                    ?? $departure->departure_date
+            ),
+            'return_date' => $this->dateOnly(
+                $departure->getRawOriginal('return_date')
+                    ?? $departure->return_date
+            ),
             'status' => $departure->status,
+            'schedule_group' => $this->getScheduleGroup($departure),
+            'is_locked' => $this->isLockedDeparture($departure),
 
             'destinations' => $destinations->values(),
 
@@ -219,6 +228,59 @@ class TourDepartureGuideAssignmentController extends Controller
 
             'assignment_state' => $assignmentState,
         ];
+    }
+
+    private function getScheduleGroup(
+        TourDeparture $departure,
+        ?Carbon $today = null
+    ): string {
+        $today = ($today ?: now())->copy()->startOfDay();
+
+        $status = strtolower((string) $departure->status);
+
+        if (in_array($status, ['cancelled', 'canceled'], true)) {
+            return 'cancelled';
+        }
+
+        if ($status === 'completed') {
+            return 'completed';
+        }
+
+        $departureDate = $this->dateOnly(
+            $departure->getRawOriginal('departure_date')
+                ?? $departure->departure_date
+        );
+
+        $returnDate = $this->dateOnly(
+            $departure->getRawOriginal('return_date')
+                ?? $departure->return_date
+        ) ?: $departureDate;
+
+        if (!$departureDate) {
+            return 'upcoming';
+        }
+
+        $start = Carbon::parse($departureDate)->startOfDay();
+        $end = Carbon::parse($returnDate)->startOfDay();
+
+        if ($start->gt($today)) {
+            return 'upcoming';
+        }
+
+        if ($start->lte($today) && $end->gte($today)) {
+            return 'ongoing';
+        }
+
+        return 'past';
+    }
+
+    private function isLockedDeparture(TourDeparture $departure): bool
+    {
+        return in_array($this->getScheduleGroup($departure), [
+            'past',
+            'completed',
+            'cancelled',
+        ], true);
     }
 
     /**
@@ -1003,6 +1065,18 @@ class TourDepartureGuideAssignmentController extends Controller
         } catch (\Throwable $e) {
             report($e);
         }
+    }
+
+    /**
+     * Trả ngày dưới dạng YYYY-MM-DD, không serialize Carbon thành UTC.
+     */
+    private function dateOnly(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return Carbon::parse($value)->toDateString();
     }
 
 }

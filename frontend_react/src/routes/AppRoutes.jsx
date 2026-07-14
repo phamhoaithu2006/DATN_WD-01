@@ -50,7 +50,7 @@ import AdminNotificationsPage from '../pages/admin/Notifications/AdminNotificati
 import TourDetailPage from '../pages/admin/tours/TourDetailPage';
 import LanguageManagementPage from '../pages/admin/language/LanguageManagementPage';
 import CertificateManagementPage from '../pages/admin/certificate/CertificateManagementPage'
-
+import GuideReviewsPage from '../pages/guide/GuideReviews/GuideReviewsPage'
 
 
 
@@ -83,8 +83,8 @@ function AppRoutes() {
     {/* Trang hướng dẫn viên */}
     <Route path="/guide" element={guidePage(<GuideDashboardPage />)} />
     <Route path="/guide/tours" element={guidePage(<GuideToursPage />)} />
-    <Route path="/guide/schedule" element={guidePage(<GuideComingSoonPage title="Tour của tôi" />)} />
-    <Route path="/guide/history" element={guidePage(<GuideHistoryPage />)} />
+    <Route path="/guide/schedule" element={guidePage(<GuideComingSoonPage title="Lịch làm việc" />)} />
+    <Route path="/guide/history" element={guidePage(<GuideComingSoonPage title="Lịch sử Tour" />)} />
     <Route path="/guide/reviews" element={guidePage(<GuideComingSoonPage title="Đánh giá" />)} />
     <Route path="/guide/customers" element={guidePage(<GuideComingSoonPage title="Khách hàng" />)} />
     <Route path="/guide/messages" element={guidePage(<GuideComingSoonPage title="Tin nhắn" />)} />
@@ -141,6 +141,8 @@ function AppRoutes() {
     {/* Quản lý hướng dẫn viên */}
     <Route path="/admin/guides" element={adminPage(<GuideManagementPage />)} />
     <Route path="/admin/guides/trash" element={adminPage(<GuideTrashPage />)} />
+    <Route  path="/guide/reviews" element={guidePage(<GuideReviewsPage />)}
+/>
     {/* Quản lý nhân viên hỗ trợ */}
     <Route path="/admin/support" element={adminPage(<SupportStaffManagementPage />)} />
     <Route path="/admin/support/trash" element={adminPage(<SupportStaffTrashPage />)} />
