@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { tourDepartureApi } from '../../services/tourDepartureApi'
 import adminGuideReplacementRequestApi from '../../services/adminGuideReplacementRequestApi'
+import adminGuideLeaveRequestApi from '../../services/adminGuideLeaveRequestApi'
 
 const menuItems = [
   {
@@ -80,6 +81,7 @@ const menuItems = [
   {
     label: 'Hướng Dẫn Viên',
     path: '/admin/guides',
+    showGuideLeaveBadge: true,
     icon: (
       <>
         <circle cx="9" cy="7" r="4" />
@@ -238,6 +240,7 @@ function AdminSidebar({
   tourDepartureWarningCount,
 }) {
   const [internalWarningCount, setInternalWarningCount] = useState(0)
+  const [guideLeavePendingCount, setGuideLeavePendingCount] = useState(0)
 
   const visibleMenuItems = useMemo(() => {
     return role === 'admin' ? menuItems : []
@@ -298,27 +301,46 @@ function AdminSidebar({
     }
   }, [role])
 
+  const loadGuideLeavePendingCount = useCallback(async () => {
+    if (role !== 'admin') {
+      setGuideLeavePendingCount(0)
+      return
+    }
+
+    try {
+      const count = await adminGuideLeaveRequestApi.getPendingCount()
+      setGuideLeavePendingCount(Number(count || 0))
+    } catch (error) {
+      console.error(error)
+      setGuideLeavePendingCount(0)
+    }
+  }, [role])
+
   useEffect(() => {
     void loadTourDepartureWarningCount()
-  }, [loadTourDepartureWarningCount])
+    void loadGuideLeavePendingCount()
+  }, [loadTourDepartureWarningCount, loadGuideLeavePendingCount])
 
   useEffect(() => {
     const handleRefresh = () => {
       void loadTourDepartureWarningCount()
+      void loadGuideLeavePendingCount()
     }
 
     window.addEventListener('focus', handleRefresh)
     window.addEventListener('tour-departures:changed', handleRefresh)
     window.addEventListener('tour-departure-assignment:changed', handleRefresh)
     window.addEventListener('admin-guide-replacement:changed', handleRefresh)
+    window.addEventListener('admin-guide-leave-request:changed', handleRefresh)
 
     return () => {
       window.removeEventListener('focus', handleRefresh)
       window.removeEventListener('tour-departures:changed', handleRefresh)
       window.removeEventListener('tour-departure-assignment:changed', handleRefresh)
       window.removeEventListener('admin-guide-replacement:changed', handleRefresh)
+      window.removeEventListener('admin-guide-leave-request:changed', handleRefresh)
     }
-  }, [loadTourDepartureWarningCount])
+  }, [loadTourDepartureWarningCount, loadGuideLeavePendingCount])
 
   const assignmentWarningCount = Number(
     tourDepartureWarningCount ?? internalWarningCount ?? 0
@@ -360,7 +382,9 @@ function AdminSidebar({
         {visibleMenuItems.map((item) => {
           const badgeCount = item.showUnassignedDepartureBadge
             ? assignmentWarningCount
-            : 0
+            : item.showGuideLeaveBadge
+              ? guideLeavePendingCount
+              : 0
 
           return (
             <NavLink
@@ -381,8 +405,8 @@ function AdminSidebar({
 
               {badgeCount > 0 ? (
                 <span
-                  aria-label={`${badgeCount} việc cần xử lý trong lịch khởi hành`}
-                  title={`${badgeCount} việc cần xử lý: lịch chưa phân công hoặc yêu cầu đổi HDV`}
+                  aria-label={`${badgeCount} việc cần xử lý`}
+                  title={`${badgeCount} việc cần xử lý`}
                   style={{
                     position: 'absolute',
                     right: collapsed ? 8 : 12,

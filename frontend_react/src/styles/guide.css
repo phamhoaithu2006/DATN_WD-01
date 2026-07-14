@@ -1,4 +1,4 @@
-.guide-shell {
+﻿.guide-shell {
   height: 100svh;
   min-height: 100svh;
   display: grid;
@@ -4412,5 +4412,650 @@
 
   .guide-tour-row-actions {
     flex-direction: column;
+  }
+}
+
+
+/* ================= GUIDE LEAVE REQUEST WIDGET ================= */
+
+.guide-leave-widget {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.guide-leave-topbar-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  border: 1px solid #dbeafe;
+  border-radius: 999px;
+  background: #eff6ff;
+  padding: 0 14px;
+  color: #1d4ed8;
+  font-weight: 900;
+  cursor: pointer;
+  transition: 0.18s ease;
+}
+
+.guide-leave-topbar-button:hover {
+  border-color: #93c5fd;
+  background: #dbeafe;
+}
+
+.guide-leave-topbar-button svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.guide-leave-topbar-button strong {
+  position: absolute;
+  right: -5px;
+  top: -7px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #e11d48;
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  line-height: 1;
+  box-shadow: 0 4px 12px rgba(225, 29, 72, 0.28);
+}
+
+.guide-leave-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 12px);
+  z-index: 80;
+  width: min(980px, calc(100vw - 32px));
+  max-height: calc(100vh - 120px);
+  overflow: auto;
+  border: 1px solid #dbeafe;
+  border-radius: 24px;
+  background: white;
+  box-shadow: 0 28px 80px rgba(15, 23, 42, 0.18);
+  padding: 18px;
+}
+
+.guide-leave-panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.guide-leave-panel-head span {
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.guide-leave-panel-head h3 {
+  margin: 4px 0 4px;
+  color: #0f172a;
+  font-size: 22px;
+  font-weight: 950;
+}
+
+.guide-leave-panel-head p {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.guide-leave-panel-head > button {
+  border: 0;
+  border-radius: 12px;
+  background: #f1f5f9;
+  padding: 9px 13px;
+  color: #475569;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.guide-leave-alert {
+  margin-top: 14px;
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-weight: 800;
+}
+
+.guide-leave-alert.success {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.guide-leave-alert.error {
+  background: #fff1f2;
+  color: #be123c;
+  border: 1px solid #fecdd3;
+}
+
+.guide-leave-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.guide-leave-summary-grid div {
+  border-radius: 18px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  padding: 14px;
+}
+
+.guide-leave-summary-grid strong {
+  display: block;
+  color: #2563eb;
+  font-size: 24px;
+  font-weight: 950;
+}
+
+.guide-leave-summary-grid span {
+  display: block;
+  margin-top: 3px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.guide-leave-grid {
+  display: grid;
+  grid-template-columns: 380px minmax(0, 1fr);
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.guide-leave-form-card,
+.guide-leave-list-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  background: white;
+  padding: 16px;
+}
+
+.guide-leave-form-card h4,
+.guide-leave-list-card h4 {
+  margin: 0 0 14px;
+  color: #0f172a;
+  font-size: 16px;
+  font-weight: 950;
+}
+
+.guide-leave-calendar {
+  border: 1px solid #dbeafe;
+  border-radius: 16px;
+  background: #eff6ff;
+  padding: 12px;
+  margin-bottom: 14px;
+}
+
+.guide-leave-calendar-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.guide-leave-calendar-head button {
+  width: 32px;
+  height: 30px;
+  border: 0;
+  border-radius: 10px;
+  background: white;
+  color: #1d4ed8;
+  font-size: 18px;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.guide-leave-weekdays,
+.guide-leave-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  text-align: center;
+}
+
+.guide-leave-weekdays span {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.guide-leave-days button,
+.guide-leave-days span {
+  min-height: 34px;
+  border: 0;
+  border-radius: 10px;
+  background: white;
+  color: #334155;
+  font-weight: 900;
+}
+
+.guide-leave-days button {
+  cursor: pointer;
+}
+
+.guide-leave-days button:hover:not(:disabled) {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.guide-leave-days button.selected {
+  background: #2563eb;
+  color: white;
+}
+
+.guide-leave-days button:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.guide-leave-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.guide-leave-form-card label {
+  display: block;
+  margin-bottom: 12px;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.guide-leave-form-card input,
+.guide-leave-form-card textarea {
+  width: 100%;
+  margin-top: 6px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: white;
+  padding: 10px 12px;
+  color: #0f172a;
+  outline: none;
+}
+
+.guide-leave-form-card input:focus,
+.guide-leave-form-card textarea:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.guide-leave-form-card input.error,
+.guide-leave-form-card textarea.error {
+  border-color: #e11d48;
+  background: #fff1f2;
+}
+
+.guide-leave-form-card small {
+  display: block;
+  margin-top: 5px;
+  color: #e11d48;
+  font-weight: 800;
+}
+
+.guide-leave-file-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 12px;
+}
+
+.guide-leave-file-list span {
+  border-radius: 999px;
+  background: #f1f5f9;
+  padding: 5px 9px;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.guide-leave-form-card > button[type='submit'] {
+  width: 100%;
+  border: 0;
+  border-radius: 14px;
+  background: #2563eb;
+  padding: 12px 14px;
+  color: white;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.guide-leave-form-card > button[type='submit']:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.guide-leave-list-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.guide-leave-list-head div {
+  display: flex;
+  gap: 6px;
+}
+
+.guide-leave-list-head button {
+  border: 0;
+  border-radius: 999px;
+  background: #f1f5f9;
+  padding: 7px 10px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.guide-leave-list-head button.active {
+  background: #2563eb;
+  color: white;
+}
+
+.guide-leave-empty {
+  border: 1px dashed #cbd5e1;
+  border-radius: 16px;
+  padding: 28px;
+  text-align: center;
+  color: #64748b;
+  font-weight: 800;
+}
+
+.guide-leave-request-list {
+  display: grid;
+  gap: 10px;
+  max-height: 520px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.guide-leave-request-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  padding: 13px;
+  background: #f8fafc;
+}
+
+.guide-leave-request-item.pending {
+  border-color: #fed7aa;
+  background: #fff7ed;
+}
+
+.guide-leave-request-item.approved {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.guide-leave-request-item.rejected {
+  border-color: #fecdd3;
+  background: #fff1f2;
+}
+
+.guide-leave-request-item.cancelled {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.guide-leave-request-item h5 {
+  margin: 8px 0 5px;
+  color: #0f172a;
+  font-size: 15px;
+  font-weight: 950;
+}
+
+.guide-leave-request-item p {
+  margin: 0;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.leave-status {
+  display: inline-flex;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 950;
+}
+
+.leave-status.pending {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+.leave-status.approved {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.leave-status.rejected {
+  background: #ffe4e6;
+  color: #be123c;
+}
+
+.leave-status.cancelled {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.guide-leave-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.guide-leave-attachments a {
+  border-radius: 999px;
+  background: white;
+  padding: 5px 8px;
+  color: #2563eb;
+  font-size: 11px;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.guide-leave-request-item > button {
+  align-self: flex-start;
+  border: 0;
+  border-radius: 12px;
+  background: #ffe4e6;
+  padding: 8px 10px;
+  color: #be123c;
+  font-weight: 900;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+@media (max-width: 980px) {
+  .guide-leave-panel {
+    right: -80px;
+  }
+
+  .guide-leave-grid,
+  .guide-leave-summary-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .guide-leave-panel {
+    right: -16px;
+    width: calc(100vw - 20px);
+  }
+
+  .guide-leave-form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .guide-leave-list-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+/* Lịch xin nghỉ: tô vàng toàn bộ ngày có tour được phân công */
+.guide-leave-calendar .guide-leave-days button.assigned-tour,
+.guide-leave-calendar .guide-leave-days button[data-assigned-tour='1'] {
+  position: relative !important;
+  border: 1px solid #f59e0b !important;
+  background: #fef3c7 !important;
+  color: #92400e !important;
+  opacity: 1 !important;
+}
+
+.guide-leave-calendar .guide-leave-days button.assigned-tour:hover:not(:disabled),
+.guide-leave-calendar .guide-leave-days button[data-assigned-tour='1']:hover:not(:disabled) {
+  background: #fde68a !important;
+  color: #78350f !important;
+}
+
+.guide-leave-calendar .guide-leave-days button.assigned-tour::after,
+.guide-leave-calendar .guide-leave-days button[data-assigned-tour='1']::after {
+  content: "";
+  position: absolute;
+  right: 5px;
+  top: 5px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #f97316;
+  box-shadow: 0 0 0 2px #fffbeb;
+}
+
+.guide-leave-calendar .guide-leave-days button.assigned-tour.selected,
+.guide-leave-calendar .guide-leave-days button[data-assigned-tour='1'].selected {
+  border-color: #1d4ed8 !important;
+  background: linear-gradient(135deg, #2563eb 0%, #2563eb 52%, #f59e0b 53%, #f59e0b 100%) !important;
+  color: #ffffff !important;
+}
+
+.guide-leave-calendar .guide-leave-days button.assigned-tour:disabled,
+.guide-leave-calendar .guide-leave-days button[data-assigned-tour='1']:disabled {
+  background: #fef3c7 !important;
+  color: #b45309 !important;
+  opacity: 0.72 !important;
+}
+
+.guide-leave-calendar .guide-leave-days button.assigned-tour span,
+.guide-leave-calendar .guide-leave-days button[data-assigned-tour='1'] span {
+  position: relative;
+  z-index: 1;
+}
+
+.guide-leave-calendar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.guide-leave-calendar-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.guide-leave-calendar-legend i {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  border-radius: 4px;
+}
+
+.guide-leave-calendar-legend i.selected {
+  background: #2563eb;
+}
+
+.guide-leave-calendar-legend i.assigned-tour {
+  border: 1px solid #f59e0b;
+  background: #fef3c7;
+}
+
+/* Card đơn xin nghỉ hiện trong vùng trống của trang Quản lý HDV */
+.admin-guide-leave-inline-area {
+  width: 100%;
+  margin: 22px 0;
+  display: flex;
+  justify-content: center;
+  animation: adminGuideLeaveFadeIn 0.18s ease;
+}
+
+.admin-guide-leave-inline-card {
+  width: min(1120px, 100%);
+  border-radius: 26px;
+  background: #ffffff;
+  box-shadow: 0 22px 60px rgba(15, 23, 42, 0.12);
+  overflow: hidden;
+}
+
+/* bỏ margin ngoài của panel để card nằm gọn trong khung */
+.admin-guide-leave-inline-card .admin-guide-leave-panel {
+  margin: 0;
+  border-radius: 26px;
+}
+
+/* nếu card đang quá cao thì giới hạn chiều cao và cho scroll bên trong */
+.admin-guide-leave-inline-card {
+  max-height: 680px;
+  overflow-y: auto;
+}
+
+/* làm đẹp thanh scroll */
+.admin-guide-leave-inline-card::-webkit-scrollbar {
+  width: 8px;
+}
+
+.admin-guide-leave-inline-card::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 999px;
+}
+
+.admin-guide-leave-inline-card::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+}
+
+.admin-guide-leave-inline-card::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+@keyframes adminGuideLeaveFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
