@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { destinationApi } from '../../../services/destinationApi'
+import { formatDateDdMmYyyy } from '../../../utils/dateFormat'
 
 function TrashIcon({ className = 'h-4 w-4' }) {
   return (
@@ -29,7 +30,7 @@ function DestinationTrashPage() {
 
   const formatDate = (date) => {
     if (!date) return '-'
-    return new Date(date).toLocaleDateString('vi-VN')
+    return formatDateDdMmYyyy(date, '-')
   }
 
   const fetchTrashedDestinations = async () => {

@@ -1,15 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  changeGuidePassword,
-  getGuideProfile,
-  updateGuideProfile,
-} from '../../services/guideProfileApi'
+  changeSupportPassword,
+  getSupportProfile,
+  updateSupportProfile,
+} from '../../services/supportProfileApi'
 
 const emptyProfileForm = {
   full_name: '',
   email: '',
   phone: '',
-  experience_years: 0,
   status: 'active',
 }
 
@@ -19,8 +18,13 @@ const emptyPasswordForm = {
   new_password_confirmation: '',
 }
 
+const SUPPORT_SPECIALIZATION_LABELS = {
+  noi_dia: 'Nội địa',
+  quoc_te: 'Quốc tế',
+}
+
 function getInitials(name) {
-  return String(name || 'HDV')
+  return String(name || 'NV')
     .split(' ')
     .filter(Boolean)
     .slice(-2)
@@ -33,18 +37,13 @@ function getErrorMessage(error, fallback) {
   return error?.response?.data?.message || fallback
 }
 
-function normalizeGuidePayload(payload) {
-  if (!payload) return null
-
-  return {
-    ...payload,
-    guideLanguages: payload.guideLanguages || payload.guide_languages || [],
-    certificates: payload.certificates || [],
-  }
+function formatSupportSpecialization(value) {
+  const key = String(value || '').trim().toLowerCase()
+  return SUPPORT_SPECIALIZATION_LABELS[key] || value || 'Chưa cập nhật'
 }
 
-function GuideProfilePage() {
-  const [guide, setGuide] = useState(null)
+function SupportProfilePage() {
+  const [supportProfile, setSupportProfile] = useState(null)
   const [profileForm, setProfileForm] = useState(emptyProfileForm)
   const [passwordForm, setPasswordForm] = useState(emptyPasswordForm)
   const [loading, setLoading] = useState(true)
@@ -53,19 +52,29 @@ function GuideProfilePage() {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
 
-  const user = guide?.user || {}
-  const displayName = user.full_name || profileForm.full_name || 'Hướng dẫn viên'
-  const avatarUrl = user.avatar_url || guide?.avatar_url || ''
+  const user = supportProfile?.support_staff?.user || supportProfile || {}
+  const supportStaff = supportProfile?.support_staff || null
+  const displayName = user.full_name || supportStaff?.name || 'Nhân viên hỗ trợ'
+  const avatarUrl = user.avatar_url || supportStaff?.avatar_url || ''
+  const code = supportStaff?.id ? `NV${String(supportStaff.id).padStart(3, '0')}` : '—'
+  const specializationLabel = formatSupportSpecialization(supportStaff?.specialization)
+  const experienceYearsLabel =
+    supportStaff?.experience_years === null || supportStaff?.experience_years === undefined
+      ? 'Chưa cập nhật'
+      : `${supportStaff.experience_years} năm`
 
-  const certificateList = useMemo(
-    () => (guide?.certificates || []).filter((item) => item?.name),
-    [guide],
-  )
-
-  const languageList = useMemo(
-    () => (guide?.guideLanguages || []).filter((item) => item?.name),
-    [guide],
-  )
+  const statusLabel = useMemo(() => {
+    switch (supportStaff?.status) {
+      case 'active':
+        return 'Đang hoạt động'
+      case 'inactive':
+        return 'Ngừng hoạt động'
+      case 'hidden':
+        return 'Tạm khóa'
+      default:
+        return supportStaff?.status || 'Chưa rõ'
+    }
+  }, [supportStaff])
 
   useEffect(() => {
     let active = true
@@ -75,28 +84,27 @@ function GuideProfilePage() {
       setError('')
 
       try {
-        const data = normalizeGuidePayload(await getGuideProfile())
-
+        const data = await getSupportProfile()
         if (!active) return
 
-        setGuide(data)
+        setSupportProfile(data)
+        const account = data?.support_staff?.user || data || {}
+
         setProfileForm({
-          full_name: data?.user?.full_name || '',
-          email: data?.user?.email || '',
-          phone: data?.user?.phone || '',
-          experience_years: data?.experience_years ?? 0,
-          status: data?.status || 'active',
+          full_name: account.full_name || '',
+          email: account.email || '',
+          phone: account.phone || '',
+          status: data?.support_staff?.status || 'active',
         })
       } catch (loadError) {
-        if (active) {
-          setError(getErrorMessage(loadError, 'Không thể tải hồ sơ hướng dẫn viên.'))
-        }
+        if (!active) return
+        setError(getErrorMessage(loadError, 'Không thể tải hồ sơ nhân viên hỗ trợ.'))
       } finally {
         if (active) setLoading(false)
       }
     }
 
-    loadProfile()
+    void loadProfile()
 
     return () => {
       active = false
@@ -105,10 +113,7 @@ function GuideProfilePage() {
 
   function handleProfileChange(event) {
     const { name, value } = event.target
-    setProfileForm((current) => ({
-      ...current,
-      [name]: name === 'experience_years' ? Number(value) : value,
-    }))
+    setProfileForm((current) => ({ ...current, [name]: value }))
   }
 
   function handlePasswordChange(event) {
@@ -123,13 +128,12 @@ function GuideProfilePage() {
     setError('')
 
     try {
-      const response = await updateGuideProfile(profileForm)
-      const refreshed = normalizeGuidePayload(await getGuideProfile())
-
-      setGuide(refreshed)
-      setMessage(response.message || 'Đã cập nhật hồ sơ hướng dẫn viên.')
+      await updateSupportProfile(profileForm)
+      const refreshed = await getSupportProfile()
+      setSupportProfile(refreshed)
+      setMessage('Đã cập nhật thông tin nhân viên hỗ trợ.')
     } catch (saveError) {
-      setError(getErrorMessage(saveError, 'Cập nhật hồ sơ thất bại.'))
+      setError(getErrorMessage(saveError, 'Cập nhật thông tin thất bại.'))
     } finally {
       setSavingProfile(false)
     }
@@ -142,9 +146,9 @@ function GuideProfilePage() {
     setError('')
 
     try {
-      const response = await changeGuidePassword(passwordForm)
+      await changeSupportPassword(passwordForm)
       setPasswordForm(emptyPasswordForm)
-      setMessage(response.message || 'Đã đổi mật khẩu thành công.')
+      setMessage('Đã đổi mật khẩu thành công.')
     } catch (saveError) {
       setError(getErrorMessage(saveError, 'Đổi mật khẩu thất bại.'))
     } finally {
@@ -155,7 +159,7 @@ function GuideProfilePage() {
   if (loading) {
     return (
       <div className="guide-profile-page">
-        <div className="guide-profile-loading">Đang tải hồ sơ hướng dẫn viên...</div>
+        <div className="guide-profile-loading">Đang tải hồ sơ nhân viên hỗ trợ...</div>
       </div>
     )
   }
@@ -165,23 +169,18 @@ function GuideProfilePage() {
       <section className="guide-profile-hero">
         <div className="guide-profile-identity">
           <div className="guide-profile-avatar">
-            {avatarUrl ? (
-              <img src={avatarUrl} alt={displayName} />
-            ) : (
-              <span>{getInitials(displayName)}</span>
-            )}
+            {avatarUrl ? <img src={avatarUrl} alt={displayName} /> : <span>{getInitials(displayName)}</span>}
           </div>
           <div>
             <span className="guide-profile-kicker">Hồ sơ cá nhân</span>
             <h1>{displayName}</h1>
-            <p>{guide?.guide_code || 'Chưa có mã HDV'}</p>
+            <p>{code}</p>
           </div>
         </div>
 
         <div className="guide-profile-rating-box">
-          <span>Điểm đánh giá</span>
-          <strong>{Number(guide?.average_rating || 0).toFixed(1)}</strong>
-          <small>{guide?.review_count || 0} lượt đánh giá</small>
+          <span>Trạng thái</span>
+          <strong>{statusLabel}</strong>
         </div>
       </section>
 
@@ -236,17 +235,6 @@ function GuideProfilePage() {
             </label>
 
             <label className="guide-field">
-              <span>Số năm kinh nghiệm</span>
-              <input
-                name="experience_years"
-                type="number"
-                min="0"
-                value={profileForm.experience_years}
-                onChange={handleProfileChange}
-              />
-            </label>
-
-            <label className="guide-field">
               <span>Trạng thái</span>
               <select name="status" value={profileForm.status} onChange={handleProfileChange}>
                 <option value="active">Đang hoạt động</option>
@@ -262,34 +250,18 @@ function GuideProfilePage() {
 
         <aside className="guide-profile-side">
           <div className="guide-profile-panel compact">
-            <h2>Ngôn ngữ</h2>
+            <h2>Chuyên môn</h2>
             <div className="guide-chip-list">
-              {languageList.length > 0 ? (
-                languageList.map((language) => (
-                  <span className="guide-chip" key={language.id}>
-                    {language.name}
-                  </span>
-                ))
-              ) : (
-                <p className="guide-empty-text">Chưa có ngôn ngữ nào.</p>
-              )}
+              <span className="guide-chip">{specializationLabel}</span>
             </div>
           </div>
 
           <div className="guide-profile-panel compact">
-            <h2>Chứng chỉ</h2>
-            <div className="guide-certificate-list">
-              {certificateList.length > 0 ? (
-                certificateList.map((certificate) => (
-                  <div className="guide-certificate-item" key={`${certificate.id}-${certificate.issued_year}`}>
-                    <strong>{certificate.name}</strong>
-                    <span>{certificate.issued_by || 'Đơn vị cấp chưa cập nhật'}</span>
-                    {certificate.issued_year && <small>Năm cấp: {certificate.issued_year}</small>}
-                  </div>
-                ))
-              ) : (
-                <p className="guide-empty-text">Chưa có chứng chỉ nào.</p>
-              )}
+            <h2>Số năm kinh nghiệm</h2>
+            <div className="guide-detail-stack">
+              <div className="guide-detail-item is-tight">
+                <strong>{experienceYearsLabel}</strong>
+              </div>
             </div>
           </div>
 
@@ -334,4 +306,4 @@ function GuideProfilePage() {
   )
 }
 
-export default GuideProfilePage
+export default SupportProfilePage

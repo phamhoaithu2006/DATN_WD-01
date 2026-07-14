@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { readSession } from '../../services/authStorage'
 import { mediaUrl } from '../../utils/mediaUrl'
+import { formatDateDdMmYyyy } from '../../utils/dateFormat'
 import {
   getGuideTourCompleted,
   getGuideTourDetail,
@@ -34,14 +35,7 @@ const HERO_IMAGE_POOL = [
 ]
 
 function formatDate(value) {
-  if (!value) return 'Chưa xác định'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return new Intl.DateTimeFormat('vi-VN', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  }).format(date)
+  return formatDateDdMmYyyy(value, 'Ch?a x?c ??nh')
 }
 
 function formatMoney(value) {
@@ -146,6 +140,17 @@ function getTourStateTone(item) {
   return 'blue'
 }
 
+function getTourSortRank(item) {
+  const state = getTourState(item)
+
+  if (state === 'ongoing') return 1
+  if (state === 'upcoming') return 2
+  if (state === 'completed') return 3
+  if (state === 'cancelled') return 4
+
+  return 5
+}
+
 function getTourImage(item) {
   return mediaUrl(
     item?.tour?.thumbnail?.image_url ||
@@ -160,7 +165,7 @@ function cleanFilters(filters) {
   return Object.fromEntries(
     Object.entries(filters).filter(([, value]) => {
       const normalized = String(value || '').trim()
-      return normalized !== '' && normalized !== 'default'
+      return normalized !== '' && normalized !== 'sort'
     }),
   )
 }
@@ -169,17 +174,6 @@ function compareDepartureDate(a, b) {
   const aTime = toDateOnly(a?.departure_date)?.getTime() || 0
   const bTime = toDateOnly(b?.departure_date)?.getTime() || 0
   return aTime - bTime
-}
-
-function getTourSortRank(item) {
-  const state = getTourState(item)
-
-  if (state === 'ongoing') return 1
-  if (state === 'upcoming') return 2
-  if (state === 'completed') return 3
-  if (state === 'cancelled') return 4
-
-  return 5
 }
 
 function getAssignmentKey(item) {
@@ -263,7 +257,6 @@ function TourStatCard({ label, value, icon, tone, hint, active, onClick }) {
 function TourRow({ item, active, isNew, onDetail, onRequestChange }) {
   const image = getTourImage(item)
   const title = item?.tour?.title || 'Tour được phân công'
-  const note = item?.assignment_note || item?.assignment?.note || item?.notes || 'Chưa có ghi chú phân công.'
   const statusLabel = getTourStateLabel(item)
   const statusTone = getTourStateTone(item)
   const state = getTourState(item)
@@ -313,15 +306,13 @@ function TourRow({ item, active, isNew, onDetail, onRequestChange }) {
             </span>
             <span>
               <strong>{formatNumber(item?.booked_slots || 0)} khách</strong>
-              <small>{formatNumber(item?.total_slots || 0)} chỗ</small>
+              <small>Số khách</small>
             </span>
             <span>
               <strong>{formatMoney(item?.price)}</strong>
               <small>Giá tour</small>
             </span>
           </div>
-
-          <div className="guide-tour-row-note">{note}</div>
         </div>
       </button>
 
@@ -370,6 +361,23 @@ function TourDetailModal({
 
         {isNew ? <span className="guide-tour-modal-new">NEW</span> : null}
 
+        <div className="guide-tour-modal-request-inline">
+          <button
+            type="button"
+            className="guide-tour-modal-request-float"
+            disabled={!requestState.ok}
+            onClick={() => onRequestChange(item)}
+            title={requestState.reason || 'Yêu cầu đổi HDV'}
+          >
+            Yêu cầu đổi HDV
+          </button>
+          {!requestState.ok ? (
+            <small className="guide-tour-modal-request-hint guide-tour-modal-request-hint-inline">
+              {requestState.reason}
+            </small>
+          ) : null}
+        </div>
+
         <div className="guide-tour-modal-hero">
           <div className="guide-tour-modal-image-wrap">
             {image ? (
@@ -381,22 +389,8 @@ function TourDetailModal({
 
           <div className="guide-tour-modal-copy">
             <span className={`guide-tour-pill tone-${getTourStateTone(item)}`}>{getTourStateLabel(item)}</span>
-            <h3>{item?.tour?.title || 'Chi tiết tour'}</h3>
-            <p>{getDestination(item)}</p>
-
-            <button
-              type="button"
-              className="guide-tour-modal-request-btn"
-              disabled={!requestState.ok}
-              onClick={() => onRequestChange(item)}
-              title={requestState.reason || 'Yêu cầu đổi HDV'}
-            >
-              Yêu cầu đổi HDV
-            </button>
-
-            {!requestState.ok && requestState.reason ? (
-              <small className="guide-tour-modal-request-hint">{requestState.reason}</small>
-            ) : null}
+            <h3>Tour: {item?.tour?.title || 'Chi tiết tour'}</h3>
+            <p>Địa điểm: {getDestination(item)}</p>
           </div>
         </div>
 
@@ -422,21 +416,25 @@ function TourDetailModal({
         </div>
 
         <div className="guide-tour-modal-section">
-          <h4>Mô tả tour</h4>
-          <p>{item?.tour?.summary || 'Chưa có mô tả chi tiết.'}</p>
+          <h4>Mô tả</h4>
+          <div className="guide-tour-modal-content-box">
+            <p>{item?.tour?.summary || 'Chưa có mô tả chi tiết.'}</p>
+          </div>
         </div>
 
         <div className="guide-tour-modal-section">
-          <h4>Ghi chú phân công</h4>
-          <p className="guide-tour-modal-note">
-            {item?.assignment_note || item?.assignment?.note || item?.notes || 'Không có ghi chú đặc biệt.'}
-          </p>
+          <h4>Ghi chú</h4>
+          <div className="guide-tour-modal-content-box">
+            <p className="guide-tour-modal-note">
+              {item?.assignment_note || item?.assignment?.note || item?.notes || 'Không có ghi chú đặc biệt.'}
+            </p>
+          </div>
         </div>
 
         <div className="guide-tour-modal-section">
-          <h4>Lộ trình</h4>
+          <h4>Lịch trình</h4>
           {loading ? (
-            <div className="guide-tour-modal-empty">Đang tải chi tiết...</div>
+            <div className="guide-tour-modal-content-box guide-tour-modal-empty">Đang tải chi tiết...</div>
           ) : Array.isArray(item?.tour?.itineraries) && item.tour.itineraries.length > 0 ? (
             <div className="guide-tour-modal-itineraries">
               {item.tour.itineraries.map((step) => (
@@ -448,8 +446,14 @@ function TourDetailModal({
               ))}
             </div>
           ) : (
-            <div className="guide-tour-modal-empty">Tour này chưa có lịch trình chi tiết.</div>
+            <div className="guide-tour-modal-content-box guide-tour-modal-empty">Tour này chưa có lịch trình chi tiết.</div>
           )}
+        </div>
+
+        <div className="guide-tour-modal-section">
+          <button type="button" className="guide-tour-detail-btn" onClick={onClose}>
+            Đóng
+          </button>
         </div>
       </div>
     </div>
@@ -468,6 +472,33 @@ function ReplacementRequestModal({
   onClose,
   onSubmit,
 }) {
+  const fileInputRef = useRef(null)
+  const [previewUrl, setPreviewUrl] = useState('')
+
+  useEffect(() => {
+    if (!evidence || !evidence.type?.startsWith('image/')) {
+      setPreviewUrl('')
+      return undefined
+    }
+
+    const objectUrl = URL.createObjectURL(evidence)
+    setPreviewUrl(objectUrl)
+
+    return () => URL.revokeObjectURL(objectUrl)
+  }, [evidence])
+
+  function handlePickFile() {
+    fileInputRef.current?.click()
+  }
+
+  function handleClearFile() {
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+
+    onEvidenceChange(null)
+  }
+
   if (!open || !item) return null
 
   return (
@@ -495,22 +526,60 @@ function ReplacementRequestModal({
               onChange={(event) => onReasonChange(event.target.value)}
               rows={5}
               disabled={submitting}
-              placeholder="Ví dụ: Tôi có việc gia đình đột xuất, cần xin đổi HDV phụ trách tour này..."
+              placeholder="Nêu lý do cần xin đổi HDV phụ trách tour này..."
               className={errors.reason ? 'is-invalid' : ''}
             />
             {errors.reason ? <small>{errors.reason}</small> : null}
           </label>
 
           <label>
-            <span>Ảnh / file bằng chứng nếu cần</span>
-            <input
-              type="file"
-              accept="image/*,.pdf"
-              disabled={submitting}
-              onChange={(event) => onEvidenceChange(event.target.files?.[0] || null)}
-              className={errors.evidence ? 'is-invalid' : ''}
-            />
-            {evidence ? <em>Đã chọn: {evidence.name}</em> : null}
+            <span>Ảnh hoặc file bằng chứng nếu có</span>
+            <div className="guide-replace-evidence-row">
+              <div className={`guide-replace-file-preview ${errors.evidence ? 'is-invalid' : ''}`}>
+                {evidence ? (
+                  previewUrl ? (
+                    <img src={previewUrl} alt={evidence.name} className="guide-replace-file-preview-image" />
+                  ) : (
+                    <div className="guide-replace-file-preview-fallback">
+                      <span>{evidence.name.split('.').pop()?.toUpperCase() || 'FILE'}</span>
+                      <small>{evidence.name}</small>
+                    </div>
+                  )
+                ) : (
+                  <div className="guide-replace-file-preview-empty">Chưa có ảnh</div>
+                )}
+              </div>
+
+              <div className="guide-replace-file-actions">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx,.xls,.xlsx,image/jpeg,image/png,image/webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                  disabled={submitting}
+                  onChange={(event) => onEvidenceChange(event.target.files?.[0] || null)}
+                  className="guide-replace-file-input"
+                />
+                <button
+                  type="button"
+                  className={`guide-replace-file-trigger ${errors.evidence ? 'is-invalid' : ''}`}
+                  onClick={handlePickFile}
+                  disabled={submitting}
+                >
+                  Chọn file/ảnh
+                </button>
+
+                {evidence ? (
+                  <button
+                    type="button"
+                    className="guide-replace-file-remove"
+                    onClick={handleClearFile}
+                    disabled={submitting}
+                  >
+                    Xóa file
+                  </button>
+                ) : null}
+              </div>
+            </div>
             {errors.evidence ? <small>{errors.evidence}</small> : null}
           </label>
 
@@ -533,7 +602,7 @@ function GuideToursPage() {
   const [filters, setFilters] = useState({
     keyword: '',
     from_date: '',
-    sort_by: 'default',
+    sort_by: 'sort',
   })
   const [appliedFilters, setAppliedFilters] = useState(filters)
   const [page, setPage] = useState(1)
@@ -653,10 +722,9 @@ function GuideToursPage() {
 
         const currentSelectedId = selectedTourIdRef.current
         const stillExists = nextItems.some((item) => item.id === currentSelectedId)
-        const nextSelectedId = stillExists ? currentSelectedId : nextItems[0]?.id || null
 
-        if (nextSelectedId !== currentSelectedId) {
-          setSelectedTourId(nextSelectedId)
+        if (!stillExists && currentSelectedId !== null) {
+          setSelectedTourId(null)
         }
       } catch (loadError) {
         if (mounted) {
@@ -715,28 +783,18 @@ function GuideToursPage() {
     const sorted = [...items]
 
     sorted.sort((a, b) => {
-      const aKey = getAssignmentKey(a)
-      const bKey = getAssignmentKey(b)
-      const aNew = newTourIds.has(aKey) ? 1 : 0
-      const bNew = newTourIds.has(bKey) ? 1 : 0
+      if (filters.sort_by === 'sort') {
+        const rankDiff = getTourSortRank(a) - getTourSortRank(b)
 
-      if (aNew !== bNew) return bNew - aNew
-
-      const aPending = hasPendingReplacement(a) ? 1 : 0
-      const bPending = hasPendingReplacement(b) ? 1 : 0
-
-      if (aPending !== bPending) return bPending - aPending
-
-      if (filters.sort_by === 'soon') {
-        return compareDepartureDate(a, b)
-      }
-
-      if (filters.sort_by === 'latest') {
-        return compareDepartureDate(b, a)
+        if (rankDiff !== 0) return rankDiff
       }
 
       if (filters.sort_by === 'oldest') {
         return compareDepartureDate(a, b)
+      }
+
+      if (filters.sort_by === 'newest') {
+        return compareDepartureDate(b, a)
       }
 
       const rankDiff = getTourSortRank(a) - getTourSortRank(b)
@@ -747,7 +805,7 @@ function GuideToursPage() {
     })
 
     return sorted
-  }, [filters.sort_by, items, newTourIds])
+  }, [filters.sort_by, items])
 
   const selectedCount = Number(meta.total || 0)
 
@@ -771,7 +829,7 @@ function GuideToursPage() {
   }
 
   function handleResetFilters() {
-    const reset = { keyword: '', from_date: '', sort_by: 'default' }
+    const reset = { keyword: '', from_date: '', sort_by: 'sort' }
     setFilters(reset)
     setAppliedFilters(reset)
     setPage(1)
@@ -899,13 +957,13 @@ function GuideToursPage() {
       >
         <div className="guide-tours-hero-overlay" />
         <div className="guide-tours-hero-copy">
-          <span className="guide-tours-hero-kicker">Tour của tôi</span>
+          <span className="guide-tours-hero-kicker">Lịch làm việc</span>
           <h1>Xin chào, {guide?.full_name || guide?.name || 'HDV'}</h1>
-          <p>
-            {heroItem?.tour?.title
-              ? `Bạn đang có ${formatNumber(tabTotals.all)} tour được phân công. Tour đang dẫn được ưu tiên lên đầu, tour sắp diễn ra ở giữa và tour đã qua xuống cuối.`
-              : 'Bạn đang xem danh sách tour được phân công, có thể lọc theo thời gian và điểm đến.'}
-          </p>
+            <p>
+              {heroItem?.tour?.title
+              ? `Bạn đang có ${formatNumber(tabTotals.all)} tour được phân công.`
+              : 'Bạn đang xem danh sách tour được phân công.'}
+            </p>
         </div>
       </section>
 
@@ -915,7 +973,12 @@ function GuideToursPage() {
           value={formatNumber(tabTotals.all)}
           tone="blue"
           hint="Tất cả tour được giao"
-          icon={<path d="M4 7h16M4 12h16M4 17h16" />}
+          icon={
+            <>
+              <rect x="5" y="5" width="14" height="14" rx="4" />
+              <path d="M8 5V3.5M16 5V3.5M7 9h10M9 13h6" />
+            </>
+          }
           active={activeTab === 'all'}
           onClick={() => handleTabChange('all')}
         />
@@ -924,7 +987,12 @@ function GuideToursPage() {
           value={formatNumber(tabTotals.upcoming)}
           tone="green"
           hint="Tour chưa khởi hành"
-          icon={<path d="M12 6v6l4 2" />}
+          icon={
+            <>
+              <circle cx="12" cy="12" r="8" />
+              <path d="M12 7.25v4.9l3.2 1.9" />
+            </>
+          }
           active={activeTab === 'upcoming'}
           onClick={() => handleTabChange('upcoming')}
         />
@@ -933,7 +1001,12 @@ function GuideToursPage() {
           value={formatNumber(tabTotals.ongoing)}
           tone="amber"
           hint="Tour đang chạy"
-          icon={<path d="M4 12h16M12 4v16" />}
+          icon={
+            <>
+              <path d="M4 12h4l2.5-4 3 8 2-4H20" />
+              <path d="M12 3.5v2.5" />
+            </>
+          }
           active={activeTab === 'ongoing'}
           onClick={() => handleTabChange('ongoing')}
         />
@@ -942,7 +1015,12 @@ function GuideToursPage() {
           value={formatNumber(tabTotals.completed)}
           tone="red"
           hint="Tour đã kết thúc"
-          icon={<path d="M5 13l4 4L19 7" />}
+          icon={
+            <>
+              <circle cx="12" cy="12" r="8" />
+              <path d="m8.5 12.2 2.4 2.4L15.8 9.7" />
+            </>
+          }
           active={activeTab === 'completed'}
           onClick={() => handleTabChange('completed')}
         />
@@ -968,10 +1046,11 @@ function GuideToursPage() {
             onChange={(event) => handleSortChange(event.target.value)}
             aria-label="Lọc sắp xếp"
           >
-            <option value="default">Trạng thái ưu tiên</option>
-            <option value="soon">Ngày gần nhất</option>
-            <option value="latest">Ngày xa nhất</option>
-            <option value="oldest">Ngày cũ nhất</option>
+            <option value="sort">
+              Sắp xếp theo
+            </option>
+            <option value="newest">Mới nhất</option>
+            <option value="oldest">Cũ nhất</option>
           </select>
         </label>
 

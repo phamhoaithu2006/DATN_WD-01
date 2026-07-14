@@ -2,6 +2,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import apiClient from '../services/apiClient'
+import { formatDateDdMmYyyy, formatDateTimeDdMmYyyy } from '../utils/dateFormat'
 
 const LocaleContext = createContext(null)
 
@@ -142,47 +143,17 @@ export function LocaleProvider({ children }) {
   const formatDate = useCallback(
     (dateValue) => {
       if (!dateValue) return ''
-
-      try {
-        const date = dateValue instanceof Date ? dateValue : new Date(dateValue)
-        if (isNaN(date.getTime())) return String(dateValue)
-
-        const locale = dateFormatToLocale(settings.date_format, i18n.language)
-        const options = {
-          ...dateFormatToIntlOptions(settings.date_format),
-          timeZone: settings.timezone,
-        }
-
-        return new Intl.DateTimeFormat(locale, options).format(date)
-      } catch {
-        return String(dateValue)
-      }
+      return formatDateDdMmYyyy(dateValue, String(dateValue))
     },
-    [settings.date_format, settings.timezone, i18n.language],
+    [],
   )
 
   const formatDateTime = useCallback(
     (dateValue) => {
       if (!dateValue) return ''
-
-      try {
-        const date = dateValue instanceof Date ? dateValue : new Date(dateValue)
-        if (isNaN(date.getTime())) return String(dateValue)
-
-        const locale = dateFormatToLocale(settings.date_format, i18n.language)
-        const options = {
-          ...dateFormatToIntlOptions(settings.date_format),
-          hour: '2-digit',
-          minute: '2-digit',
-          timeZone: settings.timezone,
-        }
-
-        return new Intl.DateTimeFormat(locale, options).format(date)
-      } catch {
-        return String(dateValue)
-      }
+      return formatDateTimeDdMmYyyy(dateValue, String(dateValue))
     },
-    [settings.date_format, settings.timezone, i18n.language],
+    [],
   )
 
   const formatCurrency = useCallback(

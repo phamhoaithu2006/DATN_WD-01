@@ -498,8 +498,12 @@ function GuideManagementPage() {
   )
 
   useEffect(() => {
-    void loadCatalogs()
-    void loadStatistics()
+    const timer = window.setTimeout(() => {
+      loadCatalogs()
+      loadStatistics()
+    }, 0)
+
+    return () => window.clearTimeout(timer)
   }, [loadCatalogs, loadStatistics])
 
   useEffect(() => {
@@ -750,8 +754,8 @@ function GuideManagementPage() {
     setNotice('')
     setIsFormOpen(true)
 
-    void loadCatalogs()
-    void loadAvailableUsers()
+    loadCatalogs()
+    loadAvailableUsers()
   }
 
   function openEditForm(guide) {
@@ -778,8 +782,8 @@ function GuideManagementPage() {
     setNotice('')
     setIsFormOpen(true)
 
-    void loadCatalogs()
-    void loadAvailableUsers()
+    loadCatalogs()
+    loadAvailableUsers()
   }
 
   function closeForm() {
@@ -1296,7 +1300,7 @@ function GuideManagementPage() {
 
             <div className="guide-form-grid">
               <label>
-                Họ và tên
+                Họ và tên <span className="text-red-500">*</span>
 
                 <select
                   required
@@ -1320,7 +1324,7 @@ function GuideManagementPage() {
                 </select>
 
                 <small className="guide-field-hint">
-                  Chỉ hiển thị tài khoản HDV chưa tạo hồ sơ hướng dẫn viên.
+                  Chỉ hiển thị tài khoản chưa tạo hồ sơ hướng dẫn viên.
                 </small>
 
                 {formErrors.user_id ? (
@@ -1331,7 +1335,7 @@ function GuideManagementPage() {
               </label>
 
               <label className="guide-form-wide">
-                Khu vực phụ trách
+                Khu vực phụ trách <span className="text-red-500">*</span>
 
                 <div className="guide-repeat-list">
                   {destinations.length > 0 ? (
@@ -1406,7 +1410,7 @@ function GuideManagementPage() {
               </label>
 
               <label>
-                Số năm kinh nghiệm
+                Số năm kinh nghiệm <span className="text-red-500">*</span>
 
                 <input
                   min="0"
@@ -1426,7 +1430,7 @@ function GuideManagementPage() {
               </label>
 
               <label>
-                Trạng thái
+                Trạng thái <span className="text-red-500">*</span>
 
                 <select
                   value={form.status}
@@ -1453,7 +1457,7 @@ function GuideManagementPage() {
               </label>
 
               <label className="guide-form-wide">
-                Ngoại ngữ
+                Ngoại ngữ <span className="text-red-500">*</span>
 
                 <div className="guide-repeat-list">
                   {form.languages.map((language, index) => {
@@ -1548,7 +1552,7 @@ function GuideManagementPage() {
               </label>
 
               <label className="guide-form-wide">
-                Chứng chỉ
+                Chứng chỉ <span className="text-red-500">*</span>
 
                 <div className="guide-repeat-list">
                   {form.experiences.map((experience, index) => {

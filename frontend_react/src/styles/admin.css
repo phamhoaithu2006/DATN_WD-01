@@ -24,7 +24,7 @@
   background: #ffffff;
   border-right: 1px solid #d9e1ec;
   box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04);
-  overflow-y: auto;
+  overflow-y: hidden;
   overflow-x: hidden;
   z-index: 20;
 }
@@ -32,9 +32,9 @@
 .admin-brand {
   display: flex;
   flex-direction: column;
-  padding: 16px 18px 18px;
+  padding: 10px 14px 12px;
   border-bottom: 1px solid #f1f5f9;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
 }
 
 .admin-brand-text-col {
@@ -47,15 +47,15 @@
 .admin-brand-link {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   min-width: 0;
   color: #0f172a;
   text-decoration: none;
 }
 
 .admin-brand-logo-mark {
-  width: 48px;
-  height: 48px;
+  width: 42px;
+  height: 42px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -67,13 +67,13 @@
 }
 
 .admin-brand-logo-mark svg {
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   fill: currentColor;
 }
 
 .admin-brand-name {
-  font-size: 1.4rem;
+  font-size: 1.2rem;
   font-weight: 800;
   letter-spacing: -0.02em;
   display: flex;
@@ -92,7 +92,7 @@
 
 .admin-brand-subtitle {
   color: #94a3b8;
-  font-size: 0.62rem;
+  font-size: 0.58rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   line-height: 1.05;
@@ -106,22 +106,22 @@
 
 .admin-nav {
   display: grid;
-  gap: 7px;
-  padding: 6px 8px 20px;
+  gap: 8px;
+  padding: 8px 8px 12px;
 }
 
 .admin-nav-link {
-  min-height: 48px;
+  min-height: 44px;
   position: relative;
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr);
+  grid-template-columns: 28px minmax(0, 1fr);
   align-items: center;
-  gap: 8px;
-  padding: 0 16px 0 14px;
+  gap: 6px;
+  padding: 0 14px;
   border-radius: 14px;
   color: #64748b;
   text-decoration: none;
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 800;
   letter-spacing: 0;
   transition:
@@ -158,8 +158,8 @@
 }
 
 .admin-nav-icon {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   fill: none;
   stroke: currentColor;
   stroke-linecap: round;
@@ -168,18 +168,19 @@
 }
 
 .collapse-button {
-  min-height: 54px;
+  min-height: 48px;
   margin-top: auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 10px;
   border: 0;
   border-top: 1px solid #d9e1ec;
   color: #526886;
   background: #ffffff;
   cursor: pointer;
   font: inherit;
+  font-size: 0.95rem;
   font-weight: 700;
 }
 
@@ -395,6 +396,31 @@
   font-size: 30px;
   font-weight: 800;
   line-height: 1.1;
+}
+
+.guide-page .admin-page-header h1 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.guide-page .admin-page-header-row {
+  flex-wrap: nowrap;
+}
+
+.guide-page .admin-page-header-content {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.guide-page .admin-page-header-actions {
+  flex-shrink: 0;
+}
+
+@media (max-width: 1280px) {
+  .guide-page .admin-page-header h1 {
+    font-size: 28px;
+  }
 }
 
 .guide-heading p {
@@ -1325,7 +1351,8 @@
 
 .admin-sidebar.collapsed .admin-brand {
   align-items: center;
-  padding-inline: 0;
+  justify-content: center;
+  padding: 12px 0 10px;
 }
 
 .admin-sidebar.collapsed .admin-brand-subtitle,
@@ -1336,17 +1363,28 @@
 }
 
 .admin-sidebar.collapsed .admin-brand-link {
-  justify-content: center;
+  width: 100%;
+  display: grid;
+  justify-items: center;
+  align-items: center;
+}
+
+.admin-sidebar.collapsed .admin-brand-logo-mark {
+  margin: 0 auto;
 }
 
 .admin-sidebar.collapsed .admin-nav {
-  padding-inline: 12px;
+  padding-inline: 10px;
 }
 
 .admin-sidebar.collapsed .admin-nav-link {
   grid-template-columns: 1fr;
   justify-items: center;
   padding: 0;
+}
+
+.admin-sidebar.collapsed .admin-nav-link .admin-nav-label {
+  display: none;
 }
 
 .admin-sidebar.collapsed .admin-nav-link.active::after {
@@ -1368,6 +1406,7 @@
     height: auto;
     max-height: none;
     min-height: auto;
+    overflow-y: visible;
     border-right: 0;
     border-bottom: 1px solid #d9e1ec;
   }

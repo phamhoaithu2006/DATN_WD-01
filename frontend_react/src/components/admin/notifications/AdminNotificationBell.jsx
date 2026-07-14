@@ -270,12 +270,12 @@ async function openDetail(notification) {
 }
 
   return (
-    <div ref={dropdownRef} className="relative">
+    <div ref={dropdownRef} className="relative w-fit shrink-0">
       <button
         type="button"
         onClick={toggleDropdown}
         className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-blue-600"
-        title="Thông báo admin"
+        aria-label="Thông báo admin"
       >
         <svg
           viewBox="0 0 24 24"
@@ -299,15 +299,33 @@ async function openDetail(notification) {
       </button>
 
       {open ? (
-        <div className="absolute right-0 z-50 mt-3 w-[760px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+        <div className="absolute right-0 top-full z-50 mt-3 w-[680px] max-w-[calc(100vw-24px)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl origin-top-right">
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-            <div>
-              <h3 className="font-black text-slate-900">Thông báo admin</h3>
-              <p className="text-xs text-slate-500">
-                {unreadCount > 0
-                  ? `${unreadCount} thông báo chưa đọc`
-                  : 'Không có thông báo mới'}
-              </p>
+            <div className="flex items-center gap-2">
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-500">
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-4.5 w-4.5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                </svg>
+              </span>
+
+              <div>
+                <h3 className="font-black text-slate-900">Thông báo admin</h3>
+                <p className="text-xs text-slate-500">
+                  {unreadCount > 0
+                    ? `${unreadCount} thông báo chưa đọc`
+                    : 'Không có thông báo mới'}
+                </p>
+              </div>
             </div>
 
             <div className="flex items-center gap-2">
@@ -331,7 +349,7 @@ async function openDetail(notification) {
             </div>
           </div>
 
-          <div className="grid max-h-[520px] grid-cols-[320px_minmax(0,1fr)] overflow-hidden">
+          <div className="grid max-h-[520px] grid-cols-[300px_minmax(0,1fr)] overflow-hidden">
             <div className="max-h-[520px] overflow-y-auto border-r border-slate-100">
               {loading ? (
                 <div className="p-5 text-center text-sm text-slate-500">
@@ -400,7 +418,7 @@ async function openDetail(notification) {
               )}
             </div>
 
-            <div className="max-h-[520px] overflow-y-auto bg-slate-50/70 p-4">
+            <div className="flex max-h-[520px] items-stretch overflow-y-auto bg-slate-50/70 p-4">
               {selectedNotification ? (
                 <div
                   role={isGuideReplacementNotification(selectedNotification) ? 'button' : undefined}
@@ -419,7 +437,7 @@ async function openDetail(notification) {
                       void goToGuideReplacementRequest(selectedNotification)
                     }
                   }}
-                  className={`rounded-2xl border border-slate-200 bg-white p-5 shadow-sm ${
+                  className={`w-full rounded-2xl border border-slate-200 bg-white p-5 shadow-sm ${
                     isGuideReplacementNotification(selectedNotification)
                       ? 'cursor-pointer transition hover:border-orange-300 hover:bg-orange-50/40 hover:shadow-md'
                       : ''
@@ -466,9 +484,9 @@ async function openDetail(notification) {
                   ) : null}
                 </div>
               ) : (
-                <div className="flex h-full min-h-[300px] items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-center">
+                <div className="flex h-full min-h-[300px] w-full items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-center">
                   <div>
-                    <p className="font-black text-slate-800">
+                    <p className="whitespace-nowrap font-black text-slate-800">
                       Chọn một thông báo
                     </p>
                     <p className="mt-1 text-sm text-slate-500">
