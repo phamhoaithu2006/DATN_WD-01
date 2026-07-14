@@ -59,10 +59,17 @@ class TourDepartureController extends Controller
                     ($assignment->role === 'lead' || !$assignment->role);
             });
 
-            // Lịch trước hôm nay là lịch đã qua.
-            $isLocked = Carbon::parse($departure->departure_date)
-                ->startOfDay()
-                ->lt($today);
+            /*
+             * Xác định nhóm lịch theo khoảng ngày đi - ngày về.
+             * Lịch 11/07 - 13/07 vẫn là đang diễn ra trong ngày 13/07,
+             * không được đẩy sang đã qua chỉ vì departure_date < hôm nay.
+             */
+            $scheduleGroup = $this->getScheduleGroup($departure, $today);
+            $isLocked = in_array($scheduleGroup, [
+                'past',
+                'completed',
+                'cancelled',
+            ], true);
 
             $departure->setAttribute(
                 'assigned_guides',
@@ -90,7 +97,7 @@ class TourDepartureController extends Controller
 
             $departure->setAttribute(
                 'schedule_group',
-                $isLocked ? 'past' : 'upcoming'
+                $scheduleGroup
             );
 
             $departure->setAttribute(
@@ -540,6 +547,50 @@ class TourDepartureController extends Controller
         $payload['discount_price'] =
             $priceData['discount_price'];
     }
+    private function getScheduleGroup(
+        TourDeparture $departure,
+        ?Carbon $today = null
+    ): string {
+        $today = ($today ?: now())->copy()->startOfDay();
+
+        $status = strtolower((string) $departure->status);
+
+        if (in_array($status, ['cancelled', 'canceled'], true)) {
+            return 'cancelled';
+        }
+
+        if ($status === 'completed') {
+            return 'completed';
+        }
+
+        $departureDate = $this->dateOnly(
+            $departure->getRawOriginal('departure_date')
+                ?? $departure->departure_date
+        );
+
+        $returnDate = $this->dateOnly(
+            $departure->getRawOriginal('return_date')
+                ?? $departure->return_date
+        ) ?: $departureDate;
+
+        if (!$departureDate) {
+            return 'upcoming';
+        }
+
+        $start = Carbon::parse($departureDate)->startOfDay();
+        $end = Carbon::parse($returnDate)->startOfDay();
+
+        if ($start->gt($today)) {
+            return 'upcoming';
+        }
+
+        if ($start->lte($today) && $end->gte($today)) {
+            return 'ongoing';
+        }
+
+        return 'past';
+    }
+
     /**
      * Chuẩn hóa ngày nghiệp vụ trước khi trả JSON.
      *
