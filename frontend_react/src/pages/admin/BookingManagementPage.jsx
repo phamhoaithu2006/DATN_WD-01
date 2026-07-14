@@ -207,7 +207,7 @@ function BookingManagementPage() {
       <AdminPageHeader
         breadcrumb={['ViVuGo', 'Quản Lý Booking']}
         title="Quản Lý Booking"
-        description="Theo dõi và quản lý tất cả đặt tour"
+        description="Theo dõi và quản lý tất cả đặt tour."
         actions={
           <BookingStats
             activeStatus={status}

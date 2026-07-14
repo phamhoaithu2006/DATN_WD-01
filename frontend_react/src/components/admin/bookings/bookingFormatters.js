@@ -1,3 +1,5 @@
+import { formatDateDdMmYyyy } from '../../../utils/dateFormat'
+
 const moneyFormatter = new Intl.NumberFormat('vi-VN')
 
 export const messageFrom = (error) =>
@@ -21,11 +23,7 @@ export const formatMoney = (value) => `${moneyFormatter.format(Number(value || 0
 
 export const formatDate = (value) => {
   if (!value) return '--'
-
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return '--'
-
-  return date.toLocaleDateString('vi-VN')
+  return formatDateDdMmYyyy(value, '--')
 }
 
 export const customerName = (booking) =>

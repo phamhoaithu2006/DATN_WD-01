@@ -24,7 +24,7 @@ function AdminPageHeader({
   description,
   actions = null,
   className = '',
-  showNotificationBell = true,
+  showNotificationBell = false,
 }) {
   const items = (Array.isArray(breadcrumb) ? breadcrumb : [breadcrumb]).filter(
     (item) => item != null && String(item).trim() !== ''

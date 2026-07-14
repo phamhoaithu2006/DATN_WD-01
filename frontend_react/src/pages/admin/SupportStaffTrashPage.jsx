@@ -9,6 +9,7 @@ import {
 } from '../../services/supportStaffApi'
 import '../../styles/support-staff.css'
 
+import { formatDateDdMmYyyy, formatDateTimeDdMmYyyy } from '../../utils/dateFormat'
 function getListData(payload) {
   const page = payload?.data?.data
 
@@ -59,12 +60,7 @@ function getStaffCode(staff) {
 }
 
 function formatDateTime(value) {
-  if (!value) return '—'
-
-  return new Intl.DateTimeFormat('vi-VN', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value))
+  return formatDateTimeDdMmYyyy(value, '?')
 }
 
 function getStaffName(staff) {

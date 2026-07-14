@@ -314,7 +314,7 @@ class GuideTourController extends Controller
 
         $validated = $request->validate([
             'reason' => ['required', 'string', 'min:10', 'max:2000'],
-            'evidence' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:5120'],
+            'evidence' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,pdf,doc,docx,xls,xlsx', 'max:5120'],
         ], [
             'reason.required' => 'Vui lòng nhập lý do xin đổi HDV.',
             'reason.min' => 'Lý do cần ít nhất 10 ký tự.',

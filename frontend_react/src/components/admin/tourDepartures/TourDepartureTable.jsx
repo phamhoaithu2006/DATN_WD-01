@@ -405,34 +405,6 @@ function getAssignmentFilterEmptyText(scheduleFilter, assignmentFilter) {
   return 'Không có lịch sắp tới.'
 }
 
-function buildPageNumbers(currentPage, totalPages) {
-  if (totalPages <= 7) {
-    return Array.from({ length: totalPages }, (_, index) => index + 1)
-  }
-
-  const pages = new Set([1, totalPages, currentPage])
-
-  if (currentPage > 1) pages.add(currentPage - 1)
-  if (currentPage < totalPages) pages.add(currentPage + 1)
-
-  if (currentPage <= 3) {
-    pages.add(2)
-    pages.add(3)
-    pages.add(4)
-  }
-
-  if (currentPage >= totalPages - 2) {
-    pages.add(totalPages - 1)
-    pages.add(totalPages - 2)
-    pages.add(totalPages - 3)
-  }
-
-  return Array.from(pages)
-    .filter((page) => page >= 1 && page <= totalPages)
-    .sort((a, b) => a - b)
-}
-
-
 function parseNotificationData(value) {
   if (!value) return {}
 
@@ -692,7 +664,8 @@ export default function TourDepartureTable({
   assignmentWarningCount,
   onRequestEdit,
   activeTab = 'departures',
-  scheduleFilter = 'upcoming',
+  scheduleFilter = 'all',
+  departuresReady = true,
   onChangeTab,
   onChangeScheduleFilter,
   guideContent,
@@ -727,6 +700,7 @@ export default function TourDepartureTable({
 
   const isDeparturesTab = activeTab === 'departures'
   const isGuidesTab = activeTab === 'guides'
+  const isInitialLoading = loading || !departuresReady
 
   const unassignedDepartureCount = useMemo(() => {
     if (Number.isFinite(Number(assignmentWarningCount))) {
@@ -761,13 +735,17 @@ export default function TourDepartureTable({
 
   const scheduleTabs = useMemo(
     () => [
+      { key: 'all', label: 'Tất cả', rows: groupedRows.all },
       { key: 'upcoming', label: 'Sắp tới', rows: groupedRows.upcoming },
       { key: 'ongoing', label: 'Đang diễn ra', rows: groupedRows.ongoing },
       { key: 'past', label: 'Đã qua', rows: groupedRows.past },
-      { key: 'all', label: 'Tất cả', rows: groupedRows.all },
     ],
     [groupedRows]
   )
+
+  const renderScheduleTabLabel = (tab) => {
+    return `${tab.label} (${tab.rows.length})`
+  }
 
   const scheduleRows = useMemo(() => {
     const rows =
@@ -809,8 +787,6 @@ export default function TourDepartureTable({
   const paginatedRows = displayedRows.slice(pageStartIndex, pageEndIndex)
   const visibleStart = totalRows === 0 ? 0 : pageStartIndex + 1
   const visibleEnd = Math.min(pageEndIndex, totalRows)
-  const pageNumbers = buildPageNumbers(safePage, totalPages)
-
   useEffect(() => {
     setCurrentPage(1)
   }, [scheduleFilter, assignmentFilter, pageSize, activeTab])
@@ -838,9 +814,11 @@ export default function TourDepartureTable({
           </div>
 
           <div className="rounded-full bg-slate-50 px-4 py-2 text-sm font-bold text-slate-600">
-            {isGuidesTab
-              ? 'Phân công HDV'
-              : `${visibleStart}-${visibleEnd}/${totalRows} lịch`}
+            {isInitialLoading
+              ? 'Đang tải...'
+              : isGuidesTab
+                ? 'Phân công HDV'
+                : `${visibleStart}-${visibleEnd}/${totalRows} lịch`}
           </div>
         </div>
 
@@ -890,19 +868,19 @@ export default function TourDepartureTable({
           )
         ) : (
           <>
-            <div className="mb-4 flex flex-wrap gap-2">
+            <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-4">
               {scheduleTabs.map((tab) => (
                 <button
                   key={tab.key}
                   type="button"
                   onClick={() => onChangeScheduleFilter?.(tab.key)}
-                  className={`rounded-lg px-4 py-2 text-sm font-bold transition ${
+                  className={`w-full rounded-lg px-4 py-2 text-sm font-bold transition ${
                     scheduleFilter === tab.key
                       ? 'bg-blue-600 text-white'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
                 >
-                  {tab.label} ({tab.rows.length})
+                  {renderScheduleTabLabel(tab)}
                 </button>
               ))}
             </div>
@@ -966,7 +944,7 @@ export default function TourDepartureTable({
                 </thead>
 
                 <tbody className="divide-y divide-slate-100">
-                  {loading ? (
+                  {isInitialLoading ? (
                     <tr>
                       <td
                         colSpan="12"
@@ -1220,33 +1198,9 @@ export default function TourDepartureTable({
                   trên <strong className="text-slate-900">{totalRows}</strong>{' '}
                   lịch
                 </span>
-
-                <label className="flex items-center gap-2">
-                  <span>Số dòng:</span>
-                  <select
-                    value={pageSize}
-                    onChange={(event) => setPageSize(Number(event.target.value))}
-                    className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                  >
-                    {[5, 10, 20, 50].map((size) => (
-                      <option key={size} value={size}>
-                        {size}
-                      </option>
-                    ))}
-                  </select>
-                </label>
               </div>
 
               <div className="flex flex-wrap items-center gap-1">
-                <button
-                  type="button"
-                  disabled={safePage <= 1}
-                  onClick={() => setCurrentPage(1)}
-                  className="rounded-lg border border-slate-200 px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Đầu
-                </button>
-
                 <button
                   type="button"
                   disabled={safePage <= 1}
@@ -1256,30 +1210,9 @@ export default function TourDepartureTable({
                   Trước
                 </button>
 
-                {pageNumbers.map((page, index) => {
-                  const previousPage = pageNumbers[index - 1]
-                  const needsDots = previousPage && page - previousPage > 1
-
-                  return (
-                    <span key={page} className="inline-flex items-center gap-1">
-                      {needsDots ? (
-                        <span className="px-2 text-slate-400">...</span>
-                      ) : null}
-
-                      <button
-                        type="button"
-                        onClick={() => setCurrentPage(page)}
-                        className={`rounded-lg border px-3 py-2 font-bold transition ${
-                          safePage === page
-                            ? 'border-blue-600 bg-blue-600 text-white'
-                            : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                        }`}
-                      >
-                        {page}
-                      </button>
-                    </span>
-                  )
-                })}
+                <span className="inline-flex min-w-[56px] items-center justify-center rounded-lg border border-slate-200 px-3 py-2 font-bold text-slate-700">
+                  {safePage}/{totalPages}
+                </span>
 
                 <button
                   type="button"
@@ -1290,15 +1223,6 @@ export default function TourDepartureTable({
                   className="rounded-lg border border-slate-200 px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Sau
-                </button>
-
-                <button
-                  type="button"
-                  disabled={safePage >= totalPages}
-                  onClick={() => setCurrentPage(totalPages)}
-                  className="rounded-lg border border-slate-200 px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Cuối
                 </button>
               </div>
             </div>

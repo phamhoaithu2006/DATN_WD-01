@@ -16,6 +16,40 @@ export const getGuideTourCompleted = async (params = {}) =>
 
 export const getGuideTourDetail = async (departureId) =>
   unwrap(await apiClient.get(`/guide/tours/${departureId}`)).data
+// api trang lịc làm việc HDV
+export const getGuideTourOverview = async (departureId) =>
+  unwrap(await apiClient.get(`/guide/tours/${departureId}/overview`)).data
+
+export const getGuideTourCustomers = async (departureId, params = {}) =>
+  unwrap(await apiClient.get(`/guide/tours/${departureId}/customers`, { params }))
+
+export const getGuideTourCustomerDetail = async (departureId, participantId) =>
+  unwrap(await apiClient.get(`/guide/tours/${departureId}/customers/${participantId}`)).data
+
+export const getGuideAttendanceStatistics = async (departureId, params = {}) =>
+  unwrap(await apiClient.get(`/guide/tours/${departureId}/attendance/statistics`, { params })).data
+
+export const createGuideAttendanceSession = async (departureId, payload) =>
+  unwrap(await apiClient.post(`/guide/tours/${departureId}/attendance-sessions`, payload)).data
+
+export const checkInGuideCustomer = async (departureId, sessionId, participantId) =>
+  unwrap(
+    await apiClient.post(
+      `/guide/tours/${departureId}/attendance-sessions/${sessionId}/check-in`,
+      { participant_id: participantId },
+    ),
+  ).data
+
+export const checkOutGuideCustomer = async (departureId, sessionId, participantId) =>
+  unwrap(
+    await apiClient.post(
+      `/guide/tours/${departureId}/attendance-sessions/${sessionId}/check-out`,
+      { participant_id: participantId },
+    ),
+  ).data
+
+export const getGuideTourStages = async (departureId) =>
+  unwrap(await apiClient.get(`/guide/tours/${departureId}/stages`)).data
 
 export const requestGuideReplacement = async (departureId, payload = {}) => {
   const formData = new FormData()
@@ -45,3 +79,5 @@ export const getGuideReplacementRequestStatus = async (departureId) =>
       `/guide/tours/${departureId}/replacement-requests/status`,
     ),
   )
+export const getGuideReviews = async (params = {}) =>
+  unwrap(await apiClient.get('/guide/reviews', { params }))

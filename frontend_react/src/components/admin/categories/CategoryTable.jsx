@@ -1,3 +1,5 @@
+import { formatDateDdMmYyyy } from "../../../utils/dateFormat";
+
 function CategoryTable({
    categories,
     loading,
@@ -6,7 +8,7 @@ function CategoryTable({
      }) {
   const formatDate = (date) => {
     if (!date) return '-'
-    return new Date(date).toLocaleDateString('vi-VN')
+    return formatDateDdMmYyyy(date, '-')
   }
 
   return (

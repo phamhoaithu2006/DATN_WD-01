@@ -72,7 +72,7 @@ function BannerManager({ banners, onChange }) {
               onChange={(e) => update("subtitle", e.target.value)}
             />
           </SettingField>
-          <SettingField label="URL hình ảnh">
+          <SettingField label="URL hình ảnh" required>
             <input
               value={form.image_url}
               onChange={(e) => update("image_url", e.target.value)}

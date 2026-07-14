@@ -199,7 +199,7 @@ function GuideProfilePage() {
               <p>Cập nhật thông tin cá nhân đang hiển thị trong hệ thống.</p>
             </div>
             <span className={`guide-profile-status status-${profileForm.status}`}>
-              {profileForm.status === 'active' ? 'Đang hoạt động' : 'Tạm dừng'}
+              {profileForm.status === 'active' ? 'Đang hoạt động' : 'Ngừng hoạt động'}
             </span>
           </div>
 
@@ -250,7 +250,7 @@ function GuideProfilePage() {
               <span>Trạng thái</span>
               <select name="status" value={profileForm.status} onChange={handleProfileChange}>
                 <option value="active">Đang hoạt động</option>
-                <option value="inactive">Tạm dừng</option>
+                <option value="inactive">Ngừng hoạt động</option>
               </select>
             </label>
           </div>

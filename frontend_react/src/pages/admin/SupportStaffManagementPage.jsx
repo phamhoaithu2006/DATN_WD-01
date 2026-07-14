@@ -12,9 +12,8 @@ import {
   updateSupportStaff,
   uploadSupportStaffAvatar,
 } from '../../services/supportStaffApi'
+import { formatDateTimeDdMmYyyy } from '../../utils/dateFormat'
 import '../../styles/support-staff.css'
-
-const SUPPORT_STAFF_ROLE_NAME = 'support staff'
 
 const STATUS_OPTIONS = [
   { value: 'active', label: 'Đang hoạt động' },
@@ -49,12 +48,7 @@ function initials(name = '') {
 }
 
 function formatDateTime(value) {
-  if (!value) return '—'
-
-  return new Intl.DateTimeFormat('vi-VN', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value))
+  return formatDateTimeDdMmYyyy(value, '?')
 }
 
 function getServerMessage(error, fallback) {
@@ -258,7 +252,7 @@ function SupportStaffFormModal({
 
         <div className="support-form-grid">
           <label>
-            Họ và tên
+            Họ và tên <span className="text-red-500">*</span>
             {editing ? (
               <input value={form.name} onChange={onChange('name')} readOnly />
             ) : (
@@ -272,7 +266,7 @@ function SupportStaffFormModal({
                   ))}
                 </select>
                 <small className="support-field-hint">
-                  Chỉ hiển thị tài khoản NVHT chưa tạo hồ sơ nhân viên hỗ trợ.
+                  Chỉ hiển thị tài khoản chưa tạo hồ sơ nhân viên hỗ trợ.
                 </small>
               </>
             )}
@@ -281,7 +275,7 @@ function SupportStaffFormModal({
           </label>
 
           <label>
-            Chuyên môn
+            Chuyên môn <span className="text-red-500">*</span>
             <select value={form.specialization} onChange={onChange('specialization')}>
               <option value="" disabled>
                 Chọn chuyên môn
@@ -296,7 +290,7 @@ function SupportStaffFormModal({
           </label>
 
           <label>
-            Số năm kinh nghiệm
+            Số năm kinh nghiệm <span className="text-red-500">*</span>
             <input
               min="0"
               type="number"
@@ -310,7 +304,7 @@ function SupportStaffFormModal({
           </label>
 
           <label>
-            Trạng thái
+            Trạng thái <span className="text-red-500">*</span>
             <select value={form.status} onChange={onChange('status')}>
               <option value="" disabled>
                 Chọn trạng thái

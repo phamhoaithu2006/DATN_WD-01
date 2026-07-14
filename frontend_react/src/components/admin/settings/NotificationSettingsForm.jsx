@@ -4,7 +4,7 @@ import SettingSwitch from "./SettingSwitch";
 function NotificationSettingsForm({ settings, updateField }) {
   return (
     <div className="setting-form-grid">
-      <SettingField label="Email nhận thông báo admin">
+      <SettingField label="Email nhận thông báo admin" required>
         <input
           type="email"
           value={settings.admin_notification_email}

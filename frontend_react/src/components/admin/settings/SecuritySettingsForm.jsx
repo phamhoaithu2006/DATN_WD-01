@@ -4,7 +4,7 @@ import SettingSwitch from "./SettingSwitch";
 function SecuritySettingsForm({ settings, updateField }) {
   return (
     <div className="setting-form-grid">
-      <SettingField label="Độ dài mật khẩu tối thiểu">
+      <SettingField label="Độ dài mật khẩu tối thiểu" required>
         <input
           type="number"
           min="6"
@@ -13,7 +13,7 @@ function SecuritySettingsForm({ settings, updateField }) {
           onChange={(e) => updateField("password_min_length", e.target.value)}
         />
       </SettingField>
-      <SettingField label="Thời gian phiên đăng nhập (phút)">
+      <SettingField label="Thời gian phiên đăng nhập (phút)" required>
         <input
           type="number"
           min="15"

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 
 import AdminPageHeader from '../../components/admin/AdminPageHeader'
 import apiClient from '../../services/apiClient'
+import { formatDateDdMmYyyy } from '../../utils/dateFormat'
 import '../../styles/support-staff.css'
 
 function unwrapList(response) {
@@ -53,15 +54,7 @@ function getSpecializationText(guide) {
 }
 
 function formatDate(value) {
-  if (!value) return '—'
-
-  const parsed = new Date(String(value).trim())
-  if (Number.isNaN(parsed.getTime())) return '—'
-
-  return new Intl.DateTimeFormat('vi-VN', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(parsed)
+  return formatDateDdMmYyyy(value, '-')
 }
 
 function GuideTrashPage() {

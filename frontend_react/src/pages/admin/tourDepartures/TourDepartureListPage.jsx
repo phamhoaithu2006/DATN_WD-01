@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { tourDepartureApi } from '../../../services/tourDepartureApi'
 import adminGuideReplacementRequestApi from '../../../services/adminGuideReplacementRequestApi'
+import AdminPageHeader from '../../../components/admin/AdminPageHeader'
 import TourDepartureTable from '../../../components/admin/tourDepartures/TourDepartureTable'
 import { GuideAssignmentPanel } from './GuideAssignmentPage.jsx'
 import TourDepartureBookingModal from '../../../components/admin/tourDepartures/TourDepartureBookingModal.jsx'
@@ -238,13 +239,14 @@ export default function TourDepartureListPage() {
   const [fieldErrors, setFieldErrors] = useState({})
   const [departures, setDepartures] = useState([])
   const [allDepartures, setAllDepartures] = useState([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [departuresReady, setDeparturesReady] = useState(false)
   const [replacementRequests, setReplacementRequests] = useState([])
   const [replacementPanelOpen, setReplacementPanelOpen] = useState(false)
   const [highlightedReplacementDepartureId, setHighlightedReplacementDepartureId] = useState(null)
 
   const [activeTab, setActiveTab] = useState('departures')
-  const [scheduleFilter, setScheduleFilter] = useState('upcoming')
+  const [scheduleFilter, setScheduleFilter] = useState('all')
   const [focusedDepartureId, setFocusedDepartureId] = useState(null)
 
   /*
@@ -293,8 +295,11 @@ export default function TourDepartureListPage() {
   }, [])
 
   const fetchDepartures = useCallback(async (tourId = '', sourceTours = tours) => {
+    let shouldFinalize = true
+
     try {
       setLoading(true)
+      setDeparturesReady(false)
 
       if (tourId) {
         const selectedTour = sourceTours.find(
@@ -323,8 +328,7 @@ export default function TourDepartureListPage() {
       }
 
       if (!sourceTours.length) {
-        setDepartures([])
-        setAllDepartures([])
+        shouldFinalize = false
         return
       }
 
@@ -346,7 +350,10 @@ export default function TourDepartureListPage() {
         getRequestErrorMessage(error, 'Không tải được lịch khởi hành')
       )
     } finally {
-      setLoading(false)
+      if (shouldFinalize) {
+        setLoading(false)
+        setDeparturesReady(true)
+      }
     }
   }, [tours, normalizeDeparturesForTour, replaceDeparturesForTour])
 
@@ -806,6 +813,26 @@ const rejectReplacementRequest = async (request) => {
 
   return (
     <div className="p-6">
+      <AdminPageHeader
+        breadcrumb={['ViVuGo', 'Lịch Khởi Hành']}
+        title="Quản Lý Lịch Khởi Hành"
+        description="Phân loại lịch sắp tới, lịch đã qua và phân công hướng dẫn viên."
+        actions={
+          <Link
+            to={`/admin/tour-departures/create?tourId=${selectedTourId}`}
+            onClick={(event) => {
+              if (!validateBeforeCreateDeparture()) {
+                event.preventDefault()
+              }
+            }}
+            className="inline-flex h-11 items-center justify-center rounded-2xl bg-blue-600 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700"
+          >
+            + Thêm lịch khởi hành
+          </Link>
+        }
+      />
+
+      {/*
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">
@@ -829,6 +856,7 @@ const rejectReplacementRequest = async (request) => {
           + Thêm lịch khởi hành
         </Link>
       </div>
+      */}
 
       <div className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="mb-3">
@@ -856,7 +884,7 @@ const rejectReplacementRequest = async (request) => {
             clearFieldError('selectedTourId')
             setFocusedDepartureId(null)
             setActiveTab('departures')
-            setScheduleFilter('upcoming')
+            setScheduleFilter('all')
           }}
           className={`h-11 w-full rounded-lg border bg-white px-3 text-sm outline-none transition focus:ring-2 ${
             fieldErrors.selectedTourId
@@ -993,6 +1021,7 @@ const rejectReplacementRequest = async (request) => {
         selectedTourId={selectedTourId}
         activeTab={activeTab}
         scheduleFilter={scheduleFilter}
+        departuresReady={departuresReady}
         onChangeTab={handleChangeTab}
         onChangeScheduleFilter={setScheduleFilter}
         onDelete={handleDelete}
