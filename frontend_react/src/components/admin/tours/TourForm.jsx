@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
+import { readToken } from '../../../services/authStorage'
 
 const API_BASE_URL = (
   import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api'
@@ -38,10 +39,7 @@ const normalizeImageUrl = (url) => {
 }
 
 const getAuthHeaders = () => {
-  const token =
-    localStorage.getItem('token') ||
-    localStorage.getItem('admin_token') ||
-    localStorage.getItem('access_token')
+  const token = readToken()
 
   return {
     Accept: 'application/json',
