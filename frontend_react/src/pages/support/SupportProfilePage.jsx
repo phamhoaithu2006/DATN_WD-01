@@ -258,10 +258,8 @@ function SupportProfilePage() {
 
           <div className="guide-profile-panel compact">
             <h2>Số năm kinh nghiệm</h2>
-            <div className="guide-detail-stack">
-              <div className="guide-detail-item is-tight">
-                <strong>{experienceYearsLabel}</strong>
-              </div>
+            <div className="guide-chip-list">
+              <span className="guide-chip">{experienceYearsLabel}</span>
             </div>
           </div>
 

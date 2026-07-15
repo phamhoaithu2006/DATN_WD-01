@@ -168,10 +168,6 @@ function TourHistoryModal({ open, item, detailLoading, onClose }) {
         aria-label="Chi tiết lịch sử tour"
         onClick={(event) => event.stopPropagation()}
       >
-        <button type="button" className="guide-tour-modal-close" onClick={onClose} aria-label="Đóng">
-          ×
-        </button>
-
         <div className="guide-tour-modal-hero">
           <div className="guide-tour-modal-image-wrap">
             {getTourImage(item) ? (

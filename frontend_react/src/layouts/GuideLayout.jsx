@@ -138,20 +138,6 @@ function GuideLayout({ children }) {
 
               {accountMenuOpen && (
                 <div className="guide-account-dropdown" role="menu">
-                  <div className="guide-account-summary">
-                    <span className="guide-account-avatar">
-                      {guideAvatar ? (
-                        <img src={guideAvatar} alt={guideName} />
-                      ) : (
-                        getInitials(guideName)
-                      )}
-                    </span>
-                    <div>
-                      <strong>{guideName}</strong>
-                      <span>{guide?.email || "Hướng dẫn viên"}</span>
-                    </div>
-                  </div>
-
                   <button type="button" role="menuitem" onClick={goToProfile}>
                     <svg viewBox="0 0 24 24" aria-hidden="true">
                       <path d="M20 21a8 8 0 0 0-16 0" />

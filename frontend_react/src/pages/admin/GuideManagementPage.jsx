@@ -301,6 +301,19 @@ function validateForm(form) {
   return errors
 }
 
+function RequiredMark() {
+  return <span className="guide-required-mark" aria-hidden="true"> *</span>
+}
+
+function FieldLabel({ children, required = false }) {
+  return (
+    <span className="guide-field-label-line">
+      <span>{children}</span>
+      {required ? <RequiredMark /> : null}
+    </span>
+  )
+}
+
 async function uploadAvatar(guideId, file) {
   const formData = new FormData()
   formData.append('avatar', file)
@@ -1026,31 +1039,33 @@ function GuideManagementPage() {
               </Link>
             </div>
 
-            <button
-              type="button"
-              className={`admin-guide-leave-menu-button ${leavePanelOpen ? 'active' : ''}`}
-              onClick={() => setLeavePanelOpen((current) => !current)}
-            >
-              Đơn xin nghỉ
+            <div className="guide-right-actions">
+              <Link className="guide-trash-button" to="/admin/guides/trash">
+                <Icon name="trash" size={16} />
+                Thùng rác
+              </Link>
 
-              {leavePendingCount > 0 ? (
-                <span>{leavePendingCount > 99 ? '99+' : leavePendingCount}</span>
-              ) : null}
-            </button>
+              <button
+                className="guide-add-button"
+                type="button"
+                onClick={openCreateForm}
+              >
+                <Icon name="plus" size={16} />
+                Thêm HDV
+              </button>
 
-            <Link className="guide-trash-button" to="/admin/guides/trash">
-              <Icon name="trash" size={16} />
-              Thùng rác
-            </Link>
+              <button
+                type="button"
+                className={`admin-guide-leave-menu-button ${leavePanelOpen ? 'active' : ''}`}
+                onClick={() => setLeavePanelOpen((current) => !current)}
+              >
+                Đơn xin nghỉ
 
-            <button
-              className="guide-add-button"
-              type="button"
-              onClick={openCreateForm}
-            >
-              <Icon name="plus" size={16} />
-              Thêm HDV
-            </button>
+                {leavePendingCount > 0 ? (
+                  <span>{leavePendingCount > 99 ? '99+' : leavePendingCount}</span>
+                ) : null}
+              </button>
+            </div>
           </div>
         }
       />
@@ -1192,26 +1207,7 @@ function GuideManagementPage() {
 
               {GUIDE_STATUSES.map((status) => (
                 <option key={status} value={status}>
-                  {STATUS_LABELS[status]}
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={destinationFilter}
-              onChange={(event) => {
-                setDestinationFilter(event.target.value)
-                setPagination((current) => ({
-                  ...current,
-                  currentPage: 1,
-                }))
-              }}
-            >
-              <option value="all">Tất cả chuyên môn</option>
-
-              {destinations.map((destination) => (
-                <option key={destination.id} value={destination.id}>
-                  {getDestinationLabel(destination)}
+                {STATUS_LABELS[status]}
                 </option>
               ))}
             </select>
@@ -1230,6 +1226,25 @@ function GuideManagementPage() {
               <option value="resting">Đang nghỉ</option>
               <option value="busy_leave">Bận vì đơn nghỉ</option>
               <option value="available_leave">Không có đơn nghỉ</option>
+            </select>
+
+            <select
+              value={destinationFilter}
+              onChange={(event) => {
+                setDestinationFilter(event.target.value)
+                setPagination((current) => ({
+                  ...current,
+                  currentPage: 1,
+                }))
+              }}
+            >
+              <option value="all">Khu vực phụ trách</option>
+
+              {destinations.map((destination) => (
+                <option key={destination.id} value={destination.id}>
+                  {getDestinationLabel(destination)}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -1428,7 +1443,7 @@ function GuideManagementPage() {
 
             <div className="guide-form-grid">
               <label>
-                Họ và tên
+                <FieldLabel required>Họ và tên</FieldLabel>
 
                 <select
                   required
@@ -1463,7 +1478,7 @@ function GuideManagementPage() {
               </label>
 
               <label className="guide-form-wide">
-                Khu vực phụ trách
+                <FieldLabel required>Khu vực phụ trách</FieldLabel>
 
                 <div className="guide-repeat-list">
                   {destinations.length > 0 ? (
@@ -1538,7 +1553,7 @@ function GuideManagementPage() {
               </label>
 
               <label>
-                Số năm kinh nghiệm
+                <FieldLabel required>Số năm kinh nghiệm</FieldLabel>
 
                 <input
                   min="0"
@@ -1558,7 +1573,7 @@ function GuideManagementPage() {
               </label>
 
               <label>
-                Trạng thái
+                <FieldLabel required>Trạng thái</FieldLabel>
 
                 <select
                   value={form.status}
@@ -1585,7 +1600,7 @@ function GuideManagementPage() {
               </label>
 
               <label className="guide-form-wide">
-                Ngoại ngữ
+                <FieldLabel required>Ngoại ngữ</FieldLabel>
 
                 <div className="guide-repeat-list">
                   {form.languages.map((language, index) => {
@@ -1680,7 +1695,7 @@ function GuideManagementPage() {
               </label>
 
               <label className="guide-form-wide">
-                Chứng chỉ
+                <FieldLabel required>Chứng chỉ</FieldLabel>
 
                 <div className="guide-repeat-list">
                   {form.experiences.map((experience, index) => {

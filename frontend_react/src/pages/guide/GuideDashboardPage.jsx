@@ -175,14 +175,10 @@ function TourRow({ item }) {
           </div>
           <Pill tone={statusTone(item?.assignment_status || item?.status)}>{statusLabel(item)}</Pill>
         </div>
-        <div className="guide-tour-row-meta">
+        <div className="guide-tour-row-meta compact">
           <span>
             <small>Giờ khởi hành</small>
             <strong>{formatTime(item?.departure_date)}</strong>
-          </span>
-          <span>
-            <small>Giá tour</small>
-            <strong>{formatMoneyCompact(item?.price)}</strong>
           </span>
           <span>
             <small>Chỗ trống</small>

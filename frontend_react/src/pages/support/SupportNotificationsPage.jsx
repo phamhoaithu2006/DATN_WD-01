@@ -6,6 +6,7 @@ import {
   sendSupportNotification,
 } from '../../services/supportNotificationApi'
 import { formatDateTimeDdMmYyyy } from '../../utils/dateFormat'
+import '../../styles/support-staff.css'
 
 const EMPTY_FORM = {
   title: '',

@@ -236,17 +236,6 @@ function GuideProfilePage() {
             </label>
 
             <label className="guide-field">
-              <span>Số năm kinh nghiệm</span>
-              <input
-                name="experience_years"
-                type="number"
-                min="0"
-                value={profileForm.experience_years}
-                onChange={handleProfileChange}
-              />
-            </label>
-
-            <label className="guide-field">
               <span>Trạng thái</span>
               <select name="status" value={profileForm.status} onChange={handleProfileChange}>
                 <option value="active">Đang hoạt động</option>
@@ -261,6 +250,13 @@ function GuideProfilePage() {
         </form>
 
         <aside className="guide-profile-side">
+          <div className="guide-profile-panel compact">
+            <h2>Số năm kinh nghiệm</h2>
+            <div className="guide-chip-list">
+              <span className="guide-chip">{profileForm.experience_years} năm</span>
+            </div>
+          </div>
+
           <div className="guide-profile-panel compact">
             <h2>Ngôn ngữ</h2>
             <div className="guide-chip-list">
