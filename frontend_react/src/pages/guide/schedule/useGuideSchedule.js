@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   checkInGuideCustomer,
   checkOutGuideCustomer,
   createGuideAttendanceSession,
+  getGuideAttendanceSessions,
   getGuideAttendanceStatistics,
   getGuideTourCustomerDetail,
   getGuideTourCustomers,
@@ -20,6 +22,10 @@ import {
 } from './scheduleUtils'
 
 export function useGuideSchedule() {
+  const [searchParams] = useSearchParams()
+  const requestedTourId = Number(searchParams.get('tourId') || 0) || null
+  const requestedGroup = searchParams.get('group')
+  const requestedMode = searchParams.get('mode') || ''
   const [activeGroup, setActiveGroup] = useState('ongoing')
   const [tourGroups, setTourGroups] = useState({ ongoing: [], upcoming: [], completed: [] })
   const [totals, setTotals] = useState({ ongoing: 0, upcoming: 0, completed: 0 })
@@ -67,14 +73,23 @@ export function useGuideSchedule() {
         setTourGroups(nextGroups)
         setTotals(nextTotals)
 
+        const requestedTour = requestedTourId
+          ? [...(nextGroups.ongoing || []), ...(nextGroups.upcoming || []), ...(nextGroups.completed || [])]
+              .find((item) => Number(item.id) === Number(requestedTourId))
+          : null
+
         const firstTour =
+          requestedTour ||
           nextGroups.ongoing?.[0] ||
           nextGroups.upcoming?.[0] ||
           nextGroups.completed?.[0] ||
           null
 
         if (firstTour) {
-          setActiveGroup(getTourRuntime(firstTour))
+          const nextGroup = ['ongoing', 'upcoming', 'completed'].includes(requestedGroup)
+            ? requestedGroup
+            : getTourRuntime(firstTour)
+          setActiveGroup(nextGroup)
           setSelectedTourId(firstTour.id)
         }
       } catch (loadError) {
@@ -91,7 +106,7 @@ export function useGuideSchedule() {
     return () => {
       mounted = false
     }
-  }, [])
+  }, [requestedGroup, requestedTourId])
 
   useEffect(() => {
     if (!selectedTourId) return undefined
@@ -107,16 +122,17 @@ export function useGuideSchedule() {
       setSelectedSessionId(null)
 
       try {
-        const [tourDetail, stages] = await Promise.all([
+        const [tourDetail, stages, attendanceSessions] = await Promise.all([
           getGuideTourDetail(selectedTourId),
           getGuideTourStages(selectedTourId),
+          getGuideAttendanceSessions(selectedTourId),
         ])
 
         if (!mounted) return
 
         setDetail(tourDetail)
         setStagesPayload(stages)
-        setSessions([])
+        setSessions(Array.isArray(attendanceSessions) ? attendanceSessions : [])
         setSelectedStageId(getInitialStageId(stages))
       } catch (loadError) {
         if (mounted) {
@@ -212,6 +228,14 @@ export function useGuideSchedule() {
 
     async function loadCustomers() {
       try {
+        if (runtime === 'upcoming') {
+          await Promise.resolve()
+          if (!mounted) return
+          setCustomersPayload({ data: [], current_session: null })
+          setStatistics(null)
+          return
+        }
+
         const customerParams = {
           per_page: 100,
           attendance_session_id: activeSessionId || undefined,
@@ -251,7 +275,7 @@ export function useGuideSchedule() {
     return () => {
       mounted = false
     }
-  }, [activeSessionId, selectedTourId])
+  }, [activeSessionId, runtime, selectedTourId])
 
   function selectTour(item, groupKey) {
     setActiveGroup(groupKey)
@@ -360,6 +384,7 @@ export function useGuideSchedule() {
     loadingTours,
     message,
     openCustomerHistory,
+    requestedMode,
     runtime,
     selectTour,
     selectedStage,

@@ -19,6 +19,12 @@ function CustomerRow({
 }) {
   const checkedIn = Boolean(customer.attendance?.checked_in_at)
   const checkedOut = Boolean(customer.attendance?.checked_out_at)
+  const customerNote =
+    customer.health_note ||
+    customer.special_request ||
+    customer.customer_note ||
+    customer.attendance?.note ||
+    ''
 
   return (
     <article className="guide-schedule-customer-row compact-table">
@@ -30,6 +36,7 @@ function CustomerRow({
         <div>
           <small>{customer.phone || 'Chưa có SĐT'}</small>
           <small>{customer.email || 'Chưa có email'}</small>
+          {customerNote ? <em>{customerNote}</em> : null}
         </div>
       </button>
 
@@ -74,6 +81,9 @@ function ScheduleAttendancePanel({
   stages,
   statistics,
 }) {
+  const isUpcoming = runtime === 'upcoming'
+  const isCompleted = runtime === 'completed'
+
   return (
     <div className="guide-schedule-panel">
       <div className="guide-schedule-panel-head">
@@ -106,6 +116,13 @@ function ScheduleAttendancePanel({
         )}
       </div>
 
+      {isUpcoming ? (
+        <p className="guide-schedule-note">
+          Tour sắp đi chỉ có thể xem lịch trình. Điểm danh khách hàng sẽ mở khi tour đang khởi hành.
+        </p>
+      ) : null}
+
+      {!isUpcoming ? (
       <div className="guide-schedule-session-bar">
         <label>
           <span>Lần điểm danh</span>
@@ -135,19 +152,16 @@ function ScheduleAttendancePanel({
           <strong>{statistics?.checked_out ?? 0}</strong>
         </div>
       </div>
-
-      {runtime === 'upcoming' ? (
-        <p className="guide-schedule-note">
-          Tour sắp đi chỉ xem chi tiết tour và danh sách khách hàng. Tới ngày khởi hành mới check-in/check-out.
-        </p>
       ) : null}
 
-      {runtime === 'completed' ? (
+      {isCompleted ? (
         <p className="guide-schedule-note">
           Tour đã đi chỉ xem lịch sử check-in/check-out khách hàng.
         </p>
       ) : null}
 
+      {!isUpcoming ? (
+      <>
       <div className="guide-schedule-customer-header">
         <span>Khách hàng</span>
         <span>Check-in</span>
@@ -162,7 +176,7 @@ function ScheduleAttendancePanel({
               key={customer.id}
               customer={customer}
               canOperate={canOperate && Boolean(activeSessionId)}
-              showActions={runtime !== 'completed'}
+              showActions={runtime === 'ongoing'}
               busy={busyCustomerId === customer.id}
               onCheckIn={() => handleAttendanceAction(customer, 'check-in')}
               onCheckOut={() => handleAttendanceAction(customer, 'check-out')}
@@ -173,6 +187,8 @@ function ScheduleAttendancePanel({
           <div className="guide-schedule-empty">Chưa có khách hàng trong tour này.</div>
         )}
       </div>
+      </>
+      ) : null}
     </div>
   )
 }

@@ -72,6 +72,12 @@ function dateOnly(value) {
 }
 
 export function getTourRuntime(item) {
+  const apiStatus = String(item?.guide_status || '').toLowerCase()
+
+  if (['ongoing', 'upcoming', 'completed', 'cancelled'].includes(apiStatus)) {
+    return apiStatus === 'cancelled' ? 'completed' : apiStatus
+  }
+
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
