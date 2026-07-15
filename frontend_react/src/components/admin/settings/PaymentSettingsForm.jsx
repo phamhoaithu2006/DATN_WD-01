@@ -4,7 +4,7 @@ import SettingSwitch from "./SettingSwitch";
 function PaymentSettingsForm({ settings, updateField }) {
   return (
     <div className="setting-form-grid">
-      <SettingField label="Cổng thanh toán">
+      <SettingField label="Cổng thanh toán" required>
         <select
           value={settings.payment_gateway}
           onChange={(e) => updateField("payment_gateway", e.target.value)}
@@ -15,7 +15,7 @@ function PaymentSettingsForm({ settings, updateField }) {
           <option value="cash">Tiền mặt</option>
         </select>
       </SettingField>
-      <SettingField label="Thuế VAT (%)">
+      <SettingField label="Thuế VAT (%)" required>
         <input
           type="number"
           min="0"
@@ -24,7 +24,7 @@ function PaymentSettingsForm({ settings, updateField }) {
           onChange={(e) => updateField("vat_percent", e.target.value)}
         />
       </SettingField>
-      <SettingField label="Tiền tố hóa đơn">
+      <SettingField label="Tiền tố hóa đơn" required>
         <input
           value={settings.invoice_prefix}
           onChange={(e) => updateField("invoice_prefix", e.target.value)}

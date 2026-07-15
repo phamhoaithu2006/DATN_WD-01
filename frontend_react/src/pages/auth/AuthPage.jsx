@@ -184,6 +184,11 @@ function AuthPage() {
       return;
     }
 
+    if (currentUser.role === "support staff") {
+      navigate("/support", { replace: true });
+      return;
+    }
+
     navigate("/", { replace: true });
   }, [currentUser, navigate, token]);
 
@@ -197,6 +202,8 @@ function AuthPage() {
       <Navigate to="/admin" replace />
     ) : currentUser.role === "tour guide" ? (
       <Navigate to="/guide" replace />
+    ) : currentUser.role === "support staff" ? (
+      <Navigate to="/support" replace />
     ) : (
       <Navigate to="/" replace />
     );
@@ -334,6 +341,11 @@ function AuthPage() {
 
       if (roleName === "tour guide") {
         navigate("/guide", { replace: true });
+        return;
+      }
+
+      if (roleName === "support staff") {
+        navigate("/support", { replace: true });
         return;
       }
 

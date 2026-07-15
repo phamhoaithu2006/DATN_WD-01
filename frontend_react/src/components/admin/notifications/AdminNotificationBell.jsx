@@ -98,6 +98,41 @@ function getReplacementRequestId(notification) {
   )
 }
 
+function isGuideLeaveRequestNotification(notification) {
+  const data = parseNotificationData(notification)
+  const title = String(notification?.title || '').toLowerCase()
+  const message = String(notification?.message || '').toLowerCase()
+
+  return (
+    data?.source === 'guide_leave_request' ||
+    data?.type === 'guide_leave_request' ||
+    data?.guide_leave_request_id ||
+    data?.leave_request_id ||
+    title.includes('xin nghỉ') ||
+    title.includes('don xin nghi') ||
+    message.includes('xin nghỉ') ||
+    message.includes('don xin nghi')
+  )
+}
+
+function getLeaveRequestId(notification) {
+  const data = parseNotificationData(notification)
+
+  return (
+    data?.guide_leave_request_id ||
+    data?.leave_request_id ||
+    data?.request_id ||
+    null
+  )
+}
+
+function isActionableNotification(notification) {
+  return (
+    isGuideReplacementNotification(notification) ||
+    isGuideLeaveRequestNotification(notification)
+  )
+}
+
 export default function AdminNotificationBell() {
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
@@ -255,6 +290,34 @@ async function goToGuideReplacementRequest(notification) {
   navigate(`/admin/tour-departures?${params.toString()}`)
 }
 
+async function goToGuideLeaveRequest(notification) {
+  try {
+    await markOneAsRead(notification)
+  } catch (error) {
+    console.error(error)
+  }
+
+  const requestId = getLeaveRequestId(notification)
+  const params = new URLSearchParams()
+
+  params.set('openLeaveRequests', '1')
+  if (requestId) params.set('leaveRequestId', requestId)
+
+  setOpen(false)
+  navigate(`/admin/guides?${params.toString()}`)
+}
+
+function goToActionableNotification(notification) {
+  if (isGuideReplacementNotification(notification)) {
+    void goToGuideReplacementRequest(notification)
+    return
+  }
+
+  if (isGuideLeaveRequestNotification(notification)) {
+    void goToGuideLeaveRequest(notification)
+  }
+}
+
 async function openDetail(notification) {
   /*
    * Click ở danh sách bên trái chỉ mở nội dung chi tiết bên phải.
@@ -403,24 +466,24 @@ async function openDetail(notification) {
             <div className="max-h-[520px] overflow-y-auto bg-slate-50/70 p-4">
               {selectedNotification ? (
                 <div
-                  role={isGuideReplacementNotification(selectedNotification) ? 'button' : undefined}
-                  tabIndex={isGuideReplacementNotification(selectedNotification) ? 0 : undefined}
+                  role={isActionableNotification(selectedNotification) ? 'button' : undefined}
+                  tabIndex={isActionableNotification(selectedNotification) ? 0 : undefined}
                   onClick={() => {
-                    if (isGuideReplacementNotification(selectedNotification)) {
-                      void goToGuideReplacementRequest(selectedNotification)
+                    if (isActionableNotification(selectedNotification)) {
+                      goToActionableNotification(selectedNotification)
                     }
                   }}
                   onKeyDown={(event) => {
                     if (
-                      isGuideReplacementNotification(selectedNotification) &&
+                      isActionableNotification(selectedNotification) &&
                       (event.key === 'Enter' || event.key === ' ')
                     ) {
                       event.preventDefault()
-                      void goToGuideReplacementRequest(selectedNotification)
+                      goToActionableNotification(selectedNotification)
                     }
                   }}
                   className={`rounded-2xl border border-slate-200 bg-white p-5 shadow-sm ${
-                    isGuideReplacementNotification(selectedNotification)
+                    isActionableNotification(selectedNotification)
                       ? 'cursor-pointer transition hover:border-orange-300 hover:bg-orange-50/40 hover:shadow-md'
                       : ''
                   }`}
@@ -459,9 +522,11 @@ async function openDetail(notification) {
                     </p>
                   </div>
 
-                  {isGuideReplacementNotification(selectedNotification) ? (
+                  {isActionableNotification(selectedNotification) ? (
                     <div className="mt-4 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm font-bold text-orange-800">
-                      Bấm vào thẻ chi tiết này để đi tới danh sách yêu cầu đổi HDV đang chờ xử lý.
+                      {isGuideLeaveRequestNotification(selectedNotification)
+                        ? 'Bấm vào thẻ chi tiết này để mở đúng đơn xin nghỉ HDV.'
+                        : 'Bấm vào thẻ chi tiết này để đi tới danh sách yêu cầu đổi HDV đang chờ xử lý.'}
                     </div>
                   ) : null}
                 </div>

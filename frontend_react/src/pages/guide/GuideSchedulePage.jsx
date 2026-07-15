@@ -11,8 +11,8 @@ function GuideSchedulePage() {
     <div className="guide-schedule-page">
       <section className="guide-schedule-header simple">
         <div>
-          <span>Lịch làm việc</span>
-          <h1>Tour và check-in khách theo lịch trình</h1>
+          <span>Tour của tôi</span>
+          <h1>Theo dõi lịch trình tour</h1>
         </div>
       </section>
 
@@ -26,7 +26,7 @@ function GuideSchedulePage() {
         <ScheduleTourList
           activeGroup={schedule.activeGroup}
           loadingTours={schedule.loadingTours}
-          onGroupChange={schedule.setActiveGroup}
+          onGroupChange={schedule.changeActiveGroup}
           onTourSelect={schedule.selectTour}
           selectedTourId={schedule.selectedTour?.id}
           totals={schedule.totals}

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { tourDepartureApi } from '../../../services/tourDepartureApi'
 
+import { formatDateDdMmYyyy, formatDateTimeDdMmYyyy } from '../../../utils/dateFormat'
 function unwrapList(response) {
   const payload = response?.data
 
@@ -64,11 +65,14 @@ function formatDate(value) {
 
   if (!rawDate) return '—'
 
-  const [year, month, day] = rawDate.split('-')
+  const [year, month, day] = rawDate.split('-').map(Number)
+  const date = new Date(year, month - 1, day)
 
-  if (!year || !month || !day) return '—'
+  if (Number.isNaN(date.getTime())) return '—'
 
-  return `${day}/${month}/${year}`
+  return new Intl.DateTimeFormat('vi-VN', {
+    dateStyle: 'medium',
+  }).format(date)
 }
 
 // Không dùng new Date()/Intl cho ngày dạng YYYY-MM-DD để tránh lệch timezone.

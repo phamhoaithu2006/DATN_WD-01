@@ -248,7 +248,7 @@ function UserFormModal({
 
         <div className="user-form-grid">
           <label>
-            Họ và tên
+            Họ và tên <span className="text-rose-500">*</span>
             <input
               className={fieldClass("full_name")}
               value={form.full_name}
@@ -257,7 +257,7 @@ function UserFormModal({
             {errorFor("full_name")}
           </label>
           <label>
-            Email
+            Email <span className="text-rose-500">*</span>
             <input
               className={fieldClass("email")}
               type="email"
@@ -276,7 +276,7 @@ function UserFormModal({
             {errorFor("phone")}
           </label>
           <label>
-            Vai trò
+            Vai trò <span className="text-rose-500">*</span>
             <select className={fieldClass("role_id")} value={form.role_id} onChange={change("role_id")}>
               <option value="">Chọn vai trò</option>
               {roles.map((role) => (
@@ -288,7 +288,13 @@ function UserFormModal({
             {errorFor("role_id")}
           </label>
           <label>
-            {customer ? "Mật khẩu mới (không bắt buộc)" : "Mật khẩu"}
+            {customer ? (
+              "Mật khẩu mới (không bắt buộc)"
+            ) : (
+              <>
+                Mật khẩu <span className="text-rose-500">*</span>
+              </>
+            )}
             <div className="user-password-field">
               <input
                 className={fieldClass("password")}

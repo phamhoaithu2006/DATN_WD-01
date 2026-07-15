@@ -2,6 +2,7 @@
 import { Link } from 'react-router-dom'
 import { getGuideDashboard } from '../../services/guideDashboardApi'
 import { mediaUrl } from '../../utils/mediaUrl'
+import { formatDateDdMmYyyy } from '../../utils/dateFormat'
 
 const moneyFormatter = new Intl.NumberFormat('vi-VN', {
   style: 'currency',
@@ -44,16 +45,7 @@ function formatNumber(value) {
 }
 
 function formatDate(value) {
-  if (!value) return 'Chưa xác định'
-
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-
-  return new Intl.DateTimeFormat('vi-VN', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  }).format(date)
+  return formatDateDdMmYyyy(value, 'Ch?a x?c ??nh')
 }
 
 function formatTime(value) {
@@ -183,14 +175,10 @@ function TourRow({ item }) {
           </div>
           <Pill tone={statusTone(item?.assignment_status || item?.status)}>{statusLabel(item)}</Pill>
         </div>
-        <div className="guide-tour-row-meta">
+        <div className="guide-tour-row-meta compact">
           <span>
             <small>Giờ khởi hành</small>
             <strong>{formatTime(item?.departure_date)}</strong>
-          </span>
-          <span>
-            <small>Giá tour</small>
-            <strong>{formatMoneyCompact(item?.price)}</strong>
           </span>
           <span>
             <small>Chỗ trống</small>
@@ -486,12 +474,7 @@ function GuideDashboardPage() {
   const todayKey = toLocalDateKey(today)
   const visibleMonth = useMemo(() => new Date(today.getFullYear(), today.getMonth() + calendarOffset, 1), [today, calendarOffset])
   const calendarKey = visibleMonth.toISOString().slice(0, 7)
-  const heroDate = new Intl.DateTimeFormat('vi-VN', {
-    weekday: 'long',
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-  }).format(today)
+  const heroDate = formatDateDdMmYyyy(today, '')
 
   const allGuideTours = useMemo(() => {
     const map = new Map()

@@ -24,7 +24,7 @@
   background: #ffffff;
   border-right: 1px solid #d9e1ec;
   box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04);
-  overflow-y: auto;
+  overflow-y: hidden;
   overflow-x: hidden;
   z-index: 20;
 }
@@ -32,9 +32,9 @@
 .admin-brand {
   display: flex;
   flex-direction: column;
-  padding: 16px 18px 18px;
+  padding: 10px 14px 12px;
   border-bottom: 1px solid #f1f5f9;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
 }
 
 .admin-brand-text-col {
@@ -47,15 +47,15 @@
 .admin-brand-link {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   min-width: 0;
   color: #0f172a;
   text-decoration: none;
 }
 
 .admin-brand-logo-mark {
-  width: 48px;
-  height: 48px;
+  width: 42px;
+  height: 42px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -67,13 +67,13 @@
 }
 
 .admin-brand-logo-mark svg {
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   fill: currentColor;
 }
 
 .admin-brand-name {
-  font-size: 1.4rem;
+  font-size: 1.2rem;
   font-weight: 800;
   letter-spacing: -0.02em;
   display: flex;
@@ -92,7 +92,7 @@
 
 .admin-brand-subtitle {
   color: #94a3b8;
-  font-size: 0.62rem;
+  font-size: 0.58rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   line-height: 1.05;
@@ -106,22 +106,22 @@
 
 .admin-nav {
   display: grid;
-  gap: 7px;
-  padding: 6px 8px 20px;
+  gap: 8px;
+  padding: 8px 8px 12px;
 }
 
 .admin-nav-link {
-  min-height: 48px;
+  min-height: 44px;
   position: relative;
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr);
+  grid-template-columns: 28px minmax(0, 1fr);
   align-items: center;
-  gap: 8px;
-  padding: 0 16px 0 14px;
+  gap: 6px;
+  padding: 0 14px;
   border-radius: 14px;
   color: #64748b;
   text-decoration: none;
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 800;
   letter-spacing: 0;
   transition:
@@ -158,8 +158,8 @@
 }
 
 .admin-nav-icon {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   fill: none;
   stroke: currentColor;
   stroke-linecap: round;
@@ -168,18 +168,19 @@
 }
 
 .collapse-button {
-  min-height: 54px;
+  min-height: 48px;
   margin-top: auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 10px;
   border: 0;
   border-top: 1px solid #d9e1ec;
   color: #526886;
   background: #ffffff;
   cursor: pointer;
   font: inherit;
+  font-size: 0.95rem;
   font-weight: 700;
 }
 
@@ -321,7 +322,7 @@
   font-size: 34px;
   font-weight: 850;
   letter-spacing: -0.02em;
-  line-height: 1.08;
+  line-height: 1.18;
   margin: 0;
 }
 
@@ -344,11 +345,19 @@
 }
 
 .guide-header-actions-group {
-  align-items: center;
   display: flex;
+  align-items: center;
   flex-wrap: nowrap;
   gap: 10px;
   justify-content: flex-end;
+}
+
+.guide-right-actions {
+  display: grid;
+  grid-template-columns: max-content max-content;
+  gap: 8px 10px;
+  align-items: center;
+  justify-items: center;
 }
 
 .guide-header-links {
@@ -397,6 +406,37 @@
   line-height: 1.1;
 }
 
+.guide-page .admin-page-header h1 {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.guide-page .admin-page-header-row {
+  flex-wrap: nowrap;
+}
+
+.guide-page .admin-page-header-content {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.guide-page .admin-page-header-actions {
+  flex-shrink: 0;
+}
+
+.guide-page .guide-header-actions-group {
+  align-items: flex-start;
+}
+
+@media (max-width: 1280px) {
+  .guide-page .admin-page-header h1 {
+    font-size: 28px;
+  }
+}
+
 .guide-heading p {
   margin: 6px 0 0;
   color: #64748b;
@@ -429,6 +469,28 @@
   background-image: none !important;
   border-color: transparent !important;
   color: #ffffff !important;
+}
+
+.guide-page .guide-right-actions > .guide-trash-button {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.guide-page .guide-right-actions > .guide-add-button {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.guide-page .guide-right-actions > .admin-guide-leave-menu-button {
+  grid-column: 1 / span 2;
+  grid-row: 2;
+  justify-self: center;
+  width: auto;
+  margin-top: 2px;
+}
+
+.guide-page .guide-create-and-leave-stack > .admin-guide-leave-menu-button {
+  align-self: center;
 }
 
 .guide-page .guide-header-actions-group > .guide-add-button:hover,
@@ -624,9 +686,9 @@
 
 .guide-filter-bar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.28fr) minmax(220px, 0.28fr);
-  gap: 14px;
-  padding: 18px;
+  grid-template-columns: minmax(0, 1.65fr) minmax(0, 0.78fr) minmax(0, 0.78fr) minmax(0, 0.78fr);
+  gap: 12px;
+  padding: 16px 18px;
   border-bottom: 1px solid #e2e8f0;
   width: 100%;
   box-sizing: border-box;
@@ -682,6 +744,7 @@
 .guide-form-grid textarea {
   min-height: 48px;
   width: 100%;
+  min-width: 0;
   border: 1px solid #d7e0ec;
   border-radius: 14px;
   background: #f8fbff;
@@ -697,6 +760,10 @@
   box-shadow: none;
   min-height: 0;
   padding: 0 12px;
+}
+
+.guide-filter-bar > select {
+  min-width: 0;
 }
 
 .guide-form-grid textarea {
@@ -1134,6 +1201,19 @@
   font-weight: 800;
 }
 
+.guide-field-label-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  line-height: 1.15;
+}
+
+.guide-required-mark {
+  color: #dc2626;
+  display: inline-block;
+  font-weight: 900;
+}
+
 .guide-field-error {
   color: #dc2626;
   font-size: 12px;
@@ -1325,7 +1405,8 @@
 
 .admin-sidebar.collapsed .admin-brand {
   align-items: center;
-  padding-inline: 0;
+  justify-content: center;
+  padding: 12px 0 10px;
 }
 
 .admin-sidebar.collapsed .admin-brand-subtitle,
@@ -1336,17 +1417,28 @@
 }
 
 .admin-sidebar.collapsed .admin-brand-link {
-  justify-content: center;
+  width: 100%;
+  display: grid;
+  justify-items: center;
+  align-items: center;
+}
+
+.admin-sidebar.collapsed .admin-brand-logo-mark {
+  margin: 0 auto;
 }
 
 .admin-sidebar.collapsed .admin-nav {
-  padding-inline: 12px;
+  padding-inline: 10px;
 }
 
 .admin-sidebar.collapsed .admin-nav-link {
   grid-template-columns: 1fr;
   justify-items: center;
   padding: 0;
+}
+
+.admin-sidebar.collapsed .admin-nav-link .admin-nav-label {
+  display: none;
 }
 
 .admin-sidebar.collapsed .admin-nav-link.active::after {
@@ -1368,6 +1460,7 @@
     height: auto;
     max-height: none;
     min-height: auto;
+    overflow-y: visible;
     border-right: 0;
     border-bottom: 1px solid #d9e1ec;
   }
@@ -1433,7 +1526,6 @@
 
   .guide-stat-grid,
   .guide-content-grid,
-  .guide-filter-bar,
   .guide-form-grid,
   .guide-repeat-row,
   .guide-repeat-row.certificate {
@@ -1511,7 +1603,6 @@
 
   .guide-stat-grid,
   .guide-content-grid,
-  .guide-filter-bar,
   .guide-form-grid,
   .guide-repeat-row,
   .guide-repeat-row.certificate {

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, CartesianGrid, LineChart, Line, Tooltip, XAxis, YAxis, Legend } from 'recharts'
 import AdminPageHeader from '../../components/admin/AdminPageHeader'
 import { getAdminDashboardSnapshot } from '../../services/adminDashboardApi'
+import { formatDateDdMmYyyy } from '../../utils/dateFormat'
 
 const currencyFormatter = new Intl.NumberFormat('vi-VN', {
   style: 'currency',
@@ -294,7 +295,7 @@ function AdminDashboardPage() {
     const rows = [
       ['BÁO CÁO TỔNG QUAN HỆ THỐNG'],
       [`Năm: ${year}`],
-      [`Cập nhật: ${overview.current_date || 'Chưa cập nhật'}`],
+      [`Cập nhật: ${formatDateDdMmYyyy(overview.current_date, 'Chưa cập nhật')}`],
       [],
       ['Chỉ số', 'Giá trị'],
       ['Tổng doanh thu', overview.total_revenue_year || 0],
@@ -336,7 +337,8 @@ function AdminDashboardPage() {
       <AdminPageHeader
         breadcrumb={['ViVuGo', 'Tổng Quan Hệ Thống']}
         title="Tổng Quan Hệ Thống"
-        description={`Cập nhật lần cuối: ${overview.current_date || 'Chưa cập nhật'}`}
+        description={`Cập nhật lần cuối: ${formatDateDdMmYyyy(overview.current_date, 'Chưa cập nhật')}`}
+        showNotificationBell
         actions={
           <>
             <label className="inline-flex h-11 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm">

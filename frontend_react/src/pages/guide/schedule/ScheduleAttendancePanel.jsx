@@ -12,6 +12,7 @@ function CustomerRow({
   busy,
   canOperate,
   customer,
+  index,
   onCheckIn,
   onCheckOut,
   onViewHistory,
@@ -28,8 +29,10 @@ function CustomerRow({
 
   return (
     <article className="guide-schedule-customer-row compact-table">
+      <div className="guide-schedule-customer-index">{index}</div>
+
       <button type="button" className="guide-schedule-customer-main" onClick={onViewHistory}>
-        <div>
+        <div className="guide-schedule-customer-main-info">
           <strong>{customer.full_name || 'Khách hàng'}</strong>
           <span>{customer.booking_code || 'Chưa có mã booking'}</span>
         </div>
@@ -40,7 +43,10 @@ function CustomerRow({
         </div>
       </button>
 
+      <div className="guide-schedule-customer-phone">{customer.phone || 'Chưa có SĐT'}</div>
+
       <YesNoBadge value={checkedIn} />
+
       <YesNoBadge value={checkedOut} />
 
       {showActions ? (
@@ -140,15 +146,15 @@ function ScheduleAttendancePanel({
         </label>
 
         <div>
-          <span>Tổng khách</span>
+          <span className="guide-schedule-session-stat-label">Tổng khách</span>
           <strong>{statistics?.total_customers ?? customers.length}</strong>
         </div>
         <div>
-          <span>Check-in Có</span>
+          <span className="guide-schedule-session-stat-label">Check-in</span>
           <strong>{statistics?.checked_in ?? 0}</strong>
         </div>
         <div>
-          <span>Check-out Có</span>
+          <span className="guide-schedule-session-stat-label">Check-out</span>
           <strong>{statistics?.checked_out ?? 0}</strong>
         </div>
       </div>
@@ -163,7 +169,9 @@ function ScheduleAttendancePanel({
       {!isUpcoming ? (
       <>
       <div className="guide-schedule-customer-header">
+        <span>STT</span>
         <span>Khách hàng</span>
+        <span>SĐT</span>
         <span>Check-in</span>
         <span>Check-out</span>
         <span>Thao tác</span>
@@ -171,9 +179,10 @@ function ScheduleAttendancePanel({
 
       <div className="guide-schedule-customers">
         {customers.length > 0 ? (
-          customers.map((customer) => (
+          customers.map((customer, index) => (
             <CustomerRow
               key={customer.id}
+              index={String(index + 1).padStart(2, '0')}
               customer={customer}
               canOperate={canOperate && Boolean(activeSessionId)}
               showActions={runtime === 'ongoing'}

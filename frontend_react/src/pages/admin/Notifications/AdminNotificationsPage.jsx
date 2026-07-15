@@ -505,6 +505,7 @@ const openDraftDetail = async (id) => {
         breadcrumb={['ViVuGo', 'Thông báo người dùng']}
         title="Thông báo người dùng"
         description="Tạo chiến dịch, lưu bản nháp, chọn người nhận và quản lý lịch sử gửi thông báo."
+        showNotificationBell
       />
 
       <div className="flex flex-wrap gap-2">
@@ -546,7 +547,7 @@ const openDraftDetail = async (id) => {
 
             <div>
               <label className="text-sm font-bold text-slate-700">
-                Tiêu đề thông báo
+                Tiêu đề thông báo <span className="text-red-500">*</span>
               </label>
 
               <input
@@ -563,7 +564,7 @@ const openDraftDetail = async (id) => {
 
             <div>
               <label className="text-sm font-bold text-slate-700">
-                Nội dung thông báo
+                Nội dung thông báo <span className="text-red-500">*</span>
               </label>
 
               <textarea
@@ -581,7 +582,7 @@ const openDraftDetail = async (id) => {
 
             <div>
               <label className="text-sm font-bold text-slate-700">
-                Đối tượng nhận
+                Đối tượng nhận <span className="text-red-500">*</span>
               </label>
 
               <select

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\Admin\AdminGuideLeaveRequestController;
 use App\Http\Controllers\Api\Admin\AdminGuideReplacementRequestController;
 use App\Http\Controllers\Api\Admin\AdminNotificationBellController;
 use App\Http\Controllers\Api\Admin\AdminNotificationController;
@@ -33,6 +34,7 @@ use App\Http\Controllers\Api\Customer\TourController;
 use App\Http\Controllers\Api\Customer\WishlistController;
 use App\Http\Controllers\Api\Guide\GuideAttendanceController;
 use App\Http\Controllers\Api\Guide\GuideDashboardController;
+use App\Http\Controllers\Api\Guide\GuideLeaveRequestController;
 use App\Http\Controllers\Api\Guide\GuideProfileController;
 use App\Http\Controllers\Api\Guide\GuideReviewController as GuideGuideReviewController;
 use App\Http\Controllers\Api\Guide\GuideTourController;
@@ -423,20 +425,22 @@ Route::prefix('admin') ->middleware('auth:sanctum')->group(function () {
     | Route này phục vụ màn admin: đưa tour có yêu cầu đổi HDV lên đầu,
     | admin có nút Duyệt / Không duyệt.
     */
-    Route::get(
-        'guide-replacement-requests',
-        [AdminGuideReplacementRequestController::class, 'index']
-    );
+    Route::get('guide-replacement-requests', [AdminGuideReplacementRequestController::class, 'index']);
+    Route::post('guide-replacement-requests/{id}/approve', [AdminGuideReplacementRequestController::class, 'approve']);
+    Route::post('guide-replacement-requests/{id}/reject', [AdminGuideReplacementRequestController::class, 'reject']);
 
-    Route::post(
-        'guide-replacement-requests/{id}/approve',
-        [AdminGuideReplacementRequestController::class, 'approve']
-    );
-
-    Route::post(
-        'guide-replacement-requests/{id}/reject',
-        [AdminGuideReplacementRequestController::class, 'reject']
-    );
+    /*
+    |--------------------------------------------------------------------------
+    | ADMIN - Phê duyệt đơn xin nghỉ HDV
+    |--------------------------------------------------------------------------
+    | Nếu bạn đã có Route::prefix('admin')->middleware('auth:sanctum')->group(...)
+    | thì chỉ copy 5 route bên trong vào group đó, không tạo group lồng nhau.
+    */
+    Route::get('guide-leave-requests', [AdminGuideLeaveRequestController::class, 'index']);
+    Route::get('guide-leave-requests/{leaveRequest}', [AdminGuideLeaveRequestController::class, 'show']);
+    Route::post('guide-leave-requests/{leaveRequest}/approve', [AdminGuideLeaveRequestController::class, 'approve']);
+    Route::post('guide-leave-requests/{leaveRequest}/reject', [AdminGuideLeaveRequestController::class, 'reject']);
+    Route::patch('guide-leave-requests/{leaveRequest}/decision', [AdminGuideLeaveRequestController::class, 'updateDecision']);
 });
 
 // =============================== Hướng dẫn viên ===============================
@@ -469,13 +473,20 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/guide/tours/{tourDeparture}/stages/advance', [GuideAttendanceController::class, 'advanceStage']);
     Route::get('/guide/tours/{departureId}', [GuideTourController::class, 'show']);
 
-        Route::post(
-        '/guide/tours/{tourDeparture}/replacement-requests',
-        [GuideTourController::class, 'requestReplacement']
-    );
+    Route::post('/guide/tours/{tourDeparture}/replacement-requests', [GuideTourController::class, 'requestReplacement']);
 
-    Route::get(
-        '/guide/tours/{tourDeparture}/replacement-requests/status',
-        [GuideTourController::class, 'replacementRequestStatus']
-    );
+    Route::get('/guide/tours/{tourDeparture}/replacement-requests/status', [GuideTourController::class, 'replacementRequestStatus']);
+
+    /*
+    |--------------------------------------------------------------------------
+    | GUIDE - Đơn xin nghỉ HDV
+    |--------------------------------------------------------------------------
+    | Đặt trong group auth:sanctum hiện có.
+    */
+    Route::get('/guide/leave-requests/summary', [GuideLeaveRequestController::class, 'summary']);
+    Route::get('/guide/leave-requests', [GuideLeaveRequestController::class, 'index']);
+    Route::post('/guide/leave-requests', [GuideLeaveRequestController::class, 'store']);
+    Route::patch('/guide/leave-requests/{leaveRequest}/cancel', [GuideLeaveRequestController::class, 'cancel']);
+
 });
+

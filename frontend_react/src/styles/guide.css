@@ -450,6 +450,30 @@
   transform: translateY(-1px);
 }
 
+.guide-topbar-profile-link {
+  gap: 10px;
+  padding: 10px 16px;
+  color: #1454f0;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.guide-topbar-profile-link svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2px;
+}
+
+.guide-topbar-profile-link span {
+  font-size: 0.92rem;
+  color: inherit;
+}
+
 .guide-account-menu {
   position: relative;
 }
@@ -2051,6 +2075,30 @@
     border-color 150ms ease,
     box-shadow 150ms ease,
     background 150ms ease;
+}
+
+.guide-profile-inline-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #e6f2ff 0%, #dff0ff 100%);
+  color: #0b74d3;
+  box-shadow: inset 0 0 0 1px rgba(20, 84, 240, 0.08);
+}
+
+.guide-profile-inline-badge strong {
+  font-size: 1rem;
+  line-height: 1;
+  font-weight: 900;
+}
+
+.guide-profile-inline-badge span {
+  color: inherit;
+  font-size: 0.9rem;
+  font-weight: 800;
 }
 
 .guide-field input[type='file'] {
@@ -4075,22 +4123,50 @@
   border: 1px solid #e5e7eb;
   background: #ffffff;
   box-shadow: 0 32px 70px rgba(15, 23, 42, 0.28);
-  padding: 18px;
+  padding: 18px 18px 20px;
 }
 
-.guide-tour-modal-close {
+.guide-tour-modal-request-inline {
   position: absolute;
-  top: 14px;
-  right: 14px;
-  width: 36px;
-  height: 36px;
-  border: none;
+  top: 18px;
+  right: 18px;
+  z-index: 2;
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+  width: auto;
+  margin: 0;
+}
+
+.guide-tour-modal-request-float {
+  border: 0;
   border-radius: 999px;
-  background: #f8fafc;
-  color: #0f172a;
+  padding: 9px 14px;
+  background: #2563eb;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
   cursor: pointer;
-  font-size: 1.4rem;
-  line-height: 1;
+  transition: 0.2s ease;
+}
+
+.guide-tour-modal-request-float:hover {
+  background: #1d4ed8;
+}
+
+.guide-tour-modal-request-float:disabled {
+  cursor: not-allowed;
+  background: #cbd5e1;
+  color: #64748b;
+}
+
+.guide-tour-modal-request-hint-inline {
+  max-width: 280px;
+  color: #b45309;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.45;
+  text-align: right;
 }
 
 .guide-tour-modal-hero {
@@ -4137,7 +4213,7 @@
 
 .guide-tour-modal-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   margin-top: 16px;
 }
@@ -4305,6 +4381,10 @@
   .guide-tour-row-actions {
     flex-direction: row;
     justify-content: flex-end;
+  }
+
+  .guide-replace-evidence-row {
+    grid-template-columns: 1fr;
   }
 
   .guide-tour-filter-actions,
@@ -4703,6 +4783,97 @@
   font-size: 12px;
 }
 
+.guide-replace-evidence-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 180px;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.guide-replace-file-preview {
+  min-height: 96px;
+  border: 1px solid #cbd5e1;
+  border-radius: 14px;
+  background: #f8fafc;
+  overflow: hidden;
+}
+
+.guide-replace-file-preview.is-invalid {
+  border-color: #f43f5e;
+  background: #fff1f2;
+}
+
+.guide-replace-file-preview-empty,
+.guide-replace-file-preview-fallback {
+  min-height: 96px;
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  padding: 12px;
+  text-align: center;
+  color: #64748b;
+}
+
+.guide-replace-file-preview-fallback span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  min-height: 48px;
+  border-radius: 14px;
+  background: #e0f2fe;
+  color: #1d4ed8;
+  font-weight: 900;
+}
+
+.guide-replace-file-preview-image {
+  width: 100%;
+  height: 100%;
+  min-height: 96px;
+  object-fit: cover;
+  display: block;
+}
+
+.guide-replace-file-actions {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.guide-replace-file-input {
+  display: none;
+}
+
+.guide-replace-file-trigger,
+.guide-replace-file-remove {
+  border: 1px solid #dbe5f2;
+  border-radius: 14px;
+  min-height: 44px;
+  padding: 0 14px;
+  background: #ffffff;
+  color: #0f172a;
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.guide-replace-file-trigger.is-invalid {
+  border-color: #f43f5e;
+  background: #fff1f2;
+}
+
+.guide-replace-file-remove {
+  color: #b91c1c;
+  background: #fff1f2;
+  border-color: #fecdd3;
+}
+
+.guide-replace-file-trigger:disabled,
+.guide-replace-file-remove:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
 .guide-replace-form-actions {
   display: flex;
   justify-content: flex-end;
@@ -4958,6 +5129,10 @@
   gap: 10px;
 }
 
+.guide-tour-row-meta.compact {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .guide-tour-row-meta span {
   min-width: 0;
   min-height: 56px;
@@ -5137,414 +5312,456 @@
   color: #64748b;
 }
 
-/* Guide schedule */
+@media (max-width: 1100px) {
+  .guide-tour-row-card {
+    grid-template-columns: 1fr;
+  }
 
-.guide-schedule-page {
-  display: grid;
-  gap: 18px;
+  .guide-tour-row-actions {
+    flex-direction: row;
+    border-left: 0;
+    border-top: 1px dashed #e2e8f0;
+    padding-left: 0;
+    padding-top: 12px;
+  }
+
+  .guide-tour-change-hint {
+    text-align: left;
+  }
 }
 
-.guide-schedule-header {
-  display: flex;
-  align-items: stretch;
-  justify-content: space-between;
-  gap: 18px;
-  padding: 24px;
-  border: 1px solid #e2e8f0;
-  border-radius: 22px;
-  background: #ffffff;
-  box-shadow: 0 16px 38px rgba(15, 23, 42, 0.06);
+@media (max-width: 760px) {
+  .guide-tour-list {
+    padding: 14px;
+  }
+
+  .guide-tour-row-main {
+    grid-template-columns: 1fr;
+  }
+
+  .guide-tour-row-image-wrap {
+    width: 100%;
+    height: 160px;
+  }
+
+  .guide-tour-row-head,
+  .guide-tour-row-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .guide-tour-row-actions {
+    flex-direction: column;
+  }
 }
 
-.guide-schedule-header span,
-.guide-schedule-panel > span,
-.guide-schedule-panel-head span,
-.guide-schedule-history-panel > span {
-  color: #2563eb;
-  font-size: 12px;
-  font-weight: 900;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+
+/* ================= GUIDE LEAVE REQUEST WIDGET ================= */
+
+.guide-leave-widget {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
 }
 
-.guide-schedule-header h1 {
-  margin: 6px 0 8px;
-  color: #0f172a;
-  font-size: 30px;
-  line-height: 1.12;
-}
-
-.guide-schedule-header p {
-  max-width: 70ch;
-  margin: 0;
-  color: #64748b;
-  line-height: 1.65;
-}
-
-.guide-schedule-summary {
-  min-width: 240px;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  align-content: center;
-  gap: 6px 10px;
-  padding: 16px;
-  border-radius: 18px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  text-align: center;
-}
-
-.guide-schedule-summary strong {
-  color: #0f172a;
-  font-size: 26px;
-  line-height: 1;
-}
-
-.guide-schedule-summary span {
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 800;
-  text-transform: none;
-  letter-spacing: 0;
-}
-
-.guide-schedule-layout {
-  display: grid;
-  grid-template-columns: 340px minmax(0, 1fr);
-  gap: 18px;
-  align-items: start;
-}
-
-.guide-schedule-sidebar,
-.guide-schedule-content,
-.guide-schedule-panel,
-.guide-schedule-history-panel {
-  border: 1px solid #e2e8f0;
-  border-radius: 22px;
-  background: #ffffff;
-  box-shadow: 0 16px 38px rgba(15, 23, 42, 0.05);
-}
-
-.guide-schedule-sidebar {
-  position: sticky;
-  top: 0;
-  overflow: hidden;
-}
-
-.guide-schedule-tabs {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
-  padding: 12px;
-  border-bottom: 1px solid #e2e8f0;
-  background: #f8fafc;
-}
-
-.guide-schedule-tabs button {
-  min-height: 48px;
-  display: grid;
-  gap: 3px;
-  border: 0;
-  border-radius: 14px;
-  background: transparent;
-  color: #475569;
-  font: inherit;
-  font-size: 12px;
+.guide-leave-topbar-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  border: 1px solid #dbeafe;
+  border-radius: 999px;
+  background: #eff6ff;
+  padding: 0 14px;
+  color: #1d4ed8;
   font-weight: 900;
   cursor: pointer;
+  transition: 0.18s ease;
 }
 
-.guide-schedule-tabs button span {
-  color: inherit;
-  font-size: 16px;
-}
-
-.guide-schedule-tabs button.is-active {
-  background: #2563eb;
-  color: #ffffff;
-}
-
-.guide-schedule-tour-list {
-  display: grid;
-  gap: 10px;
-  max-height: calc(100svh - 300px);
-  min-height: 320px;
-  overflow: auto;
-  padding: 14px;
-}
-
-.guide-schedule-tour-card {
-  display: grid;
-  gap: 5px;
-  width: 100%;
-  border: 1px solid #e2e8f0;
-  border-left: 5px solid #cbd5e1;
-  border-radius: 16px;
-  background: #ffffff;
-  padding: 13px 14px;
-  text-align: left;
-  cursor: pointer;
-}
-
-.guide-schedule-tour-card:hover,
-.guide-schedule-tour-card.is-active {
+.guide-leave-topbar-button:hover {
   border-color: #93c5fd;
-  border-left-color: #2563eb;
-  box-shadow: 0 12px 26px rgba(37, 99, 235, 0.12);
+  background: #dbeafe;
 }
 
-.guide-schedule-tour-card.state-ongoing {
-  border-left-color: #f59e0b;
+.guide-leave-topbar-button svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
-.guide-schedule-tour-card.state-upcoming {
-  border-left-color: #22c55e;
+.guide-leave-topbar-button strong {
+  position: absolute;
+  right: -5px;
+  top: -7px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #e11d48;
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  line-height: 1;
+  box-shadow: 0 4px 12px rgba(225, 29, 72, 0.28);
 }
 
-.guide-schedule-tour-card.state-completed {
-  border-left-color: #64748b;
-}
-
-.guide-schedule-tour-date {
-  color: #2563eb;
-  font-size: 11px;
-  font-weight: 900;
-  text-transform: uppercase;
-}
-
-.guide-schedule-tour-card strong {
-  color: #0f172a;
-  font-size: 15px;
-  line-height: 1.32;
-}
-
-.guide-schedule-tour-card small,
-.guide-schedule-tour-card em {
-  color: #64748b;
-  font-size: 12px;
-  font-style: normal;
-  font-weight: 700;
-}
-
-.guide-schedule-content {
+.guide-leave-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 12px);
+  z-index: 80;
+  width: min(980px, calc(100vw - 32px));
+  max-height: calc(100vh - 120px);
+  overflow: auto;
+  border: 1px solid #dbeafe;
+  border-radius: 24px;
+  background: white;
+  box-shadow: 0 28px 80px rgba(15, 23, 42, 0.18);
   padding: 18px;
 }
 
-.guide-schedule-detail-head {
+.guide-leave-panel-head {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
   gap: 16px;
-  padding-bottom: 16px;
+  padding-bottom: 14px;
   border-bottom: 1px solid #e2e8f0;
 }
 
-.guide-schedule-runtime {
-  display: inline-flex;
-  width: fit-content;
-  border-radius: 999px;
-  padding: 6px 10px;
+.guide-leave-panel-head span {
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.guide-leave-panel-head h3 {
+  margin: 4px 0 4px;
+  color: #0f172a;
+  font-size: 22px;
+  font-weight: 950;
+}
+
+.guide-leave-panel-head p {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.guide-leave-panel-head > button {
+  border: 0;
+  border-radius: 12px;
+  background: #f1f5f9;
+  padding: 9px 13px;
+  color: #475569;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.guide-leave-alert {
+  margin-top: 14px;
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-weight: 800;
+}
+
+.guide-leave-alert.success {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.guide-leave-alert.error {
+  background: #fff1f2;
+  color: #be123c;
+  border: 1px solid #fecdd3;
+}
+
+.guide-leave-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.guide-leave-summary-grid div {
+  border-radius: 18px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  padding: 14px;
+}
+
+.guide-leave-summary-grid strong {
+  display: block;
+  color: #2563eb;
+  font-size: 24px;
+  font-weight: 950;
+}
+
+.guide-leave-summary-grid span {
+  display: block;
+  margin-top: 3px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.guide-leave-grid {
+  display: grid;
+  grid-template-columns: 380px minmax(0, 1fr);
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.guide-leave-form-card,
+.guide-leave-list-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  background: white;
+  padding: 16px;
+}
+
+.guide-leave-form-card h4,
+.guide-leave-list-card h4 {
+  margin: 0 0 14px;
+  color: #0f172a;
+  font-size: 16px;
+  font-weight: 950;
+}
+
+.guide-leave-calendar {
+  border: 1px solid #dbeafe;
+  border-radius: 16px;
   background: #eff6ff;
+  padding: 12px;
+  margin-bottom: 14px;
+}
+
+.guide-leave-calendar-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.guide-leave-calendar-head button {
+  width: 32px;
+  height: 30px;
+  border: 0;
+  border-radius: 10px;
+  background: white;
   color: #1d4ed8;
+  font-size: 18px;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.guide-leave-weekdays,
+.guide-leave-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  text-align: center;
+}
+
+.guide-leave-weekdays span {
+  color: #64748b;
   font-size: 11px;
   font-weight: 900;
 }
 
-.guide-schedule-runtime.runtime-ongoing {
-  background: #fef3c7;
-  color: #b45309;
-}
-
-.guide-schedule-runtime.runtime-upcoming {
-  background: #dcfce7;
-  color: #15803d;
-}
-
-.guide-schedule-runtime.runtime-completed {
-  background: #f1f5f9;
-  color: #475569;
-}
-
-.guide-schedule-detail-head h2 {
-  margin: 10px 0 6px;
-  color: #0f172a;
-  font-size: 24px;
-  line-height: 1.2;
-}
-
-.guide-schedule-detail-head p {
-  margin: 0;
-  color: #64748b;
-  font-weight: 700;
-}
-
-.guide-schedule-date-box {
-  min-width: 190px;
-  display: grid;
-  gap: 4px;
-  align-content: center;
-  border-radius: 16px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  padding: 14px;
-}
-
-.guide-schedule-date-box span,
-.guide-schedule-date-box small {
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.guide-schedule-date-box strong {
-  color: #0f172a;
-  font-size: 20px;
-}
-
-.guide-schedule-stats {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-  margin: 16px 0;
-}
-
-.guide-schedule-stats article {
-  display: grid;
-  gap: 5px;
-  border-radius: 16px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  padding: 14px;
-}
-
-.guide-schedule-stats span {
-  color: #64748b;
-  font-size: 12px;
+.guide-leave-days button,
+.guide-leave-days span {
+  min-height: 34px;
+  border: 0;
+  border-radius: 10px;
+  background: white;
+  color: #334155;
   font-weight: 900;
 }
 
-.guide-schedule-stats strong {
+.guide-leave-days button {
+  cursor: pointer;
+}
+
+.guide-leave-days button:hover:not(:disabled) {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.guide-leave-days button.selected {
+  background: #2563eb;
+  color: white;
+}
+
+.guide-leave-days button:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.guide-leave-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.guide-leave-form-card label {
+  display: block;
+  margin-bottom: 12px;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.guide-leave-form-card input,
+.guide-leave-form-card textarea {
+  width: 100%;
+  margin-top: 6px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: white;
+  padding: 10px 12px;
   color: #0f172a;
-  font-size: 26px;
-  line-height: 1;
+  outline: none;
 }
 
-.guide-schedule-panels {
-  display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.65fr);
-  gap: 16px;
-  align-items: start;
+.guide-leave-form-card input:focus,
+.guide-leave-form-card textarea:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 
-.guide-schedule-panel {
-  padding: 16px;
+.guide-leave-form-card input.error,
+.guide-leave-form-card textarea.error {
+  border-color: #e11d48;
+  background: #fff1f2;
 }
 
-.guide-schedule-panel.compact {
-  display: grid;
-  gap: 10px;
+.guide-leave-form-card small {
+  display: block;
+  margin-top: 5px;
+  color: #e11d48;
+  font-weight: 800;
 }
 
-.guide-schedule-side-panels {
-  display: grid;
-  gap: 16px;
+.guide-leave-file-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 12px;
 }
 
-.guide-schedule-panel-head {
+.guide-leave-file-list span {
+  border-radius: 999px;
+  background: #f1f5f9;
+  padding: 5px 9px;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.guide-leave-form-card > button[type='submit'] {
+  width: 100%;
+  border: 0;
+  border-radius: 14px;
+  background: #2563eb;
+  padding: 12px 14px;
+  color: white;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.guide-leave-form-card > button[type='submit']:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.guide-leave-list-head {
   display: flex;
   justify-content: space-between;
   gap: 12px;
+  align-items: center;
   margin-bottom: 12px;
 }
 
-.guide-schedule-panel-head h3,
-.guide-schedule-panel.compact h3,
-.guide-schedule-history-panel h3 {
-  margin: 6px 0 0;
-  color: #0f172a;
-  font-size: 18px;
+.guide-leave-list-head div {
+  display: flex;
+  gap: 6px;
 }
 
-.guide-schedule-panel-head button,
-.guide-schedule-actions button,
-.guide-schedule-secondary-btn {
-  min-height: 38px;
+.guide-leave-list-head button {
   border: 0;
-  border-radius: 12px;
-  background: #2563eb;
-  color: #ffffff;
-  padding: 0 13px;
-  font: inherit;
+  border-radius: 999px;
+  background: #f1f5f9;
+  padding: 7px 10px;
+  color: #64748b;
   font-size: 12px;
   font-weight: 900;
   cursor: pointer;
 }
 
-.guide-schedule-panel-head button:hover,
-.guide-schedule-actions button:hover:not(:disabled),
-.guide-schedule-secondary-btn:hover {
-  background: #1d4ed8;
+.guide-leave-list-head button.active {
+  background: #2563eb;
+  color: white;
 }
 
-.guide-schedule-note {
-  margin: 0 0 12px;
-  border-radius: 14px;
-  background: #fffbeb;
-  border: 1px solid #fde68a;
-  color: #92400e;
-  padding: 10px 12px;
-  font-size: 13px;
+.guide-leave-empty {
+  border: 1px dashed #cbd5e1;
+  border-radius: 16px;
+  padding: 28px;
+  text-align: center;
+  color: #64748b;
   font-weight: 800;
 }
 
-.guide-schedule-filters {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 190px;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.guide-schedule-filters input,
-.guide-schedule-filters select {
-  min-height: 40px;
-  border: 1px solid #cbd5e1;
-  border-radius: 12px;
-  background: #ffffff;
-  color: #0f172a;
-  padding: 0 12px;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.guide-schedule-customers {
+.guide-leave-request-list {
   display: grid;
   gap: 10px;
+  max-height: 520px;
+  overflow: auto;
+  padding-right: 4px;
 }
 
-.guide-schedule-customer-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 130px 170px;
-  gap: 10px;
-  align-items: center;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 12px;
-}
-
-.guide-schedule-customer-main {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(140px, 0.7fr);
+.guide-leave-request-item {
+  display: flex;
+  justify-content: space-between;
   gap: 12px;
-  border: 0;
-  background: transparent;
-  padding: 0;
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  padding: 13px;
+  background: #f8fafc;
 }
 
-.guide-schedule-customer-main strong {
-  display: block;
+.guide-leave-request-item.pending {
+  border-color: #fed7aa;
+  background: #fff7ed;
+}
+
+.guide-leave-request-item.approved {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.guide-leave-request-item.rejected {
+  border-color: #fecdd3;
+  background: #fff1f2;
+}
+
+.guide-leave-request-item.cancelled {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.guide-leave-request-item h5 {
+  margin: 8px 0 5px;
   color: #0f172a;
   font-size: 14px;
   line-height: 1.3;
@@ -5571,41 +5788,49 @@
   line-height: 1.35;
 }
 
-.guide-schedule-status {
-  justify-self: start;
+.leave-status {
+  display: inline-flex;
   border-radius: 999px;
-  padding: 6px 10px;
-  background: #f1f5f9;
-  color: #475569;
+  padding: 4px 8px;
   font-size: 11px;
-  font-weight: 900;
+  font-weight: 950;
 }
 
-.guide-schedule-status.status-checked_in {
-  background: #dbeafe;
-  color: #1d4ed8;
+.leave-status.pending {
+  background: #ffedd5;
+  color: #c2410c;
 }
 
-.guide-schedule-status.status-checked_out {
+.leave-status.approved {
   background: #dcfce7;
   color: #15803d;
 }
 
-.guide-schedule-status.status-absent {
+.leave-status.rejected {
   background: #ffe4e6;
   color: #be123c;
 }
 
-.guide-schedule-actions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+.leave-status.cancelled {
+  background: #e2e8f0;
+  color: #475569;
 }
 
-.guide-schedule-actions button:disabled {
-  cursor: not-allowed;
-  background: #e2e8f0;
-  color: #64748b;
+.guide-leave-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.guide-leave-attachments a {
+  border-radius: 999px;
+  background: white;
+  padding: 5px 8px;
+  color: #2563eb;
+  font-size: 11px;
+  font-weight: 900;
+  text-decoration: none;
 }
 
 .guide-schedule-secondary-btn {
@@ -5664,37 +5889,37 @@
   font-weight: 800;
 }
 
-.guide-schedule-panel dd {
-  color: #0f172a;
-  text-align: right;
+.guide-leave-calendar .guide-leave-days button.assigned-tour:hover:not(:disabled),
+.guide-leave-calendar .guide-leave-days button[data-assigned-tour='1']:hover:not(:disabled) {
+  background: #fde68a !important;
+  color: #78350f !important;
 }
 
-.guide-schedule-stage-list {
-  display: grid;
-  gap: 8px;
+.guide-leave-calendar .guide-leave-days button.assigned-tour::after,
+.guide-leave-calendar .guide-leave-days button[data-assigned-tour='1']::after {
+  content: "";
+  position: absolute;
+  right: 5px;
+  top: 5px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #f97316;
+  box-shadow: 0 0 0 2px #fffbeb;
 }
 
-.guide-schedule-stage-list article {
-  display: grid;
-  grid-template-columns: 70px minmax(0, 1fr);
-  gap: 4px 10px;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  padding: 10px;
+.guide-leave-calendar .guide-leave-days button.assigned-tour.selected,
+.guide-leave-calendar .guide-leave-days button[data-assigned-tour='1'].selected {
+  border-color: #1d4ed8 !important;
+  background: linear-gradient(135deg, #2563eb 0%, #2563eb 52%, #f59e0b 53%, #f59e0b 100%) !important;
+  color: #ffffff !important;
 }
 
-.guide-schedule-stage-list article.stage-in_progress {
-  border-color: #f59e0b;
-  background: #fffbeb;
-}
-
-.guide-schedule-stage-list article.stage-completed {
-  background: #f8fafc;
-}
-
-.guide-schedule-stage-list strong {
-  color: #2563eb;
-  font-size: 12px;
+.guide-leave-calendar .guide-leave-days button.assigned-tour:disabled,
+.guide-leave-calendar .guide-leave-days button[data-assigned-tour='1']:disabled {
+  background: #fef3c7 !important;
+  color: #b45309 !important;
+  opacity: 0.72 !important;
 }
 
 .guide-schedule-stage-list span {

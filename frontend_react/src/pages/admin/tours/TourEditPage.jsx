@@ -130,7 +130,7 @@ function TourEditPage() {
       <AdminPageHeader
         breadcrumb={['ViVuGo', 'Quản Lý Tour', 'Sửa tour']}
         title="Sửa tour"
-        description={`Cập nhật thông tin tour #${tour.id}`}
+        description={`Cập nhật thông tin tour #${tour.id}.`}
         actions={
           <Link
             to="/admin/tours"

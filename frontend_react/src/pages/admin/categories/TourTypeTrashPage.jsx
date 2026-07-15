@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { categoryApi } from '../../../services/categoryApi'
+import { formatDateDdMmYyyy } from '../../../utils/dateFormat'
 
 function TourTypeTrashPage() {
   const [categories, setCategories] = useState([])
@@ -17,7 +18,7 @@ function TourTypeTrashPage() {
 
   const formatDate = (date) => {
     if (!date) return '-'
-    return new Date(date).toLocaleDateString('vi-VN')
+    return formatDateDdMmYyyy(date, '-')
   }
 
   const fetchTrashedCategories = async () => {

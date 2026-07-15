@@ -106,7 +106,7 @@ function TourCreatePage() {
       <AdminPageHeader
         breadcrumb={['ViVuGo', 'Quản Lý Tour', 'Thêm tour']}
         title="Thêm tour"
-        description="Tạo tour mới cho hệ thống"
+        description="Tạo tour mới cho hệ thống."
         actions={
           <Link
             to="/admin/tours"

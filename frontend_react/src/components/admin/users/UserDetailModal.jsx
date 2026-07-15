@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { roleLabel } from "../../../utils/accountRoles";
 import { mediaUrl } from "../../../utils/mediaUrl";
+import { formatDateDdMmYyyy } from "../../../utils/dateFormat";
 
 function initials(name = "") {
   return name
@@ -16,11 +17,7 @@ function UserDetailModal({ customer, showBookings = false, onClose }) {
   const [avatarFailed, setAvatarFailed] = useState(false);
   const canShowBookings = showBookings && customer.role?.name === "customer";
   const avatarSrc = !avatarFailed ? mediaUrl(customer.avatar_url) : "";
-  const date = customer.created_at
-    ? new Intl.DateTimeFormat("vi-VN", { dateStyle: "long" }).format(
-        new Date(customer.created_at),
-      )
-    : "-";
+  const date = customer.created_at ? formatDateDdMmYyyy(customer.created_at, "-") : "-";
 
   return (
     <div

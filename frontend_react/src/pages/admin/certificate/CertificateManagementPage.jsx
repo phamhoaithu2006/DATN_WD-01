@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import AdminPageHeader from '../../../components/admin/AdminPageHeader'
 import Icon from '../../../components/customer/Icon'
 import { certificateApi } from '../../../services/certificateApi'
+import { formatDateDdMmYyyy } from '../../../utils/dateFormat'
 
 function unwrapList(response) {
   const payload = response?.data
@@ -19,13 +20,7 @@ function getErrorMessage(error, fallback) {
 }
 
 function formatDate(value) {
-  if (!value) return 'Không có'
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return 'Không có'
-  return new Intl.DateTimeFormat('vi-VN', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(parsed)
+  return formatDateDdMmYyyy(value, '-')
 }
 
 function ConfirmModal({ title, desc, onConfirm, onCancel, loading }) {
