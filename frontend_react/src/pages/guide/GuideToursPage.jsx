@@ -299,7 +299,7 @@ function TourRow({ item, active, isNew, onDetail, onRequestChange }) {
             <span className={`guide-tour-pill tone-${statusTone}`}>{statusLabel}</span>
           </div>
 
-          <div className="guide-tour-row-meta">
+          <div className="guide-tour-row-meta compact">
             <span>
               <strong>{getDestination(item)}</strong>
               <small>{item?.tour?.category?.name || 'Tour du lịch'}</small>
@@ -307,10 +307,6 @@ function TourRow({ item, active, isNew, onDetail, onRequestChange }) {
             <span>
               <strong>{formatNumber(item?.booked_slots || 0)} khách</strong>
               <small>Số khách</small>
-            </span>
-            <span>
-              <strong>{formatMoney(item?.price)}</strong>
-              <small>Giá tour</small>
             </span>
           </div>
         </div>
@@ -355,10 +351,6 @@ function TourDetailModal({
   return (
     <div className="guide-tour-modal-backdrop" role="presentation" onClick={onClose}>
       <div className="guide-tour-modal" role="dialog" aria-modal="true" aria-label="Chi tiết tour" onClick={(event) => event.stopPropagation()}>
-        <button type="button" className="guide-tour-modal-close" onClick={onClose} aria-label="Đóng">
-          ×
-        </button>
-
         {isNew ? <span className="guide-tour-modal-new">NEW</span> : null}
 
         <div className="guide-tour-modal-request-inline">
@@ -408,10 +400,6 @@ function TourDetailModal({
             <strong>
               {formatNumber(item?.booked_slots || 0)}/{formatNumber(item?.total_slots || 0)}
             </strong>
-          </div>
-          <div className="guide-tour-modal-card">
-            <span>Giá tour</span>
-            <strong>{formatMoney(item?.price)}</strong>
           </div>
         </div>
 
@@ -504,10 +492,6 @@ function ReplacementRequestModal({
   return (
     <div className="guide-tour-modal-backdrop" role="presentation" onClick={onClose}>
       <div className="guide-replace-modal" role="dialog" aria-modal="true" aria-label="Yêu cầu đổi HDV" onClick={(event) => event.stopPropagation()}>
-        <button type="button" className="guide-tour-modal-close" onClick={onClose} aria-label="Đóng">
-          ×
-        </button>
-
         <div className="guide-replace-modal-head">
           <span>Yêu cầu đổi HDV</span>
           <h3>{item?.tour?.title || 'Tour được phân công'}</h3>

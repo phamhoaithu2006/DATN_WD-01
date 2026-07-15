@@ -41,10 +41,14 @@ function ScheduleTourList({
           <button
             key={key}
             type="button"
+            data-group={key}
             className={activeGroup === key ? 'is-active' : ''}
             onClick={() => onGroupChange(key)}
           >
-            {config.label}
+            <div className="guide-schedule-tab-copy">
+              <strong>{config.label}</strong>
+              <small>{config.hint}</small>
+            </div>
             <span>{totals[key] || 0}</span>
           </button>
         ))}

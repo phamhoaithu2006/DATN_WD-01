@@ -3586,36 +3586,66 @@
   border: 1px solid #e5e7eb;
   background: #ffffff;
   box-shadow: 0 32px 70px rgba(15, 23, 42, 0.28);
-  padding: 18px;
+  padding: 18px 18px 20px;
 }
 
-.guide-tour-modal-close {
+.guide-tour-modal-request-inline {
   position: absolute;
-  top: 14px;
-  right: 14px;
-  width: 36px;
-  height: 36px;
-  border: none;
+  top: 18px;
+  right: 18px;
+  z-index: 2;
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+  width: auto;
+  margin: 0;
+}
+
+.guide-tour-modal-request-float {
+  border: 0;
   border-radius: 999px;
-  background: #f8fafc;
-  color: #0f172a;
+  padding: 9px 14px;
+  background: #2563eb;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
   cursor: pointer;
-  font-size: 1.4rem;
-  line-height: 1;
+  transition: 0.2s ease;
+}
+
+.guide-tour-modal-request-float:hover {
+  background: #1d4ed8;
+}
+
+.guide-tour-modal-request-float:disabled {
+  cursor: not-allowed;
+  background: #cbd5e1;
+  color: #64748b;
+}
+
+.guide-tour-modal-request-hint-inline {
+  max-width: 280px;
+  color: #b45309;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.45;
+  text-align: right;
 }
 
 .guide-tour-modal-hero {
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr);
   gap: 16px;
-  align-items: center;
+  align-items: start;
+  margin-top: 0;
 }
 
 .guide-tour-modal-image-wrap {
-  min-height: 180px;
+  aspect-ratio: 4 / 3;
+  min-height: 0;
   border-radius: 20px;
   overflow: hidden;
-  background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+  background: #e5eefc;
 }
 
 .guide-tour-modal-image-wrap img {
@@ -3648,7 +3678,7 @@
 
 .guide-tour-modal-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   margin-top: 16px;
 }
@@ -3773,6 +3803,10 @@
     justify-content: flex-end;
   }
 
+  .guide-replace-evidence-row {
+    grid-template-columns: 1fr;
+  }
+
   .guide-tour-filter-actions,
   .guide-tour-pagination,
   .guide-tour-list-head {
@@ -3832,9 +3866,9 @@
 }
 
 .guide-tour-row-card.state-completed {
-  border-color: #cbd5e1;
-  background: linear-gradient(135deg, #f8fafc 0%, #fff 62%);
-  opacity: 0.92;
+  border-color: #1d4ed8;
+  background: linear-gradient(135deg, #eff6ff 0%, #ffffff 62%);
+  box-shadow: 0 0 0 1px rgba(29, 78, 216, 0.12);
 }
 
 .guide-tour-row-card.state-cancelled {
@@ -4005,6 +4039,97 @@
   font-size: 12px;
 }
 
+.guide-replace-evidence-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 180px;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.guide-replace-file-preview {
+  min-height: 96px;
+  border: 1px solid #cbd5e1;
+  border-radius: 14px;
+  background: #f8fafc;
+  overflow: hidden;
+}
+
+.guide-replace-file-preview.is-invalid {
+  border-color: #f43f5e;
+  background: #fff1f2;
+}
+
+.guide-replace-file-preview-empty,
+.guide-replace-file-preview-fallback {
+  min-height: 96px;
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  padding: 12px;
+  text-align: center;
+  color: #64748b;
+}
+
+.guide-replace-file-preview-fallback span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  min-height: 48px;
+  border-radius: 14px;
+  background: #e0f2fe;
+  color: #1d4ed8;
+  font-weight: 900;
+}
+
+.guide-replace-file-preview-image {
+  width: 100%;
+  height: 100%;
+  min-height: 96px;
+  object-fit: cover;
+  display: block;
+}
+
+.guide-replace-file-actions {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.guide-replace-file-input {
+  display: none;
+}
+
+.guide-replace-file-trigger,
+.guide-replace-file-remove {
+  border: 1px solid #dbe5f2;
+  border-radius: 14px;
+  min-height: 44px;
+  padding: 0 14px;
+  background: #ffffff;
+  color: #0f172a;
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.guide-replace-file-trigger.is-invalid {
+  border-color: #f43f5e;
+  background: #fff1f2;
+}
+
+.guide-replace-file-remove {
+  color: #b91c1c;
+  background: #fff1f2;
+  border-color: #fecdd3;
+}
+
+.guide-replace-file-trigger:disabled,
+.guide-replace-file-remove:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
 .guide-replace-form-actions {
   display: flex;
   justify-content: flex-end;
@@ -4135,8 +4260,9 @@
 }
 
 .guide-tour-row-card.state-completed {
-  border-color: #cbd5e1;
-  background: linear-gradient(135deg, #f8fafc 0%, #ffffff 62%);
+  border-color: #1d4ed8;
+  background: linear-gradient(135deg, #eff6ff 0%, #ffffff 62%);
+  box-shadow: 0 0 0 1px rgba(29, 78, 216, 0.12);
 }
 
 .guide-tour-row-card.state-cancelled {
@@ -4256,6 +4382,10 @@
   display: grid;
   grid-template-columns: 1.2fr 0.8fr 0.9fr;
   gap: 10px;
+}
+
+.guide-tour-row-meta.compact {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .guide-tour-row-meta span {
@@ -5145,11 +5275,20 @@
   color: #0f172a;
   font-size: clamp(1.7rem, 2.8vw, 2.4rem);
   line-height: 1.1;
+  font-weight: 900;
+}
+
+.guide-schedule-header-desc {
+  margin: 8px 0 0;
+  color: #475569;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.4;
 }
 
 .guide-schedule-layout {
   display: grid;
-  grid-template-columns: minmax(300px, 0.88fr) minmax(0, 1.12fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 18px;
   align-items: start;
 }
@@ -5172,40 +5311,125 @@
 
 .guide-schedule-tabs {
   display: grid;
-  gap: 10px;
+  gap: 12px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .guide-schedule-tabs button {
-  display: grid;
-  gap: 4px;
-  justify-items: start;
-  padding: 14px 12px;
-  border: 1px solid #dbe5f2;
-  border-radius: 16px;
-  background: #f8fbff;
+  --tab-accent: #4f86ff;
+  --tab-accent-soft: rgba(79, 134, 255, 0.1);
+  --tab-border: rgba(79, 134, 255, 0.18);
+  --tab-bg: linear-gradient(180deg, rgba(79, 134, 255, 0.06) 0%, #ffffff 72%);
+  min-width: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  min-height: 112px;
+  padding: 18px 18px 16px;
+  border: 1px solid var(--tab-border);
+  border-radius: 22px;
+  background: var(--tab-bg);
   color: #0f172a;
   font: inherit;
   font-weight: 800;
   text-align: left;
   cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.7);
+  transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease,
+    background 150ms ease, color 150ms ease, opacity 150ms ease;
+}
+
+.guide-schedule-tab-copy {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.guide-schedule-tab-copy strong {
+  color: inherit;
+  font-size: 1.08rem;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+.guide-schedule-tab-copy small {
+  color: #5b6b84;
+  font-size: 0.82rem;
+  font-weight: 700;
 }
 
 .guide-schedule-tabs button span {
-  color: #64748b;
-  font-size: 0.78rem;
-  font-weight: 800;
+  align-self: flex-end;
+  margin-top: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 46px;
+  min-height: 46px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--tab-accent);
+  font-size: 1.05rem;
+  font-weight: 900;
+  border: 1px solid var(--tab-border);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55);
+}
+
+.guide-schedule-tabs button[data-group='ongoing'] {
+  --tab-accent: #d97706;
+  --tab-accent-soft: rgba(245, 158, 11, 0.14);
+  --tab-border: rgba(245, 158, 11, 0.22);
+  --tab-bg: linear-gradient(180deg, rgba(245, 158, 11, 0.14) 0%, rgba(255, 251, 235, 0.82) 100%);
+}
+
+.guide-schedule-tabs button[data-group='upcoming'] {
+  --tab-accent: #059669;
+  --tab-accent-soft: rgba(16, 185, 129, 0.12);
+  --tab-border: rgba(16, 185, 129, 0.2);
+  --tab-bg: linear-gradient(180deg, rgba(16, 185, 129, 0.12) 0%, rgba(236, 253, 245, 0.82) 100%);
+}
+
+.guide-schedule-tabs button[data-group='completed'] {
+  --tab-accent: #2563eb;
+  --tab-accent-soft: rgba(59, 130, 246, 0.12);
+  --tab-border: rgba(59, 130, 246, 0.18);
+  --tab-bg: linear-gradient(180deg, rgba(59, 130, 246, 0.12) 0%, rgba(239, 246, 255, 0.82) 100%);
 }
 
 .guide-schedule-tabs button.is-active {
-  border-color: #1454f0;
-  background: #1454f0;
-  color: #ffffff;
-  box-shadow: 0 10px 24px rgba(20, 84, 240, 0.16);
+  border-color: var(--tab-border);
+  background: var(--tab-bg);
+  color: #0f172a;
+  box-shadow: inset 0 0 0 1px var(--tab-border);
+  transform: translateY(-1px);
 }
 
 .guide-schedule-tabs button.is-active span {
-  color: rgba(255, 255, 255, 0.82);
+  background: #ffffff;
+  color: var(--tab-accent);
+  border-color: var(--tab-border);
+  box-shadow: 0 8px 16px rgba(15, 23, 42, 0.06), inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+}
+
+.guide-schedule-tabs button:hover:not(.is-active) {
+  border-color: var(--tab-border);
+  box-shadow: inset 0 0 0 1px var(--tab-border);
+  transform: translateY(-1px);
+}
+
+.guide-schedule-tabs button {
+  font-size: 1rem;
+  line-height: 1.3;
+}
+
+.guide-schedule-tabs button strong,
+.guide-schedule-tabs button small {
+  display: block;
 }
 
 .guide-schedule-tour-list {
@@ -5214,38 +5438,56 @@
 }
 
 .guide-schedule-tour-card {
+  --card-accent: #1454f0;
+  --card-accent-soft: rgba(20, 84, 240, 0.08);
+  --card-border: rgba(20, 84, 240, 0.18);
+  --card-shadow: rgba(20, 84, 240, 0.1);
+  --card-bg: linear-gradient(180deg, rgba(20, 84, 240, 0.08) 0%, rgba(255, 255, 255, 0.95) 100%);
   display: grid;
   gap: 6px;
   padding: 14px 16px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--card-border);
   border-radius: 18px;
-  background: #ffffff;
+  background: var(--card-bg);
   text-align: left;
   cursor: pointer;
-  transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+  transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease,
+    background 150ms ease;
 }
 
 .guide-schedule-tour-card:hover,
 .guide-schedule-tour-card.is-active {
-  border-color: #1454f0;
-  box-shadow: 0 12px 26px rgba(20, 84, 240, 0.1);
+  border-color: var(--card-border);
+  box-shadow: inset 0 0 0 1px var(--card-border);
   transform: translateY(-1px);
 }
 
 .guide-schedule-tour-card.state-upcoming {
-  background: linear-gradient(180deg, #f6fff7 0%, #ffffff 100%);
+  --card-accent: #059669;
+  --card-accent-soft: rgba(16, 185, 129, 0.12);
+  --card-border: rgba(16, 185, 129, 0.2);
+  --card-shadow: rgba(16, 185, 129, 0.11);
+  --card-bg: linear-gradient(180deg, rgba(16, 185, 129, 0.1) 0%, rgba(236, 253, 245, 0.7) 100%);
 }
 
 .guide-schedule-tour-card.state-ongoing {
-  background: linear-gradient(180deg, #fffaf0 0%, #ffffff 100%);
+  --card-accent: #d97706;
+  --card-accent-soft: rgba(245, 158, 11, 0.12);
+  --card-border: rgba(245, 158, 11, 0.22);
+  --card-shadow: rgba(245, 158, 11, 0.11);
+  --card-bg: linear-gradient(180deg, rgba(245, 158, 11, 0.1) 0%, rgba(255, 251, 235, 0.7) 100%);
 }
 
 .guide-schedule-tour-card.state-completed {
-  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+  --card-accent: #2563eb;
+  --card-accent-soft: rgba(59, 130, 246, 0.12);
+  --card-border: rgba(59, 130, 246, 0.18);
+  --card-shadow: rgba(59, 130, 246, 0.11);
+  --card-bg: linear-gradient(180deg, rgba(59, 130, 246, 0.1) 0%, rgba(239, 246, 255, 0.7) 100%);
 }
 
 .guide-schedule-tour-date {
-  color: #1454f0;
+  color: var(--card-accent);
   font-size: 0.76rem;
   font-weight: 900;
   letter-spacing: 0.06em;
@@ -5282,23 +5524,51 @@
 }
 
 .guide-schedule-empty.large {
-  min-height: 420px;
+  min-height: 220px;
 }
 
-.guide-schedule-detail-head {
+.guide-schedule-tour-detail-card {
+  gap: 18px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+}
+
+.guide-schedule-tour-detail-card.state-upcoming {
+  --card-accent: #059669;
+  --card-accent-soft: rgba(16, 185, 129, 0.12);
+  --card-border: rgba(16, 185, 129, 0.2);
+  --card-bg: linear-gradient(180deg, rgba(16, 185, 129, 0.1) 0%, rgba(236, 253, 245, 0.7) 100%);
+}
+
+.guide-schedule-tour-detail-card.state-ongoing {
+  --card-accent: #d97706;
+  --card-accent-soft: rgba(245, 158, 11, 0.12);
+  --card-border: rgba(245, 158, 11, 0.22);
+  --card-bg: linear-gradient(180deg, rgba(245, 158, 11, 0.1) 0%, rgba(255, 251, 235, 0.7) 100%);
+}
+
+.guide-schedule-tour-detail-card.state-completed {
+  --card-accent: #2563eb;
+  --card-accent-soft: rgba(59, 130, 246, 0.12);
+  --card-border: rgba(59, 130, 246, 0.18);
+  --card-bg: linear-gradient(180deg, rgba(59, 130, 246, 0.1) 0%, rgba(239, 246, 255, 0.7) 100%);
+}
+
+.guide-schedule-tour-detail-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
+  gap: 14px;
   padding: 18px;
-  border: 1px solid #e2e8f0;
   border-radius: 18px;
-  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  background: transparent;
 }
 
-.guide-schedule-detail-head > div {
+.guide-schedule-tour-detail-summary-head {
   display: grid;
   gap: 8px;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .guide-schedule-runtime {
@@ -5336,6 +5606,12 @@
 .guide-schedule-detail-head p {
   margin: 0;
   color: #64748b;
+}
+
+.guide-schedule-tour-detail-head h3 {
+  margin: 6px 0 0;
+  color: #0f172a;
+  font-size: 1.45rem;
 }
 
 .guide-schedule-date-box {
@@ -5379,6 +5655,124 @@
   border: 1px solid #e2e8f0;
   border-radius: 18px;
   background: #ffffff;
+}
+
+.guide-schedule-tour-detail-action {
+  display: grid;
+  gap: 3px;
+  align-items: start;
+  flex: 0 0 240px;
+  width: 240px;
+  min-width: 240px;
+  justify-self: end;
+  align-self: flex-start;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
+  box-shadow: 0 12px 22px rgba(37, 99, 235, 0.2);
+  cursor: pointer;
+  text-align: left;
+  transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease,
+    background 150ms ease;
+}
+
+.guide-schedule-tour-detail-action.is-open {
+  background: linear-gradient(180deg, #1d4ed8 0%, #1e40af 100%);
+  box-shadow: 0 14px 26px rgba(37, 99, 235, 0.24);
+}
+
+.guide-schedule-tour-detail-action span,
+.guide-schedule-tour-detail-summary span,
+.guide-schedule-tour-detail-meta dt {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.guide-schedule-tour-detail-action strong {
+  color: #ffffff;
+  font-size: 0.94rem;
+  font-weight: 900;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.guide-schedule-tour-detail-action span {
+  white-space: nowrap;
+}
+
+.guide-schedule-tour-detail-action:hover {
+  box-shadow: 0 16px 28px rgba(37, 99, 235, 0.26);
+  transform: translateY(-1px);
+}
+
+@media (max-width: 720px) {
+  .guide-schedule-tour-detail-head {
+    flex-direction: column;
+  }
+
+  .guide-schedule-tour-detail-action {
+    width: 100%;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+}
+
+.guide-schedule-tour-detail-body {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border-radius: 18px;
+  background: #f8fbff;
+  border: 1px solid #dbe5f2;
+}
+
+.guide-schedule-tour-detail-body .guide-schedule-tour-detail-summary span,
+.guide-schedule-tour-detail-body .guide-schedule-tour-detail-meta dt {
+  color: #57708f;
+}
+
+.guide-schedule-tour-detail-summary {
+  display: grid;
+  gap: 8px;
+}
+
+.guide-schedule-tour-detail-summary h4 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1.25rem;
+}
+
+.guide-schedule-tour-detail-summary p {
+  margin: 0;
+  color: #475569;
+  line-height: 1.6;
+}
+
+.guide-schedule-tour-detail-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.guide-schedule-tour-detail-meta div {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: #f8fbff;
+  border: 1px solid #dbe5f2;
+}
+
+.guide-schedule-tour-detail-meta dd {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1rem;
+  font-weight: 800;
 }
 
 .guide-schedule-panel-head {
@@ -5457,6 +5851,14 @@
   gap: 6px;
 }
 
+.guide-schedule-session-stat-label {
+  color: #5b6b84;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
 .guide-schedule-session-bar strong {
   color: #0f172a;
   font-size: 1.2rem;
@@ -5474,13 +5876,18 @@
 .guide-schedule-customer-header,
 .guide-schedule-customer-row {
   display: grid;
-  grid-template-columns: minmax(0, 1.6fr) 120px 120px 170px;
+  grid-template-columns: 44px minmax(0, 1.7fr) minmax(0, 0.9fr) 92px 92px minmax(0, 164px);
   gap: 12px;
-  align-items: center;
+  align-items: start;
 }
 
 .guide-schedule-customer-header {
-  padding: 0 4px;
+  padding: 0 12px 0 8px;
+}
+
+.guide-schedule-customer-header > :last-child,
+.guide-schedule-customer-row > :last-child {
+  justify-self: center;
 }
 
 .guide-schedule-customers {
@@ -5489,22 +5896,47 @@
 }
 
 .guide-schedule-customer-row {
-  padding: 14px 16px;
+  padding: 14px 18px;
   border: 1px solid #e2e8f0;
   border-radius: 16px;
   background: #ffffff;
 }
 
+.guide-schedule-customer-index {
+  justify-self: start;
+  padding-top: 6px;
+  color: #1d4ed8;
+  font-size: 0.98rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
 .guide-schedule-customer-main {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
-  align-items: center;
+  grid-template-columns: 1fr;
+  gap: 4px;
+  align-items: start;
+  width: 100%;
   border: 0;
   background: transparent;
   padding: 0;
   text-align: left;
   cursor: pointer;
+}
+
+.guide-schedule-customer-main-info {
+  display: grid;
+  gap: 4px;
+}
+
+.guide-schedule-customer-phone {
+  justify-self: start;
+  color: #64748b;
+  font-size: 0.9rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .guide-schedule-customer-main strong {
@@ -5520,12 +5952,15 @@
 .guide-schedule-yesno {
   display: inline-flex;
   justify-content: center;
-  min-height: 34px;
+  min-height: 30px;
+  min-width: 92px;
+  width: 92px;
   align-items: center;
-  padding: 0 12px;
+  padding: 0 10px;
   border-radius: 999px;
-  font-size: 0.76rem;
+  font-size: 0.72rem;
   font-weight: 900;
+  white-space: nowrap;
 }
 
 .guide-schedule-yesno.is-yes {
@@ -5541,20 +5976,27 @@
 .guide-schedule-actions {
   display: flex;
   gap: 8px;
-  justify-content: flex-end;
+  justify-content: center;
+  align-items: center;
+  width: fit-content;
+  min-width: 0;
 }
 
 .guide-schedule-actions button,
 .guide-schedule-secondary-btn {
-  min-height: 38px;
-  padding: 0 12px;
+  flex: 1 1 0;
+  min-height: 32px;
+  min-width: 0;
+  padding: 0 10px;
   border: 1px solid #dbe5f2;
   border-radius: 12px;
   background: #ffffff;
   color: #0f172a;
   font: inherit;
+  font-size: 0.74rem;
   font-weight: 800;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .guide-schedule-actions button:disabled {
@@ -5563,7 +6005,7 @@
 }
 
 .guide-schedule-secondary-btn {
-  justify-self: end;
+  justify-self: center;
 }
 
 .guide-schedule-history-panel {
@@ -5577,18 +6019,22 @@
 }
 
 @media (max-width: 1180px) {
-  .guide-schedule-layout {
-    grid-template-columns: 1fr;
-  }
-
   .guide-schedule-session-bar,
   .guide-schedule-customer-header,
   .guide-schedule-customer-row {
     grid-template-columns: 1fr;
   }
 
+  .guide-schedule-customer-index {
+    justify-self: start;
+  }
+
   .guide-schedule-customer-main {
     grid-template-columns: 1fr;
+  }
+
+  .guide-schedule-customer-phone {
+    justify-self: start;
   }
 }
 

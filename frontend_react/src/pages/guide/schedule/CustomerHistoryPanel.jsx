@@ -8,9 +8,6 @@ function CustomerHistoryPanel({ detail, loading, onClose }) {
 
   return (
     <aside className="guide-schedule-history-panel">
-      <button type="button" onClick={onClose} aria-label="Đóng lịch sử">
-        ×
-      </button>
       <span>Lịch sử khách hàng</span>
       <h3>{loading ? 'Đang tải...' : info.full_name || 'Khách hàng'}</h3>
 

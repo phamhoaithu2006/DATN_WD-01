@@ -258,6 +258,12 @@ export function useGuideSchedule() {
     setSelectedTourId(item.id)
   }
 
+  function changeActiveGroup(groupKey) {
+    setActiveGroup(groupKey)
+    const firstTour = tourGroups[groupKey]?.[0] || null
+    setSelectedTourId(firstTour?.id || null)
+  }
+
   async function refreshSessionData(sessionId = activeSessionId) {
     const params = sessionId ? { attendance_session_id: sessionId } : {}
 
@@ -361,6 +367,7 @@ export function useGuideSchedule() {
     message,
     openCustomerHistory,
     runtime,
+    changeActiveGroup,
     selectTour,
     selectedStage,
     selectedTour,
