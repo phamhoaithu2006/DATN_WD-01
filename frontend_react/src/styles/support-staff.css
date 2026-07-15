@@ -1886,35 +1886,52 @@
   box-shadow: 0 0 0 3px #ffffff, 0 8px 18px rgba(225, 29, 72, 0.28);
 }
 
-/* Các card thống kê nằm 1 hàng, nếu chật thì kéo ngang */
+/* 6 card thống kê căn đều trên 1 hàng */
 .guide-page .guide-stat-grid {
-  display: flex !important;
-  flex-wrap: nowrap !important;
-  gap: 16px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  padding-bottom: 10px;
-  scroll-snap-type: x proximity;
-}
-
-.guide-page .guide-stat-grid::-webkit-scrollbar {
-  height: 8px;
-}
-
-.guide-page .guide-stat-grid::-webkit-scrollbar-track {
-  background: #eef2f7;
-  border-radius: 999px;
-}
-
-.guide-page .guide-stat-grid::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 999px;
+  display: grid !important;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+  overflow: visible;
 }
 
 .guide-page .guide-stat-grid .guide-stat-card {
-  flex: 0 0 270px;
-  min-width: 270px;
-  scroll-snap-align: start;
+  min-width: 0;
+  padding: 14px 12px;
+}
+
+.guide-page .guide-stat-grid .guide-stat-card strong {
+  font-size: clamp(22px, 1.9vw, 30px);
+  margin-bottom: 8px;
+}
+
+.guide-page .guide-stat-grid .guide-stat-card span {
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.guide-page .guide-stat-grid .guide-stat-card small {
+  display: block;
+  font-size: clamp(10px, 0.72vw, 12px);
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+@media (max-width: 1200px) {
+  .guide-page .guide-stat-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .guide-page .guide-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .guide-page .guide-stat-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Modal giống form Thêm khách hàng */
