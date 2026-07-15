@@ -450,6 +450,30 @@
   transform: translateY(-1px);
 }
 
+.guide-topbar-profile-link {
+  gap: 10px;
+  padding: 10px 16px;
+  color: #1454f0;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.guide-topbar-profile-link svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2px;
+}
+
+.guide-topbar-profile-link span {
+  font-size: 0.92rem;
+  color: inherit;
+}
+
 .guide-account-menu {
   position: relative;
 }
@@ -1926,6 +1950,30 @@
     border-color 150ms ease,
     box-shadow 150ms ease,
     background 150ms ease;
+}
+
+.guide-profile-inline-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #e6f2ff 0%, #dff0ff 100%);
+  color: #0b74d3;
+  box-shadow: inset 0 0 0 1px rgba(20, 84, 240, 0.08);
+}
+
+.guide-profile-inline-badge strong {
+  font-size: 1rem;
+  line-height: 1;
+  font-weight: 900;
+}
+
+.guide-profile-inline-badge span {
+  color: inherit;
+  font-size: 0.9rem;
+  font-weight: 800;
 }
 
 .guide-field input[type='file'] {
@@ -5057,5 +5105,501 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+/* ========================================================================== */
+/* GUIDE SCHEDULE PAGE */
+/* ========================================================================== */
+
+.guide-schedule-page {
+  display: grid;
+  gap: 18px;
+}
+
+.guide-schedule-header.simple {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 22px 24px;
+  border: 1px solid #e2e8f0;
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at top left, rgba(20, 84, 240, 0.08), transparent 28%),
+    linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.06);
+}
+
+.guide-schedule-header.simple span {
+  display: inline-flex;
+  margin-bottom: 6px;
+  color: #1454f0;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.guide-schedule-header.simple h1 {
+  margin: 0;
+  color: #0f172a;
+  font-size: clamp(1.7rem, 2.8vw, 2.4rem);
+  line-height: 1.1;
+}
+
+.guide-schedule-layout {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.88fr) minmax(0, 1.12fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.guide-schedule-sidebar,
+.guide-schedule-content,
+.guide-schedule-panel,
+.guide-schedule-history-panel {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.06);
+}
+
+.guide-schedule-sidebar {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.guide-schedule-tabs {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.guide-schedule-tabs button {
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+  padding: 14px 12px;
+  border: 1px solid #dbe5f2;
+  border-radius: 16px;
+  background: #f8fbff;
+  color: #0f172a;
+  font: inherit;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+}
+
+.guide-schedule-tabs button span {
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.guide-schedule-tabs button.is-active {
+  border-color: #1454f0;
+  background: #1454f0;
+  color: #ffffff;
+  box-shadow: 0 10px 24px rgba(20, 84, 240, 0.16);
+}
+
+.guide-schedule-tabs button.is-active span {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.guide-schedule-tour-list {
+  display: grid;
+  gap: 10px;
+}
+
+.guide-schedule-tour-card {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  background: #ffffff;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+
+.guide-schedule-tour-card:hover,
+.guide-schedule-tour-card.is-active {
+  border-color: #1454f0;
+  box-shadow: 0 12px 26px rgba(20, 84, 240, 0.1);
+  transform: translateY(-1px);
+}
+
+.guide-schedule-tour-card.state-upcoming {
+  background: linear-gradient(180deg, #f6fff7 0%, #ffffff 100%);
+}
+
+.guide-schedule-tour-card.state-ongoing {
+  background: linear-gradient(180deg, #fffaf0 0%, #ffffff 100%);
+}
+
+.guide-schedule-tour-card.state-completed {
+  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+}
+
+.guide-schedule-tour-date {
+  color: #1454f0;
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.guide-schedule-tour-card strong {
+  color: #0f172a;
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.guide-schedule-tour-card small,
+.guide-schedule-tour-card em {
+  color: #64748b;
+  font-size: 0.8rem;
+  font-style: normal;
+}
+
+.guide-schedule-content {
+  min-width: 0;
+  padding: 16px;
+  display: grid;
+  gap: 16px;
+}
+
+.guide-schedule-empty {
+  display: grid;
+  place-items: center;
+  min-height: 180px;
+  padding: 18px;
+  color: #64748b;
+  text-align: center;
+}
+
+.guide-schedule-empty.large {
+  min-height: 420px;
+}
+
+.guide-schedule-detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+}
+
+.guide-schedule-detail-head > div {
+  display: grid;
+  gap: 8px;
+}
+
+.guide-schedule-runtime {
+  width: fit-content;
+  display: inline-flex;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.guide-schedule-runtime.runtime-upcoming {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.guide-schedule-runtime.runtime-ongoing {
+  background: #fffbeb;
+  color: #d97706;
+}
+
+.guide-schedule-runtime.runtime-completed {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.guide-schedule-detail-head h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1.5rem;
+}
+
+.guide-schedule-detail-head p {
+  margin: 0;
+  color: #64748b;
+}
+
+.guide-schedule-date-box {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: #f8fbff;
+  border: 1px solid #dbe5f2;
+  min-width: 180px;
+}
+
+.guide-schedule-date-box span,
+.guide-schedule-panel-head span,
+.guide-schedule-stage-tabs button strong,
+.guide-schedule-session-bar span,
+.guide-schedule-customer-header {
+  color: #64748b;
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.guide-schedule-date-box strong {
+  color: #0f172a;
+  font-size: 1.1rem;
+}
+
+.guide-schedule-date-box small {
+  color: #475569;
+}
+
+.guide-schedule-panel {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.guide-schedule-panel.compact {
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  background: #ffffff;
+}
+
+.guide-schedule-panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.guide-schedule-panel-head h3 {
+  margin: 6px 0 0;
+  color: #0f172a;
+  font-size: 1.15rem;
+}
+
+.guide-schedule-panel-head button {
+  min-height: 42px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 14px;
+  background: #1454f0;
+  color: #ffffff;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.guide-schedule-stage-tabs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.guide-schedule-stage-tabs button {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid #dbe5f2;
+  border-radius: 16px;
+  background: #f8fbff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.guide-schedule-stage-tabs button.is-active {
+  border-color: #1454f0;
+  background: #eff6ff;
+}
+
+.guide-schedule-session-bar {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) repeat(3, minmax(110px, auto));
+  gap: 12px;
+  padding: 14px;
+  border-radius: 16px;
+  background: #f8fbff;
+  border: 1px solid #e2e8f0;
+}
+
+.guide-schedule-session-bar label {
+  display: grid;
+  gap: 6px;
+}
+
+.guide-schedule-session-bar select {
+  min-height: 42px;
+  border: 1px solid #dbe5f2;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 0 12px;
+  font: inherit;
+}
+
+.guide-schedule-session-bar > div {
+  display: grid;
+  gap: 6px;
+}
+
+.guide-schedule-session-bar strong {
+  color: #0f172a;
+  font-size: 1.2rem;
+}
+
+.guide-schedule-note {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  line-height: 1.5;
+}
+
+.guide-schedule-customer-header,
+.guide-schedule-customer-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) 120px 120px 170px;
+  gap: 12px;
+  align-items: center;
+}
+
+.guide-schedule-customer-header {
+  padding: 0 4px;
+}
+
+.guide-schedule-customers {
+  display: grid;
+  gap: 10px;
+}
+
+.guide-schedule-customer-row {
+  padding: 14px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: #ffffff;
+}
+
+.guide-schedule-customer-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.guide-schedule-customer-main strong {
+  display: block;
+  color: #0f172a;
+}
+
+.guide-schedule-customer-main span,
+.guide-schedule-customer-main small {
+  color: #64748b;
+}
+
+.guide-schedule-yesno {
+  display: inline-flex;
+  justify-content: center;
+  min-height: 34px;
+  align-items: center;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.guide-schedule-yesno.is-yes {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.guide-schedule-yesno.is-no {
+  background: #f8fafc;
+  color: #64748b;
+}
+
+.guide-schedule-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.guide-schedule-actions button,
+.guide-schedule-secondary-btn {
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid #dbe5f2;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #0f172a;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.guide-schedule-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.guide-schedule-secondary-btn {
+  justify-self: end;
+}
+
+.guide-schedule-history-panel {
+  margin-top: 18px;
+  padding: 16px;
+}
+
+.guide-schedule-history-list {
+  display: grid;
+  gap: 10px;
+}
+
+@media (max-width: 1180px) {
+  .guide-schedule-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .guide-schedule-session-bar,
+  .guide-schedule-customer-header,
+  .guide-schedule-customer-row {
+    grid-template-columns: 1fr;
+  }
+
+  .guide-schedule-customer-main {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .guide-schedule-header.simple,
+  .guide-schedule-detail-head,
+  .guide-schedule-panel-head {
+    flex-direction: column;
+  }
+
+  .guide-schedule-tabs {
+    grid-template-columns: 1fr;
   }
 }
