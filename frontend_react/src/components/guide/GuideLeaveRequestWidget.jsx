@@ -188,6 +188,30 @@ function GuideLeaveRequestWidget() {
   const [error, setError] = useState('')
   const [fieldErrors, setFieldErrors] = useState({})
 
+  useEffect(() => {
+    if (!open) return undefined
+
+    const previousBodyOverflow = document.body.style.overflow
+    const previousHtmlOverflow = document.documentElement.style.overflow
+
+    document.body.style.overflow = 'hidden'
+    document.documentElement.style.overflow = 'hidden'
+
+    function closeOnEscape(event) {
+      if (event.key === 'Escape') {
+        setOpen(false)
+      }
+    }
+
+    document.addEventListener('keydown', closeOnEscape)
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow
+      document.documentElement.style.overflow = previousHtmlOverflow
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [open])
+
   const minLeaveDate = useMemo(() => addDaysKey(5), [])
 
   const filteredRequests = useMemo(() => {
@@ -360,11 +384,26 @@ function GuideLeaveRequestWidget() {
       </button>
 
       {open ? (
-        <section className="guide-leave-panel">
+        <div
+          className="guide-leave-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setOpen(false)
+            }
+          }}
+        >
+          <section
+            className="guide-leave-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="guide-leave-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
           <div className="guide-leave-panel-head">
             <div>
               <span>Đơn xin nghỉ</span>
-              <h3>Xin nghỉ HDV</h3>
+              <h3 id="guide-leave-title">Xin nghỉ HDV</h3>
               <p>Chọn một hoặc nhiều ngày nghỉ. Đơn cần gửi trước ngày nghỉ ít nhất 5 ngày.</p>
             </div>
 
@@ -597,7 +636,8 @@ function GuideLeaveRequestWidget() {
               )}
             </div>
           </div>
-        </section>
+          </section>
+        </div>
       ) : null}
     </div>
   )

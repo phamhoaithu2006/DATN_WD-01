@@ -1,4 +1,4 @@
-.guide-shell {
+﻿.guide-shell {
   height: 100svh;
   min-height: 100svh;
   display: grid;
@@ -5057,5 +5057,188 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+.guide-shell {
+  --guide-sidebar-width: 280px;
+}
+
+.guide-shell.sidebar-collapsed {
+  --guide-sidebar-width: 86px;
+}
+
+.guide-shell .guide-leave-panel {
+  position: fixed !important;
+  top: 104px !important;
+  left: calc(var(--guide-sidebar-width) + 24px) !important;
+  right: 24px !important;
+  width: auto !important;
+  max-width: none !important;
+  max-height: calc(100vh - 118px) !important;
+  overflow: auto !important;
+  z-index: 120 !important;
+  border-radius: 24px !important;
+  background: #ffffff !important;
+  box-shadow: 0 28px 80px rgba(15, 23, 42, 0.22) !important;
+  padding: 18px !important;
+}
+
+.guide-shell .guide-leave-grid {
+  grid-template-columns: minmax(300px, 420px) minmax(0, 1fr) !important;
+  align-items: start !important;
+}
+
+.guide-shell .guide-leave-request-list {
+  max-height: 440px !important;
+  overflow-y: auto !important;
+  padding-right: 4px !important;
+}
+
+@media (max-width: 1024px) {
+  .guide-shell .guide-leave-panel {
+    left: 16px !important;
+    right: 16px !important;
+    top: 86px !important;
+    max-height: calc(100vh - 104px) !important;
+  }
+
+  .guide-shell .guide-leave-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+.guide-shell .guide-leave-panel {
+  position: fixed !important;
+  top: 96px !important;
+  left: calc(var(--guide-sidebar-width) + 34px) !important;
+  right: 34px !important;
+  max-width: 1180px !important;
+  max-height: calc(100vh - 132px) !important;
+  overflow: hidden !important;
+}
+
+.guide-shell .guide-leave-grid {
+  grid-template-columns: minmax(300px, 370px) minmax(0, 1fr) !important;
+  max-height: calc(100vh - 350px) !important;
+  overflow: hidden !important;
+}
+
+.guide-shell .guide-leave-grid > * {
+  max-height: calc(100vh - 350px) !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+.guide-shell .guide-leave-panel {
+  position: fixed !important;
+  top: 96px !important;
+  left: var(--guide-sidebar-width) !important;
+  right: 0 !important;
+  width: min(1080px, calc(100vw - var(--guide-sidebar-width) - 72px)) !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+/* =========================================================
+   FIX: Nền xám chỉ phủ vùng nội dung bên phải, không phủ sidebar
+   ========================================================= */
+
+.guide-shell {
+  --guide-sidebar-width: 280px;
+}
+
+.guide-shell.sidebar-collapsed {
+  --guide-sidebar-width: 86px;
+}
+
+.guide-leave-backdrop {
+  position: fixed !important;
+  top: 0 !important;
+  left: var(--guide-sidebar-width) !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  z-index: 999 !important;
+
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: center !important;
+
+  box-sizing: border-box !important;
+  padding: 96px 32px 28px 32px !important;
+
+  background: rgba(15, 23, 42, 0.48) !important;
+  backdrop-filter: blur(3px) !important;
+
+  overflow: hidden !important;
+}
+
+/* Card nằm giữa vùng bên phải */
+.guide-leave-backdrop .guide-leave-panel {
+  position: relative !important;
+  top: auto !important;
+  left: auto !important;
+  right: auto !important;
+
+  width: min(1080px, 100%) !important;
+  max-width: 1080px !important;
+  max-height: calc(100vh - 124px) !important;
+
+  margin: 0 auto !important;
+  overflow: hidden !important;
+
+  z-index: 1000 !important;
+  box-sizing: border-box !important;
+  border-radius: 24px !important;
+  background: #ffffff !important;
+  padding: 16px !important;
+  box-shadow: 0 32px 90px rgba(15, 23, 42, 0.34) !important;
+}
+
+/* Hai cột trong card có thanh cuộn riêng */
+.guide-leave-backdrop .guide-leave-grid {
+  display: grid !important;
+  grid-template-columns: 360px minmax(0, 1fr) !important;
+  gap: 16px !important;
+  align-items: stretch !important;
+  min-height: 410px !important;
+  max-height: calc(100vh - 350px) !important;
+  overflow: hidden !important;
+}
+
+.guide-leave-backdrop .guide-leave-grid > * {
+  min-height: 0 !important;
+  max-height: calc(100vh - 350px) !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding-right: 6px !important;
+  box-sizing: border-box !important;
+  overscroll-behavior: contain !important;
+}
+
+/* Khi sidebar thu gọn */
+.guide-shell.sidebar-collapsed .guide-leave-backdrop {
+  left: 86px !important;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .guide-leave-backdrop {
+    left: 0 !important;
+    padding: 82px 16px 16px 16px !important;
+  }
+
+  .guide-leave-backdrop .guide-leave-panel {
+    width: 100% !important;
+    max-height: calc(100vh - 98px) !important;
+  }
+
+  .guide-leave-backdrop .guide-leave-grid {
+    grid-template-columns: 1fr !important;
+    max-height: calc(100vh - 300px) !important;
+  }
+
+  .guide-leave-backdrop .guide-leave-grid > * {
+    max-height: 360px !important;
   }
 }
