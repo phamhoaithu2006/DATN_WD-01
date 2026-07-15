@@ -23,11 +23,14 @@ class GuideTourCustomerDetailResource extends JsonResource
             'personal_info' => [
                 'full_name' => $this->full_name,
                 'phone' => $this->phone ?? $contact?->contact_phone ?? $user?->phone,
+                'customer_phone' => $this->phone,
+                'contact_phone' => $contact?->contact_phone,
                 'email' => $contact?->contact_email ?? $user?->email,
                 'birth_date' => $this->birth_date?->toDateString(),
                 'gender' => $this->gender,
                 'identity_number' => $this->identity_number,
                 'participant_type' => $this->participant_type,
+                'health_note' => $contact?->special_request ?? $booking?->note,
             ],
             'booking_info' => [
                 'id' => $booking?->id,

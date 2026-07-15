@@ -145,6 +145,97 @@ class GuideTourController extends Controller
             ->orderBy('tour_departures.departure_date', 'asc');
     }
 
+    private function paginatedResponse($query, Request $request)
+    {
+        $paginator = $query->paginate(min($request->integer('per_page', 10), 50));
+        $paginator->getCollection()->transform(fn (TourDeparture $departure) => $this->decorateDeparture($departure));
+
+        return $paginator;
+    }
+
+    private function decorateDeparture(TourDeparture $departure): array
+    {
+        $data = $departure->toArray();
+        $guideStatus = $this->guideStatus($departure);
+
+        $data['guide_status'] = $guideStatus;
+        $data['guide_status_label'] = match ($guideStatus) {
+            'ongoing' => 'Đang khởi hành',
+            'upcoming' => 'Sắp đi',
+            'completed' => 'Đã đi',
+            'cancelled' => 'Đã hủy',
+            default => 'Không xác định',
+        };
+        $data['can_take_attendance'] = $guideStatus === 'ongoing';
+        $data['can_view_attendance_history'] = in_array($guideStatus, ['ongoing', 'completed'], true);
+        $data['actions'] = $this->actionPolicy($departure, $guideStatus);
+
+        return $data;
+    }
+
+    private function actionPolicy(TourDeparture $departure, string $guideStatus): array
+    {
+        $basePath = "/api/guide/tours/{$departure->id}";
+
+        return [
+            'view_detail' => [
+                'enabled' => true,
+                'label' => 'Xem chi tiết tour',
+                'method' => 'GET',
+                'endpoint' => $basePath,
+            ],
+            'view_itinerary' => [
+                'enabled' => true,
+                'label' => 'Xem lịch trình',
+                'method' => 'GET',
+                'endpoint' => "{$basePath}/stages",
+            ],
+            'take_attendance' => [
+                'enabled' => $guideStatus === 'ongoing',
+                'label' => 'Điểm danh khách hàng',
+                'method' => 'GET',
+                'endpoint' => "{$basePath}/customers",
+                'disabled_reason' => $guideStatus === 'ongoing'
+                    ? null
+                    : 'Chỉ tour đang khởi hành mới được điểm danh.',
+            ],
+            'view_attendance_history' => [
+                'enabled' => in_array($guideStatus, ['ongoing', 'completed'], true),
+                'label' => 'Xem lịch sử điểm danh',
+                'method' => 'GET',
+                'endpoint' => "{$basePath}/attendance-sessions",
+                'disabled_reason' => in_array($guideStatus, ['ongoing', 'completed'], true)
+                    ? null
+                    : 'Tour sắp đi chưa có lịch sử điểm danh.',
+            ],
+        ];
+    }
+
+    private function guideStatus(TourDeparture $departure): string
+    {
+        if (in_array($departure->status, ['cancelled', 'canceled'], true)) {
+            return 'cancelled';
+        }
+
+        $today = Carbon::today();
+        $departureDate = Carbon::parse($departure->departure_date)->startOfDay();
+        $returnDate = Carbon::parse($departure->return_date ?: $departure->departure_date)->startOfDay();
+
+        if ($departure->status === 'completed' || $returnDate->lt($today)) {
+            return 'completed';
+        }
+
+        if ($departureDate->gt($today)) {
+            return 'upcoming';
+        }
+
+        if ($departureDate->lte($today) && $returnDate->gte($today)) {
+            return 'ongoing';
+        }
+
+        return 'unknown';
+    }
+
     public function index(Request $request)
     {
         $guide = $this->getGuide($request);
@@ -161,7 +252,7 @@ class GuideTourController extends Controller
 
         return response()->json([
             'message' => 'Danh sách tour được phân công',
-            'data' => $query->paginate(min($request->integer('per_page', 10), 50)),
+            'data' => $this->paginatedResponse($query, $request),
         ]);
     }
 
@@ -186,7 +277,7 @@ class GuideTourController extends Controller
 
         return response()->json([
             'message' => 'Danh sách tour sắp diễn ra',
-            'data' => $query->paginate(min($request->integer('per_page', 10), 50)),
+            'data' => $this->paginatedResponse($query, $request),
         ]);
     }
 
@@ -216,7 +307,7 @@ class GuideTourController extends Controller
 
         return response()->json([
             'message' => 'Danh sách tour đang diễn ra',
-            'data' => $query->paginate(min($request->integer('per_page', 10), 50)),
+            'data' => $this->paginatedResponse($query, $request),
         ]);
     }
 
@@ -247,7 +338,7 @@ class GuideTourController extends Controller
 
         return response()->json([
             'message' => 'Danh sách tour đã hoàn thành',
-            'data' => $query->paginate(min($request->integer('per_page', 10), 50)),
+            'data' => $this->paginatedResponse($query, $request),
         ]);
     }
 
@@ -260,6 +351,19 @@ class GuideTourController extends Controller
                 'message' => 'Tài khoản chưa có hồ sơ hướng dẫn viên hoặc chưa được phân công tour.',
                 'data' => null,
             ]);
+        }
+
+        $assignmentNoteExpression = 'NULL as assignment_note';
+
+        if (
+            Schema::hasColumn('tour_guide_assignments', 'notes') &&
+            Schema::hasColumn('tour_guide_assignments', 'note')
+        ) {
+            $assignmentNoteExpression = 'COALESCE(tga.notes, tga.note) as assignment_note';
+        } elseif (Schema::hasColumn('tour_guide_assignments', 'notes')) {
+            $assignmentNoteExpression = 'tga.notes as assignment_note';
+        } elseif (Schema::hasColumn('tour_guide_assignments', 'note')) {
+            $assignmentNoteExpression = 'tga.note as assignment_note';
         }
 
         $departure = TourDeparture::query()
@@ -280,7 +384,7 @@ class GuideTourController extends Controller
                 'tour_departures.*',
                 'tga.id as assignment_id',
                 'tga.status as assignment_status',
-                DB::raw('COALESCE(tga.notes, tga.note) as assignment_note'),
+                DB::raw($assignmentNoteExpression),
             ])
             ->when(Schema::hasTable('guide_replacement_requests'), function ($detailQuery) use ($guide) {
                 $detailQuery->selectSub(function ($subQuery) use ($guide) {
@@ -298,7 +402,7 @@ class GuideTourController extends Controller
 
         return response()->json([
             'message' => 'Chi tiết tour được phân công',
-            'data' => $departure,
+            'data' => $this->decorateDeparture($departure),
         ]);
     }
 
@@ -314,7 +418,7 @@ class GuideTourController extends Controller
 
         $validated = $request->validate([
             'reason' => ['required', 'string', 'min:10', 'max:2000'],
-            'evidence' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:5120'],
+            'evidence' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,pdf,doc,docx,xls,xlsx', 'max:5120'],
         ], [
             'reason.required' => 'Vui lòng nhập lý do xin đổi HDV.',
             'reason.min' => 'Lý do cần ít nhất 10 ký tự.',

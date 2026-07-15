@@ -79,6 +79,17 @@ class GuideAttendanceController extends Controller
         ]);
     }
 
+    public function sessions(Request $request, TourDeparture $tourDeparture): JsonResponse
+    {
+        $sessions = $this->service->getAttendanceSessions($request->user(), $tourDeparture);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Attendance sessions retrieved successfully.',
+            'data' => AttendanceSessionResource::collection($sessions),
+        ]);
+    }
+
     public function showCustomer(Request $request, TourDeparture $tourDeparture, BookingParticipant $bookingParticipant): JsonResponse
     {
         $participant = $this->service->getCustomerDetail($request->user(), $tourDeparture, $bookingParticipant);

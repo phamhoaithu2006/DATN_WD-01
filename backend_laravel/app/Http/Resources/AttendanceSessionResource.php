@@ -22,6 +22,10 @@ class AttendanceSessionResource extends JsonResource
             'status' => $this->status,
             'created_by' => $this->created_by,
             'creator' => $this->whenLoaded('creator', fn () => $this->creator?->only(['id', 'full_name', 'email'])),
+            'attendance_count' => $this->whenNotNull($this->resource->getAttribute('attendances_count')),
+            'checked_in_count' => $this->whenNotNull($this->resource->getAttribute('checked_in_count')),
+            'checked_out_count' => $this->whenNotNull($this->resource->getAttribute('checked_out_count')),
+            'absent_count' => $this->whenNotNull($this->resource->getAttribute('absent_count')),
             'created_at' => $this->created_at?->toDateTimeString(),
             'updated_at' => $this->updated_at?->toDateTimeString(),
         ];

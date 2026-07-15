@@ -36,6 +36,8 @@ use App\Http\Controllers\Api\Guide\GuideDashboardController;
 use App\Http\Controllers\Api\Guide\GuideProfileController;
 use App\Http\Controllers\Api\Guide\GuideReviewController as GuideGuideReviewController;
 use App\Http\Controllers\Api\Guide\GuideTourController;
+use App\Http\Controllers\Api\Support\SupportProfileController;
+use App\Http\Controllers\Api\Support\SupportNotificationController;
 use App\Http\Controllers\Api\PublicSettingController;
 use App\Http\Controllers\Api\PublicWidgetController;
 use App\Models\GuideSpecialization;
@@ -52,10 +54,19 @@ Route::prefix('auth')->group(function () {
     });
     // Lấy thông tin người dùng hiện tại (chỉ có thể thực hiện khi người dùng đã đăng nhập)
     Route::middleware('auth:sanctum')->get('/me', function () {
+        $user = request()->user()->load(['role', 'supportStaff.user']);
+
         return response()->json([
-            'user' => request()->user()->load('role'),
+            'user' => $user,
         ]);
     });
+});
+
+// =============================== Nhân viên hỗ trợ ===============================
+Route::middleware(['auth:sanctum', 'role:support staff'])->group(function () {
+    Route::get('/support/profile', [SupportProfileController::class, 'show']);
+    Route::put('/support/profile', [SupportProfileController::class, 'update']);
+    Route::put('/support/change-password', [SupportProfileController::class, 'changePassword']);
 });
 
 // Khách hàng đã đăng nhập
@@ -85,6 +96,16 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/notifications/customers/unread-count', [NotificationCustomerController::class, 'getUnreadCount']);
     // API đánh dấu đã đọc (sử dụng PATCH vì cập nhật một phần dữ liệu)
     Route::patch('/notifications/customers/{id}/read', [NotificationCustomerController::class, 'markAsRead']);
+});
+
+Route::middleware(['auth:sanctum', 'role:support staff'])->group(function () {
+    Route::get('/notifications/support', [SupportNotificationController::class, 'getMyNotifications']);
+    Route::get('/notifications/support/unread-count', [SupportNotificationController::class, 'getUnreadCount']);
+    Route::get('/notifications/support/{id}', [SupportNotificationController::class, 'getNotificationDetail'])
+        ->whereNumber('id');
+    Route::patch('/notifications/support/{id}/read', [SupportNotificationController::class, 'markAsRead'])
+        ->whereNumber('id');
+    Route::post('/notifications/support/send', [SupportNotificationController::class, 'sendNotification']);
 });
 
 // ===================== Đặt lại mật khẩu user=============
@@ -439,6 +460,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/guide/tours/{tourDeparture}/customers', [GuideAttendanceController::class, 'customers']);
     Route::get('/guide/tours/{tourDeparture}/customers/{bookingParticipant}', [GuideAttendanceController::class, 'showCustomer']);
     Route::get('/guide/tours/{tourDeparture}/attendance/statistics', [GuideAttendanceController::class, 'statistics']);
+    Route::get('/guide/tours/{tourDeparture}/attendance-sessions', [GuideAttendanceController::class, 'sessions']);
     Route::post('/guide/tours/{tourDeparture}/attendance-sessions', [GuideAttendanceController::class, 'storeSession']);
     Route::post('/guide/tours/{tourDeparture}/attendance-sessions/{attendanceSession}/check-in', [GuideAttendanceController::class, 'checkIn']);
     Route::post('/guide/tours/{tourDeparture}/attendance-sessions/{attendanceSession}/check-out', [GuideAttendanceController::class, 'checkOut']);
@@ -457,6 +479,3 @@ Route::middleware('auth:sanctum')->group(function () {
         [GuideTourController::class, 'replacementRequestStatus']
     );
 });
-
-
-
