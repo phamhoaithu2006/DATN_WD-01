@@ -1,4 +1,4 @@
-.guide-shell {
+﻿.guide-shell {
   height: 100svh;
   min-height: 100svh;
   display: grid;
@@ -5237,815 +5237,186 @@
     transform: translateY(0);
   }
 }
-/* ========================================================================== */
-/* GUIDE SCHEDULE PAGE */
-/* ========================================================================== */
 
-.guide-schedule-page {
-  display: grid;
-  gap: 18px;
+.guide-shell {
+  --guide-sidebar-width: 280px;
 }
 
-.guide-schedule-header.simple {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 18px;
-  padding: 22px 24px;
-  border: 1px solid #e2e8f0;
-  border-radius: 22px;
-  background:
-    radial-gradient(circle at top left, rgba(20, 84, 240, 0.08), transparent 28%),
-    linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
-  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.06);
+.guide-shell.sidebar-collapsed {
+  --guide-sidebar-width: 86px;
 }
 
-.guide-schedule-header.simple span {
-  display: inline-flex;
-  margin-bottom: 6px;
-  color: #1454f0;
-  font-size: 0.78rem;
-  font-weight: 900;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+.guide-shell .guide-leave-panel {
+  position: fixed !important;
+  top: 104px !important;
+  left: calc(var(--guide-sidebar-width) + 24px) !important;
+  right: 24px !important;
+  width: auto !important;
+  max-width: none !important;
+  max-height: calc(100vh - 118px) !important;
+  overflow: auto !important;
+  z-index: 120 !important;
+  border-radius: 24px !important;
+  background: #ffffff !important;
+  box-shadow: 0 28px 80px rgba(15, 23, 42, 0.22) !important;
+  padding: 18px !important;
 }
 
-.guide-schedule-header.simple h1 {
-  margin: 0;
-  color: #0f172a;
-  font-size: clamp(1.7rem, 2.8vw, 2.4rem);
-  line-height: 1.1;
-  font-weight: 900;
+.guide-shell .guide-leave-grid {
+  grid-template-columns: minmax(300px, 420px) minmax(0, 1fr) !important;
+  align-items: start !important;
 }
 
-.guide-schedule-header-desc {
-  margin: 8px 0 0;
-  color: #475569;
-  font-size: 1rem;
-  font-weight: 600;
-  line-height: 1.4;
+.guide-shell .guide-leave-request-list {
+  max-height: 440px !important;
+  overflow-y: auto !important;
+  padding-right: 4px !important;
 }
 
-.guide-schedule-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 18px;
-  align-items: start;
-}
-
-.guide-schedule-sidebar,
-.guide-schedule-content,
-.guide-schedule-panel,
-.guide-schedule-history-panel {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 20px;
-  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.06);
-}
-
-.guide-schedule-sidebar {
-  display: grid;
-  gap: 14px;
-  padding: 16px;
-}
-
-.guide-schedule-tabs {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.guide-schedule-tabs button {
-  --tab-accent: #4f86ff;
-  --tab-accent-soft: rgba(79, 134, 255, 0.1);
-  --tab-border: rgba(79, 134, 255, 0.18);
-  --tab-bg: linear-gradient(180deg, rgba(79, 134, 255, 0.06) 0%, #ffffff 72%);
-  min-width: 0;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 14px;
-  min-height: 112px;
-  padding: 18px 18px 16px;
-  border: 1px solid var(--tab-border);
-  border-radius: 22px;
-  background: var(--tab-bg);
-  color: #0f172a;
-  font: inherit;
-  font-weight: 800;
-  text-align: left;
-  cursor: pointer;
-  position: relative;
-  overflow: hidden;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.7);
-  transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease,
-    background 150ms ease, color 150ms ease, opacity 150ms ease;
-}
-
-.guide-schedule-tab-copy {
-  display: grid;
-  gap: 6px;
-  min-width: 0;
-  flex: 1 1 auto;
-}
-
-.guide-schedule-tab-copy strong {
-  color: inherit;
-  font-size: 1.08rem;
-  line-height: 1.25;
-  letter-spacing: -0.01em;
-}
-
-.guide-schedule-tab-copy small {
-  color: #5b6b84;
-  font-size: 0.82rem;
-  font-weight: 700;
-}
-
-.guide-schedule-tabs button span {
-  align-self: flex-end;
-  margin-top: auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 46px;
-  min-height: 46px;
-  padding: 0 12px;
-  border-radius: 999px;
-  background: #ffffff;
-  color: var(--tab-accent);
-  font-size: 1.05rem;
-  font-weight: 900;
-  border: 1px solid var(--tab-border);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55);
-}
-
-.guide-schedule-tabs button[data-group='ongoing'] {
-  --tab-accent: #d97706;
-  --tab-accent-soft: rgba(245, 158, 11, 0.14);
-  --tab-border: rgba(245, 158, 11, 0.22);
-  --tab-bg: linear-gradient(180deg, rgba(245, 158, 11, 0.14) 0%, rgba(255, 251, 235, 0.82) 100%);
-}
-
-.guide-schedule-tabs button[data-group='upcoming'] {
-  --tab-accent: #059669;
-  --tab-accent-soft: rgba(16, 185, 129, 0.12);
-  --tab-border: rgba(16, 185, 129, 0.2);
-  --tab-bg: linear-gradient(180deg, rgba(16, 185, 129, 0.12) 0%, rgba(236, 253, 245, 0.82) 100%);
-}
-
-.guide-schedule-tabs button[data-group='completed'] {
-  --tab-accent: #2563eb;
-  --tab-accent-soft: rgba(59, 130, 246, 0.12);
-  --tab-border: rgba(59, 130, 246, 0.18);
-  --tab-bg: linear-gradient(180deg, rgba(59, 130, 246, 0.12) 0%, rgba(239, 246, 255, 0.82) 100%);
-}
-
-.guide-schedule-tabs button.is-active {
-  border-color: var(--tab-border);
-  background: var(--tab-bg);
-  color: #0f172a;
-  box-shadow: inset 0 0 0 1px var(--tab-border);
-  transform: translateY(-1px);
-}
-
-.guide-schedule-tabs button.is-active span {
-  background: #ffffff;
-  color: var(--tab-accent);
-  border-color: var(--tab-border);
-  box-shadow: 0 8px 16px rgba(15, 23, 42, 0.06), inset 0 0 0 1px rgba(255, 255, 255, 0.4);
-}
-
-.guide-schedule-tabs button:hover:not(.is-active) {
-  border-color: var(--tab-border);
-  box-shadow: inset 0 0 0 1px var(--tab-border);
-  transform: translateY(-1px);
-}
-
-.guide-schedule-tabs button {
-  font-size: 1rem;
-  line-height: 1.3;
-}
-
-.guide-schedule-tabs button strong,
-.guide-schedule-tabs button small {
-  display: block;
-}
-
-.guide-schedule-tour-list {
-  display: grid;
-  gap: 10px;
-}
-
-.guide-schedule-tour-card {
-  --card-accent: #1454f0;
-  --card-accent-soft: rgba(20, 84, 240, 0.08);
-  --card-border: rgba(20, 84, 240, 0.18);
-  --card-shadow: rgba(20, 84, 240, 0.1);
-  --card-bg: linear-gradient(180deg, rgba(20, 84, 240, 0.08) 0%, rgba(255, 255, 255, 0.95) 100%);
-  display: grid;
-  gap: 6px;
-  padding: 14px 16px;
-  border: 1px solid var(--card-border);
-  border-radius: 18px;
-  background: var(--card-bg);
-  text-align: left;
-  cursor: pointer;
-  transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease,
-    background 150ms ease;
-}
-
-.guide-schedule-tour-card:hover,
-.guide-schedule-tour-card.is-active {
-  border-color: var(--card-border);
-  box-shadow: inset 0 0 0 1px var(--card-border);
-  transform: translateY(-1px);
-}
-
-.guide-schedule-tour-card.state-upcoming {
-  --card-accent: #059669;
-  --card-accent-soft: rgba(16, 185, 129, 0.12);
-  --card-border: rgba(16, 185, 129, 0.2);
-  --card-shadow: rgba(16, 185, 129, 0.11);
-  --card-bg: linear-gradient(180deg, rgba(16, 185, 129, 0.1) 0%, rgba(236, 253, 245, 0.7) 100%);
-}
-
-.guide-schedule-tour-card.state-ongoing {
-  --card-accent: #d97706;
-  --card-accent-soft: rgba(245, 158, 11, 0.12);
-  --card-border: rgba(245, 158, 11, 0.22);
-  --card-shadow: rgba(245, 158, 11, 0.11);
-  --card-bg: linear-gradient(180deg, rgba(245, 158, 11, 0.1) 0%, rgba(255, 251, 235, 0.7) 100%);
-}
-
-.guide-schedule-tour-card.state-completed {
-  --card-accent: #2563eb;
-  --card-accent-soft: rgba(59, 130, 246, 0.12);
-  --card-border: rgba(59, 130, 246, 0.18);
-  --card-shadow: rgba(59, 130, 246, 0.11);
-  --card-bg: linear-gradient(180deg, rgba(59, 130, 246, 0.1) 0%, rgba(239, 246, 255, 0.7) 100%);
-}
-
-.guide-schedule-tour-date {
-  color: var(--card-accent);
-  font-size: 0.76rem;
-  font-weight: 900;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.guide-schedule-tour-card strong {
-  color: #0f172a;
-  font-size: 1rem;
-  line-height: 1.35;
-}
-
-.guide-schedule-tour-card small,
-.guide-schedule-tour-card em {
-  color: #64748b;
-  font-size: 0.8rem;
-  font-style: normal;
-}
-
-.guide-schedule-content {
-  min-width: 0;
-  padding: 16px;
-  display: grid;
-  gap: 16px;
-}
-
-.guide-schedule-empty {
-  display: grid;
-  place-items: center;
-  min-height: 180px;
-  padding: 18px;
-  color: #64748b;
-  text-align: center;
-}
-
-.guide-schedule-empty.large {
-  min-height: 220px;
-}
-
-.guide-schedule-tour-detail-card {
-  gap: 18px;
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-}
-
-.guide-schedule-tour-detail-card.state-upcoming {
-  --card-accent: #059669;
-  --card-accent-soft: rgba(16, 185, 129, 0.12);
-  --card-border: rgba(16, 185, 129, 0.2);
-  --card-bg: linear-gradient(180deg, rgba(16, 185, 129, 0.1) 0%, rgba(236, 253, 245, 0.7) 100%);
-}
-
-.guide-schedule-tour-detail-card.state-ongoing {
-  --card-accent: #d97706;
-  --card-accent-soft: rgba(245, 158, 11, 0.12);
-  --card-border: rgba(245, 158, 11, 0.22);
-  --card-bg: linear-gradient(180deg, rgba(245, 158, 11, 0.1) 0%, rgba(255, 251, 235, 0.7) 100%);
-}
-
-.guide-schedule-tour-detail-card.state-completed {
-  --card-accent: #2563eb;
-  --card-accent-soft: rgba(59, 130, 246, 0.12);
-  --card-border: rgba(59, 130, 246, 0.18);
-  --card-bg: linear-gradient(180deg, rgba(59, 130, 246, 0.1) 0%, rgba(239, 246, 255, 0.7) 100%);
-}
-
-.guide-schedule-tour-detail-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 18px;
-  border-radius: 18px;
-  background: transparent;
-}
-
-.guide-schedule-tour-detail-summary-head {
-  display: grid;
-  gap: 8px;
-  max-width: 100%;
-  min-width: 0;
-}
-
-.guide-schedule-runtime {
-  width: fit-content;
-  display: inline-flex;
-  padding: 6px 10px;
-  border-radius: 999px;
-  font-size: 0.74rem;
-  font-weight: 900;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.guide-schedule-runtime.runtime-upcoming {
-  background: #ecfdf5;
-  color: #059669;
-}
-
-.guide-schedule-runtime.runtime-ongoing {
-  background: #fffbeb;
-  color: #d97706;
-}
-
-.guide-schedule-runtime.runtime-completed {
-  background: #eff6ff;
-  color: #2563eb;
-}
-
-.guide-schedule-detail-head h2 {
-  margin: 0;
-  color: #0f172a;
-  font-size: 1.5rem;
-}
-
-.guide-schedule-detail-head p {
-  margin: 0;
-  color: #64748b;
-}
-
-.guide-schedule-tour-detail-head h3 {
-  margin: 6px 0 0;
-  color: #0f172a;
-  font-size: 1.45rem;
-}
-
-.guide-schedule-date-box {
-  display: grid;
-  gap: 6px;
-  padding: 14px 16px;
-  border-radius: 16px;
-  background: #f8fbff;
-  border: 1px solid #dbe5f2;
-  min-width: 180px;
-}
-
-.guide-schedule-date-box span,
-.guide-schedule-panel-head span,
-.guide-schedule-stage-tabs button strong,
-.guide-schedule-session-bar span,
-.guide-schedule-customer-header {
-  color: #64748b;
-  font-size: 0.76rem;
-  font-weight: 900;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.guide-schedule-date-box strong {
-  color: #0f172a;
-  font-size: 1.1rem;
-}
-
-.guide-schedule-date-box small {
-  color: #475569;
-}
-
-.guide-schedule-panel {
-  display: grid;
-  gap: 14px;
-  padding: 16px;
-}
-
-.guide-schedule-panel.compact {
-  border: 1px solid #e2e8f0;
-  border-radius: 18px;
-  background: #ffffff;
-}
-
-.guide-schedule-tour-detail-action {
-  display: grid;
-  gap: 3px;
-  align-items: start;
-  flex: 0 0 240px;
-  width: 240px;
-  min-width: 240px;
-  justify-self: end;
-  align-self: flex-start;
-  padding: 12px 14px;
-  border: 0;
-  border-radius: 16px;
-  background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
-  box-shadow: 0 12px 22px rgba(37, 99, 235, 0.2);
-  cursor: pointer;
-  text-align: left;
-  transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease,
-    background 150ms ease;
-}
-
-.guide-schedule-tour-detail-action.is-open {
-  background: linear-gradient(180deg, #1d4ed8 0%, #1e40af 100%);
-  box-shadow: 0 14px 26px rgba(37, 99, 235, 0.24);
-}
-
-.guide-schedule-tour-detail-action span,
-.guide-schedule-tour-detail-summary span,
-.guide-schedule-tour-detail-meta dt {
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 0.7rem;
-  font-weight: 900;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.guide-schedule-tour-detail-action strong {
-  color: #ffffff;
-  font-size: 0.94rem;
-  font-weight: 900;
-  line-height: 1.25;
-  white-space: nowrap;
-}
-
-.guide-schedule-tour-detail-action span {
-  white-space: nowrap;
-}
-
-.guide-schedule-tour-detail-action:hover {
-  box-shadow: 0 16px 28px rgba(37, 99, 235, 0.26);
-  transform: translateY(-1px);
-}
-
-@media (max-width: 720px) {
-  .guide-schedule-tour-detail-head {
-    flex-direction: column;
+@media (max-width: 1024px) {
+  .guide-shell .guide-leave-panel {
+    left: 16px !important;
+    right: 16px !important;
+    top: 86px !important;
+    max-height: calc(100vh - 104px) !important;
   }
 
-  .guide-schedule-tour-detail-action {
-    width: 100%;
-    min-width: 0;
-    flex: 1 1 auto;
+  .guide-shell .guide-leave-grid {
+    grid-template-columns: 1fr !important;
   }
 }
 
-.guide-schedule-tour-detail-body {
-  display: grid;
-  gap: 16px;
-  padding: 18px;
-  border-radius: 18px;
-  background: #f8fbff;
-  border: 1px solid #dbe5f2;
+.guide-shell .guide-leave-panel {
+  position: fixed !important;
+  top: 96px !important;
+  left: calc(var(--guide-sidebar-width) + 34px) !important;
+  right: 34px !important;
+  max-width: 1180px !important;
+  max-height: calc(100vh - 132px) !important;
+  overflow: hidden !important;
 }
 
-.guide-schedule-tour-detail-body .guide-schedule-tour-detail-summary span,
-.guide-schedule-tour-detail-body .guide-schedule-tour-detail-meta dt {
-  color: #57708f;
+.guide-shell .guide-leave-grid {
+  grid-template-columns: minmax(300px, 370px) minmax(0, 1fr) !important;
+  max-height: calc(100vh - 350px) !important;
+  overflow: hidden !important;
 }
 
-.guide-schedule-tour-detail-summary {
-  display: grid;
-  gap: 8px;
+.guide-shell .guide-leave-grid > * {
+  max-height: calc(100vh - 350px) !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
 }
 
-.guide-schedule-tour-detail-summary h4 {
-  margin: 0;
-  color: #0f172a;
-  font-size: 1.25rem;
+.guide-shell .guide-leave-panel {
+  position: fixed !important;
+  top: 96px !important;
+  left: var(--guide-sidebar-width) !important;
+  right: 0 !important;
+  width: min(1080px, calc(100vw - var(--guide-sidebar-width) - 72px)) !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
 }
 
-.guide-schedule-tour-detail-summary p {
-  margin: 0;
-  color: #475569;
-  line-height: 1.6;
+/* =========================================================
+   FIX: Nền xám chỉ phủ vùng nội dung bên phải, không phủ sidebar
+   ========================================================= */
+
+.guide-shell {
+  --guide-sidebar-width: 280px;
 }
 
-.guide-schedule-tour-detail-meta {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  margin: 0;
+.guide-shell.sidebar-collapsed {
+  --guide-sidebar-width: 86px;
 }
 
-.guide-schedule-tour-detail-meta div {
-  display: grid;
-  gap: 6px;
-  padding: 14px 16px;
-  border-radius: 16px;
-  background: #f8fbff;
-  border: 1px solid #dbe5f2;
+.guide-leave-backdrop {
+  position: fixed !important;
+  top: 0 !important;
+  left: var(--guide-sidebar-width) !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  z-index: 999 !important;
+
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: center !important;
+
+  box-sizing: border-box !important;
+  padding: 96px 32px 28px 32px !important;
+
+  background: rgba(15, 23, 42, 0.48) !important;
+  backdrop-filter: blur(3px) !important;
+
+  overflow: hidden !important;
 }
 
-.guide-schedule-tour-detail-meta dd {
-  margin: 0;
-  color: #0f172a;
-  font-size: 1rem;
-  font-weight: 800;
+/* Card nằm giữa vùng bên phải */
+.guide-leave-backdrop .guide-leave-panel {
+  position: relative !important;
+  top: auto !important;
+  left: auto !important;
+  right: auto !important;
+
+  width: min(1080px, 100%) !important;
+  max-width: 1080px !important;
+  max-height: calc(100vh - 124px) !important;
+
+  margin: 0 auto !important;
+  overflow: hidden !important;
+
+  z-index: 1000 !important;
+  box-sizing: border-box !important;
+  border-radius: 24px !important;
+  background: #ffffff !important;
+  padding: 16px !important;
+  box-shadow: 0 32px 90px rgba(15, 23, 42, 0.34) !important;
 }
 
-.guide-schedule-panel-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
+/* Hai cột trong card có thanh cuộn riêng */
+.guide-leave-backdrop .guide-leave-grid {
+  display: grid !important;
+  grid-template-columns: 360px minmax(0, 1fr) !important;
+  gap: 16px !important;
+  align-items: stretch !important;
+  min-height: 410px !important;
+  max-height: calc(100vh - 350px) !important;
+  overflow: hidden !important;
 }
 
-.guide-schedule-panel-head h3 {
-  margin: 6px 0 0;
-  color: #0f172a;
-  font-size: 1.15rem;
+.guide-leave-backdrop .guide-leave-grid > * {
+  min-height: 0 !important;
+  max-height: calc(100vh - 350px) !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding-right: 6px !important;
+  box-sizing: border-box !important;
+  overscroll-behavior: contain !important;
 }
 
-.guide-schedule-panel-head button {
-  min-height: 42px;
-  padding: 0 14px;
-  border: 0;
-  border-radius: 14px;
-  background: #1454f0;
-  color: #ffffff;
-  font: inherit;
-  font-weight: 800;
-  cursor: pointer;
+/* Khi sidebar thu gọn */
+.guide-shell.sidebar-collapsed .guide-leave-backdrop {
+  left: 86px !important;
 }
 
-.guide-schedule-stage-tabs {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 10px;
-}
-
-.guide-schedule-stage-tabs button {
-  display: grid;
-  gap: 4px;
-  padding: 12px 14px;
-  border: 1px solid #dbe5f2;
-  border-radius: 16px;
-  background: #f8fbff;
-  text-align: left;
-  cursor: pointer;
-}
-
-.guide-schedule-stage-tabs button.is-active {
-  border-color: #1454f0;
-  background: #eff6ff;
-}
-
-.guide-schedule-session-bar {
-  display: grid;
-  grid-template-columns: minmax(220px, 1fr) repeat(3, minmax(110px, auto));
-  gap: 12px;
-  padding: 14px;
-  border-radius: 16px;
-  background: #f8fbff;
-  border: 1px solid #e2e8f0;
-}
-
-.guide-schedule-session-bar label {
-  display: grid;
-  gap: 6px;
-}
-
-.guide-schedule-session-bar select {
-  min-height: 42px;
-  border: 1px solid #dbe5f2;
-  border-radius: 12px;
-  background: #ffffff;
-  padding: 0 12px;
-  font: inherit;
-}
-
-.guide-schedule-session-bar > div {
-  display: grid;
-  gap: 6px;
-}
-
-.guide-schedule-session-stat-label {
-  color: #5b6b84;
-  font-size: 0.8rem;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  text-transform: none;
-}
-
-.guide-schedule-session-bar strong {
-  color: #0f172a;
-  font-size: 1.2rem;
-}
-
-.guide-schedule-note {
-  margin: 0;
-  padding: 12px 14px;
-  border-radius: 14px;
-  background: #eff6ff;
-  color: #1d4ed8;
-  line-height: 1.5;
-}
-
-.guide-schedule-customer-header,
-.guide-schedule-customer-row {
-  display: grid;
-  grid-template-columns: 44px minmax(0, 1.7fr) minmax(0, 0.9fr) 92px 92px minmax(0, 164px);
-  gap: 12px;
-  align-items: start;
-}
-
-.guide-schedule-customer-header {
-  padding: 0 12px 0 8px;
-}
-
-.guide-schedule-customer-header > :last-child,
-.guide-schedule-customer-row > :last-child {
-  justify-self: center;
-}
-
-.guide-schedule-customers {
-  display: grid;
-  gap: 10px;
-}
-
-.guide-schedule-customer-row {
-  padding: 14px 18px;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  background: #ffffff;
-}
-
-.guide-schedule-customer-index {
-  justify-self: start;
-  padding-top: 6px;
-  color: #1d4ed8;
-  font-size: 0.98rem;
-  font-weight: 900;
-  line-height: 1;
-}
-
-.guide-schedule-customer-main {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 4px;
-  align-items: start;
-  width: 100%;
-  border: 0;
-  background: transparent;
-  padding: 0;
-  text-align: left;
-  cursor: pointer;
-}
-
-.guide-schedule-customer-main-info {
-  display: grid;
-  gap: 4px;
-}
-
-.guide-schedule-customer-phone {
-  justify-self: start;
-  color: #64748b;
-  font-size: 0.9rem;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.guide-schedule-customer-main strong {
-  display: block;
-  color: #0f172a;
-}
-
-.guide-schedule-customer-main span,
-.guide-schedule-customer-main small {
-  color: #64748b;
-}
-
-.guide-schedule-yesno {
-  display: inline-flex;
-  justify-content: center;
-  min-height: 30px;
-  min-width: 92px;
-  width: 92px;
-  align-items: center;
-  padding: 0 10px;
-  border-radius: 999px;
-  font-size: 0.72rem;
-  font-weight: 900;
-  white-space: nowrap;
-}
-
-.guide-schedule-yesno.is-yes {
-  background: #ecfdf5;
-  color: #059669;
-}
-
-.guide-schedule-yesno.is-no {
-  background: #f8fafc;
-  color: #64748b;
-}
-
-.guide-schedule-actions {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-  align-items: center;
-  width: fit-content;
-  min-width: 0;
-}
-
-.guide-schedule-actions button,
-.guide-schedule-secondary-btn {
-  flex: 1 1 0;
-  min-height: 32px;
-  min-width: 0;
-  padding: 0 10px;
-  border: 1px solid #dbe5f2;
-  border-radius: 12px;
-  background: #ffffff;
-  color: #0f172a;
-  font: inherit;
-  font-size: 0.74rem;
-  font-weight: 800;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.guide-schedule-actions button:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
-.guide-schedule-secondary-btn {
-  justify-self: center;
-}
-
-.guide-schedule-history-panel {
-  margin-top: 18px;
-  padding: 16px;
-}
-
-.guide-schedule-history-list {
-  display: grid;
-  gap: 10px;
-}
-
-@media (max-width: 1180px) {
-  .guide-schedule-session-bar,
-  .guide-schedule-customer-header,
-  .guide-schedule-customer-row {
-    grid-template-columns: 1fr;
+/* Responsive */
+@media (max-width: 1024px) {
+  .guide-leave-backdrop {
+    left: 0 !important;
+    padding: 82px 16px 16px 16px !important;
   }
 
-  .guide-schedule-customer-index {
-    justify-self: start;
+  .guide-leave-backdrop .guide-leave-panel {
+    width: 100% !important;
+    max-height: calc(100vh - 98px) !important;
   }
 
-  .guide-schedule-customer-main {
-    grid-template-columns: 1fr;
+  .guide-leave-backdrop .guide-leave-grid {
+    grid-template-columns: 1fr !important;
+    max-height: calc(100vh - 300px) !important;
   }
 
-  .guide-schedule-customer-phone {
-    justify-self: start;
-  }
-}
-
-@media (max-width: 720px) {
-  .guide-schedule-header.simple,
-  .guide-schedule-detail-head,
-  .guide-schedule-panel-head {
-    flex-direction: column;
-  }
-
-  .guide-schedule-tabs {
-    grid-template-columns: 1fr;
+  .guide-leave-backdrop .guide-leave-grid > * {
+    max-height: 360px !important;
   }
 }
