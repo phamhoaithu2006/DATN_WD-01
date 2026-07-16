@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 import { formatDate, getDestination, getTourTitle, TOUR_GROUPS } from './scheduleUtils'
 
@@ -7,10 +7,6 @@ function ScheduleTourDetail({ detail, loadingDetail, runtime, selectedTour }) {
   const duration = `${formatDate(selectedTour?.departure_date)} - ${formatDate(
     selectedTour?.return_date || selectedTour?.departure_date,
   )}`
-
-  useEffect(() => {
-    setShowDetail(false)
-  }, [selectedTour?.id])
 
   return (
     <section className={`guide-schedule-panel compact guide-schedule-tour-detail-card state-${runtime}`}>

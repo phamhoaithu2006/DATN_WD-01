@@ -31,6 +31,7 @@ import TourListPage from '../pages/admin/tours/TourListPage'
 import AuthPage from '../pages/auth/AuthPage'
 import ForgotPasswordPage from '../pages/auth/ForgotPasswordPage'
 import CustomerPage from '../pages/customer/CustomerPage'
+import GuideAttendancePage from '../pages/guide/GuideAttendancePage'
 import GuideDashboardPage from '../pages/guide/GuideDashboardPage'
 import GuideHistoryPage from '../pages/guide/GuideHistoryPage'
 import GuideNotificationsPage from '../pages/guide/GuideNotificationsPage'
@@ -84,9 +85,9 @@ function AppRoutes() {
     {/* Trang hướng dẫn viên */}
     <Route path="/guide" element={guidePage(<GuideDashboardPage />)} />
     <Route path="/guide/tours" element={guidePage(<GuideToursPage />)} />
+    <Route path="/guide/attendance" element={guidePage(<GuideAttendancePage />)} />
     <Route path="/guide/schedule" element={guidePage(<GuideSchedulePage />)} />
     <Route path="/guide/schedule/:tourId" element={guidePage(<GuideSchedulePage />)} />
-    <Route path="/guide/schedule/:tourId/:feature" element={guidePage(<GuideSchedulePage />)} />
     <Route path="/guide/history" element={guidePage(<GuideComingSoonPage title="Lịch sử Tour" />)} />
     <Route path="/guide/reviews" element={guidePage(<GuideComingSoonPage title="Đánh giá" />)} />
     <Route path="/guide/customers" element={guidePage(<GuideComingSoonPage title="Khách hàng" />)} />

@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react'
+
 import { getStageLabel } from './scheduleUtils'
 
 function customerInitials(name) {
@@ -13,7 +15,7 @@ function customerInitials(name) {
 function YesNoBadge({ value }) {
   return (
     <span className={value ? 'guide-schedule-yesno is-yes' : 'guide-schedule-yesno is-no'}>
-      {value ? 'Có' : 'Không'}
+      {value ? 'Co' : 'Khong'}
     </span>
   )
 }
@@ -22,6 +24,8 @@ function CustomerRow({
   busy,
   canOperate,
   customer,
+  note,
+  onNoteChange,
   onCheckIn,
   onCheckOut,
   onViewHistory,
@@ -38,11 +42,11 @@ function CustomerRow({
         </div>
 
         <div className="guide-schedule-customer-copy">
-          <strong>{customer.full_name || 'Khách hàng'}</strong>
-          <span>{customer.booking_code || 'Chưa có mã booking'}</span>
+          <strong>{customer.full_name || 'Khach hang'}</strong>
+          <span>{customer.booking_code || 'Chua co ma booking'}</span>
           <div>
-            <small>{customer.phone || 'Chưa có SĐT'}</small>
-            <small>{customer.email || 'Chưa có email'}</small>
+            <small>{customer.phone || 'Chua co SDT'}</small>
+            <small>{customer.email || 'Chua co email'}</small>
           </div>
         </div>
       </div>
@@ -50,10 +54,20 @@ function CustomerRow({
       <YesNoBadge value={checkedIn} />
       <YesNoBadge value={checkedOut} />
 
+      <label className="guide-schedule-customer-note">
+        <span>Ghi chu</span>
+        <textarea
+          value={note}
+          onChange={(event) => onNoteChange(customer, event.target.value)}
+          placeholder="Yeu cau cua khach..."
+          rows={2}
+        />
+      </label>
+
       {showActions ? (
         <div className="guide-schedule-actions">
           <button type="button" className="is-history" onClick={onViewHistory}>
-            Lịch sử
+            Lich su
           </button>
           <button type="button" disabled={!canOperate || checkedIn || busy} onClick={onCheckIn}>
             Check-in
@@ -68,7 +82,7 @@ function CustomerRow({
         </div>
       ) : (
         <button type="button" className="guide-schedule-secondary-btn" onClick={onViewHistory}>
-          Lịch sử
+          Lich su
         </button>
       )}
     </article>
@@ -91,16 +105,49 @@ function ScheduleAttendancePanel({
   stages,
   statistics,
 }) {
+  const noteStorageKey = selectedStage?.id
+    ? `guide-customer-notes-stage-${selectedStage.id}`
+    : 'guide-customer-notes'
+  const [notes, setNotes] = useState(() => {
+    try {
+      if (typeof window === 'undefined') return {}
+      return JSON.parse(window.localStorage.getItem(noteStorageKey) || '{}')
+    } catch {
+      return {}
+    }
+  })
+
+  useEffect(() => {
+    try {
+      if (typeof window === 'undefined') return
+      setNotes(JSON.parse(window.localStorage.getItem(noteStorageKey) || '{}'))
+    } catch {
+      setNotes({})
+    }
+  }, [noteStorageKey])
+
+  function handleNoteChange(customer, value) {
+    setNotes((current) => {
+      const next = { ...current, [customer.id]: value }
+
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(noteStorageKey, JSON.stringify(next))
+      }
+
+      return next
+    })
+  }
+
   return (
     <div className="guide-schedule-panel">
       <div className="guide-schedule-panel-head">
         <div>
-          <span>Lịch trình check-in/check-out</span>
-          <h3>{selectedStage ? getStageLabel(selectedStage) : 'Chưa có lịch trình'}</h3>
+          <span>Lich trinh check-in/check-out</span>
+          <h3>{selectedStage ? getStageLabel(selectedStage) : 'Chua co lich trinh'}</h3>
         </div>
         {canOperate ? (
           <button type="button" onClick={createSessionForStage} disabled={!selectedStage}>
-            Tạo lần điểm danh
+            Tao lan diem danh
           </button>
         ) : null}
       </div>
@@ -114,62 +161,63 @@ function ScheduleAttendancePanel({
               className={stage.id === selectedStage?.id ? 'is-active' : ''}
               onClick={() => setSelectedStageId(stage.id)}
             >
-              <strong>Ngày {stage.day_number}</strong>
-              <span>{stage.title || 'Lịch trình'}</span>
+              <strong>Ngay {stage.day_number}</strong>
+              <span>{stage.title || 'Lich trinh'}</span>
             </button>
           ))
         ) : (
-          <div className="guide-schedule-empty">Tour này chưa có lịch trình.</div>
+          <div className="guide-schedule-empty">Tour nay chua co lich trinh.</div>
         )}
       </div>
 
       <div className="guide-schedule-session-bar">
         <label>
-          <span>Lần điểm danh</span>
+          <span>Lan diem danh</span>
           <select
             value={activeSessionId || ''}
             onChange={(event) => setSelectedSessionId(Number(event.target.value) || null)}
           >
-            <option value="">Chưa chọn lần điểm danh</option>
+            <option value="">Chua chon lan diem danh</option>
             {stageSessions.map((session, index) => (
               <option key={session.id} value={session.id}>
-                {session.name || `Lần ${index + 1}`}
+                {session.name || `Lan ${index + 1}`}
               </option>
             ))}
           </select>
         </label>
 
         <div>
-          <span>Tổng khách</span>
+          <span>Tong khach</span>
           <strong>{statistics?.total_customers ?? customers.length}</strong>
         </div>
         <div>
-          <span>Check-in Có</span>
+          <span>Check-in Co</span>
           <strong>{statistics?.checked_in ?? 0}</strong>
         </div>
         <div>
-          <span>Check-out Có</span>
+          <span>Check-out Co</span>
           <strong>{statistics?.checked_out ?? 0}</strong>
         </div>
       </div>
 
       {runtime === 'upcoming' ? (
         <p className="guide-schedule-note">
-          Tour sắp đi chỉ xem chi tiết tour và danh sách khách hàng. Tới ngày khởi hành mới check-in/check-out.
+          Tour sap di chi xem danh sach khach hang. Toi ngay khoi hanh moi check-in/check-out.
         </p>
       ) : null}
 
       {runtime === 'completed' ? (
         <p className="guide-schedule-note">
-          Tour đã đi chỉ xem lịch sử check-in/check-out khách hàng.
+          Tour da di chi xem lich su check-in/check-out khach hang.
         </p>
       ) : null}
 
       <div className="guide-schedule-customer-header">
-        <span>Khách hàng</span>
+        <span>Khach hang</span>
         <span>Check-in</span>
         <span>Check-out</span>
-        <span>Thao tác</span>
+        <span>Ghi chu</span>
+        <span>Thao tac</span>
       </div>
 
       <div className="guide-schedule-customers">
@@ -178,6 +226,8 @@ function ScheduleAttendancePanel({
             <CustomerRow
               key={customer.id}
               customer={customer}
+              note={notes[customer.id] || ''}
+              onNoteChange={handleNoteChange}
               canOperate={canOperate && Boolean(activeSessionId)}
               showActions={runtime !== 'completed'}
               busy={busyCustomerId === customer.id}
@@ -187,7 +237,7 @@ function ScheduleAttendancePanel({
             />
           ))
         ) : (
-          <div className="guide-schedule-empty">Chưa có khách hàng trong tour này.</div>
+          <div className="guide-schedule-empty">Chua co khach hang trong tour nay.</div>
         )}
       </div>
     </div>

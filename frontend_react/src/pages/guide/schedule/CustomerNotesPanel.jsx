@@ -1,17 +1,17 @@
 function getCustomerNote(customer) {
   return (
+    customer.attendance?.note ||
     customer.note ||
     customer.customer_note ||
     customer.booking_note ||
     customer.special_request ||
     customer.booking?.note ||
     customer.booking?.special_request ||
-    customer.attendance?.note ||
     ''
   )
 }
 
-function CustomerNotesPanel({ customers, openCustomerHistory }) {
+function CustomerNotesPanel({ customers, openCustomerHistory, openCustomerNote }) {
   return (
     <div className="guide-schedule-panel guide-schedule-notes-panel">
       <div className="guide-schedule-panel-head">
@@ -35,9 +35,14 @@ function CustomerNotesPanel({ customers, openCustomerHistory }) {
 
                 <p>{note || 'Chưa có ghi chú cho khách hàng này.'}</p>
 
-                <button type="button" onClick={() => openCustomerHistory(customer)}>
-                  Xem lịch sử
-                </button>
+                <div className="guide-note-card-actions">
+                  <button type="button" onClick={() => openCustomerNote(customer)}>
+                    Sửa ghi chú
+                  </button>
+                  <button type="button" onClick={() => openCustomerHistory(customer)}>
+                    Lịch sử
+                  </button>
+                </div>
               </article>
             )
           })}
