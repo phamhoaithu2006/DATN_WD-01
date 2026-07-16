@@ -1,185 +1,554 @@
-import { useEffect, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
-
-import CustomerHistoryPanel from './schedule/CustomerHistoryPanel'
-import ScheduleAttendancePanel from './schedule/ScheduleAttendancePanel'
-import { useGuideSchedule } from './schedule/useGuideSchedule'
-import { mediaUrl } from '../../utils/mediaUrl'
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import {
+  checkInGuideCustomer,
+  createGuideAttendanceSession,
+  getGuideTourCustomers,
+  getGuideTourDetail,
+  getGuideTourOngoing,
+  updateGuideAttendanceNote,
+} from "../../services/guideTourApi";
 import {
   formatDate,
+  formatNumber,
+  getCustomerName,
+  getCustomerPhone,
+  getCustomerType,
   getDestination,
-  getTourRuntime,
+  getInitials,
+  getTourImage,
+  getTourState,
   getTourTitle,
-} from './schedule/scheduleUtils'
-
-function formatNumber(value) {
-  const number = Number(value || 0)
-  return new Intl.NumberFormat('vi-VN').format(Number.isFinite(number) ? number : 0)
+  normalizePaginator,
+} from "./guidePageUtils";
+const filters = [
+  { key: "all", label: "Tất cả" },
+  { key: "checked", label: "Đã điểm danh" },
+  { key: "unchecked", label: "Chưa điểm danh" },
+  { key: "absent", label: "Vắng mặt" },
+];
+function getAttendance(customer) {
+  return customer?.attendance || customer?.current_attendance || {};
 }
-
-function getTourImage(item) {
-  return mediaUrl(
-    item?.tour?.thumbnail?.image_url ||
-      item?.tour?.thumbnail_url ||
-      item?.tour?.image_url ||
-      item?.tour?.image ||
-      '',
-  )
+function isChecked(customer) {
+  return Boolean(getAttendance(customer)?.checked_in_at);
 }
-
-function getStatusLabel(runtime) {
-  if (runtime === 'upcoming') return 'Sap dien ra'
-  if (runtime === 'ongoing') return 'Dang dien ra'
-  if (runtime === 'completed') return 'Hoan thanh'
-  return 'Da phan cong'
+function getCheckTime(customer) {
+  const checkedAt = getAttendance(customer)?.checked_in_at;
+  if (!checkedAt) return "--:--";
+  const date = new Date(checkedAt);
+  if (Number.isNaN(date.getTime()))
+    return String(checkedAt).slice(11, 16) || "--:--";
+  return date.toLocaleTimeString("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
-
 function GuideAttendancePage() {
-  const navigate = useNavigate()
-  const schedule = useGuideSchedule()
-
-  const selectableTours = useMemo(
-    () => [
-      ...schedule.tourGroups.ongoing.map((item) => ({ item, groupKey: 'ongoing' })),
-      ...schedule.tourGroups.upcoming.map((item) => ({ item, groupKey: 'upcoming' })),
-    ],
-    [schedule.tourGroups],
-  )
+  const navigate = useNavigate();
+  const { tourId } = useParams();
+  const [selectedTour, setSelectedTour] = useState(null);
+  const [customers, setCustomers] = useState([]);
+  const [activeFilter, setActiveFilter] = useState("all");
+  const [customerType, setCustomerType] = useState("all");
+  const [keyword, setKeyword] = useState("");
+  const [sessionId, setSessionId] = useState(null);
+  const [customerMeta, setCustomerMeta] = useState({ total: 0, per_page: 10 });
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [noteTarget, setNoteTarget] = useState(null);
+  const [noteText, setNoteText] = useState("");
+  useEffect(() => {
+    let mounted = true;
+    async function loadTours() {
+      setLoading(true);
+      setError("");
+      try {
+        const ongoing = await getGuideTourOngoing({ per_page: 30 });
+        if (!mounted) return;
+        const list = normalizePaginator(ongoing).items;
+        const picked =
+          list.find((item) => String(item.id) === String(tourId)) ||
+          list[0] ||
+          null;
+        if (picked && !tourId)
+          navigate(`/guide/attendance/${picked.id}`, { replace: true });
+        if (picked && tourId && String(picked.id) !== String(tourId)) {
+          navigate(`/guide/attendance/${picked.id}`, { replace: true });
+        }
+        setSelectedTour(picked);
+      } catch (err) {
+        if (mounted)
+          setError(
+            err?.response?.data?.message || "Không tải được tour điểm danh.",
+          );
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+    void loadTours();
+    return () => {
+      mounted = false;
+    };
+  }, [navigate, tourId]);
+  const selectedTourId = selectedTour?.id;
 
   useEffect(() => {
-    if (schedule.loadingTours || schedule.selectedTour || selectableTours.length === 0) return
-
-    const firstOngoing = selectableTours.find(({ groupKey }) => groupKey === 'ongoing')
-    const nextTour = firstOngoing || selectableTours[0]
-    schedule.selectTour(nextTour.item, nextTour.groupKey)
-  }, [schedule, selectableTours])
-
-  const selectedTitle = getTourTitle(schedule.selectedTour)
-  const selectedImage = getTourImage(schedule.selectedTour)
-  const uncheckedCustomers = schedule.customers.filter((customer) => !customer.attendance?.checked_in_at)
-  const totalCustomers = schedule.statistics?.total_customers ?? schedule.customers.length
-  const checkedCustomers = schedule.statistics?.checked_in ?? 0
-  const uncheckedCount = schedule.statistics?.not_checked_in ?? uncheckedCustomers.length
-
+    if (!selectedTourId) return undefined;
+    let mounted = true;
+    async function loadCustomers() {
+      setLoading(true);
+      setError("");
+      try {
+        const [detail, customerPayload] = await Promise.all([
+          getGuideTourDetail(selectedTourId).catch(() => null),
+          getGuideTourCustomers(selectedTourId, { per_page: 100 }),
+        ]);
+        if (!mounted) return;
+        const customerPage = normalizePaginator(customerPayload);
+        setSelectedTour((current) => detail || current);
+        setCustomers(customerPage.items);
+        setCustomerMeta(customerPage.meta);
+        setSessionId(
+          customerPayload?.current_session?.id ||
+            customerPayload?.data?.current_session?.id ||
+            null,
+        );
+      } catch (err) {
+        if (mounted)
+          setError(
+            err?.response?.data?.message || "Không tải được danh sách khách.",
+          );
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+    void loadCustomers();
+    return () => {
+      mounted = false;
+    };
+  }, [selectedTourId]);
+  const stats = useMemo(() => {
+    const total = customers.length;
+    const checked = customers.filter(isChecked).length;
+    const absent = customers.filter(
+      (customer) =>
+        String(getAttendance(customer)?.status || "").toLowerCase() ===
+        "absent",
+    ).length;
+    return {
+      total,
+      checked,
+      unchecked: Math.max(total - checked - absent, 0),
+      absent,
+    };
+  }, [customers]);
+  const visibleCustomers = useMemo(() => {
+    const normalizedKeyword = keyword.trim().toLowerCase();
+    return customers.filter((customer) => {
+      if (activeFilter === "checked" && !isChecked(customer)) return false;
+      if (activeFilter === "unchecked" && isChecked(customer)) return false;
+      if (
+        activeFilter === "absent" &&
+        String(getAttendance(customer)?.status || "").toLowerCase() !== "absent"
+      )
+        return false;
+      if (customerType !== "all" && getCustomerType(customer) !== customerType)
+        return false;
+      if (!normalizedKeyword) return true;
+      return `${getCustomerName(customer)} ${getCustomerPhone(customer)}`
+        .toLowerCase()
+        .includes(normalizedKeyword);
+    });
+  }, [activeFilter, customerType, customers, keyword]);
+  async function ensureSession() {
+    if (sessionId) return sessionId;
+    if (!canOperate) throw new Error("Tour này chưa đến thời gian điểm danh.");
+    const session = await createGuideAttendanceSession(selectedTour.id, {
+      stage: "check_in",
+      name: "Điểm danh khách",
+    });
+    setSessionId(session.id);
+    return session.id;
+  }
+  async function markCustomer(customer) {
+    if (isChecked(customer) || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      const activeSession = await ensureSession();
+      const updated = await checkInGuideCustomer(
+        selectedTour.id,
+        activeSession,
+        customer.id,
+      );
+      setCustomers((current) =>
+        current.map((item) =>
+          item.id === customer.id
+            ? { ...item, attendance: updated.attendance || updated }
+            : item,
+        ),
+      );
+      setMessage(`Đã điểm danh ${getCustomerName(customer)}.`);
+    } catch (err) {
+      setError(
+        err?.response?.data?.message ||
+          err?.message ||
+          "Không điểm danh được khách này.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function markAll() {
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      const activeSession = await ensureSession();
+      const missing = customers.filter((customer) => !isChecked(customer));
+      for (const customer of missing) {
+        const updated = await checkInGuideCustomer(
+          selectedTour.id,
+          activeSession,
+          customer.id,
+        );
+        setCustomers((current) =>
+          current.map((item) =>
+            item.id === customer.id
+              ? { ...item, attendance: updated.attendance || updated }
+              : item,
+          ),
+        );
+      }
+      setMessage("Đã điểm danh tất cả khách chưa có mặt.");
+    } catch (err) {
+      setError(
+        err?.response?.data?.message ||
+          err?.message ||
+          "Không thể điểm danh tất cả khách.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  function openNote(customer) {
+    setNoteTarget(customer);
+    setNoteText(getAttendance(customer)?.note || customer?.note || "");
+  }
+  async function saveNote(event) {
+    event.preventDefault();
+    if (!noteTarget) return;
+    setBusy(true);
+    setError("");
+    try {
+      const activeSession = await ensureSession();
+      const updated = await updateGuideAttendanceNote(
+        selectedTour.id,
+        activeSession,
+        noteTarget.id,
+        noteText.trim(),
+      );
+      setCustomers((current) =>
+        current.map((item) =>
+          item.id === noteTarget.id
+            ? { ...item, attendance: updated.attendance || updated }
+            : item,
+        ),
+      );
+      setNoteTarget(null);
+      setNoteText("");
+      setMessage("Đã lưu ghi chú khách hàng.");
+    } catch (err) {
+      setError(
+        err?.response?.data?.message ||
+          err?.message ||
+          "Không lưu được ghi chú.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  const tourImage = getTourImage(selectedTour);
+  const uncheckedCustomers = customers.filter(
+    (customer) => !isChecked(customer),
+  );
+  const totalRows = customerMeta.total || customers.length;
+  const canOperate =
+    selectedTour?.can_take_attendance ??
+    getTourState(selectedTour) === "ongoing";
   return (
-    <div className="guide-attendance-page attendance-dashboard">
-      <section className="guide-schedule-header simple attendance-dashboard-head">
-        {selectableTours.length > 1 ? (
-          <label className="attendance-tour-select">
-            <span>Chon tour</span>
-            <select
-              value={schedule.selectedTour?.id || ''}
-              onChange={(event) => {
-                const selected = selectableTours.find(({ item }) => Number(item.id) === Number(event.target.value))
-                if (selected) schedule.selectTour(selected.item, selected.groupKey)
-              }}
-            >
-              {selectableTours.map(({ item }) => (
-                <option key={item.id} value={item.id}>
-                  {getTourTitle(item)}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
-      </section>
-
-      {(schedule.error || schedule.message) && (
-        <div className={schedule.error ? 'guide-profile-alert is-error' : 'guide-profile-alert'}>
-          {schedule.error || schedule.message}
+    <div className="guide-attendance-shot-page">
+      {error || message ? (
+        <div
+          className={
+            error ? "guide-profile-alert is-error" : "guide-profile-alert"
+          }
+        >
+          {error || message}
         </div>
-      )}
-
-      {schedule.selectedTour ? (
+      ) : null}
+      {selectedTour ? (
         <>
-          <section className="attendance-overview-grid">
-            <article className="attendance-tour-hero">
-              <div className="attendance-tour-cover">
-                {selectedImage ? (
-                  <img src={selectedImage} alt={selectedTitle} />
+          <section className="guide-attendance-summary">
+            <article className="guide-attendance-tour-card">
+              <div className="guide-attendance-cover">
+                {tourImage ? (
+                  <img src={tourImage} alt={getTourTitle(selectedTour)} />
                 ) : (
-                  <span>{selectedTitle.slice(0, 2).toUpperCase()}</span>
+                  <span>{getInitials(getTourTitle(selectedTour))}</span>
                 )}
               </div>
-
-              <div className="attendance-tour-info">
+              <div className="guide-attendance-tour-copy">
                 <div>
-                  <h2>{selectedTitle}</h2>
-                  <span className={`attendance-status-pill status-${getTourRuntime(schedule.selectedTour)}`}>
-                    {getStatusLabel(schedule.runtime)}
+                  <h1>{getTourTitle(selectedTour)}</h1>
+                  <span>
+                    {canOperate ? "Đang diễn ra" : "Chưa thể điểm danh"}
                   </span>
                 </div>
-                <p>{formatDate(schedule.selectedTour.departure_date)} - {formatDate(schedule.selectedTour.return_date || schedule.selectedTour.departure_date)}</p>
-                <p>{formatNumber(schedule.selectedTour?.booked_slots || 0)} khach - {getDestination(schedule.selectedTour)}</p>
-                <button type="button" onClick={() => navigate(`/guide/schedule/${schedule.selectedTour.id}`)}>
-                  xem chi tiet &gt;
-                </button>
+                <p>
+                  <svg viewBox="0 0 24 24">
+                    <rect x="3" y="4" width="18" height="18" rx="2" />
+                    <path d="M16 2v4M8 2v4M3 10h18" />
+                  </svg>
+                  {formatDate(selectedTour.departure_date)} -{" "}
+                  {formatDate(
+                    selectedTour.return_date || selectedTour.departure_date,
+                  )}
+                </p>
+                <p>
+                  <svg viewBox="0 0 24 24">
+                    <path d="M16 21v-2a4 4 0 0 0-8 0v2" />
+                    <circle cx="12" cy="7" r="4" />
+                  </svg>
+                  {formatNumber(stats.total)} khách
+                </p>
+                <button type="button">xem chi tiết &gt;</button>
               </div>
             </article>
-
-            <aside className="attendance-unchecked-card">
-              <h3>Khach chua diem danh ({uncheckedCount})</h3>
-              {uncheckedCustomers.length > 0 ? (
-                <ol>
-                  {uncheckedCustomers.slice(0, 5).map((customer) => (
-                    <li key={customer.id}>{customer.full_name || 'Khach hang'}</li>
-                  ))}
-                </ol>
-              ) : (
-                <p>Tat ca khach da diem danh.</p>
-              )}
-              <button type="button">Xem tat ca &gt;</button>
+            <aside className="guide-unchecked-panel">
+              <h2>Khách chưa điểm danh ({stats.unchecked})</h2>
+              <ol>
+                {uncheckedCustomers.slice(0, 5).map((customer) => (
+                  <li key={customer.id}>{getCustomerName(customer)}</li>
+                ))}
+              </ol>
+              <button type="button">Xem tất cả &gt;</button>
             </aside>
           </section>
-
-          <section className="attendance-stat-grid">
+          <section className="guide-attendance-stats">
             <article className="tone-blue">
-              <span>tong khach</span>
-              <strong>{totalCustomers}</strong>
+              <span>tổng khách</span>
+              <strong>{formatNumber(stats.total)}</strong>
               <small>100%</small>
             </article>
             <article className="tone-green">
-              <span>da diem danh</span>
-              <strong>{checkedCustomers}</strong>
-              <small>{totalCustomers ? Math.round((checkedCustomers / totalCustomers) * 100) : 0}%</small>
+              <span>đã điểm danh</span>
+              <strong>{formatNumber(stats.checked)}</strong>
+              <small>
+                {stats.total
+                  ? Math.round((stats.checked / stats.total) * 100)
+                  : 0}
+                %
+              </small>
             </article>
             <article className="tone-red">
-              <span>chua diem danh</span>
-              <strong>{uncheckedCount}</strong>
-              <small>{totalCustomers ? Math.round((uncheckedCount / totalCustomers) * 100) : 0}%</small>
+              <span>chưa điểm danh</span>
+              <strong>{formatNumber(stats.unchecked)}</strong>
+              <small>
+                {stats.total
+                  ? Math.round((stats.unchecked / stats.total) * 100)
+                  : 0}
+                %
+              </small>
             </article>
           </section>
-
-          <ScheduleAttendancePanel
-            activeSessionId={schedule.activeSessionId}
-            busyCustomerId={schedule.busyCustomerId}
-            canOperate={schedule.canOperate}
-            createSessionForStage={schedule.createSessionForStage}
-            customers={schedule.customers}
-            handleAttendanceAction={schedule.handleAttendanceAction}
-            openCustomerHistory={schedule.openCustomerHistory}
-            runtime={schedule.runtime}
-            selectedStage={schedule.selectedStage}
-            setSelectedSessionId={schedule.setSelectedSessionId}
-            setSelectedStageId={schedule.setSelectedStageId}
-            stageSessions={schedule.stageSessions}
-            stages={schedule.stages}
-            statistics={schedule.statistics}
-          />
+          <section className="guide-attendance-card">
+            <nav className="guide-attendance-tabs">
+              {filters.map((filter) => {
+                const count =
+                  filter.key === "checked"
+                    ? stats.checked
+                    : filter.key === "unchecked"
+                      ? stats.unchecked
+                      : filter.key === "absent"
+                        ? stats.absent
+                        : stats.total;
+                return (
+                  <button
+                    key={filter.key}
+                    type="button"
+                    className={activeFilter === filter.key ? "is-active" : ""}
+                    onClick={() => setActiveFilter(filter.key)}
+                  >
+                    {filter.label} ({count})
+                  </button>
+                );
+              })}
+            </nav>
+            <div className="guide-attendance-toolbar">
+              <label>
+                <input
+                  value={keyword}
+                  onChange={(event) => setKeyword(event.target.value)}
+                  placeholder="Tìm kiếm tên khách, SĐT..."
+                />
+              </label>
+              <select
+                value={customerType}
+                onChange={(event) => setCustomerType(event.target.value)}
+                aria-label="Lọc loại khách"
+              >
+                <option value="all">Tất cả loại khách</option>
+                <option value="Người lớn">Người lớn</option>
+                <option value="Trẻ em">Trẻ em</option>
+              </select>
+              <button
+                type="button"
+                onClick={markAll}
+                disabled={busy || !canOperate}
+              >
+                Điểm danh tất cả
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setMessage("Kết quả điểm danh đã được lưu trên hệ thống.")
+                }
+              >
+                Lưu kết quả điểm danh
+              </button>
+            </div>
+            <div className="guide-attendance-table">
+              <div className="guide-attendance-table-head">
+                <span></span>
+                <span>STT</span>
+                <span>Họ và tên</span>
+                <span>Loại khách</span>
+                <span>Trạng thái</span>
+                <span>Thời gian</span>
+                <span>Ghi chú</span>
+              </div>
+              {loading ? (
+                <div className="guide-shot-empty">Đang tải khách hàng...</div>
+              ) : null}
+              {!loading &&
+                visibleCustomers.map((customer, index) => (
+                  <div className="guide-attendance-row" key={customer.id}>
+                    <span>
+                      <input
+                        type="checkbox"
+                        checked={isChecked(customer)}
+                        disabled={busy || !canOperate || isChecked(customer)}
+                        onChange={() => markCustomer(customer)}
+                      />
+                    </span>
+                    <span>{index + 1}</span>
+                    <span className="guide-attendance-person">
+                      <b>{getInitials(getCustomerName(customer))}</b>
+                      <em>
+                        <strong>{getCustomerName(customer)}</strong>
+                        <small>{getCustomerPhone(customer)}</small>
+                      </em>
+                    </span>
+                    <span>
+                      <i
+                        className={
+                          getCustomerType(customer) === "Trẻ em"
+                            ? "is-child"
+                            : ""
+                        }
+                      >
+                        {getCustomerType(customer)}
+                      </i>
+                    </span>
+                    <span>
+                      <mark
+                        className={
+                          isChecked(customer) ? "is-done" : "is-missing"
+                        }
+                      >
+                        {isChecked(customer)
+                          ? "Đã điểm danh"
+                          : "Chưa điểm danh"}
+                      </mark>
+                    </span>
+                    <span>{getCheckTime(customer)}</span>
+                    <span>
+                      <button
+                        type="button"
+                        className="guide-note-btn"
+                        onClick={() => openNote(customer)}
+                        title="Ghi chú khách hàng"
+                      >
+                        ✎
+                      </button>
+                    </span>
+                  </div>
+                ))}
+            </div>
+            <footer className="guide-attendance-footer">
+              <span>
+                Hiển thị {visibleCustomers.length ? 1 : 0} -{" "}
+                {visibleCustomers.length} của {totalRows} khách
+              </span>
+              <div>
+                <button type="button">‹</button>
+                <button type="button" className="is-active">
+                  1
+                </button>
+                <button type="button">›</button>
+              </div>
+              <span>
+                Hiển thị <b>{customerMeta.per_page || 10} / trang</b>
+              </span>
+            </footer>
+            <p className="guide-attendance-note-line">
+              Mẹo: Bạn có thể thêm ghi chú khách hàng bằng tên, số điện thoại
+              hoặc loại khách để điểm danh dễ dàng hơn.
+            </p>
+          </section>
         </>
       ) : (
-        <div className="guide-schedule-empty large">
-          {schedule.loadingTours ? 'Dang tai tour...' : 'Chua co tour can diem danh.'}
+        <div className="guide-shot-empty">
+          {loading ? "Đang tải tour..." : "Chưa có tour để điểm danh."}
         </div>
       )}
-
-      <CustomerHistoryPanel
-        detail={schedule.historyDetail}
-        loading={schedule.historyLoading}
-        onClose={() => schedule.setHistoryDetail(null)}
-      />
+      {noteTarget ? (
+        <div
+          className="guide-note-modal-backdrop"
+          role="presentation"
+          onClick={() => setNoteTarget(null)}
+        >
+          <form
+            className="guide-note-modal"
+            onSubmit={saveNote}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2>Ghi chú khách hàng</h2>
+            <p>
+              {getCustomerName(noteTarget)} - {getDestination(selectedTour)}
+            </p>
+            <textarea
+              value={noteText}
+              onChange={(event) => setNoteText(event.target.value)}
+              rows={5}
+              placeholder="Nhập yêu cầu, lưu ý sức khỏe, ăn uống hoặc vấn đề cần chú ý..."
+            />
+            <div>
+              <button type="button" onClick={() => setNoteTarget(null)}>
+                Hủy
+              </button>
+              <button type="submit" disabled={busy}>
+                Lưu ghi chú
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
     </div>
-  )
+  );
 }
-
-export default GuideAttendancePage
+export default GuideAttendancePage;

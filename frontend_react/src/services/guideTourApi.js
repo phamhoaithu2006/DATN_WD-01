@@ -16,7 +16,7 @@ export const getGuideTourCompleted = async (params = {}) =>
 
 export const getGuideTourDetail = async (departureId) =>
   unwrap(await apiClient.get(`/guide/tours/${departureId}`)).data
-// api trang lịch làm việc HDV
+// Guide schedule overview API
 export const getGuideTourOverview = async (departureId) =>
   unwrap(await apiClient.get(`/guide/tours/${departureId}/overview`)).data
 
@@ -51,6 +51,13 @@ export const checkOutGuideCustomer = async (departureId, sessionId, participantI
     ),
   ).data
 
+export const updateGuideAttendanceNote = async (departureId, sessionId, participantId, note) =>
+  unwrap(
+    await apiClient.patch(
+      `/guide/tours/${departureId}/attendance-sessions/${sessionId}/notes`,
+      { participant_id: participantId, note },
+    ),
+  ).data
 export const getGuideTourStages = async (departureId) =>
   unwrap(await apiClient.get(`/guide/tours/${departureId}/stages`)).data
 
