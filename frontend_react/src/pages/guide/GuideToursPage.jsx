@@ -7,6 +7,7 @@ import {
   getGuideTourOngoing,
   getGuideTourUpcoming,
   getGuideTours,
+  requestGuideReplacement,
 } from "../../services/guideTourApi";
 import {
   formatDate,
@@ -34,6 +35,14 @@ function getTourDescription(item) {
       item?.description ||
       item?.summary,
   );
+}
+
+function canRequestReplacement(item) {
+  const status = String(item?.guide_status || item?.status || "").toLowerCase();
+  if (["completed", "cancelled", "canceled"].includes(status)) return false;
+  if (item?.replacement_request_pending || item?.pending_replacement_request)
+    return false;
+  return true;
 }
 
 const tabs = [
@@ -108,7 +117,18 @@ function TourRow({ customerCount, item, onDetail }) {
   );
 }
 
-function TourDetailModal({ customerTotal, customers, item, loading, onClose }) {
+function TourDetailModal({
+  customerTotal,
+  customers,
+  item,
+  loading,
+  replacement,
+  onClose,
+  onReplacementChange,
+  onReplacementFileChange,
+  onReplacementSubmit,
+  onToggleReplacement,
+}) {
   if (!item) return null;
 
   const image = getTourImage(item);
@@ -241,6 +261,63 @@ function TourDetailModal({ customerTotal, customers, item, loading, onClose }) {
             </p>
           )}
         </div>
+        <div className="guide-tour-detail-section guide-replacement-section">
+          <div className="guide-replacement-head">
+            <div>
+              <h3>Yêu cầu đổi HDV</h3>
+              <p>
+                Gửi yêu cầu cho admin nếu bạn không thể tiếp tục phụ trách tour
+                này.
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled={!canRequestReplacement(item)}
+              onClick={onToggleReplacement}
+            >
+              {replacement.open ? "Đóng form" : "Yêu cầu đổi HDV"}
+            </button>
+          </div>
+          {!canRequestReplacement(item) ? (
+            <p className="guide-replacement-muted">
+              Tour này không còn đủ điều kiện gửi yêu cầu đổi HDV hoặc đã có yêu
+              cầu chờ duyệt.
+            </p>
+          ) : null}
+          {replacement.open ? (
+            <form
+              className="guide-replacement-form"
+              onSubmit={onReplacementSubmit}
+            >
+              <label>
+                <span>Lý do đổi HDV</span>
+                <textarea
+                  rows={4}
+                  value={replacement.reason}
+                  onChange={(event) => onReplacementChange(event.target.value)}
+                  placeholder="Nhập lý do cần đổi hướng dẫn viên phụ trách tour..."
+                  disabled={replacement.submitting}
+                />
+              </label>
+              <label>
+                <span>File/ảnh minh chứng nếu có</span>
+                <input
+                  type="file"
+                  onChange={(event) =>
+                    onReplacementFileChange(event.target.files?.[0] || null)
+                  }
+                  disabled={replacement.submitting}
+                />
+              </label>
+              {replacement.error ? (
+                <p className="guide-replacement-error">{replacement.error}</p>
+              ) : null}
+              <button type="submit" disabled={replacement.submitting}>
+                {replacement.submitting ? "Đang gửi..." : "Gửi yêu cầu"}
+              </button>
+            </form>
+          ) : null}
+        </div>
       </section>
     </div>
   );
@@ -267,11 +344,17 @@ function GuideToursPage() {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [detailItem, setDetailItem] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailCustomers, setDetailCustomers] = useState([]);
   const [detailCustomerTotal, setDetailCustomerTotal] = useState(0);
   const [customerCounts, setCustomerCounts] = useState({});
+  const [replacementOpen, setReplacementOpen] = useState(false);
+  const [replacementReason, setReplacementReason] = useState("");
+  const [replacementFile, setReplacementFile] = useState(null);
+  const [replacementError, setReplacementError] = useState("");
+  const [replacementSubmitting, setReplacementSubmitting] = useState(false);
   useEffect(() => {
     let mounted = true;
     async function load() {
@@ -380,6 +463,10 @@ function GuideToursPage() {
     setDetailItem(item);
     setDetailCustomers([]);
     setDetailCustomerTotal(0);
+    setReplacementOpen(false);
+    setReplacementReason("");
+    setReplacementFile(null);
+    setReplacementError("");
     setDetailLoading(true);
     try {
       const [detail, customerPayload] = await Promise.all([
@@ -398,6 +485,40 @@ function GuideToursPage() {
       setError(err?.response?.data?.message || "Không tải được chi tiết tour.");
     } finally {
       setDetailLoading(false);
+    }
+  }
+
+  async function submitReplacementRequest(event) {
+    event.preventDefault();
+    if (!detailItem) return;
+    const reason = replacementReason.trim();
+
+    if (reason.length < 10) {
+      setReplacementError("Vui lòng nhập lý do ít nhất 10 ký tự.");
+      return;
+    }
+
+    setReplacementSubmitting(true);
+    setReplacementError("");
+    try {
+      await requestGuideReplacement(detailItem.id, {
+        reason,
+        evidence: replacementFile,
+      });
+      setError("");
+      setMessage("Đã gửi yêu cầu đổi HDV. Admin sẽ xem xét và phản hồi.");
+      setReplacementOpen(false);
+      setReplacementReason("");
+      setReplacementFile(null);
+      setDetailItem((current) =>
+        current ? { ...current, replacement_request_pending: true } : current,
+      );
+    } catch (err) {
+      setReplacementError(
+        err?.response?.data?.message || "Không gửi được yêu cầu đổi HDV.",
+      );
+    } finally {
+      setReplacementSubmitting(false);
     }
   }
 
@@ -486,8 +607,14 @@ function GuideToursPage() {
           <button type="button">Địa điểm</button>
           <button type="button">Sắp xếp: Mới nhất</button>
         </div>
-        {error ? (
-          <div className="guide-profile-alert is-error">{error}</div>
+        {error || message ? (
+          <div
+            className={
+              error ? "guide-profile-alert is-error" : "guide-profile-alert"
+            }
+          >
+            {error || message}
+          </div>
         ) : null}
         {loading ? (
           <div className="guide-shot-empty">Đang tải danh sách tour...</div>
@@ -541,7 +668,20 @@ function GuideToursPage() {
         customers={detailCustomers}
         item={detailItem}
         loading={detailLoading}
+        replacement={{
+          error: replacementError,
+          open: replacementOpen,
+          reason: replacementReason,
+          submitting: replacementSubmitting,
+        }}
         onClose={() => setDetailItem(null)}
+        onReplacementChange={(value) => {
+          setReplacementReason(value);
+          setReplacementError("");
+        }}
+        onReplacementFileChange={setReplacementFile}
+        onReplacementSubmit={submitReplacementRequest}
+        onToggleReplacement={() => setReplacementOpen((current) => !current)}
       />
     </div>
   );

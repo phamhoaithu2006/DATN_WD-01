@@ -9898,3 +9898,65 @@
   font-style: normal;
   font-weight: 950;
 }
+
+.guide-replacement-section {
+  background: #fbfdff;
+}
+.guide-replacement-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.guide-replacement-head p,
+.guide-replacement-muted {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-weight: 750;
+}
+.guide-replacement-head button,
+.guide-replacement-form button {
+  height: 38px;
+  border: 0;
+  border-radius: 8px;
+  background: #0b7af3;
+  color: #fff;
+  padding: 0 16px;
+  font-weight: 950;
+  cursor: pointer;
+}
+.guide-replacement-head button:disabled,
+.guide-replacement-form button:disabled {
+  background: #cbd5e1;
+  cursor: not-allowed;
+}
+.guide-replacement-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+.guide-replacement-form label {
+  display: grid;
+  gap: 7px;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 900;
+}
+.guide-replacement-form textarea,
+.guide-replacement-form input[type="file"] {
+  border: 1px solid #dbe4f0;
+  border-radius: 10px;
+  background: #fff;
+  padding: 11px 12px;
+  font: inherit;
+}
+.guide-replacement-form textarea:focus {
+  outline: 0;
+  border-color: #0b7af3;
+  box-shadow: 0 0 0 3px rgba(11, 122, 243, 0.12);
+}
+.guide-replacement-error {
+  margin: 0;
+  color: #dc2626;
+  font-weight: 850;
+}
