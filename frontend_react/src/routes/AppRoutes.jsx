@@ -33,6 +33,7 @@ import ForgotPasswordPage from '../pages/auth/ForgotPasswordPage'
 import CustomerPage from '../pages/customer/CustomerPage'
 import VnpayPaymentResultPage from '../pages/customer/VnpayPaymentResultPage'
 import GuideDashboardPage from '../pages/guide/GuideDashboardPage'
+import GuideHistoryPage from '../pages/guide/GuideHistoryPage'
 import GuideNotificationsPage from '../pages/guide/GuideNotificationsPage'
 import GuideProfilePage from '../pages/guide/GuideProfilePage'
 import GuideSchedulePage from '../pages/guide/GuideSchedulePage'
@@ -69,7 +70,7 @@ function GuideComingSoonPage({ title }) {
 
 function AppRoutes() {
   return <Routes>
-    {/* Quáº£n lÃ½ ngÆ°á»i dÃ¹ng */}
+    {/* Quản lý người dùng */}
     <Route path="/" element={<CustomerPage />} />
     <Route path="/tours/*" element={<CustomerPage />} />
     <Route path="/destinations" element={<CustomerPage />} />
@@ -81,6 +82,7 @@ function AppRoutes() {
     <Route path="/customer/search" element={<CustomerPage />} />
     <Route path="/customer/bookings" element={<CustomerPage />} />
     <Route path="/customer/settings" element={<CustomerPage />} />
+    <Route path="/payment/vnpay/return" element={<VnpayPaymentResultPage />} />
     {/* Trang hướng dẫn viên */}
     <Route path="/guide" element={guidePage(<GuideDashboardPage />)} />
     <Route path="/guide/tours" element={guidePage(<GuideToursPage />)} />
@@ -88,8 +90,8 @@ function AppRoutes() {
     <Route path="/guide/schedule/:tourId" element={guidePage(<GuideSchedulePage />)} />
     <Route path="/guide/schedule/:tourId/:feature" element={guidePage(<GuideSchedulePage />)} />
     <Route path="/guide/history" element={guidePage(<GuideHistoryPage />)} />
-    <Route path="/guide/customers" element={guidePage(<GuideComingSoonPage title="KhÃ¡ch hÃ ng" />)} />
-    <Route path="/guide/messages" element={guidePage(<GuideComingSoonPage title="Tin nháº¯n" />)} />
+    <Route path="/guide/customers" element={guidePage(<GuideComingSoonPage title="Khách hàng" />)} />
+    <Route path="/guide/messages" element={guidePage(<GuideComingSoonPage title="Tin nhắn" />)} />
     <Route path="/guide/notifications" element={guidePage(<GuideNotificationsPage />)} />
     <Route path="/guide/profile" element={guidePage(<GuideProfilePage />)} />
     <Route path="/support" element={supportPage(<SupportDashboardPage />)} />
@@ -102,12 +104,12 @@ function AppRoutes() {
     <Route path="/admin/users/admins" element={adminPage(<UserManagementPage roleName="admin" />)} />
     <Route path="/admin/users/support-staff" element={adminPage(<UserManagementPage roleName="support staff" />)} />
     <Route path="/admin/users/tour-guides" element={adminPage(<UserManagementPage roleName="tour guide" />)} />
-    {/* ÄÄƒng kÃ½, Ä‘Äƒng nháº­p */}
+    {/* Đăng ký, đăng nhập */}
     <Route path="/auth" element={<Navigate to="/auth/login" replace />} />
     <Route path="/auth/login" element={<AuthPage />} />
     <Route path="/auth/register" element={<AuthPage />} />
     <Route path="/auth/forgot-password" element={<ForgotPasswordPage />} />
-    {/* Quáº£n lÃ½ cÃ i Ä‘áº·t */}
+    {/* Quản lý cài đặt */}
     <Route path="/admin/settings" element={protect(<SettingsHomePage />)} />
     <Route path="/admin/settings/system" element={protect(<SystemSettingsPage />)} />
     <Route path="/admin/settings/security" element={protect(<SecuritySettingsPage />)} />
@@ -117,37 +119,37 @@ function AppRoutes() {
     <Route path="/admin/settings/backup" element={protect(<BackupSettingsPage />)} />
     <Route path="/admin" element={adminPage(<AdminDashboardPage />)} />
     <Route path="/admin/reports" element={adminPage(<ReportStatisticsPage />)} />
-    {/* quáº£n lÃ½ Booking */}
+    {/* quản lý Booking */}
     <Route path="/admin/bookings" element={adminPage(<BookingManagementPage />)} />
-    {/* Danh má»¥c tour/loáº¡i tour */}
+    {/* Danh mục tour/loại tour */}
     <Route path="/admin/categories" element={adminPage(<TourTypeListPage />)} />
     <Route path="/admin/categories/create" element={adminPage(<TourTypeCreatePage />)} />
     <Route path="/admin/categories/:id/edit" element={adminPage(<TourTypeEditPage />)} />
     <Route path="/admin/categories/trash" element={adminPage(<TourTypeTrashPage />)} />
-    {/* Quáº£n lÃ½ tour */}
+    {/* Quản lý tour */}
     <Route path="/admin/tours" element={adminPage(<TourListPage />)} />
     <Route path="/admin/tours/create" element={adminPage(<TourCreatePage />)} />
     <Route path="/admin/tours/:id/edit" element={adminPage(<TourEditPage />)} />
     <Route path="/admin/tours/hidden" element={adminPage(<TourHiddenPage />)} />
     <Route path="/admin/tours/:id" element={adminPage(<TourDetailPage />)} />
-    {/* quáº£n lÃ½ lá»‹ch khá»Ÿi hÃ nh tour */}
+    {/* quản lý lịch khởi hành tour */}
     <Route path="/admin/tour-departures/guide-assignments" element={<Navigate to="/admin/tour-departures" replace />}/>
     <Route path="/admin/tour-departures" element={adminPage(<TourDepartureListPage />)}/>
     <Route path="/admin/tour-departures/create" element={adminPage(<TourDepartureCreatePage />)}/>
     <Route path="/admin/tour-departures/:tourId/edit/:departureId"  element={adminPage(<TourDepartureEditPage />)}/>
-    {/* Quáº£n lÃ½ Ä‘iá»ƒm Ä‘áº¿n/Ä‘á»‹a chá»‰ tour */}
+    {/* Quản lý điểm đến/địa chỉ tour */}
     <Route path="/admin/destinations" element={adminPage(<DestinationListPage />)} />
     <Route path="/admin/destinations/create" element={adminPage(<DestinationCreatePage />)} />
     <Route path="/admin/destinations/:id/edit" element={adminPage(<DestinationEditPage />)} />
     <Route path="/admin/destinations/trash" element={adminPage(<DestinationTrashPage />)} />
-    {/* Quáº£n lÃ½ hÆ°á»›ng dáº«n viÃªn */}
+    {/* Quản lý hướng dẫn viên */}
     <Route path="/admin/guides" element={adminPage(<GuideManagementPage />)} />
     <Route path="/admin/guides/trash" element={adminPage(<GuideTrashPage />)} />
     <Route path="/guide/reviews" element={guidePage(<GuideReviewsPage />)} />
-    {/* Quáº£n lÃ½ nhÃ¢n viÃªn há»— trá»£ */}
+    {/* Quản lý nhân viên hỗ trợ */}
     <Route path="/admin/support" element={adminPage(<SupportStaffManagementPage />)} />
     <Route path="/admin/support/trash" element={adminPage(<SupportStaffTrashPage />)} />
-    {/* Quáº£n lÃ½ nhÃ¢n ThÃ´ng bÃ¡o */}
+    {/* Quản lý nhân Thông báo */}
     <Route path="/admin/notifications" element={adminPage(<AdminNotificationsPage />)} />
     <Route path="/admin/languages" element={adminPage(<LanguageManagementPage />)} />
     <Route path="/admin/certificates" element={adminPage(<CertificateManagementPage />)} />

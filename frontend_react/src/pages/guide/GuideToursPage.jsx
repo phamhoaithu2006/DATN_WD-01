@@ -38,16 +38,6 @@ function formatDate(value) {
   return formatDateDdMmYyyy(value, 'Ch?a x?c ??nh')
 }
 
-function formatMoney(value) {
-  const number = Number(value || 0)
-
-  return new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
-    currency: 'VND',
-    maximumFractionDigits: 0,
-  }).format(Number.isFinite(number) ? number : 0)
-}
-
 function formatNumber(value) {
   const number = Number(value || 0)
 
