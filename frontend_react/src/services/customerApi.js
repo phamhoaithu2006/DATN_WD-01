@@ -26,6 +26,12 @@ export async function fetchTours(params = {}) {
   return response.data?.data || [];
 }
 
+export async function fetchHomeContent() {
+  const response = await api.get('/home')
+
+  return response.data?.data || {}
+}
+
 export async function fetchCatalogCategories() {
   const response = await api.get('/catalog/categories')
 

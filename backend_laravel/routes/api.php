@@ -159,6 +159,7 @@ Route::prefix('tours')->group(function () {
 
 // Lấy danh  sách role
 Route::get('/roles', [CustomerManagerController::class, 'index_role']);
+Route::get('/home', [PublicCatalogController::class, 'home']);
 Route::get('/catalog/categories', [PublicCatalogController::class, 'categories']);
 Route::get('/catalog/destinations', [PublicCatalogController::class, 'destinations']);
 Route::get('/settings/public', [PublicSettingController::class, 'show']);
