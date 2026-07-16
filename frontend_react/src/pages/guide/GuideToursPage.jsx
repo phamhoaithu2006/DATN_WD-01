@@ -255,12 +255,17 @@ function TourStatCard({ label, value, icon, tone, hint, active, onClick }) {
 }
 
 function TourRow({ item, active, isNew, onDetail, onRequestChange }) {
+  const [requestPressed, setRequestPressed] = useState(false)
   const image = getTourImage(item)
   const title = item?.tour?.title || 'Tour được phân công'
   const statusLabel = getTourStateLabel(item)
   const statusTone = getTourStateTone(item)
   const state = getTourState(item)
   const requestState = canRequestReplacement(item)
+
+  function resetRequestPressed() {
+    setRequestPressed(false)
+  }
 
   return (
     <article
@@ -319,8 +324,19 @@ function TourRow({ item, active, isNew, onDetail, onRequestChange }) {
 
         <button
           type="button"
-          className="guide-tour-change-btn"
+          className={[
+            'guide-tour-change-btn',
+            requestPressed ? 'is-request-pressed' : '',
+          ].filter(Boolean).join(' ')}
           disabled={!requestState.ok}
+          onMouseDown={() => setRequestPressed(true)}
+          onMouseUp={resetRequestPressed}
+          onTouchStart={() => setRequestPressed(true)}
+          onTouchEnd={resetRequestPressed}
+          onPointerDown={() => setRequestPressed(true)}
+          onPointerUp={resetRequestPressed}
+          onPointerLeave={resetRequestPressed}
+          onBlur={resetRequestPressed}
           onClick={() => onRequestChange(item)}
           title={requestState.reason || 'Yêu cầu đổi HDV'}
         >
@@ -343,10 +359,15 @@ function TourDetailModal({
   onClose,
   onRequestChange,
 }) {
+  const [requestPressed, setRequestPressed] = useState(false)
   const image = getTourImage(item)
   const requestState = item ? canRequestReplacement(item) : { ok: false, reason: '' }
 
   if (!open) return null
+
+  function resetRequestPressed() {
+    setRequestPressed(false)
+  }
 
   return (
     <div className="guide-tour-modal-backdrop" role="presentation" onClick={onClose}>
@@ -356,8 +377,19 @@ function TourDetailModal({
         <div className="guide-tour-modal-request-inline">
           <button
             type="button"
-            className="guide-tour-modal-request-float"
+            className={[
+              'guide-tour-modal-request-float',
+              requestPressed ? 'is-request-pressed' : '',
+            ].filter(Boolean).join(' ')}
             disabled={!requestState.ok}
+            onMouseDown={() => setRequestPressed(true)}
+            onMouseUp={resetRequestPressed}
+            onTouchStart={() => setRequestPressed(true)}
+            onTouchEnd={resetRequestPressed}
+            onPointerDown={() => setRequestPressed(true)}
+            onPointerUp={resetRequestPressed}
+            onPointerLeave={resetRequestPressed}
+            onBlur={resetRequestPressed}
             onClick={() => onRequestChange(item)}
             title={requestState.reason || 'Yêu cầu đổi HDV'}
           >
@@ -412,11 +444,9 @@ function TourDetailModal({
 
         <div className="guide-tour-modal-section">
           <h4>Ghi chú</h4>
-          <div className="guide-tour-modal-content-box">
-            <p className="guide-tour-modal-note">
-              {item?.assignment_note || item?.assignment?.note || item?.notes || 'Không có ghi chú đặc biệt.'}
-            </p>
-          </div>
+          <p className="guide-tour-modal-note">
+            {item?.assignment_note || item?.assignment?.note || item?.notes || 'Không có ghi chú đặc biệt.'}
+          </p>
         </div>
 
         <div className="guide-tour-modal-section">
