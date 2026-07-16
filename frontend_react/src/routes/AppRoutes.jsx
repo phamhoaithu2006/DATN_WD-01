@@ -80,6 +80,7 @@ function AppRoutes() {
     <Route path="/customer/search" element={<CustomerPage />} />
     <Route path="/customer/bookings" element={<CustomerPage />} />
     <Route path="/customer/settings" element={<CustomerPage />} />
+    <Route path="/payment/vnpay/return" element={<VnpayPaymentResultPage />} />
     {/* Trang hướng dẫn viên */}
     <Route path="/guide" element={guidePage(<GuideDashboardPage />)} />
     <Route path="/guide/tours" element={guidePage(<GuideToursPage />)} />
@@ -144,8 +145,7 @@ function AppRoutes() {
     {/* Quản lý hướng dẫn viên */}
     <Route path="/admin/guides" element={adminPage(<GuideManagementPage />)} />
     <Route path="/admin/guides/trash" element={adminPage(<GuideTrashPage />)} />
-    <Route  path="/guide/reviews" element={guidePage(<GuideReviewsPage />)}
-/>
+    <Route path="/guide/reviews" element={guidePage(<GuideReviewsPage />)} />
     {/* Quản lý nhân viên hỗ trợ */}
     <Route path="/admin/support" element={adminPage(<SupportStaffManagementPage />)} />
     <Route path="/admin/support/trash" element={adminPage(<SupportStaffTrashPage />)} />

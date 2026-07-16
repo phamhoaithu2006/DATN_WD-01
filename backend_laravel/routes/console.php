@@ -9,3 +9,4 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('db:backup --scheduled')->everyMinute();
+Schedule::command('vnpay:expire-pending-payments')->everyMinute();

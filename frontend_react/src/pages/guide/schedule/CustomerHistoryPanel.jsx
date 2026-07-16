@@ -15,8 +15,8 @@ function CustomerHistoryPanel({ detail, loading, onClose }) {
         aria-label="Lịch sử khách hàng"
         onClick={(event) => event.stopPropagation()}
       >
-        <button type="button" onClick={onClose} aria-label="Đóng lịch sử">
-          ×
+        <button type="button" onClick={onClose}>
+          Đóng
         </button>
 
         <div className="guide-schedule-history-head">

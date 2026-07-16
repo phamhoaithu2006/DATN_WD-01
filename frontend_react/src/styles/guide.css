@@ -2946,9 +2946,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding-bottom: 16px;
-  margin-bottom: 16px;
+  gap: 12px;
+  padding-bottom: 6px;
+  margin-bottom: 8px;
   border-bottom: 1px solid #e2e8f0;
 }
 
@@ -2964,7 +2964,7 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
-  width: min(100%, 440px);
+  width: min(100%, 420px);
 }
 
 .support-inbox-filter button {
@@ -4255,34 +4255,64 @@
 }
 
 .guide-tour-modal-request-float {
-  border: 0;
+  border: 1px solid #e5e7eb;
   border-radius: 999px;
   padding: 9px 14px;
-  background: #2563eb;
-  color: #fff;
+  background: #ffffff;
+  color: #475569;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 900;
   cursor: pointer;
   transition: 0.2s ease;
+  white-space: nowrap;
 }
 
 .guide-tour-modal-request-float:hover {
-  background: #1d4ed8;
+  background: #ffffff;
+  border-color: #e5e7eb;
+  color: #475569;
+  transform: translateY(-1px);
+}
+
+.guide-tour-modal-request-float:active:not(:disabled),
+.guide-tour-modal-request-float:focus-visible:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.guide-tour-modal-request-float.is-request-pressed:not(:disabled) {
+  transform: translateY(-1px);
 }
 
 .guide-tour-modal-request-float:disabled {
   cursor: not-allowed;
-  background: #cbd5e1;
-  color: #64748b;
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+  color: #94a3b8;
+}
+
+.guide-tour-modal-request-inline .guide-tour-modal-request-float:active:not(:disabled),
+.guide-tour-modal-request-inline .guide-tour-modal-request-float:focus-visible:not(:disabled),
+.guide-tour-modal-request-inline .guide-tour-modal-request-float.is-request-pressed:not(:disabled) {
+  color: #ffffff !important;
+  background: #2563eb !important;
+  border-color: #2563eb !important;
+  box-shadow: none;
+  transform: translateY(-1px);
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .guide-tour-modal-request-hint-inline {
-  max-width: 280px;
-  color: #b45309;
-  font-size: 11px;
+  max-width: 180px;
+  color: #dc2626;
+  font-size: 10px;
   font-weight: 700;
-  line-height: 1.45;
+  line-height: 1.3;
   text-align: right;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .guide-tour-modal-hero {
@@ -4382,7 +4412,9 @@
 }
 
 .guide-tour-modal-request-float:hover:not(:disabled) {
-  background: #1d4ed8;
+  background: #2563eb;
+  color: #ffffff;
+  transform: translateY(-1px);
 }
 
 .guide-tour-modal-request-float:disabled {
@@ -4405,6 +4437,37 @@
   margin: 0;
   color: #334155;
   line-height: 1.7;
+}
+
+.guide-tour-modal-close {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 4;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid #dbe3ef;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease, color 150ms ease, transform 150ms ease;
+}
+
+.guide-tour-modal-close:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #0f172a;
+  transform: translateY(-1px);
+}
+
+.guide-tour-modal-content-box {
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
 }
 
 .guide-tour-modal-content-box {
@@ -4619,7 +4682,9 @@
 
 .guide-tour-change-btn:hover,
 .guide-tour-modal-request-btn:hover {
-  background: #1d4ed8;
+  background: #ecfdf5;
+  border-color: #bbf7d0;
+  color: #047857;
 }
 
 .guide-tour-change-btn:disabled,
@@ -4646,12 +4711,17 @@
 }
 
 .guide-tour-modal-request-hint {
-  max-width: 240px;
+  max-width: 190px;
   color: #dc2626;
   font-size: 11px;
   font-weight: 700;
   line-height: 1.25;
   text-align: right;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .guide-tour-modal-request-hint-inline {
@@ -5246,6 +5316,13 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.guide-tour-row-meta.compact span {
+  min-height: 72px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
 .guide-tour-row-meta span {
   min-width: 0;
   min-height: 56px;
@@ -5341,13 +5418,27 @@
 }
 
 .guide-tour-change-btn {
-  background: #f1f5f9;
+  background: #ffffff;
   color: #475569;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  min-height: 40px;
+  white-space: nowrap;
 }
 
 .guide-tour-change-btn:hover:not(:disabled) {
-  background: #fff7ed;
-  color: #c2410c;
+  background: #ecfdf5;
+  border-color: #bbf7d0;
+  color: #047857;
+}
+
+.guide-tour-change-btn:active:not(:disabled),
+.guide-tour-change-btn:focus-visible:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.guide-tour-change-btn.is-request-pressed:not(:disabled) {
+  transform: translateY(-1px);
 }
 
 .guide-tour-change-btn:disabled,
@@ -5355,6 +5446,18 @@
 .guide-tour-history-btn:disabled {
   cursor: not-allowed;
   opacity: 0.7;
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+  color: #94a3b8;
+}
+
+.guide-tour-change-hint {
+  display: block;
+  color: #dc2626;
+  font-size: 10.5px;
+  font-weight: 800;
+  line-height: 1.35;
+  text-align: center;
 }
 
 .guide-tour-new-badge,
@@ -6437,6 +6540,31 @@
   margin: 0;
 }
 
+.guide-schedule-tour-detail-note {
+  display: grid;
+  gap: 6px;
+}
+
+.guide-schedule-tour-detail-note > span {
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.guide-schedule-tour-detail-note-box {
+  border: 1px solid #dbeafe;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #eff6ff 0%, #ffffff 100%);
+  padding: 12px 14px;
+}
+
+.guide-schedule-tour-detail-note-box p {
+  margin: 0;
+  color: #334155;
+  font-size: 13px;
+  line-height: 1.65;
+}
+
 .guide-schedule-panel {
   background: #ffffff;
 }
@@ -6916,6 +7044,36 @@
   background: #f8fafc;
 }
 
+.guide-tour-row-card .guide-tour-row-main {
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 14px;
+}
+
+.guide-tour-row-card .guide-tour-row-image-wrap {
+  width: 96px;
+  height: 96px;
+}
+
+.guide-tour-row-card .guide-tour-row-content {
+  min-width: 0;
+}
+
+.guide-tour-row-card .guide-tour-row-title-block h3 {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.guide-tour-row-card .guide-tour-row-meta {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.guide-tour-row-card .guide-tour-row-meta > span:nth-child(n + 3) {
+  display: none;
+}
+
 .guide-tour-row-actions {
   gap: 9px;
   padding-left: 18px;
@@ -6981,10 +7139,8 @@
 }
 
 .guide-tour-change-hint {
-  border-radius: 10px;
-  background: #f8fafc;
-  padding: 8px 10px;
-  color: #64748b;
+  display: block;
+  color: #dc2626;
   line-height: 1.35;
 }
 

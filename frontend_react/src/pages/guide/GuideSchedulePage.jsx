@@ -221,6 +221,7 @@ function GuideSchedulePage({ mode = 'tours' }) {
           ) : (
             <>
               <ScheduleTourDetail
+                key={schedule.selectedTour?.id || 'no-tour'}
                 detail={schedule.detail}
                 loadingDetail={schedule.loadingDetail}
                 runtime={schedule.runtime}

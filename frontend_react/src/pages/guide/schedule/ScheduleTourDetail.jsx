@@ -2,6 +2,17 @@ import { useState } from 'react'
 
 import { formatDate, getDestination, getTourTitle, TOUR_GROUPS } from './scheduleUtils'
 
+function getTourNote(detail, selectedTour) {
+  return (
+    detail?.tour?.note ||
+    detail?.tour?.special_note ||
+    detail?.note ||
+    selectedTour?.note ||
+    selectedTour?.special_note ||
+    ''
+  )
+}
+
 function ScheduleTourDetail({ detail, loadingDetail, runtime, selectedTour }) {
   const [showDetail, setShowDetail] = useState(false)
   const duration = `${formatDate(selectedTour?.departure_date)} - ${formatDate(
@@ -24,7 +35,7 @@ function ScheduleTourDetail({ detail, loadingDetail, runtime, selectedTour }) {
           className={`guide-schedule-tour-detail-action ${showDetail ? 'is-open' : ''}`}
           onClick={() => setShowDetail((current) => !current)}
         >
-          <span>{showDetail ? 'Ẩn chi tiết tour' : 'Xem chi tiết tour'}</span>
+          <span>{showDetail ? 'Ẩn chi tiết tour' : 'Chi tiết tour'}</span>
           <strong>{duration}</strong>
         </button>
       </div>
@@ -35,6 +46,13 @@ function ScheduleTourDetail({ detail, loadingDetail, runtime, selectedTour }) {
             <span>Chi tiết tour</span>
             <h4>{detail?.tour?.title || getTourTitle(selectedTour)}</h4>
             <p>{detail?.tour?.summary || 'Chưa có mô tả chi tiết.'}</p>
+          </div>
+
+          <div className="guide-schedule-tour-detail-note">
+            <span>Ghi chú</span>
+            <div className="guide-schedule-tour-detail-note-box">
+              <p>{getTourNote(detail, selectedTour) || 'Không có ghi chú đặc biệt.'}</p>
+            </div>
           </div>
 
           <dl className="guide-schedule-tour-detail-meta">
