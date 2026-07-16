@@ -31,6 +31,7 @@ use App\Http\Controllers\Api\Customer\CustomerDashboardController;
 use App\Http\Controllers\Api\Customer\GuideReviewController as CustomerGuideReviewController;
 use App\Http\Controllers\Api\Customer\NotificationCustomerController;
 use App\Http\Controllers\Api\Customer\TourController;
+use App\Http\Controllers\Api\Customer\VnpayPaymentController;
 use App\Http\Controllers\Api\Customer\WishlistController;
 use App\Http\Controllers\Api\Guide\GuideAttendanceController;
 use App\Http\Controllers\Api\Guide\GuideDashboardController;
@@ -82,11 +83,15 @@ Route::middleware(['auth:sanctum', 'role:customer'])->group(function () {
     // đặt tour
     Route::post('customer/bookings/preview', [CustomerBookingController::class, 'preview']);
     Route::post('customer/bookings', [CustomerBookingController::class, 'store']);
+    Route::get('customer/payments/vnpay/{payment}', [VnpayPaymentController::class, 'status'])->whereNumber('payment');
     Route::get('customer/guide-reviewable-bookings', [CustomerGuideReviewController::class, 'reviewableBookings']);
     Route::post('customer/guide-reviews', [CustomerGuideReviewController::class, 'store']);
     Route::get('customer/guides/{guide}/reviews', [CustomerGuideReviewController::class, 'guideReviews'])->whereNumber('guide');
     Route::get('customer/guides/{guide}/tour-history', [CustomerGuideReviewController::class, 'guideTourHistory'])->whereNumber('guide');
 });
+
+Route::get('webhooks/vnpay', [VnpayPaymentController::class, 'ipn'])->middleware('throttle:60,1');
+Route::get('vnpay/return-status', [VnpayPaymentController::class, 'returnStatus'])->middleware('throttle:60,1');
 
 Route::middleware(['auth:sanctum'])->group(function () {
     // ======Thông báo khách hàng, hdv, nvht (dùng chung được hết)======
@@ -489,4 +494,3 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/guide/leave-requests/{leaveRequest}/cancel', [GuideLeaveRequestController::class, 'cancel']);
 
 });
-
