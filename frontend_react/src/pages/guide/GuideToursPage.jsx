@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { readSession } from '../../services/authStorage'
 import { mediaUrl } from '../../utils/mediaUrl'
 import { formatDateDdMmYyyy } from '../../utils/dateFormat'
@@ -125,18 +124,6 @@ function getTourState(item) {
   }
 
   return 'completed'
-}
-
-function canTakeAttendance(item) {
-  return Boolean(item?.actions?.take_attendance?.enabled ?? item?.can_take_attendance ?? getTourState(item) === 'ongoing')
-}
-
-function canViewAttendanceHistory(item) {
-  return Boolean(
-    item?.actions?.view_attendance_history?.enabled ??
-      item?.can_view_attendance_history ??
-      ['ongoing', 'completed'].includes(getTourState(item)),
-  )
 }
 
 function getTourStateLabel(item) {
@@ -277,10 +264,7 @@ function TourRow({
   item,
   active,
   isNew,
-  onAttendance,
   onDetail,
-  onHistory,
-  onItinerary,
   onRequestChange,
 }) {
   const image = getTourImage(item)
@@ -289,14 +273,6 @@ function TourRow({
   const statusTone = getTourStateTone(item)
   const state = getTourState(item)
   const requestState = canRequestReplacement(item)
-  const attendanceEnabled = canTakeAttendance(item)
-  const historyEnabled = canViewAttendanceHistory(item)
-  const attendanceReason =
-    item?.actions?.take_attendance?.disabled_reason ||
-    'Chỉ tour đang khởi hành mới có thể điểm danh.'
-  const historyReason =
-    item?.actions?.view_attendance_history?.disabled_reason ||
-    'Tour sắp đi chưa có lịch sử điểm danh.'
 
   return (
     <article
@@ -357,29 +333,6 @@ function TourRow({
           Chi tiết
         </button>
 
-        <button type="button" className="guide-tour-detail-btn is-muted" onClick={() => onItinerary(item)}>
-          Xem lịch trình
-        </button>
-
-        <button
-          type="button"
-          className="guide-tour-attendance-btn"
-          disabled={!attendanceEnabled}
-          onClick={() => onAttendance(item)}
-          title={attendanceEnabled ? 'Điểm danh khách hàng' : attendanceReason}
-        >
-          Điểm danh khách hàng
-        </button>
-
-        <button
-          type="button"
-          className="guide-tour-history-btn"
-          disabled={!historyEnabled}
-          onClick={() => onHistory(item)}
-          title={historyEnabled ? 'Xem lịch sử điểm danh khách hàng' : historyReason}
-        >
-          Lịch sử điểm danh
-        </button>
 
         <button
           type="button"
@@ -393,10 +346,6 @@ function TourRow({
 
         {!requestState.ok ? (
           <small className="guide-tour-change-hint">{requestState.reason}</small>
-        ) : null}
-
-        {!attendanceEnabled && state !== 'completed' ? (
-          <small className="guide-tour-change-hint">{attendanceReason}</small>
         ) : null}
       </div>
     </article>
@@ -660,7 +609,6 @@ function ReplacementRequestModal({
 }
 
 function GuideToursPage() {
-  const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('all')
   const [filters, setFilters] = useState({
     keyword: '',
@@ -945,18 +893,6 @@ function GuideToursPage() {
     setReplaceModalOpen(true)
   }
 
-  function openScheduleAction(item, mode = 'itinerary') {
-    clearNewFlag(item)
-
-    const group = getTourState(item)
-    const params = new URLSearchParams({
-      tourId: String(item.id),
-      group: ['ongoing', 'upcoming', 'completed'].includes(group) ? group : 'ongoing',
-      mode,
-    })
-
-    navigate(`/guide/schedule?${params.toString()}`)
-  }
 
   function validateReplacementForm() {
     const errors = {}
@@ -1176,10 +1112,7 @@ function GuideToursPage() {
                   item={item}
                   active={selectedTourId === item.id}
                   isNew={newTourIds.has(getAssignmentKey(item))}
-                  onAttendance={(tour) => openScheduleAction(tour, 'attendance')}
                   onDetail={() => openDetail(item)}
-                  onHistory={(tour) => openScheduleAction(tour, 'history')}
-                  onItinerary={(tour) => openScheduleAction(tour, 'itinerary')}
                   onRequestChange={openReplacementRequest}
                 />
               ))}

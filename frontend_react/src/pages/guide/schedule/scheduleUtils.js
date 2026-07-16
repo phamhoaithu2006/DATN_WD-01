@@ -7,19 +7,16 @@ import {
 export const TOUR_GROUPS = {
   ongoing: {
     label: 'Tour đang đi',
-    hint: 'Đang vận hành',
     empty: 'Chưa có tour đang đi.',
     fetcher: getGuideTourOngoing,
   },
   upcoming: {
     label: 'Tour sắp đi',
-    hint: 'Sắp khởi hành',
     empty: 'Chưa có tour sắp đi.',
     fetcher: getGuideTourUpcoming,
   },
   completed: {
     label: 'Tour đã đi',
-    hint: 'Đã hoàn tất',
     empty: 'Chưa có tour đã đi.',
     fetcher: getGuideTourCompleted,
   },
@@ -75,12 +72,6 @@ function dateOnly(value) {
 }
 
 export function getTourRuntime(item) {
-  const apiStatus = String(item?.guide_status || '').toLowerCase()
-
-  if (['ongoing', 'upcoming', 'completed', 'cancelled'].includes(apiStatus)) {
-    return apiStatus === 'cancelled' ? 'completed' : apiStatus
-  }
-
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
