@@ -68,6 +68,18 @@ export async function createCustomerBooking(payload) {
   return response.data?.data || response.data
 }
 
+export async function fetchVnpayPaymentStatus(paymentId) {
+  const response = await api.get(`/customer/payments/vnpay/${paymentId}`)
+
+  return response.data?.data || response.data
+}
+
+export async function fetchVnpayReturnStatus(params) {
+  const response = await api.get('/vnpay/return-status', { params })
+
+  return response.data?.data || response.data
+}
+
 export async function askTravelAssistant(message) {
   const response = await api.post('/travel-assistant', { message })
 

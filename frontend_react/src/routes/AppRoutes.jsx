@@ -31,8 +31,8 @@ import TourListPage from '../pages/admin/tours/TourListPage'
 import AuthPage from '../pages/auth/AuthPage'
 import ForgotPasswordPage from '../pages/auth/ForgotPasswordPage'
 import CustomerPage from '../pages/customer/CustomerPage'
+import VnpayPaymentResultPage from '../pages/customer/VnpayPaymentResultPage'
 import GuideDashboardPage from '../pages/guide/GuideDashboardPage'
-import GuideHistoryPage from '../pages/guide/GuideHistoryPage'
 import GuideNotificationsPage from '../pages/guide/GuideNotificationsPage'
 import GuideProfilePage from '../pages/guide/GuideProfilePage'
 import GuideSchedulePage from '../pages/guide/GuideSchedulePage'
@@ -81,7 +81,7 @@ function AppRoutes() {
     <Route path="/customer/search" element={<CustomerPage />} />
     <Route path="/customer/bookings" element={<CustomerPage />} />
     <Route path="/customer/settings" element={<CustomerPage />} />
-    {/* Trang hÆ°á»›ng dáº«n viÃªn */}
+    {/* Trang hướng dẫn viên */}
     <Route path="/guide" element={guidePage(<GuideDashboardPage />)} />
     <Route path="/guide/tours" element={guidePage(<GuideToursPage />)} />
     <Route path="/guide/schedule" element={guidePage(<GuideSchedulePage />)} />

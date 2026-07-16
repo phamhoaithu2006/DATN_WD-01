@@ -51,8 +51,6 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
   const { currency, formatCurrency } = useLocale();
   const navigate = useNavigate();
   const [expandedDay, setExpandedDay] = useState(0); // Default open first day of schedule
-  const [bookingSuccess, setBookingSuccess] = useState(false);
-  const [bookingCode, setBookingCode] = useState("");
   const [imgError, setImgError] = useState(false);
   const [showItineraryModal, setShowItineraryModal] = useState(false);
   const [detailTour, setDetailTour] = useState(null);
@@ -91,15 +89,10 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
   const [itineraryCollapsed, setItineraryCollapsed] = useState(false);
 
   // Refs for scroll spy & actions
-  const packageOptionsRef = useRef(null);
   const overviewRef = useRef(null);
   const servicesRef = useRef(null);
   const policiesRef = useRef(null);
   const reviewsRef = useRef(null);
-
-  const scrollToOptions = () => {
-    packageOptionsRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -365,12 +358,15 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
         note: contact.special_request || undefined,
       });
 
-      setBookingCode(booking?.booking_code || booking?.data?.booking_code || "Đang cập nhật");
-      setBookingSuccess(true);
+      if (!booking?.checkout_url) {
+        throw new Error("Không thể tạo liên kết thanh toán VNPAY.");
+      }
+
+      window.location.assign(booking.checkout_url);
     } catch (error) {
       const errors = error.response?.data?.errors;
       const firstError = errors ? Object.values(errors).flat()[0] : null;
-      setBookingError(firstError || error.response?.data?.message || "Thanh toán giả lập chưa thành công, vui lòng kiểm tra lại thông tin.");
+      setBookingError(firstError || error.response?.data?.message || error.message || "Không thể khởi tạo thanh toán VNPAY, vui lòng kiểm tra lại thông tin.");
     } finally {
       setBookingSubmitting(false);
     }
@@ -742,7 +738,7 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                       <h4>Thanh toán đặt chỗ an toàn</h4>
                     </div>
                     <p style={{ color: "#475569", fontSize: "0.88rem", lineHeight: 1.6, margin: "12px 0" }}>
-                      Hệ thống đang hoạt động ở chế độ thử nghiệm (Simulated Sandbox). Quý khách sẽ không bị trừ tiền thực tế. Vui lòng kiểm tra kỹ thông tin đơn hàng ở cột bên phải trước khi nhấn nút xác nhận đặt chỗ.
+                      Bạn sẽ được chuyển đến VNPAY Sandbox để hoàn tất thanh toán. Chỗ sẽ được giữ trong 15 phút và tự động hoàn lại khi thanh toán không thành công hoặc hết hạn.
                     </p>
                     <div className="fake-payment-warning">
                       <span>✓ Bạn có thể hoàn hủy hoặc thay đổi thông tin theo chính sách của ViVuGo.</span>
@@ -779,7 +775,7 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                     >
                       {checkoutStep === 1 && (previewLoading ? "Đang xử lý..." : "Đặt ngay")}
                       {checkoutStep === 2 && "Đến bước thanh toán"}
-                      {checkoutStep === 3 && (bookingSubmitting ? "Đang xử lý đặt chỗ..." : "Xác nhận đặt tour")}
+                      {checkoutStep === 3 && (bookingSubmitting ? "Đang chuyển đến VNPAY..." : "Thanh toán qua VNPAY")}
                     </button>
                   </div>
                 </div>
@@ -1129,55 +1125,6 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
           )}
         </div>
       </main>
-
-      {/* Booking Success Modal */}
-      {bookingSuccess && (
-        <div className="vg-modal-backdrop">
-          <div className="vg-success-modal-card">
-            <button className="modal-close-btn" onClick={() => setBookingSuccess(false)}>
-              <Icon name="close" size={24} />
-            </button>
-            <div className="modal-icon-success">
-              <span className="checkmark">✓</span>
-            </div>
-            <h2>Đăng Ký Đặt Tour Thành Công!</h2>
-            <p className="modal-sub">Cảm ơn bạn đã lựa chọn tin tưởng dịch vụ lữ hành của ViVuGo.</p>
-
-            <div className="modal-summary-box">
-              <div className="summary-item">
-                <span>Mã đặt chỗ:</span>
-                <strong>{bookingCode}</strong>
-              </div>
-              <div className="summary-item">
-                <span>Chuyến đi:</span>
-                <strong>{tour.title}</strong>
-              </div>
-              <div className="summary-item">
-                <span>Ngày xuất phát:</span>
-                <strong>{selectedDeparture?.departure_date || "Đang cập nhật"}</strong>
-              </div>
-              <div className="summary-item">
-                <span>Số lượng khách:</span>
-                <strong>{totalGuests} khách</strong>
-              </div>
-              <div className="summary-item total">
-                <span>Tổng giá trị đơn đặt:</span>
-                <strong className="price">{formatCurrency(finalTotal)}</strong>
-              </div>
-            </div>
-
-            <div className="modal-actions">
-              <button className="btn-done" onClick={() => navigate("/customer/bookings")}>
-                Hoàn thành
-              </button>
-              <button className="btn-support" onClick={() => navigate("/deals")}>
-                Xem ưu đãi khác
-              </button>
-            </div>
-            <p className="modal-footer-note">Nhân viên tổng đài sẽ gọi điện thoại xác nhận trong vòng 15-30 phút.</p>
-          </div>
-        </div>
-      )}
 
       {/* Detailed Itinerary Modal */}
       {showItineraryModal && (
