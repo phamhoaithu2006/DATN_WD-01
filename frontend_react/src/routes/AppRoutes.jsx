@@ -83,7 +83,7 @@ function AppRoutes() {
     <Route path="/customer/search" element={<CustomerPage />} />
     <Route path="/customer/bookings" element={<CustomerPage />} />
     <Route path="/customer/settings" element={<CustomerPage />} />
-    <Route path="/payment/vnpay/return" element={<VnpayPaymentResultPage />} />
+    {/* <Route path="/payment/vnpay/return" element={<VnpayPaymentResultPage />} /> */}
     {/* Trang hướng dẫn viên */}
     <Route path="/guide" element={guidePage(<GuideDashboardPage />)} />
     <Route path="/guide/tours" element={guidePage(<GuideToursPage />)} />
