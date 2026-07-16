@@ -54,30 +54,6 @@ function readStoredSettings() {
   }
 }
 
-function dateFormatToIntlOptions(format) {
-  switch (format) {
-    case 'yyyy-mm-dd':
-      return { year: 'numeric', month: '2-digit', day: '2-digit' }
-    case 'mm/dd/yyyy':
-      return { year: 'numeric', month: '2-digit', day: '2-digit' }
-    case 'dd/mm/yyyy':
-    default:
-      return { year: 'numeric', month: '2-digit', day: '2-digit' }
-  }
-}
-
-function dateFormatToLocale(format, language) {
-  switch (format) {
-    case 'yyyy-mm-dd':
-      return 'sv-SE'
-    case 'mm/dd/yyyy':
-      return 'en-US'
-    case 'dd/mm/yyyy':
-    default:
-      return language === 'en' ? 'en-GB' : 'vi-VN'
-  }
-}
-
 export function LocaleProvider({ children }) {
   const { i18n } = useTranslation()
   const [settings, setSettings] = useState(readStoredSettings)

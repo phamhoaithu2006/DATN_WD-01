@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { categoryApi } from "../../services/categoryApi";
 import ChatBox from "../../components/customer/ChatBox";
 import Footer from "../../components/customer/Footer";
 import Header from "../../components/customer/Header";
@@ -8,6 +7,8 @@ import { demoTours } from "../../data/customerDemoData";
 import {
   addWishlist,
   fetchBookings,
+  fetchCatalogCategories,
+  fetchCatalogDestinations,
   fetchProfileSummary,
   fetchTours,
   fetchWishlist,
@@ -309,6 +310,8 @@ function CustomerPage() {
   const [favorites, setFavorites] = useState(readStoredFavorites);
   const [bookings, setBookings] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [destinations, setDestinations] = useState([]);
+  const [tourLoadError, setTourLoadError] = useState("");
 
   const [summary, setSummary] = useState({
     bookings_count: 0,
@@ -342,19 +345,24 @@ function CustomerPage() {
   useEffect(() => {
     let active = true;
 
-    async function loadCategories() {
-      try {
-        const res = await categoryApi.getAll();
+    async function loadCatalog() {
+      const [categoryResult, destinationResult] = await Promise.allSettled([
+        fetchCatalogCategories(),
+        fetchCatalogDestinations(),
+      ]);
 
-        if (active && res.data?.status === "success") {
-          setCategories(res.data.data || []);
-        }
-      } catch (error) {
-        console.error("Failed to load categories:", error);
+      if (!active) return;
+
+      if (categoryResult.status === "fulfilled") {
+        setCategories(categoryResult.value);
+      }
+
+      if (destinationResult.status === "fulfilled") {
+        setDestinations(destinationResult.value);
       }
     }
 
-    loadCategories();
+    loadCatalog();
 
     return () => {
       active = false;
@@ -390,6 +398,10 @@ function CustomerPage() {
       };
 
       try {
+        if (active) {
+          setTourLoadError("");
+        }
+
         const response = await fetchTours(searchParams);
         const items = Array.isArray(response) ? response : [];
 
@@ -415,6 +427,7 @@ function CustomerPage() {
         if (active) {
           setTours([]);
           setHasLiveTours(false);
+          setTourLoadError("Không thể tải danh sách tour.");
         }
       }
     }
@@ -521,6 +534,8 @@ function CustomerPage() {
       internationalTours={homeInternationalTours}
       favorites={favorites}
       categories={categories}
+      destinations={destinations}
+      tourLoadError={tourLoadError}
       onFavorite={toggleFavorite}
     />
   );
@@ -544,6 +559,7 @@ function CustomerPage() {
       <ToursPage
         tours={normalizedTours}
         favorites={favorites}
+        loadError={tourLoadError}
         onFavorite={toggleFavorite}
       />
     );

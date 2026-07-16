@@ -107,8 +107,8 @@ test('admin can create partner with auto generated code', function () {
         ->assertJsonPath('success', true)
         ->assertJsonPath('data.name', 'Khách sạn Mới')
         ->assertJsonPath('data.partner_code', 'PTN0001')
-        ->assertJsonPath('data.contract_start', '2026-07-01T00:00:00.000000Z')
-        ->assertJsonPath('data.contract_end', '2026-12-31T00:00:00.000000Z')
+        ->assertJsonPath('data.contract_start', '2026-07-01')
+        ->assertJsonPath('data.contract_end', '2026-12-31')
         ->assertJsonPath('data.average_rating', 0)
         ->assertJsonPath('data.is_visible', true);
 

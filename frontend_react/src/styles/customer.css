@@ -1042,6 +1042,21 @@
   background: #f5f8fb;
 }
 
+.vg-data-alert {
+  margin-top: 20px;
+  padding: 14px 16px;
+  border: 1px solid #e8b65f;
+  border-radius: 12px;
+  background: #fff8e9;
+  color: #774d0b;
+  font-weight: 600;
+}
+
+.vg-data-alert-wrap {
+  position: relative;
+  z-index: 1;
+}
+
 .vg-listing-hero {
   padding: 64px 0 54px;
   background: linear-gradient(120deg, #e0f1fd, #edfaf8);

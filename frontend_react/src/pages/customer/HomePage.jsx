@@ -2,7 +2,10 @@ import { Link, useNavigate } from "react-router-dom";
 import { useMemo, useState } from "react";
 import Icon from "../../components/customer/Icon";
 import TourCard from "../../components/customer/TourCard";
-import { demoDestinations } from "../../data/customerDemoData";
+
+function toLookupKey(value) {
+  return String(value || "").trim().toLocaleLowerCase("vi-VN");
+}
 
 function HomePage({
   tours = [],
@@ -10,6 +13,8 @@ function HomePage({
   internationalTours = [],
   favorites = [],
   categories = [],
+  destinations = [],
+  tourLoadError = "",
   onFavorite,
 }) {
   const navigate = useNavigate();
@@ -20,7 +25,10 @@ function HomePage({
     guests: 2,
   });
 
-  const safeTours = Array.isArray(tours) ? tours : [];
+  const safeTours = useMemo(
+    () => (Array.isArray(tours) ? tours : []),
+    [tours],
+  );
   const safeDomesticTours = Array.isArray(domesticTours)
     ? domesticTours
     : [];
@@ -28,7 +36,14 @@ function HomePage({
     ? internationalTours
     : [];
   const safeFavorites = Array.isArray(favorites) ? favorites : [];
-  const safeCategories = Array.isArray(categories) ? categories : [];
+  const safeCategories = useMemo(
+    () => (Array.isArray(categories) ? categories : []),
+    [categories],
+  );
+  const safeDestinations = useMemo(
+    () => (Array.isArray(destinations) ? destinations : []),
+    [destinations],
+  );
 
   /*
    * Không dùng slice(0, 4): trang chủ sẽ hiển thị toàn bộ tour
@@ -41,12 +56,11 @@ function HomePage({
     safeInternationalTours.length > 0
       ? safeInternationalTours
       : safeTours;
-  const destinationCards = demoDestinations.slice(0, 5);
   const categoryTourCounts = useMemo(() => {
     const counts = {};
 
     for (const tour of safeTours) {
-      const categoryName = tour.category;
+      const categoryName = toLookupKey(tour.category);
 
       if (categoryName) {
         counts[categoryName] = (counts[categoryName] || 0) + 1;
@@ -55,6 +69,41 @@ function HomePage({
 
     return counts;
   }, [safeTours]);
+
+  const destinationTourCounts = useMemo(() => {
+    const counts = {};
+
+    for (const tour of safeTours) {
+      const destinationName = toLookupKey(tour.destination);
+
+      if (destinationName) {
+        counts[destinationName] = (counts[destinationName] || 0) + 1;
+      }
+    }
+
+    return counts;
+  }, [safeTours]);
+
+  const visibleCategories = useMemo(
+    () =>
+      safeCategories.filter(
+        (category) => categoryTourCounts[toLookupKey(category.name)] > 0,
+      ),
+    [categoryTourCounts, safeCategories],
+  );
+
+  const destinationCards = useMemo(
+    () =>
+      safeDestinations
+        .map((destination) => ({
+          ...destination,
+          image: destination.thumbnail_url,
+          tours: destinationTourCounts[toLookupKey(destination.name)] || 0,
+        }))
+        .filter((destination) => destination.tours > 0)
+        .slice(0, 5),
+    [destinationTourCounts, safeDestinations],
+  );
 
   function submitSearch(event) {
     event.preventDefault();
@@ -72,13 +121,6 @@ function HomePage({
     }
     navigate(`/tours?${params.toString()}`);
   }
-
-  const stats = [
-    { value: "200+", label: "Tour" },
-    { value: "50.000+", label: "Khách hàng" },
-    { value: "4.8★", label: "Đánh giá" },
-    { value: "24/7", label: "Hỗ trợ" },
-  ];
 
   const serviceHighlights = [
     {
@@ -140,6 +182,13 @@ function HomePage({
 
   return (
     <main className="vg-home-page">
+      {tourLoadError ? (
+        <div className="vg-container vg-data-alert-wrap">
+          <div className="vg-data-alert" role="alert">
+            Không thể tải danh sách tour lúc này. Vui lòng thử lại sau.
+          </div>
+        </div>
+      ) : null}
       <section className="vg-hero">
         <div className="vg-container">
           <div className="vg-hero-grid">
@@ -200,54 +249,31 @@ function HomePage({
               </div>
             </div>
 
-            <div className="vg-hero-visual" aria-hidden="true">
-              <div className="vg-hero-collage">
-                {/* Card 1: Vietnam */}
-                <div className="vg-collage-card vg-collage-card-1">
-                  <div className="vg-card-badge">
-                    <Icon name="fire" size={12} /> Hot
-                  </div>
-                  <img
-                    src={destinationCards[0]?.image || "https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=600&q=80"}
-                    alt={destinationCards[0]?.name || "Việt Nam"}
-                  />
-                  <div className="vg-collage-info">
-                    <h4>{destinationCards[0]?.name || "Việt Nam"}</h4>
-                    <span>
-                      <Icon name="mapPin" size={12} /> {destinationCards[0]?.tours || 36} tour đang mở
-                    </span>
-                  </div>
-                </div>
-
-                {/* Card 2: Japan */}
-                <div className="vg-collage-card vg-collage-card-2">
-                  <img
-                    src={destinationCards[1]?.image || "https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=600&q=80"}
-                    alt={destinationCards[1]?.name || "Nhật Bản"}
-                  />
-                  <div className="vg-collage-info">
-                    <h4>{destinationCards[1]?.name || "Nhật Bản"}</h4>
-                    <span>
-                      <Icon name="mapPin" size={12} /> {destinationCards[1]?.tours || 28} tour đang mở
-                    </span>
-                  </div>
-                </div>
-
-                {/* Card 3: Maldives */}
-                <div className="vg-collage-card vg-collage-card-3">
-                  <img
-                    src={destinationCards[4]?.image || "https://images.unsplash.com/photo-1514282401047-d79a71a590e8?auto=format&fit=crop&w=600&q=80"}
-                    alt={destinationCards[4]?.name || "Maldives"}
-                  />
-                  <div className="vg-collage-info">
-                    <h4>{destinationCards[4]?.name || "Maldives"}</h4>
-                    <span>
-                      <Icon name="mapPin" size={12} /> {destinationCards[4]?.tours || 18} tour đang mở
-                    </span>
-                  </div>
+            {destinationCards.length > 0 ? (
+              <div className="vg-hero-visual" aria-hidden="true">
+                <div className="vg-hero-collage">
+                  {destinationCards.slice(0, 3).map((destination, index) => (
+                    <div
+                      className={`vg-collage-card vg-collage-card-${index + 1}`}
+                      key={destination.id}
+                    >
+                      <img
+                        src={destination.image}
+                        alt={destination.name}
+                        width="1200"
+                        height="800"
+                      />
+                      <div className="vg-collage-info">
+                        <h4>{destination.name}</h4>
+                        <span>
+                          <Icon name="mapPin" size={12} /> {destination.tours} tour đang mở
+                        </span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
-            </div>
+            ) : null}
           </div>
 
           <form className="vg-search-panel" onSubmit={submitSearch}>
@@ -384,7 +410,7 @@ function HomePage({
         </div>
       </section>
 
-            {safeCategories.length > 0 ? (
+            {visibleCategories.length > 0 ? (
         <section className="vg-home-section vg-home-section-alt">
           <div className="vg-container">
             <div className="vg-centered-heading">
@@ -393,16 +419,21 @@ function HomePage({
               <p>Danh sách các loại hình tour hiện có trên hệ thống.</p>
             </div>
             <div className="vg-destination-grid vg-destination-grid-home">
-              {safeCategories.map((category) => (
+              {visibleCategories.map((category) => (
                 <Link
                   to={`/tours?category_id=${category.id}`}
                   className="vg-destination-card"
                   key={category.id}
                 >
-                  <img src={category.thumbnail_url || 'https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=1200&q=80'} alt={category.name} />
+                  <img
+                    src={category.thumbnail_url}
+                    alt={category.name}
+                    width="1200"
+                    height="800"
+                  />
                   <div>
                     <h3>{category.name}</h3>
-                    <span>{categoryTourCounts[category.name] || 0} tour đang mở</span>
+                    <span>{categoryTourCounts[toLookupKey(category.name)]} tour đang mở</span>
                   </div>
                 </Link>
               ))}
@@ -424,7 +455,12 @@ function HomePage({
                   className="vg-destination-card"
                   key={destination.name}
                 >
-                  <img src={destination.image} alt={destination.name} />
+                  <img
+                    src={destination.image}
+                    alt={destination.name}
+                    width="1200"
+                    height="800"
+                  />
                   <div>
                     <h3>{destination.name}</h3>
                     <span>{destination.tours} tour đang mở</span>

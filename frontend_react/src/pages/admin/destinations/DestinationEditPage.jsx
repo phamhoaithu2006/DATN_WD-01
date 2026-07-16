@@ -25,7 +25,8 @@ function DestinationEditPage() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    const destinationFromState = location.state?.destination
+    const timeoutId = window.setTimeout(() => {
+      const destinationFromState = location.state?.destination
 
     if (destinationFromState) {
       setFormData({
@@ -65,7 +66,10 @@ function DestinationEditPage() {
       }
     }
 
-    fetchDestination()
+      void fetchDestination()
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
   }, [id, location.state])
 
   const handleChange = (event) => {
