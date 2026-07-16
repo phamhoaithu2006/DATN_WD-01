@@ -90,7 +90,7 @@ function ServiceCategoryManagementPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [page, setPage] = useState(1)
-  const [perPage, setPerPage] = useState(10)
+  const perPage = 10
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [formVisible, setFormVisible] = useState(false)
@@ -374,10 +374,6 @@ function ServiceCategoryManagementPage() {
         onDelete={setDeleteTarget}
         onEdit={openEditForm}
         onPageChange={setPage}
-        onPerPageChange={(value) => {
-          setPerPage(value)
-          setPage(1)
-        }}
         onRetry={() => loadList(page)}
         onView={openDetail}
       />

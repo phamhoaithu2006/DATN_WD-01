@@ -246,7 +246,13 @@ function LanguageManagementPage() {
     } finally { setLoading(false) }
   }, [openToast])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      void load()
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [load])
 
   async function handleAdd(e) {
     e.preventDefault()

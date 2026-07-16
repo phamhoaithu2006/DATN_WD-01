@@ -10,8 +10,6 @@ export async function login(identifier, password, remember = false) {
 
   const data = response.data
 
-  console.log('LOGIN RESPONSE:', data)
-
   const token =
     data?.token ||
     data?.access_token ||

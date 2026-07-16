@@ -2,9 +2,9 @@
 
 namespace Database\Seeders;
 
+use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
-use Carbon\Carbon;
 
 class TourGuideAssignmentSeeder extends Seeder
 {
@@ -20,46 +20,56 @@ class TourGuideAssignmentSeeder extends Seeder
         $extraDepartures = [
             // --- Đang diễn ra: departure_date đã qua, return_date chưa tới ---
             [
-                'tour_id'        => 1, // Đà Nẵng - Hội An
+                'tour_id' => 1, // Đà Nẵng - Hội An
                 'departure_date' => $now->copy()->subDay()->toDateString(),
-                'return_date'    => $now->copy()->addDay()->toDateString(),
-                'base_price'     => 4290000,
+                'return_date' => $now->copy()->addDay()->toDateString(),
+                'base_price' => 4290000,
                 'discount_price' => 3890000,
-                'total_slots'    => 30,
-                'booked_slots'   => 18,
-                'status'         => 'open', // enum chưa có 'ongoing', controller tự suy ra qua ngày
+                'total_slots' => 30,
+                'booked_slots' => 18,
+                'status' => 'open', // enum chưa có 'ongoing', controller tự suy ra qua ngày
             ],
             [
-                'tour_id'        => 2, // Phú Quốc
+                'tour_id' => 2, // Phú Quốc
                 'departure_date' => $now->copy()->subDays(2)->toDateString(),
-                'return_date'    => $now->copy()->addDays(1)->toDateString(),
-                'base_price'     => 6790000,
+                'return_date' => $now->copy()->addDays(1)->toDateString(),
+                'base_price' => 6790000,
                 'discount_price' => 6290000,
-                'total_slots'    => 25,
-                'booked_slots'   => 22,
-                'status'         => 'open',
+                'total_slots' => 25,
+                'booked_slots' => 22,
+                'status' => 'open',
             ],
 
             // --- Đã hoàn thành: cả departure_date và return_date đều trong quá khứ ---
             [
-                'tour_id'        => 3, // Sa Pa - Fansipan
+                'tour_id' => 3, // Sa Pa - Fansipan
                 'departure_date' => $now->copy()->subDays(15)->toDateString(),
-                'return_date'    => $now->copy()->subDays(13)->toDateString(),
-                'base_price'     => 3590000,
+                'return_date' => $now->copy()->subDays(13)->toDateString(),
+                'base_price' => 3590000,
                 'discount_price' => null,
-                'total_slots'    => 28,
-                'booked_slots'   => 28,
-                'status'         => 'completed',
+                'total_slots' => 28,
+                'booked_slots' => 28,
+                'status' => 'completed',
             ],
             [
-                'tour_id'        => 1, // Đà Nẵng - Hội An (đợt cũ)
+                'tour_id' => 1, // Đà Nẵng - Hội An (đợt cũ)
                 'departure_date' => $now->copy()->subDays(30)->toDateString(),
-                'return_date'    => $now->copy()->subDays(28)->toDateString(),
-                'base_price'     => 4290000,
+                'return_date' => $now->copy()->subDays(28)->toDateString(),
+                'base_price' => 4290000,
                 'discount_price' => 3890000,
-                'total_slots'    => 30,
-                'booked_slots'   => 27,
-                'status'         => 'completed',
+                'total_slots' => 30,
+                'booked_slots' => 27,
+                'status' => 'completed',
+            ],
+            [
+                'tour_id' => 2, // Phú Quốc (đợt cũ)
+                'departure_date' => $now->copy()->subDays(45)->toDateString(),
+                'return_date' => $now->copy()->subDays(42)->toDateString(),
+                'base_price' => 6790000,
+                'discount_price' => 6290000,
+                'total_slots' => 25,
+                'booked_slots' => 20,
+                'status' => 'completed',
             ],
         ];
 
@@ -68,7 +78,7 @@ class TourGuideAssignmentSeeder extends Seeder
         foreach ($extraDepartures as $key => $dep) {
             DB::table('tour_departures')->updateOrInsert(
                 [
-                    'tour_id'        => $dep['tour_id'],
+                    'tour_id' => $dep['tour_id'],
                     'departure_date' => $dep['departure_date'],
                 ],
                 array_merge($dep, [
@@ -90,72 +100,78 @@ class TourGuideAssignmentSeeder extends Seeder
         $assignments = [
             // --- Sắp diễn ra (dùng lại departure id 1-4 đã có sẵn) ---
             [
-                'guide_id'          => 1,
+                'guide_id' => 1,
                 'tour_departure_id' => 1,
-                'status'            => 'assigned',
-                'note'              => null,
+                'status' => 'assigned',
+                'note' => null,
             ],
             [
-                'guide_id'          => 1,
+                'guide_id' => 1,
                 'tour_departure_id' => 2,
-                'status'            => 'confirmed',
-                'note'              => 'Đoàn khách VIP, lưu ý phục vụ chu đáo.',
+                'status' => 'confirmed',
+                'note' => 'Đoàn khách VIP, lưu ý phục vụ chu đáo.',
             ],
             [
-                'guide_id'          => 2,
+                'guide_id' => 2,
                 'tour_departure_id' => 3,
-                'status'            => 'assigned',
-                'note'              => null,
+                'status' => 'assigned',
+                'note' => null,
             ],
             [
-                'guide_id'          => 3,
+                'guide_id' => 3,
                 'tour_departure_id' => 4,
-                'status'            => 'confirmed',
-                'note'              => null,
+                'status' => 'confirmed',
+                'note' => null,
             ],
 
             // --- Đang diễn ra ---
             [
-                'guide_id'          => 2,
+                'guide_id' => 2,
                 'tour_departure_id' => $departureIds[0],
-                'status'            => 'confirmed',
-                'note'              => 'Đoàn đang di chuyển, theo dõi lịch trình từng ngày.',
+                'status' => 'confirmed',
+                'note' => 'Đoàn đang di chuyển, theo dõi lịch trình từng ngày.',
             ],
             [
-                'guide_id'          => 3,
+                'guide_id' => 3,
                 'tour_departure_id' => $departureIds[1],
-                'status'            => 'confirmed',
-                'note'              => null,
+                'status' => 'confirmed',
+                'note' => null,
             ],
 
             // --- Đã hoàn thành ---
             [
-                'guide_id'          => 1,
+                'guide_id' => 1,
                 'tour_departure_id' => $departureIds[2],
-                'status'            => 'completed',
-                'note'              => 'Tour kết thúc thuận lợi, khách phản hồi tốt.',
+                'status' => 'completed',
+                'note' => 'Tour kết thúc thuận lợi, khách phản hồi tốt.',
             ],
             [
-                'guide_id'          => 2,
+                'guide_id' => 2,
                 'tour_departure_id' => $departureIds[3],
-                'status'            => 'completed',
-                'note'              => null,
+                'status' => 'completed',
+                'note' => null,
+            ],
+            [
+                'guide_id' => 3,
+                'tour_departure_id' => $departureIds[4],
+                'status' => 'completed',
+                'note' => 'Tour kết thúc tốt đẹp, khách hàng đánh giá tích cực.',
             ],
         ];
 
         foreach ($assignments as $assignment) {
             DB::table('tour_guide_assignments')->updateOrInsert(
                 [
-                    'guide_id'          => $assignment['guide_id'],
+                    'guide_id' => $assignment['guide_id'],
                     'tour_departure_id' => $assignment['tour_departure_id'],
                 ],
                 array_merge($assignment, [
-                    'role'        => 'lead',
-                    'updated_at'  => $now,
-                    'created_at'  => $now,
+                    'role' => 'lead',
+                    'updated_at' => $now,
+                    'created_at' => $now,
                     'assigned_by' => null,
                     'assigned_at' => $now,
-                    'notes'       => null,
+                    'notes' => null,
                 ])
             );
         }

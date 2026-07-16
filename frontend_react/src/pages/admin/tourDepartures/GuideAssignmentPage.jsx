@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { tourDepartureApi } from '../../../services/tourDepartureApi'
 
-import { formatDateDdMmYyyy, formatDateTimeDdMmYyyy } from '../../../utils/dateFormat'
 function unwrapList(response) {
   const payload = response?.data
 
@@ -92,12 +91,6 @@ function formatDateShort(value) {
 const ALL_PLANNING_FROM = '1900-01-01'
 const ALL_PLANNING_TO = '2099-12-31'
 
-function getMonthKey(value) {
-  const rawDate = toDateInputValue(value)
-
-  return rawDate ? rawDate.slice(0, 7) : ''
-}
-
 function formatMonthLabel(monthKey) {
   if (!monthKey) return 'Không rõ tháng'
 
@@ -108,33 +101,7 @@ function formatMonthLabel(monthKey) {
   return `Tháng ${Number(month)}/${year}`
 }
 
-function getMonthRange(monthKey) {
-  if (!monthKey || monthKey === 'all') return null
-
-  const [year, month] = String(monthKey).split('-').map(Number)
-
-  if (!year || !month) return null
-
-  const firstDate = new Date(year, month - 1, 1)
-  const lastDate = new Date(year, month, 0)
-
-  if (Number.isNaN(firstDate.getTime()) || Number.isNaN(lastDate.getTime())) {
-    return null
-  }
-
-  const toKey = (date) => {
-    const y = date.getFullYear()
-    const m = String(date.getMonth() + 1).padStart(2, '0')
-    const d = String(date.getDate()).padStart(2, '0')
-
-    return `${y}-${m}-${d}`
-  }
-
-  return {
-    from: toKey(firstDate),
-    to: toKey(lastDate),
-  }
-}
+void formatMonthLabel
 
 function getYearKey(value) {
   const rawDate = toDateInputValue(value)
@@ -642,12 +609,16 @@ function CalendarFilter({ from, to, onChangeFrom, onChangeTo, selectedDeparture 
   )
 
   useEffect(() => {
-    const nextDate =
-      parseDateKey(from) || parseDateKey(selectedDeparture?.departure_date)
+    const timeoutId = window.setTimeout(() => {
+      const nextDate =
+        parseDateKey(from) || parseDateKey(selectedDeparture?.departure_date)
 
-    if (nextDate) {
-      setCursor(new Date(nextDate.getFullYear(), nextDate.getMonth(), 1))
-    }
+      if (nextDate) {
+        setCursor(new Date(nextDate.getFullYear(), nextDate.getMonth(), 1))
+      }
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
   }, [from, selectedDeparture?.departure_date])
 
   const days = useMemo(() => buildCalendarDays(cursor), [cursor])
@@ -961,7 +932,11 @@ function DirectGuideAssignmentPanel({
   }, [])
 
   useEffect(() => {
-    void fetchDestinationOptions()
+    const timeoutId = window.setTimeout(() => {
+      void fetchDestinationOptions()
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
   }, [fetchDestinationOptions])
 
   const fetchLanguageOptions = useCallback(async () => {
@@ -984,7 +959,11 @@ function DirectGuideAssignmentPanel({
   }, [])
 
   useEffect(() => {
-    void fetchLanguageOptions()
+    const timeoutId = window.setTimeout(() => {
+      void fetchLanguageOptions()
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
   }, [fetchLanguageOptions])
 
   function toggleLanguageId(languageId) {
@@ -1006,28 +985,36 @@ function DirectGuideAssignmentPanel({
   }, [destinationOptions, departureOptions])
 
   useEffect(() => {
-    if (focusedDepartureId) {
-      setDepartureId(String(focusedDepartureId))
-      clearFieldError('departureId')
-      setDepartureDropdownOpen(false)
-      return
-    }
+    const timeoutId = window.setTimeout(() => {
+      if (focusedDepartureId) {
+        setDepartureId(String(focusedDepartureId))
+        clearFieldError('departureId')
+        setDepartureDropdownOpen(false)
+        return
+      }
 
-    if (!departureId && sortedDepartureOptions.length > 0) {
-      setDepartureId(String(sortedDepartureOptions[0].id))
-      clearFieldError('departureId')
-    }
+      if (!departureId && sortedDepartureOptions.length > 0) {
+        setDepartureId(String(sortedDepartureOptions[0].id))
+        clearFieldError('departureId')
+      }
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
   }, [focusedDepartureId, departureId, sortedDepartureOptions])
 
   useEffect(() => {
-    if (!selectedDeparture) return
+    const timeoutId = window.setTimeout(() => {
+      if (!selectedDeparture) return
 
-    setFrom((current) => current || toDateInputValue(selectedDeparture.departure_date))
-    setTo((current) =>
-      current ||
-      toDateInputValue(selectedDeparture.return_date) ||
-      toDateInputValue(selectedDeparture.departure_date)
-    )
+      setFrom((current) => current || toDateInputValue(selectedDeparture.departure_date))
+      setTo((current) =>
+        current ||
+        toDateInputValue(selectedDeparture.return_date) ||
+        toDateInputValue(selectedDeparture.departure_date)
+      )
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
   }, [selectedDeparture])
 
   const fetchGuides = useCallback(async (extraHiddenGuideIds = []) => {
@@ -1084,7 +1071,11 @@ function DirectGuideAssignmentPanel({
   }, [departureId, mode, keyword, from, to, destinationId, languageIds])
 
   useEffect(() => {
-    void fetchGuides()
+    const timeoutId = window.setTimeout(() => {
+      void fetchGuides()
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
   }, [fetchGuides])
 
   async function assignGuide(guide, forceAreaMismatch = false) {
@@ -1888,13 +1879,21 @@ export function GuideAssignmentPanel({
   }, [from, to, selectedTourId])
 
   useEffect(() => {
-    void fetchPlanning()
+    const timeoutId = window.setTimeout(() => {
+      void fetchPlanning()
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
   }, [fetchPlanning])
 
   useEffect(() => {
-    if (focusedDepartureId) {
+    if (!focusedDepartureId) return undefined
+
+    const timeoutId = window.setTimeout(() => {
       setDirectDepartureId(String(focusedDepartureId))
-    }
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
   }, [focusedDepartureId])
 
   const scopedRows = useMemo(() => {

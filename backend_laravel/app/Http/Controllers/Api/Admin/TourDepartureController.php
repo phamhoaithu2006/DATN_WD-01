@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\TourDepartureResource;
 use App\Models\Booking;
 use App\Models\Tour;
 use App\Models\TourDeparture;
@@ -27,7 +28,7 @@ class TourDepartureController extends Controller
         $departures = TourDeparture::query()
             ->where('tour_id', $tour->id)
             ->with([
-                'tour:id,title,slug,duration_days,duration_nights',
+                'tour:id,title,slug,duration_days,duration_nights,base_price,discount_price',
                 'guideAssignments' => function ($query) {
                     $query
                         ->where('status', 'assigned')
@@ -56,7 +57,7 @@ class TourDepartureController extends Controller
 
             $leadAssignment = $assignedGuides->first(function ($assignment) {
                 return $assignment->status === 'assigned' &&
-                    ($assignment->role === 'lead' || !$assignment->role);
+                    ($assignment->role === 'lead' || ! $assignment->role);
             });
 
             /*
@@ -121,11 +122,12 @@ class TourDepartureController extends Controller
         });
 
         return response()->json([
+            'status' => 'success',
             'message' => 'Danh sách lịch khởi hành',
             'data' => $departures
                 ->map(fn (TourDeparture $departure) => $this->serializeDeparture($departure))
                 ->values(),
-        ]);
+        ], 200, [], JSON_PRESERVE_ZERO_FRACTION);
     }
 
     /**
@@ -163,10 +165,6 @@ class TourDepartureController extends Controller
             ],
         ]);
 
-        /*
-         * base_price từ frontend sẽ được đổi thành price
-         * trước khi insert database.
-         */
         $this->normalizeDeparturePrices($validatedData);
 
         $validatedData['tour_id'] = $tour->id;
@@ -262,12 +260,10 @@ class TourDepartureController extends Controller
             'change_reason',
         ]);
 
-        /*
-     * Database dùng price, không dùng base_price.
-     */
         $trackedFields = [
             'departure_date',
             'return_date',
+            'base_price',
             'price',
             'discount_price',
             'total_slots',
@@ -292,10 +288,6 @@ class TourDepartureController extends Controller
             );
         }
 
-        /*
-     * Chuyển base_price frontend gửi lên thành price
-     * để lưu đúng cột database.
-     */
         $this->normalizeUpdatedPrices(
             $tourDeparture,
             $payload
@@ -356,7 +348,7 @@ class TourDepartureController extends Controller
         /*
      * Có khách đặt thì admin phải xác nhận.
      */
-        if ($bookingCount > 0 && !$confirmed) {
+        if ($bookingCount > 0 && ! $confirmed) {
             return response()->json([
                 'message' => 'Lịch này đã có khách đặt tour. Vui lòng xác nhận trước khi thay đổi.',
                 'requires_confirmation' => true,
@@ -427,7 +419,7 @@ class TourDepartureController extends Controller
         if ($departure->bookings()->exists()) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Không thể xóa lịch khởi hành này vì đã có booking liên kết. Vui lòng xử lý booking trước.',
+                'message' => 'Không thể xóa lịch khởi hành này vì đã có booking liên kết. Vui lòng hủy hoặc chuyển các booking trước khi xóa.',
             ], 422);
         }
 
@@ -460,10 +452,6 @@ class TourDepartureController extends Controller
             ->toDateString();
     }
 
-    /*
-     * Nhận base_price từ frontend,
-     * chuyển về price trước khi create/update database.
-     */
     private function normalizeDeparturePrices(array &$data): void
     {
         $basePrice = $data['base_price'] ?? null;
@@ -477,12 +465,8 @@ class TourDepartureController extends Controller
             $discountPrice = null;
         }
 
-        /*
-         * Xóa field không tồn tại trong database.
-         */
-        unset($data['base_price']);
-
         if ($basePrice === null) {
+            $data['base_price'] = null;
             $data['price'] = null;
             $data['discount_price'] = null;
 
@@ -500,6 +484,7 @@ class TourDepartureController extends Controller
             ]);
         }
 
+        $data['base_price'] = (float) $basePrice;
         $data['price'] = (float) $basePrice;
 
         $data['discount_price'] = $discountPrice !== null
@@ -521,7 +506,7 @@ class TourDepartureController extends Controller
             $payload
         );
 
-        if (!$hasBasePrice && !$hasDiscountPrice) {
+        if (! $hasBasePrice && ! $hasDiscountPrice) {
             return;
         }
 
@@ -537,16 +522,12 @@ class TourDepartureController extends Controller
 
         $this->normalizeDeparturePrices($priceData);
 
-        /*
-         * Không cho base_price đi vào fill(),
-         * vì bảng tour_departures không có cột này.
-         */
-        unset($payload['base_price']);
-
+        $payload['base_price'] = $priceData['base_price'];
         $payload['price'] = $priceData['price'];
         $payload['discount_price'] =
             $priceData['discount_price'];
     }
+
     private function getScheduleGroup(
         TourDeparture $departure,
         ?Carbon $today = null
@@ -573,7 +554,7 @@ class TourDepartureController extends Controller
                 ?? $departure->return_date
         ) ?: $departureDate;
 
-        if (!$departureDate) {
+        if (! $departureDate) {
             return 'upcoming';
         }
 
@@ -599,19 +580,7 @@ class TourDepartureController extends Controller
      */
     private function serializeDeparture(TourDeparture $departure): array
     {
-        $data = $departure->toArray();
-
-        $data['departure_date'] = $this->dateOnly(
-            $departure->getRawOriginal('departure_date')
-                ?? $departure->departure_date
-        );
-
-        $data['return_date'] = $this->dateOnly(
-            $departure->getRawOriginal('return_date')
-                ?? $departure->return_date
-        );
-
-        return $data;
+        return TourDepartureResource::make($departure)->resolve();
     }
 
     private function dateOnly(mixed $value): ?string
@@ -622,5 +591,4 @@ class TourDepartureController extends Controller
 
         return Carbon::parse($value)->toDateString();
     }
-
 }

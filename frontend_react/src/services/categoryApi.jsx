@@ -1,9 +1,9 @@
 // File: src/services/categoryApi.js
 // Chứa các API cho chức năng Quản lý loại tour / danh mục tour
 
-import axios from 'axios'
+import apiClient from './apiClient'
 
-const API_URL = 'http://127.0.0.1:8000/api/admin'
+const API_URL = '/admin'
 
 const buildCategoryFormData = (data, method = 'POST') => {
   const formData = new FormData()
@@ -30,19 +30,19 @@ const buildCategoryFormData = (data, method = 'POST') => {
 export const categoryApi = {
   // Lấy tất cả danh sách loại tour
   getAll() {
-    return axios.get(`${API_URL}/categories`)
+    return apiClient.get(`${API_URL}/categories`)
   },
 
   // Tìm kiếm loại tour theo tên
   search(name) {
-    return axios.get(`${API_URL}/categories/search`, {
+    return apiClient.get(`${API_URL}/categories/search`, {
       params: { name },
     })
   },
 
   // Thêm mới loại tour
   create(data) {
-    return axios.post(`${API_URL}/categories`, buildCategoryFormData(data), {
+    return apiClient.post(`${API_URL}/categories`, buildCategoryFormData(data), {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -51,7 +51,7 @@ export const categoryApi = {
 
   // Cập nhật loại tour
   update(id, data) {
-    return axios.post(`${API_URL}/categories/${id}`, buildCategoryFormData(data, 'PUT'), {
+    return apiClient.post(`${API_URL}/categories/${id}`, buildCategoryFormData(data, 'PUT'), {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -60,16 +60,16 @@ export const categoryApi = {
 
   // Xóa loại tour
   remove(id) {
-    return axios.delete(`${API_URL}/categories/${id}`)
+    return apiClient.delete(`${API_URL}/categories/${id}`)
   },
 
   // Lấy danh sách loại tour đã bị xóa mềm
   getTrashed() {
-    return axios.get(`${API_URL}/categories-trashed`)
+    return apiClient.get(`${API_URL}/categories-trashed`)
   },
 
   // Khôi phục loại tour từ thùng rác theo ID
   restore(id) {
-    return axios.patch(`${API_URL}/categories/${id}/restore`)
+    return apiClient.patch(`${API_URL}/categories/${id}/restore`)
   },
 }

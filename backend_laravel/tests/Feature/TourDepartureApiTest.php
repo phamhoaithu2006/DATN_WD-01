@@ -272,28 +272,32 @@ test('update departure ignores submitted return_date and recalculates from tour 
         'duration_nights' => 2,
     ]);
 
+    $originalDepartureDate = now()->addDays(5)->startOfDay();
+    $updatedDepartureDate = now()->addDays(10)->startOfDay();
+
     $departure = TourDeparture::create([
         'tour_id' => $tour->id,
-        'departure_date' => '2026-07-05',
-        'return_date' => '2026-07-07',
+        'departure_date' => $originalDepartureDate->toDateString(),
+        'return_date' => $originalDepartureDate->copy()->addDays(2)->toDateString(),
         'total_slots' => 10,
         'booked_slots' => 2,
         'status' => 'open',
     ]);
 
     $response = $this->putJson("/api/admin/tours/departures/{$departure->id}", [
-        'departure_date' => '2026-08-01',
-        'return_date' => '2026-07-01',
+        'departure_date' => $updatedDepartureDate->toDateString(),
+        'return_date' => $originalDepartureDate->toDateString(),
+        'change_reason' => 'Điều chỉnh lịch khởi hành',
     ]);
 
     $response->assertOk()
-        ->assertJsonPath('data.departure_date', '2026-08-01')
-        ->assertJsonPath('data.return_date', '2026-08-03');
+        ->assertJsonPath('data.departure_date', $updatedDepartureDate->toDateString())
+        ->assertJsonPath('data.return_date', $updatedDepartureDate->copy()->addDays(2)->toDateString());
 
     $this->assertDatabaseHas('tour_departures', [
         'id' => $departure->id,
-        'departure_date' => '2026-08-01',
-        'return_date' => '2026-08-03',
+        'departure_date' => $updatedDepartureDate->toDateTimeString(),
+        'return_date' => $updatedDepartureDate->copy()->addDays(2)->toDateTimeString(),
     ]);
 });
 
@@ -303,10 +307,12 @@ test('update departure total_slots cannot be less than booked_slots', function (
 
     $tour = createTestTour();
 
+    $departureDate = now()->addDays(5)->startOfDay();
+
     $departure = TourDeparture::create([
         'tour_id' => $tour->id,
-        'departure_date' => '2026-07-05',
-        'return_date' => '2026-07-07',
+        'departure_date' => $departureDate->toDateString(),
+        'return_date' => $departureDate->copy()->addDays(2)->toDateString(),
         'total_slots' => 10,
         'booked_slots' => 6, // Đã đặt 6 chỗ
         'status' => 'open',
@@ -315,6 +321,7 @@ test('update departure total_slots cannot be less than booked_slots', function (
     // Update total_slots xuống 5 (nhỏ hơn booked_slots = 6)
     $response = $this->putJson("/api/admin/tours/departures/{$departure->id}", [
         'total_slots' => 5,
+        'change_reason' => 'Giảm số chỗ còn trống',
     ]);
 
     $response->assertStatus(422)
@@ -332,10 +339,12 @@ test('cannot delete departure if it has active bookings', function () {
 
     $tour = createTestTour();
 
+    $departureDate = now()->addDays(5)->startOfDay();
+
     $departure = TourDeparture::create([
         'tour_id' => $tour->id,
-        'departure_date' => '2026-07-05',
-        'return_date' => '2026-07-07',
+        'departure_date' => $departureDate->toDateString(),
+        'return_date' => $departureDate->copy()->addDays(2)->toDateString(),
         'total_slots' => 10,
         'booked_slots' => 1,
         'status' => 'open',

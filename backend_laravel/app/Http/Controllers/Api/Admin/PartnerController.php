@@ -51,6 +51,10 @@ class PartnerController extends Controller
             return $partner;
         });
 
+        $partners->getCollection()->transform(
+            fn (Partner $partner): array => $this->serializePartner($partner)
+        );
+
         return response()->json(['success' => true, 'data' => $partners]);
     }
 
@@ -99,7 +103,10 @@ class PartnerController extends Controller
         $partner->contact_name = $partner->contact_person;
         unset($partner->serviceType); // ← thêm dòng này
 
-        return response()->json(['success' => true, 'data' => $partner]);
+        return response()->json([
+            'success' => true,
+            'data' => $this->serializePartner($partner),
+        ]);
     }
 
     public function store(Request $request): JsonResponse
@@ -125,7 +132,7 @@ class PartnerController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Thêm đối tác thành công.',
-            'data' => $partner,
+            'data' => $this->serializePartner($partner),
         ], 201);
     }
 
@@ -153,7 +160,7 @@ class PartnerController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Cập nhật thành công.',
-            'data' => $partner,
+            'data' => $this->serializePartner($partner),
         ]);
     }
 
@@ -175,6 +182,10 @@ class PartnerController extends Controller
         $perPage = min((int) $request->query('per_page', 10), 100);
         $partners = $query->latest('deleted_at')->paginate($perPage);
 
+        $partners->getCollection()->transform(
+            fn (Partner $partner): array => $this->serializePartner($partner)
+        );
+
         return response()->json(['success' => true, 'data' => $partners]);
     }
 
@@ -186,7 +197,9 @@ class PartnerController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Khôi phục thành công.',
-            'data' => $partner->refresh()->load('serviceType'),
+            'data' => $this->serializePartner(
+                $partner->refresh()->load('serviceType')
+            ),
         ]);
     }
 
@@ -265,6 +278,26 @@ class PartnerController extends Controller
                 'logo_url' => $url,
             ],
         ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function serializePartner(Partner $partner): array
+    {
+        $partner->loadMissing('serviceType');
+
+        $data = $partner->toArray();
+        unset($data['service_type']);
+
+        $data['service_type'] = $partner->serviceType?->slug ?? '';
+        $data['service_type_label'] = $partner->serviceType?->name ?? '';
+        $data['rating'] = $partner->average_rating;
+        $data['contact_name'] = $partner->contact_person;
+        $data['contract_start'] = $partner->contract_start?->toDateString();
+        $data['contract_end'] = $partner->contract_end?->toDateString();
+
+        return $data;
     }
 
     public function deleteLogo(int $id): JsonResponse

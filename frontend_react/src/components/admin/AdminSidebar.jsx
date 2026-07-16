@@ -18,6 +18,18 @@ const menuItems = [
     ),
   },
   {
+    label: 'Đối tác',
+    path: '/admin/partners',
+    icon: (
+      <>
+        <circle cx="8" cy="9" r="3" />
+        <circle cx="16" cy="9" r="3" />
+        <path d="M3 20c.5-3 2.4-5 5-5s4.5 2 5 5" />
+        <path d="M11 20c.5-3 2.4-5 5-5s4.5 2 5 5" />
+      </>
+    ),
+  },
+  {
     label: 'Tour',
     path: '/admin/tours',
     icon: (
@@ -317,8 +329,12 @@ function AdminSidebar({
   }, [role])
 
   useEffect(() => {
-    void loadTourDepartureWarningCount()
-    void loadGuideLeavePendingCount()
+    const loadTimeout = window.setTimeout(() => {
+      void loadTourDepartureWarningCount()
+      void loadGuideLeavePendingCount()
+    }, 0)
+
+    return () => window.clearTimeout(loadTimeout)
   }, [loadTourDepartureWarningCount, loadGuideLeavePendingCount])
 
   useEffect(() => {
