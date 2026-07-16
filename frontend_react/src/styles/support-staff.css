@@ -2822,7 +2822,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
+  gap: 12px;
+  padding-bottom: 6px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .support-inbox-head span {
@@ -2832,12 +2835,14 @@
 }
 
 .support-inbox-filter {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
+  width: min(100%, 420px);
 }
 
 .support-inbox-filter button {
+  width: 100%;
   min-height: 38px;
   border: 1px solid #dbe5f2;
   border-radius: 999px;

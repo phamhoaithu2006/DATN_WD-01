@@ -196,9 +196,11 @@ function TourHistoryModal({ open, item, detailLoading, onClose }) {
 
         <div className="guide-tour-modal-section">
           <h4>Ghi chú</h4>
-          <p className="guide-tour-modal-note">
-            {item?.assignment_note || item?.assignment?.note || item?.notes || 'Không có ghi chú đặc biệt.'}
-          </p>
+          <div className="guide-tour-modal-content-box">
+            <p className="guide-tour-modal-note">
+              {item?.assignment_note || item?.assignment?.note || item?.notes || 'Không có ghi chú đặc biệt.'}
+            </p>
+          </div>
         </div>
 
         <div className="guide-tour-modal-section">
@@ -422,8 +424,8 @@ function GuideHistoryPage() {
 
             <div className="guide-tour-filter-actions">
               <button type="submit" className="guide-tour-filter-submit">
-                Tìm kiếm
-              </button>
+              Lọc
+            </button>
               <button type="button" className="guide-tour-filter-reset" onClick={handleReset}>
                 Đặt lại
               </button>

@@ -268,10 +268,6 @@ function TourRow({ item, active, isNew, onDetail, onRequestChange }) {
   const state = getTourState(item)
   const requestState = canRequestReplacement(item)
 
-  function resetRequestPressed() {
-    setRequestPressed(false)
-  }
-
   return (
     <article
       className={[
@@ -318,10 +314,6 @@ function TourRow({ item, active, isNew, onDetail, onRequestChange }) {
               <strong>{formatNumber(item?.booked_slots || 0)} khách</strong>
               <small>Số khách</small>
             </span>
-            <span>
-              <strong>{formatMoney(item?.price)}</strong>
-              <small>Giá tour</small>
-            </span>
           </div>
         </div>
       </button>
@@ -334,21 +326,9 @@ function TourRow({ item, active, isNew, onDetail, onRequestChange }) {
 
         <button
           type="button"
-          className={[
-            'guide-tour-change-btn',
-            requestPressed ? 'is-request-pressed' : '',
-          ].filter(Boolean).join(' ')}
+          className="guide-tour-change-btn"
           disabled={!requestState.ok}
-          onMouseDown={() => setRequestPressed(true)}
-          onMouseUp={resetRequestPressed}
-          onTouchStart={() => setRequestPressed(true)}
-          onTouchEnd={resetRequestPressed}
-          onPointerDown={() => setRequestPressed(true)}
-          onPointerUp={resetRequestPressed}
-          onPointerLeave={resetRequestPressed}
-          onBlur={resetRequestPressed}
           onClick={() => onRequestChange(item)}
-          title={requestState.reason || 'Yêu cầu đổi HDV'}
         >
           Yêu cầu đổi HDV
         </button>
@@ -369,43 +349,22 @@ function TourDetailModal({
   onClose,
   onRequestChange,
 }) {
-  const [requestPressed, setRequestPressed] = useState(false)
   const image = getTourImage(item)
   const requestState = item ? canRequestReplacement(item) : { ok: false, reason: '' }
 
   if (!open) return null
 
-  function resetRequestPressed() {
-    setRequestPressed(false)
-  }
-
   return (
     <div className="guide-tour-modal-backdrop" role="presentation" onClick={onClose}>
       <div className="guide-tour-modal" role="dialog" aria-modal="true" aria-label="Chi tiết tour" onClick={(event) => event.stopPropagation()}>
-        <button type="button" className="guide-tour-modal-close" onClick={onClose} aria-label="Đóng">
-          ×
-        </button>
-
         {isNew ? <span className="guide-tour-modal-new">NEW</span> : null}
 
         <div className="guide-tour-modal-request-inline">
           <button
             type="button"
-            className={[
-              'guide-tour-modal-request-float',
-              requestPressed ? 'is-request-pressed' : '',
-            ].filter(Boolean).join(' ')}
+            className="guide-tour-modal-request-float"
             disabled={!requestState.ok}
-            onMouseDown={() => setRequestPressed(true)}
-            onMouseUp={resetRequestPressed}
-            onTouchStart={() => setRequestPressed(true)}
-            onTouchEnd={resetRequestPressed}
-            onPointerDown={() => setRequestPressed(true)}
-            onPointerUp={resetRequestPressed}
-            onPointerLeave={resetRequestPressed}
-            onBlur={resetRequestPressed}
             onClick={() => onRequestChange(item)}
-            title={requestState.reason || 'Yêu cầu đổi HDV'}
           >
             Yêu cầu đổi HDV
           </button>
@@ -447,10 +406,6 @@ function TourDetailModal({
               {formatNumber(item?.booked_slots || 0)}/{formatNumber(item?.total_slots || 0)}
             </strong>
           </div>
-          <div className="guide-tour-modal-card">
-            <span>Giá tour</span>
-            <strong>{formatMoney(item?.price)}</strong>
-          </div>
         </div>
 
         <div className="guide-tour-modal-section">
@@ -462,9 +417,11 @@ function TourDetailModal({
 
         <div className="guide-tour-modal-section">
           <h4>Ghi chú</h4>
-          <p className="guide-tour-modal-note">
-            {item?.assignment_note || item?.assignment?.note || item?.notes || 'Không có ghi chú đặc biệt.'}
-          </p>
+          <div className="guide-tour-modal-content-box">
+            <p className="guide-tour-modal-note">
+              {item?.assignment_note || item?.assignment?.note || item?.notes || 'Không có ghi chú đặc biệt.'}
+            </p>
+          </div>
         </div>
 
         <div className="guide-tour-modal-section">
@@ -538,10 +495,6 @@ function ReplacementRequestModal({
   return (
     <div className="guide-tour-modal-backdrop" role="presentation" onClick={onClose}>
       <div className="guide-replace-modal" role="dialog" aria-modal="true" aria-label="Yêu cầu đổi HDV" onClick={(event) => event.stopPropagation()}>
-        <button type="button" className="guide-tour-modal-close" onClick={onClose} aria-label="Đóng">
-          ×
-        </button>
-
         <div className="guide-replace-modal-head">
           <span>Yêu cầu đổi HDV</span>
           <h3>{item?.tour?.title || 'Tour được phân công'}</h3>
