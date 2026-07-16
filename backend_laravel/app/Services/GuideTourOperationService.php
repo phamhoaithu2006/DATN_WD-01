@@ -10,6 +10,7 @@ use App\Models\TourDeparture;
 use App\Models\TourDepartureStage;
 use App\Models\TourItinerary;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -81,6 +82,29 @@ class GuideTourOperationService
     }
 
     /**
+     * @return Collection<int, AttendanceSession>
+     *
+     * @throws AuthorizationException
+     */
+    public function getAttendanceSessions(User $user, TourDeparture $tourDeparture): Collection
+    {
+        $departure = $this->assignedDepartureForUser($user, $tourDeparture);
+
+        return AttendanceSession::query()
+            ->where('tour_departure_id', $departure->id)
+            ->with('creator:id,full_name,email')
+            ->withCount([
+                'attendances',
+                'attendances as checked_in_count' => fn (Builder $query) => $query->where('status', 'checked_in'),
+                'attendances as checked_out_count' => fn (Builder $query) => $query->where('status', 'checked_out'),
+                'attendances as absent_count' => fn (Builder $query) => $query->where('status', 'absent'),
+            ])
+            ->latest('created_at')
+            ->latest('id')
+            ->get();
+    }
+
+    /**
      * @return array{
      *     current_session: AttendanceSession|null,
      *     total_customers: int,
@@ -138,6 +162,7 @@ class GuideTourOperationService
     public function createAttendanceSession(User $user, TourDeparture $tourDeparture, array $data): AttendanceSession
     {
         $departure = $this->assignedDepartureForUser($user, $tourDeparture);
+        $this->assertDepartureCanTakeAttendance($departure);
 
         return AttendanceSession::query()
             ->create([
@@ -155,6 +180,7 @@ class GuideTourOperationService
     public function checkIn(User $user, TourDeparture $tourDeparture, AttendanceSession $session, int $participantId): Attendance
     {
         $departure = $this->assignedDepartureForUser($user, $tourDeparture);
+        $this->assertDepartureCanTakeAttendance($departure);
         $this->assertSessionBelongsToDeparture($session, $departure);
         $participant = $this->assertParticipantBelongsToDeparture($participantId, $departure);
 
@@ -197,6 +223,7 @@ class GuideTourOperationService
     public function checkOut(User $user, TourDeparture $tourDeparture, AttendanceSession $session, int $participantId): Attendance
     {
         $departure = $this->assignedDepartureForUser($user, $tourDeparture);
+        $this->assertDepartureCanTakeAttendance($departure);
         $this->assertSessionBelongsToDeparture($session, $departure);
         $participant = $this->assertParticipantBelongsToDeparture($participantId, $departure);
 
@@ -241,6 +268,7 @@ class GuideTourOperationService
     public function updateAttendanceNote(User $user, TourDeparture $tourDeparture, AttendanceSession $session, array $data): Attendance
     {
         $departure = $this->assignedDepartureForUser($user, $tourDeparture);
+        $this->assertDepartureCanTakeAttendance($departure);
         $this->assertSessionBelongsToDeparture($session, $departure);
         $participant = $this->assertParticipantBelongsToDeparture((int) $data['participant_id'], $departure);
 
@@ -329,6 +357,7 @@ class GuideTourOperationService
     public function advanceStage(User $user, TourDeparture $tourDeparture): array
     {
         $departure = $this->assignedDepartureForUser($user, $tourDeparture);
+        $this->assertDepartureCanTakeAttendance($departure);
         $this->ensureStagesForDeparture($departure);
 
         return DB::transaction(function () use ($departure): array {
@@ -562,6 +591,33 @@ class GuideTourOperationService
         }
 
         return $participant;
+    }
+
+    /**
+     * @throws ValidationException
+     */
+    private function assertDepartureCanTakeAttendance(TourDeparture $departure): void
+    {
+        if ($this->isDepartureOngoing($departure)) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'tour_departure_id' => 'Only ongoing tour departures can take attendance.',
+        ]);
+    }
+
+    private function isDepartureOngoing(TourDeparture $departure): bool
+    {
+        if (in_array($departure->status, ['completed', 'cancelled', 'canceled'], true)) {
+            return false;
+        }
+
+        $today = Carbon::today();
+        $departureDate = Carbon::parse($departure->departure_date)->startOfDay();
+        $returnDate = Carbon::parse($departure->return_date ?: $departure->departure_date)->startOfDay();
+
+        return $departureDate->lte($today) && $returnDate->gte($today);
     }
 
     private function ensureStagesForDeparture(TourDeparture $departure): void

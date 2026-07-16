@@ -85,7 +85,8 @@ function AppRoutes() {
     <Route path="/guide" element={guidePage(<GuideDashboardPage />)} />
     <Route path="/guide/tours" element={guidePage(<GuideToursPage />)} />
     <Route path="/guide/schedule" element={guidePage(<GuideSchedulePage />)} />
-    <Route path="/guide/history" element={guidePage(<GuideHistoryPage />)} />
+    <Route path="/guide/history" element={guidePage(<GuideComingSoonPage title="Lịch sử Tour" />)} />
+    <Route path="/guide/reviews" element={guidePage(<GuideComingSoonPage title="Đánh giá" />)} />
     <Route path="/guide/customers" element={guidePage(<GuideComingSoonPage title="Khách hàng" />)} />
     <Route path="/guide/messages" element={guidePage(<GuideComingSoonPage title="Tin nhắn" />)} />
     <Route path="/guide/notifications" element={guidePage(<GuideNotificationsPage />)} />

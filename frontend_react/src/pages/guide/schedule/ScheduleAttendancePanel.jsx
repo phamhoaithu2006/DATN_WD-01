@@ -1,5 +1,15 @@
 import { getStageLabel } from './scheduleUtils'
 
+function customerInitials(name) {
+  return String(name || 'KH')
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase()
+}
+
 function YesNoBadge({ value }) {
   return (
     <span className={value ? 'guide-schedule-yesno is-yes' : 'guide-schedule-yesno is-no'}>
@@ -12,7 +22,6 @@ function CustomerRow({
   busy,
   canOperate,
   customer,
-  index,
   onCheckIn,
   onCheckOut,
   onViewHistory,
@@ -23,22 +32,29 @@ function CustomerRow({
 
   return (
     <article className="guide-schedule-customer-row compact-table">
-      <div className="guide-schedule-customer-index">{index}</div>
-
-      <button type="button" className="guide-schedule-customer-main" onClick={onViewHistory}>
-        <div className="guide-schedule-customer-main-info">
-          <strong>{customer.full_name || 'Khách hàng'}</strong>
+      <div className="guide-schedule-customer-main">
+        <div className="guide-schedule-customer-avatar">
+          {customerInitials(customer.full_name)}
         </div>
-      </button>
 
-      <div className="guide-schedule-customer-phone">{customer.phone || 'Chưa có SĐT'}</div>
+        <div className="guide-schedule-customer-copy">
+          <strong>{customer.full_name || 'Khách hàng'}</strong>
+          <span>{customer.booking_code || 'Chưa có mã booking'}</span>
+          <div>
+            <small>{customer.phone || 'Chưa có SĐT'}</small>
+            <small>{customer.email || 'Chưa có email'}</small>
+          </div>
+        </div>
+      </div>
 
       <YesNoBadge value={checkedIn} />
-
       <YesNoBadge value={checkedOut} />
 
       {showActions ? (
         <div className="guide-schedule-actions">
+          <button type="button" className="is-history" onClick={onViewHistory}>
+            Lịch sử
+          </button>
           <button type="button" disabled={!canOperate || checkedIn || busy} onClick={onCheckIn}>
             Check-in
           </button>
@@ -124,15 +140,15 @@ function ScheduleAttendancePanel({
         </label>
 
         <div>
-          <span className="guide-schedule-session-stat-label">Tổng khách</span>
+          <span>Tổng khách</span>
           <strong>{statistics?.total_customers ?? customers.length}</strong>
         </div>
         <div>
-          <span className="guide-schedule-session-stat-label">Check-in</span>
+          <span>Check-in Có</span>
           <strong>{statistics?.checked_in ?? 0}</strong>
         </div>
         <div>
-          <span className="guide-schedule-session-stat-label">Check-out</span>
+          <span>Check-out Có</span>
           <strong>{statistics?.checked_out ?? 0}</strong>
         </div>
       </div>
@@ -150,9 +166,7 @@ function ScheduleAttendancePanel({
       ) : null}
 
       <div className="guide-schedule-customer-header">
-        <span>STT</span>
         <span>Khách hàng</span>
-        <span>SĐT</span>
         <span>Check-in</span>
         <span>Check-out</span>
         <span>Thao tác</span>
@@ -160,10 +174,9 @@ function ScheduleAttendancePanel({
 
       <div className="guide-schedule-customers">
         {customers.length > 0 ? (
-          customers.map((customer, index) => (
+          customers.map((customer) => (
             <CustomerRow
               key={customer.id}
-              index={String(index + 1).padStart(2, '0')}
               customer={customer}
               canOperate={canOperate && Boolean(activeSessionId)}
               showActions={runtime !== 'completed'}

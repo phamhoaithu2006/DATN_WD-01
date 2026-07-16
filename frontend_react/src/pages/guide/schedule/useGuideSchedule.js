@@ -19,7 +19,7 @@ import {
   unwrapPaginator,
 } from './scheduleUtils'
 
-export function useGuideSchedule() {
+export function useGuideSchedule(requestedTourId = null) {
   const [activeGroup, setActiveGroup] = useState('ongoing')
   const [tourGroups, setTourGroups] = useState({ ongoing: [], upcoming: [], completed: [] })
   const [totals, setTotals] = useState({ ongoing: 0, upcoming: 0, completed: 0 })
@@ -67,15 +67,18 @@ export function useGuideSchedule() {
         setTourGroups(nextGroups)
         setTotals(nextTotals)
 
-        const firstTour =
-          nextGroups.ongoing?.[0] ||
-          nextGroups.upcoming?.[0] ||
-          nextGroups.completed?.[0] ||
-          null
+        const requestedTour =
+          requestedTourId
+            ? Object.values(nextGroups)
+                .flat()
+                .find((item) => Number(item.id) === Number(requestedTourId)) || null
+            : null
 
-        if (firstTour) {
-          setActiveGroup(getTourRuntime(firstTour))
-          setSelectedTourId(firstTour.id)
+        if (requestedTour) {
+          setActiveGroup(getTourRuntime(requestedTour))
+          setSelectedTourId(requestedTour.id)
+        } else {
+          setSelectedTourId(null)
         }
       } catch (loadError) {
         if (mounted) {
@@ -91,7 +94,7 @@ export function useGuideSchedule() {
     return () => {
       mounted = false
     }
-  }, [])
+  }, [requestedTourId])
 
   useEffect(() => {
     if (!selectedTourId) return undefined
@@ -260,8 +263,11 @@ export function useGuideSchedule() {
 
   function changeActiveGroup(groupKey) {
     setActiveGroup(groupKey)
-    const firstTour = tourGroups[groupKey]?.[0] || null
-    setSelectedTourId(firstTour?.id || null)
+
+    const firstTour = tourGroups[groupKey]?.[0]
+    if (firstTour) {
+      setSelectedTourId(firstTour.id)
+    }
   }
 
   async function refreshSessionData(sessionId = activeSessionId) {

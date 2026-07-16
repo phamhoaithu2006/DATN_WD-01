@@ -464,6 +464,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/guide/tours/{tourDeparture}/customers', [GuideAttendanceController::class, 'customers']);
     Route::get('/guide/tours/{tourDeparture}/customers/{bookingParticipant}', [GuideAttendanceController::class, 'showCustomer']);
     Route::get('/guide/tours/{tourDeparture}/attendance/statistics', [GuideAttendanceController::class, 'statistics']);
+    Route::get('/guide/tours/{tourDeparture}/attendance-sessions', [GuideAttendanceController::class, 'sessions']);
     Route::post('/guide/tours/{tourDeparture}/attendance-sessions', [GuideAttendanceController::class, 'storeSession']);
     Route::post('/guide/tours/{tourDeparture}/attendance-sessions/{attendanceSession}/check-in', [GuideAttendanceController::class, 'checkIn']);
     Route::post('/guide/tours/{tourDeparture}/attendance-sessions/{attendanceSession}/check-out', [GuideAttendanceController::class, 'checkOut']);

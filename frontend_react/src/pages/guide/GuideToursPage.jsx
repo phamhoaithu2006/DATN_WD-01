@@ -105,6 +105,12 @@ function getToday() {
 }
 
 function getTourState(item) {
+  const apiStatus = String(item?.guide_status || '').toLowerCase()
+
+  if (['ongoing', 'upcoming', 'completed', 'cancelled'].includes(apiStatus)) {
+    return apiStatus
+  }
+
   const today = getToday()
   const departureDate = toDateOnly(item?.departure_date)
   const returnDate = toDateOnly(item?.return_date) || departureDate
@@ -255,7 +261,6 @@ function TourStatCard({ label, value, icon, tone, hint, active, onClick }) {
 }
 
 function TourRow({ item, active, isNew, onDetail, onRequestChange }) {
-  const [requestPressed, setRequestPressed] = useState(false)
   const image = getTourImage(item)
   const title = item?.tour?.title || 'Tour được phân công'
   const statusLabel = getTourStateLabel(item)
@@ -304,7 +309,7 @@ function TourRow({ item, active, isNew, onDetail, onRequestChange }) {
             <span className={`guide-tour-pill tone-${statusTone}`}>{statusLabel}</span>
           </div>
 
-          <div className="guide-tour-row-meta compact">
+          <div className="guide-tour-row-meta">
             <span>
               <strong>{getDestination(item)}</strong>
               <small>{item?.tour?.category?.name || 'Tour du lịch'}</small>
@@ -312,6 +317,10 @@ function TourRow({ item, active, isNew, onDetail, onRequestChange }) {
             <span>
               <strong>{formatNumber(item?.booked_slots || 0)} khách</strong>
               <small>Số khách</small>
+            </span>
+            <span>
+              <strong>{formatMoney(item?.price)}</strong>
+              <small>Giá tour</small>
             </span>
           </div>
         </div>
@@ -321,6 +330,7 @@ function TourRow({ item, active, isNew, onDetail, onRequestChange }) {
         <button type="button" className="guide-tour-detail-btn" onClick={onDetail}>
           Chi tiết
         </button>
+
 
         <button
           type="button"
@@ -372,6 +382,10 @@ function TourDetailModal({
   return (
     <div className="guide-tour-modal-backdrop" role="presentation" onClick={onClose}>
       <div className="guide-tour-modal" role="dialog" aria-modal="true" aria-label="Chi tiết tour" onClick={(event) => event.stopPropagation()}>
+        <button type="button" className="guide-tour-modal-close" onClick={onClose} aria-label="Đóng">
+          ×
+        </button>
+
         {isNew ? <span className="guide-tour-modal-new">NEW</span> : null}
 
         <div className="guide-tour-modal-request-inline">
@@ -433,6 +447,10 @@ function TourDetailModal({
               {formatNumber(item?.booked_slots || 0)}/{formatNumber(item?.total_slots || 0)}
             </strong>
           </div>
+          <div className="guide-tour-modal-card">
+            <span>Giá tour</span>
+            <strong>{formatMoney(item?.price)}</strong>
+          </div>
         </div>
 
         <div className="guide-tour-modal-section">
@@ -491,19 +509,17 @@ function ReplacementRequestModal({
   onSubmit,
 }) {
   const fileInputRef = useRef(null)
-  const [previewUrl, setPreviewUrl] = useState('')
+  const previewUrl = useMemo(() => {
+    if (!evidence || !evidence.type?.startsWith('image/')) return ''
+
+    return URL.createObjectURL(evidence)
+  }, [evidence])
 
   useEffect(() => {
-    if (!evidence || !evidence.type?.startsWith('image/')) {
-      setPreviewUrl('')
-      return undefined
-    }
+    if (!previewUrl) return undefined
 
-    const objectUrl = URL.createObjectURL(evidence)
-    setPreviewUrl(objectUrl)
-
-    return () => URL.revokeObjectURL(objectUrl)
-  }, [evidence])
+    return () => URL.revokeObjectURL(previewUrl)
+  }, [previewUrl])
 
   function handlePickFile() {
     fileInputRef.current?.click()
@@ -522,6 +538,10 @@ function ReplacementRequestModal({
   return (
     <div className="guide-tour-modal-backdrop" role="presentation" onClick={onClose}>
       <div className="guide-replace-modal" role="dialog" aria-modal="true" aria-label="Yêu cầu đổi HDV" onClick={(event) => event.stopPropagation()}>
+        <button type="button" className="guide-tour-modal-close" onClick={onClose} aria-label="Đóng">
+          ×
+        </button>
+
         <div className="guide-replace-modal-head">
           <span>Yêu cầu đổi HDV</span>
           <h3>{item?.tour?.title || 'Tour được phân công'}</h3>
@@ -895,6 +915,7 @@ function GuideToursPage() {
     setReplaceErrors({})
     setReplaceModalOpen(true)
   }
+
 
   function validateReplacementForm() {
     const errors = {}
