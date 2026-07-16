@@ -51,10 +51,6 @@ function toDateKey(date) {
   ].join('-')
 }
 
-function todayKey() {
-  return toDateKey(new Date())
-}
-
 function addOneDayKey(dateKey) {
   const [year, month, day] = String(dateKey).split('-').map(Number)
 
@@ -255,7 +251,9 @@ function GuideLeaveRequestWidget() {
   }
 
   useEffect(() => {
-    void loadData()
+    const initialLoadTimeoutId = window.setTimeout(() => {
+      void loadData()
+    }, 0)
 
     function reloadOnNotification() {
       void loadData()
@@ -264,6 +262,7 @@ function GuideLeaveRequestWidget() {
     window.addEventListener('guide-leave-request:changed', reloadOnNotification)
 
     return () => {
+      window.clearTimeout(initialLoadTimeoutId)
       window.removeEventListener('guide-leave-request:changed', reloadOnNotification)
     }
   }, [])

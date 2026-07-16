@@ -1,17 +1,3 @@
-﻿function formatDate(value) {
-  if (!value) return '—'
-
-  const date = new Date(value)
-
-  if (Number.isNaN(date.getTime())) return '—'
-
-  return new Intl.DateTimeFormat('vi-VN', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  }).format(date)
-}
-
 function ActionIcon({ type }) {
   if (type === 'detail') {
     return (
@@ -61,7 +47,6 @@ function ServiceCategoryTable({
   onEdit,
   onDelete,
   onPageChange,
-  onPerPageChange,
 }) {
   const startIndex = (pagination.currentPage - 1) * pagination.perPage
 

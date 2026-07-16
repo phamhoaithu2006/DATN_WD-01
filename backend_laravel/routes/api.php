@@ -15,6 +15,8 @@ use App\Http\Controllers\Api\Admin\DestinationController;
 use App\Http\Controllers\Api\Admin\GuideController;
 use App\Http\Controllers\Api\Admin\LanguageController;
 use App\Http\Controllers\Api\Admin\NotificationController;
+use App\Http\Controllers\Api\Admin\PartnerController;
+use App\Http\Controllers\Api\Admin\PartnerServiceController;
 use App\Http\Controllers\Api\Admin\PaymentController;
 use App\Http\Controllers\Api\Admin\ReportController;
 use App\Http\Controllers\Api\Admin\ServiceCategoryController;
@@ -40,6 +42,7 @@ use App\Http\Controllers\Api\Guide\GuideLeaveRequestController;
 use App\Http\Controllers\Api\Guide\GuideProfileController;
 use App\Http\Controllers\Api\Guide\GuideReviewController as GuideGuideReviewController;
 use App\Http\Controllers\Api\Guide\GuideTourController;
+use App\Http\Controllers\Api\PublicCatalogController;
 use App\Http\Controllers\Api\PublicSettingController;
 use App\Http\Controllers\Api\PublicWidgetController;
 use App\Http\Controllers\Api\Support\SupportNotificationController;
@@ -50,8 +53,8 @@ use Illuminate\Support\Facades\Route;
 
 // ======Đăng ký và đăng nhập cho người dùng======
 Route::prefix('auth')->group(function () {
-    Route::post('/register', [AuthController::class, 'register']);
-    Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:5,1');
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:6,1');
 
     // Đăng xuất (chỉ có thể thực hiện khi người dùng đã đăng nhập)
     Route::middleware('auth:sanctum')->group(function () {
@@ -73,11 +76,11 @@ Route::middleware(['auth:sanctum', 'role:support staff'])->group(function () {
     Route::put('/support/profile', [SupportProfileController::class, 'update']);
     Route::put('/support/change-password', [SupportProfileController::class, 'changePassword']);
 
-     Route::get('/support/requests/badge-count',[SupportRequestController::class, 'badgeCount']);
+    Route::get('/support/requests/badge-count', [SupportRequestController::class, 'badgeCount']);
 
-    Route::get('/support/requests',[SupportRequestController::class, 'index']);
+    Route::get('/support/requests', [SupportRequestController::class, 'index']);
 
-    Route::get('/support/requests/{supportRequest}',[SupportRequestController::class, 'show'])->whereNumber('supportRequest');
+    Route::get('/support/requests/{supportRequest}', [SupportRequestController::class, 'show'])->whereNumber('supportRequest');
 
     Route::patch(
         '/support/requests/{supportRequest}/status',
@@ -102,8 +105,8 @@ Route::middleware(['auth:sanctum', 'role:customer'])->group(function () {
     Route::get('customer/guides/{guide}/reviews', [CustomerGuideReviewController::class, 'guideReviews'])->whereNumber('guide');
     Route::get('customer/guides/{guide}/tour-history', [CustomerGuideReviewController::class, 'guideTourHistory'])->whereNumber('guide');
 
-      // ================= YÊU CẦU HỖ TRỢ =================
-    Route::post('/customer/support-requests',[CustomerSupportRequestController::class, 'store']);
+    // ================= YÊU CẦU HỖ TRỢ =================
+    Route::post('/customer/support-requests', [CustomerSupportRequestController::class, 'store']);
 });
 
 Route::get('webhooks/vnpay', [VnpayPaymentController::class, 'ipn'])->middleware('throttle:60,1');
@@ -133,10 +136,10 @@ Route::middleware(['auth:sanctum', 'role:support staff'])->group(function () {
 
 // ===================== Đặt lại mật khẩu user=============
 // xác nhận email or sdt, gửi otp
-Route::post('/forgot-password', [CustomerController::class, 'forgotPassword']);
+Route::post('/forgot-password', [CustomerController::class, 'forgotPassword'])->middleware('throttle:5,1');
 // Xác nhận otp và sửa lại mk
-Route::post('/reset-password', [CustomerController::class, 'resetPassword']);
-Route::post('/travel-assistant', [CustomerDashboardController::class, 'travelAssistant']);
+Route::post('/reset-password', [CustomerController::class, 'resetPassword'])->middleware('throttle:5,1');
+Route::post('/travel-assistant', [CustomerDashboardController::class, 'travelAssistant'])->middleware('throttle:30,1');
 
 // Quản lý tour cho khách hàng
 Route::prefix('tours')->group(function () {
@@ -156,11 +159,14 @@ Route::prefix('tours')->group(function () {
 
 // Lấy danh  sách role
 Route::get('/roles', [CustomerManagerController::class, 'index_role']);
+Route::get('/home', [PublicCatalogController::class, 'home']);
+Route::get('/catalog/categories', [PublicCatalogController::class, 'categories']);
+Route::get('/catalog/destinations', [PublicCatalogController::class, 'destinations']);
 Route::get('/settings/public', [PublicSettingController::class, 'show']);
 Route::get('/widgets', [PublicWidgetController::class, 'index']);
 
 // ======Admin======
-Route::prefix('admin') ->middleware('auth:sanctum')->group(function () {
+Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(function () {
     Route::get(
         'guides/destination-options',
         [DestinationController::class, 'options']
@@ -298,6 +304,31 @@ Route::prefix('admin') ->middleware('auth:sanctum')->group(function () {
     Route::delete('/categories/{id}', [CategoryController::class, 'destroy']);
     Route::get('/categories-trashed', [CategoryController::class, 'trashed']);
     Route::patch('/categories/{id}/restore', [CategoryController::class, 'restore']);
+
+    Route::prefix('partners')->group(function () {
+        Route::get('/', [PartnerController::class, 'index']);
+        Route::post('/', [PartnerController::class, 'store']);
+        Route::get('/statistics', [PartnerController::class, 'statistics']);
+        Route::get('/service-types', [PartnerController::class, 'serviceTypes']);
+        Route::get('/trashed', [PartnerController::class, 'trashed']);
+        Route::get('/{id}', [PartnerController::class, 'show'])->whereNumber('id');
+        Route::put('/{id}', [PartnerController::class, 'update'])->whereNumber('id');
+        Route::delete('/{id}', [PartnerController::class, 'destroy'])->whereNumber('id');
+        Route::patch('/{id}/restore', [PartnerController::class, 'restore'])->whereNumber('id');
+        Route::delete('/{id}/force', [PartnerController::class, 'forceDestroy'])->whereNumber('id');
+        Route::post('/{id}/upload-logo', [PartnerController::class, 'uploadLogo'])->whereNumber('id');
+        Route::delete('/{id}/delete-logo', [PartnerController::class, 'deleteLogo'])->whereNumber('id');
+
+        Route::prefix('/{partnerId}/services')->whereNumber('partnerId')->group(function () {
+            Route::get('/', [PartnerServiceController::class, 'index']);
+            Route::post('/', [PartnerServiceController::class, 'store']);
+            Route::get('/{id}', [PartnerServiceController::class, 'show'])->whereNumber('id');
+            Route::put('/{id}', [PartnerServiceController::class, 'update'])->whereNumber('id');
+            Route::delete('/{id}', [PartnerServiceController::class, 'destroy'])->whereNumber('id');
+            Route::patch('/{id}/restore', [PartnerServiceController::class, 'restore'])->whereNumber('id');
+            Route::delete('/{id}/force', [PartnerServiceController::class, 'forceDestroy'])->whereNumber('id');
+        });
+    });
 
     // Quản lý tour
     // Giao diện cho khách hàng
@@ -465,7 +496,7 @@ Route::prefix('admin') ->middleware('auth:sanctum')->group(function () {
 });
 
 // =============================== Hướng dẫn viên ===============================
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'role:tour guide'])->group(function () {
     // Lấy thông tin hdv
     Route::get('/guide/profile', [GuideProfileController::class, 'show']);
     Route::get('/guide/dashboard', [GuideDashboardController::class, 'show']);

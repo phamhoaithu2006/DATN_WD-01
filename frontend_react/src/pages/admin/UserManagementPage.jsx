@@ -15,7 +15,7 @@ import {
 } from "../../services/adminAccountApi";
 import "../../styles/user-management.css";
 
-export const USER_ROLE_PAGES = [
+const USER_ROLE_PAGES = [
   {
     name: "customer",
     fallbackId: 2,

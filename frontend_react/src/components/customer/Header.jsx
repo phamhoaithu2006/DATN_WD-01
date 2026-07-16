@@ -3,9 +3,11 @@ import { Link, NavLink, useLocation } from "react-router-dom";
 import BrandLogo from "../BrandLogo";
 import Icon from "./Icon";
 import { useLocale } from "../../contexts/LocaleContext";
-import { categoryApi } from "../../services/categoryApi";
-import { destinationApi } from "../../services/destinationApi";
-import { fetchTours } from "../../services/customerApi";
+import {
+  fetchCatalogCategories,
+  fetchCatalogDestinations,
+  fetchTours,
+} from "../../services/customerApi";
 
 // Detailed mock data structured for the Mega Menu categories, tabs, and content items
 const megaMenuData = {
@@ -300,25 +302,21 @@ function Header({ user, onLogout }) {
 
     async function loadMenuData() {
       try {
-        const [destResponse, catResponse, toursData] = await Promise.all([
-          destinationApi.getAll().catch(() => ({ data: [] })),
-          categoryApi.getAll().catch(() => ({ data: [] })),
+        const [catalogDestinations, catalogCategories, toursData] = await Promise.all([
+          fetchCatalogDestinations().catch(() => []),
+          fetchCatalogCategories().catch(() => []),
           fetchTours().catch(() => [])
         ]);
 
         if (!active) return;
 
-        const destinations = Array.isArray(destResponse?.data?.data)
-          ? destResponse.data.data
-          : Array.isArray(destResponse?.data)
-            ? destResponse.data
-            : [];
+        const destinations = Array.isArray(catalogDestinations)
+          ? catalogDestinations
+          : [];
 
-        const categories = Array.isArray(catResponse?.data?.data)
-          ? catResponse.data.data
-          : Array.isArray(catResponse?.data)
-            ? catResponse.data
-            : [];
+        const categories = Array.isArray(catalogCategories)
+          ? catalogCategories
+          : [];
 
         const tours = Array.isArray(toursData) ? toursData : [];
 

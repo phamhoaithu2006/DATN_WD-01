@@ -204,9 +204,9 @@ class CustomerSupportRequestController extends Controller
     {
         do {
             $ticketCode = 'SUP-'
-                . now()->format('Ymd')
-                . '-'
-                . Str::upper(Str::random(6));
+                .now()->format('Ymd')
+                .'-'
+                .Str::upper(Str::random(6));
         } while (
             SupportRequest::query()
                 ->where('ticket_code', $ticketCode)
@@ -239,9 +239,9 @@ class CustomerSupportRequestController extends Controller
             ?? $supportRequest->category;
 
         $message = "{$supportRequest->full_name} vừa gửi yêu cầu hỗ trợ mới.\n"
-            . "Mã: {$supportRequest->ticket_code}\n"
-            . "Chủ đề: {$supportRequest->subject}\n"
-            . "Danh mục: {$categoryLabel}";
+            ."Mã: {$supportRequest->ticket_code}\n"
+            ."Chủ đề: {$supportRequest->subject}\n"
+            ."Danh mục: {$categoryLabel}";
 
         $count = 0;
 
