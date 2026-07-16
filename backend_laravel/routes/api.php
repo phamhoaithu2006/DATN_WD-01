@@ -28,6 +28,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\Customer\CustomerBookingController;
 use App\Http\Controllers\Api\Customer\CustomerController;
 use App\Http\Controllers\Api\Customer\CustomerDashboardController;
+use App\Http\Controllers\Api\Customer\CustomerSupportRequestController;
 use App\Http\Controllers\Api\Customer\GuideReviewController as CustomerGuideReviewController;
 use App\Http\Controllers\Api\Customer\NotificationCustomerController;
 use App\Http\Controllers\Api\Customer\TourController;
@@ -39,10 +40,11 @@ use App\Http\Controllers\Api\Guide\GuideLeaveRequestController;
 use App\Http\Controllers\Api\Guide\GuideProfileController;
 use App\Http\Controllers\Api\Guide\GuideReviewController as GuideGuideReviewController;
 use App\Http\Controllers\Api\Guide\GuideTourController;
-use App\Http\Controllers\Api\Support\SupportProfileController;
-use App\Http\Controllers\Api\Support\SupportNotificationController;
 use App\Http\Controllers\Api\PublicSettingController;
 use App\Http\Controllers\Api\PublicWidgetController;
+use App\Http\Controllers\Api\Support\SupportNotificationController;
+use App\Http\Controllers\Api\Support\SupportProfileController;
+use App\Http\Controllers\Api\Support\SupportRequestController;
 use App\Models\GuideSpecialization;
 use Illuminate\Support\Facades\Route;
 
@@ -70,6 +72,17 @@ Route::middleware(['auth:sanctum', 'role:support staff'])->group(function () {
     Route::get('/support/profile', [SupportProfileController::class, 'show']);
     Route::put('/support/profile', [SupportProfileController::class, 'update']);
     Route::put('/support/change-password', [SupportProfileController::class, 'changePassword']);
+
+     Route::get('/support/requests/badge-count',[SupportRequestController::class, 'badgeCount']);
+
+    Route::get('/support/requests',[SupportRequestController::class, 'index']);
+
+    Route::get('/support/requests/{supportRequest}',[SupportRequestController::class, 'show'])->whereNumber('supportRequest');
+
+    Route::patch(
+        '/support/requests/{supportRequest}/status',
+        [SupportRequestController::class, 'updateStatus']
+    )->whereNumber('supportRequest');
 });
 
 // Khách hàng đã đăng nhập
@@ -88,6 +101,9 @@ Route::middleware(['auth:sanctum', 'role:customer'])->group(function () {
     Route::post('customer/guide-reviews', [CustomerGuideReviewController::class, 'store']);
     Route::get('customer/guides/{guide}/reviews', [CustomerGuideReviewController::class, 'guideReviews'])->whereNumber('guide');
     Route::get('customer/guides/{guide}/tour-history', [CustomerGuideReviewController::class, 'guideTourHistory'])->whereNumber('guide');
+
+      // ================= YÊU CẦU HỖ TRỢ =================
+    Route::post('/customer/support-requests',[CustomerSupportRequestController::class, 'store']);
 });
 
 Route::get('webhooks/vnpay', [VnpayPaymentController::class, 'ipn'])->middleware('throttle:60,1');
