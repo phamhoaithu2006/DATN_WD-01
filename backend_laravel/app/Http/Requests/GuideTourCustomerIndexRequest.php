@@ -27,6 +27,7 @@ class GuideTourCustomerIndexRequest extends FormRequest
             'keyword' => ['nullable', 'string', 'max:100'],
             'status' => ['nullable', Rule::in(['checked_in', 'not_checked_in', 'absent', 'checked_out'])],
             'attendance_session_id' => ['nullable', 'integer', 'exists:attendance_sessions,id'],
+            'attendance_boundary' => ['nullable', Rule::in(['departure', 'return'])],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ];
     }

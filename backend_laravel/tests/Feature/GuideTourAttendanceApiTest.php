@@ -95,7 +95,7 @@ function guideAttendanceScenario(): array
 
     $ongoing = TourDeparture::query()->create([
         'tour_id' => $tour->id,
-        'departure_date' => now()->subDay()->toDateString(),
+        'departure_date' => now()->toDateString(),
         'return_date' => now()->addDay()->toDateString(),
         'total_slots' => 10,
         'booked_slots' => 1,
@@ -180,19 +180,19 @@ test('only ongoing tours can create attendance sessions', function () {
     Sanctum::actingAs($scenario['guideUser']);
 
     $this->postJson("/api/guide/tours/{$scenario['upcoming']->id}/attendance-sessions", [
-        'name' => 'Diem danh truoc gio di',
+        'boundary' => 'departure',
     ])->assertUnprocessable();
 
     $this->postJson("/api/guide/tours/{$scenario['completed']->id}/attendance-sessions", [
-        'name' => 'Diem danh sau tour',
+        'boundary' => 'departure',
     ])->assertUnprocessable();
 
     $this->postJson("/api/guide/tours/{$scenario['ongoing']->id}/attendance-sessions", [
-        'name' => 'Ngay 1 - Len xe',
-        'note' => 'Diem danh lan dau.',
+        'boundary' => 'departure',
     ])
         ->assertCreated()
-        ->assertJsonPath('data.name', 'Ngay 1 - Len xe');
+        ->assertJsonPath('data.boundary', 'departure')
+        ->assertJsonPath('data.name', 'Điểm danh ngày khởi hành');
 });
 
 test('guide customer list includes phone and health notes', function () {
@@ -201,6 +201,7 @@ test('guide customer list includes phone and health notes', function () {
 
     AttendanceSession::query()->create([
         'tour_departure_id' => $scenario['ongoing']->id,
+        'boundary' => 'departure',
         'name' => 'Ngay 1 - Len xe',
         'created_by' => $scenario['guideUser']->id,
     ]);

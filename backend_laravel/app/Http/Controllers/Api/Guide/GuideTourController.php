@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Guide;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreGuideReplacementRequest;
 use App\Models\Guide;
 use App\Models\Notification;
 use App\Models\TourDeparture;
@@ -528,7 +529,7 @@ class GuideTourController extends Controller
         ]);
     }
 
-    public function requestReplacement(Request $request, TourDeparture $tourDeparture)
+    public function requestReplacement(StoreGuideReplacementRequest $request, TourDeparture $tourDeparture)
     {
         $guide = $this->getGuide($request);
 
@@ -538,15 +539,7 @@ class GuideTourController extends Controller
             ], 404);
         }
 
-        $validated = $request->validate([
-            'reason' => ['required', 'string', 'min:10', 'max:2000'],
-            'evidence' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,pdf,doc,docx,xls,xlsx', 'max:5120'],
-        ], [
-            'reason.required' => 'Vui lòng nhập lý do xin đổi HDV.',
-            'reason.min' => 'Lý do cần ít nhất 10 ký tự.',
-            'evidence.mimes' => 'Bằng chứng chỉ chấp nhận ảnh hoặc PDF.',
-            'evidence.max' => 'Bằng chứng không được vượt quá 5MB.',
-        ]);
+        $validated = $request->validated();
 
         $assignment = DB::table('tour_guide_assignments')
             ->where('tour_departure_id', $tourDeparture->id)

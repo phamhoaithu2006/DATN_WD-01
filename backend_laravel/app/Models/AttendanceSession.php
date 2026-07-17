@@ -10,6 +10,7 @@ class AttendanceSession extends Model
 {
     protected $fillable = [
         'tour_departure_id',
+        'boundary',
         'name',
         'note',
         'status',

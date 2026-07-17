@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   checkInGuideCustomer,
   createGuideAttendanceSession,
+  getGuideAttendanceSessions,
+  getGuideAttendanceStatistics,
   getGuideTourCustomers,
   getGuideTourDetail,
   getGuideTourOngoing,
@@ -21,6 +23,10 @@ import {
   getTourTitle,
   normalizePaginator,
 } from "./guidePageUtils";
+const attendanceBoundaries = [
+  { key: "departure", label: "Ngày khởi hành" },
+  { key: "return", label: "Ngày kết thúc" },
+];
 const filters = [
   { key: "all", label: "Tất cả" },
   { key: "checked", label: "Đã điểm danh" },
@@ -50,6 +56,31 @@ function getCheckTime(customer) {
     minute: "2-digit",
   });
 }
+function getPageNumbers(currentPage, lastPage) {
+  const start = Math.max(1, currentPage - 2);
+  const end = Math.min(lastPage, start + 4);
+  return Array.from({ length: end - start + 1 }, (_, index) => start + index);
+}
+function AttendanceTourDetailModal({ item, onClose }) {
+  if (!item) return null;
+  const image = getTourImage(item);
+  return (
+    <div className="guide-tour-detail-backdrop" role="presentation" onClick={onClose}>
+      <section className="guide-tour-detail-modal" role="dialog" aria-modal="true" aria-label="Chi tiết tour" onClick={(event) => event.stopPropagation()}>
+        <button type="button" className="guide-tour-detail-close" onClick={onClose} aria-label="Đóng">×</button>
+        <div className="guide-tour-detail-hero">
+          {image ? <img src={image} alt={getTourTitle(item)} /> : <span>{getInitials(getTourTitle(item))}</span>}
+          <div><small>{getTourState(item)}</small><h2>{getTourTitle(item)}</h2><p>{getDestination(item)}</p></div>
+        </div>
+        <div className="guide-tour-detail-grid">
+          <article><span>Khởi hành</span><strong>{formatDate(item.departure_date)}</strong></article>
+          <article><span>Kết thúc</span><strong>{formatDate(item.return_date || item.departure_date)}</strong></article>
+          <article><span>Trạng thái</span><strong>{getTourState(item)}</strong></article>
+        </div>
+      </section>
+    </div>
+  );
+}
 function GuideAttendancePage() {
   const navigate = useNavigate();
   const { tourId } = useParams();
@@ -58,15 +89,18 @@ function GuideAttendancePage() {
   const [activeFilter, setActiveFilter] = useState("all");
   const [customerType, setCustomerType] = useState("all");
   const [keyword, setKeyword] = useState("");
+  const [page, setPage] = useState(1);
+  const [attendanceBoundary, setAttendanceBoundary] = useState("departure");
   const [sessionId, setSessionId] = useState(null);
   const [customerMeta, setCustomerMeta] = useState({ total: 0, per_page: 10 });
+  const [attendanceStats, setAttendanceStats] = useState({ total_customers: 0, checked_in: 0, not_checked_in: 0, absent: 0 });
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [noteTarget, setNoteTarget] = useState(null);
   const [noteText, setNoteText] = useState("");
-  const customerListRef = useRef(null);
+  const [detailOpen, setDetailOpen] = useState(false);
   useEffect(() => {
     let mounted = true;
     async function loadTours() {
@@ -109,20 +143,32 @@ function GuideAttendancePage() {
       setLoading(true);
       setError("");
       try {
-        const [detail, customerPayload] = await Promise.all([
+        const sessionsPayload = await getGuideAttendanceSessions(selectedTourId);
+        const sessions = Array.isArray(sessionsPayload) ? sessionsPayload : sessionsPayload?.data || [];
+        const currentSession = sessions.find((session) => session.boundary === attendanceBoundary);
+        const status = activeFilter === "checked" ? "checked_in" : activeFilter === "unchecked" ? "not_checked_in" : activeFilter === "absent" ? "absent" : undefined;
+        const [detail, customerPayload, statistics] = await Promise.all([
           getGuideTourDetail(selectedTourId).catch(() => null),
-          getGuideTourCustomers(selectedTourId, { per_page: 100 }),
+          getGuideTourCustomers(selectedTourId, {
+            page,
+            per_page: 10,
+            keyword: keyword.trim() || undefined,
+            status,
+            attendance_boundary: attendanceBoundary,
+            attendance_session_id: currentSession?.id,
+          }),
+          getGuideAttendanceStatistics(selectedTourId, {
+            attendance_boundary: attendanceBoundary,
+            attendance_session_id: currentSession?.id,
+          }),
         ]);
         if (!mounted) return;
         const customerPage = normalizePaginator(customerPayload);
         setSelectedTour((current) => detail || current);
         setCustomers(customerPage.items);
         setCustomerMeta(customerPage.meta);
-        setSessionId(
-          customerPayload?.current_session?.id ||
-            customerPayload?.data?.current_session?.id ||
-            null,
-        );
+        setSessionId(currentSession?.id || null);
+        setAttendanceStats(statistics);
       } catch (err) {
         if (mounted)
           setError(
@@ -136,18 +182,13 @@ function GuideAttendancePage() {
     return () => {
       mounted = false;
     };
-  }, [selectedTourId]);
-  const stats = useMemo(() => {
-    const total = customers.length;
-    const checked = customers.filter(isChecked).length;
-    const absent = customers.filter(isAbsent).length;
-    return {
-      total,
-      checked,
-      unchecked: Math.max(total - checked - absent, 0),
-      absent,
-    };
-  }, [customers]);
+  }, [activeFilter, attendanceBoundary, keyword, page, selectedTourId]);
+  const stats = useMemo(() => ({
+    total: Number(attendanceStats.total_customers || 0),
+    checked: Number(attendanceStats.checked_in || 0),
+    unchecked: Number(attendanceStats.not_checked_in || 0),
+    absent: Number(attendanceStats.absent || 0),
+  }), [attendanceStats]);
   const visibleCustomers = useMemo(() => {
     const normalizedKeyword = keyword.trim().toLowerCase();
     return customers.filter((customer) => {
@@ -164,10 +205,9 @@ function GuideAttendancePage() {
   }, [activeFilter, customerType, customers, keyword]);
   async function ensureSession() {
     if (sessionId) return sessionId;
-    if (!canOperate) throw new Error("Tour này chưa đến thời gian điểm danh.");
+    if (!canOperateBoundary) throw new Error("Tour này hiện chưa thể điểm danh.");
     const session = await createGuideAttendanceSession(selectedTour.id, {
-      stage: "check_in",
-      name: "Điểm danh khách",
+      boundary: attendanceBoundary,
     });
     setSessionId(session.id);
     return session.id;
@@ -190,6 +230,7 @@ function GuideAttendancePage() {
             : item,
         ),
       );
+      setAttendanceStats((current) => ({ ...current, checked_in: Number(current.checked_in || 0) + 1, not_checked_in: Math.max(Number(current.not_checked_in || 0) - 1, 0) }));
       setMessage(`Đã điểm danh ${getCustomerName(customer)}.`);
     } catch (err) {
       setError(
@@ -207,7 +248,7 @@ function GuideAttendancePage() {
     setError("");
     try {
       const activeSession = await ensureSession();
-      const missing = customers.filter((customer) => !isChecked(customer));
+      const missing = visibleCustomers.filter(isUnchecked);
       for (const customer of missing) {
         const updated = await checkInGuideCustomer(
           selectedTour.id,
@@ -221,6 +262,7 @@ function GuideAttendancePage() {
               : item,
           ),
         );
+        setAttendanceStats((current) => ({ ...current, checked_in: Number(current.checked_in || 0) + 1, not_checked_in: Math.max(Number(current.not_checked_in || 0) - 1, 0) }));
       }
       setMessage("Đã điểm danh tất cả khách chưa có mặt.");
     } catch (err) {
@@ -271,20 +313,13 @@ function GuideAttendancePage() {
     }
   }
   const tourImage = getTourImage(selectedTour);
-  const uncheckedCustomers = customers.filter(isUnchecked);
   const totalRows = customerMeta.total || customers.length;
   const canOperate =
     selectedTour?.can_take_attendance ??
     getTourState(selectedTour) === "ongoing";
-
-  function showAllUncheckedCustomers() {
-    setActiveFilter("unchecked");
-    setKeyword("");
-    setCustomerType("all");
-    window.requestAnimationFrame(() => {
-      customerListRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-  }
+  const canOperateBoundary = canOperate;
+  const firstCustomer = customers.length ? (page - 1) * customerMeta.per_page + 1 : 0;
+  const lastCustomer = Math.min(page * customerMeta.per_page, totalRows);
 
   return (
     <div className="guide-attendance-shot-page">
@@ -332,23 +367,9 @@ function GuideAttendancePage() {
                   </svg>
                   {formatNumber(stats.total)} khách
                 </p>
-                <button type="button">xem chi tiết &gt;</button>
+                <button type="button" onClick={() => setDetailOpen(true)}>Xem chi tiết &gt;</button>
               </div>
             </article>
-            <aside
-              className="guide-unchecked-panel"
-              onClick={(event) => {
-                if (event.target.closest("button")) showAllUncheckedCustomers();
-              }}
-            >
-              <h2>Khách chưa điểm danh ({stats.unchecked})</h2>
-              <ol>
-                {uncheckedCustomers.slice(0, 5).map((customer) => (
-                  <li key={customer.id}>{getCustomerName(customer)}</li>
-                ))}
-              </ol>
-              <button type="button">Xem tất cả &gt;</button>
-            </aside>
           </section>
           <section className="guide-attendance-stats">
             <article className="tone-blue">
@@ -377,7 +398,25 @@ function GuideAttendancePage() {
               </small>
             </article>
           </section>
-          <section ref={customerListRef} className="guide-attendance-card">
+          <section className="guide-attendance-card">
+            <nav className="guide-attendance-boundaries" aria-label="Mốc điểm danh">
+              {attendanceBoundaries.map((boundary) => {
+                const date = boundary.key === "departure" ? selectedTour.departure_date : selectedTour.return_date || selectedTour.departure_date;
+                return (
+                  <button
+                    key={boundary.key}
+                    type="button"
+                    className={attendanceBoundary === boundary.key ? "is-active" : ""}
+                    onClick={() => {
+                      setAttendanceBoundary(boundary.key);
+                      setPage(1);
+                    }}
+                  >
+                    {boundary.label}: {formatDate(date)}
+                  </button>
+                );
+              })}
+            </nav>
             <nav className="guide-attendance-tabs">
               {filters.map((filter) => {
                 const count =
@@ -393,7 +432,10 @@ function GuideAttendancePage() {
                     key={filter.key}
                     type="button"
                     className={activeFilter === filter.key ? "is-active" : ""}
-                    onClick={() => setActiveFilter(filter.key)}
+                    onClick={() => {
+                      setActiveFilter(filter.key);
+                      setPage(1);
+                    }}
                   >
                     {filter.label} ({count})
                   </button>
@@ -404,13 +446,19 @@ function GuideAttendancePage() {
               <label>
                 <input
                   value={keyword}
-                  onChange={(event) => setKeyword(event.target.value)}
+                  onChange={(event) => {
+                    setKeyword(event.target.value);
+                    setPage(1);
+                  }}
                   placeholder="Tìm kiếm tên khách, SĐT..."
                 />
               </label>
               <select
                 value={customerType}
-                onChange={(event) => setCustomerType(event.target.value)}
+                onChange={(event) => {
+                  setCustomerType(event.target.value);
+                  setPage(1);
+                }}
                 aria-label="Lọc loại khách"
               >
                 <option value="all">Tất cả loại khách</option>
@@ -420,17 +468,9 @@ function GuideAttendancePage() {
               <button
                 type="button"
                 onClick={markAll}
-                disabled={busy || !canOperate}
+                disabled={busy || !canOperateBoundary}
               >
-                Điểm danh tất cả
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  setMessage("Kết quả điểm danh đã được lưu trên hệ thống.")
-                }
-              >
-                Lưu kết quả điểm danh
+                Điểm danh trang này
               </button>
             </div>
             <div className="guide-attendance-table">
@@ -453,11 +493,11 @@ function GuideAttendancePage() {
                       <input
                         type="checkbox"
                         checked={isChecked(customer)}
-                        disabled={busy || !canOperate || isChecked(customer)}
+                        disabled={busy || !canOperateBoundary || isChecked(customer)}
                         onChange={() => markCustomer(customer)}
                       />
                     </span>
-                    <span>{index + 1}</span>
+                    <span>{firstCustomer + index}</span>
                     <span className="guide-attendance-person">
                       <b>{getInitials(getCustomerName(customer))}</b>
                       <em>
@@ -503,15 +543,14 @@ function GuideAttendancePage() {
             </div>
             <footer className="guide-attendance-footer">
               <span>
-                Hiển thị {visibleCustomers.length ? 1 : 0} -{" "}
-                {visibleCustomers.length} của {totalRows} khách
+                Hiển thị {firstCustomer}-{lastCustomer} của {totalRows} khách
               </span>
               <div>
-                <button type="button">‹</button>
-                <button type="button" className="is-active">
-                  1
-                </button>
-                <button type="button">›</button>
+                <button type="button" disabled={page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>‹</button>
+                {getPageNumbers(page, customerMeta.last_page || 1).map((pageNumber) => (
+                  <button key={pageNumber} type="button" className={pageNumber === page ? "is-active" : ""} onClick={() => setPage(pageNumber)}>{pageNumber}</button>
+                ))}
+                <button type="button" disabled={page >= (customerMeta.last_page || 1)} onClick={() => setPage((current) => current + 1)}>›</button>
               </div>
               <span>
                 Hiển thị <b>{customerMeta.per_page || 10} / trang</b>
@@ -560,6 +599,7 @@ function GuideAttendancePage() {
           </form>
         </div>
       ) : null}
+      <AttendanceTourDetailModal item={detailOpen ? selectedTour : null} onClose={() => setDetailOpen(false)} />
     </div>
   );
 }
