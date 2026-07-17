@@ -31,10 +31,8 @@ import TourListPage from '../pages/admin/tours/TourListPage'
 import AuthPage from '../pages/auth/AuthPage'
 import ForgotPasswordPage from '../pages/auth/ForgotPasswordPage'
 import CustomerPage from '../pages/customer/CustomerPage'
-import VnpayPaymentResultPage from '../pages/customer/VnpayPaymentResultPage'
 import GuideAttendancePage from '../pages/guide/GuideAttendancePage'
 import GuideDashboardPage from '../pages/guide/GuideDashboardPage'
-import GuideHistoryPage from '../pages/guide/GuideHistoryPage'
 import GuideNotificationsPage from '../pages/guide/GuideNotificationsPage'
 import GuideProfilePage from '../pages/guide/GuideProfilePage'
 import GuideToursPage from '../pages/guide/GuideToursPage'
@@ -52,9 +50,6 @@ import AdminNotificationsPage from '../pages/admin/Notifications/AdminNotificati
 import TourDetailPage from '../pages/admin/tours/TourDetailPage';
 import LanguageManagementPage from '../pages/admin/language/LanguageManagementPage';
 import CertificateManagementPage from '../pages/admin/certificate/CertificateManagementPage'
-import PartnerManagementPage from '../pages/admin/partners/PartnerManagementPage'
-import PartnerTrashPage from '../pages/admin/partners/PartnerTrashPage'
-import ServiceCategoryManagementPage from '../pages/admin/serviceCategories/ServiceCategoryManagementPage'
 import GuideReviewsPage from '../pages/guide/GuideReviews/GuideReviewsPage'
 
 
@@ -85,14 +80,14 @@ function AppRoutes() {
     <Route path="/customer/search" element={<CustomerPage />} />
     <Route path="/customer/bookings" element={<CustomerPage />} />
     <Route path="/customer/settings" element={<CustomerPage />} />
-    <Route path="/payment/vnpay/return" element={<VnpayPaymentResultPage />} />
+    {/* <Route path="/payment/vnpay/return" element={<VnpayPaymentResultPage />} /> */}
     {/* Trang hướng dẫn viên */}
     <Route path="/guide" element={guidePage(<GuideDashboardPage />)} />
     <Route path="/guide/tours" element={guidePage(<GuideToursPage />)} />
     <Route path="/guide/attendance" element={guidePage(<GuideAttendancePage />)} />
     <Route path="/guide/attendance/:tourId" element={guidePage(<GuideAttendancePage />)} />
-    <Route path="/guide/history" element={guidePage(<GuideHistoryPage />)} />
-    <Route path="/guide/reviews" element={guidePage(<GuideReviewsPage />)} />
+    <Route path="/guide/history" element={guidePage(<GuideComingSoonPage title="Lịch sử Tour" />)} />
+    <Route path="/guide/reviews" element={guidePage(<GuideComingSoonPage title="Đánh giá" />)} />
     <Route path="/guide/customers" element={guidePage(<GuideComingSoonPage title="Khách hàng" />)} />
     <Route path="/guide/messages" element={guidePage(<GuideComingSoonPage title="Tin nhắn" />)} />
     <Route path="/guide/notifications" element={guidePage(<GuideNotificationsPage />)} />
@@ -129,9 +124,6 @@ function AppRoutes() {
     <Route path="/admin/categories/create" element={adminPage(<TourTypeCreatePage />)} />
     <Route path="/admin/categories/:id/edit" element={adminPage(<TourTypeEditPage />)} />
     <Route path="/admin/categories/trash" element={adminPage(<TourTypeTrashPage />)} />
-    <Route path="/admin/service-categories" element={adminPage(<ServiceCategoryManagementPage />)} />
-    <Route path="/admin/partners" element={adminPage(<PartnerManagementPage />)} />
-    <Route path="/admin/partners/trash" element={adminPage(<PartnerTrashPage />)} />
     {/* Quản lý tour */}
     <Route path="/admin/tours" element={adminPage(<TourListPage />)} />
     <Route path="/admin/tours/create" element={adminPage(<TourCreatePage />)} />
@@ -151,6 +143,7 @@ function AppRoutes() {
     {/* Quản lý hướng dẫn viên */}
     <Route path="/admin/guides" element={adminPage(<GuideManagementPage />)} />
     <Route path="/admin/guides/trash" element={adminPage(<GuideTrashPage />)} />
+    <Route path="/guide/reviews" element={guidePage(<GuideReviewsPage />)} />
     {/* Quản lý nhân viên hỗ trợ */}
     <Route path="/admin/support" element={adminPage(<SupportStaffManagementPage />)} />
     <Route path="/admin/support/trash" element={adminPage(<SupportStaffTrashPage />)} />

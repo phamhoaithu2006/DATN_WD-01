@@ -5,7 +5,6 @@ namespace App\Models;
 use Database\Factories\ServiceCategoryFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
@@ -63,10 +62,5 @@ class ServiceCategory extends Model
         }
 
         return $slug;
-    }
-
-    public function partners(): HasMany
-    {
-        return $this->hasMany(Partner::class, 'service_type_id');
     }
 }

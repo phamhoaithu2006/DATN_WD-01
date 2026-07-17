@@ -15,8 +15,6 @@ use App\Http\Controllers\Api\Admin\DestinationController;
 use App\Http\Controllers\Api\Admin\GuideController;
 use App\Http\Controllers\Api\Admin\LanguageController;
 use App\Http\Controllers\Api\Admin\NotificationController;
-use App\Http\Controllers\Api\Admin\PartnerController;
-use App\Http\Controllers\Api\Admin\PartnerServiceController;
 use App\Http\Controllers\Api\Admin\PaymentController;
 use App\Http\Controllers\Api\Admin\ReportController;
 use App\Http\Controllers\Api\Admin\ServiceCategoryController;
@@ -305,31 +303,6 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(functi
     Route::get('/categories-trashed', [CategoryController::class, 'trashed']);
     Route::patch('/categories/{id}/restore', [CategoryController::class, 'restore']);
 
-    Route::prefix('partners')->group(function () {
-        Route::get('/', [PartnerController::class, 'index']);
-        Route::post('/', [PartnerController::class, 'store']);
-        Route::get('/statistics', [PartnerController::class, 'statistics']);
-        Route::get('/service-types', [PartnerController::class, 'serviceTypes']);
-        Route::get('/trashed', [PartnerController::class, 'trashed']);
-        Route::get('/{id}', [PartnerController::class, 'show'])->whereNumber('id');
-        Route::put('/{id}', [PartnerController::class, 'update'])->whereNumber('id');
-        Route::delete('/{id}', [PartnerController::class, 'destroy'])->whereNumber('id');
-        Route::patch('/{id}/restore', [PartnerController::class, 'restore'])->whereNumber('id');
-        Route::delete('/{id}/force', [PartnerController::class, 'forceDestroy'])->whereNumber('id');
-        Route::post('/{id}/upload-logo', [PartnerController::class, 'uploadLogo'])->whereNumber('id');
-        Route::delete('/{id}/delete-logo', [PartnerController::class, 'deleteLogo'])->whereNumber('id');
-
-        Route::prefix('/{partnerId}/services')->whereNumber('partnerId')->group(function () {
-            Route::get('/', [PartnerServiceController::class, 'index']);
-            Route::post('/', [PartnerServiceController::class, 'store']);
-            Route::get('/{id}', [PartnerServiceController::class, 'show'])->whereNumber('id');
-            Route::put('/{id}', [PartnerServiceController::class, 'update'])->whereNumber('id');
-            Route::delete('/{id}', [PartnerServiceController::class, 'destroy'])->whereNumber('id');
-            Route::patch('/{id}/restore', [PartnerServiceController::class, 'restore'])->whereNumber('id');
-            Route::delete('/{id}/force', [PartnerServiceController::class, 'forceDestroy'])->whereNumber('id');
-        });
-    });
-
     // Quản lý tour
     // Giao diện cho khách hàng
     Route::get('tours/public', [TourManagerController::class, 'publicIndex']);
@@ -511,8 +484,6 @@ Route::middleware(['auth:sanctum', 'role:tour guide'])->group(function () {
     Route::get('/guide/tours/upcoming', [GuideTourController::class, 'upcoming']);
     Route::get('/guide/tours/ongoing', [GuideTourController::class, 'ongoing']);
     Route::get('/guide/tours/completed', [GuideTourController::class, 'completed']);
-    Route::get('/guide/tours/destinations', [GuideTourController::class, 'destinationOptions']);
-    Route::get('/guide/tours/summary', [GuideTourController::class, 'summary']);
     Route::get('/guide/tours', [GuideTourController::class, 'index']);
     Route::get('/guide/tours/{tourDeparture}/overview', [GuideAttendanceController::class, 'overview']);
     Route::get('/guide/tours/{tourDeparture}/customers', [GuideAttendanceController::class, 'customers']);
