@@ -190,7 +190,6 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
     return Math.round(adultPrice * Number(rule.price_value || 100) / 100);
   };
   const totalGuests = bookingGroups.reduce((sum, rule) => sum + getRuleQuantity(rule), 0);
-  const adultQuantity = getRuleQuantity(adultPricingRule);
   const localTotal = bookingGroups.reduce((sum, rule) => sum + getRuleQuantity(rule) * getRuleUnitPrice(rule), 0);
   const finalTotal = Number(bookingPreview?.total_amount ?? localTotal);
   const availableSlots = Number(selectedDeparture?.available_slots || tour.slots?.available || 0);
@@ -240,12 +239,6 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
   const updateQuantity = (ruleId, nextQuantity) => {
     const isAdultGroup = String(ruleId) === String(adultPricingRule.id);
     const safeQuantity = Math.max(isAdultGroup ? 1 : 0, nextQuantity);
-    const currentAdultQuantity = Number(effectiveQuantities[adultPricingRule.id] || 0);
-
-    if (!isAdultGroup && currentAdultQuantity < 1 && safeQuantity > 0) {
-      setBookingError("Vui lòng chọn ít nhất 1 người lớn trước khi thêm trẻ em hoặc em bé.");
-      return;
-    }
 
     const nextTotal = totalGuests - Number(effectiveQuantities[ruleId] || 0) + safeQuantity;
 
@@ -298,11 +291,6 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
 
       if (totalGuests < 1) {
         setBookingError("Vui lòng chọn ít nhất 1 khách đặt tour.");
-        return;
-      }
-
-      if (adultQuantity < 1) {
-        setBookingError("Vui lòng chọn ít nhất 1 người lớn để đặt tour.");
         return;
       }
 
@@ -578,7 +566,6 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                         const quantity = getRuleQuantity(rule);
                         const unitPrice = getRuleUnitPrice(rule);
                         const isAdultGroup = String(rule.id) === String(adultPricingRule.id);
-                        const cannotAddNonAdult = !isAdultGroup && adultQuantity < 1;
 
                         return (
                           <div className="vg-qty-row-traveloka" key={rule.id}>
@@ -599,7 +586,7 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                               <button
                                 type="button"
                                 className="vg-counter-btn"
-                                disabled={cannotAddNonAdult || (availableSlots > 0 && totalGuests >= availableSlots)}
+                                disabled={availableSlots > 0 && totalGuests >= availableSlots}
                                 onClick={() => updateQuantity(rule.id, quantity + 1)}
                               >
                                 +
