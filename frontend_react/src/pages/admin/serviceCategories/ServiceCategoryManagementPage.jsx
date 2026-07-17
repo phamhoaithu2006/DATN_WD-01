@@ -308,7 +308,7 @@ function ServiceCategoryManagementPage() {
       <AdminPageHeader
         breadcrumb={['ViVuGo', 'Quản Lý Loại Dịch Vụ']}
         title="Quản Lý Loại Dịch Vụ"
-        description="Quản lý nhóm dịch vụ dùng cho đối tác và các quy trình vận hành."
+        description="Quản lý nhóm dịch vụ và các quy trình vận hành."
         actions={
           <>
             <Link className="service-category-back-button" to="/admin/categories">

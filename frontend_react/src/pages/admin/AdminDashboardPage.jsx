@@ -30,7 +30,6 @@ const ACTIVITY_TONES = {
   tour: { bg: 'bg-emerald-50 text-emerald-600', dot: 'bg-emerald-500' },
   guide: { bg: 'bg-violet-50 text-violet-600', dot: 'bg-violet-500' },
   support: { bg: 'bg-amber-50 text-amber-600', dot: 'bg-amber-500' },
-  partner: { bg: 'bg-rose-50 text-rose-600', dot: 'bg-rose-500' },
 }
 const EMPTY_OBJECT = {}
 const EMPTY_ARRAY = []
@@ -252,8 +251,8 @@ function AdminDashboardPage() {
     {
       key: 'bookings',
       title: 'Tổng booking',
-      value: formatNumber(overview.total_bookings_year),
-      description: `Booking tạo trong năm ${overview.year || year}`,
+      value: formatNumber(overview.total_bookings_year || bookingStats.total),
+      description: 'Tất cả booking trong hệ thống',
       icon: <BookingIcon className="h-6 w-6" />,
       tone: 'emerald',
     },
@@ -425,7 +424,7 @@ function AdminDashboardPage() {
         <Card className="dashboard-fade-up p-5" style={{ animationDelay: '180ms' }}>
           <SectionTitle
             title="Trạng Thái Booking"
-            description={`Tổng trong năm ${year}: ${formatNumber(bookingStats.total)}`}
+            description={`Tổng: ${formatNumber(bookingStats.total || overview.total_bookings_year)}`}
           />
           {bookingPie.length > 0 ? (
             <div className="grid gap-4">
@@ -462,8 +461,8 @@ function AdminDashboardPage() {
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.9fr)]">
         <Card className="dashboard-fade-up p-5" style={{ animationDelay: '240ms' }}>
           <SectionTitle
-            title="Khách Hàng Đăng Ký Mới"
-            description="Số tài khoản khách hàng tạo mới theo tháng"
+            title="Tăng Trưởng Khách Hàng"
+            description="Số lượng khách hàng mới theo tháng"
             action={
               <Link to="/admin/users" className="text-sm font-bold text-sky-600 hover:text-sky-700">
                 Xem chi tiết
