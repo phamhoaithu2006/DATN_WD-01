@@ -50,7 +50,6 @@ import AdminNotificationsPage from '../pages/admin/Notifications/AdminNotificati
 import TourDetailPage from '../pages/admin/tours/TourDetailPage';
 import LanguageManagementPage from '../pages/admin/language/LanguageManagementPage';
 import CertificateManagementPage from '../pages/admin/certificate/CertificateManagementPage'
-import ServiceCategoryManagementPage from '../pages/admin/serviceCategories/ServiceCategoryManagementPage'
 import GuideReviewsPage from '../pages/guide/GuideReviews/GuideReviewsPage'
 
 
@@ -125,7 +124,6 @@ function AppRoutes() {
     <Route path="/admin/categories/create" element={adminPage(<TourTypeCreatePage />)} />
     <Route path="/admin/categories/:id/edit" element={adminPage(<TourTypeEditPage />)} />
     <Route path="/admin/categories/trash" element={adminPage(<TourTypeTrashPage />)} />
-    <Route path="/admin/service-categories" element={adminPage(<ServiceCategoryManagementPage />)} />
     {/* Quản lý tour */}
     <Route path="/admin/tours" element={adminPage(<TourListPage />)} />
     <Route path="/admin/tours/create" element={adminPage(<TourCreatePage />)} />
