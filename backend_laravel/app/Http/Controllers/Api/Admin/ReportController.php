@@ -14,13 +14,18 @@ class ReportController extends Controller
      */
     public function getOverviewStatistics(Request $request)
     {
-        $year = $request->input('year', Carbon::now()->year);
+        $year = (int) $request->input('year', Carbon::now()->year);
         $currentDate = Carbon::now()->format('Y-m-d');
 
-        $totalRevenueYear = DB::table('bookings')
-            ->whereYear('created_at', $year)
-            ->where('payment_status', 'paid')
-            ->sum('total_amount');
+        // Revenue is recorded when a payment succeeds, not when its booking is created.
+        $paidPayments = DB::table('payments')
+            ->join('bookings', 'payments.booking_id', '=', 'bookings.id')
+            ->where('payments.status', 'success')
+            ->where('bookings.status', '!=', 'cancelled')
+            ->whereYear('payments.paid_at', $year);
+
+        $totalRevenueYear = (clone $paidPayments)->sum('payments.amount');
+        $paidBookingsYear = (clone $paidPayments)->count();
 
         $totalBookingsYear = DB::table('bookings')
             ->whereYear('created_at', $year)
@@ -35,15 +40,8 @@ class ReportController extends Controller
             ? round(($completedBookings / $totalBookingsYear) * 100, 2)
             : 0;
 
-        $monthlyAverages = DB::table('bookings')
-            ->select(DB::raw('MONTH(created_at) as month'), DB::raw('AVG(total_amount) as avg_amount'))
-            ->whereYear('created_at', $year)
-            ->where('payment_status', 'paid')
-            ->groupBy(DB::raw('MONTH(created_at)'))
-            ->get();
-
-        $averageBookingRevenueMonth = $monthlyAverages->count() > 0
-            ? round($monthlyAverages->avg('avg_amount'), 2)
+        $averageBookingRevenue = $paidBookingsYear > 0
+            ? round($totalRevenueYear / $paidBookingsYear, 2)
             : 0;
 
         return response()->json([
@@ -55,7 +53,7 @@ class ReportController extends Controller
                 'total_revenue_year' => (float) $totalRevenueYear,
                 'total_bookings_year' => $totalBookingsYear,
                 'tour_completion_rate' => $completionRate,
-                'average_revenue_per_booking_month' => (float) $averageBookingRevenueMonth,
+                'average_revenue_per_booking_month' => (float) $averageBookingRevenue,
             ],
         ], 200);
     }
@@ -65,27 +63,53 @@ class ReportController extends Controller
      */
     public function getChartStatistics(Request $request)
     {
-        $year = $request->input('year', Carbon::now()->year);
+        $year = (int) $request->input('year', Carbon::now()->year);
 
         $monthsData = array_fill(1, 12, ['revenue' => 0, 'bookings' => 0, 'customers' => 0]);
 
-        $dbData = DB::table('bookings')
+        $bookingData = DB::table('bookings')
             ->select(
                 DB::raw('MONTH(created_at) as month'),
-                DB::raw('SUM(CASE WHEN payment_status = "paid" THEN total_amount ELSE 0 END) as total_revenue'),
-                DB::raw('COUNT(*) as total_bookings'),
-                DB::raw('SUM(CASE WHEN status != "cancelled" THEN number_of_people ELSE 0 END) as total_customers')
+                DB::raw('COUNT(*) as total_bookings')
             )
             ->whereYear('created_at', $year)
             ->groupBy(DB::raw('MONTH(created_at)'))
             ->get();
 
-        foreach ($dbData as $row) {
-            $monthsData[$row->month] = [
-                'revenue' => (float) $row->total_revenue,
-                'bookings' => (int) $row->total_bookings,
-                'customers' => (int) $row->total_customers,
-            ];
+        foreach ($bookingData as $row) {
+            $monthsData[$row->month]['bookings'] = (int) $row->total_bookings;
+        }
+
+        $revenueData = DB::table('payments')
+            ->join('bookings', 'payments.booking_id', '=', 'bookings.id')
+            ->select(
+                DB::raw('MONTH(payments.paid_at) as month'),
+                DB::raw('SUM(payments.amount) as total_revenue')
+            )
+            ->where('payments.status', 'success')
+            ->where('bookings.status', '!=', 'cancelled')
+            ->whereYear('payments.paid_at', $year)
+            ->groupBy(DB::raw('MONTH(payments.paid_at)'))
+            ->get();
+
+        foreach ($revenueData as $row) {
+            $monthsData[$row->month]['revenue'] = (float) $row->total_revenue;
+        }
+
+        $customerData = DB::table('users')
+            ->join('roles', 'users.role_id', '=', 'roles.id')
+            ->select(
+                DB::raw('MONTH(users.created_at) as month'),
+                DB::raw('COUNT(users.id) as total_customers')
+            )
+            ->where('roles.name', 'customer')
+            ->whereNull('users.deleted_at')
+            ->whereYear('users.created_at', $year)
+            ->groupBy(DB::raw('MONTH(users.created_at)'))
+            ->get();
+
+        foreach ($customerData as $row) {
+            $monthsData[$row->month]['customers'] = (int) $row->total_customers;
         }
 
         $revenueChart = [];

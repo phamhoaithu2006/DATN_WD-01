@@ -252,8 +252,8 @@ function AdminDashboardPage() {
     {
       key: 'bookings',
       title: 'Tổng booking',
-      value: formatNumber(overview.total_bookings_year || bookingStats.total),
-      description: 'Tất cả booking trong hệ thống',
+      value: formatNumber(overview.total_bookings_year),
+      description: `Booking tạo trong năm ${overview.year || year}`,
       icon: <BookingIcon className="h-6 w-6" />,
       tone: 'emerald',
     },
@@ -425,7 +425,7 @@ function AdminDashboardPage() {
         <Card className="dashboard-fade-up p-5" style={{ animationDelay: '180ms' }}>
           <SectionTitle
             title="Trạng Thái Booking"
-            description={`Tổng: ${formatNumber(bookingStats.total || overview.total_bookings_year)}`}
+            description={`Tổng trong năm ${year}: ${formatNumber(bookingStats.total)}`}
           />
           {bookingPie.length > 0 ? (
             <div className="grid gap-4">
@@ -462,8 +462,8 @@ function AdminDashboardPage() {
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.9fr)]">
         <Card className="dashboard-fade-up p-5" style={{ animationDelay: '240ms' }}>
           <SectionTitle
-            title="Tăng Trưởng Khách Hàng"
-            description="Số lượng khách hàng mới theo tháng"
+            title="Khách Hàng Đăng Ký Mới"
+            description="Số tài khoản khách hàng tạo mới theo tháng"
             action={
               <Link to="/admin/users" className="text-sm font-bold text-sky-600 hover:text-sky-700">
                 Xem chi tiết

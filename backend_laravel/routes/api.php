@@ -511,6 +511,8 @@ Route::middleware(['auth:sanctum', 'role:tour guide'])->group(function () {
     Route::get('/guide/tours/upcoming', [GuideTourController::class, 'upcoming']);
     Route::get('/guide/tours/ongoing', [GuideTourController::class, 'ongoing']);
     Route::get('/guide/tours/completed', [GuideTourController::class, 'completed']);
+    Route::get('/guide/tours/destinations', [GuideTourController::class, 'destinationOptions']);
+    Route::get('/guide/tours/summary', [GuideTourController::class, 'summary']);
     Route::get('/guide/tours', [GuideTourController::class, 'index']);
     Route::get('/guide/tours/{tourDeparture}/overview', [GuideAttendanceController::class, 'overview']);
     Route::get('/guide/tours/{tourDeparture}/customers', [GuideAttendanceController::class, 'customers']);

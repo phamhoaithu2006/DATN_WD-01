@@ -5656,13 +5656,20 @@
   box-shadow: 0 4px 12px rgba(225, 29, 72, 0.28);
 }
 
+.guide-leave-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.22);
+}
+
 .guide-leave-panel {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 12px);
-  z-index: 80;
-  width: min(980px, calc(100vw - 32px));
-  max-height: calc(100vh - 120px);
+  position: relative;
+  width: min(980px, 100%);
+  max-height: calc(100vh - 48px);
   overflow: auto;
   border: 1px solid #dbeafe;
   border-radius: 24px;
@@ -5764,6 +5771,29 @@
   grid-template-columns: 380px minmax(0, 1fr);
   gap: 16px;
   margin-top: 16px;
+}
+
+@media (max-width: 820px) {
+  .guide-leave-backdrop {
+    align-items: start;
+    padding: 12px;
+    overflow-y: auto;
+  }
+
+  .guide-leave-panel {
+    max-height: none;
+  }
+
+  .guide-leave-summary-grid,
+  .guide-leave-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .guide-leave-panel-head,
+  .guide-leave-list-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }
 
 .guide-leave-form-card,
@@ -9165,6 +9195,7 @@
   font-weight: 750;
 }
 .guide-shot-hero {
+  display: flex;
   min-height: 152px;
   border-radius: 10px;
   overflow: hidden;
@@ -9196,19 +9227,24 @@
   display: inline-block;
   margin-bottom: 8px;
   color: #fde68a;
-  font-size: 11px;
+  font-size: 0;
   font-weight: 850;
   text-transform: uppercase;
 }
+.guide-shot-hero span::after {
+  content: "Tour được phân công";
+  font-size: 11px;
+}
 .guide-shot-hero h2 {
-  margin: 0;
-  font-size: 24px;
-  font-weight: 950;
-  letter-spacing: 0;
+  display: none;
 }
 .guide-shot-hero p {
   margin: 8px 0 0;
   color: rgba(255, 255, 255, 0.88);
+  font-size: 0;
+}
+.guide-shot-hero p::after {
+  content: "Theo dõi lịch trình và thông tin tour được phân công.";
   font-size: 13px;
 }
 .guide-shot-stats-grid {
@@ -9260,7 +9296,7 @@
 }
 .guide-shot-tabs {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   min-height: 72px;
   border-bottom: 1px solid #cfd8e7;
 }
@@ -9329,6 +9365,47 @@
   color: #64748b;
   font-weight: 850;
   cursor: pointer;
+}
+.guide-shot-filterbar > button {
+  display: none;
+}
+.guide-shot-filterbar .guide-shot-date-filter,
+.guide-shot-filterbar .guide-shot-select-filter {
+  flex: 0 1 auto;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 850;
+}
+.guide-shot-filterbar .guide-shot-date-filter {
+  order: 2;
+  width: 272px;
+}
+.guide-shot-filterbar .guide-shot-date-filter span,
+.guide-shot-filterbar .guide-shot-select-filter span {
+  white-space: nowrap;
+}
+.guide-shot-filterbar .guide-shot-date-filter input {
+  min-width: 0;
+  color: #334155;
+  font-size: 12px;
+}
+.guide-shot-filterbar .guide-shot-date-filter b {
+  color: #94a3b8;
+}
+.guide-shot-filterbar .guide-shot-select-filter {
+  order: 3;
+  padding-right: 10px;
+}
+.guide-shot-filterbar .guide-shot-select-filter:last-of-type {
+  order: 4;
+}
+.guide-shot-filterbar .guide-shot-select-filter select {
+  min-width: 92px;
+  border: 0;
+  background: transparent;
+  color: #334155;
+  font: inherit;
+  outline: 0;
 }
 .guide-shot-tour-list {
   padding: 0 24px;
@@ -9503,12 +9580,7 @@
   font-weight: 850;
 }
 .guide-attendance-tour-copy button {
-  margin-top: 18px;
-  border: 0;
-  background: transparent;
-  color: #0b7af3;
-  font-weight: 900;
-  cursor: pointer;
+  display: none;
 }
 .guide-unchecked-panel {
   border: 1px solid #fbbf24;

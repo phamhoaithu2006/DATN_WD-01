@@ -548,7 +548,7 @@ function ReportStatisticsPage() {
       ['Tổng doanh thu năm', overview?.total_revenue_year || 0],
       ['Tổng số booking', overview?.total_bookings_year || 0],
       ['Tỉ lệ hoàn thành tour', `${overview?.tour_completion_rate || 0}%`],
-      ['Trung bình doanh thu tháng', overview?.average_revenue_per_booking_month || 0],
+      ['Doanh thu trung bình/booking', overview?.average_revenue_per_booking_month || 0],
       [],
       ['Top điểm đến', 'Tỉnh / Thành phố', 'Số booking', 'Số khách'],
       ...topDestinations.map((d) => [
@@ -655,7 +655,7 @@ function ReportStatisticsPage() {
             <StatCard title="Tổng doanh thu năm" value={formatCurrency(overview?.total_revenue_year)} description={`Năm ${overview?.year || year}`} icon={<RevenueIcon className="h-7 w-7" />} tone="blue" trend={12} delay={120} />
             <StatCard title="Tổng số booking" value={formatNumber(overview?.total_bookings_year)} description="Tất cả booking trong năm" icon={<BookingIcon className="h-7 w-7" />} tone="emerald" trend={8} delay={200} />
             <StatCard title="Tỉ lệ hoàn thành tour" value={`${overview?.tour_completion_rate || 0}%`} description="Booking có trạng thái hoàn thành" icon={<CompletionIcon className="h-7 w-7" />} tone="violet" trend={5} delay={280} />
-            <StatCard title="Trung bình doanh thu tháng" value={formatCurrency(overview?.average_revenue_per_booking_month)} description="Trung bình booking đã thanh toán" icon={<AverageIcon className="h-7 w-7" />} tone="orange" trend={-3} delay={360} />
+            <StatCard title="Doanh thu trung bình/booking" value={formatCurrency(overview?.average_revenue_per_booking_month)} description="Tính trên các giao dịch thanh toán thành công" icon={<AverageIcon className="h-7 w-7" />} tone="orange" trend={-3} delay={360} />
           </section>
 
           {/* CHARTS */}
@@ -672,13 +672,13 @@ function ReportStatisticsPage() {
             </Card>
 
             <Card className="report-fade-up p-5 hover:-translate-y-1 hover:shadow-[0_20px_48px_rgba(15,23,42,0.12)]" style={{ animationDelay: '520ms' }}>
-              <ChartHeader title="Số lượng khách theo tháng" description="Lia chuột vào từng điểm để xem lượng khách chi tiết." badge="Theo tháng" />
+              <ChartHeader title="Khách hàng đăng ký mới" description="Số tài khoản khách hàng được tạo mới theo từng tháng." badge="Theo tháng" />
               {hasCustomerData ? (
                 <div className="h-[310px]">
                   <LineChartSvg data={customerChart} valueKey="total_customers" labelKey="month" valueFormatter={formatNumber} />
                 </div>
               ) : (
-                <EmptyState message="Chưa có dữ liệu khách trong năm này." />
+                <EmptyState message="Chưa có tài khoản khách hàng đăng ký trong năm này." />
               )}
             </Card>
           </section>

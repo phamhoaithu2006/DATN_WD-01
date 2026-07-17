@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { readSession } from "../../services/authStorage";
 import {
   getGuideTourCompleted,
   getGuideTourDetail,
   getGuideTourCustomers,
+  getGuideTourDestinationOptions,
   getGuideTourOngoing,
   getGuideTourUpcoming,
   getGuideTours,
@@ -49,7 +50,6 @@ const tabs = [
   { key: "all", label: "Tất cả" },
   { key: "upcoming", label: "Sắp diễn ra" },
   { key: "ongoing", label: "Đang dẫn Tour" },
-  { key: "pending", label: "Đang chờ xét duyệt" },
   { key: "completed", label: "Hoàn thành" },
 ];
 const fetchers = {
@@ -57,7 +57,6 @@ const fetchers = {
   upcoming: getGuideTourUpcoming,
   ongoing: getGuideTourOngoing,
   completed: getGuideTourCompleted,
-  pending: getGuideTours,
 };
 function TourRow({ customerCount, item, onDetail }) {
   const image = getTourImage(item);
@@ -327,21 +326,26 @@ function GuideToursPage() {
   const guide = readSession();
   const [activeTab, setActiveTab] = useState("all");
   const [keyword, setKeyword] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [destinationId, setDestinationId] = useState("");
+  const [sort, setSort] = useState("newest");
+  const [destinations, setDestinations] = useState([]);
   const [page, setPage] = useState(1);
   const [items, setItems] = useState([]);
+  const [heroIndex, setHeroIndex] = useState(0);
   const [meta, setMeta] = useState({
     current_page: 1,
     last_page: 1,
     total: 0,
     per_page: 10,
   });
-  const [totals, setTotals] = useState({
+  const summary = {
     all: 0,
-    upcoming: 0,
-    ongoing: 0,
-    pending: 0,
-    completed: 0,
-  });
+    totalCustomers: 0,
+    averageRating: 0,
+    reviewCount: 0,
+  };
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -355,6 +359,23 @@ function GuideToursPage() {
   const [replacementFile, setReplacementFile] = useState(null);
   const [replacementError, setReplacementError] = useState("");
   const [replacementSubmitting, setReplacementSubmitting] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+
+    getGuideTourDestinationOptions()
+      .then((data) => {
+        if (mounted) setDestinations(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {
+        if (mounted) setDestinations([]);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   useEffect(() => {
     let mounted = true;
     async function load() {
@@ -365,49 +386,24 @@ function GuideToursPage() {
           page,
           per_page: 4,
           keyword: keyword.trim() || undefined,
+          from_date: fromDate || undefined,
+          to_date: toDate || undefined,
+          destination_id: destinationId || undefined,
+          // The All tab follows the guide workflow order from the backend.
+          sort: activeTab === "all" ? undefined : sort,
         };
-        const [all, upcoming, ongoing, completed, active] = await Promise.all([
-          getGuideTours({ per_page: 1 }),
-          getGuideTourUpcoming({ per_page: 1 }),
-          getGuideTourOngoing({ per_page: 1 }),
-          getGuideTourCompleted({ per_page: 1 }),
-          fetchers[activeTab](
-            activeTab === "pending" ? { ...params, status: "pending" } : params,
-          ),
-        ]);
+        const active = await fetchers[activeTab](params);
         if (!mounted) return;
         const activePage = normalizePaginator(active);
         setItems(activePage.items);
         setMeta(activePage.meta);
-        setTotals({
-          all: normalizePaginator(all).meta.total,
-          upcoming: normalizePaginator(upcoming).meta.total,
-          ongoing: normalizePaginator(ongoing).meta.total,
-          pending: 0,
-          completed: normalizePaginator(completed).meta.total,
-        });
-
-        const countEntries = await Promise.all(
-          activePage.items.map(async (item) => {
-            try {
-              const payload = await getGuideTourCustomers(item.id, {
-                per_page: 1,
-              });
-              return [item.id, normalizePaginator(payload).meta.total];
-            } catch {
-              return [
-                item.id,
-                Number(
-                  item?.booked_slots ||
-                    item?.customers_count ||
-                    item?.participants_count ||
-                    0,
-                ),
-              ];
-            }
-          }),
-        );
-        if (mounted) setCustomerCounts(Object.fromEntries(countEntries));
+        if (mounted) {
+          setCustomerCounts(
+            Object.fromEntries(
+              activePage.items.map((item) => [item.id, Number(item.customer_count || 0)]),
+            ),
+          );
+        }
       } catch (err) {
         if (mounted)
           setError(
@@ -421,44 +417,21 @@ function GuideToursPage() {
     return () => {
       mounted = false;
     };
-  }, [activeTab, keyword, page]);
-  const heroItem = items[0];
-  const heroImage = getTourImage(heroItem);
-  const stats = useMemo(() => {
-    const customers = items.reduce(
-      (sum, item) =>
-        sum +
-        Number(
-          customerCounts[item.id] ??
-            item?.booked_slots ??
-            item?.customers_count ??
-            item?.participants_count ??
-            0,
-        ),
-      0,
-    );
-    const revenue = items.reduce(
-      (sum, item) =>
-        sum +
-        Number(item?.price || item?.tour?.price || item?.tour?.base_price || 0),
-      0,
-    );
-    const ratings = items
-      .map((item) =>
-        Number(
-          item?.tour?.average_rating ||
-            item?.average_rating ||
-            item?.rating ||
-            0,
-        ),
-      )
-      .filter(Boolean);
-    const avgRating = ratings.length
-      ? ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length
-      : 0;
-    return { customers, revenue, avgRating };
-  }, [customerCounts, items]);
+  }, [activeTab, destinationId, fromDate, keyword, page, sort, toDate]);
 
+  const heroItem = items[0];
+  const heroImages = items.map(getTourImage).filter(Boolean);
+  const heroImage = heroImages[heroIndex % Math.max(heroImages.length, 1)];
+
+  useEffect(() => {
+    if (heroImages.length < 2) return undefined;
+
+    const timer = window.setInterval(() => {
+      setHeroIndex((current) => (current + 1) % heroImages.length);
+    }, 5000);
+
+    return () => window.clearInterval(timer);
+  }, [heroImages.length]);
   async function openDetail(item) {
     setDetailItem(item);
     setDetailCustomers([]);
@@ -548,28 +521,23 @@ function GuideToursPage() {
           </p>
         </div>
       </section>
-      <section className="guide-shot-stats-grid">
+      <section className="guide-shot-stats-grid" hidden>
         <article className="guide-shot-stat tone-blue">
           <span>Tổng tour đã dẫn</span>
-          <strong>{formatNumber(totals.all)}</strong>
+          <strong>{formatNumber(summary.all)}</strong>
           <small>Từ dữ liệu database</small>
         </article>
         <article className="guide-shot-stat tone-amber">
           <span>Đánh giá trung bình</span>
           <strong>
-            {stats.avgRating ? stats.avgRating.toFixed(1) : "0"}/5
+            {summary.averageRating ? summary.averageRating.toFixed(1) : "0"}/5
           </strong>
-          <small>Dựa trên tour đang tải</small>
+          <small>{formatNumber(summary.reviewCount)} đánh giá từ khách hàng</small>
         </article>
         <article className="guide-shot-stat tone-green">
           <span>Tổng lượt khách</span>
-          <strong>{formatNumber(stats.customers)}</strong>
-          <small>Số khách trong danh sách</small>
-        </article>
-        <article className="guide-shot-stat tone-red">
-          <span>Thu nhập tháng này</span>
-          <strong>{formatMoney(stats.revenue)}</strong>
-          <small>Tính từ tour hiển thị</small>
+          <strong>{formatNumber(summary.totalCustomers)}</strong>
+          <small>Khách của các booking đã thanh toán</small>
         </article>
       </section>
       <section className="guide-shot-card">
@@ -589,6 +557,62 @@ function GuideToursPage() {
           ))}
         </nav>
         <div className="guide-shot-filterbar">
+          <label className="guide-shot-date-filter">
+            <span>Thời gian</span>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(event) => {
+                setFromDate(event.target.value);
+                setPage(1);
+              }}
+              aria-label="Từ ngày"
+            />
+            <b>–</b>
+            <input
+              type="date"
+              value={toDate}
+              min={fromDate || undefined}
+              onChange={(event) => {
+                setToDate(event.target.value);
+                setPage(1);
+              }}
+              aria-label="Đến ngày"
+            />
+          </label>
+          <label className="guide-shot-select-filter">
+            <span>Địa điểm</span>
+            <select
+              value={destinationId}
+              onChange={(event) => {
+                setDestinationId(event.target.value);
+                setPage(1);
+              }}
+              aria-label="Lọc theo địa điểm"
+            >
+              <option value="">Tất cả</option>
+              {destinations.map((destination) => (
+                <option key={destination.id} value={destination.id}>
+                  {destination.name}{destination.province_city ? ` - ${destination.province_city}` : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="guide-shot-select-filter">
+            <span>Sắp xếp</span>
+            <select
+              value={sort}
+              disabled={activeTab === "all"}
+              onChange={(event) => {
+                setSort(event.target.value);
+                setPage(1);
+              }}
+              aria-label="Sắp xếp tour"
+            >
+              <option value="newest">Mới nhất</option>
+              <option value="oldest">Cũ nhất</option>
+            </select>
+          </label>
           <label>
             <svg viewBox="0 0 24 24">
               <circle cx="11" cy="11" r="8" />
@@ -658,9 +682,6 @@ function GuideToursPage() {
               ›
             </button>
           </div>
-          <span>
-            Hiển thị <b>{meta.per_page}/trang</b>
-          </span>
         </footer>
       </section>
       <TourDetailModal

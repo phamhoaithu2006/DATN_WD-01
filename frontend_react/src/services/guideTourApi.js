@@ -14,6 +14,12 @@ export const getGuideTourOngoing = async (params = {}) =>
 export const getGuideTourCompleted = async (params = {}) =>
   unwrap(await apiClient.get('/guide/tours/completed', { params }))
 
+export const getGuideTourDestinationOptions = async () =>
+  unwrap(await apiClient.get('/guide/tours/destinations')).data
+
+export const getGuideTourSummary = async () =>
+  unwrap(await apiClient.get('/guide/tours/summary')).data
+
 export const getGuideTourDetail = async (departureId) =>
   unwrap(await apiClient.get(`/guide/tours/${departureId}`)).data
 // Guide schedule overview API

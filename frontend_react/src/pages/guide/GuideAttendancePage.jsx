@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   checkInGuideCustomer,
@@ -33,6 +33,12 @@ function getAttendance(customer) {
 function isChecked(customer) {
   return Boolean(getAttendance(customer)?.checked_in_at);
 }
+function isAbsent(customer) {
+  return String(getAttendance(customer)?.status || "").toLowerCase() === "absent";
+}
+function isUnchecked(customer) {
+  return !isChecked(customer) && !isAbsent(customer);
+}
 function getCheckTime(customer) {
   const checkedAt = getAttendance(customer)?.checked_in_at;
   if (!checkedAt) return "--:--";
@@ -60,6 +66,7 @@ function GuideAttendancePage() {
   const [message, setMessage] = useState("");
   const [noteTarget, setNoteTarget] = useState(null);
   const [noteText, setNoteText] = useState("");
+  const customerListRef = useRef(null);
   useEffect(() => {
     let mounted = true;
     async function loadTours() {
@@ -133,11 +140,7 @@ function GuideAttendancePage() {
   const stats = useMemo(() => {
     const total = customers.length;
     const checked = customers.filter(isChecked).length;
-    const absent = customers.filter(
-      (customer) =>
-        String(getAttendance(customer)?.status || "").toLowerCase() ===
-        "absent",
-    ).length;
+    const absent = customers.filter(isAbsent).length;
     return {
       total,
       checked,
@@ -149,12 +152,8 @@ function GuideAttendancePage() {
     const normalizedKeyword = keyword.trim().toLowerCase();
     return customers.filter((customer) => {
       if (activeFilter === "checked" && !isChecked(customer)) return false;
-      if (activeFilter === "unchecked" && isChecked(customer)) return false;
-      if (
-        activeFilter === "absent" &&
-        String(getAttendance(customer)?.status || "").toLowerCase() !== "absent"
-      )
-        return false;
+      if (activeFilter === "unchecked" && !isUnchecked(customer)) return false;
+      if (activeFilter === "absent" && !isAbsent(customer)) return false;
       if (customerType !== "all" && getCustomerType(customer) !== customerType)
         return false;
       if (!normalizedKeyword) return true;
@@ -272,13 +271,21 @@ function GuideAttendancePage() {
     }
   }
   const tourImage = getTourImage(selectedTour);
-  const uncheckedCustomers = customers.filter(
-    (customer) => !isChecked(customer),
-  );
+  const uncheckedCustomers = customers.filter(isUnchecked);
   const totalRows = customerMeta.total || customers.length;
   const canOperate =
     selectedTour?.can_take_attendance ??
     getTourState(selectedTour) === "ongoing";
+
+  function showAllUncheckedCustomers() {
+    setActiveFilter("unchecked");
+    setKeyword("");
+    setCustomerType("all");
+    window.requestAnimationFrame(() => {
+      customerListRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
   return (
     <div className="guide-attendance-shot-page">
       {error || message ? (
@@ -328,7 +335,12 @@ function GuideAttendancePage() {
                 <button type="button">xem chi tiết &gt;</button>
               </div>
             </article>
-            <aside className="guide-unchecked-panel">
+            <aside
+              className="guide-unchecked-panel"
+              onClick={(event) => {
+                if (event.target.closest("button")) showAllUncheckedCustomers();
+              }}
+            >
               <h2>Khách chưa điểm danh ({stats.unchecked})</h2>
               <ol>
                 {uncheckedCustomers.slice(0, 5).map((customer) => (
@@ -365,7 +377,7 @@ function GuideAttendancePage() {
               </small>
             </article>
           </section>
-          <section className="guide-attendance-card">
+          <section ref={customerListRef} className="guide-attendance-card">
             <nav className="guide-attendance-tabs">
               {filters.map((filter) => {
                 const count =
