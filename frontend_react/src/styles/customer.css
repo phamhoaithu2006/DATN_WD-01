@@ -6761,4 +6761,16 @@ textarea.vg-checkout-input {
   .vg-checkout-steps-bar .step-line {
     display: none;
   }
+  .vg-message-line {
+  margin: 0 0 6px 0;
+  line-height: 1.5;
+}
+
+.vg-message-line:last-child {
+  margin-bottom: 0;
+}
+
+.vg-message.ai strong {
+  color: #1a73e8;
+}
 }
