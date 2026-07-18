@@ -2,6 +2,15 @@ import { useState } from "react";
 import { askTravelAssistant } from "../../services/customerApi";
 import Icon from "./Icon";
 
+function getOrCreateSessionId() {
+  let sessionId = localStorage.getItem("vivugo_chat_session_id");
+  if (!sessionId) {
+    sessionId = "session-" + crypto.randomUUID();
+    localStorage.setItem("vivugo_chat_session_id", sessionId);
+  }
+  return sessionId;
+}
+
 function ChatBox() {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -21,10 +30,11 @@ function ChatBox() {
     setText("");
     setLoading(true);
     try {
-      const response = await askTravelAssistant(message);
+      const sessionId = getOrCreateSessionId();
+      const response = await askTravelAssistant(message, sessionId);
       setMessages((current) => [
         ...current,
-        { from: "ai", text: response.message },
+        { from: "ai", text: response.reply },
       ]);
     } catch {
       setMessages((current) => [
