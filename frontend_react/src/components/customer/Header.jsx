@@ -236,45 +236,45 @@ const megaMenuData = {
       ]
     }
   },
-  "trip-inspiration": {
-    label: { vi: "Cảm hứng", en: "Trip inspiration" },
+  policies: {
+    label: { vi: "Chính sách", en: "Policies" },
     sidebar: [
-      { id: "all-guides", label: { vi: "Tất cả cẩm nang", en: "All guides" } },
-      { id: "romantic-getaways", label: { vi: "Kỳ nghỉ lãng mạn", en: "Romantic getaways" } },
-      { id: "family-vacations", label: { vi: "Kỳ nghỉ gia đình", en: "Family vacations" } },
-      { id: "solo-travel", label: { vi: "Du lịch một mình", en: "Solo travel" } }
+      { id: "all-guides", label: { vi: "Tất cả chính sách", en: "All policies" } },
+      { id: "romantic-getaways", label: { vi: "Chính sách thanh toán", en: "Payment policy" } },
+      { id: "family-vacations", label: { vi: "Chính sách đặt tour", en: "Booking policy" } },
+      { id: "solo-travel", label: { vi: "Chính sách hoàn hủy", en: "Cancellation policy" } }
     ],
     content: {
       "all-guides": [
         {
-          title: { vi: "Top 10 bãi biển mùa hè đẹp nhất", en: "Top 10 summer beaches" },
-          subtitle: { vi: "Ý tưởng cho kỳ nghỉ tuyệt vời của bạn", en: "Inspirational guide for beach lovers" },
+          title: { vi: "Quy định chung", en: "General regulations" },
+          subtitle: { vi: "Thông tin cần biết khi sử dụng dịch vụ", en: "Important service information" },
           image: "https://picsum.photos/seed/beachguide/80/80"
         },
         {
-          title: { vi: "Cẩm nang leo núi Sa Pa an toàn", en: "Hiking Sapa safely" },
-          subtitle: { vi: "Kinh nghiệm thực tế từ các chuyên gia", en: "Ultimate trekking tips from local guides" },
+          title: { vi: "Điều khoản sử dụng", en: "Terms of use" },
+          subtitle: { vi: "Điều khoản áp dụng cho khách hàng", en: "Terms applicable to customers" },
           image: "https://picsum.photos/seed/sapaguide/80/80"
         }
       ],
       "romantic-getaways": [
         {
-          title: { vi: "Tuần trăng mật lãng mạn tại Phú Quốc", en: "Honeymoon in Phu Quoc" },
-          subtitle: { vi: "Resort sang trọng bên bờ biển xanh cát trắng", en: "Romantic resort guides for couples" },
+          title: { vi: "Hướng dẫn thanh toán", en: "Payment guide" },
+          subtitle: { vi: "Các phương thức và thời hạn thanh toán", en: "Payment methods and deadlines" },
           image: "https://picsum.photos/seed/phuquocromantic/80/80"
         }
       ],
       "family-vacations": [
         {
-          title: { vi: "Hành trình khám phá Đà Nẵng cùng gia đình", en: "Da Nang family guide" },
-          subtitle: { vi: "Điểm tham quan thích hợp cho mọi lứa tuổi", en: "Fun activities for kids and elders" },
+          title: { vi: "Chính sách đặt tour", en: "Booking policy" },
+          subtitle: { vi: "Quy trình xác nhận và đặt chỗ", en: "Confirmation and reservation process" },
           image: "https://picsum.photos/seed/danangfamily/80/80"
         }
       ],
       "solo-travel": [
         {
-          title: { vi: "Hành trình xuyên Việt một mình an toàn", en: "Solo across Vietnam" },
-          subtitle: { vi: "Kinh nghiệm di chuyển và lưu trú tiết kiệm", en: "Practical tips for solo backpackers" },
+          title: { vi: "Chính sách hoàn hủy", en: "Cancellation policy" },
+          subtitle: { vi: "Điều kiện đổi hoặc hủy tour", en: "Tour change and cancellation conditions" },
           image: "https://picsum.photos/seed/vietnamsolo/80/80"
         }
       ]
@@ -422,7 +422,7 @@ function Header({ user, onLogout }) {
             sidebar: thingsSidebar,
             content: thingsContent
           },
-          "trip-inspiration": megaMenuData["trip-inspiration"]
+          policies: megaMenuData.policies
         });
       } catch (err) {
         console.error("Failed to load mega menu data:", err);
@@ -580,6 +580,18 @@ function Header({ user, onLogout }) {
               </div>
             );
           })}
+
+          {/* Customer Support */}
+          <NavLink
+            to="/customer/profile?view=support"
+            className={({ isActive }) =>
+              `relative py-6 font-semibold text-[0.98rem] transition-colors duration-200 ${
+                isActive ? "text-blue-600" : "text-[#111820] hover:text-blue-600"
+              }`
+            }
+          >
+            {language === "vi" ? "Hỗ trợ" : "Support"}
+          </NavLink>
         </nav>
 
         {/* Right side user actions */}
@@ -603,6 +615,9 @@ function Header({ user, onLogout }) {
                 </Link>
                 <Link to="/customer/favorites">
                   <Icon name="heart" /> Tour yêu thích
+                </Link>
+                <Link to="/customer/profile?view=support">
+                  <Icon name="headset" /> Hỗ trợ khách hàng
                 </Link>
                 {user.role === "admin" ? (
                   <Link className="vg-admin-link" to="/admin">
@@ -801,6 +816,18 @@ function Header({ user, onLogout }) {
                 </div>
               );
             })}
+
+            <NavLink
+              to="/customer/profile?view=support"
+              className={({ isActive }) =>
+                `block border-t border-gray-50 pt-4 font-semibold text-lg ${
+                  isActive ? "text-blue-600" : "text-gray-900"
+                }`
+              }
+              onClick={() => setMobileOpen(false)}
+            >
+              {language === "vi" ? "Hỗ trợ" : "Support"}
+            </NavLink>
           </div>
 
           {/* User authenticate trigger links for mobile */}
@@ -831,6 +858,13 @@ function Header({ user, onLogout }) {
                   onClick={() => setMobileOpen(false)}
                 >
                   Tour yêu thích
+                </Link>
+                <Link
+                  to="/customer/profile?view=support"
+                  className="block text-gray-600 font-medium hover:text-blue-600"
+                  onClick={() => setMobileOpen(false)}
+                >
+                  Hỗ trợ khách hàng
                 </Link>
                 {user.role === "admin" && (
                   <Link

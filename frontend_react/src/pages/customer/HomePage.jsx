@@ -24,18 +24,12 @@ function HomePage({
     ? internationalTours
     : [];
   const safeFavorites = Array.isArray(favorites) ? favorites : [];
-  const safeCategories = Array.isArray(homeContent.categories)
-    ? homeContent.categories
-    : [];
   const safeDestinations = Array.isArray(homeContent.destinations)
     ? homeContent.destinations
     : [];
   const featuredTourCards = Array.isArray(homeContent.featured_tours)
     ? homeContent.featured_tours
     : safeTours.slice(0, 6);
-  const reviews = Array.isArray(homeContent.reviews)
-    ? homeContent.reviews
-    : [];
   const statistics = homeContent.statistics || {};
 
   /*
@@ -43,10 +37,6 @@ function HomePage({
    * mà CustomerPage truyền vào.
    */
   const internationalTourCards = safeInternationalTours;
-
-  const visibleCategories = safeCategories.filter(
-    (category) => Number(category.tour_count) > 0,
-  );
 
   const destinationCards = safeDestinations
     .map((destination) => ({
@@ -330,6 +320,8 @@ function HomePage({
         </div>
       </section>
 
+      {/* Supplementary home sections intentionally removed. */}
+      {/*
       {visibleCategories.length > 0 ? (
         <section className="vg-home-section vg-home-section-alt">
           <div className="vg-container">
@@ -428,6 +420,7 @@ function HomePage({
           </div>
         </section>
       ) : null}
+      */}
     </main>
   );
 }
