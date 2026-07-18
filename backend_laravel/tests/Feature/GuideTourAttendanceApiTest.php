@@ -11,6 +11,7 @@ use App\Models\TourDeparture;
 use App\Models\TourGuideAssignment;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
 
@@ -188,6 +189,12 @@ test('only ongoing tours can create attendance sessions', function () {
     ])->assertUnprocessable();
 
     $this->postJson("/api/guide/tours/{$scenario['ongoing']->id}/attendance-sessions", [
+        'boundary' => 'return',
+    ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('boundary');
+
+    $this->postJson("/api/guide/tours/{$scenario['ongoing']->id}/attendance-sessions", [
         'boundary' => 'departure',
     ])
         ->assertCreated()
@@ -213,4 +220,58 @@ test('guide customer list includes phone and health notes', function () {
         ->assertJsonPath('data.0.contact_phone', '0900000001')
         ->assertJsonPath('data.0.customer_note', 'Khach an chay.')
         ->assertJsonPath('data.0.health_note', 'Di ung hai san.');
+});
+
+test('attendance actions are only allowed on the selected boundary date', function () {
+    Carbon::setTestNow('2026-07-19 09:00:00');
+    $scenario = guideAttendanceScenario();
+    Sanctum::actingAs($scenario['guideUser']);
+
+    $departureSessionId = $this->postJson("/api/guide/tours/{$scenario['ongoing']->id}/attendance-sessions", [
+        'boundary' => 'departure',
+    ])->assertCreated()->json('data.id');
+
+    Carbon::setTestNow('2026-07-20 09:00:00');
+
+    $this->postJson("/api/guide/tours/{$scenario['ongoing']->id}/attendance-sessions/{$departureSessionId}/check-in", [
+        'participant_id' => $scenario['participant']->id,
+    ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('boundary');
+
+    $this->postJson("/api/guide/tours/{$scenario['ongoing']->id}/attendance-sessions", [
+        'boundary' => 'return',
+    ])
+        ->assertCreated()
+        ->assertJsonPath('data.boundary', 'return');
+
+    Carbon::setTestNow();
+});
+
+test('attendance note is visible across departure and return sessions', function () {
+    Carbon::setTestNow('2026-07-19 09:00:00');
+    $scenario = guideAttendanceScenario();
+    Sanctum::actingAs($scenario['guideUser']);
+
+    $departureSessionId = $this->postJson("/api/guide/tours/{$scenario['ongoing']->id}/attendance-sessions", [
+        'boundary' => 'departure',
+    ])->assertCreated()->json('data.id');
+
+    $this->patchJson("/api/guide/tours/{$scenario['ongoing']->id}/attendance-sessions/{$departureSessionId}/notes", [
+        'participant_id' => $scenario['participant']->id,
+        'note' => 'Khach bi say xe, can ngoi hang dau.',
+    ])->assertOk();
+
+    Carbon::setTestNow('2026-07-20 09:00:00');
+
+    $returnSessionId = $this->postJson("/api/guide/tours/{$scenario['ongoing']->id}/attendance-sessions", [
+        'boundary' => 'return',
+    ])->assertCreated()->json('data.id');
+
+    $this->getJson("/api/guide/tours/{$scenario['ongoing']->id}/customers?attendance_boundary=return&attendance_session_id={$returnSessionId}")
+        ->assertOk()
+        ->assertJsonPath('data.0.attendance_status', 'not_checked_in')
+        ->assertJsonPath('data.0.attendance.note', 'Khach bi say xe, can ngoi hang dau.');
+
+    Carbon::setTestNow();
 });

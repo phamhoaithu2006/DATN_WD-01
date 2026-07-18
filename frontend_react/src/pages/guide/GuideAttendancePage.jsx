@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
 import {
   checkInGuideCustomer,
   createGuideAttendanceSession,
@@ -61,6 +60,28 @@ function getPageNumbers(currentPage, lastPage) {
   const end = Math.min(lastPage, start + 4);
   return Array.from({ length: end - start + 1 }, (_, index) => start + index);
 }
+function isSameLocalDate(value) {
+  if (!value) return false;
+  const date = new Date(`${String(value).slice(0, 10)}T00:00:00`);
+  const today = new Date();
+  return (
+    date.getFullYear() === today.getFullYear() &&
+    date.getMonth() === today.getMonth() &&
+    date.getDate() === today.getDate()
+  );
+}
+function getTodayBoundary(tour) {
+  if (isSameLocalDate(tour?.departure_date)) return "departure";
+  if (isSameLocalDate(tour?.return_date || tour?.departure_date)) return "return";
+  return null;
+}
+function isBoundaryToday(tour, boundary) {
+  const date =
+    boundary === "departure"
+      ? tour?.departure_date
+      : tour?.return_date || tour?.departure_date;
+  return isSameLocalDate(date);
+}
 function AttendanceTourDetailModal({ item, onClose }) {
   if (!item) return null;
   const image = getTourImage(item);
@@ -82,8 +103,6 @@ function AttendanceTourDetailModal({ item, onClose }) {
   );
 }
 function GuideAttendancePage() {
-  const navigate = useNavigate();
-  const { tourId } = useParams();
   const [selectedTour, setSelectedTour] = useState(null);
   const [customers, setCustomers] = useState([]);
   const [activeFilter, setActiveFilter] = useState("all");
@@ -107,19 +126,13 @@ function GuideAttendancePage() {
       setLoading(true);
       setError("");
       try {
-        const ongoing = await getGuideTourOngoing({ per_page: 30 });
+        const ongoing = await getGuideTourOngoing({ per_page: 1 });
         if (!mounted) return;
         const list = normalizePaginator(ongoing).items;
-        const picked =
-          list.find((item) => String(item.id) === String(tourId)) ||
-          list[0] ||
-          null;
-        if (picked && !tourId)
-          navigate(`/guide/attendance/${picked.id}`, { replace: true });
-        if (picked && tourId && String(picked.id) !== String(tourId)) {
-          navigate(`/guide/attendance/${picked.id}`, { replace: true });
-        }
-        setSelectedTour(picked);
+        const tour = list[0] || null;
+        setSelectedTour(tour);
+        const todayBoundary = getTodayBoundary(tour);
+        if (todayBoundary) setAttendanceBoundary(todayBoundary);
       } catch (err) {
         if (mounted)
           setError(
@@ -133,7 +146,7 @@ function GuideAttendancePage() {
     return () => {
       mounted = false;
     };
-  }, [navigate, tourId]);
+  }, []);
   const selectedTourId = selectedTour?.id;
 
   useEffect(() => {
@@ -317,7 +330,8 @@ function GuideAttendancePage() {
   const canOperate =
     selectedTour?.can_take_attendance ??
     getTourState(selectedTour) === "ongoing";
-  const canOperateBoundary = canOperate;
+  const canOperateBoundary =
+    canOperate && isBoundaryToday(selectedTour, attendanceBoundary);
   const firstCustomer = customers.length ? (page - 1) * customerMeta.per_page + 1 : 0;
   const lastCustomer = Math.min(page * customerMeta.per_page, totalRows);
 
@@ -402,17 +416,19 @@ function GuideAttendancePage() {
             <nav className="guide-attendance-boundaries" aria-label="Mốc điểm danh">
               {attendanceBoundaries.map((boundary) => {
                 const date = boundary.key === "departure" ? selectedTour.departure_date : selectedTour.return_date || selectedTour.departure_date;
+                const isToday = isBoundaryToday(selectedTour, boundary.key);
                 return (
                   <button
                     key={boundary.key}
                     type="button"
                     className={attendanceBoundary === boundary.key ? "is-active" : ""}
+                    disabled={!isToday}
                     onClick={() => {
                       setAttendanceBoundary(boundary.key);
                       setPage(1);
                     }}
                   >
-                    {boundary.label}: {formatDate(date)}
+                    {boundary.label}: {formatDate(date)}{isToday ? " · Hôm nay" : ""}
                   </button>
                 );
               })}

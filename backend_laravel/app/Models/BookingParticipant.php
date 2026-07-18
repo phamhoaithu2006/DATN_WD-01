@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class BookingParticipant extends Model
 {
@@ -36,5 +37,11 @@ class BookingParticipant extends Model
     public function attendances(): HasMany
     {
         return $this->hasMany(Attendance::class);
+    }
+
+    public function latestAttendanceNote(): HasOne
+    {
+        return $this->hasOne(Attendance::class)
+            ->ofMany('updated_at', 'max', fn ($query) => $query->whereNotNull('note'));
     }
 }

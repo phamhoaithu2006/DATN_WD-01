@@ -57,6 +57,7 @@ class GuideTourOperationService
                 'booking:id,booking_code,user_id,tour_id,tour_departure_id,status,payment_status,number_of_people,note',
                 'booking.contact:id,booking_id,contact_name,contact_email,contact_phone,address,special_request',
                 'booking.user:id,full_name,email,phone',
+                'latestAttendanceNote:id,booking_participant_id,note,updated_at',
             ])
             ->when($session, function (Builder $query) use ($session): void {
                 $query->with([
@@ -125,8 +126,7 @@ class GuideTourOperationService
         TourDeparture $tourDeparture,
         ?int $sessionId = null,
         ?string $boundary = null
-    ): array
-    {
+    ): array {
         $departure = $this->assignedDepartureForUser($user, $tourDeparture);
         $session = $this->resolveSession($departure, $sessionId, $boundary);
         $totalCustomers = $this->participantBaseQuery($departure)->count();
@@ -173,6 +173,7 @@ class GuideTourOperationService
         $departure = $this->assignedDepartureForUser($user, $tourDeparture);
         $this->assertDepartureCanTakeAttendance($departure);
         $boundary = $data['boundary'];
+        $this->assertBoundaryMatchesToday($departure, $boundary);
 
         return DB::transaction(function () use ($departure, $user, $boundary): AttendanceSession {
             TourDeparture::query()->whereKey($departure->id)->lockForUpdate()->firstOrFail();
@@ -625,6 +626,28 @@ class GuideTourOperationService
             ]);
         }
 
+        $this->assertBoundaryMatchesToday($departure, $session->boundary);
+
+    }
+
+    /**
+     * @throws ValidationException
+     */
+    private function assertBoundaryMatchesToday(TourDeparture $departure, string $boundary): void
+    {
+        $attendanceDate = $boundary === 'departure'
+            ? $departure->departure_date
+            : ($departure->return_date ?: $departure->departure_date);
+
+        if ($attendanceDate?->isToday()) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'boundary' => $boundary === 'departure'
+                ? 'Departure attendance is only available on the departure date.'
+                : 'Return attendance is only available on the return date.',
+        ]);
     }
 
     private function attendanceBoundaryLabel(string $boundary): string

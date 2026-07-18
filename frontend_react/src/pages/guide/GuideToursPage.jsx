@@ -38,12 +38,59 @@ function getTourDescription(item) {
   );
 }
 
-function canRequestReplacement(item) {
+function getReplacementEligibility(item) {
   const status = String(item?.guide_status || item?.status || "").toLowerCase();
-  if (["completed", "cancelled", "canceled"].includes(status)) return false;
-  if (item?.replacement_request_pending || item?.pending_replacement_request)
-    return false;
-  return true;
+  const hasPendingRequest = Boolean(
+    Number(item?.replacement_request_pending) ||
+      item?.pending_replacement_request,
+  );
+
+  if (hasPendingRequest) {
+    return {
+      allowed: false,
+      buttonLabel: "Đã gửi yêu cầu đổi HDV",
+      message: "Yêu cầu đổi HDV đã được gửi và đang chờ quản trị viên xử lý.",
+    };
+  }
+
+  if (status === "ongoing") {
+    return {
+      allowed: false,
+      buttonLabel: "Không thể đổi HDV",
+      message: "Tour đang diễn ra nên không thể yêu cầu đổi HDV nữa.",
+    };
+  }
+
+  if (["completed", "cancelled", "canceled"].includes(status)) {
+    return {
+      allowed: false,
+      buttonLabel: "Không thể đổi HDV",
+      message: "Tour đã kết thúc hoặc đã bị hủy nên không thể đổi HDV.",
+    };
+  }
+
+  const departureDate = new Date(`${item?.departure_date || ""}T00:00:00`);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const minimumDepartureDate = new Date(today);
+  minimumDepartureDate.setDate(minimumDepartureDate.getDate() + 5);
+
+  if (
+    Number.isNaN(departureDate.getTime()) ||
+    departureDate < minimumDepartureDate
+  ) {
+    return {
+      allowed: false,
+      buttonLabel: "Đã quá hạn đổi HDV",
+      message: "Chỉ có thể yêu cầu đổi HDV trước ngày khởi hành ít nhất 5 ngày.",
+    };
+  }
+
+  return {
+    allowed: true,
+    buttonLabel: "Yêu cầu đổi HDV",
+    message: "Bạn có thể gửi yêu cầu đổi HDV trước ngày khởi hành ít nhất 5 ngày.",
+  };
 }
 
 const tabs = [
@@ -136,6 +183,7 @@ function TourDetailModal({
   const itineraries = Array.isArray(item?.tour?.itineraries)
     ? item.tour.itineraries
     : [];
+  const replacementEligibility = getReplacementEligibility(item);
 
   return (
     <div
@@ -272,18 +320,15 @@ function TourDetailModal({
             </div>
             <button
               type="button"
-              disabled={!canRequestReplacement(item)}
+              disabled={!replacementEligibility.allowed}
               onClick={() => onOpenReplacement(item)}
             >
-              Yêu cầu đổi HDV
+              {replacementEligibility.buttonLabel}
             </button>
           </div>
-          {!canRequestReplacement(item) ? (
-            <p className="guide-replacement-muted">
-              Tour này không còn đủ điều kiện gửi yêu cầu đổi HDV hoặc đã có yêu
-              cầu chờ duyệt.
-            </p>
-          ) : null}
+          <p className="guide-replacement-muted">
+            {replacementEligibility.message}
+          </p>
         </div>
       </section>
     </div>
