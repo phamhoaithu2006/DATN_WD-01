@@ -209,7 +209,7 @@ function stateMeta(state) {
 
   if (state === 'blocked') {
     return {
-      label: 'Hết HDV phù hợp',
+      label: 'Hết HDV đang trống lịch',
       className: 'bg-red-100 text-red-700',
     }
   }
@@ -849,17 +849,14 @@ function DirectGuideAssignmentPanel({
   onRefreshPlanning,
 }) {
   const [departureId, setDepartureId] = useState(focusedDepartureId || '')
-  const [mode, setMode] = useState('eligible')
+  const [mode, setMode] = useState('available')
   const [keyword, setKeyword] = useState('')
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
-  const [destinationId, setDestinationId] = useState('')
   const [languageIds, setLanguageIds] = useState([])
   const [languageOptions, setLanguageOptions] = useState([])
   const [loadingLanguages, setLoadingLanguages] = useState(false)
   const [languageDropdownOpen, setLanguageDropdownOpen] = useState(false)
-  const [destinationOptions, setDestinationOptions] = useState([])
-  const [loadingDestinations, setLoadingDestinations] = useState(false)
   const [guides, setGuides] = useState([])
   const [loading, setLoading] = useState(false)
   const [busyGuideId, setBusyGuideId] = useState(null)
@@ -899,12 +896,21 @@ function DirectGuideAssignmentPanel({
   const visibleGuides = useMemo(() => {
     const filteredGuides = guides.filter((guide) => {
       const guideId = getGuideCandidateId(guide)
+      const isFree = guide?.is_available !== false
 
-      return guideId && !selectedDepartureAssignedGuideIds.has(guideId)
+      if (!guideId || selectedDepartureAssignedGuideIds.has(guideId)) {
+        return false
+      }
+
+      if (mode === 'available') {
+        return isFree
+      }
+
+      return true
     })
 
     return sortGuidesByAvailability(filteredGuides)
-  }, [guides, selectedDepartureAssignedGuideIds])
+  }, [guides, mode, selectedDepartureAssignedGuideIds])
 
   function clearFieldError(fieldName) {
     setFieldErrors((current) => {
@@ -941,29 +947,6 @@ function DirectGuideAssignmentPanel({
     return true
   }
 
-  const fetchDestinationOptions = useCallback(async () => {
-    if (typeof tourDepartureApi.getDestinationOptions !== 'function') {
-      setDestinationOptions([])
-      return
-    }
-
-    try {
-      setLoadingDestinations(true)
-
-      const response = await tourDepartureApi.getDestinationOptions()
-
-      setDestinationOptions(unwrapList(response))
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setLoadingDestinations(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    void fetchDestinationOptions()
-  }, [fetchDestinationOptions])
-
   const fetchLanguageOptions = useCallback(async () => {
     if (typeof tourDepartureApi.getLanguages !== 'function') {
       setLanguageOptions([])
@@ -996,14 +979,6 @@ function DirectGuideAssignmentPanel({
         : [...current, value]
     )
   }
-
-  const destinations = useMemo(() => {
-    if (destinationOptions.length > 0) {
-      return destinationOptions
-    }
-
-    return getUniqueDestinations(departureOptions)
-  }, [destinationOptions, departureOptions])
 
   useEffect(() => {
     if (focusedDepartureId) {
@@ -1053,11 +1028,10 @@ function DirectGuideAssignmentPanel({
       const response = await tourDepartureApi.getDirectGuideCandidates(
         departureId,
         {
-          mode,
+          mode: 'all',
           keyword: keyword.trim() || undefined,
           from: from || undefined,
           to: to || undefined,
-          destination_id: destinationId || undefined,
           language_ids: languageIds.length > 0 ? languageIds : undefined,
           per_page: 50,
         }
@@ -1081,7 +1055,7 @@ function DirectGuideAssignmentPanel({
     } finally {
       setLoading(false)
     }
-  }, [departureId, mode, keyword, from, to, destinationId, languageIds])
+  }, [departureId, mode, keyword, from, to, languageIds])
 
   useEffect(() => {
     void fetchGuides()
@@ -1106,7 +1080,8 @@ function DirectGuideAssignmentPanel({
         departureId,
         guide.id,
         {
-          forceAreaMismatch,
+          // Không chia HDV theo khu vực nữa, nên cho phép phân công khác khu vực.
+          forceAreaMismatch: true,
         }
       )
 
@@ -1123,14 +1098,7 @@ function DirectGuideAssignmentPanel({
       const code = err?.response?.data?.code
 
       if (code === 'AREA_MISMATCH_CONFIRM_REQUIRED') {
-        const confirmed = window.confirm(
-          'HDV này không phụ trách khu vực của tour. Bạn vẫn muốn phân công chứ?'
-        )
-
-        if (confirmed) {
-          await assignGuide(guide, true)
-        }
-
+        setError('Backend vẫn đang chặn theo khu vực. Hãy kiểm tra hàm directAssignGuide để gửi force_area_mismatch = true.')
         return
       }
 
@@ -1417,28 +1385,6 @@ function DirectGuideAssignmentPanel({
               </label>
             </div>
 
-            <label className="block text-sm font-medium text-slate-700">
-              Khu vực phụ trách
-              <select
-                value={destinationId}
-                onChange={(event) => setDestinationId(event.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-              >
-                <option value="">
-                  {loadingDestinations ? 'Đang tải khu vực...' : 'Tất cả khu vực'}
-                </option>
-
-                {destinations.map((destination) => (
-                  <option key={destination.id} value={destination.id}>
-                    {destination.name}
-                    {destination.province_city
-                      ? ` - ${destination.province_city}`
-                      : ''}
-                  </option>
-                ))}
-              </select>
-            </label>
-
             <button
               type="button"
               onClick={() => {
@@ -1463,21 +1409,21 @@ function DirectGuideAssignmentPanel({
             </h3>
 
             <p className="mt-1 text-sm text-slate-500">
-              Mặc định hiển thị HDV phù hợp. Có thể chuyển sang tất cả HDV để phân công ngoài khu vực.
+              Mặc định hiển thị HDV đang trống lịch. Có thể chuyển sang tất cả HDV để xem cả HDV đang bận.
             </p>
           </div>
 
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={() => setMode('eligible')}
+              onClick={() => setMode('available')}
               className={`rounded-lg px-4 py-2 text-sm font-bold transition ${
-                mode === 'eligible'
+                mode === 'available'
                   ? 'bg-blue-600 text-white'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
-              HDV phù hợp
+              HDV đang trống lịch
             </button>
 
             <button
@@ -1606,12 +1552,11 @@ function DirectGuideAssignmentPanel({
             </div>
           ) : visibleGuides.length === 0 ? (
             <div className="col-span-full rounded-xl border border-dashed border-slate-300 p-8 text-center text-slate-500">
-              Không có HDV phù hợp với bộ lọc.
+              Không có HDV đang trống lịch với bộ lọc.
             </div>
           ) : (
             visibleGuides.map((guide) => {
               const isAvailable = guide.is_available !== false
-              const isAreaMatch = Boolean(guide.is_area_match)
               const assignedTours = Array.isArray(guide.assigned_tours)
                 ? guide.assigned_tours
                 : []
@@ -1661,25 +1606,7 @@ function DirectGuideAssignmentPanel({
                         {isAvailable ? 'Trống lịch' : 'Bận lịch'}
                       </span>
 
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-bold ${
-                          isAreaMatch
-                            ? 'bg-blue-50 text-blue-700'
-                            : 'bg-amber-50 text-amber-700'
-                        }`}
-                      >
-                        {isAreaMatch ? 'Đúng khu vực' : 'Khác khu vực'}
-                      </span>
                     </div>
-                  </div>
-
-                  <div className="mt-3 rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
-                    <p className="font-bold text-slate-800">
-                      Khu vực phụ trách
-                    </p>
-                    <p className="mt-1">
-                      {getDestinationNames(guide.destinations)}
-                    </p>
                   </div>
 
                   {Array.isArray(guide.blocking_reasons) &&
@@ -1787,11 +1714,7 @@ function DirectGuideAssignmentPanel({
                     onClick={() => assignGuide(guide)}
                     className="mt-4 w-full rounded-lg bg-blue-600 px-4 py-2 font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {busyGuideId === guide.id
-                      ? 'Đang phân công...'
-                      : isAreaMatch
-                        ? 'Phân công'
-                        : 'Phân công khác khu vực'}
+                    {busyGuideId === guide.id ? 'Đang phân công...' : 'Phân công'}
                   </button>
                 </article>
               )
@@ -1810,13 +1733,13 @@ export function GuideAssignmentPanel({
   onClearFocus,
   embedded = false,
 }) {
-  const [assignMode, setAssignMode] = useState('auto')
+  const [assignMode, setAssignMode] = useState('direct')
   const [directDepartureId, setDirectDepartureId] = useState(
     focusedDepartureId || ''
   )
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
-  const [scheduleTimeFilter, setScheduleTimeFilter] = useState('active')
+  const [scheduleTimeFilter, setScheduleTimeFilter] = useState('all')
   const [monthFilter, setMonthFilter] = useState('all')
   const [yearFilter, setYearFilter] = useState('all')
   const [rows, setRows] = useState([])
@@ -1990,14 +1913,12 @@ export function GuideAssignmentPanel({
         if (group === 'upcoming') acc.upcoming += 1
         if (group === 'ongoing') acc.ongoing += 1
         if (group === 'past') acc.past += 1
-        if (isDepartureActionable(item)) acc.active += 1
 
         acc.all += 1
 
         return acc
       },
       {
-        active: 0,
         upcoming: 0,
         ongoing: 0,
         past: 0,
@@ -2008,11 +1929,6 @@ export function GuideAssignmentPanel({
 
   const scheduleFilterTabs = useMemo(() => {
     return [
-      {
-        key: 'active',
-        label: 'Sắp tới / đang diễn ra',
-        count: scheduleFilterCounts.active,
-      },
       {
         key: 'upcoming',
         label: 'Sắp tới',
@@ -2039,10 +1955,6 @@ export function GuideAssignmentPanel({
   const baseDisplayedRows = useMemo(() => {
     return monthYearFilteredRows.filter((item) => {
       const group = getDepartureScheduleGroup(item)
-
-      if (scheduleTimeFilter === 'active') {
-        return ['upcoming', 'ongoing'].includes(group)
-      }
 
       if (scheduleTimeFilter === 'all') {
         return true
@@ -2215,165 +2127,130 @@ export function GuideAssignmentPanel({
     <>
       <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
         <span className="font-bold">Lưu ý:</span>{' '}
-        Mặc định danh sách chỉ hiển thị lịch sắp tới và đang diễn ra. Lịch đã qua chỉ hiện khi chọn bộ lọc Đã qua.
+        Chọn nhanh trạng thái lịch bằng các nút Sắp tới, Đang diễn ra, Đã qua hoặc Tất cả bên dưới.
       </div>
 
-      <div className="mb-5 flex flex-wrap items-end gap-3 rounded-lg bg-slate-50 p-4">
-        <label className="text-sm font-medium text-slate-700">
-          Tháng
+      <div className="mb-5 rounded-xl bg-slate-50 p-4">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(180px,240px)_minmax(180px,220px)_minmax(180px,220px)_auto_auto]">
+          <label className="text-sm font-medium text-slate-700">
+            HDV
 
-          <select
-            value={monthFilter}
-            onChange={(event) => setMonthFilter(event.target.value)}
-            className="mt-1 block min-w-[150px] rounded border border-slate-300 bg-white px-3 py-2 font-normal"
-          >
-            <option value="all">Tất cả tháng</option>
+            <select
+              value={guideFilter}
+              onChange={(event) => setGuideFilter(event.target.value)}
+              className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-normal outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            >
+              <option value="all">Tất cả HDV</option>
+              <option value="none">Chưa có HDV</option>
 
-            {monthOptions.map((month) => (
-              <option key={month.key} value={month.key}>
-                {month.label}
-              </option>
-            ))}
-          </select>
-        </label>
+              {guideFilterOptions.map((guide) => (
+                <option key={guide.value} value={guide.value}>
+                  {guide.label}
+                </option>
+              ))}
+            </select>
+          </label>
 
-        <label className="text-sm font-medium text-slate-700">
-          Năm
+          <label className="text-sm font-medium text-slate-700">
+            Từ ngày
 
-          <select
-            value={yearFilter}
-            onChange={(event) => setYearFilter(event.target.value)}
-            className="mt-1 block min-w-[130px] rounded border border-slate-300 bg-white px-3 py-2 font-normal"
-          >
-            <option value="all">Tất cả năm</option>
+            <input
+              type="date"
+              value={from}
+              onChange={(event) => {
+                setFrom(event.target.value)
+                clearAutoValidationError('from')
+                clearAutoValidationError('to')
+              }}
+              className={fieldInputClass(
+                autoValidationErrors.from,
+                'mt-1 block w-full rounded-lg border bg-white px-3 py-2 font-normal outline-none transition focus:ring-2'
+              )}
+            />
+            <FieldError message={autoValidationErrors.from} />
+          </label>
 
-            {yearOptions.map((year) => (
-              <option key={year.key} value={year.key}>
-                {year.label}
-              </option>
-            ))}
-          </select>
-        </label>
+          <label className="text-sm font-medium text-slate-700">
+            Đến ngày
 
-        <label className="text-sm font-medium text-slate-700">
-          HDV
+            <input
+              type="date"
+              value={to}
+              onChange={(event) => {
+                setTo(event.target.value)
+                clearAutoValidationError('to')
+              }}
+              className={fieldInputClass(
+                autoValidationErrors.to,
+                'mt-1 block w-full rounded-lg border bg-white px-3 py-2 font-normal outline-none transition focus:ring-2'
+              )}
+            />
+            <FieldError message={autoValidationErrors.to} />
+          </label>
 
-          <select
-            value={guideFilter}
-            onChange={(event) => setGuideFilter(event.target.value)}
-            className="mt-1 block min-w-[190px] rounded border border-slate-300 bg-white px-3 py-2 font-normal"
-          >
-            <option value="all">Tất cả HDV</option>
-            <option value="none">Chưa có HDV</option>
-
-            {guideFilterOptions.map((guide) => (
-              <option key={guide.value} value={guide.value}>
-                {guide.label}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="text-sm font-medium text-slate-700">
-          Từ ngày
-
-          <input
-            type="date"
-            value={from}
-            onChange={(event) => {
-              setFrom(event.target.value)
-              clearAutoValidationError('from')
-              clearAutoValidationError('to')
-            }}
-            className={fieldInputClass(
-              autoValidationErrors.from,
-              'mt-1 block rounded border bg-white px-3 py-2 font-normal outline-none transition focus:ring-2'
-            )}
-          />
-          <FieldError message={autoValidationErrors.from} />
-        </label>
-
-        <label className="text-sm font-medium text-slate-700">
-          Đến ngày
-
-          <input
-            type="date"
-            value={to}
-            onChange={(event) => {
-              setTo(event.target.value)
-              clearAutoValidationError('to')
-            }}
-            className={fieldInputClass(
-              autoValidationErrors.to,
-              'mt-1 block rounded border bg-white px-3 py-2 font-normal outline-none transition focus:ring-2'
-            )}
-          />
-          <FieldError message={autoValidationErrors.to} />
-        </label>
-
-        <button
-          type="button"
-          onClick={() => {
-            if (validateAutoFilters()) {
-              void fetchPlanning()
-            }
-          }}
-          className="rounded bg-blue-600 px-4 py-2 text-white transition hover:bg-blue-700"
-        >
-          Lọc lịch
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            setScheduleTimeFilter('active')
-            setMonthFilter('all')
-            setYearFilter('all')
-            setAssignmentFilter('all')
-            setGuideFilter('all')
-            setFrom('')
-            setTo('')
-          }}
-          className="rounded bg-white px-4 py-2 font-bold text-slate-600 ring-1 ring-slate-200 transition hover:bg-slate-100"
-        >
-          Xem tất cả
-        </button>
-      </div>
-
-      <div className="mb-4 flex flex-wrap gap-2">
-        {scheduleFilterTabs.map((tab) => (
           <button
-            key={tab.key}
             type="button"
-            onClick={() => setScheduleTimeFilter(tab.key)}
-            className={`rounded-lg px-4 py-2 text-sm font-bold transition ${
-              scheduleTimeFilter === tab.key
-                ? 'bg-slate-900 text-white'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
+            onClick={() => {
+              if (validateAutoFilters()) {
+                void fetchPlanning()
+              }
+            }}
+            className="self-end rounded-lg bg-blue-600 px-4 py-2 font-bold text-white transition hover:bg-blue-700"
           >
-            {tab.label} ({tab.count})
+            Lọc lịch
           </button>
-        ))}
+
+          <button
+            type="button"
+            onClick={() => {
+              setScheduleTimeFilter('all')
+              setMonthFilter('all')
+              setYearFilter('all')
+              setAssignmentFilter('all')
+              setGuideFilter('all')
+              setFrom('')
+              setTo('')
+            }}
+            className="self-end rounded-lg bg-white px-4 py-2 font-bold text-slate-600 ring-1 ring-slate-200 transition hover:bg-slate-100"
+          >
+            Xem tất cả
+          </button>
+        </div>
       </div>
 
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-2">
-          {assignmentFilterTabs.map((tab) => (
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        {scheduleFilterTabs.map((tab) => {
+          const isActive = scheduleTimeFilter === tab.key
+
+          return (
             <button
               key={tab.key}
               type="button"
-              onClick={() => setAssignmentFilter(tab.key)}
-              className={`rounded-lg px-4 py-2 text-sm font-bold transition ${
-                assignmentFilter === tab.key
-                  ? 'bg-blue-600 text-white'
+              onClick={() => setScheduleTimeFilter(tab.key)}
+              className={`rounded-lg px-4 py-2.5 text-[15px] font-medium whitespace-nowrap transition ${
+                isActive
+                  ? 'bg-blue-600 text-white shadow-sm'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
               {tab.label} ({tab.count})
             </button>
+          )
+        })}
+      </div>
+
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3">
+        <select
+          value={assignmentFilter}
+          onChange={(event) => setAssignmentFilter(event.target.value)}
+          className="min-w-[220px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+        >
+          {assignmentFilterTabs.map((tab) => (
+            <option key={tab.key} value={tab.key}>
+              {tab.label} ({tab.count})
+            </option>
           ))}
-        </div>
+        </select>
 
         <p className="text-sm font-medium text-slate-500">
           Ưu tiên hiển thị lịch chưa phân công trước.
@@ -2623,18 +2500,6 @@ export function GuideAssignmentPanel({
       <div className="mb-5 flex flex-wrap gap-2 border-b border-slate-200">
         <button
           type="button"
-          onClick={() => setAssignMode('auto')}
-          className={`border-b-2 px-4 py-3 text-sm font-bold transition ${
-            assignMode === 'auto'
-              ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-900'
-          }`}
-        >
-          Tự động phân công
-        </button>
-
-        <button
-          type="button"
           onClick={() => setAssignMode('direct')}
           className={`border-b-2 px-4 py-3 text-sm font-bold transition ${
             assignMode === 'direct'
@@ -2643,6 +2508,18 @@ export function GuideAssignmentPanel({
           }`}
         >
           Phân công trực tiếp
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setAssignMode('auto')}
+          className={`border-b-2 px-4 py-3 text-sm font-bold transition ${
+            assignMode === 'auto'
+              ? 'border-blue-600 text-blue-600'
+              : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-900'
+          }`}
+        >
+          Tự động phân công
         </button>
       </div>
 

@@ -582,6 +582,18 @@ function Header({ user, onLogout }) {
               </div>
             );
           })}
+
+          {/* Customer Support */}
+          <NavLink
+            to="/customer/profile?view=support"
+            className={({ isActive }) =>
+              `relative py-6 font-semibold text-[0.98rem] transition-colors duration-200 ${
+                isActive ? "text-blue-600" : "text-[#111820] hover:text-blue-600"
+              }`
+            }
+          >
+            {language === "vi" ? "Hỗ trợ" : "Support"}
+          </NavLink>
         </nav>
 
         {/* Right side user actions */}
@@ -605,6 +617,9 @@ function Header({ user, onLogout }) {
                 </Link>
                 <Link to="/customer/favorites">
                   <Icon name="heart" /> Tour yêu thích
+                </Link>
+                <Link to="/customer/profile?view=support">
+                  <Icon name="headset" /> Hỗ trợ khách hàng
                 </Link>
                 {user.role === "admin" ? (
                   <Link className="vg-admin-link" to="/admin">
@@ -803,6 +818,18 @@ function Header({ user, onLogout }) {
                 </div>
               );
             })}
+
+            <NavLink
+              to="/customer/profile?view=support"
+              className={({ isActive }) =>
+                `block border-t border-gray-50 pt-4 font-semibold text-lg ${
+                  isActive ? "text-blue-600" : "text-gray-900"
+                }`
+              }
+              onClick={() => setMobileOpen(false)}
+            >
+              {language === "vi" ? "Hỗ trợ" : "Support"}
+            </NavLink>
           </div>
 
           {/* User authenticate trigger links for mobile */}
@@ -833,6 +860,13 @@ function Header({ user, onLogout }) {
                   onClick={() => setMobileOpen(false)}
                 >
                   Tour yêu thích
+                </Link>
+                <Link
+                  to="/customer/profile?view=support"
+                  className="block text-gray-600 font-medium hover:text-blue-600"
+                  onClick={() => setMobileOpen(false)}
+                >
+                  Hỗ trợ khách hàng
                 </Link>
                 {user.role === "admin" && (
                   <Link

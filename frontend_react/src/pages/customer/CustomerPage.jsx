@@ -26,6 +26,7 @@ import ProfileDashboard from "./ProfileDashboard";
 import ProfileForm from "./ProfileForm";
 import ToursPage from "./ToursPage";
 import CustomerTourDetailPage from "./TourDetailPage";
+import CustomerSupportPage from "./CustomerSupportPage";
 import { mediaUrl } from "../../utils/mediaUrl";
 
 const fallbackProfile = {
@@ -505,6 +506,11 @@ function CustomerPage() {
   );
 
   const route = location.pathname;
+  const pageParams = new URLSearchParams(location.search);
+  const isSupportPage =
+    route === "/customer/support" ||
+    (route === "/customer/profile" && pageParams.get("view") === "support");
+
   const matchTourDetail = route.match(/^\/tours\/([^/]+)$/);
 
   const accountRoutes = [
@@ -549,6 +555,12 @@ function CustomerPage() {
     );
   } else if (route === "/destinations") {
     content = <DestinationsPage />;
+  } else if (isSupportPage) {
+    content = user ? (
+      <CustomerSupportPage profile={profile} />
+    ) : (
+      <Navigate to="/auth/login" replace />
+    );
   } else if (accountRoutes.includes(route)) {
     content = user ? (
       <ProfileDashboard
