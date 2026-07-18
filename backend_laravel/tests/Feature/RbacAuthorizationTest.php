@@ -23,6 +23,18 @@ test('customer cannot access admin customer APIs', function () {
         ->assertJsonPath('message', 'Bạn không có quyền truy cập chức năng này.');
 });
 
+test('customer cannot access any admin-only category API', function () {
+    Sanctum::actingAs(createRbacFeatureUser('customer'));
+
+    $this->getJson('/api/admin/categories')->assertForbidden();
+});
+
+test('non-guide users cannot access guide APIs', function () {
+    Sanctum::actingAs(createRbacFeatureUser('customer'));
+
+    $this->getJson('/api/guide/profile')->assertForbidden();
+});
+
 test('admin can access admin customer APIs', function () {
     Sanctum::actingAs(createRbacFeatureUser('admin'));
 
@@ -66,6 +78,7 @@ function createRbacFeatureSchema(): void
     Schema::dropIfExists('destinations');
     Schema::dropIfExists('categories');
     Schema::dropIfExists('settings');
+    Schema::dropIfExists('support_staff');
     Schema::dropIfExists('bookings');
     Schema::dropIfExists('users');
     Schema::dropIfExists('roles');
@@ -104,6 +117,14 @@ function createRbacFeatureSchema(): void
         $table->longText('value')->nullable();
         $table->string('group')->default('general');
         $table->timestamps();
+    });
+
+    Schema::create('support_staff', function (Blueprint $table) {
+        $table->id();
+        $table->foreignId('user_id');
+        $table->string('staff_code')->nullable();
+        $table->timestamps();
+        $table->softDeletes();
     });
 
     Schema::create('categories', function (Blueprint $table) {

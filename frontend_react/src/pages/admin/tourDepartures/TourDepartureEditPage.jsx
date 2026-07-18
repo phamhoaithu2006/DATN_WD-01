@@ -294,7 +294,11 @@ export default function TourDepartureEditPage() {
   ])
 
   useEffect(() => {
-    void fetchDeparture()
+    const timeoutId = window.setTimeout(() => {
+      void fetchDeparture()
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
   }, [fetchDeparture])
 
   const clearFieldError = (name) => {

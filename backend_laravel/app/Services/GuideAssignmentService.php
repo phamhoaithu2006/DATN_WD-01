@@ -160,7 +160,7 @@ class GuideAssignmentService
                 $blockedEnd
             ) {
                 $assignmentQuery
-                    ->where('status', 'assigned')
+                    ->whereIn('status', ['assigned', 'confirmed'])
                     ->whereHas(
                         'departure',
                         function (Builder $departureQuery) use (
@@ -257,7 +257,7 @@ class GuideAssignmentService
             INNER JOIN tour_departures AS td_count
                 ON td_count.id = tga_count.tour_departure_id
             WHERE tga_count.guide_id = guides.id
-                AND tga_count.status = 'assigned'
+                AND tga_count.status IN ('assigned', 'confirmed')
                 AND tga_count.tour_departure_id != ?
                 {$countDeletedAtCondition}
                 AND DATE(td_count.departure_date) <= ?
@@ -282,7 +282,7 @@ class GuideAssignmentService
             INNER JOIN tour_departures AS td_days
                 ON td_days.id = tga_days.tour_departure_id
             WHERE tga_days.guide_id = guides.id
-                AND tga_days.status = 'assigned'
+                AND tga_days.status IN ('assigned', 'confirmed')
                 AND tga_days.tour_departure_id != ?
                 {$daysDeletedAtCondition}
                 AND DATE(td_days.departure_date) <= ?
@@ -297,7 +297,7 @@ class GuideAssignmentService
             SELECT MAX(tga_last.assigned_at)
             FROM tour_guide_assignments AS tga_last
             WHERE tga_last.guide_id = guides.id
-                AND tga_last.status = 'assigned'
+                AND tga_last.status IN ('assigned', 'confirmed')
                 {$lastDeletedAtCondition}
         ";
 
@@ -344,7 +344,7 @@ class GuideAssignmentService
             ->addDays($this->restDays());
 
         return $guide->assignments()
-            ->where('status', 'assigned')
+            ->whereIn('status', ['assigned', 'confirmed'])
             ->whereHas(
                 'departure',
                 function (Builder $departureQuery) use (
@@ -385,7 +385,7 @@ class GuideAssignmentService
                 ->findOrFail($departureId);
 
             $currentAssignment = $departure->guideAssignments()
-                ->where('status', 'assigned')
+                ->whereIn('status', ['assigned', 'confirmed'])
                 ->where('role', 'lead')
                 ->first();
 
@@ -448,7 +448,7 @@ class GuideAssignmentService
                 ->findOrFail($departure->id);
 
             $alreadyHasLeadGuide = $departure->guideAssignments()
-                ->where('status', 'assigned')
+                ->whereIn('status', ['assigned', 'confirmed'])
                 ->where('role', 'lead')
                 ->exists();
 

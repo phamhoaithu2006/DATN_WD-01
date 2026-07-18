@@ -15,12 +15,14 @@ class Payment extends Model
         'gateway_response',
         'status',
         'paid_at',
+        'expires_at',
     ];
 
     protected $casts = [
         'amount' => 'decimal:2',
         'gateway_response' => 'array',
         'paid_at' => 'datetime',
+        'expires_at' => 'datetime',
     ];
 
     public function booking(): BelongsTo

@@ -192,16 +192,6 @@ function getPendingReplacementRequestForDeparture(departure, requests = []) {
   )
 }
 
-function getReplacementGuideName(request) {
-  return (
-    request?.current_guide_name ||
-    request?.guide_name ||
-    request?.current_guide?.user?.full_name ||
-    request?.guide?.user?.full_name ||
-    `HDV #${request?.current_guide_id || request?.guide_id || ''}`
-  )
-}
-
 function sortByReplacementRequests(rows = [], requests = []) {
   return [...rows].sort((a, b) => {
     const aHasRequest = getPendingReplacementRequestForDeparture(a, requests) ? 1 : 0
@@ -412,7 +402,7 @@ function parseNotificationData(value) {
 
   try {
     return JSON.parse(value)
-  } catch (error) {
+  } catch {
     return {}
   }
 }
@@ -492,7 +482,9 @@ function DepartureHistoryButton() {
   }, [])
 
   useEffect(() => {
-    void fetchHistory()
+    const initialFetchTimeoutId = window.setTimeout(() => {
+      void fetchHistory()
+    }, 0)
 
     const handleChanged = () => {
       void fetchHistory()
@@ -502,28 +494,13 @@ function DepartureHistoryButton() {
     window.addEventListener('admin-notification:changed', handleChanged)
 
     return () => {
+      window.clearTimeout(initialFetchTimeoutId)
       window.removeEventListener('focus', handleChanged)
       window.removeEventListener('admin-notification:changed', handleChanged)
     }
   }, [fetchHistory])
 
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (panelRef.current && !panelRef.current.contains(event.target)) {
-        void closeHistory()
-      }
-    }
-
-    if (open) {
-      document.addEventListener('mousedown', handleClickOutside)
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [open, unreadItems])
-
-  async function markUnreadAsRead() {
+  const markUnreadAsRead = useCallback(async () => {
     const ids = unreadItems
       .map((item) => item.id)
       .filter(Boolean)
@@ -545,13 +522,13 @@ function DepartureHistoryButton() {
     } catch (error) {
       console.error(error)
     }
-  }
+  }, [unreadItems])
 
-  async function closeHistory() {
+  const closeHistory = useCallback(async () => {
     setOpen(false)
     await markUnreadAsRead()
     await fetchHistory()
-  }
+  }, [fetchHistory, markUnreadAsRead])
 
   async function toggleHistory() {
     if (open) {
@@ -562,6 +539,22 @@ function DepartureHistoryButton() {
     setOpen(true)
     await fetchHistory()
   }
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (panelRef.current && !panelRef.current.contains(event.target)) {
+        void closeHistory()
+      }
+    }
+
+    if (open) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [closeHistory, open])
 
   return (
     <div ref={panelRef} className="relative">
@@ -672,12 +665,10 @@ export default function TourDepartureTable({
   assignmentPath = '/admin/tour-departures/guide-assignments',
   replacementRequests = [],
   highlightedReplacementDepartureId = null,
-  onApproveReplacementRequest,
-  onRejectReplacementRequest,
 }) {
   const [assignmentFilter, setAssignmentFilter] = useState('all')
   const [currentPage, setCurrentPage] = useState(1)
-  const [pageSize, setPageSize] = useState(5)
+  const pageSize = 5
 
   const getEditLink = (departureId) => {
     if (selectedTourId) {
@@ -788,11 +779,19 @@ export default function TourDepartureTable({
   const visibleStart = totalRows === 0 ? 0 : pageStartIndex + 1
   const visibleEnd = Math.min(pageEndIndex, totalRows)
   useEffect(() => {
-    setCurrentPage(1)
+    const timeoutId = window.setTimeout(() => {
+      setCurrentPage(1)
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
   }, [scheduleFilter, assignmentFilter, pageSize, activeTab])
 
   useEffect(() => {
-    setCurrentPage((page) => Math.min(page, totalPages))
+    const timeoutId = window.setTimeout(() => {
+      setCurrentPage((page) => Math.min(page, totalPages))
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
   }, [totalPages])
 
   return (

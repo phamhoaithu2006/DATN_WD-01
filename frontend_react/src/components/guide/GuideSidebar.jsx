@@ -14,7 +14,7 @@ const guideMenuItems = [
     ),
   },
   {
-    label: 'Lịch làm việc',
+    label: 'Tour của tôi',
     path: '/guide/tours',
     showNewTourBadge: true,
     icon: (
@@ -27,12 +27,13 @@ const guideMenuItems = [
     ),
   },
   {
-    label: 'Tour của tôi',
-    path: '/guide/schedule',
+    label: 'Điểm danh',
+    path: '/guide/attendance',
     icon: (
       <>
-        <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
-        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+        <path d="M9 11l2 2 4-4" />
+        <path d="M20 6 9 17l-5-5" />
+        <rect x="3" y="3" width="18" height="18" rx="3" />
       </>
     ),
   },

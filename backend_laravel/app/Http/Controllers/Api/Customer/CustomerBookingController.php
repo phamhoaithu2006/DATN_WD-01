@@ -8,6 +8,7 @@ use App\Models\Booking;
 use App\Models\Tour;
 use App\Models\TourDeparture;
 use App\Services\TourPricingService;
+use App\Services\VnpayService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,7 +19,8 @@ use Illuminate\Validation\ValidationException;
 class CustomerBookingController extends Controller
 {
     public function __construct(
-        private readonly TourPricingService $tourPricingService
+        private readonly TourPricingService $tourPricingService,
+        private readonly VnpayService $vnpayService,
     ) {}
 
     public function preview(Request $request): JsonResponse
@@ -43,12 +45,6 @@ class CustomerBookingController extends Controller
         if ($summary['total_people'] < 1) {
             throw ValidationException::withMessages([
                 'quantity_summary' => 'Vui lòng chọn ít nhất 1 người tham gia.',
-            ]);
-        }
-
-        if ($summary['adult_count'] < 1) {
-            throw ValidationException::withMessages([
-                'quantity_summary' => 'Vui lòng chọn ít nhất 1 người lớn trước khi thêm trẻ em hoặc em bé.',
             ]);
         }
 
@@ -78,6 +74,12 @@ class CustomerBookingController extends Controller
 
     public function store(StoreBookingRequest $request): JsonResponse
     {
+        if (! $this->vnpayService->isConfigured()) {
+            throw ValidationException::withMessages([
+                'payment' => ['VNPAY Sandbox chưa được cấu hình. Vui lòng liên hệ quản trị viên.'],
+            ]);
+        }
+
         $data = $request->validated();
         $user = $request->user();
 
@@ -106,12 +108,6 @@ class CustomerBookingController extends Controller
             if ($pricingSummary['total_people'] < 1) {
                 throw ValidationException::withMessages([
                     'quantity_summary' => 'Vui lòng chọn ít nhất 1 người tham gia.',
-                ]);
-            }
-
-            if ($pricingSummary['adult_count'] < 1) {
-                throw ValidationException::withMessages([
-                    'quantity_summary' => 'Vui lòng chọn ít nhất 1 người lớn trước khi thêm trẻ em hoặc em bé.',
                 ]);
             }
 
@@ -219,10 +215,11 @@ class CustomerBookingController extends Controller
             $booking->participants()->createMany($participantsForInsert->all());
 
             $booking->payment()->create([
-                'payment_method' => 'cod',
+                'payment_method' => 'vnpay',
                 'amount' => $totalAmount,
                 'status' => 'pending',
                 'paid_at' => null,
+                'expires_at' => now('Asia/Ho_Chi_Minh')->addMinutes(15),
             ]);
 
             $booking->statusHistories()->create([
@@ -247,10 +244,16 @@ class CustomerBookingController extends Controller
             'payment',
         ]);
 
+        $checkoutUrl = $this->vnpayService->createPaymentUrl($booking->payment, $request);
+
         return response()->json([
             'success' => true,
-            'message' => 'Đặt tour thành công. Vui lòng chờ xác nhận thanh toán.',
-            'data' => $booking,
+            'message' => 'Đặt tour thành công. Đang chuyển đến VNPAY để thanh toán.',
+            'data' => array_merge($booking->toArray(), [
+                'checkout_url' => $checkoutUrl,
+                'payment_id' => $booking->payment->id,
+                'expires_at' => $booking->payment->expires_at?->toIso8601String(),
+            ]),
         ], 201);
     }
 
