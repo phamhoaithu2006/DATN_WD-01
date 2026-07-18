@@ -1,43 +1,43 @@
-import axios from 'axios'
+import apiClient from './apiClient'
 
-const API_URL = 'http://127.0.0.1:8000/api/admin'
+const API_URL = '/admin'
 
 export const destinationApi = {
   getAll() {
-    return axios.get(`${API_URL}/destinations`)
+    return apiClient.get(`${API_URL}/destinations`)
   },
 
   getOne(id) {
-    return axios.get(`${API_URL}/destinations/${id}`)
+    return apiClient.get(`${API_URL}/destinations/${id}`)
   },
 
   search(params) {
-    return axios.get(`${API_URL}/destinations/search`, {
+    return apiClient.get(`${API_URL}/destinations/search`, {
       params,
     })
   },
 
   create(data) {
-    return axios.post(`${API_URL}/destinations`, data)
+    return apiClient.post(`${API_URL}/destinations`, data)
   },
 
   update(id, data) {
-    return axios.put(`${API_URL}/destinations/${id}`, data)
+    return apiClient.put(`${API_URL}/destinations/${id}`, data)
   },
 
   remove(id) {
-    return axios.delete(`${API_URL}/destinations/${id}`)
+    return apiClient.delete(`${API_URL}/destinations/${id}`)
   },
 
   getTrashed() {
-    return axios.get(`${API_URL}/destinations/trash/list`)
+    return apiClient.get(`${API_URL}/destinations/trash/list`)
   },
 
   restore(id) {
-    return axios.post(`${API_URL}/destinations/${id}/restore`)
+    return apiClient.post(`${API_URL}/destinations/${id}/restore`)
   },
 
   forceDelete(id) {
-    return axios.delete(`${API_URL}/destinations/${id}/force-delete`)
+    return apiClient.delete(`${API_URL}/destinations/${id}/force-delete`)
   },
 }

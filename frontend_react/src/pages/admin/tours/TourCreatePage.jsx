@@ -3,20 +3,11 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import AdminPageHeader from '../../../components/admin/AdminPageHeader'
 import TourForm from '../../../components/admin/tours/TourForm'
+import { readToken } from '../../../services/authStorage'
 
 const API_BASE_URL = (
   import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api'
 ).replace(/\/$/, '')
-
-const getAuthToken = () => {
-  return (
-    localStorage.getItem('token') ||
-    localStorage.getItem('admin_token') ||
-    localStorage.getItem('access_token') ||
-    localStorage.getItem('auth_token') ||
-    localStorage.getItem('authToken')
-  )
-}
 
 function TourCreatePage() {
   const navigate = useNavigate()
@@ -26,7 +17,7 @@ function TourCreatePage() {
     try {
       setSubmitting(true)
 
-      const token = getAuthToken()
+      const token = readToken()
 
       if (!token) {
         toast.error('Bạn chưa đăng nhập', {

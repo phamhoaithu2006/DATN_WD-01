@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { categoryApi } from '../../../services/categoryApi'
@@ -10,35 +10,39 @@ function TourTypeTrashPage() {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
 
-  const getDataArray = (response) => {
-    if (Array.isArray(response?.data?.data)) return response.data.data
-    if (Array.isArray(response?.data)) return response.data
-    return []
-  }
-
   const formatDate = (date) => {
     if (!date) return '-'
     return formatDateDdMmYyyy(date, '-')
   }
 
-  const fetchTrashedCategories = async () => {
+  const fetchTrashedCategories = useCallback(async () => {
     try {
       setLoading(true)
       setError('')
 
       const response = await categoryApi.getTrashed()
-      setCategories(getDataArray(response))
+      setCategories(
+        Array.isArray(response?.data?.data)
+          ? response.data.data
+          : Array.isArray(response?.data)
+            ? response.data
+            : [],
+      )
     } catch (err) {
       console.error(err)
       setError(err.response?.data?.message || 'Không thể tải danh sách đã xóa')
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
-    fetchTrashedCategories()
-  }, [])
+    const timeoutId = window.setTimeout(() => {
+      void fetchTrashedCategories()
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [fetchTrashedCategories])
 
   const handleRestore = async (id) => {
     const confirmRestore = window.confirm('Bạn có muốn khôi phục loại tour này không?')

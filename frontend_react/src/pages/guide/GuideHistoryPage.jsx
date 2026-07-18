@@ -27,16 +27,6 @@ function formatNumber(value) {
   return new Intl.NumberFormat('vi-VN').format(Number.isFinite(number) ? number : 0)
 }
 
-function formatMoney(value) {
-  const number = Number(value || 0)
-
-  return new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
-    currency: 'VND',
-    maximumFractionDigits: 0,
-  }).format(Number.isFinite(number) ? number : 0)
-}
-
 function formatDate(value) {
   return formatDateDdMmYyyy(value, 'Ch?a x?c ??nh')
 }
@@ -130,7 +120,7 @@ function HistoryRow({ item, onDetail }) {
             <span className="guide-tour-pill tone-blue">{getCompletedBadge(item)}</span>
           </div>
 
-          <div className="guide-tour-row-meta">
+          <div className="guide-tour-row-meta compact">
             <span>
               <strong>{getDestination(item)}</strong>
               <small>Điểm đến</small>
@@ -138,10 +128,6 @@ function HistoryRow({ item, onDetail }) {
             <span>
               <strong>{formatNumber(item?.booked_slots || 0)} khách</strong>
               <small>Số khách</small>
-            </span>
-            <span>
-              <strong>{formatMoney(item?.price)}</strong>
-              <small>Giá tour</small>
             </span>
           </div>
         </div>
@@ -199,10 +185,6 @@ function TourHistoryModal({ open, item, detailLoading, onClose }) {
               {formatNumber(item?.booked_slots || 0)}/{formatNumber(item?.total_slots || 0)}
             </strong>
           </div>
-          <div className="guide-tour-modal-card">
-            <span>Giá tour</span>
-            <strong>{formatMoney(item?.price)}</strong>
-          </div>
         </div>
 
         <div className="guide-tour-modal-section">
@@ -243,9 +225,7 @@ function TourHistoryModal({ open, item, detailLoading, onClose }) {
         <div className="guide-tour-modal-section">
           <h4>Cập nhật</h4>
           <div className="guide-tour-modal-content-box">
-            <p>
-              Hoàn thành lúc {formatDateTime(item?.updated_at)}.
-            </p>
+            <p>Hoàn thành lúc {formatDateTime(item?.updated_at)}.</p>
           </div>
         </div>
 
@@ -444,8 +424,8 @@ function GuideHistoryPage() {
 
             <div className="guide-tour-filter-actions">
               <button type="submit" className="guide-tour-filter-submit">
-                Tìm kiếm
-              </button>
+              Lọc
+            </button>
               <button type="button" className="guide-tour-filter-reset" onClick={handleReset}>
                 Đặt lại
               </button>

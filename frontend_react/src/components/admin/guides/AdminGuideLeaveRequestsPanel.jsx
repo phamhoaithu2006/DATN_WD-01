@@ -190,7 +190,13 @@ function AdminGuideLeaveRequestsPanel({
   }, [activeTab, filters, highlightRequestId])
 
   useEffect(() => {
-    if (open) void loadRequests()
+    if (!open) return undefined
+
+    const timeoutId = window.setTimeout(() => {
+      void loadRequests()
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
   }, [open, loadRequests])
 
   useEffect(() => {
@@ -224,7 +230,12 @@ function AdminGuideLeaveRequestsPanel({
     if (!highlighted) return
 
     highlightedHandledRef.current = highlightKey
-    setActiveTab(highlighted.status === 'pending' ? 'pending' : 'processed')
+
+    const timeoutId = window.setTimeout(() => {
+      setActiveTab(highlighted.status === 'pending' ? 'pending' : 'processed')
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
   }, [highlightRequestId, requests])
 
   function updateFilter(field, value) {

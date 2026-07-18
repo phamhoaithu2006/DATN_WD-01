@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { destinationApi } from '../../../services/destinationApi'
@@ -124,31 +124,36 @@ function DestinationListPage() {
 
   const navigate = useNavigate()
 
-  const getDataArray = (response) => {
-    if (Array.isArray(response?.data?.data?.data)) return response.data.data.data
-    if (Array.isArray(response?.data?.data)) return response.data.data
-    if (Array.isArray(response?.data)) return response.data
-    return []
-  }
-
-  const fetchDestinations = async () => {
+  const fetchDestinations = useCallback(async () => {
     try {
       setLoading(true)
       setError('')
 
       const response = await destinationApi.getAll()
-      setDestinations(getDataArray(response))
+      setDestinations(
+        Array.isArray(response?.data?.data?.data)
+          ? response.data.data.data
+          : Array.isArray(response?.data?.data)
+            ? response.data.data
+            : Array.isArray(response?.data)
+              ? response.data
+              : [],
+      )
     } catch (err) {
       console.error(err)
       setError(err.response?.data?.message || 'Không thể tải danh sách địa chỉ tour')
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
-    fetchDestinations()
-  }, [])
+    const timeoutId = window.setTimeout(() => {
+      void fetchDestinations()
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [fetchDestinations])
 
   useEffect(() => {
     if (!message && !error) return

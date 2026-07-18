@@ -179,7 +179,9 @@ export default function AdminNotificationBell() {
   }, [])
 
   useEffect(() => {
-    void fetchUnreadCount()
+    const initialFetchTimeoutId = window.setTimeout(() => {
+      void fetchUnreadCount()
+    }, 0)
 
     const intervalId = window.setInterval(() => {
       void fetchUnreadCount()
@@ -197,6 +199,7 @@ export default function AdminNotificationBell() {
     window.addEventListener('admin-notification:changed', handleChanged)
 
     return () => {
+      window.clearTimeout(initialFetchTimeoutId)
       window.clearInterval(intervalId)
       window.removeEventListener('focus', fetchUnreadCount)
       window.removeEventListener('admin-notification:changed', handleChanged)

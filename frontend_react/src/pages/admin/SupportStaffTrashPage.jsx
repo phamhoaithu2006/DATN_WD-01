@@ -9,7 +9,7 @@ import {
 } from '../../services/supportStaffApi'
 import '../../styles/support-staff.css'
 
-import { formatDateDdMmYyyy, formatDateTimeDdMmYyyy } from '../../utils/dateFormat'
+import { formatDateTimeDdMmYyyy } from '../../utils/dateFormat'
 function getListData(payload) {
   const page = payload?.data?.data
 

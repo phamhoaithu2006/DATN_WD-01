@@ -40,7 +40,7 @@ class TourSeeder extends Seeder
                 'review_count' => 18,
                 'images' => [
                     ['image_url' => 'https://images.unsplash.com/photo-1559592413-7cec4d0cae2b', 'alt_text' => 'Biển Đà Nẵng', 'sort_order' => 1, 'is_thumbnail' => true],
-                    ['image_url' => 'https://images.unsplash.com/photo-1528127269322-539801943592', 'alt_text' => 'Hội An về đêm', 'sort_order' => 2, 'is_thumbnail' => false],
+                    ['image_url' => 'https://images.unsplash.com/photo-1652731011413-93d4c5aa5c7c?ixlib=rb-4.1.0&q=85&fm=jpg&crop=entropy&cs=srgb', 'alt_text' => 'Phố cổ Hội An về đêm', 'sort_order' => 2, 'is_thumbnail' => false],
                 ],
                 'departures' => [
                     ['departure_date' => now()->addDays(14)->toDateString(), 'return_date' => now()->addDays(16)->toDateString(), 'base_price' => 4290000, 'discount_price' => 3890000, 'total_slots' => 30, 'booked_slots' => 6, 'status' => 'open'],

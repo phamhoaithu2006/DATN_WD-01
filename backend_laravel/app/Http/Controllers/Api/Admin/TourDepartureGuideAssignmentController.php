@@ -43,7 +43,7 @@ class TourDepartureGuideAssignmentController extends Controller
 
                 'guideAssignments' => function ($query) {
                     $query
-                        ->where('status', 'assigned')
+                        ->whereIn('status', ['assigned', 'confirmed'])
                         ->with([
                             'guide.user:id,full_name,email,avatar_url',
                             'guide.destinations:id,name,province_city',
@@ -458,7 +458,7 @@ class TourDepartureGuideAssignmentController extends Controller
                 ->from('tour_guide_assignments as current_assignments')
                 ->whereColumn('current_assignments.guide_id', 'guides.id')
                 ->where('current_assignments.tour_departure_id', $departure->id)
-                ->where('current_assignments.status', 'assigned');
+                ->whereIn('current_assignments.status', ['assigned', 'confirmed']);
 
             if ($assignmentHasDeletedAt) {
                 $subQuery->whereNull('current_assignments.deleted_at');
@@ -520,7 +520,7 @@ class TourDepartureGuideAssignmentController extends Controller
         $conflictCountQuery = TourGuideAssignment::query()
             ->selectRaw('COUNT(*)')
             ->whereColumn('tour_guide_assignments.guide_id', 'guides.id')
-            ->where('tour_guide_assignments.status', 'assigned')
+            ->whereIn('tour_guide_assignments.status', ['assigned', 'confirmed'])
             ->where('tour_guide_assignments.tour_departure_id', '!=', $departure->id)
             ->whereHas('departure', function ($q) use ($from, $to) {
                 $q->whereDate('departure_date', '<=', $to)
@@ -591,7 +591,7 @@ class TourDepartureGuideAssignmentController extends Controller
 
                 $conflictingAssignmentsQuery = TourGuideAssignment::query()
                     ->where('guide_id', $guide->id)
-                    ->where('status', 'assigned')
+                    ->whereIn('status', ['assigned', 'confirmed'])
                     ->where('tour_departure_id', '!=', $departure->id)
                     ->whereHas('departure', function ($q) use ($from, $to) {
                         $q->whereDate('departure_date', '<=', $to)
@@ -636,7 +636,7 @@ class TourDepartureGuideAssignmentController extends Controller
 
                 $assignedToursQuery = TourGuideAssignment::query()
                     ->where('guide_id', $guide->id)
-                    ->where('status', 'assigned')
+                    ->whereIn('status', ['assigned', 'confirmed'])
                     ->with([
                         'departure:id,tour_id,departure_date,return_date,status',
                         'departure.tour:id,title',
@@ -735,7 +735,7 @@ class TourDepartureGuideAssignmentController extends Controller
 
         $hasScheduleConflict = TourGuideAssignment::query()
             ->where('guide_id', $guide->id)
-            ->where('status', 'assigned')
+            ->whereIn('status', ['assigned', 'confirmed'])
             ->where('tour_departure_id', '!=', $departure->id)
             ->whereHas('departure', function ($q) use ($from, $to) {
                 $q->whereDate('departure_date', '<=', $to)
@@ -821,7 +821,7 @@ class TourDepartureGuideAssignmentController extends Controller
                 ])
                 ->where('tour_departure_id', $departure->id)
                 ->where('role', 'lead')
-                ->where('status', 'assigned')
+                ->whereIn('status', ['assigned', 'confirmed'])
                 ->first();
 
             /*

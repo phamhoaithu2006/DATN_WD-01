@@ -26,6 +26,24 @@ export async function fetchTours(params = {}) {
   return response.data?.data || [];
 }
 
+export async function fetchHomeContent() {
+  const response = await api.get('/home')
+
+  return response.data?.data || {}
+}
+
+export async function fetchCatalogCategories() {
+  const response = await api.get('/catalog/categories')
+
+  return response.data?.data || []
+}
+
+export async function fetchCatalogDestinations() {
+  const response = await api.get('/catalog/destinations')
+
+  return response.data?.data || []
+}
+
 export async function filterTours(params = {}) {
   const response = await api.get('/tours/filter', { params })
 
@@ -64,6 +82,18 @@ export async function previewCustomerBooking(payload) {
 
 export async function createCustomerBooking(payload) {
   const response = await api.post('/customer/bookings', payload)
+
+  return response.data?.data || response.data
+}
+
+export async function fetchVnpayPaymentStatus(paymentId) {
+  const response = await api.get(`/customer/payments/vnpay/${paymentId}`)
+
+  return response.data?.data || response.data
+}
+
+export async function fetchVnpayReturnStatus(params) {
+  const response = await api.get('/vnpay/return-status', { params })
 
   return response.data?.data || response.data
 }

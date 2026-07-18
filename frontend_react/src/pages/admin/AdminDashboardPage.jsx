@@ -30,7 +30,6 @@ const ACTIVITY_TONES = {
   tour: { bg: 'bg-emerald-50 text-emerald-600', dot: 'bg-emerald-500' },
   guide: { bg: 'bg-violet-50 text-violet-600', dot: 'bg-violet-500' },
   support: { bg: 'bg-amber-50 text-amber-600', dot: 'bg-amber-500' },
-  partner: { bg: 'bg-rose-50 text-rose-600', dot: 'bg-rose-500' },
 }
 const EMPTY_OBJECT = {}
 const EMPTY_ARRAY = []

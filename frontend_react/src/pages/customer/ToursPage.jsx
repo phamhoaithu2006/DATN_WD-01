@@ -14,7 +14,7 @@ function toDisplayAmount(amount, currency) {
   return value;
 }
 
-function ToursPage({ tours, favorites, onFavorite }) {
+function ToursPage({ tours = [], favorites = [], loadError = "", onFavorite }) {
   const location = useLocation();
   const { currency, formatCurrency } = useLocale();
   const params = new URLSearchParams(location.search);
@@ -64,6 +64,13 @@ function ToursPage({ tours, favorites, onFavorite }) {
           </label>
         </div>
       </section>
+      {loadError ? (
+        <div className="vg-container">
+          <div className="vg-data-alert" role="alert">
+            Không thể tải danh sách tour lúc này. Vui lòng thử lại sau.
+          </div>
+        </div>
+      ) : null}
       <section className="vg-container vg-listing-layout">
         <aside className="vg-filter">
           <h2>Bộ lọc</h2>
@@ -101,7 +108,11 @@ function ToursPage({ tours, favorites, onFavorite }) {
         </aside>
         <div>
           <div className="vg-results">
-            <h2>{visibleTours.length} tour phù hợp</h2>
+            <h2>
+              {loadError
+                ? "Danh sách tour tạm thời chưa sẵn sàng"
+                : `${visibleTours.length} tour phù hợp`}
+            </h2>
             <select aria-label="Sắp xếp">
               <option>Đề xuất cho bạn</option>
               <option>Giá thấp đến cao</option>

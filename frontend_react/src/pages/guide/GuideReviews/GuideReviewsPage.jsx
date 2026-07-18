@@ -330,14 +330,22 @@ export default function GuideReviewsPage() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    loadReviews()
+    const timeoutId = window.setTimeout(() => {
+      void loadReviews()
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
   }, [])
 
   useEffect(() => {
-    setCurrentPage(1)
+    const timeoutId = window.setTimeout(() => {
+      setCurrentPage(1)
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
   }, [selectedRating])
 
-  const loadReviews = async () => {
+  async function loadReviews() {
     try {
       setLoading(true)
       setError('')
