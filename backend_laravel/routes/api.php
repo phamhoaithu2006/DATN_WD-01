@@ -25,6 +25,7 @@ use App\Http\Controllers\Api\Admin\TourDepartureGuideAssignmentController;
 use App\Http\Controllers\Api\Admin\TourManagerController;
 use App\Http\Controllers\Api\Admin\WidgetController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\Chat\ChatBotController;
 use App\Http\Controllers\Api\Customer\CustomerBookingController;
 use App\Http\Controllers\Api\Customer\CustomerController;
 use App\Http\Controllers\Api\Customer\CustomerDashboardController;
@@ -48,7 +49,8 @@ use App\Http\Controllers\Api\Support\SupportProfileController;
 use App\Http\Controllers\Api\Support\SupportRequestController;
 use App\Models\GuideSpecialization;
 use Illuminate\Support\Facades\Route;
-
+//Chat bot
+Route::middleware('throttle:20,1')->post('/chatbot', [ChatBotController::class, 'handleChat']);
 // ======Đăng ký và đăng nhập cho người dùng======
 Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:5,1');
@@ -136,9 +138,8 @@ Route::middleware(['auth:sanctum', 'role:support staff'])->group(function () {
 // xác nhận email or sdt, gửi otp
 Route::post('/forgot-password', [CustomerController::class, 'forgotPassword'])->middleware('throttle:5,1');
 // Xác nhận otp và sửa lại mk
-Route::post('/reset-password', [CustomerController::class, 'resetPassword'])->middleware('throttle:5,1');
-Route::post('/travel-assistant', [CustomerDashboardController::class, 'travelAssistant'])->middleware('throttle:30,1');
-
+Route::post('/reset-password', [CustomerController::class, 'resetPassword']);
+Route::post('/travel-assistant', [ChatBotController::class, 'handleChat']);
 // Quản lý tour cho khách hàng
 Route::prefix('tours')->group(function () {
     Route::get('/search', [TourController::class, 'search_gdkh']);
@@ -512,5 +513,4 @@ Route::middleware(['auth:sanctum', 'role:tour guide'])->group(function () {
     Route::get('/guide/leave-requests', [GuideLeaveRequestController::class, 'index']);
     Route::post('/guide/leave-requests', [GuideLeaveRequestController::class, 'store']);
     Route::patch('/guide/leave-requests/{leaveRequest}/cancel', [GuideLeaveRequestController::class, 'cancel']);
-
 });
