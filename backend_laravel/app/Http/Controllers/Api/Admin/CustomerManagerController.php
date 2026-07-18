@@ -157,23 +157,13 @@ class CustomerManagerController extends Controller
 
     public function statistics(): JsonResponse
     {
-        // 1. THỐNG KÊ USER TOÀN HỆ THỐNG
-        // Đếm tổng số bản ghi hiện có trong bảng 'users' không phân biệt vai trò
-        $totalUsers = User::count();
+        // This endpoint powers the customer-management screen, so only count customer accounts.
+        $customers = User::query()->whereHas('role', fn ($query) => $query->where('name', 'customer'));
 
-        // Đếm số lượng người dùng có trạng thái 'active' (đang hoạt động) trên toàn bộ bảng
-        $activeUsers = User::where('status', 'active')->count();
-
-        // Đếm số lượng người dùng có trạng thái 'inactive' (bị khóa/không hoạt động) trên toàn bộ bảng
-        $lockedUsers = User::where('status', 'inactive')->count();
-
-
-        // 2. THỐNG KÊ ĐẶT LỊCH (BOOKINGS)
-        // Kiểm tra và đếm các đơn đặt lịch trong bảng 'bookings'
-        // Sử dụng whereHas để lọc chỉ những đơn thuộc về user có role_id = 2 (Khách hàng)
-        $totalBookings = Booking::whereHas('user', function ($query) {
-            $query->where('role_id', 2);
-        })->count();
+        $totalUsers = (clone $customers)->count();
+        $activeUsers = (clone $customers)->where('status', 'active')->count();
+        $lockedUsers = (clone $customers)->whereIn('status', ['inactive', 'locked'])->count();
+        $totalBookings = Booking::whereHas('user.role', fn ($query) => $query->where('name', 'customer'))->count();
 
 
         // 3. TRẢ VỀ DỮ LIỆU

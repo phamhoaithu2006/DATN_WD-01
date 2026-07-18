@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { categoryApi } from "../../services/categoryApi";
-import ChatBox from "../../components/customer/ChatBox";
+import ChatBox, { clearChatHistory } from "../../components/customer/ChatBox";
 import Footer from "../../components/customer/Footer";
 import Header from "../../components/customer/Header";
-import { demoTours } from "../../data/customerDemoData";
+
 import {
   addWishlist,
   fetchBookings,
+  fetchHomeContent,
   fetchProfileSummary,
   fetchTours,
   fetchWishlist,
@@ -149,8 +149,7 @@ function isDomesticTour(tour) {
   );
 }
 
-function normalizeTour(tour, index = 0) {
-  const fallback = demoTours[index % demoTours.length] || {};
+function normalizeTour(tour) {
   const nextDeparture = getNextDeparture(tour);
 
   const destinations = Array.isArray(tour.destinations)
@@ -173,7 +172,6 @@ function normalizeTour(tour, index = 0) {
     (typeof tour.category === "string" ? tour.category : null) ||
     tour.category_info?.name ||
     tour.category?.name ||
-    fallback.category ||
     "Chưa phân loại";
 
   const destinationName =
@@ -181,14 +179,13 @@ function normalizeTour(tour, index = 0) {
     (typeof tour.destination === "string" ? tour.destination : null) ||
     (destinationNames.length ? destinationNames.join(" - ") : null) ||
     rawDestination?.name ||
-    fallback.destination ||
     "Chưa cập nhật";
 
   const basePrice = toNumber(
     nextDeparture?.base_price ??
       tour.base_price ??
       tour.price?.base,
-    fallback.price?.base || 0,
+    0,
   );
 
   const discountValue =
@@ -211,19 +208,19 @@ function normalizeTour(tour, index = 0) {
     tour.duration ||
     (tour.duration_days
       ? `${tour.duration_days} ngày ${tour.duration_nights ?? 0} đêm`
-      : fallback.duration || "Đang cập nhật");
+      : "Đang cập nhật");
 
   return {
     ...tour,
 
     id: tour.id,
-    title: tour.title || fallback.title || "Tour chưa có tên",
-    slug: tour.slug || fallback.slug || String(tour.id),
-    summary: tour.summary || tour.description || fallback.summary || "",
-    image: getTourImage(tour, fallback.image),
+    title: tour.title || "Tour chưa có tên",
+    slug: tour.slug || String(tour.id),
+    summary: tour.summary || tour.description || "",
+    image: getTourImage(tour),
 
     category: categoryName,
-    travelStyle: tour.travel_style || tour.travelStyle || fallback.travelStyle,
+    travelStyle: tour.travel_style || tour.travelStyle,
     destination: destinationName,
     duration,
 
@@ -240,11 +237,11 @@ function normalizeTour(tour, index = 0) {
     rating: {
       average: toNumber(
         tour.average_rating ?? tour.rating?.average,
-        fallback.rating?.average || 0,
+        0,
       ),
       count: toNumber(
         tour.review_count ?? tour.rating?.count,
-        fallback.rating?.count || 0,
+        0,
       ),
     },
 
@@ -309,7 +306,9 @@ function CustomerPage() {
   const [hasLiveTours, setHasLiveTours] = useState(false);
   const [favorites, setFavorites] = useState(readStoredFavorites);
   const [bookings, setBookings] = useState([]);
-  const [categories, setCategories] = useState([]);
+  const [homeContent, setHomeContent] = useState({});
+  const [homeLoadError, setHomeLoadError] = useState("");
+  const [tourLoadError, setTourLoadError] = useState("");
 
   const [summary, setSummary] = useState({
     bookings_count: 0,
@@ -326,36 +325,41 @@ function CustomerPage() {
     [tours],
   );
 
-  const homeDomesticTours = useMemo(() => {
-    const domestic = normalizedTours.filter(isDomesticTour).slice(0, 4);
-
-    return domestic.length ? domestic : normalizedTours.slice(0, 4);
-  }, [normalizedTours]);
+  const normalizedHomeContent = useMemo(() => ({
+    ...homeContent,
+    featured_tours: Array.isArray(homeContent.featured_tours)
+      ? homeContent.featured_tours.map(normalizeTour)
+      : [],
+  }), [homeContent]);
 
   const homeInternationalTours = useMemo(() => {
     const international = normalizedTours
       .filter((tour) => !isDomesticTour(tour))
       .slice(0, 4);
 
-    return international.length ? international : normalizedTours.slice(0, 4);
+    return international;
   }, [normalizedTours]);
 
   useEffect(() => {
     let active = true;
 
-    async function loadCategories() {
+    async function loadHomeContent() {
       try {
-        const res = await categoryApi.getAll();
+        const content = await fetchHomeContent();
 
-        if (active && res.data?.status === "success") {
-          setCategories(res.data.data || []);
+        if (active) {
+          setHomeContent(content);
+          setHomeLoadError("");
         }
-      } catch (error) {
-        console.error("Failed to load categories:", error);
+      } catch {
+        if (active) {
+          setHomeContent({});
+          setHomeLoadError("Không thể tải nội dung trang chủ.");
+        }
       }
     }
 
-    loadCategories();
+    loadHomeContent();
 
     return () => {
       active = false;
@@ -391,6 +395,10 @@ function CustomerPage() {
       };
 
       try {
+        if (active) {
+          setTourLoadError("");
+        }
+
         const response = await fetchTours(searchParams);
         const items = Array.isArray(response) ? response : [];
 
@@ -416,6 +424,7 @@ function CustomerPage() {
         if (active) {
           setTours([]);
           setHasLiveTours(false);
+          setTourLoadError("Không thể tải danh sách tour.");
         }
       }
     }
@@ -488,18 +497,18 @@ function CustomerPage() {
       // Giữ trạng thái local nếu API chưa phản hồi được.
     }
   }
-
-  async function logout() {
-    try {
-      await logoutApi();
-    } catch {
-      // Token có thể đã hết hạn.
-    }
-
-    clearSession();
-    setUser(null);
-    setFavorites(readStoredFavorites());
+async function logout() {
+  try {
+    await logoutApi();
+  } catch {
+    // Token có thể đã hết hạn.
   }
+
+  clearSession();
+  clearChatHistory(); // <-- thêm dòng này
+  setUser(null);
+  setFavorites(readStoredFavorites());
+}
 
   const favoriteTours = normalizedTours.filter((tour) =>
     favorites.includes(tour.id),
@@ -523,10 +532,10 @@ function CustomerPage() {
   let content = (
     <HomePage
       tours={normalizedTours}
-      domesticTours={homeDomesticTours}
       internationalTours={homeInternationalTours}
       favorites={favorites}
-      categories={categories}
+      homeContent={normalizedHomeContent}
+      tourLoadError={homeLoadError || tourLoadError}
       onFavorite={toggleFavorite}
     />
   );
@@ -550,6 +559,7 @@ function CustomerPage() {
       <ToursPage
         tours={normalizedTours}
         favorites={favorites}
+        loadError={tourLoadError}
         onFavorite={toggleFavorite}
       />
     );

@@ -317,8 +317,12 @@ function AdminSidebar({
   }, [role])
 
   useEffect(() => {
-    void loadTourDepartureWarningCount()
-    void loadGuideLeavePendingCount()
+    const loadTimeout = window.setTimeout(() => {
+      void loadTourDepartureWarningCount()
+      void loadGuideLeavePendingCount()
+    }, 0)
+
+    return () => window.clearTimeout(loadTimeout)
   }, [loadTourDepartureWarningCount, loadGuideLeavePendingCount])
 
   useEffect(() => {

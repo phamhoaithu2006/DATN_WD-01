@@ -193,8 +193,12 @@ function AuthPage() {
   }, [currentUser, navigate, token]);
 
   useEffect(() => {
-    setMode(isRegisterPath ? "register" : "login");
-    setNotice("");
+    const timeoutId = window.setTimeout(() => {
+      setMode(isRegisterPath ? "register" : "login");
+      setNotice("");
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
   }, [isRegisterPath]);
 
   if (token && currentUser) {

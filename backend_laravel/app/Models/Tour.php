@@ -23,6 +23,7 @@ class Tour extends Model
         'slug',
         'summary',
         'description',
+        'itinerary',
         'duration_days',
         'duration_nights',
         'base_price',

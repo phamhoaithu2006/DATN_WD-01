@@ -64,6 +64,16 @@ class GuideTourController extends Controller
                 DB::raw($assignmentNoteExpression),
             ]);
 
+        // A departure's guest total must come from valid paid bookings, not a UI-side estimate.
+        $query->selectSub(function ($subQuery) {
+            $subQuery
+                ->from('bookings')
+                ->selectRaw('COALESCE(SUM(number_of_people), 0)')
+                ->whereColumn('bookings.tour_departure_id', 'tour_departures.id')
+                ->where('bookings.status', '!=', 'cancelled')
+                ->where('bookings.payment_status', 'paid');
+        }, 'customer_count');
+
         if (Schema::hasTable('guide_replacement_requests')) {
             $query->selectSub(function ($subQuery) use ($guide) {
                 $subQuery
@@ -95,18 +105,28 @@ class GuideTourController extends Controller
         }
 
         if ($fromDate = $request->input('from_date')) {
-            $query->where('tour_departures.departure_date', '>=', $fromDate);
+            $query->whereRaw(
+                'DATE(COALESCE(tour_departures.return_date, tour_departures.departure_date)) >= ?',
+                [$fromDate]
+            );
         }
 
         if ($toDate = $request->input('to_date')) {
-            $query->where('tour_departures.departure_date', '<=', $toDate);
+            $query->whereDate('tour_departures.departure_date', '<=', $toDate);
         }
 
         return $query;
     }
 
-    private function sortForGuide($query)
+    private function sortForGuide($query, Request $request)
     {
+        if (in_array($request->input('sort'), ['newest', 'oldest'], true)) {
+            return $query->orderBy(
+                'tour_departures.departure_date',
+                $request->input('sort') === 'oldest' ? 'asc' : 'desc'
+            );
+        }
+
         $today = Carbon::today()->toDateString();
 
         return $query
@@ -248,11 +268,113 @@ class GuideTourController extends Controller
         }
 
         $query = $this->applyFilters($this->baseQuery($guide), $request);
-        $query = $this->sortForGuide($query);
+        $query = $this->sortForGuide($query, $request);
 
         return response()->json([
             'message' => 'Danh sách tour được phân công',
             'data' => $this->paginatedResponse($query, $request),
+        ]);
+    }
+
+    public function destinationOptions(Request $request)
+    {
+        $guide = $this->getGuide($request);
+
+        if (! $guide) {
+            return response()->json(['data' => []]);
+        }
+
+        $destinations = DB::table('tour_departures')
+            ->join('tour_guide_assignments as tga', 'tga.tour_departure_id', '=', 'tour_departures.id')
+            ->join('tours', 'tours.id', '=', 'tour_departures.tour_id')
+            ->join('destinations', 'destinations.id', '=', 'tours.destination_id')
+            ->where('tga.guide_id', $guide->id)
+            ->where('tga.status', '!=', 'cancelled')
+            ->select('destinations.id', 'destinations.name', 'destinations.province_city')
+            ->distinct()
+            ->orderBy('destinations.province_city')
+            ->orderBy('destinations.name')
+            ->get();
+
+        return response()->json(['data' => $destinations]);
+    }
+
+    public function summary(Request $request)
+    {
+        $guide = $this->getGuide($request);
+
+        if (! $guide) {
+            return response()->json([
+                'message' => 'Tài khoản chưa có hồ sơ hướng dẫn viên.',
+                'data' => [
+                    'total' => 0,
+                    'upcoming' => 0,
+                    'ongoing' => 0,
+                    'completed' => 0,
+                    'total_customers' => 0,
+                    'average_rating' => 0,
+                    'review_count' => 0,
+                ],
+            ]);
+        }
+
+        $today = Carbon::today()->toDateString();
+        $assignments = DB::table('tour_departures')
+            ->join('tour_guide_assignments as tga', 'tga.tour_departure_id', '=', 'tour_departures.id')
+            ->where('tga.guide_id', $guide->id)
+            ->where('tga.status', '!=', 'cancelled')
+            ->where(function ($query) {
+                $query->whereNull('tour_departures.status')
+                    ->orWhereNotIn('tour_departures.status', ['cancelled', 'canceled']);
+            });
+
+        $total = (int) (clone $assignments)->distinct()->count('tour_departures.id');
+        $upcoming = (int) (clone $assignments)
+            ->whereDate('tour_departures.departure_date', '>', $today)
+            ->distinct()
+            ->count('tour_departures.id');
+        $ongoing = (int) (clone $assignments)
+            ->whereDate('tour_departures.departure_date', '<=', $today)
+            ->where(function ($query) use ($today) {
+                $query->whereNull('tour_departures.return_date')
+                    ->orWhereDate('tour_departures.return_date', '>=', $today);
+            })
+            ->where('tour_departures.status', '!=', 'completed')
+            ->distinct()
+            ->count('tour_departures.id');
+        $completed = (int) (clone $assignments)
+            ->where(function ($query) use ($today) {
+                $query->where('tour_departures.status', 'completed')
+                    ->orWhereDate('tour_departures.return_date', '<', $today);
+            })
+            ->distinct()
+            ->count('tour_departures.id');
+
+        $totalCustomers = (int) DB::table('bookings')
+            ->join('tour_guide_assignments as tga', 'tga.tour_departure_id', '=', 'bookings.tour_departure_id')
+            ->where('tga.guide_id', $guide->id)
+            ->where('tga.status', '!=', 'cancelled')
+            ->where('bookings.status', '!=', 'cancelled')
+            ->where('bookings.payment_status', 'paid')
+            ->sum('bookings.number_of_people');
+
+        $ratings = DB::table('reviews')
+            ->where('guide_id', $guide->id)
+            ->where('status', 'visible')
+            ->selectRaw('COUNT(*) as review_count, COALESCE(AVG(rating), 0) as average_rating')
+            ->first();
+
+        return response()->json([
+            'message' => 'Tổng quan tour được phân công.',
+            'data' => [
+                'total' => $total,
+                'upcoming' => $upcoming,
+                'ongoing' => $ongoing,
+                'completed' => $completed,
+                'total_customers' => $totalCustomers,
+                'average_rating' => round((float) ($ratings->average_rating ?? 0), 1),
+                'review_count' => (int) ($ratings->review_count ?? 0),
+            ],
         ]);
     }
 
@@ -273,7 +395,7 @@ class GuideTourController extends Controller
             ->where('tour_departures.departure_date', '>', $today);
 
         $query = $this->applyFilters($query, $request);
-        $query->orderBy('tour_departures.departure_date', 'asc');
+        $this->sortForGuide($query, $request);
 
         return response()->json([
             'message' => 'Danh sách tour sắp diễn ra',
@@ -303,7 +425,7 @@ class GuideTourController extends Controller
             ->whereNotIn('tour_departures.status', ['completed', 'cancelled', 'canceled']);
 
         $query = $this->applyFilters($query, $request);
-        $query->orderBy('tour_departures.departure_date', 'asc');
+        $this->sortForGuide($query, $request);
 
         return response()->json([
             'message' => 'Danh sách tour đang diễn ra',
@@ -334,7 +456,7 @@ class GuideTourController extends Controller
             });
 
         $query = $this->applyFilters($query, $request);
-        $query->orderBy('tour_departures.departure_date', 'desc');
+        $this->sortForGuide($query, $request);
 
         return response()->json([
             'message' => 'Danh sách tour đã hoàn thành',

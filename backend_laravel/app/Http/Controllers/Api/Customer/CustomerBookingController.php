@@ -48,12 +48,6 @@ class CustomerBookingController extends Controller
             ]);
         }
 
-        if ($summary['adult_count'] < 1) {
-            throw ValidationException::withMessages([
-                'quantity_summary' => 'Vui lòng chọn ít nhất 1 người lớn trước khi thêm trẻ em hoặc em bé.',
-            ]);
-        }
-
         if ($availableSlots < $summary['total_people']) {
             throw ValidationException::withMessages([
                 'quantity_summary' => "Lịch này chỉ còn {$availableSlots} chỗ trống.",
@@ -114,12 +108,6 @@ class CustomerBookingController extends Controller
             if ($pricingSummary['total_people'] < 1) {
                 throw ValidationException::withMessages([
                     'quantity_summary' => 'Vui lòng chọn ít nhất 1 người tham gia.',
-                ]);
-            }
-
-            if ($pricingSummary['adult_count'] < 1) {
-                throw ValidationException::withMessages([
-                    'quantity_summary' => 'Vui lòng chọn ít nhất 1 người lớn trước khi thêm trẻ em hoặc em bé.',
                 ]);
             }
 

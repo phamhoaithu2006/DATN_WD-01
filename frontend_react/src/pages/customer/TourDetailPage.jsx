@@ -170,8 +170,16 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
     price_value: 100,
     is_active: true,
   };
-  const bookingGroups = [adultBookingGroup, ...activePricingRules];
-  const defaultQuantityRule = adultBookingGroup;
+  const isDefaultAdultRule = (rule) => rule.id === adultBookingGroup.id;
+  const isAdultPricingRule = (rule) => isDefaultAdultRule(rule) || (
+    (rule.max_age === null || rule.max_age === undefined)
+    && rule.pricing_type !== "free"
+  );
+  const adultPricingRule = activePricingRules.find(isAdultPricingRule) || adultBookingGroup;
+  const bookingGroups = activePricingRules.some(isAdultPricingRule)
+    ? activePricingRules
+    : [adultBookingGroup, ...activePricingRules];
+  const defaultQuantityRule = adultPricingRule;
   const effectiveQuantities = Object.keys(quantities).length
     ? quantities
     : { [defaultQuantityRule.id]: 1 };
@@ -182,7 +190,6 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
     return Math.round(adultPrice * Number(rule.price_value || 100) / 100);
   };
   const totalGuests = bookingGroups.reduce((sum, rule) => sum + getRuleQuantity(rule), 0);
-  const adultQuantity = getRuleQuantity(adultBookingGroup);
   const localTotal = bookingGroups.reduce((sum, rule) => sum + getRuleQuantity(rule) * getRuleUnitPrice(rule), 0);
   const finalTotal = Number(bookingPreview?.total_amount ?? localTotal);
   const availableSlots = Number(selectedDeparture?.available_slots || tour.slots?.available || 0);
@@ -224,20 +231,14 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
 
   const buildQuantitySummary = () => bookingGroups
     .map((rule) => ({
-      rule_id: rule.id === "adult_default" ? null : Number(rule.id),
+      rule_id: isDefaultAdultRule(rule) ? null : Number(rule.id),
       quantity: getRuleQuantity(rule),
     }))
     .filter((item) => item.quantity > 0);
 
   const updateQuantity = (ruleId, nextQuantity) => {
-    const isAdultGroup = ruleId === adultBookingGroup.id;
+    const isAdultGroup = String(ruleId) === String(adultPricingRule.id);
     const safeQuantity = Math.max(isAdultGroup ? 1 : 0, nextQuantity);
-    const currentAdultQuantity = Number(effectiveQuantities[adultBookingGroup.id] || 0);
-
-    if (!isAdultGroup && currentAdultQuantity < 1 && safeQuantity > 0) {
-      setBookingError("Vui lòng chọn ít nhất 1 người lớn trước khi thêm trẻ em hoặc em bé.");
-      return;
-    }
 
     const nextTotal = totalGuests - Number(effectiveQuantities[ruleId] || 0) + safeQuantity;
 
@@ -290,11 +291,6 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
 
       if (totalGuests < 1) {
         setBookingError("Vui lòng chọn ít nhất 1 khách đặt tour.");
-        return;
-      }
-
-      if (adultQuantity < 1) {
-        setBookingError("Vui lòng chọn ít nhất 1 người lớn để đặt tour.");
         return;
       }
 
@@ -569,8 +565,7 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                       {bookingGroups.map((rule) => {
                         const quantity = getRuleQuantity(rule);
                         const unitPrice = getRuleUnitPrice(rule);
-                        const isAdultGroup = rule.id === adultBookingGroup.id;
-                        const cannotAddNonAdult = !isAdultGroup && adultQuantity < 1;
+                        const isAdultGroup = String(rule.id) === String(adultPricingRule.id);
 
                         return (
                           <div className="vg-qty-row-traveloka" key={rule.id}>
@@ -591,7 +586,7 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                               <button
                                 type="button"
                                 className="vg-counter-btn"
-                                disabled={cannotAddNonAdult || (availableSlots > 0 && totalGuests >= availableSlots)}
+                                disabled={availableSlots > 0 && totalGuests >= availableSlots}
                                 onClick={() => updateQuantity(rule.id, quantity + 1)}
                               >
                                 +

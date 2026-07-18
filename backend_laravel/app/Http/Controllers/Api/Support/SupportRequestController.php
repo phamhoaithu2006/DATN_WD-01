@@ -19,7 +19,7 @@ class SupportRequestController extends Controller
             'status' => ['nullable', 'in:pending,in_progress,resolved'],
             'category' => [
                 'nullable',
-                'in:technical,payment,account,feedback,general'
+                'in:technical,payment,account,feedback,general',
             ],
             'priority' => ['nullable', 'in:low,medium,high'],
         ]);
@@ -108,7 +108,7 @@ class SupportRequestController extends Controller
         $count = SupportRequest::query()
             ->whereIn('status', [
                 'pending',
-                'in_progress'
+                'in_progress',
             ])
             ->count();
 
@@ -127,7 +127,7 @@ class SupportRequestController extends Controller
         $data = $request->validate([
             'status' => [
                 'required',
-                'in:pending,in_progress,resolved'
+                'in:pending,in_progress,resolved',
             ],
         ]);
 

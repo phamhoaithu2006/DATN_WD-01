@@ -71,9 +71,16 @@ class BookingController extends Controller
      * GET /api/admin/bookings/statistics
      * Tổng số lượng, tổng booking theo từng trạng thái
      */
-    public function statistics()
+    public function statistics(Request $request)
     {
-        $stats = Booking::selectRaw("
+        $year = $request->integer('year');
+        $query = Booking::query();
+
+        if ($year) {
+            $query->whereYear('created_at', $year);
+        }
+
+        $stats = $query->selectRaw("
             COUNT(*) as total,
             SUM(CASE WHEN status = 'pending'   THEN 1 ELSE 0 END) as pending,
             SUM(CASE WHEN status = 'confirmed' THEN 1 ELSE 0 END) as confirmed,
@@ -83,7 +90,7 @@ class BookingController extends Controller
             SUM(CASE WHEN payment_status = 'paid'     THEN 1 ELSE 0 END) as paid,
             SUM(CASE WHEN payment_status = 'failed'   THEN 1 ELSE 0 END) as failed,
             SUM(CASE WHEN payment_status = 'refunded' THEN 1 ELSE 0 END) as refunded,
-            SUM(total_amount) as total_revenue
+            SUM(CASE WHEN payment_status = 'paid' AND status != 'cancelled' THEN total_amount ELSE 0 END) as total_revenue
         ")->first();
 
         return response()->json([

@@ -26,6 +26,24 @@ export async function fetchTours(params = {}) {
   return response.data?.data || [];
 }
 
+export async function fetchHomeContent() {
+  const response = await api.get('/home')
+
+  return response.data?.data || {}
+}
+
+export async function fetchCatalogCategories() {
+  const response = await api.get('/catalog/categories')
+
+  return response.data?.data || []
+}
+
+export async function fetchCatalogDestinations() {
+  const response = await api.get('/catalog/destinations')
+
+  return response.data?.data || []
+}
+
 export async function filterTours(params = {}) {
   const response = await api.get('/tours/filter', { params })
 

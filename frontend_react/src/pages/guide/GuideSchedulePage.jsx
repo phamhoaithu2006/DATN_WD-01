@@ -1,7 +1,6 @@
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 
 import CustomerHistoryPanel from './schedule/CustomerHistoryPanel'
-import CustomerNotesPanel from './schedule/CustomerNotesPanel'
 import ScheduleAttendancePanel from './schedule/ScheduleAttendancePanel'
 import ScheduleItineraryPanel from './schedule/ScheduleItineraryPanel'
 import ScheduleTourDetail from './schedule/ScheduleTourDetail'
@@ -15,27 +14,6 @@ import {
   TOUR_GROUPS,
 } from './schedule/scheduleUtils'
 
-const TOUR_ACTIONS = [
-  {
-    key: 'itinerary',
-    label: 'Xem lịch trình',
-    hint: 'Lịch trình tour',
-    title: 'Lịch trình tour',
-  },
-  {
-    key: 'attendance',
-    label: 'Check-in khách hàng',
-    hint: 'Điểm danh theo ngày',
-    title: 'Check-in khách hàng',
-  },
-  {
-    key: 'notes',
-    label: 'Ghi chú khách hàng',
-    hint: 'Yêu cầu riêng',
-    title: 'Ghi chú khách hàng',
-  },
-]
-
 function getTourImage(item) {
   return mediaUrl(
     item?.tour?.thumbnail?.image_url ||
@@ -46,7 +24,7 @@ function getTourImage(item) {
   )
 }
 
-function TourListCard({ item, onClick }) {
+function TourListCard({ item, mode, onClick }) {
   const runtime = getTourRuntime(item)
   const image = getTourImage(item)
   const title = getTourTitle(item)
@@ -66,12 +44,12 @@ function TourListCard({ item, onClick }) {
           <div>
             <strong>{title}</strong>
             <em>
-              {formatDate(item.departure_date)} · {formatDate(item.return_date || item.departure_date)}
+              {formatDate(item.departure_date)} - {formatDate(item.return_date || item.departure_date)}
             </em>
           </div>
 
           <span className={`guide-schedule-runtime runtime-${runtime}`}>
-            {TOUR_GROUPS[runtime]?.label || 'Tour'}
+            {mode === 'attendance' ? 'Điểm danh' : TOUR_GROUPS[runtime]?.label || 'Tour'}
           </span>
         </div>
 
@@ -81,32 +59,69 @@ function TourListCard({ item, onClick }) {
   )
 }
 
-function GuideSchedulePage() {
+function CustomerNoteModal({
+  customer,
+  noteSaving,
+  noteValue,
+  onChange,
+  onClose,
+  onSubmit,
+}) {
+  if (!customer) return null
+
+  return (
+    <div className="guide-note-modal-backdrop" role="presentation" onClick={onClose}>
+      <form className="guide-note-modal" onSubmit={onSubmit} onClick={(event) => event.stopPropagation()}>
+        <button type="button" className="guide-note-modal-close" onClick={onClose} disabled={noteSaving}>
+          ×
+        </button>
+        <div className="guide-note-modal-head">
+          <span>Ghi chú khách hàng</span>
+          <h3>{customer.full_name || 'Khách hàng'}</h3>
+          <p>{customer.booking_code || 'Chưa có mã booking'}</p>
+        </div>
+
+        <label className="guide-note-modal-field">
+          <span>Nội dung cần lưu ý</span>
+          <textarea
+            value={noteValue}
+            onChange={(event) => onChange(event.target.value)}
+            rows={6}
+            maxLength={1000}
+            disabled={noteSaving}
+            placeholder="Ví dụ: khách ăn chay, say xe, cần hỗ trợ riêng, yêu cầu giờ đón..."
+          />
+        </label>
+
+        <div className="guide-note-modal-actions">
+          <button type="button" onClick={onClose} disabled={noteSaving}>
+            Hủy
+          </button>
+          <button type="submit" disabled={noteSaving}>
+            {noteSaving ? 'Đang lưu...' : 'Lưu ghi chú'}
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
+function GuideSchedulePage({ mode = 'tours' }) {
   const { tourId, feature } = useParams()
   const navigate = useNavigate()
   const schedule = useGuideSchedule(tourId ? Number(tourId) : null)
-  const activeAction = TOUR_ACTIONS.find((action) => action.key === feature) || null
-  const visibleTours = [...schedule.tourGroups.ongoing, ...schedule.tourGroups.upcoming]
+  const isAttendanceMode = mode === 'attendance'
+  const basePath = isAttendanceMode ? '/guide/attendance' : '/guide/schedule'
+  const visibleTours = isAttendanceMode
+    ? [...schedule.tourGroups.ongoing, ...schedule.tourGroups.upcoming]
+    : [...schedule.tourGroups.ongoing, ...schedule.tourGroups.upcoming, ...schedule.tourGroups.completed]
 
-  if (feature && !activeAction) {
+  if (!isAttendanceMode && feature && feature !== 'itinerary') {
     return <Navigate to={tourId ? `/guide/schedule/${tourId}` : '/guide/schedule'} replace />
   }
 
-  function renderFeaturePage() {
-    if (!activeAction) return null
-
-    if (activeAction.key === 'itinerary') {
-      return (
-        <ScheduleItineraryPanel
-          loadingDetail={schedule.loadingDetail}
-          selectedStage={schedule.selectedStage}
-          setSelectedStageId={schedule.setSelectedStageId}
-          stages={schedule.stages}
-        />
-      )
-    }
-
-    if (activeAction.key === 'attendance') {
+  function renderMainPanel() {
+    if (isAttendanceMode) {
       return (
         <ScheduleAttendancePanel
           activeSessionId={schedule.activeSessionId}
@@ -116,6 +131,7 @@ function GuideSchedulePage() {
           customers={schedule.customers}
           handleAttendanceAction={schedule.handleAttendanceAction}
           openCustomerHistory={schedule.openCustomerHistory}
+          openCustomerNote={schedule.openCustomerNote}
           runtime={schedule.runtime}
           selectedStage={schedule.selectedStage}
           setSelectedSessionId={schedule.setSelectedSessionId}
@@ -128,9 +144,11 @@ function GuideSchedulePage() {
     }
 
     return (
-      <CustomerNotesPanel
-        customers={schedule.customers}
-        openCustomerHistory={schedule.openCustomerHistory}
+      <ScheduleItineraryPanel
+        loadingDetail={schedule.loadingDetail}
+        selectedStage={schedule.selectedStage}
+        setSelectedStageId={schedule.setSelectedStageId}
+        stages={schedule.stages}
       />
     )
   }
@@ -139,12 +157,14 @@ function GuideSchedulePage() {
     <div className="guide-schedule-page">
       <section className="guide-schedule-header simple">
         <div>
-          <span>Tour của tôi</span>
+          <span>{isAttendanceMode ? 'Điểm danh' : 'Tour của tôi'}</span>
           <h1>
             {!tourId
-              ? 'Các tour sẽ dẫn'
-              : activeAction
-                ? activeAction.title
+              ? isAttendanceMode
+                ? 'Chọn tour để điểm danh'
+                : 'Danh sách tour của tôi'
+              : isAttendanceMode
+                ? 'Điểm danh khách hàng'
                 : 'Chi tiết tour phụ trách'}
           </h1>
         </div>
@@ -153,9 +173,9 @@ function GuideSchedulePage() {
           <button
             type="button"
             className="guide-schedule-back-btn"
-            onClick={() => navigate('/guide/schedule')}
+            onClick={() => navigate(basePath)}
           >
-            Quay lại danh sách tour
+            Quay lại danh sách
           </button>
         ) : null}
       </section>
@@ -171,7 +191,7 @@ function GuideSchedulePage() {
           <div className="guide-my-tour-list-head">
             <div>
               <span>{visibleTours.length} tour</span>
-              <h2>Danh sách tour được phân công</h2>
+              <h2>{isAttendanceMode ? 'Tour có thể điểm danh' : 'Tour được phân công'}</h2>
             </div>
           </div>
 
@@ -183,12 +203,15 @@ function GuideSchedulePage() {
                 <TourListCard
                   key={item.id}
                   item={item}
-                  onClick={() => navigate(`/guide/schedule/${item.id}`)}
+                  mode={mode}
+                  onClick={() => navigate(`${basePath}/${item.id}`)}
                 />
               ))}
             </div>
           ) : (
-            <div className="guide-schedule-empty large">Chưa có tour sắp dẫn.</div>
+            <div className="guide-schedule-empty large">
+              {isAttendanceMode ? 'Chưa có tour để điểm danh.' : 'Chưa có tour được phân công.'}
+            </div>
           )}
         </section>
       ) : (
@@ -205,37 +228,8 @@ function GuideSchedulePage() {
                 selectedTour={schedule.selectedTour}
               />
 
-              {!activeAction ? (
-                <div className="guide-schedule-action-tabs" aria-label="Chức năng trong tour">
-                  {TOUR_ACTIONS.map((action) => (
-                    <button
-                      key={action.key}
-                      type="button"
-                      onClick={() => navigate(`/guide/schedule/${tourId}/${action.key}`)}
-                    >
-                      <strong>{action.label}</strong>
-                      <span>{action.hint}</span>
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="guide-schedule-function-head">
-                  <div>
-                    <span>Chức năng</span>
-                    <h2>{activeAction.label}</h2>
-                  </div>
-                  <button type="button" onClick={() => navigate(`/guide/schedule/${tourId}`)}>
-                    Đổi chức năng
-                  </button>
-                </div>
-              )}
-
               <section className="guide-schedule-panels one-column">
-                {activeAction ? renderFeaturePage() : (
-                  <div className="guide-schedule-feature-empty">
-                    Chọn một chức năng để thao tác với tour này.
-                  </div>
-                )}
+                {renderMainPanel()}
               </section>
             </>
           )}
@@ -247,6 +241,17 @@ function GuideSchedulePage() {
         loading={schedule.historyLoading}
         onClose={() => schedule.setHistoryDetail(null)}
       />
+
+      {isAttendanceMode ? (
+        <CustomerNoteModal
+          customer={schedule.noteTarget}
+          noteSaving={schedule.noteSaving}
+          noteValue={schedule.noteValue}
+          onChange={schedule.setNoteValue}
+          onClose={schedule.closeCustomerNote}
+          onSubmit={schedule.saveCustomerNote}
+        />
+      ) : null}
     </div>
   )
 }

@@ -416,19 +416,32 @@ const fetchReplacementRequests = useCallback(async () => {
   }, [])
 
   useEffect(() => {
-    void fetchTours()
+    const timeoutId = window.setTimeout(() => {
+      void fetchTours()
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
   }, [fetchTours])
 
   useEffect(() => {
-    void fetchDepartures(selectedTourId)
+    const timeoutId = window.setTimeout(() => {
+      void fetchDepartures(selectedTourId)
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
   }, [selectedTourId, fetchDepartures])
 
   useEffect(() => {
-    void fetchReplacementRequests()
+    const timeoutId = window.setTimeout(() => {
+      void fetchReplacementRequests()
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
   }, [fetchReplacementRequests])
 
   useEffect(() => {
-    const state = location.state || {}
+    const timeoutId = window.setTimeout(() => {
+      const state = location.state || {}
     const nextNewDepartureIds = new Set()
     const nextNewAssignmentDepartureIds = new Set()
 
@@ -464,7 +477,10 @@ const fetchReplacementRequests = useCallback(async () => {
         replace: true,
         state: null,
       })
-    }
+      }
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
   }, [
     location.pathname,
     location.search,
@@ -474,7 +490,8 @@ const fetchReplacementRequests = useCallback(async () => {
 
 
 useEffect(() => {
-  const params = new URLSearchParams(location.search)
+  const timeoutId = window.setTimeout(() => {
+    const params = new URLSearchParams(location.search)
   const shouldOpenReplacement =
     params.get('openReplacementRequests') === '1' ||
     params.get('replacementRequest') === '1'
@@ -495,7 +512,10 @@ useEffect(() => {
     setFocusedDepartureId(null)
   }
 
-  void fetchReplacementRequests()
+    void fetchReplacementRequests()
+  }, 0)
+
+  return () => window.clearTimeout(timeoutId)
 }, [location.search, fetchReplacementRequests])
 
   const handleDelete = async (departure) => {

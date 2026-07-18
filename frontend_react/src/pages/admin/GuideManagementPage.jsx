@@ -523,9 +523,13 @@ function GuideManagementPage() {
   )
 
   useEffect(() => {
-    void loadCatalogs()
-    void loadStatistics()
-    void loadLeaveSummary()
+    const timeoutId = window.setTimeout(() => {
+      void loadCatalogs()
+      void loadStatistics()
+      void loadLeaveSummary()
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
   }, [loadCatalogs, loadLeaveSummary, loadStatistics])
 
   useEffect(() => {
@@ -549,8 +553,14 @@ function GuideManagementPage() {
 
   useEffect(() => {
     if (searchParams.get('openLeaveRequests') === '1') {
-      setLeavePanelOpen(true)
+      const timeoutId = window.setTimeout(() => {
+        setLeavePanelOpen(true)
+      }, 0)
+
+      return () => window.clearTimeout(timeoutId)
     }
+
+    return undefined
   }, [searchParams])
 
   useEffect(() => {
