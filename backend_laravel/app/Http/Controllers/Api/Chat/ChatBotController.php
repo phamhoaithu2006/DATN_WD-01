@@ -14,20 +14,22 @@ class ChatBotController extends Controller
 {
     private const FALLBACK_MESSAGE = 'Xin lỗi bạn, hiện tại mình chưa có thông tin về vấn đề này. Bạn vui lòng liên hệ trực tiếp với nhân viên hỗ trợ của ViVuGo qua Zalo/Hotline để được tư vấn chi tiết nhất nhé!';
 
+
     public function handleChat(Request $request)
     {
         $validated = $request->validate([
             'message'    => 'required|string|max:1000',
-            'session_id' => 'required|string|max:100',
+            'session_id' => 'nullable|string|max:100',
         ]);
-
         $userMessage = trim($validated['message']);
 
-        $conversation = ChatConversation::firstOrCreate( //firstOrCreate(Mảng_Tìm_Kiếm, Mảng_Tạo_Mới)
-            ['session_id' => $validated['session_id']], //chức năng tìm kiếm sẽ session_id này có hay chưa nếu chưa thì tạo mới với session_id này và user_id là id của user đang đăng nhập
+        $sessionId = $validated['session_id']
+            ?? 'guest-' . md5($request->ip() . $request->userAgent());
+
+        $conversation = ChatConversation::firstOrCreate(
+            ['session_id' => $sessionId],   // <-- dùng $sessionId, KHÔNG dùng $validated['session_id']
             ['user_id' => auth('sanctum')->id()]
         );
-
         $history = $conversation->messages() //đây là phần lấy 10 tin nhắn gần nhất của cuộc trò chuyện để gửi cho Gemini, giúp nó hiểu ngữ cảnh.
             ->orderByDesc('id')
             ->limit(10)

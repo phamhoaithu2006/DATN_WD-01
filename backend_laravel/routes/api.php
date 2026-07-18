@@ -117,8 +117,7 @@ Route::middleware(['auth:sanctum', 'role:support staff'])->group(function () {
 Route::post('/forgot-password', [CustomerController::class, 'forgotPassword']);
 // Xác nhận otp và sửa lại mk
 Route::post('/reset-password', [CustomerController::class, 'resetPassword']);
-Route::post('/travel-assistant', [CustomerDashboardController::class, 'travelAssistant']);
-
+Route::post('/travel-assistant', [ChatBotController::class, 'handleChat']);
 // Quản lý tour cho khách hàng
 Route::prefix('tours')->group(function () {
     Route::get('/search', [TourController::class, 'search_gdkh']);
