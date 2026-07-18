@@ -25,6 +25,7 @@ use App\Http\Controllers\Api\Admin\TourDepartureGuideAssignmentController;
 use App\Http\Controllers\Api\Admin\TourManagerController;
 use App\Http\Controllers\Api\Admin\WidgetController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\Chat\ChatBotController;
 use App\Http\Controllers\Api\Customer\CustomerBookingController;
 use App\Http\Controllers\Api\Customer\CustomerController;
 use App\Http\Controllers\Api\Customer\CustomerDashboardController;
@@ -38,13 +39,14 @@ use App\Http\Controllers\Api\Guide\GuideLeaveRequestController;
 use App\Http\Controllers\Api\Guide\GuideProfileController;
 use App\Http\Controllers\Api\Guide\GuideReviewController as GuideGuideReviewController;
 use App\Http\Controllers\Api\Guide\GuideTourController;
-use App\Http\Controllers\Api\Support\SupportProfileController;
-use App\Http\Controllers\Api\Support\SupportNotificationController;
 use App\Http\Controllers\Api\PublicSettingController;
 use App\Http\Controllers\Api\PublicWidgetController;
+use App\Http\Controllers\Api\Support\SupportNotificationController;
+use App\Http\Controllers\Api\Support\SupportProfileController;
 use App\Models\GuideSpecialization;
 use Illuminate\Support\Facades\Route;
-
+//Chat bot
+Route::middleware('throttle:20,1')->post('/chatbot', [ChatBotController::class, 'handleChat']);
 // ======Đăng ký và đăng nhập cho người dùng======
 Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
@@ -139,7 +141,7 @@ Route::get('/settings/public', [PublicSettingController::class, 'show']);
 Route::get('/widgets', [PublicWidgetController::class, 'index']);
 
 // ======Admin======
-Route::prefix('admin') ->middleware('auth:sanctum')->group(function () {
+Route::prefix('admin')->middleware('auth:sanctum')->group(function () {
     Route::get(
         'guides/destination-options',
         [DestinationController::class, 'options']
@@ -486,6 +488,4 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/guide/leave-requests', [GuideLeaveRequestController::class, 'index']);
     Route::post('/guide/leave-requests', [GuideLeaveRequestController::class, 'store']);
     Route::patch('/guide/leave-requests/{leaveRequest}/cancel', [GuideLeaveRequestController::class, 'cancel']);
-
 });
-
