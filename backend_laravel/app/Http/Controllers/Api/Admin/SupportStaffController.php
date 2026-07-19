@@ -153,7 +153,7 @@ class SupportStaffController extends Controller
         }
 
         $perPage = max((int) $request->input('per_page', 10), 1);
-        $staff = $query->latest()->paginate($perPage);
+        $staff = $query->orderBy('support_staff.id')->paginate($perPage);
         $staff->setCollection($staff->getCollection()->map(fn ($item) => $this->hydrateSupportStaff($item)));
 
         return response()->json([
@@ -243,7 +243,7 @@ class SupportStaffController extends Controller
                 Rule::exists('users', 'id'),
             ],
             'specialization' => ['required', 'string', Rule::in(self::SPECIALIZATIONS)],
-            'experience_years' => ['required', 'integer', 'min:0'],
+            'experience_years' => ['required', 'integer', 'min:0', 'max:40'],
             'role' => 'required|string|max:100',
             'status' => ['nullable', 'string', Rule::in(self::STATUSES)],
             'performance_rating' => 'nullable|numeric|between:0,5',
@@ -323,7 +323,7 @@ class SupportStaffController extends Controller
                 Rule::unique('support_staff', 'user_id')->ignore($id)->whereNull('deleted_at'),
             ],
             'specialization' => ['sometimes', 'required', 'string', Rule::in(self::SPECIALIZATIONS)],
-            'experience_years' => ['sometimes', 'required', 'integer', 'min:0'],
+            'experience_years' => ['sometimes', 'required', 'integer', 'min:0', 'max:40'],
             'role' => 'sometimes|required|string|max:100',
             'status' => ['sometimes', 'required', 'string', Rule::in(self::STATUSES)],
             'performance_rating' => 'sometimes|required|numeric|between:0,5',

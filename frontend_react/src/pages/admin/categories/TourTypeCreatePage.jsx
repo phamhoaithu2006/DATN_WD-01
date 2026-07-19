@@ -89,7 +89,7 @@ function TourTypeCreatePage() {
         </div>
       )}
 
-      <div className="max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="w-full rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <CategoryForm
           formData={formData}
           submitting={submitting}

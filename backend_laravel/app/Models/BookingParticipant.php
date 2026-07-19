@@ -42,6 +42,7 @@ class BookingParticipant extends Model
     public function latestAttendanceNote(): HasOne
     {
         return $this->hasOne(Attendance::class)
-            ->ofMany('updated_at', 'max', fn ($query) => $query->whereNotNull('note'));
+            ->whereNotNull('note')
+            ->ofMany('updated_at', 'max');
     }
 }

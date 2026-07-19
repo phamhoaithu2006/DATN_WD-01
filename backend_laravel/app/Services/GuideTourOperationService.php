@@ -57,7 +57,12 @@ class GuideTourOperationService
                 'booking:id,booking_code,user_id,tour_id,tour_departure_id,status,payment_status,number_of_people,note',
                 'booking.contact:id,booking_id,contact_name,contact_email,contact_phone,address,special_request',
                 'booking.user:id,full_name,email,phone',
-                'latestAttendanceNote:id,booking_participant_id,note,updated_at',
+                'latestAttendanceNote' => fn ($query) => $query->select([
+                    'attendances.id',
+                    'attendances.booking_participant_id',
+                    'attendances.note',
+                    'attendances.updated_at',
+                ]),
             ])
             ->when($session, function (Builder $query) use ($session): void {
                 $query->with([

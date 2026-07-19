@@ -101,7 +101,7 @@ class GuideProfileController extends Controller
             'avatar' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
 
             'certificate_type' => 'sometimes|string|max:255',
-            'experience_years' => 'sometimes|integer|min:0',
+            'experience_years' => 'sometimes|integer|min:0|max:40',
             'status' => 'sometimes|in:active,inactive',
 
             'languages' => 'sometimes|array',

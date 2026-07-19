@@ -143,9 +143,10 @@ function validateForm(form, editing) {
   if (
     form.experience_years === '' ||
     !Number.isInteger(experienceYears) ||
-    experienceYears < 0
+    experienceYears < 0 ||
+    experienceYears > 40
   ) {
-    errors.experience_years = 'Số năm kinh nghiệm phải là số nguyên từ 0.'
+    errors.experience_years = 'Số năm kinh nghiệm phải là số nguyên từ 0 đến 40.'
   }
 
   if (!form.status || !STATUS_OPTIONS.some((item) => item.value === form.status)) {
@@ -293,6 +294,7 @@ function SupportStaffFormModal({
             Số năm kinh nghiệm <span className="text-red-500">*</span>
             <input
               min="0"
+              max="40"
               type="number"
               value={form.experience_years}
               onChange={onChange('experience_years')}

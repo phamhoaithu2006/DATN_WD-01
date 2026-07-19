@@ -346,10 +346,29 @@
 
 .guide-header-actions-group {
   display: flex;
+  align-items: flex-end;
+  flex-direction: column;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.guide-header-actions-top-row {
+  display: flex;
   align-items: center;
   flex-wrap: nowrap;
   gap: 10px;
-  justify-content: flex-end;
+}
+
+.guide-header-actions-button-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.guide-header-actions-primary-buttons {
+  display: flex;
+  gap: 10px;
 }
 
 .guide-right-actions {
@@ -572,8 +591,8 @@
 
 .guide-page .guide-stat-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 16px !important;
 }
 
 .guide-page .guide-stat-card,
@@ -686,7 +705,7 @@
 
 .guide-filter-bar {
   display: grid;
-  grid-template-columns: minmax(0, 1.65fr) minmax(0, 0.78fr) minmax(0, 0.78fr) minmax(0, 0.78fr);
+  grid-template-columns: minmax(0, 1.65fr) minmax(0, 0.78fr) minmax(0, 0.78fr);
   gap: 12px;
   padding: 16px 18px;
   border-bottom: 1px solid #e2e8f0;
@@ -1187,6 +1206,7 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
+  align-items: start;
   margin: 22px 0;
 }
 
@@ -1218,6 +1238,11 @@
   color: #dc2626;
   font-size: 12px;
   font-weight: 700;
+}
+
+.guide-form-grid input.guide-input-error {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
 }
 
 .guide-help-text {
@@ -1510,8 +1535,19 @@
   }
 
   .guide-header-actions-group,
+  .guide-header-actions-top-row,
+  .guide-header-actions-button-stack,
   .guide-header-links {
     width: 100%;
+  }
+
+  .guide-header-actions-top-row {
+    flex-wrap: wrap;
+  }
+
+  .guide-header-actions-primary-buttons {
+    width: 100%;
+    flex-wrap: wrap;
   }
 
   .guide-header-links {
@@ -1524,7 +1560,6 @@
     flex-direction: column;
   }
 
-  .guide-stat-grid,
   .guide-content-grid,
   .guide-form-grid,
   .guide-repeat-row,
@@ -1601,7 +1636,6 @@
     flex-direction: column;
   }
 
-  .guide-stat-grid,
   .guide-content-grid,
   .guide-form-grid,
   .guide-repeat-row,
