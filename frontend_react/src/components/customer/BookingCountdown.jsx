@@ -45,7 +45,6 @@ export default function BookingCountdown({ expiresAt, onExpire, compact = false 
   if (compact) {
     return (
       <span className="vg-countdown-compact" title={`Thời gian thanh toán còn lại: ${formattedTime}`}>
-        <span className="vg-pulse-dot" />
         <Icon name="clock" size={13} />
         <strong>{formattedTime}</strong>
       </span>
@@ -54,7 +53,6 @@ export default function BookingCountdown({ expiresAt, onExpire, compact = false 
 
   return (
     <div className="vg-countdown-box">
-      <span className="vg-pulse-dot" />
       <Icon name="clock" size={16} />
       <span>Thời gian giữ chỗ còn lại:</span>
       <strong className="vg-countdown-digits">{formattedTime}</strong>

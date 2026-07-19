@@ -267,7 +267,8 @@
 .vg-account-dropdown {
   top: calc(100% + 8px);
   right: 0;
-  width: 280px;
+  width: 360px;
+  max-width: calc(100vw - 24px);
   overflow: hidden;
   padding: 8px 0;
 }
@@ -280,6 +281,7 @@
   color: #18212c;
   font-weight: 500;
   text-decoration: none;
+  white-space: nowrap;
 }
 
 .vg-account-dropdown a:hover {
@@ -1394,26 +1396,7 @@
    ========================================================================== */
 
 .vg-pulse-dot {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background-color: currentColor;
-  position: relative;
-  flex-shrink: 0;
-}
-
-.vg-pulse-dot::after {
-  content: '';
-  position: absolute;
-  top: -3px;
-  left: -3px;
-  right: -3px;
-  bottom: -3px;
-  border-radius: 50%;
-  border: 2px solid currentColor;
-  animation: vgPulseRing 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
-  opacity: 0.8;
+  display: none !important;
 }
 
 @keyframes vgPulseRing {
@@ -1421,6 +1404,7 @@
     transform: scale(0.6);
     opacity: 1;
   }
+
   100% {
     transform: scale(1.8);
     opacity: 0;
@@ -1797,6 +1781,11 @@
   padding-top: 16px;
 }
 
+.vg-home-page .vg-home-pending-banner-wrapper + .vg-hero {
+  margin-top: 0;
+  padding-top: 80px;
+}
+
 .vg-home-pending-banner {
   display: flex;
   align-items: center;
@@ -2043,9 +2032,8 @@
 
 .vg-profile-hero-shell {
   align-items: center;
-  display: grid;
-  gap: 24px;
-  grid-template-columns: minmax(0, 1fr) 320px;
+  display: flex;
+  justify-content: space-between;
 }
 
 .vg-profile-user {
@@ -3368,10 +3356,32 @@
 }
 
 .vg-account-trigger {
+  position: relative !important;
   border: 1px solid #d8e4f4;
   background: #ffffff;
   color: #1f2a44;
   gap: 8px;
+}
+
+.vg-nav-corner-badge {
+  position: absolute !important;
+  top: -4px !important;
+  right: -4px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: 20px !important;
+  height: 20px !important;
+  padding: 0 4px !important;
+  border-radius: 9999px !important;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
+  color: #ffffff !important;
+  font-size: 0.75rem !important;
+  font-weight: 800 !important;
+  line-height: 1 !important;
+  border: 2px solid #ffffff !important;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.4) !important;
+  z-index: 10 !important;
 }
 
 .vg-account-trigger span {
@@ -7282,16 +7292,17 @@ textarea.vg-checkout-input {
   .vg-checkout-steps-bar .step-line {
     display: none;
   }
+
   .vg-message-line {
-  margin: 0 0 6px 0;
-  line-height: 1.5;
-}
+    margin: 0 0 6px 0;
+    line-height: 1.5;
+  }
 
-.vg-message-line:last-child {
-  margin-bottom: 0;
-}
+  .vg-message-line:last-child {
+    margin-bottom: 0;
+  }
 
-.vg-message.ai strong {
-  color: #1a73e8;
-}
+  .vg-message.ai strong {
+    color: #1a73e8;
+  }
 }

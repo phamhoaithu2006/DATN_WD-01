@@ -113,7 +113,6 @@ function ProfileDashboard({
     if (canPayBooking(booking)) {
       return (
         <span className="vg-status-badge is-pending-payment">
-          <span className="vg-pulse-dot" />
           <Icon name="clock" size={13} /> Đang đợi thanh toán
         </span>
       );
@@ -182,12 +181,6 @@ function ProfileDashboard({
                 </span>
               </div>
             </div>
-          </div>
-
-          <div className="vg-profile-quick-card">
-            <span>Hành trình tiếp theo</span>
-            <strong>{bookings[0]?.tour?.title || "Chưa có chuyến sắp tới"}</strong>
-            <Link to="/tours">Khám phá tour</Link>
           </div>
         </div>
       </section>
