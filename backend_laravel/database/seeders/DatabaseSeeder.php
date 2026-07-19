@@ -23,11 +23,11 @@ class DatabaseSeeder extends Seeder
 
             GuideSeeder::class,
             TourSeeder::class,
-            TourGuideAssignmentSeeder::class,
-            BookingSeeder::class,
-            GuideReviewSeeder::class,
             PromotionSeeder::class,
+            TourGuideAssignmentSeeder::class,
+            GuideReviewSeeder::class,
             TourTestingDataSeeder::class,
+            DemoWorkflowSeeder::class,
         ]);
     }
 }

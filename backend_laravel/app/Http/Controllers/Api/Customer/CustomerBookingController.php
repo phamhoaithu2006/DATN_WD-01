@@ -299,6 +299,10 @@ class CustomerBookingController extends Controller
                 return ['error' => 'Đơn hàng đã hết thời gian giữ chỗ thanh toán.'];
             }
 
+            $payment->update([
+                'gateway_response' => null,
+            ]);
+
             return [
                 'data' => [
                     'booking_id' => $lockedBooking->id,

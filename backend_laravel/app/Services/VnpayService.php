@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Payment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Str;
 use RuntimeException;
 
 class VnpayService
@@ -39,7 +40,7 @@ class VnpayService
             'vnp_OrderType' => 'other',
             'vnp_ReturnUrl' => $this->returnUrl(),
             'vnp_TmnCode' => $this->merchantCode(),
-            'vnp_TxnRef' => (string) $payment->id,
+            'vnp_TxnRef' => $this->newTransactionReference($payment),
             'vnp_Version' => self::VERSION,
         ];
 
@@ -75,6 +76,11 @@ class VnpayService
         return collect($params)
             ->map(fn ($value, string $key) => urlencode($key).'='.urlencode((string) $value))
             ->implode('&');
+    }
+
+    private function newTransactionReference(Payment $payment): string
+    {
+        return 'P'.$payment->id.'A'.Str::upper(Str::random(20));
     }
 
     private function ensureConfigured(): void

@@ -4,8 +4,8 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class PromotionSeeder extends Seeder
 {
@@ -13,7 +13,7 @@ class PromotionSeeder extends Seeder
     {
         $now = Carbon::now();
 
-        DB::table('promotions')->insert([
+        $promotions = [
             [
                 'code'                => 'SUMMER2026',
                 'name'                => 'Khuyến mãi hè 2026',
@@ -23,9 +23,9 @@ class PromotionSeeder extends Seeder
                 'max_discount_amount' => 500000,
                 'min_order_amount'    => 2000000,
                 'usage_limit'         => 100,
-                'used_count'          => 12,
-                'start_date'          => '2026-06-01',
-                'end_date'            => '2026-08-31',
+                'used_count'          => 0,
+                'start_date'          => $now->copy()->subMonth()->toDateString(),
+                'end_date'            => $now->copy()->addMonths(2)->toDateString(),
                 'status'              => 'active',
                 'deleted_at'          => null,
                 'created_at'          => $now,
@@ -40,9 +40,9 @@ class PromotionSeeder extends Seeder
                 'max_discount_amount' => 50000,
                 'min_order_amount'    => 1000000,
                 'usage_limit'         => 200,
-                'used_count'          => 45,
-                'start_date'          => '2026-01-01',
-                'end_date'            => '2026-12-31',
+                'used_count'          => 0,
+                'start_date'          => $now->copy()->startOfYear()->toDateString(),
+                'end_date'            => $now->copy()->addYear()->endOfYear()->toDateString(),
                 'status'              => 'active',
                 'deleted_at'          => null,
                 'created_at'          => $now,
@@ -57,9 +57,9 @@ class PromotionSeeder extends Seeder
                 'max_discount_amount' => 1000000,
                 'min_order_amount'    => 5000000,
                 'usage_limit'         => 50,
-                'used_count'          => 8,
-                'start_date'          => '2026-05-01',
-                'end_date'            => '2026-09-30',
+                'used_count'          => 0,
+                'start_date'          => $now->copy()->subMonths(2)->toDateString(),
+                'end_date'            => $now->copy()->addMonths(3)->toDateString(),
                 'status'              => 'active',
                 'deleted_at'          => null,
                 'created_at'          => $now,
@@ -74,9 +74,9 @@ class PromotionSeeder extends Seeder
                 'max_discount_amount' => 200000,
                 'min_order_amount'    => 3000000,
                 'usage_limit'         => 80,
-                'used_count'          => 20,
-                'start_date'          => '2026-01-01',
-                'end_date'            => '2026-12-31',
+                'used_count'          => 0,
+                'start_date'          => $now->copy()->startOfYear()->toDateString(),
+                'end_date'            => $now->copy()->addYear()->endOfYear()->toDateString(),
                 'status'              => 'active',
                 'deleted_at'          => null,
                 'created_at'          => $now,
@@ -91,15 +91,22 @@ class PromotionSeeder extends Seeder
                 'max_discount_amount' => 800000,
                 'min_order_amount'    => 4000000,
                 'usage_limit'         => 30,
-                'used_count'          => 30,
-                'start_date'          => '2025-11-01',
-                'end_date'            => '2025-12-31',
+                'used_count'          => 0,
+                'start_date'          => $now->copy()->subYears(2)->startOfYear()->toDateString(),
+                'end_date'            => $now->copy()->subYear()->endOfYear()->toDateString(),
                 'status'              => 'inactive',
                 'deleted_at'          => null,
                 'created_at'          => $now,
                 'updated_at'          => $now,
             ],
-        ]);
+        ];
+
+        foreach ($promotions as $promotion) {
+            DB::table('promotions')->updateOrInsert(
+                ['code' => $promotion['code']],
+                $promotion
+            );
+        }
 
         $this->command->info('✅ Seed 5 promotions thành công!');
     }

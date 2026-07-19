@@ -10,6 +10,7 @@ use App\Models\TourGuideAssignment;
 use App\Models\User;
 use App\Services\GuideReviewService;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 class GuideReviewSeeder extends Seeder
@@ -149,6 +150,61 @@ class GuideReviewSeeder extends Seeder
                     'total_amount' => $unitPrice,
                     'status' => 'completed',
                     'payment_status' => 'paid',
+                ]
+            );
+
+            DB::table('booking_contacts')->updateOrInsert(
+                ['booking_id' => $booking->id],
+                [
+                    'contact_name' => $reviewer->full_name,
+                    'contact_email' => $reviewer->email,
+                    'contact_phone' => $reviewer->phone,
+                    'address' => 'Địa chỉ khách hàng đánh giá mẫu',
+                    'special_request' => null,
+                    'created_at' => $departure->departure_date->copy()->subDays(7),
+                    'updated_at' => $reviewedAt,
+                ]
+            );
+
+            DB::table('booking_participants')->updateOrInsert(
+                ['booking_id' => $booking->id, 'identity_number' => 'RV-'.$fixture['booking_code']],
+                [
+                    'full_name' => $reviewer->full_name,
+                    'phone' => $reviewer->phone,
+                    'birth_date' => now()->subYears(30)->toDateString(),
+                    'gender' => 'other',
+                    'participant_type' => 'adult',
+                    'unit_price' => $unitPrice,
+                    'pricing_rule_label' => 'Người lớn',
+                    'pricing_type' => 'fixed',
+                    'pricing_value' => $unitPrice,
+                    'created_at' => $departure->departure_date->copy()->subDays(7),
+                    'updated_at' => $reviewedAt,
+                ]
+            );
+
+            DB::table('payments')->updateOrInsert(
+                ['booking_id' => $booking->id],
+                [
+                    'payment_method' => 'vnpay',
+                    'amount' => $unitPrice,
+                    'transaction_code' => 'REVIEW-'.$fixture['booking_code'],
+                    'gateway_response' => json_encode(['demo' => true, 'purpose' => 'guide_review']),
+                    'status' => 'success',
+                    'paid_at' => $departure->departure_date->copy()->subDays(6),
+                    'expires_at' => null,
+                    'created_at' => $departure->departure_date->copy()->subDays(7),
+                    'updated_at' => $reviewedAt,
+                ]
+            );
+
+            DB::table('booking_status_histories')->updateOrInsert(
+                ['booking_id' => $booking->id, 'new_status' => 'completed'],
+                [
+                    'changed_by' => null,
+                    'old_status' => 'confirmed',
+                    'note' => 'Tour đã hoàn thành và có thể đánh giá.',
+                    'created_at' => $departure->return_date,
                 ]
             );
 
