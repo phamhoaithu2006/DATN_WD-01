@@ -9371,14 +9371,14 @@
 }
 .guide-shot-filterbar .guide-shot-date-filter,
 .guide-shot-filterbar .guide-shot-select-filter {
-  flex: 0 1 auto;
   color: #64748b;
   font-size: 12px;
   font-weight: 850;
 }
 .guide-shot-filterbar .guide-shot-date-filter {
   order: 2;
-  width: 272px;
+  flex: 0 1 400px;
+  width: 400px;
 }
 .guide-shot-filterbar .guide-shot-date-filter span,
 .guide-shot-filterbar .guide-shot-select-filter span {
@@ -9394,18 +9394,24 @@
 }
 .guide-shot-filterbar .guide-shot-select-filter {
   order: 3;
+  flex: 0 0 210px;
   padding-right: 10px;
 }
 .guide-shot-filterbar .guide-shot-select-filter:last-of-type {
   order: 4;
 }
 .guide-shot-filterbar .guide-shot-select-filter select {
+  flex: 1;
   min-width: 92px;
   border: 0;
   background: transparent;
   color: #334155;
   font: inherit;
   outline: 0;
+}
+.guide-shot-filterbar .guide-shot-search-filter {
+  order: 1;
+  flex: 1 1 360px;
 }
 .guide-shot-tour-list {
   padding: 0 24px;

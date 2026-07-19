@@ -4,7 +4,6 @@ import {
   getGuideTourCompleted,
   getGuideTourDetail,
   getGuideTourCustomers,
-  getGuideTourDestinationOptions,
   getGuideTourOngoing,
   getGuideTourUpcoming,
   getGuideTours,
@@ -389,9 +388,7 @@ function GuideToursPage() {
   const [keyword, setKeyword] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
-  const [destinationId, setDestinationId] = useState("");
-  const [sort, setSort] = useState("newest");
-  const [destinations, setDestinations] = useState([]);
+  const [sort, setSort] = useState("priority");
   const [page, setPage] = useState(1);
   const [items, setItems] = useState([]);
   const [heroIndex, setHeroIndex] = useState(0);
@@ -423,22 +420,6 @@ function GuideToursPage() {
 
   useEffect(() => {
     let mounted = true;
-
-    getGuideTourDestinationOptions()
-      .then((data) => {
-        if (mounted) setDestinations(Array.isArray(data) ? data : []);
-      })
-      .catch(() => {
-        if (mounted) setDestinations([]);
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    let mounted = true;
     async function load() {
       setLoading(true);
       setError("");
@@ -449,7 +430,6 @@ function GuideToursPage() {
           keyword: keyword.trim() || undefined,
           from_date: fromDate || undefined,
           to_date: toDate || undefined,
-          destination_id: destinationId || undefined,
           sort,
         };
         const active = await fetchers[activeTab](params);
@@ -477,7 +457,7 @@ function GuideToursPage() {
     return () => {
       mounted = false;
     };
-  }, [activeTab, destinationId, fromDate, keyword, page, sort, toDate]);
+  }, [activeTab, fromDate, keyword, page, sort, toDate]);
 
   const heroItem = items[0];
   const heroImages = items.map(getTourImage).filter(Boolean);
@@ -661,24 +641,6 @@ function GuideToursPage() {
             />
           </label>
           <label className="guide-shot-select-filter">
-            <span>Địa điểm</span>
-            <select
-              value={destinationId}
-              onChange={(event) => {
-                setDestinationId(event.target.value);
-                setPage(1);
-              }}
-              aria-label="Lọc theo địa điểm"
-            >
-              <option value="">Tất cả</option>
-              {destinations.map((destination) => (
-                <option key={destination.id} value={destination.id}>
-                  {destination.name}{destination.province_city ? ` - ${destination.province_city}` : ""}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="guide-shot-select-filter">
             <span>Sắp xếp</span>
             <select
               value={sort}
@@ -688,11 +650,12 @@ function GuideToursPage() {
               }}
               aria-label="Sắp xếp tour"
             >
+              <option value="priority">Ưu tiên trạng thái</option>
               <option value="newest">Mới nhất</option>
               <option value="oldest">Cũ nhất</option>
             </select>
           </label>
-          <label>
+          <label className="guide-shot-search-filter">
             <svg viewBox="0 0 24 24">
               <circle cx="11" cy="11" r="8" />
               <path d="m21 21-4.35-4.35" />
