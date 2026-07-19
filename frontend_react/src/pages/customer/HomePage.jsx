@@ -2,6 +2,9 @@ import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import Icon from "../../components/customer/Icon";
 import TourCard from "../../components/customer/TourCard";
+import BookingCountdown from "../../components/customer/BookingCountdown";
+import { useLocale } from "../../contexts/LocaleContext";
+import { continueCustomerBookingPayment } from "../../services/customerApi";
 
 function HomePage({
   tours = [],
@@ -9,15 +12,52 @@ function HomePage({
   favorites = [],
   homeContent = {},
   tourLoadError = "",
+  bookings = [],
   onFavorite,
 }) {
   const navigate = useNavigate();
+  const { formatCurrency } = useLocale();
+  const [payingId, setPayingId] = useState(null);
+  const [payError, setPayError] = useState("");
 
   const [search, setSearch] = useState({
     keyword: "",
     departure_date: "",
     guests: 2,
   });
+
+  const paymentExpiresAt = (booking) => booking.payment?.expires_at
+    ? new Date(booking.payment.expires_at).getTime()
+    : 0;
+
+  const pendingBookings = (Array.isArray(bookings) ? bookings : []).filter(
+    (booking) =>
+      booking.status === "pending" &&
+      booking.payment_status === "unpaid" &&
+      booking.payment?.payment_method === "vnpay" &&
+      booking.payment?.status === "pending" &&
+      paymentExpiresAt(booking) > Date.now()
+  );
+
+  const pendingBooking = pendingBookings[0];
+
+  const handleContinuePayment = async (booking) => {
+    setPayError("");
+    setPayingId(booking.id);
+
+    try {
+      const payment = await continueCustomerBookingPayment(booking.id);
+
+      if (!payment?.checkout_url) {
+        throw new Error("Không thể tạo liên kết thanh toán VNPAY.");
+      }
+
+      window.location.assign(payment.checkout_url);
+    } catch (error) {
+      setPayError(error.response?.data?.message || error.message || "Không thể tiếp tục thanh toán.");
+      setPayingId(null);
+    }
+  };
 
   const safeTours = Array.isArray(tours) ? tours : [];
   const safeInternationalTours = Array.isArray(internationalTours)
@@ -89,6 +129,48 @@ function HomePage({
 
   return (
     <main className="vg-home-page">
+      {pendingBooking ? (
+        <div className="vg-home-pending-banner-wrapper">
+          <div className="vg-container">
+            <div className="vg-home-pending-banner">
+              <div className="vg-pending-banner-content">
+                <span className="vg-pending-badge">
+                  <span className="vg-pulse-dot" />
+                  <Icon name="clock" size={14} />
+                  Thông báo đơn hàng
+                </span>
+                <div className="vg-pending-info">
+                  <p>
+                    Bạn có đơn hàng <strong>{pendingBooking.booking_code}</strong> ({pendingBooking.tour?.title || "Tour ViVuGo"}) đang chờ thanh toán!
+                  </p>
+                  <div className="vg-pending-timer-row">
+                    <span>Thời gian giữ chỗ còn:</span>
+                    <BookingCountdown expiresAt={pendingBooking.payment?.expires_at} compact />
+                    <span className="vg-pending-amount">· {formatCurrency(Number(pendingBooking.total_amount))}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="vg-pending-banner-actions">
+                <button
+                  type="button"
+                  className="vg-banner-pay-btn"
+                  onClick={() => handleContinuePayment(pendingBooking)}
+                  disabled={payingId === pendingBooking.id}
+                >
+                  <Icon name="creditCard" size={15} />
+                  {payingId === pendingBooking.id ? "Đang xử lý..." : "Thanh toán ngay"}
+                </button>
+                <Link to="/customer/bookings" className="vg-banner-link-btn">
+                  Xem chi tiết
+                </Link>
+              </div>
+            </div>
+            {payError ? <div className="vg-data-alert mt-2">{payError}</div> : null}
+          </div>
+        </div>
+      ) : null}
+
       {tourLoadError ? (
         <div className="vg-container vg-data-alert-wrap">
           <div className="vg-data-alert" role="alert">

@@ -5,9 +5,11 @@ namespace App\Http\Controllers\Api\Customer;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Customer\StoreBookingRequest;
 use App\Models\Booking;
+use App\Models\Payment;
 use App\Models\Tour;
 use App\Models\TourDeparture;
 use App\Services\TourPricingService;
+use App\Services\VnpayPaymentLifecycleService;
 use App\Services\VnpayService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -21,6 +23,7 @@ class CustomerBookingController extends Controller
     public function __construct(
         private readonly TourPricingService $tourPricingService,
         private readonly VnpayService $vnpayService,
+        private readonly VnpayPaymentLifecycleService $paymentLifecycleService,
     ) {}
 
     public function preview(Request $request): JsonResponse
@@ -255,6 +258,119 @@ class CustomerBookingController extends Controller
                 'expires_at' => $booking->payment->expires_at?->toIso8601String(),
             ]),
         ], 201);
+    }
+
+    public function continuePayment(Request $request, Booking $booking): JsonResponse
+    {
+        if ($booking->user_id !== $request->user()->id) {
+            abort(404);
+        }
+
+        $result = DB::transaction(function () use ($booking, $request): array {
+            $lockedBooking = Booking::query()
+                ->lockForUpdate()
+                ->findOrFail($booking->id);
+
+            if ($lockedBooking->user_id !== $request->user()->id) {
+                abort(404);
+            }
+
+            $payment = Payment::query()
+                ->where('booking_id', $lockedBooking->id)
+                ->lockForUpdate()
+                ->first();
+
+            if (
+                $lockedBooking->status !== 'pending'
+                || $lockedBooking->payment_status !== 'unpaid'
+                || ! $payment
+                || $payment->payment_method !== 'vnpay'
+                || $payment->status !== 'pending'
+            ) {
+                return ['error' => 'Đơn hàng này không còn ở trạng thái chờ thanh toán.'];
+            }
+
+            if (! $payment->expires_at || $payment->expires_at->isPast()) {
+                $this->paymentLifecycleService->failPendingPayment(
+                    $payment,
+                    'Link thanh toán VNPAY đã hết hạn.'
+                );
+
+                return ['error' => 'Đơn hàng đã hết thời gian giữ chỗ thanh toán.'];
+            }
+
+            return [
+                'data' => [
+                    'booking_id' => $lockedBooking->id,
+                    'payment_id' => $payment->id,
+                    'checkout_url' => $this->vnpayService->createPaymentUrl($payment, $request),
+                    'expires_at' => $payment->expires_at->toIso8601String(),
+                ],
+            ];
+        }, 3);
+
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đang chuyển đến VNPAY để tiếp tục thanh toán.',
+            'data' => $result['data'],
+        ]);
+    }
+
+    public function cancel(Request $request, Booking $booking): JsonResponse
+    {
+        if ($booking->user_id !== $request->user()->id) {
+            abort(404);
+        }
+
+        $result = DB::transaction(function () use ($booking, $request): array {
+            $lockedBooking = Booking::query()
+                ->lockForUpdate()
+                ->findOrFail($booking->id);
+
+            if ($lockedBooking->user_id !== $request->user()->id) {
+                abort(404);
+            }
+
+            if ($lockedBooking->status === 'cancelled') {
+                return ['booking' => $lockedBooking->fresh(['payment'])];
+            }
+
+            $payment = Payment::query()
+                ->where('booking_id', $lockedBooking->id)
+                ->lockForUpdate()
+                ->first();
+
+            if (
+                $lockedBooking->status !== 'pending'
+                || $lockedBooking->payment_status !== 'unpaid'
+                || ! $payment
+                || $payment->payment_method !== 'vnpay'
+                || $payment->status !== 'pending'
+            ) {
+                return ['error' => 'Chỉ có thể hủy đơn đang chờ thanh toán.'];
+            }
+
+            $this->paymentLifecycleService->failPendingPayment(
+                $payment,
+                'Khách hàng chủ động hủy đơn chờ thanh toán.'
+            );
+
+            return ['booking' => $lockedBooking->fresh(['payment'])];
+        }, 3);
+
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đã hủy đơn hàng và hoàn lại số chỗ.',
+            'data' => $result['booking'],
+        ]);
     }
 
     private function ensureDepartureCanBeBooked(Tour $tour, TourDeparture $departure): void

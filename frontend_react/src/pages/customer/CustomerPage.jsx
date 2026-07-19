@@ -474,6 +474,35 @@ function CustomerPage() {
     };
   }, [token]);
 
+  useEffect(() => {
+    if (!token || location.pathname !== "/customer/bookings") return undefined;
+
+    let active = true;
+
+    fetchBookings()
+      .then((accountBookings) => {
+        if (active) setBookings(accountBookings || []);
+      })
+      .catch(() => {});
+
+    return () => {
+      active = false;
+    };
+  }, [location.pathname, token]);
+
+  function updateBooking(updatedBooking) {
+    setBookings((current) => current.map((booking) => (
+      booking.id === updatedBooking.id
+        ? {
+            ...booking,
+            ...updatedBooking,
+            tour: updatedBooking.tour || booking.tour,
+            tour_departure: updatedBooking.tour_departure || booking.tour_departure,
+          }
+        : booking
+    )));
+  }
+
   async function toggleFavorite(tour) {
     const exists = favorites.includes(tour.id);
 
@@ -530,6 +559,7 @@ async function logout() {
       favorites={favorites}
       homeContent={normalizedHomeContent}
       tourLoadError={homeLoadError || tourLoadError}
+      bookings={bookings}
       onFavorite={toggleFavorite}
     />
   );
@@ -568,6 +598,7 @@ async function logout() {
         bookings={bookings}
         favoriteTours={favoriteTours}
         onFavorite={toggleFavorite}
+        onBookingUpdated={updateBooking}
       />
     ) : (
       <Navigate to="/auth/login" replace />

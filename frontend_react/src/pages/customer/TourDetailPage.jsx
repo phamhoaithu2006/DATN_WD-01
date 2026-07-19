@@ -73,6 +73,7 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
   const [previewLoading, setPreviewLoading] = useState(false);
   const [bookingError, setBookingError] = useState("");
   const [bookingSubmitting, setBookingSubmitting] = useState(false);
+  const [createdBooking, setCreatedBooking] = useState(null);
   const [useCustomContact, setUseCustomContact] = useState(false);
   const [contact, setContact] = useState(() => {
     const session = readSession() || {};
@@ -339,33 +340,41 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
         return;
       }
 
-      setCheckoutStep(3);
+      try {
+        setBookingSubmitting(true);
+        const booking = await createCustomerBooking({
+          tour_departure_id: Number(selectedDeparture.id),
+          number_of_people: totalGuests,
+          quantity_summary: buildQuantitySummary(),
+          contact,
+          participants,
+          note: contact.special_request || undefined,
+        });
+
+        if (!booking?.checkout_url) {
+          throw new Error("Không thể tạo liên kết thanh toán VNPAY.");
+        }
+
+        setCreatedBooking(booking);
+        setCheckoutStep(3);
+      } catch (error) {
+        const errors = error.response?.data?.errors;
+        const firstError = errors ? Object.values(errors).flat()[0] : null;
+        setBookingError(firstError || error.response?.data?.message || error.message || "Không thể lưu đơn chờ thanh toán, vui lòng thử lại.");
+      } finally {
+        setBookingSubmitting(false);
+      }
+
       return;
     }
 
-    try {
-      setBookingSubmitting(true);
-      const booking = await createCustomerBooking({
-        tour_departure_id: Number(selectedDeparture.id),
-        number_of_people: totalGuests,
-        quantity_summary: buildQuantitySummary(),
-        contact,
-        participants,
-        note: contact.special_request || undefined,
-      });
-
-      if (!booking?.checkout_url) {
-        throw new Error("Không thể tạo liên kết thanh toán VNPAY.");
-      }
-
-      window.location.assign(booking.checkout_url);
-    } catch (error) {
-      const errors = error.response?.data?.errors;
-      const firstError = errors ? Object.values(errors).flat()[0] : null;
-      setBookingError(firstError || error.response?.data?.message || error.message || "Không thể khởi tạo thanh toán VNPAY, vui lòng kiểm tra lại thông tin.");
-    } finally {
-      setBookingSubmitting(false);
+    if (!createdBooking?.checkout_url) {
+      setBookingError("Không tìm thấy liên kết thanh toán. Vui lòng tiếp tục từ trang đơn hàng.");
+      return;
     }
+
+    setBookingSubmitting(true);
+    window.location.assign(createdBooking.checkout_url);
   };
 
   // Filter 3 related tours (excluding current tour)
@@ -753,7 +762,7 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                   </div>
 
                   <div className="vg-options-action-buttons">
-                    {checkoutStep > 1 && (
+                    {checkoutStep > 1 && checkoutStep < 3 && (
                       <button
                         type="button"
                         className="checkout-back-button"
@@ -769,7 +778,7 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                       disabled={previewLoading || bookingSubmitting || !departures.length}
                     >
                       {checkoutStep === 1 && (previewLoading ? "Đang xử lý..." : "Đặt ngay")}
-                      {checkoutStep === 2 && "Đến bước thanh toán"}
+                      {checkoutStep === 2 && (bookingSubmitting ? "Đang lưu đơn..." : "Đến bước thanh toán")}
                       {checkoutStep === 3 && (bookingSubmitting ? "Đang chuyển đến VNPAY..." : "Thanh toán qua VNPAY")}
                     </button>
                   </div>
