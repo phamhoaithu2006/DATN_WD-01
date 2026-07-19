@@ -96,10 +96,10 @@ function getNextDeparture(tour) {
 function getTourImage(tour, fallbackImage = "") {
   const itineraryImage = Array.isArray(tour.itineraries)
     ? tour.itineraries
-        .flatMap((itinerary) =>
-          Array.isArray(itinerary.images) ? itinerary.images : [],
-        )
-        .find(Boolean)
+      .flatMap((itinerary) =>
+        Array.isArray(itinerary.images) ? itinerary.images : [],
+      )
+      .find(Boolean)
     : null;
 
   const imagePath =
@@ -183,8 +183,8 @@ function normalizeTour(tour) {
 
   const basePrice = toNumber(
     nextDeparture?.base_price ??
-      tour.base_price ??
-      tour.price?.base,
+    tour.base_price ??
+    tour.price?.base,
     0,
   );
 
@@ -247,20 +247,20 @@ function normalizeTour(tour) {
 
     nextDeparture: nextDeparture
       ? {
-          id: nextDeparture.id,
-          departure_date: nextDeparture.departure_date,
-          return_date: nextDeparture.return_date,
-          price: toNumber(nextDeparture.price),
-          base_price: toNumber(nextDeparture.base_price),
-          discount_price:
-            nextDeparture.discount_price !== null && nextDeparture.discount_price !== undefined
-              ? toNumber(nextDeparture.discount_price)
-              : null,
-          total_slots: toNumber(nextDeparture.total_slots),
-          booked_slots: toNumber(nextDeparture.booked_slots),
-          available_slots: getAvailableSlots(nextDeparture),
-          status: nextDeparture.status,
-        }
+        id: nextDeparture.id,
+        departure_date: nextDeparture.departure_date,
+        return_date: nextDeparture.return_date,
+        price: toNumber(nextDeparture.price),
+        base_price: toNumber(nextDeparture.base_price),
+        discount_price:
+          nextDeparture.discount_price !== null && nextDeparture.discount_price !== undefined
+            ? toNumber(nextDeparture.discount_price)
+            : null,
+        total_slots: toNumber(nextDeparture.total_slots),
+        booked_slots: toNumber(nextDeparture.booked_slots),
+        available_slots: getAvailableSlots(nextDeparture),
+        status: nextDeparture.status,
+      }
       : null,
 
     nextDepartureDate:
@@ -270,7 +270,7 @@ function normalizeTour(tour) {
 
     minDeparturePrice:
       tour.min_departure_price !== undefined &&
-      tour.min_departure_price !== null
+        tour.min_departure_price !== null
         ? toNumber(tour.min_departure_price)
         : null,
 
@@ -309,6 +309,7 @@ function CustomerPage() {
   const [homeContent, setHomeContent] = useState({});
   const [homeLoadError, setHomeLoadError] = useState("");
   const [tourLoadError, setTourLoadError] = useState("");
+  const [currentTime, setCurrentTime] = useState(() => Date.now());
 
   const [summary, setSummary] = useState({
     bookings_count: 0,
@@ -339,6 +340,20 @@ function CustomerPage() {
 
     return international;
   }, [normalizedTours]);
+
+  const pendingPaymentCount = useMemo(() => bookings.filter((booking) => (
+    booking.status === "pending"
+    && booking.payment_status === "unpaid"
+    && booking.payment?.payment_method === "vnpay"
+    && booking.payment?.status === "pending"
+    && new Date(booking.payment.expires_at).getTime() > currentTime
+  )).length, [bookings, currentTime]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setCurrentTime(Date.now()), 30000);
+
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -405,13 +420,13 @@ function CustomerPage() {
         const scopedItems =
           scope === "domestic"
             ? items.filter((tour, index) =>
-                isDomesticTour(normalizeTour(tour, index)),
-              )
+              isDomesticTour(normalizeTour(tour, index)),
+            )
             : scope === "international"
               ? items.filter(
-                  (tour, index) =>
-                    !isDomesticTour(normalizeTour(tour, index)),
-                )
+                (tour, index) =>
+                  !isDomesticTour(normalizeTour(tour, index)),
+              )
               : items;
 
         if (!active) return;
@@ -468,12 +483,41 @@ function CustomerPage() {
           ...(account || {}),
         }));
       })
-      .catch(() => {});
+      .catch(() => { });
 
     return () => {
       active = false;
     };
   }, [token]);
+
+  useEffect(() => {
+    if (!token || location.pathname !== "/customer/bookings") return undefined;
+
+    let active = true;
+
+    fetchBookings()
+      .then((accountBookings) => {
+        if (active) setBookings(accountBookings || []);
+      })
+      .catch(() => { });
+
+    return () => {
+      active = false;
+    };
+  }, [location.pathname, token]);
+
+  function updateBooking(updatedBooking) {
+    setBookings((current) => current.map((booking) => (
+      booking.id === updatedBooking.id
+        ? {
+          ...booking,
+          ...updatedBooking,
+          tour: updatedBooking.tour || booking.tour,
+          tour_departure: updatedBooking.tour_departure || booking.tour_departure,
+        }
+        : booking
+    )));
+  }
 
   async function toggleFavorite(tour) {
     const exists = favorites.includes(tour.id);
@@ -497,18 +541,18 @@ function CustomerPage() {
       // Giữ trạng thái local nếu API chưa phản hồi được.
     }
   }
-async function logout() {
-  try {
-    await logoutApi();
-  } catch {
-    // Token có thể đã hết hạn.
-  }
+  async function logout() {
+    try {
+      await logoutApi();
+    } catch {
+      // Token có thể đã hết hạn.
+    }
 
-  clearSession();
-  clearChatHistory(); // <-- thêm dòng này
-  setUser(null);
-  setFavorites(readStoredFavorites());
-}
+    clearSession();
+    clearChatHistory(); // <-- thêm dòng này
+    setUser(null);
+    setFavorites(readStoredFavorites());
+  }
 
   const favoriteTours = normalizedTours.filter((tour) =>
     favorites.includes(tour.id),
@@ -580,6 +624,7 @@ async function logout() {
         bookings={bookings}
         favoriteTours={favoriteTours}
         onFavorite={toggleFavorite}
+        onBookingUpdated={updateBooking}
       />
     ) : (
       <Navigate to="/auth/login" replace />
@@ -604,11 +649,10 @@ async function logout() {
 
   return (
     <div
-      className={`vg-app ${
-        location.pathname === "/" ? "is-home-page" : ""
-      }`}
+      className={`vg-app ${location.pathname === "/" ? "is-home-page" : ""
+        }`}
     >
-      <Header user={user} onLogout={logout} />
+      <Header user={user} onLogout={logout} pendingCount={pendingPaymentCount} />
       {content}
       <Footer />
       <ChatBox />

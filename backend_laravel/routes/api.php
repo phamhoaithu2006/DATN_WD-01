@@ -99,6 +99,8 @@ Route::middleware(['auth:sanctum', 'role:customer'])->group(function () {
     // đặt tour
     Route::post('customer/bookings/preview', [CustomerBookingController::class, 'preview']);
     Route::post('customer/bookings', [CustomerBookingController::class, 'store']);
+    Route::post('customer/bookings/{booking}/continue-payment', [CustomerBookingController::class, 'continuePayment'])->whereNumber('booking');
+    Route::patch('customer/bookings/{booking}/cancel', [CustomerBookingController::class, 'cancel'])->whereNumber('booking');
     Route::get('customer/payments/vnpay/{payment}', [VnpayPaymentController::class, 'status'])->whereNumber('payment');
     Route::get('customer/guide-reviewable-bookings', [CustomerGuideReviewController::class, 'reviewableBookings']);
     Route::post('customer/guide-reviews', [CustomerGuideReviewController::class, 'store']);
