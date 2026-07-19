@@ -282,17 +282,17 @@ const megaMenuData = {
   }
 };
 
-function Header({ user, onLogout }) {
+function Header({ user, onLogout, pendingCount = 0 }) {
   const { language } = useLocale();
   const location = useLocation();
-  
+
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeMenu, setActiveMenu] = useState(null);
   const [activeTab, setActiveTab] = useState(null);
   const [mobileAccordion, setMobileAccordion] = useState(null);
   const [menuOpenedByClick, setMenuOpenedByClick] = useState(false);
   const [menuData, setMenuData] = useState(megaMenuData);
-  
+
   const headerRef = useRef(null);
   const closeTimeoutRef = useRef(null);
 
@@ -344,27 +344,27 @@ function Header({ user, onLogout }) {
           "all-destinations": destinations.map(d => ({
             id: d.id,
             title: { vi: d.name, en: d.name },
-            subtitle: { 
-              vi: d.province_city ? `Điểm du lịch tại ${d.province_city}` : "Điểm du lịch nổi bật", 
-              en: d.province_city ? `Attraction in ${d.province_city}` : "Top attraction" 
+            subtitle: {
+              vi: d.province_city ? `Điểm du lịch tại ${d.province_city}` : "Điểm du lịch nổi bật",
+              en: d.province_city ? `Attraction in ${d.province_city}` : "Top attraction"
             },
             image: d.thumbnail_url || "https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=120&q=80"
           })),
           "vietnam": domesticDests.map(d => ({
             id: d.id,
             title: { vi: d.name, en: d.name },
-            subtitle: { 
-              vi: d.province_city ? `Kỳ quan tại ${d.province_city}, Việt Nam` : "Kỳ quan tại Việt Nam", 
-              en: d.province_city ? `Wonder in ${d.province_city}, Vietnam` : "Wonder in Vietnam" 
+            subtitle: {
+              vi: d.province_city ? `Kỳ quan tại ${d.province_city}, Việt Nam` : "Kỳ quan tại Việt Nam",
+              en: d.province_city ? `Wonder in ${d.province_city}, Vietnam` : "Wonder in Vietnam"
             },
             image: d.thumbnail_url || "https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=120&q=80"
           })),
           "international": intlDests.map(d => ({
             id: d.id,
             title: { vi: d.name, en: d.name },
-            subtitle: { 
-              vi: `${d.province_city || ''}, ${d.country}`, 
-              en: `${d.province_city || ''}, ${d.country}` 
+            subtitle: {
+              vi: `${d.province_city || ''}, ${d.country}`,
+              en: `${d.province_city || ''}, ${d.country}`
             },
             image: d.thumbnail_url || "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=120&q=80"
           }))
@@ -395,8 +395,8 @@ function Header({ user, onLogout }) {
         };
 
         activeCategories.forEach(cat => {
-          const catTours = tours.filter(tour => 
-            tour.category_id === cat.id || 
+          const catTours = tours.filter(tour =>
+            tour.category_id === cat.id ||
             tour.category_info?.id === cat.id ||
             (tour.category && (tour.category === cat.name || tour.category.name === cat.name))
           );
@@ -467,7 +467,7 @@ function Header({ user, onLogout }) {
   // Opens dropdown for a specific menu and defaults its active vertical tab
   const handleOpenDropdown = (menuKey) => {
     if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
-    
+
     if (activeMenu === menuKey) {
       if (menuOpenedByClick) {
         // Toggle close if already clicked-open
@@ -488,7 +488,7 @@ function Header({ user, onLogout }) {
 
   const handleMouseEnterItem = (menuKey) => {
     if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
-    
+
     setActiveMenu(menuKey);
     // Set default vertical tab if changing top-level menus
     if (activeMenu !== menuKey) {
@@ -499,7 +499,7 @@ function Header({ user, onLogout }) {
 
   const handleMouseLeaveItem = () => {
     if (menuOpenedByClick) return; // Keep menu open if it was locked via click
-    
+
     closeTimeoutRef.current = setTimeout(() => {
       setActiveMenu(null);
     }, 250); // 250ms smooth hover timeout
@@ -511,7 +511,7 @@ function Header({ user, onLogout }) {
 
   const handleDropdownMouseLeave = () => {
     if (menuOpenedByClick) return; // Keep menu open if it was locked via click
-    
+
     closeTimeoutRef.current = setTimeout(() => {
       setActiveMenu(null);
     }, 250);
@@ -538,8 +538,7 @@ function Header({ user, onLogout }) {
         <nav className="hidden md:flex items-center gap-8 mx-auto relative h-full">
           <NavLink
             className={({ isActive }) =>
-              `relative py-6 font-semibold text-[0.98rem] transition-colors duration-200 ${
-                isActive ? "text-blue-600" : "text-[#111820] hover:text-blue-600"
+              `relative py-6 font-semibold text-[0.98rem] transition-colors duration-200 ${isActive ? "text-blue-600" : "text-[#111820] hover:text-blue-600"
               }`
             }
             to="/"
@@ -562,9 +561,8 @@ function Header({ user, onLogout }) {
               >
                 <button
                   type="button"
-                  className={`flex items-center gap-1.5 py-6 font-semibold text-[0.98rem] transition-colors duration-200 ${
-                    isMenuOpen ? "text-blue-600" : "text-[#111820] hover:text-blue-600"
-                  }`}
+                  className={`flex items-center gap-1.5 py-6 font-semibold text-[0.98rem] transition-colors duration-200 ${isMenuOpen ? "text-blue-600" : "text-[#111820] hover:text-blue-600"
+                    }`}
                   onClick={() => handleOpenDropdown(menuKey)}
                 >
                   <span>{menuLabel}</span>
@@ -605,13 +603,21 @@ function Header({ user, onLogout }) {
               >
                 <Icon name="user" />
                 <span>{user.full_name || "Tài khoản"}</span>
+                {pendingCount > 0 ? (
+                  <span className="vg-nav-corner-badge" title="Có đơn hàng đang chờ thanh toán">
+                    {pendingCount}
+                  </span>
+                ) : null}
               </button>
               <div className="vg-dropdown vg-account-dropdown">
                 <Link to="/customer/profile">
                   <Icon name="user" /> Hồ sơ của tôi
                 </Link>
                 <Link to="/customer/bookings">
-                  <Icon name="globe" /> Chuyến đi của tôi
+                  <Icon name="globe" />
+                  {pendingCount > 0
+                    ? `Có ${pendingCount} đơn hàng cần thanh toán`
+                    : "Chuyến đi của tôi"}
                 </Link>
                 <Link to="/customer/favorites">
                   <Icon name="heart" /> Tour yêu thích
@@ -660,11 +666,10 @@ function Header({ user, onLogout }) {
                     <li key={tab.id}>
                       <button
                         type="button"
-                        className={`w-full flex items-center text-left py-2.5 px-4 rounded-xl text-[0.93rem] transition-all duration-200 ${
-                          isActiveTab
+                        className={`w-full flex items-center text-left py-2.5 px-4 rounded-xl text-[0.93rem] transition-all duration-200 ${isActiveTab
                             ? "font-bold text-blue-600 bg-blue-50/50"
                             : "text-gray-600 hover:text-gray-900 hover:bg-gray-100/50"
-                        }`}
+                          }`}
                         onClick={() => setActiveTab(tab.id)}
                         onMouseEnter={() => setActiveTab(tab.id)}
                       >
@@ -687,7 +692,7 @@ function Header({ user, onLogout }) {
                 {activeContentItems.map((item, idx) => {
                   const itemTitle = language === "vi" ? item.title.vi : item.title.en;
                   const itemSubtitle = language === "vi" ? item.subtitle.vi : item.subtitle.en;
-                  
+
                   // Construct a search dynamic link query for destinations or experiences
                   const searchUrl = item.slug
                     ? `/tours/${item.slug}`
@@ -724,9 +729,8 @@ function Header({ user, onLogout }) {
 
       {/* Mobile Drawer Navigation (Accordion type layout) */}
       <div
-        className={`fixed inset-y-0 right-0 z-40 w-full max-w-sm bg-white shadow-2xl border-l border-gray-100 transform transition-transform duration-300 ease-out md:hidden ${
-          mobileOpen ? "translate-x-0" : "translate-x-full"
-        }`}
+        className={`fixed inset-y-0 right-0 z-40 w-full max-w-sm bg-white shadow-2xl border-l border-gray-100 transform transition-transform duration-300 ease-out md:hidden ${mobileOpen ? "translate-x-0" : "translate-x-full"
+          }`}
       >
         <div className="flex items-center justify-between p-6 border-b border-gray-100">
           <BrandLogo />
@@ -850,7 +854,9 @@ function Header({ user, onLogout }) {
                   className="block text-gray-600 font-medium hover:text-blue-600"
                   onClick={() => setMobileOpen(false)}
                 >
-                  Chuyến đi của tôi
+                  {pendingCount > 0
+                    ? `Có ${pendingCount} đơn hàng cần thanh toán`
+                    : "Chuyến đi của tôi"}
                 </Link>
                 <Link
                   to="/customer/favorites"

@@ -32,7 +32,12 @@ class CustomerDashboardController extends Controller
     {
         $bookings = Booking::query()
             ->where('user_id', $request->user()->id)
-            ->with(['tour.category', 'tour.destination'])
+            ->with([
+                'tour.category',
+                'tour.destination',
+                'tourDeparture',
+                'payment',
+            ])
             ->orderByDesc('id')
             ->get();
 

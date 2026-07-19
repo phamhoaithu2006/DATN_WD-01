@@ -86,6 +86,18 @@ export async function createCustomerBooking(payload) {
   return response.data?.data || response.data
 }
 
+export async function continueCustomerBookingPayment(bookingId) {
+  const response = await api.post(`/customer/bookings/${bookingId}/continue-payment`)
+
+  return response.data?.data || response.data
+}
+
+export async function cancelCustomerBooking(bookingId) {
+  const response = await api.patch(`/customer/bookings/${bookingId}/cancel`)
+
+  return response.data?.data || response.data
+}
+
 export async function fetchVnpayPaymentStatus(paymentId) {
   const response = await api.get(`/customer/payments/vnpay/${paymentId}`)
 

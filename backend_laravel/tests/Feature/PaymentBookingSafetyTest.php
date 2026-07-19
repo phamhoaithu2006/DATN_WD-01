@@ -226,6 +226,134 @@ test('customer booking creates a pending VNPAY payment with checkout url', funct
         ->toContain('vnp_TxnRef=');
 });
 
+test('customer booking list includes payment and departure needed for pending actions', function () {
+    $customer = paymentSafetyUser('customer');
+    $booking = paymentSafetyBooking(['user_id' => $customer->id]);
+    Sanctum::actingAs($customer);
+
+    $this->getJson('/api/profile/bookings')
+        ->assertOk()
+        ->assertJsonPath('data.0.id', $booking->id)
+        ->assertJsonPath('data.0.payment.id', $booking->payment->id)
+        ->assertJsonPath('data.0.payment.status', 'pending')
+        ->assertJsonPath('data.0.tour_departure.id', $booking->tour_departure_id)
+        ->assertJsonPath('data.0.payment_status', 'unpaid');
+});
+
+test('customer can continue the same pending payment without creating records or holding more slots', function () {
+    configureVnpayForTest();
+    $customer = paymentSafetyUser('customer');
+    $booking = paymentSafetyBooking(['user_id' => $customer->id]);
+    Sanctum::actingAs($customer);
+
+    $this->postJson("/api/customer/bookings/{$booking->id}/continue-payment")
+        ->assertOk()
+        ->assertJsonPath('data.booking_id', $booking->id)
+        ->assertJsonPath('data.payment_id', $booking->payment->id)
+        ->assertJsonPath('data.expires_at', $booking->payment->expires_at->toIso8601String())
+        ->assertJsonPath('success', true)
+        ->assertJson(fn ($json) => $json
+            ->whereType('data.checkout_url', 'string')
+            ->etc());
+
+    expect(Booking::query()->count())->toBe(1)
+        ->and(Payment::query()->count())->toBe(1);
+
+    $this->assertDatabaseHas('tour_departures', [
+        'id' => $booking->tour_departure_id,
+        'booked_slots' => $booking->number_of_people,
+    ]);
+});
+
+test('customer cannot continue or cancel another customers booking', function () {
+    configureVnpayForTest();
+    $owner = paymentSafetyUser('customer');
+    $booking = paymentSafetyBooking(['user_id' => $owner->id]);
+    Sanctum::actingAs(paymentSafetyUser('customer'));
+
+    $this->postJson("/api/customer/bookings/{$booking->id}/continue-payment")
+        ->assertNotFound();
+    $this->patchJson("/api/customer/bookings/{$booking->id}/cancel")
+        ->assertNotFound();
+
+    $this->assertDatabaseHas('bookings', [
+        'id' => $booking->id,
+        'status' => 'pending',
+        'payment_status' => 'unpaid',
+    ]);
+});
+
+test('continuing an expired booking cancels it and releases slots', function () {
+    configureVnpayForTest();
+    $customer = paymentSafetyUser('customer');
+    $booking = paymentSafetyBooking(['user_id' => $customer->id, 'number_of_people' => 2]);
+    $booking->payment->update(['expires_at' => now()->subMinute()]);
+    Sanctum::actingAs($customer);
+
+    $this->postJson("/api/customer/bookings/{$booking->id}/continue-payment")
+        ->assertUnprocessable()
+        ->assertJsonPath('message', 'Đơn hàng đã hết thời gian giữ chỗ thanh toán.');
+
+    $this->assertDatabaseHas('bookings', [
+        'id' => $booking->id,
+        'status' => 'cancelled',
+        'payment_status' => 'failed',
+    ]);
+    $this->assertDatabaseHas('tour_departures', [
+        'id' => $booking->tour_departure_id,
+        'booked_slots' => 0,
+    ]);
+});
+
+test('customer can cancel a pending booking and slots are released only once', function () {
+    $customer = paymentSafetyUser('customer');
+    $booking = paymentSafetyBooking(['user_id' => $customer->id, 'number_of_people' => 2]);
+    Sanctum::actingAs($customer);
+
+    $this->patchJson("/api/customer/bookings/{$booking->id}/cancel")
+        ->assertOk()
+        ->assertJsonPath('data.status', 'cancelled')
+        ->assertJsonPath('data.payment_status', 'failed')
+        ->assertJsonPath('data.payment.status', 'failed');
+
+    $this->patchJson("/api/customer/bookings/{$booking->id}/cancel")
+        ->assertOk()
+        ->assertJsonPath('data.status', 'cancelled');
+
+    $this->assertDatabaseHas('tour_departures', [
+        'id' => $booking->tour_departure_id,
+        'booked_slots' => 0,
+    ]);
+    $this->assertDatabaseHas('booking_status_histories', [
+        'booking_id' => $booking->id,
+        'old_status' => 'pending',
+        'new_status' => 'cancelled',
+        'note' => 'Khách hàng chủ động hủy đơn chờ thanh toán.',
+    ]);
+    expect($booking->statusHistories()->count())->toBe(1);
+});
+
+test('customer cannot continue or cancel a paid booking', function () {
+    configureVnpayForTest();
+    $customer = paymentSafetyUser('customer');
+    $booking = paymentSafetyBooking([
+        'user_id' => $customer->id,
+        'payment_status' => 'paid',
+    ]);
+    $booking->payment->update(['status' => 'success', 'paid_at' => now()]);
+    Sanctum::actingAs($customer);
+
+    $this->postJson("/api/customer/bookings/{$booking->id}/continue-payment")
+        ->assertUnprocessable();
+    $this->patchJson("/api/customer/bookings/{$booking->id}/cancel")
+        ->assertUnprocessable();
+
+    $this->assertDatabaseHas('tour_departures', [
+        'id' => $booking->tour_departure_id,
+        'booked_slots' => $booking->number_of_people,
+    ]);
+});
+
 test('VNPAY IPN marks the matching booking paid', function () {
     configureVnpayForTest();
     $booking = paymentSafetyBooking();
