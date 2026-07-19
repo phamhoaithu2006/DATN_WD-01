@@ -31,6 +31,7 @@ import TourListPage from '../pages/admin/tours/TourListPage'
 import AuthPage from '../pages/auth/AuthPage'
 import ForgotPasswordPage from '../pages/auth/ForgotPasswordPage'
 import CustomerPage from '../pages/customer/CustomerPage'
+import VnpayPaymentResultPage from '../pages/customer/VnpayPaymentResultPage'
 import GuideAttendancePage from '../pages/guide/GuideAttendancePage'
 import GuideDashboardPage from '../pages/guide/GuideDashboardPage'
 import GuideNotificationsPage from '../pages/guide/GuideNotificationsPage'
@@ -80,7 +81,7 @@ function AppRoutes() {
     <Route path="/customer/search" element={<CustomerPage />} />
     <Route path="/customer/bookings" element={<CustomerPage />} />
     <Route path="/customer/settings" element={<CustomerPage />} />
-    {/* <Route path="/payment/vnpay/return" element={<VnpayPaymentResultPage />} /> */}
+    <Route path="/payment/vnpay/return" element={<VnpayPaymentResultPage />} />
     {/* Trang hướng dẫn viên */}
     <Route path="/guide" element={guidePage(<GuideDashboardPage />)} />
     <Route path="/guide/tours" element={guidePage(<GuideToursPage />)} />
@@ -131,10 +132,10 @@ function AppRoutes() {
     <Route path="/admin/tours/hidden" element={adminPage(<TourHiddenPage />)} />
     <Route path="/admin/tours/:id" element={adminPage(<TourDetailPage />)} />
     {/* Tour departures */}
-    <Route path="/admin/tour-departures/guide-assignments" element={<Navigate to="/admin/tour-departures" replace />}/>
-    <Route path="/admin/tour-departures" element={adminPage(<TourDepartureListPage />)}/>
-    <Route path="/admin/tour-departures/create" element={adminPage(<TourDepartureCreatePage />)}/>
-    <Route path="/admin/tour-departures/:tourId/edit/:departureId"  element={adminPage(<TourDepartureEditPage />)}/>
+    <Route path="/admin/tour-departures/guide-assignments" element={<Navigate to="/admin/tour-departures" replace />} />
+    <Route path="/admin/tour-departures" element={adminPage(<TourDepartureListPage />)} />
+    <Route path="/admin/tour-departures/create" element={adminPage(<TourDepartureCreatePage />)} />
+    <Route path="/admin/tour-departures/:tourId/edit/:departureId" element={adminPage(<TourDepartureEditPage />)} />
     {/* Quản lý điểm đến/địa chỉ tour */}
     <Route path="/admin/destinations" element={adminPage(<DestinationListPage />)} />
     <Route path="/admin/destinations/create" element={adminPage(<DestinationCreatePage />)} />
@@ -154,7 +155,7 @@ function AppRoutes() {
     <Route path="/admin/*" element={<Navigate to="/admin" replace />} />
     <Route path="*" element={<Navigate to="/" replace />} />
   </Routes>
-  
+
 }
 
 export default AppRoutes
