@@ -16,8 +16,9 @@ class GuideSeeder extends Seeder
         $userHung = \App\Models\User::where('email', 'hung.tv@vivugo.vn')->first();
         $userMai  = \App\Models\User::where('email', 'mai.nt@vivugo.vn')->first();
         $userDuc  = \App\Models\User::where('email', 'duc.hv@vivugo.vn')->first();
+        $userDat  = \App\Models\User::where('email', 'guide@vivugo.vn')->first();
 
-        if (!$userHung || !$userMai || !$userDuc) {
+        if (!$userHung || !$userMai || !$userDuc || !$userDat) {
             $this->command->warn('Thiếu user HDV! Hãy chạy UserSeeder trước.');
             return;
         }
@@ -88,6 +89,21 @@ class GuideSeeder extends Seeder
                 ],
                 'experiences' => [
                     ['certificate_id' => $certIelts->id, 'issued_year' => 2015],
+                ],
+            ],
+            [
+                'user_id'            => $userDat->id,
+                'guide_code'         => 'HDV004',
+                'specialization_ids' => [$specNoiDia->id],
+                'experience_years'   => 4,
+                'average_rating'     => 0,
+                'review_count'       => 0,
+                'status'             => 'active',
+                'languages' => [
+                    ['language_id' => $english->id, 'level_id' => $engC1->id],
+                ],
+                'experiences' => [
+                    ['certificate_id' => $certSoCuu->id, 'issued_year' => 2024],
                 ],
             ],
         ];
