@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import apiClient from '../../services/apiClient'
 import adminGuideLeaveRequestApi from '../../services/adminGuideLeaveRequestApi.js'
@@ -204,15 +204,24 @@ function makePayload(form) {
   }
 }
 
+function getExperienceYearsError(value) {
+  const experienceYears = Number(value)
+
+  if (
+    value === '' ||
+    !Number.isInteger(experienceYears) ||
+    experienceYears < 0 ||
+    experienceYears > 40
+  ) {
+    return 'Số năm kinh nghiệm phải là số nguyên từ 0 đến 40.'
+  }
+
+  return ''
+}
+
 function validateForm(form) {
   const errors = {}
   const currentYear = new Date().getFullYear()
-  const experienceYears = Number(form.experience_years)
-  const rawDestinationIds = Array.isArray(form.destination_ids)
-    ? form.destination_ids
-    : []
-  const selectedDestinationIds = rawDestinationIds.filter(Boolean)
-
   const languages = Array.isArray(form.languages)
     ? form.languages
     : []
@@ -225,26 +234,14 @@ function validateForm(form) {
     errors.user_id = 'Vui lòng chọn tài khoản HDV.'
   }
 
-  if (
-    form.experience_years === '' ||
-    !Number.isInteger(experienceYears) ||
-    experienceYears < 0
-  ) {
-    errors.experience_years = 'Số năm kinh nghiệm phải là số nguyên từ 0.'
+  const experienceYearsError = getExperienceYearsError(form.experience_years)
+
+  if (experienceYearsError) {
+    errors.experience_years = experienceYearsError
   }
 
   if (!GUIDE_STATUSES.includes(form.status)) {
     errors.status = 'Vui lòng chọn trạng thái.'
-  }
-
-  if (selectedDestinationIds.length === 0) {
-    errors.destination_ids = 'Vui lòng chọn ít nhất một khu vực phụ trách.'
-  } else if (rawDestinationIds.some((item) => !item)) {
-    errors.destination_ids = 'Mỗi dòng khu vực cần chọn một điểm đến.'
-  } else if (
-    new Set(selectedDestinationIds).size !== selectedDestinationIds.length
-  ) {
-    errors.destination_ids = 'Không chọn trùng khu vực.'
   }
 
   if (languages.length === 0) {
@@ -301,19 +298,6 @@ function validateForm(form) {
   return errors
 }
 
-function RequiredMark() {
-  return <span className="guide-required-mark" aria-hidden="true"> *</span>
-}
-
-function FieldLabel({ children, required = false }) {
-  return (
-    <span className="guide-field-label-line">
-      <span>{children}</span>
-      {required ? <RequiredMark /> : null}
-    </span>
-  )
-}
-
 async function uploadAvatar(guideId, file) {
   const formData = new FormData()
   formData.append('avatar', file)
@@ -347,8 +331,10 @@ function GuideManagementPage() {
   const [leaveSummary, setLeaveSummary] = useState({
     pending_count: 0,
     processed_count: 0,
+    available_guides_count: 0,
+    pending_guides_count: 0,
+    waiting_leave_guides_count: 0,
     resting_guides_count: 0,
-    busy_guides_count: 0,
   })
 
   const [pagination, setPagination] = useState({
@@ -449,8 +435,10 @@ function GuideManagementPage() {
       setLeaveSummary(response?.summary || {
         pending_count: 0,
         processed_count: 0,
+        available_guides_count: 0,
+        pending_guides_count: 0,
+        waiting_leave_guides_count: 0,
         resting_guides_count: 0,
-        busy_guides_count: 0,
       })
     } catch {
       // Không chặn màn hình khi thống kê đơn nghỉ lỗi.
@@ -637,7 +625,9 @@ function GuideManagementPage() {
 
     setFormErrors((current) => ({
       ...current,
-      [field]: '',
+      [field]: field === 'experience_years' && value !== ''
+        ? getExperienceYearsError(value)
+        : '',
     }))
   }
 
@@ -1031,50 +1021,54 @@ function GuideManagementPage() {
         showNotificationBell={false}
         actions={
           <div className="guide-header-actions-group">
-            <div className="guide-header-links">
-              <Link
-                className="guide-section-link guide-section-link-primary"
-                to="/admin/languages"
-              >
-                <Icon name="globe" size={16} />
-                Ngôn ngữ
-              </Link>
+            <div className="guide-header-actions-top-row">
+              <div className="guide-header-links">
+                <Link
+                  className="guide-section-link guide-section-link-primary"
+                  to="/admin/languages"
+                >
+                  <Icon name="globe" size={16} />
+                  Ngôn ngữ
+                </Link>
 
-              <Link
-                className="guide-section-link guide-section-link-primary"
-                to="/admin/certificates"
-              >
-                <Icon name="shield" size={16} />
-                Chứng chỉ
-              </Link>
-            </div>
+                <Link
+                  className="guide-section-link guide-section-link-primary"
+                  to="/admin/certificates"
+                >
+                  <Icon name="shield" size={16} />
+                  Chứng chỉ
+                </Link>
+              </div>
 
-            <div className="guide-right-actions">
-              <Link className="guide-trash-button" to="/admin/guides/trash">
-                <Icon name="trash" size={16} />
-                Thùng rác
-              </Link>
+              <div className="guide-header-actions-button-stack">
+                <div className="guide-header-actions-primary-buttons">
+                  <Link className="guide-trash-button" to="/admin/guides/trash">
+                    <Icon name="trash" size={16} />
+                    Thùng rác
+                  </Link>
 
-              <button
-                className="guide-add-button"
-                type="button"
-                onClick={openCreateForm}
-              >
-                <Icon name="plus" size={16} />
-                Thêm HDV
-              </button>
+                  <button
+                    className="guide-add-button"
+                    type="button"
+                    onClick={openCreateForm}
+                  >
+                    <Icon name="plus" size={16} />
+                    Thêm HDV
+                  </button>
+                </div>
 
-              <button
-                type="button"
-                className={`admin-guide-leave-menu-button ${leavePanelOpen ? 'active' : ''}`}
-                onClick={() => setLeavePanelOpen((current) => !current)}
-              >
-                Đơn xin nghỉ
+                <button
+                  type="button"
+                  className={`admin-guide-leave-menu-button ${leavePanelOpen ? 'active' : ''}`}
+                  onClick={() => setLeavePanelOpen((current) => !current)}
+                >
+                  Đơn xin nghỉ
 
-                {leavePendingCount > 0 ? (
-                  <span>{leavePendingCount > 99 ? '99+' : leavePendingCount}</span>
-                ) : null}
-              </button>
+                  {leavePendingCount > 0 ? (
+                    <span>{leavePendingCount > 99 ? '99+' : leavePendingCount}</span>
+                  ) : null}
+                </button>
+              </div>
             </div>
           </div>
         }
@@ -1157,29 +1151,6 @@ function GuideManagementPage() {
           <small>Tạm ẩn HDV</small>
         </button>
 
-        <button
-          className={`guide-stat-card blue ${
-            leaveStatusFilter === 'resting' ? 'is-active' : ''
-          }`}
-          type="button"
-          onClick={() => selectLeaveStatistic('resting')}
-        >
-          <strong>{leaveSummary.resting_guides_count || 0}</strong>
-          <span>HDV đang nghỉ</span>
-          <small>Đơn đã duyệt trong hôm nay</small>
-        </button>
-
-        <button
-          className={`guide-stat-card amber ${
-            leaveStatusFilter === 'busy_leave' ? 'is-active' : ''
-          }`}
-          type="button"
-          onClick={() => selectLeaveStatistic('busy_leave')}
-        >
-          <strong>{leaveSummary.busy_guides_count || 0}</strong>
-          <span>Bận vì đơn nghỉ</span>
-          <small>Đơn chờ duyệt hoặc đã duyệt</small>
-        </button>
       </div>
 
 
@@ -1192,7 +1163,7 @@ function GuideManagementPage() {
               <input
                 aria-label="Tìm kiếm HDV"
                 value={keyword}
-                placeholder="Tìm theo mã HDV, tên, email hoặc SĐT"
+                placeholder="Tìm theo mã HDV, tên hoặc email"
                 onChange={(event) => {
                   setKeyword(event.target.value)
                   setPagination((current) => ({
@@ -1217,7 +1188,7 @@ function GuideManagementPage() {
 
               {GUIDE_STATUSES.map((status) => (
                 <option key={status} value={status}>
-                {STATUS_LABELS[status]}
+                  {STATUS_LABELS[status]}
                 </option>
               ))}
             </select>
@@ -1234,27 +1205,8 @@ function GuideManagementPage() {
             >
               <option value="all">Tất cả trạng thái nghỉ</option>
               <option value="resting">Đang nghỉ</option>
-              <option value="busy_leave">Bận vì đơn nghỉ</option>
+              <option value="waiting_leave">Đang chờ nghỉ</option>
               <option value="available_leave">Không có đơn nghỉ</option>
-            </select>
-
-            <select
-              value={destinationFilter}
-              onChange={(event) => {
-                setDestinationFilter(event.target.value)
-                setPagination((current) => ({
-                  ...current,
-                  currentPage: 1,
-                }))
-              }}
-            >
-              <option value="all">Khu vực phụ trách</option>
-
-              {destinations.map((destination) => (
-                <option key={destination.id} value={destination.id}>
-                  {getDestinationLabel(destination)}
-                </option>
-              ))}
             </select>
           </div>
 
@@ -1453,7 +1405,9 @@ function GuideManagementPage() {
 
             <div className="guide-form-grid">
               <label>
-                <FieldLabel required>Họ và tên</FieldLabel>
+                <span className="guide-field-label-line">
+                  Họ và tên <span className="guide-required-mark">*</span>
+                </span>
 
                 <select
                   required
@@ -1487,89 +1441,18 @@ function GuideManagementPage() {
                 ) : null}
               </label>
 
-              <label className="guide-form-wide">
-                <FieldLabel required>Khu vực phụ trách</FieldLabel>
-
-                <div className="guide-repeat-list">
-                  {destinations.length > 0 ? (
-                    <>
-                      {form.destination_ids.map((destinationId, index) => {
-                        const selectedDestinationIds = form.destination_ids
-                          .filter((_, itemIndex) => itemIndex !== index)
-                          .filter(Boolean)
-
-                        return (
-                          <div
-                            className="guide-repeat-row guide-area-row"
-                            key={`destination-${index}`}
-                          >
-                            <select
-                              value={destinationId}
-                              onChange={(event) =>
-                                updateDestination(index, event.target.value)
-                              }
-                            >
-                              <option value="" disabled>
-                                Chọn khu vực
-                              </option>
-
-                              {destinations
-                                .filter(
-                                  (destination) =>
-                                    !selectedDestinationIds.includes(
-                                      String(destination.id),
-                                    ),
-                                )
-                                .map((destination) => (
-                                  <option
-                                    key={destination.id}
-                                    value={destination.id}
-                                  >
-                                    {getDestinationLabel(destination)}
-                                  </option>
-                                ))}
-                            </select>
-
-                            <button
-                              type="button"
-                              onClick={() => removeDestination(index)}
-                            >
-                              Xóa
-                            </button>
-                          </div>
-                        )
-                      })}
-
-                      <button
-                        className="guide-repeat-add"
-                        type="button"
-                        onClick={addDestination}
-                      >
-                        Thêm khu vực
-                      </button>
-                    </>
-                  ) : (
-                    <p className="guide-empty-text">
-                      Chưa có khu vực. Hãy tạo điểm đến trước.
-                    </p>
-                  )}
-                </div>
-
-                {formErrors.destination_ids ? (
-                  <span className="guide-field-error">
-                    {formErrors.destination_ids}
-                  </span>
-                ) : null}
-              </label>
-
               <label>
-                <FieldLabel required>Số năm kinh nghiệm</FieldLabel>
+                <span className="guide-field-label-line">
+                  Số năm kinh nghiệm{' '}
+                  <span className="guide-required-mark">*</span>
+                </span>
 
                 <input
-                  min="0"
                   required
                   type="number"
                   value={form.experience_years}
+                  aria-invalid={Boolean(formErrors.experience_years)}
+                  className={formErrors.experience_years ? 'guide-input-error' : ''}
                   onChange={(event) =>
                     updateForm('experience_years', event.target.value)
                   }
@@ -1582,8 +1465,10 @@ function GuideManagementPage() {
                 ) : null}
               </label>
 
-              <label>
-                <FieldLabel required>Trạng thái</FieldLabel>
+              <label className="guide-form-wide">
+                <span className="guide-field-label-line">
+                  Trạng thái <span className="guide-required-mark">*</span>
+                </span>
 
                 <select
                   value={form.status}
@@ -1610,7 +1495,9 @@ function GuideManagementPage() {
               </label>
 
               <label className="guide-form-wide">
-                <FieldLabel required>Ngoại ngữ</FieldLabel>
+                <span className="guide-field-label-line">
+                  Ngoại ngữ <span className="guide-required-mark">*</span>
+                </span>
 
                 <div className="guide-repeat-list">
                   {form.languages.map((language, index) => {
@@ -1705,7 +1592,9 @@ function GuideManagementPage() {
               </label>
 
               <label className="guide-form-wide">
-                <FieldLabel required>Chứng chỉ</FieldLabel>
+                <span className="guide-field-label-line">
+                  Chứng chỉ <span className="guide-required-mark">*</span>
+                </span>
 
                 <div className="guide-repeat-list">
                   {form.experiences.map((experience, index) => {
@@ -1904,10 +1793,6 @@ function GuideManagementPage() {
                 <h3>{getUserName(detailGuide)}</h3>
 
                 <div className="guide-detail-topline">
-                  {getGuideDestinationLabel(detailGuide, '') ? (
-                    <p>{getGuideDestinationLabel(detailGuide, '')}</p>
-                  ) : null}
-
                   <span
                     className={`guide-status ${detailGuide.status || ''}`}
                   >
@@ -1951,20 +1836,6 @@ function GuideManagementPage() {
                 <span>Tour phụ trách</span>
                 <strong>{getAssignedTourCount(detailGuide)} tour</strong>
               </div>
-            </div>
-
-            <div className="guide-detail-section">
-              <h3>Khu vực phụ trách</h3>
-
-              {getGuideDestinationLabel(detailGuide, '') ? (
-                <p className="guide-empty-text">
-                  {getGuideDestinationLabel(detailGuide, '')}
-                </p>
-              ) : (
-                <p className="guide-empty-text">
-                  Chưa có khu vực phụ trách
-                </p>
-              )}
             </div>
 
             <div className="guide-detail-section">

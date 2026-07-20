@@ -9371,14 +9371,14 @@
 }
 .guide-shot-filterbar .guide-shot-date-filter,
 .guide-shot-filterbar .guide-shot-select-filter {
-  flex: 0 1 auto;
   color: #64748b;
   font-size: 12px;
   font-weight: 850;
 }
 .guide-shot-filterbar .guide-shot-date-filter {
   order: 2;
-  width: 272px;
+  flex: 0 1 400px;
+  width: 400px;
 }
 .guide-shot-filterbar .guide-shot-date-filter span,
 .guide-shot-filterbar .guide-shot-select-filter span {
@@ -9394,18 +9394,24 @@
 }
 .guide-shot-filterbar .guide-shot-select-filter {
   order: 3;
+  flex: 0 0 210px;
   padding-right: 10px;
 }
 .guide-shot-filterbar .guide-shot-select-filter:last-of-type {
   order: 4;
 }
 .guide-shot-filterbar .guide-shot-select-filter select {
+  flex: 1;
   min-width: 92px;
   border: 0;
   background: transparent;
   color: #334155;
   font: inherit;
   outline: 0;
+}
+.guide-shot-filterbar .guide-shot-search-filter {
+  order: 1;
+  flex: 1 1 360px;
 }
 .guide-shot-tour-list {
   padding: 0 24px;
@@ -10187,4 +10193,107 @@
   margin: 0;
   color: #dc2626;
   font-weight: 850;
+}
+.guide-replacement-modal {
+  width: min(620px, 100%);
+  position: relative;
+  display: grid;
+  gap: 14px;
+  border-radius: 14px;
+  background: #fff;
+  padding: 28px;
+  box-shadow: 0 26px 70px rgba(15, 23, 42, 0.28);
+}
+.guide-replacement-modal h2,
+.guide-replacement-modal p {
+  margin: 0;
+}
+.guide-replacement-modal > p {
+  color: #64748b;
+  line-height: 1.55;
+}
+.guide-replacement-tour-name {
+  color: #0f172a !important;
+  font-size: 17px;
+  font-weight: 900;
+}
+.guide-replacement-modal label {
+  display: grid;
+  gap: 7px;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 900;
+}
+.guide-required-mark {
+  color: #dc2626;
+}
+.guide-replacement-modal textarea,
+.guide-replacement-modal input[type="file"] {
+  border: 1px solid #dbe4f0;
+  border-radius: 10px;
+  background: #fff;
+  padding: 11px 12px;
+  font: inherit;
+}
+.guide-replacement-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.guide-replacement-actions button {
+  height: 38px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 16px;
+  font-weight: 900;
+  cursor: pointer;
+}
+.guide-replacement-actions button:first-child {
+  border: 1px solid #dbe4f0;
+  background: #fff;
+  color: #475569;
+}
+.guide-replacement-actions button:last-child {
+  background: #0b7af3;
+  color: #fff;
+}
+.guide-attendance-boundaries {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 20px 24px 0;
+}
+.guide-attendance-boundaries button {
+  min-height: 46px;
+  border: 1px solid #dbe4f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 900;
+  cursor: pointer;
+}
+.guide-attendance-boundaries button.is-active {
+  border-color: #0b7af3;
+  background: #eff6ff;
+  color: #0b7af3;
+}
+.guide-attendance-boundary-note {
+  margin: 14px 24px 0;
+  border-radius: 8px;
+  background: #fff7ed;
+  padding: 10px 12px;
+  color: #c2410c;
+  font-size: 13px;
+  font-weight: 800;
+}
+.guide-attendance-summary {
+  grid-template-columns: minmax(0, 1fr);
+}
+.guide-attendance-toolbar {
+  grid-template-columns: minmax(0, 1fr) 170px 170px;
+}
+.guide-replacement-modal small {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
 }

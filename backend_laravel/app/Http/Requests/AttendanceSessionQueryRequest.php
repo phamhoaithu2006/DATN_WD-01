@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class AttendanceSessionQueryRequest extends FormRequest
 {
@@ -24,6 +25,7 @@ class AttendanceSessionQueryRequest extends FormRequest
     {
         return [
             'attendance_session_id' => ['nullable', 'integer', 'exists:attendance_sessions,id'],
+            'attendance_boundary' => ['nullable', Rule::in(['departure', 'return'])],
         ];
     }
 }

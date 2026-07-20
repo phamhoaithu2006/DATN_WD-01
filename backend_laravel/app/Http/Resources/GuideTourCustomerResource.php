@@ -18,6 +18,9 @@ class GuideTourCustomerResource extends JsonResource
         $contact = $booking?->relationLoaded('contact') ? $booking->contact : null;
         $user = $booking?->relationLoaded('user') ? $booking->user : null;
         $attendance = $this->relationLoaded('attendances') ? $this->attendances->first() : null;
+        $latestAttendanceNote = $this->relationLoaded('latestAttendanceNote')
+            ? $this->latestAttendanceNote
+            : null;
 
         return [
             'id' => $this->id,
@@ -37,7 +40,7 @@ class GuideTourCustomerResource extends JsonResource
                 'id' => $attendance?->id,
                 'checked_in_at' => $attendance?->checked_in_at?->toDateTimeString(),
                 'checked_out_at' => $attendance?->checked_out_at?->toDateTimeString(),
-                'note' => $attendance?->note,
+                'note' => $attendance?->note ?? $latestAttendanceNote?->note,
             ],
         ];
     }

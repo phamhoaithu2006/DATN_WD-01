@@ -60,7 +60,8 @@ class GuideAttendanceController extends Controller
         $stats = $this->service->getAttendanceStatistics(
             $request->user(),
             $tourDeparture,
-            $request->integer('attendance_session_id') ?: null
+            $request->integer('attendance_session_id') ?: null,
+            $request->validated('attendance_boundary')
         );
 
         return response()->json([

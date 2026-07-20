@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Guide;
 use App\Models\GuideLeaveRequest;
 use App\Models\Notification;
 use App\Models\User;
@@ -71,8 +72,7 @@ class AdminGuideLeaveRequestController extends Controller
             $query->whereHas('guide.user', function ($userQuery) use ($keyword) {
                 $userQuery
                     ->where('full_name', 'like', "%{$keyword}%")
-                    ->orWhere('email', 'like', "%{$keyword}%")
-                    ->orWhere('phone', 'like', "%{$keyword}%");
+                    ->orWhere('email', 'like', "%{$keyword}%");
             })->orWhereHas('guide', function ($guideQuery) use ($keyword) {
                 $guideQuery->where('guide_code', 'like', "%{$keyword}%");
             });
@@ -117,15 +117,39 @@ class AdminGuideLeaveRequestController extends Controller
                 ->where('status', 'rejected')
                 ->count(),
 
-            'resting_guides_count' => GuideLeaveRequest::query()
-                ->where('status', 'approved')
-                ->whereDate('start_date', '<=', $today)
-                ->whereDate('end_date', '>=', $today)
+            'available_guides_count' => Guide::query()
+                ->whereHas('user')
+                ->whereNotExists(function ($subQuery) use ($today) {
+                    $subQuery
+                        ->selectRaw('1')
+                        ->from('guide_leave_requests as glr')
+                        ->whereColumn('glr.guide_id', 'guides.id')
+                        ->where(function ($leaveQuery) use ($today) {
+                            $leaveQuery
+                                ->where('glr.status', 'pending')
+                                ->orWhere(function ($approvedQuery) use ($today) {
+                                    $approvedQuery
+                                        ->where('glr.status', 'approved')
+                                        ->whereDate('glr.end_date', '>=', $today);
+                                });
+                        });
+                })
+                ->count(),
+
+            'pending_guides_count' => GuideLeaveRequest::query()
+                ->where('status', 'pending')
                 ->distinct('guide_id')
                 ->count('guide_id'),
 
-            'busy_guides_count' => GuideLeaveRequest::query()
-                ->whereIn('status', ['pending', 'approved'])
+            'waiting_leave_guides_count' => GuideLeaveRequest::query()
+                ->where('status', 'approved')
+                ->whereDate('start_date', '>', $today)
+                ->distinct('guide_id')
+                ->count('guide_id'),
+
+            'resting_guides_count' => GuideLeaveRequest::query()
+                ->where('status', 'approved')
+                ->whereDate('start_date', '<=', $today)
                 ->whereDate('end_date', '>=', $today)
                 ->distinct('guide_id')
                 ->count('guide_id'),

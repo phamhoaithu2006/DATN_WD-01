@@ -10,8 +10,8 @@ const emptyFilters = {
 
 const TAB_CONFIG = [
   { key: 'pending', label: 'Chờ duyệt' },
-  { key: 'processed', label: 'Đã xử lý' },
-  { key: 'history', label: 'Nhật kí thao tác' },
+  { key: 'approved', label: 'Đã duyệt' },
+  { key: 'history', label: 'Nhật ký thao tác' },
 ]
 
 function formatDate(value) {
@@ -70,7 +70,7 @@ function statusTone(status) {
 function leaveStateLabel(state) {
   if (state === 'current') return 'Đang nghỉ'
   if (state === 'upcoming') return 'Sắp nghỉ'
-  if (state === 'expired') return 'Đã qua'
+  if (state === 'expired') return 'Đã nghỉ'
 
   return 'Không rõ'
 }
@@ -126,7 +126,7 @@ function buildHistoryLogs(items = []) {
 
 function getTabStatus(activeTab) {
   if (activeTab === 'pending') return 'pending'
-  if (activeTab === 'processed') return 'processed'
+  if (activeTab === 'approved') return 'approved'
 
   return 'all'
 }
@@ -153,8 +153,8 @@ function AdminGuideLeaveRequestsPanel({
       return requests.filter((item) => item.status === 'pending')
     }
 
-    if (activeTab === 'processed') {
-      return requests.filter((item) => item.status !== 'pending')
+    if (activeTab === 'approved') {
+      return requests.filter((item) => item.status === 'approved')
     }
 
     return requests
@@ -232,7 +232,7 @@ function AdminGuideLeaveRequestsPanel({
     highlightedHandledRef.current = highlightKey
 
     const timeoutId = window.setTimeout(() => {
-      setActiveTab(highlighted.status === 'pending' ? 'pending' : 'processed')
+      setActiveTab(highlighted.status === 'pending' ? 'pending' : 'approved')
     }, 0)
 
     return () => window.clearTimeout(timeoutId)
@@ -517,28 +517,6 @@ function AdminGuideLeaveRequestsPanel({
 
       {error ? <div className="admin-guide-leave-alert error">{error}</div> : null}
 
-      <div className="admin-guide-leave-summary">
-        <div>
-          <strong>{summary.pending_count || 0}</strong>
-          <span>chờ duyệt</span>
-        </div>
-
-        <div>
-          <strong>{summary.processed_count || 0}</strong>
-          <span>đã xử lý</span>
-        </div>
-
-        <div>
-          <strong>{summary.resting_guides_count || 0}</strong>
-          <span>HDV đang nghỉ</span>
-        </div>
-
-        <div>
-          <strong>{summary.busy_guides_count || 0}</strong>
-          <span>HDV bận vì nghỉ</span>
-        </div>
-      </div>
-
       <div className="admin-guide-leave-tabs" role="tablist" aria-label="Lọc đơn xin nghỉ">
         {TAB_CONFIG.map((tab) => (
           <button
@@ -560,7 +538,7 @@ function AdminGuideLeaveRequestsPanel({
           type="search"
           value={filters.search}
           onChange={(event) => updateFilter('search', event.target.value)}
-          placeholder="Tìm theo tên, mã HDV, email hoặc SĐT..."
+          placeholder="Tìm theo tên, mã HDV hoặc email..."
         />
 
         <select
@@ -570,7 +548,7 @@ function AdminGuideLeaveRequestsPanel({
           <option value="all">Tất cả thời gian nghỉ</option>
           <option value="current">Đang nghỉ</option>
           <option value="upcoming">Sắp nghỉ</option>
-          <option value="expired">Đã qua</option>
+          <option value="expired">Đã nghỉ</option>
         </select>
 
         <button type="button" onClick={() => setFilters(emptyFilters)}>
@@ -588,7 +566,7 @@ function AdminGuideLeaveRequestsPanel({
           <h4>
             {activeTab === 'pending'
               ? `Đơn xin nghỉ chờ duyệt (${visibleRequests.length})`
-              : `Đơn xin nghỉ đã xử lý (${visibleRequests.length})`}
+              : `Đơn xin nghỉ đã duyệt (${visibleRequests.length})`}
           </h4>
 
           {loading ? (
@@ -597,7 +575,7 @@ function AdminGuideLeaveRequestsPanel({
             <div className="admin-guide-leave-empty">
               {activeTab === 'pending'
                 ? 'Không có đơn chờ duyệt.'
-                : 'Chưa có đơn đã xử lý.'}
+                : 'Chưa có đơn đã duyệt.'}
             </div>
           ) : (
             <div className="admin-guide-leave-list">

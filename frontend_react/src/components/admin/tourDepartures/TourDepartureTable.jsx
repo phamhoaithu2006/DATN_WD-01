@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import adminNotificationApi from '../../../services/adminNotificationApi'
 
@@ -81,16 +81,35 @@ const TrashIcon = ({ className = 'w-4 h-4' }) => (
   </svg>
 )
 
-// Không dùng new Date() cho ngày dạng YYYY-MM-DD để tránh lệch timezone.
+const MoreIcon = ({ className = 'w-4 h-4' }) => (
+  <svg
+    className={className}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.3"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <circle cx="12" cy="12" r="1" />
+    <circle cx="19" cy="12" r="1" />
+    <circle cx="5" cy="12" r="1" />
+  </svg>
+)
+
 function formatDate(value) {
   if (!value) return '-'
 
-  const raw = String(value).slice(0, 10)
-  const [year, month, day] = raw.split('-')
+  const rawDate = String(value).slice(0, 10)
+  const date = new Date(`${rawDate}T00:00:00`)
 
-  if (!year || !month || !day) return '-'
+  if (Number.isNaN(date.getTime())) return '-'
 
-  return `${day}/${month}/${year}`
+  return date.toLocaleDateString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
 }
 
 function formatDateTime(value) {
@@ -189,6 +208,16 @@ function getPendingReplacementRequestForDeparture(departure, requests = []) {
 
       return getReplacementDepartureId(request) === departureId && status === 'pending'
     }) || null
+  )
+}
+
+function getReplacementGuideName(request) {
+  return (
+    request?.current_guide_name ||
+    request?.guide_name ||
+    request?.current_guide?.user?.full_name ||
+    request?.guide?.user?.full_name ||
+    `HDV #${request?.current_guide_id || request?.guide_id || ''}`
   )
 }
 
@@ -351,8 +380,40 @@ function isAssignmentWarningTarget(departure) {
   return ['upcoming', 'ongoing'].includes(getDepartureTimeGroup(departure))
 }
 
+function compareDepartureDateNewestFirst(a, b) {
+  const aDate = getDateKey(a?.departure_date) || '0000-00-00'
+  const bDate = getDateKey(b?.departure_date) || '0000-00-00'
+
+  /* Ngày lớn hơn nằm trên, ngày thấp/cũ hơn tự xuống cuối danh sách. */
+  if (aDate !== bDate) {
+    return bDate.localeCompare(aDate)
+  }
+
+  const aReturnDate = getDateKey(a?.return_date) || aDate
+  const bReturnDate = getDateKey(b?.return_date) || bDate
+
+  if (aReturnDate !== bReturnDate) {
+    return bReturnDate.localeCompare(aReturnDate)
+  }
+
+  const aCreatedAt = getDateKey(a?.created_at) || '0000-00-00'
+  const bCreatedAt = getDateKey(b?.created_at) || '0000-00-00'
+
+  if (aCreatedAt !== bCreatedAt) {
+    return bCreatedAt.localeCompare(aCreatedAt)
+  }
+
+  return Number(b?.id || 0) - Number(a?.id || 0)
+}
+
 function sortByAssignmentState(items = []) {
   return [...items].sort((a, b) => {
+    const dateCompare = compareDepartureDateNewestFirst(a, b)
+
+    if (dateCompare !== 0) {
+      return dateCompare
+    }
+
     const aAssigned = hasAssignedGuide(a) ? 1 : 0
     const bAssigned = hasAssignedGuide(b) ? 1 : 0
 
@@ -360,14 +421,7 @@ function sortByAssignmentState(items = []) {
       return aAssigned - bAssigned
     }
 
-    const aDate = getDateKey(a?.departure_date)
-    const bDate = getDateKey(b?.departure_date)
-
-    if (aDate !== bDate) {
-      return aDate.localeCompare(bDate)
-    }
-
-    return Number(a?.id || 0) - Number(b?.id || 0)
+    return Number(b?.id || 0) - Number(a?.id || 0)
   })
 }
 
@@ -395,6 +449,34 @@ function getAssignmentFilterEmptyText(scheduleFilter, assignmentFilter) {
   return 'Không có lịch sắp tới.'
 }
 
+function buildPageNumbers(currentPage, totalPages) {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1)
+  }
+
+  const pages = new Set([1, totalPages, currentPage])
+
+  if (currentPage > 1) pages.add(currentPage - 1)
+  if (currentPage < totalPages) pages.add(currentPage + 1)
+
+  if (currentPage <= 3) {
+    pages.add(2)
+    pages.add(3)
+    pages.add(4)
+  }
+
+  if (currentPage >= totalPages - 2) {
+    pages.add(totalPages - 1)
+    pages.add(totalPages - 2)
+    pages.add(totalPages - 3)
+  }
+
+  return Array.from(pages)
+    .filter((page) => page >= 1 && page <= totalPages)
+    .sort((a, b) => a - b)
+}
+
+
 function parseNotificationData(value) {
   if (!value) return {}
 
@@ -402,7 +484,7 @@ function parseNotificationData(value) {
 
   try {
     return JSON.parse(value)
-  } catch {
+  } catch (error) {
     return {}
   }
 }
@@ -482,9 +564,7 @@ function DepartureHistoryButton() {
   }, [])
 
   useEffect(() => {
-    const initialFetchTimeoutId = window.setTimeout(() => {
-      void fetchHistory()
-    }, 0)
+    void fetchHistory()
 
     const handleChanged = () => {
       void fetchHistory()
@@ -494,13 +574,28 @@ function DepartureHistoryButton() {
     window.addEventListener('admin-notification:changed', handleChanged)
 
     return () => {
-      window.clearTimeout(initialFetchTimeoutId)
       window.removeEventListener('focus', handleChanged)
       window.removeEventListener('admin-notification:changed', handleChanged)
     }
   }, [fetchHistory])
 
-  const markUnreadAsRead = useCallback(async () => {
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (panelRef.current && !panelRef.current.contains(event.target)) {
+        void closeHistory()
+      }
+    }
+
+    if (open) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [open, unreadItems])
+
+  async function markUnreadAsRead() {
     const ids = unreadItems
       .map((item) => item.id)
       .filter(Boolean)
@@ -522,13 +617,13 @@ function DepartureHistoryButton() {
     } catch (error) {
       console.error(error)
     }
-  }, [unreadItems])
+  }
 
-  const closeHistory = useCallback(async () => {
+  async function closeHistory() {
     setOpen(false)
     await markUnreadAsRead()
     await fetchHistory()
-  }, [fetchHistory, markUnreadAsRead])
+  }
 
   async function toggleHistory() {
     if (open) {
@@ -539,22 +634,6 @@ function DepartureHistoryButton() {
     setOpen(true)
     await fetchHistory()
   }
-
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (panelRef.current && !panelRef.current.contains(event.target)) {
-        void closeHistory()
-      }
-    }
-
-    if (open) {
-      document.addEventListener('mousedown', handleClickOutside)
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [closeHistory, open])
 
   return (
     <div ref={panelRef} className="relative">
@@ -657,18 +736,20 @@ export default function TourDepartureTable({
   assignmentWarningCount,
   onRequestEdit,
   activeTab = 'departures',
-  scheduleFilter = 'all',
-  departuresReady = true,
+  scheduleFilter = 'upcoming',
   onChangeTab,
   onChangeScheduleFilter,
   guideContent,
   assignmentPath = '/admin/tour-departures/guide-assignments',
   replacementRequests = [],
   highlightedReplacementDepartureId = null,
+  onApproveReplacementRequest,
+  onRejectReplacementRequest,
 }) {
   const [assignmentFilter, setAssignmentFilter] = useState('all')
   const [currentPage, setCurrentPage] = useState(1)
-  const pageSize = 5
+  const [pageSize, setPageSize] = useState(5)
+  const [openActionMenuId, setOpenActionMenuId] = useState(null)
 
   const getEditLink = (departureId) => {
     if (selectedTourId) {
@@ -691,7 +772,6 @@ export default function TourDepartureTable({
 
   const isDeparturesTab = activeTab === 'departures'
   const isGuidesTab = activeTab === 'guides'
-  const isInitialLoading = loading || !departuresReady
 
   const unassignedDepartureCount = useMemo(() => {
     if (Number.isFinite(Number(assignmentWarningCount))) {
@@ -726,17 +806,13 @@ export default function TourDepartureTable({
 
   const scheduleTabs = useMemo(
     () => [
-      { key: 'all', label: 'Tất cả', rows: groupedRows.all },
       { key: 'upcoming', label: 'Sắp tới', rows: groupedRows.upcoming },
       { key: 'ongoing', label: 'Đang diễn ra', rows: groupedRows.ongoing },
       { key: 'past', label: 'Đã qua', rows: groupedRows.past },
+      { key: 'all', label: 'Tất cả', rows: groupedRows.all },
     ],
     [groupedRows]
   )
-
-  const renderScheduleTabLabel = (tab) => {
-    return `${tab.label} (${tab.rows.length})`
-  }
 
   const scheduleRows = useMemo(() => {
     const rows =
@@ -778,21 +854,28 @@ export default function TourDepartureTable({
   const paginatedRows = displayedRows.slice(pageStartIndex, pageEndIndex)
   const visibleStart = totalRows === 0 ? 0 : pageStartIndex + 1
   const visibleEnd = Math.min(pageEndIndex, totalRows)
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      setCurrentPage(1)
-    }, 0)
+  const pageNumbers = buildPageNumbers(safePage, totalPages)
 
-    return () => window.clearTimeout(timeoutId)
+  useEffect(() => {
+    setCurrentPage(1)
+    setOpenActionMenuId(null)
   }, [scheduleFilter, assignmentFilter, pageSize, activeTab])
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      setCurrentPage((page) => Math.min(page, totalPages))
-    }, 0)
-
-    return () => window.clearTimeout(timeoutId)
+    setCurrentPage((page) => Math.min(page, totalPages))
   }, [totalPages])
+
+  useEffect(() => {
+    if (!openActionMenuId) return undefined
+
+    const closeMenu = () => setOpenActionMenuId(null)
+
+    document.addEventListener('mousedown', closeMenu)
+
+    return () => {
+      document.removeEventListener('mousedown', closeMenu)
+    }
+  }, [openActionMenuId])
 
   return (
     <div className="rounded-[22px] border border-slate-200 bg-white shadow-sm">
@@ -813,11 +896,9 @@ export default function TourDepartureTable({
           </div>
 
           <div className="rounded-full bg-slate-50 px-4 py-2 text-sm font-bold text-slate-600">
-            {isInitialLoading
-              ? 'Đang tải...'
-              : isGuidesTab
-                ? 'Phân công HDV'
-                : `${visibleStart}-${visibleEnd}/${totalRows} lịch`}
+            {isGuidesTab
+              ? 'Phân công HDV'
+              : `${visibleStart}-${visibleEnd}/${totalRows} lịch`}
           </div>
         </div>
 
@@ -867,34 +948,17 @@ export default function TourDepartureTable({
           )
         ) : (
           <>
-            <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-4">
-              {scheduleTabs.map((tab) => (
-                <button
-                  key={tab.key}
-                  type="button"
-                  onClick={() => onChangeScheduleFilter?.(tab.key)}
-                  className={`w-full rounded-lg px-4 py-2 text-sm font-bold transition ${
-                    scheduleFilter === tab.key
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  {renderScheduleTabLabel(tab)}
-                </button>
-              ))}
-            </div>
-
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap gap-2">
-                {assignmentFilterTabs.map((tab) => (
+                {scheduleTabs.map((tab) => (
                   <button
                     key={tab.key}
                     type="button"
-                    onClick={() => setAssignmentFilter(tab.key)}
+                    onClick={() => onChangeScheduleFilter?.(tab.key)}
                     className={`rounded-lg px-4 py-2 text-sm font-bold transition ${
-                      assignmentFilter === tab.key
-                        ? 'bg-slate-900 text-white'
-                        : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100'
+                      scheduleFilter === tab.key
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                     }`}
                   >
                     {tab.label} ({tab.rows.length})
@@ -902,7 +966,24 @@ export default function TourDepartureTable({
                 ))}
               </div>
 
-              <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500">
+            </div>
+
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
+              <label className="flex w-full max-w-[240px] items-center rounded-xl border border-slate-200 bg-white px-2 py-2 text-sm font-bold text-slate-600 shadow-sm sm:w-auto">
+                <select
+                  value={assignmentFilter}
+                  onChange={(event) => setAssignmentFilter(event.target.value)}
+                  className="min-w-[200px] flex-1 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-sm font-black text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                >
+                  {assignmentFilterTabs.map((tab) => (
+                    <option key={tab.key} value={tab.key}>
+                      {tab.label} ({tab.rows.length})
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
                 <DepartureHistoryButton />
 
                 {replacementRequests.length > 0 ? (
@@ -943,7 +1024,7 @@ export default function TourDepartureTable({
                 </thead>
 
                 <tbody className="divide-y divide-slate-100">
-                  {isInitialLoading ? (
+                  {loading ? (
                     <tr>
                       <td
                         colSpan="12"
@@ -1062,8 +1143,11 @@ export default function TourDepartureTable({
                             )}
 
                             {replacementRequest ? (
-                              <div className="mt-2 inline-flex rounded-full bg-orange-100 px-2.5 py-1 text-xs font-black text-orange-700 ring-1 ring-orange-200">
-                                Có yêu cầu đổi HDV
+                              <div className="mt-2 rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-800">
+                                <p className="font-black">Yêu cầu đổi HDV</p>
+                                <p className="mt-1 line-clamp-2">
+                                  {getReplacementGuideName(replacementRequest)}: {replacementRequest.reason || 'Không có lý do.'}
+                                </p>
                               </div>
                             ) : null}
                           </td>
@@ -1091,92 +1175,143 @@ export default function TourDepartureTable({
                           </td>
 
                           <td className="px-4 py-4">
-                            <div className="flex flex-wrap justify-center gap-2">
-                              {replacementRequest ? (
-                                <div className="mb-1 flex w-full justify-center">
-                                  <span className="rounded-full bg-orange-100 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-orange-700 ring-1 ring-orange-200">
-                                    Chờ xử lý đổi HDV
-                                  </span>
-                                </div>
-                              ) : null}
-                              {typeof onViewDetails === 'function' ? (
-                                <button
-                                  type="button"
-                                  onClick={() => onViewDetails(item.id)}
-                                  className="inline-flex items-center gap-1 rounded-lg bg-violet-50 px-3 py-2 text-xs font-bold text-violet-700"
-                                >
-                                  <DetailIcon />
-                                  Chi tiết
-                                </button>
-                              ) : null}
+                            <div
+                              className="relative flex justify-center"
+                              onMouseDown={(event) => event.stopPropagation()}
+                            >
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setOpenActionMenuId((current) =>
+                                    current === item.id ? null : item.id
+                                  )
+                                }
+                                className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white shadow-sm transition hover:bg-slate-800"
+                              >
+                                Thao tác
+                                <MoreIcon />
+                              </button>
 
-                              {locked ? (
-                                <span className="inline-flex items-center rounded-lg bg-slate-200 px-3 py-2 text-xs font-bold text-slate-600">
-                                  Đã khóa
-                                </span>
-                              ) : (
-                                <>
-                                  {typeof onOpenAssignment ===
-                                  'function' ? (
+                              {openActionMenuId === item.id ? (
+                                <div className="absolute right-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 text-left shadow-2xl ring-1 ring-black/5">
+                                  {replacementRequest ? (
+                                    <div className="mb-2 rounded-xl border border-orange-200 bg-orange-50 p-2">
+                                      <p className="mb-2 text-[11px] font-black uppercase tracking-wide text-orange-700">
+                                        Yêu cầu đổi HDV
+                                      </p>
+                                      <div className="grid grid-cols-2 gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setOpenActionMenuId(null)
+                                            onApproveReplacementRequest?.(replacementRequest)
+                                          }}
+                                          className="rounded-lg bg-emerald-600 px-2.5 py-2 text-xs font-black text-white transition hover:bg-emerald-700"
+                                        >
+                                          Duyệt
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setOpenActionMenuId(null)
+                                            onRejectReplacementRequest?.(replacementRequest)
+                                          }}
+                                          className="rounded-lg bg-rose-600 px-2.5 py-2 text-xs font-black text-white transition hover:bg-rose-700"
+                                        >
+                                          Không duyệt
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ) : null}
+
+                                  {typeof onViewDetails === 'function' ? (
                                     <button
                                       type="button"
-                                      onClick={() =>
-                                        onOpenAssignment(item.id)
-                                      }
-                                      className="inline-flex items-center gap-1 rounded-lg bg-sky-50 px-3 py-2 text-xs font-bold text-sky-700"
+                                      onClick={() => {
+                                        setOpenActionMenuId(null)
+                                        onViewDetails(item.id)
+                                      }}
+                                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-violet-700 transition hover:bg-violet-50"
                                     >
-                                      <GuideIcon />
-                                      {leadAssignment
-                                        ? 'Xem HDV'
-                                        : 'Phân HDV'}
-                                    </button>
-                                  ) : (
-                                    <Link
-                                      to={getAssignmentLink(item.id)}
-                                      className="inline-flex items-center gap-1 rounded-lg bg-sky-50 px-3 py-2 text-xs font-bold text-sky-700"
-                                    >
-                                      <GuideIcon />
-                                      Phân HDV
-                                    </Link>
-                                  )}
-
-                                  {typeof onRequestEdit ===
-                                  'function' ? (
-                                    <button
-                                      type="button"
-                                      title={
-                                        booked
-                                          ? 'Lịch đã có khách đặt, cần xác nhận trước khi sửa.'
-                                          : 'Sửa lịch khởi hành'
-                                      }
-                                      onClick={() => onRequestEdit(item)}
-                                      className="inline-flex items-center gap-1 rounded-lg bg-amber-50 px-3 py-2 text-xs font-bold text-amber-700"
-                                    >
-                                      <EditIcon />
-                                      Sửa
-                                    </button>
-                                  ) : (
-                                    <Link
-                                      to={getEditLink(item.id)}
-                                      className="inline-flex items-center gap-1 rounded-lg bg-amber-50 px-3 py-2 text-xs font-bold text-amber-700"
-                                    >
-                                      <EditIcon />
-                                      Sửa
-                                    </Link>
-                                  )}
-
-                                  {typeof onDelete === 'function' ? (
-                                    <button
-                                      type="button"
-                                      onClick={() => onDelete(item)}
-                                      className="inline-flex items-center gap-1 rounded-lg bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700"
-                                    >
-                                      <TrashIcon />
-                                      Xóa
+                                      <DetailIcon />
+                                      Chi tiết
                                     </button>
                                   ) : null}
-                                </>
-                              )}
+
+                                  {locked ? (
+                                    <span className="mt-1 flex w-full items-center rounded-xl bg-slate-100 px-3 py-2.5 text-sm font-bold text-slate-500">
+                                      Đã khóa
+                                    </span>
+                                  ) : (
+                                    <>
+                                      {typeof onOpenAssignment === 'function' ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setOpenActionMenuId(null)
+                                            onOpenAssignment(item.id)
+                                          }}
+                                          className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-sky-700 transition hover:bg-sky-50"
+                                        >
+                                          <GuideIcon />
+                                          {leadAssignment ? 'Xem HDV' : 'Phân HDV'}
+                                        </button>
+                                      ) : (
+                                        <Link
+                                          to={getAssignmentLink(item.id)}
+                                          onClick={() => setOpenActionMenuId(null)}
+                                          className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-sky-700 transition hover:bg-sky-50"
+                                        >
+                                          <GuideIcon />
+                                          Phân HDV
+                                        </Link>
+                                      )}
+
+                                      {typeof onRequestEdit === 'function' ? (
+                                        <button
+                                          type="button"
+                                          title={
+                                            booked
+                                              ? 'Lịch đã có khách đặt, cần xác nhận trước khi sửa.'
+                                              : 'Sửa lịch khởi hành'
+                                          }
+                                          onClick={() => {
+                                            setOpenActionMenuId(null)
+                                            onRequestEdit(item)
+                                          }}
+                                          className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-amber-700 transition hover:bg-amber-50"
+                                        >
+                                          <EditIcon />
+                                          Sửa
+                                        </button>
+                                      ) : (
+                                        <Link
+                                          to={getEditLink(item.id)}
+                                          onClick={() => setOpenActionMenuId(null)}
+                                          className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-amber-700 transition hover:bg-amber-50"
+                                        >
+                                          <EditIcon />
+                                          Sửa
+                                        </Link>
+                                      )}
+
+                                      {typeof onDelete === 'function' ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setOpenActionMenuId(null)
+                                            onDelete(item)
+                                          }}
+                                          className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-rose-700 transition hover:bg-rose-50"
+                                        >
+                                          <TrashIcon />
+                                          Xóa
+                                        </button>
+                                      ) : null}
+                                    </>
+                                  )}
+                                </div>
+                              ) : null}
                             </div>
                           </td>
                         </tr>
@@ -1197,9 +1332,33 @@ export default function TourDepartureTable({
                   trên <strong className="text-slate-900">{totalRows}</strong>{' '}
                   lịch
                 </span>
+
+                <label className="flex items-center gap-2">
+                  <span>Số dòng:</span>
+                  <select
+                    value={pageSize}
+                    onChange={(event) => setPageSize(Number(event.target.value))}
+                    className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  >
+                    {[5, 10, 20, 50].map((size) => (
+                      <option key={size} value={size}>
+                        {size}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               </div>
 
               <div className="flex flex-wrap items-center gap-1">
+                <button
+                  type="button"
+                  disabled={safePage <= 1}
+                  onClick={() => setCurrentPage(1)}
+                  className="rounded-lg border border-slate-200 px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Đầu
+                </button>
+
                 <button
                   type="button"
                   disabled={safePage <= 1}
@@ -1209,9 +1368,30 @@ export default function TourDepartureTable({
                   Trước
                 </button>
 
-                <span className="inline-flex min-w-[56px] items-center justify-center rounded-lg border border-slate-200 px-3 py-2 font-bold text-slate-700">
-                  {safePage}/{totalPages}
-                </span>
+                {pageNumbers.map((page, index) => {
+                  const previousPage = pageNumbers[index - 1]
+                  const needsDots = previousPage && page - previousPage > 1
+
+                  return (
+                    <span key={page} className="inline-flex items-center gap-1">
+                      {needsDots ? (
+                        <span className="px-2 text-slate-400">...</span>
+                      ) : null}
+
+                      <button
+                        type="button"
+                        onClick={() => setCurrentPage(page)}
+                        className={`rounded-lg border px-3 py-2 font-bold transition ${
+                          safePage === page
+                            ? 'border-blue-600 bg-blue-600 text-white'
+                            : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    </span>
+                  )
+                })}
 
                 <button
                   type="button"
@@ -1222,6 +1402,15 @@ export default function TourDepartureTable({
                   className="rounded-lg border border-slate-200 px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Sau
+                </button>
+
+                <button
+                  type="button"
+                  disabled={safePage >= totalPages}
+                  onClick={() => setCurrentPage(totalPages)}
+                  className="rounded-lg border border-slate-200 px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Cuối
                 </button>
               </div>
             </div>

@@ -38,7 +38,7 @@ class GuideTourOperationService
     }
 
     /**
-     * @param  array{keyword?: string|null, status?: string|null, attendance_session_id?: int|null, per_page?: int|null}  $filters
+     * @param  array{keyword?: string|null, status?: string|null, attendance_session_id?: int|null, attendance_boundary?: string|null, per_page?: int|null}  $filters
      * @return array{session: AttendanceSession|null, customers: LengthAwarePaginator}
      *
      * @throws AuthorizationException|ValidationException
@@ -46,13 +46,23 @@ class GuideTourOperationService
     public function getCustomers(User $user, TourDeparture $tourDeparture, array $filters): array
     {
         $departure = $this->assignedDepartureForUser($user, $tourDeparture);
-        $session = $this->resolveSession($departure, $filters['attendance_session_id'] ?? null);
+        $session = $this->resolveSession(
+            $departure,
+            $filters['attendance_session_id'] ?? null,
+            $filters['attendance_boundary'] ?? null
+        );
 
         $query = $this->participantBaseQuery($departure)
             ->with([
                 'booking:id,booking_code,user_id,tour_id,tour_departure_id,status,payment_status,number_of_people,note',
                 'booking.contact:id,booking_id,contact_name,contact_email,contact_phone,address,special_request',
                 'booking.user:id,full_name,email,phone',
+                'latestAttendanceNote' => fn ($query) => $query->select([
+                    'attendances.id',
+                    'attendances.booking_participant_id',
+                    'attendances.note',
+                    'attendances.updated_at',
+                ]),
             ])
             ->when($session, function (Builder $query) use ($session): void {
                 $query->with([
@@ -116,10 +126,14 @@ class GuideTourOperationService
      *
      * @throws AuthorizationException|ValidationException
      */
-    public function getAttendanceStatistics(User $user, TourDeparture $tourDeparture, ?int $sessionId = null): array
-    {
+    public function getAttendanceStatistics(
+        User $user,
+        TourDeparture $tourDeparture,
+        ?int $sessionId = null,
+        ?string $boundary = null
+    ): array {
         $departure = $this->assignedDepartureForUser($user, $tourDeparture);
-        $session = $this->resolveSession($departure, $sessionId);
+        $session = $this->resolveSession($departure, $sessionId, $boundary);
         $totalCustomers = $this->participantBaseQuery($departure)->count();
 
         if (! $session) {
@@ -163,15 +177,23 @@ class GuideTourOperationService
     {
         $departure = $this->assignedDepartureForUser($user, $tourDeparture);
         $this->assertDepartureCanTakeAttendance($departure);
+        $boundary = $data['boundary'];
+        $this->assertBoundaryMatchesToday($departure, $boundary);
 
-        return AttendanceSession::query()
-            ->create([
-                'tour_departure_id' => $departure->id,
-                'name' => $data['name'],
-                'note' => $data['note'] ?? null,
-                'created_by' => $user->id,
-            ])
-            ->load('creator:id,full_name,email');
+        return DB::transaction(function () use ($departure, $user, $boundary): AttendanceSession {
+            TourDeparture::query()->whereKey($departure->id)->lockForUpdate()->firstOrFail();
+
+            return AttendanceSession::query()->firstOrCreate(
+                [
+                    'tour_departure_id' => $departure->id,
+                    'boundary' => $boundary,
+                ],
+                [
+                    'name' => $this->attendanceBoundaryLabel($boundary),
+                    'created_by' => $user->id,
+                ]
+            )->load('creator:id,full_name,email');
+        });
     }
 
     /**
@@ -182,9 +204,12 @@ class GuideTourOperationService
         $departure = $this->assignedDepartureForUser($user, $tourDeparture);
         $this->assertDepartureCanTakeAttendance($departure);
         $this->assertSessionBelongsToDeparture($session, $departure);
+        $this->assertSessionCanTakeAttendance($session, $departure);
         $participant = $this->assertParticipantBelongsToDeparture($participantId, $departure);
 
         return DB::transaction(function () use ($user, $session, $participant): Attendance {
+            AttendanceSession::query()->whereKey($session->id)->lockForUpdate()->firstOrFail();
+
             $attendance = Attendance::query()
                 ->where('attendance_session_id', $session->id)
                 ->where('booking_participant_id', $participant->id)
@@ -225,6 +250,7 @@ class GuideTourOperationService
         $departure = $this->assignedDepartureForUser($user, $tourDeparture);
         $this->assertDepartureCanTakeAttendance($departure);
         $this->assertSessionBelongsToDeparture($session, $departure);
+        $this->assertSessionCanTakeAttendance($session, $departure);
         $participant = $this->assertParticipantBelongsToDeparture($participantId, $departure);
 
         return DB::transaction(function () use ($user, $session, $participant): Attendance {
@@ -270,9 +296,12 @@ class GuideTourOperationService
         $departure = $this->assignedDepartureForUser($user, $tourDeparture);
         $this->assertDepartureCanTakeAttendance($departure);
         $this->assertSessionBelongsToDeparture($session, $departure);
+        $this->assertSessionCanTakeAttendance($session, $departure);
         $participant = $this->assertParticipantBelongsToDeparture((int) $data['participant_id'], $departure);
 
         return DB::transaction(function () use ($user, $session, $participant, $data): Attendance {
+            AttendanceSession::query()->whereKey($session->id)->lockForUpdate()->firstOrFail();
+
             $attendance = Attendance::query()
                 ->where('attendance_session_id', $session->id)
                 ->where('booking_participant_id', $participant->id)
@@ -472,7 +501,7 @@ class GuideTourOperationService
     /**
      * @throws ValidationException
      */
-    private function resolveSession(TourDeparture $departure, ?int $sessionId): ?AttendanceSession
+    private function resolveSession(TourDeparture $departure, ?int $sessionId, ?string $boundary = null): ?AttendanceSession
     {
         if ($sessionId) {
             $session = AttendanceSession::query()
@@ -485,11 +514,18 @@ class GuideTourOperationService
                 ]);
             }
 
+            if ($boundary !== null && $session->boundary !== $boundary) {
+                throw ValidationException::withMessages([
+                    'attendance_boundary' => 'Attendance session does not match the selected boundary.',
+                ]);
+            }
+
             return $session;
         }
 
         return AttendanceSession::query()
             ->where('tour_departure_id', $departure->id)
+            ->when($boundary !== null, fn (Builder $query) => $query->where('boundary', $boundary))
             ->latest('created_at')
             ->latest('id')
             ->first();
@@ -509,7 +545,8 @@ class GuideTourOperationService
     {
         return $query
             ->where('tour_departure_id', $departure->id)
-            ->where('status', '!=', 'cancelled');
+            ->where('status', 'confirmed')
+            ->where('payment_status', 'paid');
     }
 
     private function applyCustomerSearch(Builder $query, string $keyword): void
@@ -575,6 +612,54 @@ class GuideTourOperationService
                 'attendance_session_id' => 'Attendance session does not belong to this tour departure.',
             ]);
         }
+    }
+
+    /**
+     * @throws ValidationException
+     */
+    private function assertSessionCanTakeAttendance(AttendanceSession $session, TourDeparture $departure): void
+    {
+        if ($session->status !== 'active') {
+            throw ValidationException::withMessages([
+                'attendance_session_id' => 'Attendance session is closed.',
+            ]);
+        }
+
+        if ($session->boundary === null) {
+            throw ValidationException::withMessages([
+                'attendance_session_id' => 'Attendance session does not have a valid boundary.',
+            ]);
+        }
+
+        $this->assertBoundaryMatchesToday($departure, $session->boundary);
+
+    }
+
+    /**
+     * @throws ValidationException
+     */
+    private function assertBoundaryMatchesToday(TourDeparture $departure, string $boundary): void
+    {
+        $attendanceDate = $boundary === 'departure'
+            ? $departure->departure_date
+            : ($departure->return_date ?: $departure->departure_date);
+
+        if ($attendanceDate?->isToday()) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'boundary' => $boundary === 'departure'
+                ? 'Departure attendance is only available on the departure date.'
+                : 'Return attendance is only available on the return date.',
+        ]);
+    }
+
+    private function attendanceBoundaryLabel(string $boundary): string
+    {
+        return $boundary === 'departure'
+            ? 'Điểm danh ngày khởi hành'
+            : 'Điểm danh ngày kết thúc tour';
     }
 
     /**

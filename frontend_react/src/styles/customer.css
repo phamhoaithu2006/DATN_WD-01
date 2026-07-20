@@ -8104,3 +8104,527 @@ textarea.vg-checkout-input {
 }
 
 
+/* =========================================================
+   CUSTOMER SUPPORT PAGE
+========================================================= */
+
+.vg-support-page {
+  min-height: calc(100vh - 80px);
+  padding: 64px 0 90px;
+  background:
+    radial-gradient(circle at 10% 0%, rgba(37, 99, 235, 0.08), transparent 30%),
+    linear-gradient(180deg, #f8fbff 0%, #f4f7fb 100%);
+}
+
+.vg-support-page .vg-container {
+  width: min(1180px, calc(100% - 40px));
+  margin: 0 auto;
+}
+
+/* =========================================================
+   PAGE HEADING
+========================================================= */
+
+.vg-support-heading {
+  max-width: 760px;
+  margin: 0 auto 36px;
+  text-align: center;
+}
+
+.vg-support-heading > span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  margin-bottom: 14px;
+  padding: 7px 14px;
+
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+
+  background: #eff6ff;
+  color: #2563eb;
+
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.vg-support-heading h1 {
+  margin: 0;
+
+  color: #0f172a;
+
+  font-size: clamp(30px, 4vw, 46px);
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+}
+
+.vg-support-heading p {
+  max-width: 620px;
+  margin: 16px auto 0;
+
+  color: #64748b;
+
+  font-size: 16px;
+  line-height: 1.7;
+}
+
+/* =========================================================
+   SUCCESS / ERROR
+========================================================= */
+
+.vg-support-success,
+.vg-support-error {
+  max-width: 920px;
+  margin: 0 auto 24px;
+  padding: 18px 22px;
+
+  border-radius: 16px;
+
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.vg-support-success {
+  border: 1px solid #bbf7d0;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.vg-support-success strong {
+  display: block;
+  margin-bottom: 4px;
+
+  color: #15803d;
+  font-size: 16px;
+}
+
+.vg-support-success p {
+  margin: 4px 0;
+}
+
+.vg-support-error {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+/* =========================================================
+   MAIN FORM
+========================================================= */
+
+.vg-support-form {
+  max-width: 1020px;
+  margin: 0 auto;
+
+  padding: 0;
+
+  border: 1px solid #e2e8f0;
+  border-radius: 24px;
+
+  background: #ffffff;
+
+  box-shadow:
+    0 20px 50px rgba(15, 23, 42, 0.07),
+    0 4px 15px rgba(15, 23, 42, 0.03);
+
+  overflow: hidden;
+}
+
+.vg-support-form > section {
+  padding: 34px 40px;
+  border-bottom: 1px solid #edf2f7;
+}
+
+.vg-support-form > section:last-of-type {
+  border-bottom: none;
+}
+
+/* =========================================================
+   SECTION TITLE
+========================================================= */
+
+.vg-support-section-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+
+  margin-bottom: 28px;
+}
+
+.vg-support-section-title > span {
+  width: 44px;
+  height: 44px;
+
+  flex: 0 0 44px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 13px;
+
+  background: linear-gradient(
+    135deg,
+    #2563eb,
+    #0ea5e9
+  );
+
+  color: #ffffff;
+
+  font-size: 14px;
+  font-weight: 800;
+
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.22);
+}
+
+.vg-support-section-title h2 {
+  margin: 0 0 5px;
+
+  color: #0f172a;
+
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.vg-support-section-title p {
+  margin: 0;
+
+  color: #64748b;
+
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* =========================================================
+   FORM GRID
+========================================================= */
+
+.vg-support-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+}
+
+/* Phần thông tin định danh có 3 field */
+.vg-support-form > section:first-of-type .vg-support-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* =========================================================
+   LABELS
+========================================================= */
+
+.vg-support-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+
+  margin-bottom: 22px;
+
+  color: #334155;
+
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.vg-support-grid label {
+  margin-bottom: 0;
+}
+
+/* =========================================================
+   INPUT / SELECT / TEXTAREA
+========================================================= */
+
+.vg-support-form input:not([type="file"]),
+.vg-support-form select,
+.vg-support-form textarea {
+  width: 100%;
+
+  border: 1px solid #dbe3ec;
+  border-radius: 12px;
+
+  background: #ffffff;
+  color: #0f172a;
+
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+
+  outline: none;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
+}
+
+.vg-support-form input:not([type="file"]),
+.vg-support-form select {
+  height: 48px;
+  padding: 0 14px;
+}
+
+.vg-support-form textarea {
+  min-height: 170px;
+  padding: 14px 16px;
+
+  line-height: 1.65;
+
+  resize: vertical;
+}
+
+.vg-support-form input::placeholder,
+.vg-support-form textarea::placeholder {
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+.vg-support-form input:not([type="file"]):hover,
+.vg-support-form select:hover,
+.vg-support-form textarea:hover {
+  border-color: #94a3b8;
+}
+
+.vg-support-form input:not([type="file"]):focus,
+.vg-support-form select:focus,
+.vg-support-form textarea:focus {
+  border-color: #3b82f6;
+
+  box-shadow:
+    0 0 0 3px rgba(59, 130, 246, 0.12);
+
+  background: #ffffff;
+}
+
+.vg-support-form select {
+  cursor: pointer;
+}
+
+/* =========================================================
+   FILE UPLOAD
+========================================================= */
+
+.vg-support-form input[type="file"] {
+  width: 100%;
+  min-height: 110px;
+
+  padding: 18px;
+
+  border: 2px dashed #cbd5e1;
+  border-radius: 14px;
+
+  background: #f8fafc;
+
+  color: #64748b;
+
+  cursor: pointer;
+
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease;
+}
+
+.vg-support-form input[type="file"]:hover {
+  border-color: #60a5fa;
+  background: #eff6ff;
+}
+
+.vg-support-form input[type="file"]::file-selector-button {
+  margin-right: 14px;
+  padding: 10px 16px;
+
+  border: none;
+  border-radius: 9px;
+
+  background: #e0ecff;
+  color: #2563eb;
+
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+
+  cursor: pointer;
+
+  transition: background 0.2s ease;
+}
+
+.vg-support-form input[type="file"]::file-selector-button:hover {
+  background: #dbeafe;
+}
+
+/* Danh sách file đã chọn */
+.vg-support-form section > div:not(.vg-support-section-title):last-child p {
+  margin: 7px 0;
+  padding: 10px 14px;
+
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+
+  background: #f8fafc;
+  color: #475569;
+
+  font-size: 13px;
+}
+
+/* =========================================================
+   SUBMIT BUTTON
+========================================================= */
+
+.vg-support-form > button[type="submit"] {
+  width: calc(100% - 80px);
+  min-height: 52px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  margin: 8px 40px 36px;
+  padding: 0 24px;
+
+  border: none;
+  border-radius: 13px;
+
+  background: linear-gradient(
+    135deg,
+    #2563eb 0%,
+    #0284c7 100%
+  );
+
+  color: #ffffff;
+
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 800;
+
+  cursor: pointer;
+
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.24);
+
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.vg-support-form > button[type="submit"]:hover:not(:disabled) {
+  transform: translateY(-1px);
+
+  box-shadow: 0 14px 28px rgba(37, 99, 235, 0.3);
+}
+
+.vg-support-form > button[type="submit"]:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.vg-support-form > button[type="submit"]:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* =========================================================
+   RESPONSIVE TABLET
+========================================================= */
+
+@media (max-width: 900px) {
+  .vg-support-page {
+    padding: 45px 0 70px;
+  }
+
+  .vg-support-form > section {
+    padding: 30px;
+  }
+
+  .vg-support-form > section:first-of-type .vg-support-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .vg-support-form > section:first-of-type .vg-support-grid label:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .vg-support-form > button[type="submit"] {
+    width: calc(100% - 60px);
+    margin: 6px 30px 30px;
+  }
+}
+
+/* =========================================================
+   RESPONSIVE MOBILE
+========================================================= */
+
+@media (max-width: 640px) {
+  .vg-support-page {
+    padding: 30px 0 55px;
+  }
+
+  .vg-support-page .vg-container {
+    width: min(100% - 24px, 1180px);
+  }
+
+  .vg-support-heading {
+    margin-bottom: 24px;
+    text-align: left;
+  }
+
+  .vg-support-heading h1 {
+    font-size: 29px;
+  }
+
+  .vg-support-heading p {
+    margin-top: 12px;
+    font-size: 14px;
+  }
+
+  .vg-support-form {
+    border-radius: 18px;
+  }
+
+  .vg-support-form > section {
+    padding: 25px 20px;
+  }
+
+  .vg-support-section-title {
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .vg-support-section-title > span {
+    width: 40px;
+    height: 40px;
+    flex-basis: 40px;
+  }
+
+  .vg-support-section-title h2 {
+    font-size: 18px;
+  }
+
+  .vg-support-grid,
+  .vg-support-form > section:first-of-type .vg-support-grid {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
+  .vg-support-form > section:first-of-type .vg-support-grid label:last-child {
+    grid-column: auto;
+  }
+
+  .vg-support-form input:not([type="file"]),
+  .vg-support-form select {
+    height: 46px;
+  }
+
+  .vg-support-form textarea {
+    min-height: 150px;
+  }
+
+  .vg-support-form > button[type="submit"] {
+    width: calc(100% - 40px);
+
+    margin: 5px 20px 25px;
+
+    min-height: 50px;
+  }
+}

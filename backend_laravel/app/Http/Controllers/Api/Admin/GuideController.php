@@ -83,12 +83,12 @@ class GuideController extends Controller
                     }, 'current_leave_requests_count')
                     ->selectSub(function ($subQuery) use ($today) {
                         $subQuery
-                            ->from('guide_leave_requests as glr_busy')
+                            ->from('guide_leave_requests as glr_upcoming')
                             ->selectRaw('COUNT(*)')
-                            ->whereColumn('glr_busy.guide_id', 'guides.id')
-                            ->whereIn('glr_busy.status', ['pending', 'approved'])
-                            ->whereDate('glr_busy.end_date', '>=', $today);
-                    }, 'busy_leave_requests_count');
+                            ->whereColumn('glr_upcoming.guide_id', 'guides.id')
+                            ->where('glr_upcoming.status', 'approved')
+                            ->whereDate('glr_upcoming.start_date', '>', $today);
+                    }, 'waiting_leave_requests_count');
             })
             ->whereHas('user');
     }
@@ -99,9 +99,10 @@ class GuideController extends Controller
             return response()->json([
                 'message' => 'Thống kê đơn nghỉ HDV',
                 'data' => [
-                    'pending_leave_requests_count' => 0,
+                    'available_guides_count' => 0,
+                    'pending_guides_count' => 0,
+                    'waiting_leave_guides_count' => 0,
                     'resting_guides_count' => 0,
-                    'busy_leave_guides_count' => 0,
                 ],
             ]);
         }
@@ -111,9 +112,35 @@ class GuideController extends Controller
         return response()->json([
             'message' => 'Thống kê đơn nghỉ HDV',
             'data' => [
-                'pending_leave_requests_count' => DB::table('guide_leave_requests')
-                    ->where('status', 'pending')
+                'available_guides_count' => Guide::query()
+                    ->whereHas('user')
+                    ->whereNotExists(function ($subQuery) use ($today) {
+                        $subQuery
+                            ->select(DB::raw(1))
+                            ->from('guide_leave_requests as glr')
+                            ->whereColumn('glr.guide_id', 'guides.id')
+                            ->where(function ($leaveQuery) use ($today) {
+                                $leaveQuery
+                                    ->where('glr.status', 'pending')
+                                    ->orWhere(function ($approvedQuery) use ($today) {
+                                        $approvedQuery
+                                            ->where('glr.status', 'approved')
+                                            ->whereDate('glr.end_date', '>=', $today);
+                                    });
+                            });
+                    })
                     ->count(),
+
+                'pending_guides_count' => DB::table('guide_leave_requests')
+                    ->where('status', 'pending')
+                    ->distinct('guide_id')
+                    ->count('guide_id'),
+
+                'waiting_leave_guides_count' => DB::table('guide_leave_requests')
+                    ->where('status', 'approved')
+                    ->whereDate('start_date', '>', $today)
+                    ->distinct('guide_id')
+                    ->count('guide_id'),
 
                 'resting_guides_count' => DB::table('guide_leave_requests')
                     ->where('status', 'approved')
@@ -122,11 +149,6 @@ class GuideController extends Controller
                     ->distinct('guide_id')
                     ->count('guide_id'),
 
-                'busy_leave_guides_count' => DB::table('guide_leave_requests')
-                    ->whereIn('status', ['pending', 'approved'])
-                    ->whereDate('end_date', '>=', $today)
-                    ->distinct('guide_id')
-                    ->count('guide_id'),
             ],
         ]);
     }
@@ -137,7 +159,7 @@ class GuideController extends Controller
     public function index(Request $request)
     {
         $guides = $this->guideQuery()
-            ->latest('id')
+            ->orderBy('guides.id')
             ->paginate($this->perPage($request));
 
         return response()->json([
@@ -161,8 +183,7 @@ class GuideController extends Controller
                     ->orWhereHas('user', function ($userQuery) use ($search) {
                         $userQuery
                             ->where('full_name', 'like', "%{$search}%")
-                            ->orWhere('email', 'like', "%{$search}%")
-                            ->orWhere('phone', 'like', "%{$search}%");
+                            ->orWhere('email', 'like', "%{$search}%");
                     });
             });
         }
@@ -170,7 +191,7 @@ class GuideController extends Controller
         return response()->json([
             'message' => 'Kết quả tìm kiếm hướng dẫn viên',
             'data' => $query
-                ->latest('id')
+                ->orderBy('guides.id')
                 ->paginate($this->perPage($request)),
         ]);
     }
@@ -197,8 +218,7 @@ class GuideController extends Controller
                     ->orWhereHas('user', function ($userQuery) use ($search) {
                         $userQuery
                             ->where('full_name', 'like', "%{$search}%")
-                            ->orWhere('email', 'like', "%{$search}%")
-                            ->orWhere('phone', 'like', "%{$search}%");
+                            ->orWhere('email', 'like', "%{$search}%");
                     });
             });
         }
@@ -227,14 +247,24 @@ class GuideController extends Controller
                 });
             }
 
-            if ($leaveStatus === 'busy_leave') {
+            if ($leaveStatus === 'pending_leave') {
                 $query->whereExists(function ($subQuery) use ($today) {
                     $subQuery
                         ->select(DB::raw(1))
                         ->from('guide_leave_requests as glr')
                         ->whereColumn('glr.guide_id', 'guides.id')
-                        ->whereIn('glr.status', ['pending', 'approved'])
-                        ->whereDate('glr.end_date', '>=', $today);
+                        ->where('glr.status', 'pending');
+                });
+            }
+
+            if ($leaveStatus === 'waiting_leave') {
+                $query->whereExists(function ($subQuery) use ($today) {
+                    $subQuery
+                        ->select(DB::raw(1))
+                        ->from('guide_leave_requests as glr')
+                        ->whereColumn('glr.guide_id', 'guides.id')
+                        ->where('glr.status', 'approved')
+                        ->whereDate('glr.start_date', '>', $today);
                 });
             }
 
@@ -278,7 +308,7 @@ class GuideController extends Controller
         return response()->json([
             'message' => 'Kết quả lọc hướng dẫn viên',
             'data' => $query
-                ->latest('id')
+                ->orderBy('guides.id')
                 ->paginate($this->perPage($request)),
         ]);
     }
@@ -337,6 +367,7 @@ class GuideController extends Controller
                 'required',
                 'integer',
                 'min:0',
+                'max:40',
             ],
 
             'status' => [
@@ -459,6 +490,7 @@ class GuideController extends Controller
                 'sometimes',
                 'integer',
                 'min:0',
+                'max:40',
             ],
 
             'status' => [

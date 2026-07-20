@@ -4,7 +4,6 @@ import {
   getGuideTourCompleted,
   getGuideTourDetail,
   getGuideTourCustomers,
-  getGuideTourDestinationOptions,
   getGuideTourOngoing,
   getGuideTourUpcoming,
   getGuideTours,
@@ -38,12 +37,59 @@ function getTourDescription(item) {
   );
 }
 
-function canRequestReplacement(item) {
+function getReplacementEligibility(item) {
   const status = String(item?.guide_status || item?.status || "").toLowerCase();
-  if (["completed", "cancelled", "canceled"].includes(status)) return false;
-  if (item?.replacement_request_pending || item?.pending_replacement_request)
-    return false;
-  return true;
+  const hasPendingRequest = Boolean(
+    Number(item?.replacement_request_pending) ||
+      item?.pending_replacement_request,
+  );
+
+  if (hasPendingRequest) {
+    return {
+      allowed: false,
+      buttonLabel: "Đã gửi yêu cầu đổi HDV",
+      message: "Yêu cầu đổi HDV đã được gửi và đang chờ quản trị viên xử lý.",
+    };
+  }
+
+  if (status === "ongoing") {
+    return {
+      allowed: false,
+      buttonLabel: "Không thể đổi HDV",
+      message: "Tour đang diễn ra nên không thể yêu cầu đổi HDV nữa.",
+    };
+  }
+
+  if (["completed", "cancelled", "canceled"].includes(status)) {
+    return {
+      allowed: false,
+      buttonLabel: "Không thể đổi HDV",
+      message: "Tour đã kết thúc hoặc đã bị hủy nên không thể đổi HDV.",
+    };
+  }
+
+  const departureDate = new Date(`${item?.departure_date || ""}T00:00:00`);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const minimumDepartureDate = new Date(today);
+  minimumDepartureDate.setDate(minimumDepartureDate.getDate() + 5);
+
+  if (
+    Number.isNaN(departureDate.getTime()) ||
+    departureDate < minimumDepartureDate
+  ) {
+    return {
+      allowed: false,
+      buttonLabel: "Đã quá hạn đổi HDV",
+      message: "Chỉ có thể yêu cầu đổi HDV trước ngày khởi hành ít nhất 5 ngày.",
+    };
+  }
+
+  return {
+    allowed: true,
+    buttonLabel: "Yêu cầu đổi HDV",
+    message: "Bạn có thể gửi yêu cầu đổi HDV trước ngày khởi hành ít nhất 5 ngày.",
+  };
 }
 
 const tabs = [
@@ -58,6 +104,11 @@ const fetchers = {
   ongoing: getGuideTourOngoing,
   completed: getGuideTourCompleted,
 };
+function getPageNumbers(currentPage, lastPage) {
+  const start = Math.max(1, currentPage - 2);
+  const end = Math.min(lastPage, start + 4);
+  return Array.from({ length: end - start + 1 }, (_, index) => start + index);
+}
 function TourRow({ customerCount, item, onDetail }) {
   const image = getTourImage(item);
   const title = getTourTitle(item);
@@ -121,12 +172,8 @@ function TourDetailModal({
   customers,
   item,
   loading,
-  replacement,
   onClose,
-  onReplacementChange,
-  onReplacementFileChange,
-  onReplacementSubmit,
-  onToggleReplacement,
+  onOpenReplacement,
 }) {
   if (!item) return null;
 
@@ -135,6 +182,7 @@ function TourDetailModal({
   const itineraries = Array.isArray(item?.tour?.itineraries)
     ? item.tour.itineraries
     : [];
+  const replacementEligibility = getReplacementEligibility(item);
 
   return (
     <div
@@ -271,53 +319,65 @@ function TourDetailModal({
             </div>
             <button
               type="button"
-              disabled={!canRequestReplacement(item)}
-              onClick={onToggleReplacement}
+              disabled={!replacementEligibility.allowed}
+              onClick={() => onOpenReplacement(item)}
             >
-              {replacement.open ? "Đóng form" : "Yêu cầu đổi HDV"}
+              {replacementEligibility.buttonLabel}
             </button>
           </div>
-          {!canRequestReplacement(item) ? (
-            <p className="guide-replacement-muted">
-              Tour này không còn đủ điều kiện gửi yêu cầu đổi HDV hoặc đã có yêu
-              cầu chờ duyệt.
-            </p>
-          ) : null}
-          {replacement.open ? (
-            <form
-              className="guide-replacement-form"
-              onSubmit={onReplacementSubmit}
-            >
-              <label>
-                <span>Lý do đổi HDV</span>
-                <textarea
-                  rows={4}
-                  value={replacement.reason}
-                  onChange={(event) => onReplacementChange(event.target.value)}
-                  placeholder="Nhập lý do cần đổi hướng dẫn viên phụ trách tour..."
-                  disabled={replacement.submitting}
-                />
-              </label>
-              <label>
-                <span>File/ảnh minh chứng nếu có</span>
-                <input
-                  type="file"
-                  onChange={(event) =>
-                    onReplacementFileChange(event.target.files?.[0] || null)
-                  }
-                  disabled={replacement.submitting}
-                />
-              </label>
-              {replacement.error ? (
-                <p className="guide-replacement-error">{replacement.error}</p>
-              ) : null}
-              <button type="submit" disabled={replacement.submitting}>
-                {replacement.submitting ? "Đang gửi..." : "Gửi yêu cầu"}
-              </button>
-            </form>
-          ) : null}
+          <p className="guide-replacement-muted">
+            {replacementEligibility.message}
+          </p>
         </div>
       </section>
+    </div>
+  );
+}
+
+function ReplacementRequestModal({
+  item,
+  replacement,
+  onClose,
+  onReasonChange,
+  onFileChange,
+  onSubmit,
+}) {
+  if (!item) return null;
+
+  return (
+    <div className="guide-tour-detail-backdrop" role="presentation" onClick={onClose}>
+      <form
+        className="guide-replacement-modal"
+        onSubmit={onSubmit}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <button type="button" className="guide-tour-detail-close" onClick={onClose} aria-label="Đóng">×</button>
+        <h2>Yêu cầu đổi hướng dẫn viên</h2>
+        <p className="guide-replacement-tour-name">{getTourTitle(item)}</p>
+        <p>Yêu cầu này được gửi riêng đến quản trị viên để xem xét phân công lại tour.</p>
+        <label>
+          <span>Lý do đổi HDV <b className="guide-required-mark" aria-hidden="true">*</b></span>
+          <textarea
+            rows={5}
+            value={replacement.reason}
+            onChange={(event) => onReasonChange(event.target.value)}
+            placeholder="Nêu rõ lý do cần đổi hướng dẫn viên phụ trách tour..."
+            disabled={replacement.submitting}
+            maxLength={2000}
+            required
+          />
+          <small>{replacement.reason.trim().length}/2000 ký tự</small>
+        </label>
+        <label>
+          <span>File/ảnh minh chứng (không bắt buộc)</span>
+          <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(event) => onFileChange(event.target.files?.[0] || null)} disabled={replacement.submitting} />
+        </label>
+        {replacement.error ? <p className="guide-replacement-error">{replacement.error}</p> : null}
+        <div className="guide-replacement-actions">
+          <button type="button" onClick={onClose} disabled={replacement.submitting}>Hủy</button>
+          <button type="submit" disabled={replacement.submitting}>{replacement.submitting ? "Đang gửi..." : "Gửi yêu cầu"}</button>
+        </div>
+      </form>
     </div>
   );
 }
@@ -328,9 +388,7 @@ function GuideToursPage() {
   const [keyword, setKeyword] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
-  const [destinationId, setDestinationId] = useState("");
-  const [sort, setSort] = useState("newest");
-  const [destinations, setDestinations] = useState([]);
+  const [sort, setSort] = useState("priority");
   const [page, setPage] = useState(1);
   const [items, setItems] = useState([]);
   const [heroIndex, setHeroIndex] = useState(0);
@@ -354,27 +412,11 @@ function GuideToursPage() {
   const [detailCustomers, setDetailCustomers] = useState([]);
   const [detailCustomerTotal, setDetailCustomerTotal] = useState(0);
   const [customerCounts, setCustomerCounts] = useState({});
-  const [replacementOpen, setReplacementOpen] = useState(false);
+  const [replacementTour, setReplacementTour] = useState(null);
   const [replacementReason, setReplacementReason] = useState("");
   const [replacementFile, setReplacementFile] = useState(null);
   const [replacementError, setReplacementError] = useState("");
   const [replacementSubmitting, setReplacementSubmitting] = useState(false);
-
-  useEffect(() => {
-    let mounted = true;
-
-    getGuideTourDestinationOptions()
-      .then((data) => {
-        if (mounted) setDestinations(Array.isArray(data) ? data : []);
-      })
-      .catch(() => {
-        if (mounted) setDestinations([]);
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -388,9 +430,7 @@ function GuideToursPage() {
           keyword: keyword.trim() || undefined,
           from_date: fromDate || undefined,
           to_date: toDate || undefined,
-          destination_id: destinationId || undefined,
-          // The All tab follows the guide workflow order from the backend.
-          sort: activeTab === "all" ? undefined : sort,
+          sort,
         };
         const active = await fetchers[activeTab](params);
         if (!mounted) return;
@@ -417,7 +457,7 @@ function GuideToursPage() {
     return () => {
       mounted = false;
     };
-  }, [activeTab, destinationId, fromDate, keyword, page, sort, toDate]);
+  }, [activeTab, fromDate, keyword, page, sort, toDate]);
 
   const heroItem = items[0];
   const heroImages = items.map(getTourImage).filter(Boolean);
@@ -436,7 +476,6 @@ function GuideToursPage() {
     setDetailItem(item);
     setDetailCustomers([]);
     setDetailCustomerTotal(0);
-    setReplacementOpen(false);
     setReplacementReason("");
     setReplacementFile(null);
     setReplacementError("");
@@ -463,7 +502,7 @@ function GuideToursPage() {
 
   async function submitReplacementRequest(event) {
     event.preventDefault();
-    if (!detailItem) return;
+    if (!replacementTour) return;
     const reason = replacementReason.trim();
 
     if (reason.length < 10) {
@@ -474,18 +513,16 @@ function GuideToursPage() {
     setReplacementSubmitting(true);
     setReplacementError("");
     try {
-      await requestGuideReplacement(detailItem.id, {
+      await requestGuideReplacement(replacementTour.id, {
         reason,
         evidence: replacementFile,
       });
       setError("");
       setMessage("Đã gửi yêu cầu đổi HDV. Admin sẽ xem xét và phản hồi.");
-      setReplacementOpen(false);
+      setReplacementTour(null);
       setReplacementReason("");
       setReplacementFile(null);
-      setDetailItem((current) =>
-        current ? { ...current, replacement_request_pending: true } : current,
-      );
+      setItems((current) => current.map((item) => item.id === replacementTour.id ? { ...item, replacement_request_pending: true } : item));
     } catch (err) {
       setReplacementError(
         err?.response?.data?.message || "Không gửi được yêu cầu đổi HDV.",
@@ -494,6 +531,29 @@ function GuideToursPage() {
       setReplacementSubmitting(false);
     }
   }
+
+  function handleReplacementFileChange(file) {
+    if (!file) {
+      setReplacementFile(null);
+      return;
+    }
+
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+    if (!allowedTypes.includes(file.type)) {
+      setReplacementError("Chỉ chấp nhận ảnh JPG, PNG, WEBP hoặc PDF.");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setReplacementError("File minh chứng không được vượt quá 5MB.");
+      return;
+    }
+
+    setReplacementFile(file);
+    setReplacementError("");
+  }
+  const firstItem = items.length ? (meta.current_page - 1) * meta.per_page + 1 : 0;
+  const lastItem = Math.min(meta.current_page * meta.per_page, meta.total);
 
   return (
     <div className="guide-shot-page">
@@ -581,39 +641,21 @@ function GuideToursPage() {
             />
           </label>
           <label className="guide-shot-select-filter">
-            <span>Địa điểm</span>
-            <select
-              value={destinationId}
-              onChange={(event) => {
-                setDestinationId(event.target.value);
-                setPage(1);
-              }}
-              aria-label="Lọc theo địa điểm"
-            >
-              <option value="">Tất cả</option>
-              {destinations.map((destination) => (
-                <option key={destination.id} value={destination.id}>
-                  {destination.name}{destination.province_city ? ` - ${destination.province_city}` : ""}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="guide-shot-select-filter">
             <span>Sắp xếp</span>
             <select
               value={sort}
-              disabled={activeTab === "all"}
               onChange={(event) => {
                 setSort(event.target.value);
                 setPage(1);
               }}
               aria-label="Sắp xếp tour"
             >
+              <option value="priority">Ưu tiên trạng thái</option>
               <option value="newest">Mới nhất</option>
               <option value="oldest">Cũ nhất</option>
             </select>
           </label>
-          <label>
+          <label className="guide-shot-search-filter">
             <svg viewBox="0 0 24 24">
               <circle cx="11" cy="11" r="8" />
               <path d="m21 21-4.35-4.35" />
@@ -627,9 +669,6 @@ function GuideToursPage() {
               placeholder="Tìm kiếm tour..."
             />
           </label>
-          <button type="button">Thời gian</button>
-          <button type="button">Địa điểm</button>
-          <button type="button">Sắp xếp: Mới nhất</button>
         </div>
         {error || message ? (
           <div
@@ -660,7 +699,7 @@ function GuideToursPage() {
         ) : null}
         <footer className="guide-shot-pagination">
           <span>
-            Hiển thị {items.length ? `1-${items.length}` : "0"} /{" "}
+            Hiển thị {items.length ? `${firstItem}-${lastItem}` : "0"} /{" "}
             {formatNumber(meta.total)} tour
           </span>
           <div>
@@ -671,9 +710,11 @@ function GuideToursPage() {
             >
               ‹
             </button>
-            <button type="button" className="is-active">
-              {meta.current_page}
-            </button>
+            {getPageNumbers(meta.current_page, meta.last_page).map((pageNumber) => (
+              <button key={pageNumber} type="button" className={pageNumber === meta.current_page ? "is-active" : ""} onClick={() => setPage(pageNumber)}>
+                {pageNumber}
+              </button>
+            ))}
             <button
               type="button"
               disabled={page >= meta.last_page}
@@ -689,20 +730,24 @@ function GuideToursPage() {
         customers={detailCustomers}
         item={detailItem}
         loading={detailLoading}
-        replacement={{
-          error: replacementError,
-          open: replacementOpen,
-          reason: replacementReason,
-          submitting: replacementSubmitting,
-        }}
         onClose={() => setDetailItem(null)}
-        onReplacementChange={(value) => {
+        onOpenReplacement={(item) => {
+          setDetailItem(null);
+          setReplacementTour(item);
+        }}
+      />
+      <ReplacementRequestModal
+        item={replacementTour}
+        replacement={{ error: replacementError, reason: replacementReason, submitting: replacementSubmitting }}
+        onClose={() => {
+          if (!replacementSubmitting) setReplacementTour(null);
+        }}
+        onReasonChange={(value) => {
           setReplacementReason(value);
           setReplacementError("");
         }}
-        onReplacementFileChange={setReplacementFile}
-        onReplacementSubmit={submitReplacementRequest}
-        onToggleReplacement={() => setReplacementOpen((current) => !current)}
+        onFileChange={handleReplacementFileChange}
+        onSubmit={submitReplacementRequest}
       />
     </div>
   );
