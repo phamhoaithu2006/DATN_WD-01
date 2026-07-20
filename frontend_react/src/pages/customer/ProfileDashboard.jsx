@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, NavLink } from "react-router-dom";
 import Icon from "../../components/customer/Icon";
 import TourCard from "../../components/customer/TourCard";
@@ -39,6 +39,151 @@ function CustomerAvatar({ profile }) {
   );
 }
 
+function getVehicleIconName(title = "") {
+  const t = title.toLowerCase();
+  if (t.includes("thuyền") || t.includes("cruise") || t.includes("biển")) return "ship";
+  if (t.includes("phú quốc") || t.includes("bay") || t.includes("quốc tế") || t.includes("thái lan") || t.includes("nhật") || t.includes("hàn")) return "plane";
+  return "bus";
+}
+
+function BookingTicketModal({ booking, onClose, formatCurrency, formatDate }) {
+  if (!booking) return null;
+
+  const tourImage = booking.tour?.thumbnail_url || booking.tour?.image || booking.tour?.thumbnail?.image_url || "";
+  const tourTitle = booking.tour?.title || "Tour ViVuGo";
+  const departureDate = booking.tour_departure?.departure_date ? formatDate(booking.tour_departure.departure_date) : "Đang cập nhật";
+  const returnDate = booking.tour_departure?.return_date ? formatDate(booking.tour_departure.return_date) : null;
+  const meetingPoint = booking.tour_departure?.meeting_point || "Sẽ được thông báo trước ngày đi 24h";
+  const categoryName = booking.tour?.category?.name || booking.tour?.category_name || "Tour du lịch";
+  const destinationName = booking.tour?.destination?.name || booking.tour?.destination_name || "Việt Nam";
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  return (
+    <div className="vg-ticket-modal-overlay" onClick={onClose}>
+      <div className="vg-ticket-modal" onClick={(e) => e.stopPropagation()}>
+        <header className="vg-ticket-modal-header">
+          <div className="vg-ticket-badge-title">
+            <Icon name="sparkle" size={18} />
+            <span>VÉ ĐIỆN TỬ VIVUGO • VIVUGO E-TICKET</span>
+          </div>
+          <button type="button" className="vg-ticket-modal-close" onClick={onClose} title="Đóng vé">
+            <Icon name="close" size={20} />
+          </button>
+        </header>
+
+        <div className="vg-ticket-card-stub">
+          <div className="vg-ticket-main-section">
+            <div className="vg-ticket-top-row">
+              <div className="vg-ticket-tour-info">
+                {tourImage && (
+                  <img src={mediaUrl(tourImage)} alt={tourTitle} className="vg-ticket-tour-img" />
+                )}
+                <div>
+                  <span className="vg-ticket-category">{categoryName} • {destinationName}</span>
+                  <h2 className="vg-ticket-tour-title">{tourTitle}</h2>
+                  <span className="vg-ticket-code-tag">Mã đơn hàng: <strong>{booking.booking_code}</strong></span>
+                </div>
+              </div>
+            </div>
+
+            <div className="vg-ticket-grid">
+              <div className="vg-ticket-cell">
+                <span className="vg-ticket-label">Ngày khởi hành</span>
+                <strong className="vg-ticket-val">{departureDate}</strong>
+              </div>
+              {returnDate && (
+                <div className="vg-ticket-cell">
+                  <span className="vg-ticket-label">Ngày kết thúc dự kiến</span>
+                  <strong className="vg-ticket-val">{returnDate}</strong>
+                </div>
+              )}
+              <div className="vg-ticket-cell">
+                <span className="vg-ticket-label">Hành khách</span>
+                <strong className="vg-ticket-val">{booking.number_of_people} khách</strong>
+              </div>
+              <div className="vg-ticket-cell">
+                <span className="vg-ticket-label">Tổng thanh toán</span>
+                <strong className="vg-ticket-val is-price">{formatCurrency(Number(booking.total_amount))}</strong>
+              </div>
+            </div>
+
+            <div className="vg-ticket-location-box">
+              <Icon name="mapPin" size={18} />
+              <div>
+                <span>Điểm tập trung & Đón khách:</span>
+                <strong>{meetingPoint}</strong>
+              </div>
+            </div>
+
+            <div className="vg-ticket-passenger-box">
+              <Icon name="user" size={16} />
+              <div>
+                <span>Người đặt vé: <strong>{booking.user?.full_name || booking.contact?.full_name || "Khách hàng ViVuGo"}</strong></span>
+                <small>Email: {booking.user?.email || booking.contact?.email || "Chưa cập nhật"} | SĐT: {booking.user?.phone || booking.contact?.phone || "Chưa cập nhật"}</small>
+              </div>
+            </div>
+          </div>
+
+          <div className="vg-ticket-divider">
+            <div className="vg-ticket-notch top"></div>
+            <div className="vg-ticket-dashed-line"></div>
+            <div className="vg-ticket-notch bottom"></div>
+          </div>
+
+          <div className="vg-ticket-side-stub">
+            <div className="vg-ticket-qr-wrap">
+              <svg className="vg-qr-svg" viewBox="0 0 100 100" width="120" height="120">
+                <rect width="100" height="100" fill="#ffffff" />
+                <rect x="5" y="5" width="28" height="28" fill="#0f172a" />
+                <rect x="9" y="9" width="20" height="20" fill="#ffffff" />
+                <rect x="13" y="13" width="12" height="12" fill="#0f172a" />
+
+                <rect x="67" y="5" width="28" height="28" fill="#0f172a" />
+                <rect x="71" y="9" width="20" height="20" fill="#ffffff" />
+                <rect x="75" y="13" width="12" height="12" fill="#0f172a" />
+
+                <rect x="5" y="67" width="28" height="28" fill="#0f172a" />
+                <rect x="9" y="71" width="20" height="20" fill="#ffffff" />
+                <rect x="13" y="75" width="12" height="12" fill="#0f172a" />
+
+                <rect x="40" y="8" width="6" height="6" fill="#0f172a" />
+                <rect x="50" y="14" width="10" height="6" fill="#0f172a" />
+                <rect x="38" y="24" width="8" height="8" fill="#0f172a" />
+                <rect x="52" y="32" width="6" height="12" fill="#0f172a" />
+                <rect x="8" y="40" width="12" height="6" fill="#0f172a" />
+                <rect x="25" y="44" width="12" height="12" fill="#0f172a" />
+                <rect x="42" y="48" width="14" height="6" fill="#0f172a" />
+                <rect x="65" y="42" width="12" height="8" fill="#0f172a" />
+                <rect x="80" y="40" width="12" height="12" fill="#0f172a" />
+                <rect x="42" y="65" width="10" height="10" fill="#0f172a" />
+                <rect x="60" y="62" width="12" height="12" fill="#0f172a" />
+                <rect x="76" y="65" width="16" height="6" fill="#0f172a" />
+                <rect x="40" y="80" width="14" height="12" fill="#0f172a" />
+                <rect x="62" y="80" width="12" height="12" fill="#0f172a" />
+                <rect x="78" y="78" width="14" height="14" fill="#0f172a" />
+              </svg>
+              <span className="vg-ticket-qr-code">{booking.booking_code}</span>
+              <span className="vg-ticket-qr-hint">Xác nhận trực tiếp với HDV</span>
+            </div>
+
+            <div className="vg-ticket-actions">
+              <button type="button" className="vg-btn-print" onClick={handlePrint}>
+                <Icon name="sparkle" size={15} /> In / Lưu vé
+              </button>
+              <button type="button" className="vg-btn-close-modal" onClick={onClose}>
+                Đóng lại
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ProfileDashboard({
   route,
   profile,
@@ -63,6 +208,12 @@ function ProfileDashboard({
   const [bookingActionId, setBookingActionId] = useState(null);
   const [bookingActionError, setBookingActionError] = useState("");
 
+  // Booking filters & search state
+  const [bookingFilter, setBookingFilter] = useState("all");
+  const [bookingSearch, setBookingSearch] = useState("");
+  const [bookingSort, setBookingSort] = useState("newest");
+  const [activeTicketBooking, setActiveTicketBooking] = useState(null);
+
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
 
@@ -80,6 +231,78 @@ function ProfileDashboard({
     && booking.payment?.status === "pending"
     && paymentExpiresAt(booking) > now
   );
+
+  const stats = useMemo(() => {
+    let pending = 0;
+    let upcoming = 0;
+    let completed = 0;
+    let cancelled = 0;
+
+    bookings.forEach((booking) => {
+      if (booking.status === "cancelled") {
+        cancelled++;
+      } else if (canPayBooking(booking)) {
+        pending++;
+      } else if (booking.status === "completed") {
+        completed++;
+      } else {
+        const depDate = booking.tour_departure?.departure_date;
+        if (depDate && new Date(depDate).getTime() < Date.now()) {
+          completed++;
+        } else {
+          upcoming++;
+        }
+      }
+    });
+
+    return {
+      all: bookings.length,
+      pending,
+      upcoming,
+      completed,
+      cancelled,
+    };
+  }, [bookings, now]);
+
+  const filteredBookings = useMemo(() => {
+    return bookings.filter((booking) => {
+      if (bookingFilter === "pending") {
+        if (!canPayBooking(booking)) return false;
+      } else if (bookingFilter === "upcoming") {
+        if (booking.status === "cancelled" || canPayBooking(booking)) return false;
+        if (booking.status === "completed") return false;
+        const depDate = booking.tour_departure?.departure_date;
+        if (depDate && new Date(depDate).getTime() < Date.now()) return false;
+      } else if (bookingFilter === "completed") {
+        const isEnded = booking.tour_departure?.departure_date && new Date(booking.tour_departure.departure_date).getTime() < Date.now();
+        if (booking.status !== "completed" && !isEnded) return false;
+        if (booking.status === "cancelled") return false;
+      } else if (bookingFilter === "cancelled") {
+        if (booking.status !== "cancelled") return false;
+      }
+
+      if (bookingSearch.trim()) {
+        const q = bookingSearch.trim().toLowerCase();
+        const code = (booking.booking_code || "").toLowerCase();
+        const title = (booking.tour?.title || "").toLowerCase();
+        const dest = (booking.tour?.destination?.name || booking.tour?.destination_name || "").toLowerCase();
+        return code.includes(q) || title.includes(q) || dest.includes(q);
+      }
+
+      return true;
+    }).sort((a, b) => {
+      if (bookingSort === "oldest") {
+        return a.id - b.id;
+      }
+      if (bookingSort === "price_desc") {
+        return Number(b.total_amount || 0) - Number(a.total_amount || 0);
+      }
+      if (bookingSort === "price_asc") {
+        return Number(a.total_amount || 0) - Number(b.total_amount || 0);
+      }
+      return b.id - a.id;
+    });
+  }, [bookings, bookingFilter, bookingSearch, bookingSort, now]);
 
   const renderStatusBadge = (booking) => {
     if (booking.status === "cancelled") {
@@ -223,27 +446,145 @@ function ProfileDashboard({
         ) : null}
 
         {active === "bookings" ? (
-          bookings.length ? (
-            <div className="vg-bookings">
-              {bookingActionError ? <p className="vg-booking-action-error">{bookingActionError}</p> : null}
-              {bookings.map((booking) => {
-                const isPendingPayment = canPayBooking(booking);
-                const tourImage = booking.tour?.thumbnail_url || booking.tour?.image || booking.tour?.thumbnail?.image_url || "";
+          <div className="vg-bookings-wrapper">
+            {/* Stats Overview Bar */}
+            <div className="vg-booking-stats-grid">
+              <div
+                className={`vg-stat-card ${bookingFilter === "all" ? "is-active" : ""}`}
+                onClick={() => setBookingFilter("all")}
+              >
+                <div className="vg-stat-icon is-blue">
+                  <Icon name="briefcase" size={20} />
+                </div>
+                <div className="vg-stat-content">
+                  <span className="vg-stat-label">Tổng chuyến đi</span>
+                  <strong className="vg-stat-value">{stats.all}</strong>
+                </div>
+              </div>
 
-                return (
-                  <article key={booking.id} className={`vg-booking-card ${isPendingPayment ? "is-pending-payment-card" : ""}`}>
-                    <header className="vg-booking-card-top">
-                      <div className="vg-booking-code-wrap">
-                        <Icon name="briefcase" size={15} />
-                        <span>Mã đơn hàng:</span>
-                        <strong>{booking.booking_code}</strong>
-                      </div>
-                      <div className="vg-booking-status-wrap">
-                        {renderStatusBadge(booking)}
-                      </div>
-                    </header>
+              <div
+                className={`vg-stat-card ${bookingFilter === "pending" ? "is-active" : ""}`}
+                onClick={() => setBookingFilter("pending")}
+              >
+                <div className="vg-stat-icon is-amber">
+                  <Icon name="clock" size={20} />
+                </div>
+                <div className="vg-stat-content">
+                  <span className="vg-stat-label">Chờ thanh toán</span>
+                  <strong className="vg-stat-value">{stats.pending}</strong>
+                </div>
+              </div>
 
-                    <div className="vg-booking-card-main">
+              <div
+                className={`vg-stat-card ${bookingFilter === "upcoming" ? "is-active" : ""}`}
+                onClick={() => setBookingFilter("upcoming")}
+              >
+                <div className="vg-stat-icon is-emerald">
+                  <Icon name="calendar" size={20} />
+                </div>
+                <div className="vg-stat-content">
+                  <span className="vg-stat-label">Sắp khởi hành</span>
+                  <strong className="vg-stat-value">{stats.upcoming}</strong>
+                </div>
+              </div>
+
+              <div
+                className={`vg-stat-card ${bookingFilter === "completed" ? "is-active" : ""}`}
+                onClick={() => setBookingFilter("completed")}
+              >
+                <div className="vg-stat-icon is-indigo">
+                  <Icon name="sparkle" size={20} />
+                </div>
+                <div className="vg-stat-content">
+                  <span className="vg-stat-label">Đã hoàn thành</span>
+                  <strong className="vg-stat-value">{stats.completed}</strong>
+                </div>
+              </div>
+            </div>
+
+            {/* Filter & Search Toolbar */}
+            <div className="vg-booking-toolbar">
+              <div className="vg-booking-filter-tabs">
+                <button
+                  type="button"
+                  className={`vg-filter-btn ${bookingFilter === "all" ? "active" : ""}`}
+                  onClick={() => setBookingFilter("all")}
+                >
+                  Tất cả <span className="vg-filter-count">{stats.all}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`vg-filter-btn ${bookingFilter === "pending" ? "active" : ""}`}
+                  onClick={() => setBookingFilter("pending")}
+                >
+                  Chờ thanh toán <span className="vg-filter-count is-warn">{stats.pending}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`vg-filter-btn ${bookingFilter === "upcoming" ? "active" : ""}`}
+                  onClick={() => setBookingFilter("upcoming")}
+                >
+                  Sắp khởi hành <span className="vg-filter-count">{stats.upcoming}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`vg-filter-btn ${bookingFilter === "completed" ? "active" : ""}`}
+                  onClick={() => setBookingFilter("completed")}
+                >
+                  Hoàn thành <span className="vg-filter-count">{stats.completed}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`vg-filter-btn ${bookingFilter === "cancelled" ? "active" : ""}`}
+                  onClick={() => setBookingFilter("cancelled")}
+                >
+                  Đã hủy <span className="vg-filter-count">{stats.cancelled}</span>
+                </button>
+              </div>
+
+              <div className="vg-booking-search-sort">
+                <div className="vg-booking-search-box">
+                  <Icon name="search" size={16} />
+                  <input
+                    type="text"
+                    placeholder="Tìm theo mã đơn hoặc tên tour..."
+                    value={bookingSearch}
+                    onChange={(e) => setBookingSearch(e.target.value)}
+                  />
+                  {bookingSearch ? (
+                    <button type="button" onClick={() => setBookingSearch("")}>
+                      <Icon name="close" size={14} />
+                    </button>
+                  ) : null}
+                </div>
+
+                <div className="vg-booking-sort-box">
+                  <select value={bookingSort} onChange={(e) => setBookingSort(e.target.value)}>
+                    <option value="newest">Mới nhất</option>
+                    <option value="oldest">Cũ nhất</option>
+                    <option value="price_desc">Giá: Cao đến thấp</option>
+                    <option value="price_asc">Giá: Thấp đến cao</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Bookings List */}
+            {filteredBookings.length ? (
+              <div className="vg-bookings">
+                {bookingActionError ? <p className="vg-booking-action-error">{bookingActionError}</p> : null}
+                {filteredBookings.map((booking) => {
+                  const isPendingPayment = canPayBooking(booking);
+                  const tourImage = booking.tour?.thumbnail_url || booking.tour?.image || booking.tour?.thumbnail?.image_url || "";
+                  const departureDate = booking.tour_departure?.departure_date ? formatDate(booking.tour_departure.departure_date) : null;
+                  const returnDate = booking.tour_departure?.return_date ? formatDate(booking.tour_departure.return_date) : null;
+                  const destinationName = booking.tour?.destination?.name || booking.tour?.destination_name || "";
+                  const meetingPoint = booking.tour_departure?.meeting_point || "Thông báo trước 24h";
+                  const unitPrice = Number(booking.unit_price || (booking.total_amount && booking.number_of_people ? Number(booking.total_amount) / booking.number_of_people : 0));
+                  const durationText = booking.tour?.duration || (booking.tour?.duration_days ? `${booking.tour.duration_days}N${booking.tour.duration_nights || 0}Đ` : "Chuyến đi");
+
+                  return (
+                    <article key={booking.id} className={`vg-booking-card ${isPendingPayment ? "is-pending-payment-card" : ""}`}>
                       <div className="vg-booking-thumb">
                         {tourImage ? (
                           <img
@@ -251,29 +592,80 @@ function ProfileDashboard({
                             alt={booking.tour?.title || "Tour ViVuGo"}
                             onError={(e) => {
                               e.currentTarget.style.display = "none";
+                              if (e.currentTarget.nextElementSibling) {
+                                e.currentTarget.nextElementSibling.style.display = "flex";
+                              }
                             }}
                           />
-                        ) : (
-                          <div className="vg-booking-thumb-fallback">
-                            <Icon name="mapPin" size={22} />
-                          </div>
-                        )}
+                        ) : null}
+                        <div className="vg-booking-thumb-fallback" style={{ display: tourImage ? "none" : "flex" }}>
+                          <Icon name="mapPin" size={24} />
+                          <span>ViVuGo</span>
+                        </div>
                       </div>
 
                       <div className="vg-booking-details">
+                        <div className="vg-booking-header-line">
+                          <div className="vg-booking-tags">
+                            <span className="vg-booking-code-chip">
+                              <Icon name="briefcase" size={13} /> {booking.booking_code}
+                            </span>
+                            <span className="vg-booking-created-date">Ngày đặt: {formatDate(booking.created_at)}</span>
+                          </div>
+                          {destinationName ? (
+                            <span className="vg-booking-dest-chip">
+                              <Icon name="mapPin" size={13} /> {destinationName}
+                            </span>
+                          ) : null}
+                        </div>
+
                         <h3 className="vg-booking-title">
                           <Link to={booking.tour?.slug ? `/tours/${booking.tour.slug}` : "#"}>
-                            {booking.tour?.title || "Tour ViVuGo"}
+                            {booking.tour?.title || "Tour Du Lịch ViVuGo"}
                           </Link>
                         </h3>
 
-                        <div className="vg-booking-meta-chips">
-                          <span className="vg-meta-chip">
-                            <Icon name="users" size={14} /> {booking.number_of_people} hành khách
+                        {/* Visual Trip Track Bar */}
+                        {(() => {
+                          const tourTitle = booking.tour?.title || "";
+                          const vehicleIcon = getVehicleIconName(tourTitle);
+                          return (
+                            <div className="vg-trip-track-container">
+                              <div className="vg-track-node">
+                                <span className="vg-node-label">
+                                  <span className="vg-node-dot is-start"></span> Khởi hành
+                                </span>
+                                <strong className="vg-node-date">{departureDate || "Đang cập nhật"}</strong>
+                              </div>
+
+                              <div className="vg-track-line-wrapper">
+                                <div className="vg-track-line-dashed"></div>
+                                <div className="vg-track-badge">
+                                  <Icon name={vehicleIcon} size={14} />
+                                  <span>{durationText}</span>
+                                </div>
+                              </div>
+
+                              <div className="vg-track-node is-end">
+                                <span className="vg-node-label">
+                                  Kết thúc <span className="vg-node-dot is-end"></span>
+                                </span>
+                                <strong className="vg-node-date">{returnDate || "Đang cập nhật"}</strong>
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                        {/* Trip Meta Footer */}
+                        <div className="vg-booking-meta-row">
+                          <span className="vg-meta-item">
+                            <Icon name="users" size={14} /> {booking.number_of_people} khách {unitPrice > 0 ? `(${formatCurrency(unitPrice)}/khách)` : ""}
                           </span>
-                          <span className="vg-meta-chip">
-                            <Icon name="calendar" size={14} /> Ngày đặt: {formatDate(booking.created_at)}
-                          </span>
+                          {meetingPoint ? (
+                            <span className="vg-meta-item is-meeting" title={`Điểm tập trung: ${meetingPoint}`}>
+                              <Icon name="mapPin" size={14} /> {meetingPoint}
+                            </span>
+                          ) : null}
                         </div>
 
                         {isPendingPayment && booking.payment?.expires_at ? (
@@ -287,55 +679,63 @@ function ProfileDashboard({
                       </div>
 
                       <div className="vg-booking-summary-side">
+                        <div className="vg-booking-status-wrap">
+                          {renderStatusBadge(booking)}
+                        </div>
+
                         <div className="vg-price-block">
                           <span className="vg-price-label">Tổng thanh toán</span>
                           <strong className="vg-price-value">{formatCurrency(Number(booking.total_amount))}</strong>
                         </div>
 
-                        {isPendingPayment ? (
-                          <div className="vg-booking-actions">
-                            <button
-                              type="button"
-                              className="is-pay"
-                              onClick={() => handleContinuePayment(booking)}
-                              disabled={bookingActionId === booking.id}
-                            >
-                              <Icon name="creditCard" size={15} />
-                              {bookingActionId === booking.id ? "Đang xử lý..." : "Thanh toán ngay"}
-                            </button>
-                            <button
-                              type="button"
-                              className="is-cancel"
-                              onClick={() => handleCancelBooking(booking)}
-                              disabled={bookingActionId === booking.id}
-                            >
-                              Hủy đơn
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="vg-booking-status-info">
-                            {booking.payment_status === "paid" ? (
-                              <span className="vg-paid-tag">
-                                <Icon name="checkCircle" size={14} /> Vé đã xác nhận
-                              </span>
-                            ) : booking.status === "cancelled" ? (
-                              <span className="vg-cancelled-tag">Đơn hàng đã hủy</span>
-                            ) : null}
-                          </div>
-                        )}
+                        <div className="vg-booking-actions-row">
+                          {isPendingPayment ? (
+                            <div className="vg-booking-actions">
+                              <button
+                                type="button"
+                                className="is-pay"
+                                onClick={() => handleContinuePayment(booking)}
+                                disabled={bookingActionId === booking.id}
+                              >
+                                <Icon name="creditCard" size={14} />
+                                {bookingActionId === booking.id ? "Đang xử lý..." : "Thanh toán"}
+                              </button>
+                              <button
+                                type="button"
+                                className="is-cancel"
+                                onClick={() => handleCancelBooking(booking)}
+                                disabled={bookingActionId === booking.id}
+                              >
+                                Hủy đơn
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="vg-booking-actions-group">
+                              {booking.status !== "cancelled" && (
+                                <button
+                                  type="button"
+                                  className="vg-btn-ticket"
+                                  onClick={() => setActiveTicketBooking(booking)}
+                                >
+                                  <Icon name="eye" size={15} /> Vé điện tử
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          ) : (
-            <EmptyState
-              icon="calendar"
-              title="Bạn chưa có chuyến đi nào"
-              action="Đặt tour ngay"
-            />
-          )
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <EmptyState
+                icon="calendar"
+                title={bookingSearch ? "Không tìm thấy chuyến đi phù hợp" : "Chưa có chuyến đi nào ở mục này"}
+                action="Khám phá tour ngay"
+              />
+            )}
+          </div>
         ) : null}
 
         {active === "profile" ? (
@@ -407,6 +807,16 @@ function ProfileDashboard({
           </div>
         ) : null}
       </section>
+
+      {/* Interactive E-Ticket Modal */}
+      {activeTicketBooking ? (
+        <BookingTicketModal
+          booking={activeTicketBooking}
+          onClose={() => setActiveTicketBooking(null)}
+          formatCurrency={formatCurrency}
+          formatDate={formatDate}
+        />
+      ) : null}
     </main>
   );
 }
