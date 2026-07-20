@@ -37,6 +37,7 @@ import GuideDashboardPage from '../pages/guide/GuideDashboardPage'
 import GuideNotificationsPage from '../pages/guide/GuideNotificationsPage'
 import GuideProfilePage from '../pages/guide/GuideProfilePage'
 import GuideToursPage from '../pages/guide/GuideToursPage'
+import GuideReviewsPage from '../pages/guide/GuideReviews/GuideReviewsPage'
 import SupportLayout from '../layouts/SupportLayout'
 import SupportDashboardPage from '../pages/support/SupportDashboardPage'
 import SupportProfilePage from '../pages/support/SupportProfilePage'
@@ -44,24 +45,39 @@ import SupportNotificationsPage from '../pages/support/SupportNotificationsPage'
 import SupportRequestsPage from '../pages/support/SupportRequestsPage'
 import SupportWorkSchedulePage from '../pages/support/SupportWorkSchedulePage'
 import ReportStatisticsPage from '../pages/admin/reportStatistics/ReportStatisticsPage'
-import TourDepartureListPage from "../pages/admin/tourDepartures/TourDepartureListPage";
-import TourDepartureCreatePage from "../pages/admin/tourDepartures/TourDepartureCreatePage";
-import TourDepartureEditPage from "../pages/admin/tourDepartures/TourDepartureEditPage";
-import AdminNotificationsPage from '../pages/admin/Notifications/AdminNotificationsPage';
-import TourDetailPage from '../pages/admin/tours/TourDetailPage';
-import LanguageManagementPage from '../pages/admin/language/LanguageManagementPage';
+import TourDepartureListPage from '../pages/admin/tourDepartures/TourDepartureListPage'
+import TourDepartureCreatePage from '../pages/admin/tourDepartures/TourDepartureCreatePage'
+import TourDepartureEditPage from '../pages/admin/tourDepartures/TourDepartureEditPage'
+import AdminNotificationsPage from '../pages/admin/Notifications/AdminNotificationsPage'
+import TourDetailPage from '../pages/admin/tours/TourDetailPage'
+import LanguageManagementPage from '../pages/admin/language/LanguageManagementPage'
 import CertificateManagementPage from '../pages/admin/certificate/CertificateManagementPage'
-import GuideReviewsPage from '../pages/guide/GuideReviews/GuideReviewsPage'
-
-
 
 const protect = (page, allowedRoles = ['admin']) => (
-  <ProtectedAdminRoute allowedRoles={allowedRoles}>{page}</ProtectedAdminRoute>
+  <ProtectedAdminRoute allowedRoles={allowedRoles}>
+    {page}
+  </ProtectedAdminRoute>
 )
-const adminPage = (page) => protect(<AdminLayout>{page}</AdminLayout>)
-const guidePage = (page) => protect(<GuideLayout>{page}</GuideLayout>, ['tour guide'])
-const supportPage = (page) =>
-  protect(<SupportLayout>{page}</SupportLayout>, ['support staff'])
+
+const adminPage = page => protect(
+  <AdminLayout>
+    {page}
+  </AdminLayout>,
+)
+
+const guidePage = page => protect(
+  <GuideLayout>
+    {page}
+  </GuideLayout>,
+  ['tour guide'],
+)
+
+const supportPage = page => protect(
+  <SupportLayout>
+    {page}
+  </SupportLayout>,
+  ['support staff'],
+)
 
 function GuideComingSoonPage({ title }) {
   return <div className="guide-blank-page" aria-label={title} />
@@ -88,7 +104,7 @@ function AppRoutes() {
     <Route path="/guide/attendance" element={guidePage(<GuideAttendancePage />)} />
     <Route path="/guide/attendance/:tourId" element={guidePage(<GuideAttendancePage />)} />
     <Route path="/guide/history" element={guidePage(<GuideComingSoonPage title="Lịch sử Tour" />)} />
-    <Route path="/guide/reviews" element={guidePage(<GuideComingSoonPage title="Đánh giá" />)} />
+    <Route path="/guide/reviews" element={guidePage(<GuideReviewsPage />)} />
     <Route path="/guide/customers" element={guidePage(<GuideComingSoonPage title="Khách hàng" />)} />
     <Route path="/guide/messages" element={guidePage(<GuideComingSoonPage title="Tin nhắn" />)} />
     <Route path="/guide/notifications" element={guidePage(<GuideNotificationsPage />)} />
