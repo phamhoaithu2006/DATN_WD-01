@@ -45,6 +45,8 @@ function VnpayPaymentResultPage() {
   const isSuccessful = payment?.status === 'success' && payment?.payment_status === 'paid'
   const isFailed = payment?.status === 'failed' || payment?.booking_status === 'cancelled'
   const isAttemptFailed = !isFailed && payment?.last_attempt_status === 'failed'
+  const isCancelledByCustomer = payment?.cancel_reason === 'Khách hàng hủy thanh toán trên VNPAY.'
+  const isExpired = payment?.cancel_reason?.toLowerCase().includes('hết hạn')
   const displayError = missingPaymentId ? 'Không tìm thấy mã thanh toán VNPAY.' : error
   const isLoading = !missingPaymentId && loading
 
@@ -195,6 +197,8 @@ function VnpayPaymentResultPage() {
               <h1 className="text-xl font-bold text-slate-900 uppercase tracking-wide">
                 {displayError ? 'Không thể xác nhận' : 
                  isSuccessful ? 'Thanh toán thành công' : 
+                 isCancelledByCustomer ? 'Đã hủy đơn đặt tour' :
+                 isExpired ? 'Giao dịch đã hết hạn' :
                  isFailed || isAttemptFailed ? 'Thanh toán chưa hoàn tất' :
                  'Đang chờ xác nhận'}
               </h1>
@@ -202,6 +206,8 @@ function VnpayPaymentResultPage() {
               <p className="text-sm text-slate-500 mt-2 leading-relaxed">
                 {displayError || (
                   isSuccessful ? `Cảm ơn quý khách! Đơn hàng của bạn đã được thanh toán an toàn.` :
+                  isCancelledByCustomer ? 'Bạn đã hủy thanh toán trên VNPAY. Đơn đặt tour đã được hủy và số chỗ đã được hoàn lại.' :
+                  isExpired ? 'Thời gian thanh toán trên VNPAY đã hết. Đơn đặt tour đã được hủy và số chỗ đã được hoàn lại.' :
                   isAttemptFailed ? 'Lần thanh toán này chưa hoàn thành. Đơn vẫn được giữ, bạn có thể thanh toán lại từ hồ sơ chuyến đi.' :
                   isFailed ? 'Giao dịch chưa hoàn thành. Quý khách vui lòng kiểm tra lại.' :
                   'Hệ thống đang kiểm tra kết quả giao dịch từ VNPAY.'
@@ -264,6 +270,8 @@ function VnpayPaymentResultPage() {
                     'bg-amber-500 animate-pulse'
                   }`} />
                   {isSuccessful ? 'Đã thanh toán' :
+                   isCancelledByCustomer ? 'Đã hủy' :
+                   isExpired ? 'Hết hạn' :
                    isFailed || isAttemptFailed || displayError ? 'Thất bại' :
                    'Chờ xác nhận'}
                 </span>
