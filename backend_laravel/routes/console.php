@@ -10,3 +10,4 @@ Artisan::command('inspire', function () {
 
 Schedule::command('db:backup --scheduled')->everyMinute();
 Schedule::command('vnpay:expire-pending-payments')->everyMinute();
+Schedule::command('guide-reviews:send-reminders')->hourly()->withoutOverlapping();

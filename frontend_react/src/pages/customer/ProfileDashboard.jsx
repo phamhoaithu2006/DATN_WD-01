@@ -1,10 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, NavLink } from "react-router-dom";
 import Icon from "../../components/customer/Icon";
 import TourCard from "../../components/customer/TourCard";
 import BookingCountdown from "../../components/customer/BookingCountdown";
+import GuideReviewModal from "../../components/customer/GuideReviewModal";
 import { useLocale } from "../../contexts/LocaleContext";
-import { cancelCustomerBooking, continueCustomerBookingPayment } from "../../services/customerApi";
+import {
+  cancelCustomerBooking,
+  continueCustomerBookingPayment,
+  fetchGuideReviewableBookings,
+} from "../../services/customerApi";
 import { mediaUrl } from "../../utils/mediaUrl";
 
 function EmptyState({ icon, title, action }) {
@@ -213,6 +218,10 @@ function ProfileDashboard({
   const [bookingSearch, setBookingSearch] = useState("");
   const [bookingSort, setBookingSort] = useState("newest");
   const [activeTicketBooking, setActiveTicketBooking] = useState(null);
+  const [reviewableBookings, setReviewableBookings] = useState([]);
+  const [reviewableBookingsLoading, setReviewableBookingsLoading] = useState(false);
+  const [reviewableBookingsError, setReviewableBookingsError] = useState("");
+  const [activeGuideReview, setActiveGuideReview] = useState(null);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
@@ -220,17 +229,53 @@ function ProfileDashboard({
     return () => window.clearInterval(timer);
   }, []);
 
-  const paymentExpiresAt = (booking) => booking.payment?.expires_at
-    ? new Date(booking.payment.expires_at).getTime()
-    : 0;
+  useEffect(() => {
+    if (active !== "bookings") return undefined;
 
-  const canPayBooking = (booking) => (
+    let requestActive = true;
+
+    Promise.resolve().then(() => {
+      if (!requestActive) return;
+      setReviewableBookingsLoading(true);
+      setReviewableBookingsError("");
+    });
+
+    fetchGuideReviewableBookings({ per_page: 50 })
+      .then((items) => {
+        if (requestActive) setReviewableBookings(items);
+      })
+      .catch((error) => {
+        if (!requestActive) return;
+
+        setReviewableBookingsError(
+          error.response?.data?.message || "Không thể tải thông tin đánh giá hướng dẫn viên.",
+        );
+      })
+      .finally(() => {
+        if (requestActive) setReviewableBookingsLoading(false);
+      });
+
+    return () => {
+      requestActive = false;
+    };
+  }, [active]);
+
+  const reviewableBookingById = useMemo(
+    () => new Map(reviewableBookings.map((booking) => [Number(booking.id), booking])),
+    [reviewableBookings],
+  );
+
+  const paymentExpiresAt = useCallback((booking) => booking.payment?.expires_at
+    ? new Date(booking.payment.expires_at).getTime()
+    : 0, []);
+
+  const canPayBooking = useCallback((booking) => (
     booking.status === "pending"
     && booking.payment_status === "unpaid"
     && booking.payment?.payment_method === "vnpay"
     && booking.payment?.status === "pending"
     && paymentExpiresAt(booking) > now
-  );
+  ), [now, paymentExpiresAt]);
 
   const stats = useMemo(() => {
     let pending = 0;
@@ -247,7 +292,7 @@ function ProfileDashboard({
         completed++;
       } else {
         const depDate = booking.tour_departure?.departure_date;
-        if (depDate && new Date(depDate).getTime() < Date.now()) {
+        if (depDate && new Date(depDate).getTime() < now) {
           completed++;
         } else {
           upcoming++;
@@ -262,7 +307,7 @@ function ProfileDashboard({
       completed,
       cancelled,
     };
-  }, [bookings, now]);
+  }, [bookings, canPayBooking, now]);
 
   const filteredBookings = useMemo(() => {
     return bookings.filter((booking) => {
@@ -272,9 +317,9 @@ function ProfileDashboard({
         if (booking.status === "cancelled" || canPayBooking(booking)) return false;
         if (booking.status === "completed") return false;
         const depDate = booking.tour_departure?.departure_date;
-        if (depDate && new Date(depDate).getTime() < Date.now()) return false;
+        if (depDate && new Date(depDate).getTime() < now) return false;
       } else if (bookingFilter === "completed") {
-        const isEnded = booking.tour_departure?.departure_date && new Date(booking.tour_departure.departure_date).getTime() < Date.now();
+        const isEnded = booking.tour_departure?.departure_date && new Date(booking.tour_departure.departure_date).getTime() < now;
         if (booking.status !== "completed" && !isEnded) return false;
         if (booking.status === "cancelled") return false;
       } else if (bookingFilter === "cancelled") {
@@ -302,7 +347,7 @@ function ProfileDashboard({
       }
       return b.id - a.id;
     });
-  }, [bookings, bookingFilter, bookingSearch, bookingSort, now]);
+  }, [bookings, bookingFilter, bookingSearch, bookingSort, canPayBooking, now]);
 
   const renderStatusBadge = (booking) => {
     if (booking.status === "cancelled") {
@@ -380,6 +425,31 @@ function ProfileDashboard({
     } finally {
       setBookingActionId(null);
     }
+  };
+
+
+  const handleGuideReviewSaved = (savedReview) => {
+    if (!activeGuideReview) return;
+
+    const bookingId = Number(activeGuideReview.booking.id);
+    const guideId = Number(activeGuideReview.guide.id);
+
+    setReviewableBookings((current) => current.map((booking) => {
+      if (Number(booking.id) !== bookingId) return booking;
+
+      return {
+        ...booking,
+        guides: (booking.guides || []).map((guide) => (
+          Number(guide.id) === guideId
+            ? {
+              ...guide,
+              reviewed: true,
+              review: savedReview,
+            }
+            : guide
+        )),
+      };
+    }));
   };
 
   return (
@@ -569,6 +639,13 @@ function ProfileDashboard({
               </div>
             </div>
 
+            {reviewableBookingsLoading ? (
+              <p className="vg-guide-review-load-state">Đang kiểm tra các tour có thể đánh giá...</p>
+            ) : null}
+            {reviewableBookingsError ? (
+              <p className="vg-booking-action-error">{reviewableBookingsError}</p>
+            ) : null}
+
             {/* Bookings List */}
             {filteredBookings.length ? (
               <div className="vg-bookings">
@@ -582,6 +659,8 @@ function ProfileDashboard({
                   const meetingPoint = booking.tour_departure?.meeting_point || "Thông báo trước 24h";
                   const unitPrice = Number(booking.unit_price || (booking.total_amount && booking.number_of_people ? Number(booking.total_amount) / booking.number_of_people : 0));
                   const durationText = booking.tour?.duration || (booking.tour?.duration_days ? `${booking.tour.duration_days}N${booking.tour.duration_nights || 0}Đ` : "Chuyến đi");
+                  const reviewableBooking = reviewableBookingById.get(Number(booking.id));
+                  const reviewableGuides = (reviewableBooking?.guides || []).filter((guide) => guide?.id);
 
                   return (
                     <article key={booking.id} className={`vg-booking-card ${isPendingPayment ? "is-pending-payment-card" : ""}`}>
@@ -667,6 +746,60 @@ function ProfileDashboard({
                             </span>
                           ) : null}
                         </div>
+
+
+                        {reviewableGuides.length ? (
+                          <div className="vg-guide-review-panel">
+                            <div className="vg-guide-review-panel-heading">
+                              <span><Icon name="star" size={15} /> Đánh giá hướng dẫn viên</span>
+                              <small>Tour đã kết thúc</small>
+                            </div>
+                            <div className="vg-guide-review-list">
+                              {reviewableGuides.map((guide) => {
+                                const guideAvatar = mediaUrl(guide.avatar_url);
+                                const guideRating = Number(guide.review?.rating) || 0;
+
+                                return (
+                                  <div key={guide.id} className="vg-guide-review-row">
+                                    <div className="vg-guide-review-row-person">
+                                      <div className={`vg-guide-review-row-avatar ${guideAvatar ? "has-image" : ""}`}>
+                                        {guideAvatar ? (
+                                          <img src={guideAvatar} alt={guide.full_name || "Hướng dẫn viên"} />
+                                        ) : (
+                                          <span>{guide.full_name?.charAt(0)?.toUpperCase() || "H"}</span>
+                                        )}
+                                      </div>
+                                      <div>
+                                        <strong>{guide.full_name || guide.guide_code || "Hướng dẫn viên"}</strong>
+                                        {guide.reviewed ? (
+                                          <span className="vg-guide-review-saved-rating">
+                                            {[1, 2, 3, 4, 5].map((star) => (
+                                              <Icon key={star} name="star" size={13} />
+                                            )).filter((_, index) => index < guideRating)}
+                                            {guideRating}/5 sao
+                                          </span>
+                                        ) : (
+                                          <span>Chia sẻ trải nghiệm của bạn với hướng dẫn viên.</span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      className={guide.reviewed ? "is-reviewed" : ""}
+                                      onClick={() => setActiveGuideReview({
+                                        booking: reviewableBooking,
+                                        guide,
+                                      })}
+                                    >
+                                      <Icon name={guide.reviewed ? "edit" : "star"} size={15} />
+                                      {guide.reviewed ? "Sửa đánh giá" : "Đánh giá ngay"}
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ) : null}
 
                         {isPendingPayment && booking.payment?.expires_at ? (
                           <div className="vg-booking-countdown-wrapper">
@@ -815,6 +948,16 @@ function ProfileDashboard({
           onClose={() => setActiveTicketBooking(null)}
           formatCurrency={formatCurrency}
           formatDate={formatDate}
+        />
+      ) : null}
+
+
+      {activeGuideReview ? (
+        <GuideReviewModal
+          booking={activeGuideReview.booking}
+          guide={activeGuideReview.guide}
+          onClose={() => setActiveGuideReview(null)}
+          onSaved={handleGuideReviewSaved}
         />
       ) : null}
     </main>

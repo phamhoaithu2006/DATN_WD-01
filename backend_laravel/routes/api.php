@@ -118,12 +118,14 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // ======Thông báo khách hàng, hdv, nvht (dùng chung được hết)======
     // Hiển thị danh sách thông báo của khách hàng
     Route::get('/notifications/customers', [NotificationCustomerController::class, 'getMyNotifications']);
-    // Xem chi tiết thông báo
-    Route::get('/notifications/customers/{id}', [NotificationCustomerController::class, 'getNotificationDetail']);
-    // API đếm số lượng thông báo chưa đọc
+    // API đếm số lượng thông báo chưa đọc (phải đặt trước route có {id})
     Route::get('/notifications/customers/unread-count', [NotificationCustomerController::class, 'getUnreadCount']);
+    // Xem chi tiết thông báo
+    Route::get('/notifications/customers/{id}', [NotificationCustomerController::class, 'getNotificationDetail'])
+        ->whereNumber('id');
     // API đánh dấu đã đọc (sử dụng PATCH vì cập nhật một phần dữ liệu)
-    Route::patch('/notifications/customers/{id}/read', [NotificationCustomerController::class, 'markAsRead']);
+    Route::patch('/notifications/customers/{id}/read', [NotificationCustomerController::class, 'markAsRead'])
+        ->whereNumber('id');
 });
 
 Route::middleware(['auth:sanctum', 'role:support staff'])->group(function () {

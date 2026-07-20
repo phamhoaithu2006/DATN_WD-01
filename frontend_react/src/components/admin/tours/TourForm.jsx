@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { readToken } from '../../../services/authStorage'
 
@@ -89,12 +89,58 @@ const normalizeTimeForInput = (value) => {
 const normalizeItineraryForForm = (itinerary = []) => {
   if (!Array.isArray(itinerary)) return []
 
-  return itinerary.map((step) => ({
-    ...step,
-    start_time: normalizeTimeForInput(step.start_time),
-    end_time: normalizeTimeForInput(step.end_time),
-    images: Array.isArray(step.images) ? step.images : [],
-  }))
+  return itinerary.map((step, index) => {
+    const source = step && typeof step === 'object' ? step : {}
+    const rawImages =
+      source.images ??
+      source.itinerary_images ??
+      source.step_images ??
+      source.gallery ??
+      []
+
+    return {
+      ...source,
+      day_number: Number(
+        source.day_number ??
+          source.dayNumber ??
+          source.day ??
+          source.day_index ??
+          source.dayIndex ??
+          1,
+      ),
+      sort_order:
+        source.sort_order ??
+        source.sortOrder ??
+        source.order ??
+        source.position ??
+        index,
+      type:
+        source.type ??
+        source.activity_type ??
+        source.activityType ??
+        source.kind ??
+        'sightseeing',
+      title:
+        source.title ??
+        source.name ??
+        source.activity_name ??
+        source.activityName ??
+        '',
+      start_time: normalizeTimeForInput(
+        source.start_time ?? source.startTime ?? source.time_start,
+      ),
+      end_time: normalizeTimeForInput(
+        source.end_time ?? source.endTime ?? source.time_end,
+      ),
+      duration:
+        source.duration ?? source.duration_text ?? source.durationText ?? '',
+      transport:
+        source.transport ?? source.vehicle ?? source.transportation ?? '',
+      description:
+        source.description ?? source.detail ?? source.content ?? '',
+      images: Array.isArray(rawImages) ? rawImages : [],
+    }
+  })
 }
 
 const normalizeItineraryForSubmit = (itinerary = []) => {
@@ -121,47 +167,448 @@ const normalizeItineraryForSubmit = (itinerary = []) => {
   })
 }
 
-const normalizeAgePricingRulesForForm = (initialData = {}) => {
-  const rules = Array.isArray(initialData.age_pricing_rules)
-    ? initialData.age_pricing_rules
-    : Array.isArray(initialData.agePricingRules)
-      ? initialData.agePricingRules
-      : []
+const isPlainObject = (value) => {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
 
-  const findRule = (group) => {
-    const byLabel = rules.find((rule) =>
-      normalizeTextForMatching(rule.label).includes(group.matchLabel),
-    )
+const parseJsonValue = (value) => {
+  if (typeof value !== 'string' || value.trim() === '') return value
 
-    if (byLabel) return byLabel
+  try {
+    return JSON.parse(value)
+  } catch {
+    return value
+  }
+}
 
-    return rules.find((rule) => {
-      const maxAge = rule.max_age === null || rule.max_age === undefined
-        ? null
-        : Number(rule.max_age)
+const getDirectValue = (source, keys = []) => {
+  if (!isPlainObject(source)) return undefined
 
-      if (group.key === 'infant') {
-        return maxAge !== null && maxAge <= 4
-      }
+  for (const key of keys) {
+    const value = source[key]
 
-      return maxAge !== null && maxAge > 4
-    })
+    if (value !== undefined && value !== null && value !== '') {
+      return value
+    }
   }
 
-  return FIXED_AGE_PRICING_GROUPS.map((group, index) => {
-    const rule = findRule(group) || {}
+  return undefined
+}
+
+const getTourCandidateScore = (value) => {
+  if (!isPlainObject(value)) return -1
+
+  let score = 0
+
+  if (getDirectValue(value, ['title', 'name'])) score += 4
+  if (getDirectValue(value, ['description', 'summary'])) score += 2
+  if (getDirectValue(value, ['duration_days', 'durationDays', 'days'])) score += 2
+  if (getDirectValue(value, ['base_price', 'basePrice', 'price'])) score += 2
+  if (
+    getDirectValue(value, [
+      'category_id',
+      'categoryId',
+      'categoryID',
+      'tour_category_id',
+      'category',
+      'category_data',
+      'categoryInfo',
+    ])
+  ) score += 6
+  if (
+    getDirectValue(value, [
+      'destination_id',
+      'destinationId',
+      'destinationID',
+      'tour_destination_id',
+      'destination',
+      'destination_data',
+      'destinationInfo',
+    ])
+  ) score += 6
+  if (
+    getDirectValue(value, [
+      'itinerary',
+      'itineraries',
+      'tour_itinerary',
+      'tour_itineraries',
+      'itinerary_steps',
+      'schedule',
+      'schedules',
+      'days_detail',
+      'tour_details',
+    ])
+  ) score += 8
+  if (
+    getDirectValue(value, [
+      'age_pricing_rules',
+      'agePricingRules',
+      'pricing_rules',
+      'age_prices',
+      'agePrices',
+      'prices_by_age',
+      'tour_age_prices',
+    ])
+  ) score += 8
+
+  return score
+}
+
+const collectTourCandidates = (initialData) => {
+  const candidates = []
+  const visited = new Set()
+
+  const visit = (value, depth = 0) => {
+    const parsed = parseJsonValue(value)
+
+    if (!isPlainObject(parsed) || visited.has(parsed) || depth > 4) return
+
+    visited.add(parsed)
+    candidates.push(parsed)
+
+    ;[
+      'tour',
+      'data',
+      'item',
+      'result',
+      'payload',
+      'record',
+      'detail',
+      'tour_data',
+      'tourData',
+    ].forEach((key) => visit(parsed[key], depth + 1))
+  }
+
+  visit(initialData)
+  return candidates
+}
+
+const resolveTourInitialData = (initialData = {}) => {
+  const candidates = collectTourCandidates(initialData)
+
+  if (candidates.length === 0) return {}
+
+  return candidates.reduce((best, candidate) => {
+    return getTourCandidateScore(candidate) > getTourCandidateScore(best)
+      ? candidate
+      : best
+  }, candidates[0])
+}
+
+const normalizeArrayValue = (value) => {
+  const parsed = parseJsonValue(value)
+
+  if (Array.isArray(parsed)) return parsed
+
+  if (isPlainObject(parsed)) {
+    const nestedKeys = [
+      'data',
+      'items',
+      'records',
+      'results',
+      'steps',
+      'details',
+      'itinerary',
+      'itineraries',
+      'schedules',
+      'days',
+      'rules',
+      'prices',
+    ]
+
+    for (const key of nestedKeys) {
+      const nested = parseJsonValue(parsed[key])
+      if (Array.isArray(nested)) return nested
+    }
+
+    const entries = Object.entries(parsed)
+    const looksLikeIndexedCollection =
+      entries.length > 0 &&
+      entries.every(([key, item]) =>
+        /^(?:\d+|day[_-]?\d+|ngay[_-]?\d+)$/i.test(key) &&
+        (Array.isArray(item) || isPlainObject(item)),
+      )
+
+    if (looksLikeIndexedCollection) {
+      return entries.flatMap(([, item]) =>
+        Array.isArray(item) ? item : [item],
+      )
+    }
+  }
+
+  return []
+}
+
+const findNestedCollection = (source, aliases = [], depth = 0) => {
+  if (!isPlainObject(source) || depth > 4) return []
+
+  for (const key of aliases) {
+    const collection = normalizeArrayValue(source[key])
+    if (collection.length > 0) return collection
+  }
+
+  for (const key of ['data', 'tour', 'item', 'result', 'payload', 'detail']) {
+    const collection = findNestedCollection(source[key], aliases, depth + 1)
+    if (collection.length > 0) return collection
+  }
+
+  return []
+}
+
+const getItineraryFromTourData = (tourData = {}) => {
+  const source = resolveTourInitialData(tourData)
+
+  return findNestedCollection(source, [
+    'itinerary',
+    'itineraries',
+    'tour_itinerary',
+    'tour_itineraries',
+    'itinerary_steps',
+    'itinerarySteps',
+    'schedule',
+    'schedules',
+    'schedule_details',
+    'days_detail',
+    'tour_details',
+    'tourDetails',
+  ])
+}
+
+const getOptionId = (item = {}) => {
+  if (!isPlainObject(item)) return item ?? ''
+
+  return (
+    item.id ??
+    item.value ??
+    item.category_id ??
+    item.destination_id ??
+    item.categoryId ??
+    item.destinationId ??
+    ''
+  )
+}
+
+const getRelationId = (source = {}, type) => {
+  const relation = type === 'category' ? 'category' : 'destination'
+  const directAliases = type === 'category'
+    ? ['category_id', 'categoryId', 'categoryID', 'tour_category_id']
+    : ['destination_id', 'destinationId', 'destinationID', 'tour_destination_id']
+  const objectAliases = [
+    relation,
+    `${relation}_data`,
+    `${relation}Data`,
+    `${relation}Info`,
+  ]
+
+  const directValue = getDirectValue(source, directAliases)
+  if (directValue !== undefined) {
+    return isPlainObject(directValue) ? getOptionId(directValue) : directValue
+  }
+
+  for (const key of objectAliases) {
+    const value = parseJsonValue(source[key])
+
+    if (isPlainObject(value)) {
+      const id = getOptionId(value)
+      if (id !== '') return id
+    }
+
+    if (typeof value === 'number' || /^\d+$/.test(String(value ?? '').trim())) {
+      return value
+    }
+  }
+
+  return ''
+}
+
+const getRelationName = (source = {}, type) => {
+  const relation = type === 'category' ? 'category' : 'destination'
+  const aliases = [
+    `${relation}_name`,
+    `${relation}Name`,
+    relation,
+    `${relation}_data`,
+    `${relation}Data`,
+    `${relation}Info`,
+  ]
+
+  for (const key of aliases) {
+    const value = parseJsonValue(source[key])
+
+    if (typeof value === 'string' && value.trim() !== '' && !/^\d+$/.test(value.trim())) {
+      return value.trim()
+    }
+
+    if (isPlainObject(value)) {
+      const name =
+        value.name ??
+        value.title ??
+        value.category_name ??
+        value.destination_name ??
+        value.label
+
+      if (name) return String(name).trim()
+    }
+  }
+
+  return ''
+}
+
+const normalizeTextForOptionMatch = (value) => {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+const findOptionIdByName = (options = [], name = '') => {
+  const expected = normalizeTextForOptionMatch(name)
+  if (!expected) return ''
+
+  const matched = options.find((item) => {
+    const optionName =
+      item?.name ??
+      item?.title ??
+      item?.category_name ??
+      item?.destination_name ??
+      item?.label ??
+      ''
+
+    return normalizeTextForOptionMatch(optionName) === expected
+  })
+
+  return matched ? getOptionId(matched) : ''
+}
+
+const createEmptyAgePricingRule = (index = 0) => ({
+  client_id: `age-price-${Date.now()}-${index}`,
+  age_label: '',
+  price_value: '',
+})
+
+const parseAgeRange = (value) => {
+  const raw = String(value ?? '').trim()
+
+  if (!raw) return null
+
+  const match = raw.match(/(\d+)\s*(?:[-–—]|đến|den|to)\s*(\d+)/i)
+
+  if (!match) return null
+
+  const minAge = Number(match[1])
+  const maxAge = Number(match[2])
+
+  if (
+    !Number.isInteger(minAge) ||
+    !Number.isInteger(maxAge) ||
+    minAge < 0 ||
+    maxAge < minAge
+  ) {
+    return null
+  }
+
+  return { minAge, maxAge }
+}
+
+const normalizeAgePricingRulesForForm = (initialData = {}) => {
+  const source = resolveTourInitialData(initialData)
+  const rules = findNestedCollection(source, [
+    'age_pricing_rules',
+    'agePricingRules',
+    'pricing_rules',
+    'age_prices',
+    'agePrices',
+    'prices_by_age',
+    'tour_age_prices',
+    'tourAgePrices',
+  ])
+
+  if (rules.length === 0) {
+    return [createEmptyAgePricingRule()]
+  }
+
+  return rules.map((rule, index) => {
+    const sourceRule = isPlainObject(rule) ? rule : {}
+    const rawMinAge = getDirectValue(sourceRule, [
+      'min_age',
+      'minAge',
+      'age_from',
+      'ageFrom',
+      'from_age',
+      'fromAge',
+      'start_age',
+      'startAge',
+      'age_min',
+      'ageStart',
+    ])
+    const rawMaxAge = getDirectValue(sourceRule, [
+      'max_age',
+      'maxAge',
+      'age_to',
+      'ageTo',
+      'to_age',
+      'toAge',
+      'end_age',
+      'endAge',
+      'age_max',
+      'ageEnd',
+    ])
+    const rangeText = String(
+      getDirectValue(sourceRule, [
+        'age_range',
+        'ageRange',
+        'age_group',
+        'ageGroup',
+        'range',
+      ]) ?? '',
+    ).trim()
+    const parsedRange = parseAgeRange(rangeText)
+    const minAgeValue = rawMinAge ?? parsedRange?.minAge
+    const maxAgeValue = rawMaxAge ?? parsedRange?.maxAge ?? minAgeValue
+    const minAge = minAgeValue === undefined || minAgeValue === null || minAgeValue === ''
+      ? null
+      : Number(minAgeValue)
+    const maxAge = maxAgeValue === undefined || maxAgeValue === null || maxAgeValue === ''
+      ? null
+      : Number(maxAgeValue)
+    const existingLabel = String(
+      getDirectValue(sourceRule, [
+        'age_label',
+        'ageLabel',
+        'label',
+        'name',
+        'title',
+        'description',
+      ]) ?? '',
+    ).trim()
+    const fallbackLabel =
+      Number.isInteger(minAge) && Number.isInteger(maxAge)
+        ? `Độ tuổi ${minAge}-${maxAge}`
+        : rangeText
+    const pricingType = String(
+      sourceRule.pricing_type ?? sourceRule.pricingType ?? sourceRule.type ?? '',
+    ).toLowerCase()
+    const priceValue = getDirectValue(sourceRule, [
+      'price_value',
+      'priceValue',
+      'price',
+      'amount',
+      'fixed_price',
+      'fixedPrice',
+      'ticket_price',
+      'ticketPrice',
+    ])
 
     return {
-      key: group.key,
-      label: group.label,
-      price_value: rule.pricing_type === 'fixed'
-        ? group.defaultPriceValue
-        : (rule.price_value ?? group.defaultPriceValue),
-      min_age: rule.min_age ?? group.defaultMinAge,
-      max_age: rule.max_age ?? group.defaultMaxAge,
-      pricing_type: rule.pricing_type === 'free' ? 'free' : group.defaultPricingType,
-      sort_order: rule.sort_order ?? index,
-      is_active: true,
+      ...sourceRule,
+      client_id:
+        sourceRule.client_id ||
+        sourceRule.id ||
+        `age-price-${index}`,
+      age_label: existingLabel || fallbackLabel,
+      price_value: pricingType === 'free' ? 0 : (priceValue ?? ''),
     }
   })
 }
@@ -171,26 +618,26 @@ const normalizeAgePricingRulesForSubmit = (rules = []) => {
 
   return rules
     .map((rule, index) => {
-      const group = FIXED_AGE_PRICING_GROUPS.find((item) => item.key === rule.key)
-      const pricingType = rule.pricing_type === 'free' ? 'free' : 'percentage'
-      const minAge = Number(rule.min_age ?? group?.defaultMinAge ?? 0)
-      const maxAgeValue = rule.max_age === '' || rule.max_age === null || rule.max_age === undefined
-        ? null
-        : Number(rule.max_age)
-      const priceValue = pricingType === 'free'
-        ? 0
-        : Number(rule.price_value ?? group?.defaultPriceValue ?? 0)
+      const ageLabelText = String(rule.age_label ?? '').trim()
+      const priceText = String(rule.price_value ?? '').trim()
 
-      if (!group || !Number.isFinite(minAge) || minAge < 0) {
+      if (ageLabelText === '' && priceText === '') {
+        return null
+      }
+
+      const parsedRange = parseAgeRange(ageLabelText)
+      const priceValue = Number(priceText)
+
+      if (!parsedRange || !Number.isFinite(priceValue) || priceValue < 0) {
         return null
       }
 
       return {
-        label: group.label,
-        min_age: minAge,
-        max_age: Number.isFinite(maxAgeValue) ? maxAgeValue : null,
-        pricing_type: pricingType,
-        price_value: Number.isFinite(priceValue) ? priceValue : 0,
+        label: ageLabelText,
+        min_age: parsedRange.minAge,
+        max_age: parsedRange.maxAge,
+        pricing_type: 'fixed',
+        price_value: priceValue,
         sort_order: index,
         is_active: true,
       }
@@ -207,26 +654,6 @@ const DOMESTIC_MAX_TOUR_DURATION_DAYS = 7
 const INTERNATIONAL_MAX_TOUR_DURATION_DAYS = 15
 const ALLOWED_STATUSES = ['draft', 'published', 'hidden']
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
-const FIXED_AGE_PRICING_GROUPS = [
-  {
-    key: 'child',
-    label: 'Trẻ em',
-    matchLabel: 'tre em',
-    defaultMinAge: 5,
-    defaultMaxAge: 10,
-    defaultPricingType: 'percentage',
-    defaultPriceValue: 75,
-  },
-  {
-    key: 'infant',
-    label: 'Em bé',
-    matchLabel: 'em be',
-    defaultMinAge: 0,
-    defaultMaxAge: 4,
-    defaultPricingType: 'free',
-    defaultPriceValue: 0,
-  },
-]
 
 const formatVnd = (value) => {
   const amount = Number(value)
@@ -347,40 +774,51 @@ const validateImageFile = (file, label) => {
 const validateAgePricingRules = (rules = []) => {
   if (!Array.isArray(rules)) return ''
 
+  const usedRanges = []
+
   for (let index = 0; index < rules.length; index += 1) {
     const rule = rules[index] || {}
-    const label = rule.label || `Nhóm giá #${index + 1}`
-    const minAge = Number(rule.min_age)
-    const maxAge = rule.max_age === '' || rule.max_age === null || rule.max_age === undefined
-      ? null
-      : Number(rule.max_age)
-    const pricingType = rule.pricing_type || 'percentage'
+    const ageLabelText = String(rule.age_label ?? '').trim()
     const priceText = String(rule.price_value ?? '').trim()
 
-    if (!Number.isInteger(minAge) || minAge < 0) {
-      return `Tuổi bắt đầu của ${label} không hợp lệ.`
-    }
-
-    if (maxAge !== null && (!Number.isInteger(maxAge) || maxAge < minAge)) {
-      return `Tuổi kết thúc của ${label} phải lớn hơn hoặc bằng tuổi bắt đầu.`
-    }
-
-    if (pricingType === 'free') {
+    if (ageLabelText === '' && priceText === '') {
       continue
     }
 
+    if (ageLabelText === '') {
+      return `Vui lòng nhập đối tượng và độ tuổi ở dòng #${index + 1}.`
+    }
+
+    const parsedRange = parseAgeRange(ageLabelText)
+
+    if (!parsedRange) {
+      return `Dòng #${index + 1} cần chứa khoảng tuổi, ví dụ: Trẻ em (độ tuổi: 1-5).`
+    }
+
+    if (parsedRange.maxAge > 120) {
+      return `Tuổi kết thúc ở dòng #${index + 1} không được vượt quá 120.`
+    }
+
+    const overlappingRange = usedRanges.find(
+      (range) =>
+        parsedRange.minAge <= range.maxAge &&
+        parsedRange.maxAge >= range.minAge,
+    )
+
+    if (overlappingRange) {
+      return `Khoảng tuổi ${parsedRange.minAge}-${parsedRange.maxAge} bị trùng với khoảng ${overlappingRange.minAge}-${overlappingRange.maxAge}.`
+    }
+
+    usedRanges.push(parsedRange)
+
     if (priceText === '') {
-      return `Vui lòng nhập giá trị cho ${label}.`
+      return `Vui lòng nhập giá tiền ở dòng #${index + 1}.`
     }
 
     const priceValue = Number(priceText)
 
     if (!Number.isFinite(priceValue) || priceValue < 0) {
-      return `Giá trị của ${label} không hợp lệ.`
-    }
-
-    if (pricingType === 'percentage' && priceValue > 100) {
-      return `Phần trăm giá của ${label} không được vượt quá 100%.`
+      return `Giá tiền ở dòng #${index + 1} không hợp lệ.`
     }
   }
 
@@ -554,62 +992,65 @@ const validateTourForm = ({
 }
 
 const getInitialFormData = (initialData = {}) => {
-  let itineraryData = []
-  if (Array.isArray(initialData.itinerary)) {
-    itineraryData = initialData.itinerary
-  } else if (
-    typeof initialData.itinerary === 'string' &&
-    initialData.itinerary.trim() !== ''
-  ) {
-    try {
-      itineraryData = JSON.parse(initialData.itinerary)
-    } catch {
-      itineraryData = []
-    }
-  }
+  const source = resolveTourInitialData(initialData)
+  const itineraryData = getItineraryFromTourData(source)
 
   return {
-    category_id: initialData.category_id ?? '',
-    destination_id: initialData.destination_id ?? '',
-    title: initialData.title ?? '',
-    summary: initialData.summary ?? '',
-    description: initialData.description ?? '',
+    category_id: getRelationId(source, 'category'),
+    destination_id: getRelationId(source, 'destination'),
+    title: source.title ?? source.name ?? '',
+    summary: source.summary ?? source.short_description ?? '',
+    description: source.description ?? source.detail ?? '',
     itinerary: normalizeItineraryForForm(itineraryData),
-    duration_days: initialData.duration_days ?? '',
-    duration_nights: initialData.duration_nights ?? '',
-    base_price: initialData.base_price ?? '',
-    discount_price: initialData.discount_price ?? '',
-    max_slots: initialData.max_slots ?? 1,
-    available_slots: initialData.available_slots ?? 1,
-    age_pricing_rules: normalizeAgePricingRulesForForm(initialData),
-    status: initialData.status ?? 'published',
+    duration_days: source.duration_days ?? source.durationDays ?? source.days ?? '',
+    duration_nights:
+      source.duration_nights ?? source.durationNights ?? source.nights ?? '',
+    base_price: source.base_price ?? source.basePrice ?? source.price ?? '',
+    discount_price:
+      source.discount_price ?? source.discountPrice ?? source.sale_price ?? '',
+    max_slots: source.max_slots ?? source.maxSlots ?? source.capacity ?? 1,
+    available_slots:
+      source.available_slots ??
+      source.availableSlots ??
+      source.remaining_slots ??
+      source.max_slots ??
+      source.maxSlots ??
+      1,
+    age_pricing_rules: normalizeAgePricingRulesForForm(source),
+    status: source.status ?? 'published',
     thumbnail_alt_text:
-      initialData.thumbnail_alt_text ??
-      initialData.thumbnail?.alt_text ??
-      initialData.images?.find?.((image) => Number(image.is_thumbnail) === 1)
+      source.thumbnail_alt_text ??
+      source.thumbnail?.alt_text ??
+      source.images?.find?.((image) => Number(image.is_thumbnail) === 1)
         ?.alt_text ??
-      initialData.images?.[0]?.alt_text ??
+      source.images?.[0]?.alt_text ??
       '',
   }
 }
 
 const getInitialThumbnailPreview = (initialData = {}) => {
-  const thumbnailFromImages = Array.isArray(initialData.images)
-    ? initialData.images.find((image) => Number(image.is_thumbnail) === 1)
-        ?.image_url || initialData.images[0]?.image_url
-    : ''
+  const source = resolveTourInitialData(initialData)
+  const images = normalizeArrayValue(
+    source.images ?? source.tour_images ?? source.gallery ?? [],
+  )
+  const thumbnailFromImages = images.find(
+    (image) => Number(image?.is_thumbnail) === 1,
+  )?.image_url || images[0]?.image_url
 
   return normalizeImageUrl(
-    initialData.thumbnail_url ||
-      initialData.thumbnail?.image_url ||
-      initialData.image_url ||
+    source.thumbnail_url ||
+      source.thumbnail?.image_url ||
+      source.image_url ||
       thumbnailFromImages ||
       '',
   )
 }
 
 const getInitialImagePreviews = (initialData = {}) => {
-  const images = Array.isArray(initialData.images) ? initialData.images : []
+  const source = resolveTourInitialData(initialData)
+  const images = normalizeArrayValue(
+    source.images ?? source.tour_images ?? source.gallery ?? [],
+  )
 
   return images
     .map((image) => normalizeImageUrl(image?.image_url || image?.url || image))
@@ -766,14 +1207,15 @@ function TourForm({
   submitting = false,
   submitText = 'Lưu tour',
 }) {
-  const initialDataKey = useMemo(
-    () => JSON.stringify(initialData || {}),
-    [initialData],
-  )
+  // Form thêm và form sửa dùng chung component này.
+  // Tính key trực tiếp ở mỗi lần render để vẫn phát hiện trường hợp object
+  // initialData bị cập nhật tại chỗ nhưng không đổi reference.
+  const resolvedInitialData = resolveTourInitialData(initialData || {})
+  const initialDataKey = JSON.stringify(initialData ?? null)
+  const lastAppliedInitialDataKeyRef = useRef(null)
 
-  const [prevInitialDataKey, setPrevInitialDataKey] = useState(initialDataKey)
   const [formData, setFormData] = useState(() =>
-    getInitialFormData(initialData || {}),
+    getInitialFormData(resolvedInitialData),
   )
 
   const [categories, setCategories] = useState([])
@@ -782,20 +1224,66 @@ function TourForm({
   const [optionError, setOptionError] = useState('')
   const [thumbnailImage, setThumbnailImage] = useState(null)
   const [thumbnailPreview, setThumbnailPreview] = useState(() =>
-    getInitialThumbnailPreview(initialData || {}),
+    getInitialThumbnailPreview(resolvedInitialData),
   )
   const [galleryImages, setGalleryImages] = useState([])
   const [galleryPreviews, setGalleryPreviews] = useState(() =>
-    getInitialImagePreviews(initialData || {}),
+    getInitialImagePreviews(resolvedInitialData),
   )
-  if (initialDataKey !== prevInitialDataKey) {
-    setPrevInitialDataKey(initialDataKey)
-    setFormData(getInitialFormData(initialData || {}))
+
+  useEffect(() => {
+    if (lastAppliedInitialDataKeyRef.current === initialDataKey) {
+      return
+    }
+
+    lastAppliedInitialDataKeyRef.current = initialDataKey
+
+    // Khi bấm Sửa: đổ toàn bộ tour vào form.
+    // Khi chuyển sang Thêm (initialData null/{}): reset về form trống.
+    setFormData(getInitialFormData(resolvedInitialData))
     setThumbnailImage(null)
-    setThumbnailPreview(getInitialThumbnailPreview(initialData || {}))
+    setThumbnailPreview(getInitialThumbnailPreview(resolvedInitialData))
     setGalleryImages([])
-    setGalleryPreviews(getInitialImagePreviews(initialData || {}))
-  }
+    setGalleryPreviews(getInitialImagePreviews(resolvedInitialData))
+  }, [initialDataKey])
+
+  useEffect(() => {
+    if (categories.length === 0 && destinations.length === 0) return
+
+    const categoryIdFromData = getRelationId(resolvedInitialData, 'category')
+    const destinationIdFromData = getRelationId(resolvedInitialData, 'destination')
+    const categoryIdFromName = findOptionIdByName(
+      categories,
+      getRelationName(resolvedInitialData, 'category'),
+    )
+    const destinationIdFromName = findOptionIdByName(
+      destinations,
+      getRelationName(resolvedInitialData, 'destination'),
+    )
+
+    setFormData((prev) => {
+      const nextCategoryId =
+        prev.category_id || categoryIdFromData || categoryIdFromName || ''
+      const nextDestinationId =
+        prev.destination_id ||
+        destinationIdFromData ||
+        destinationIdFromName ||
+        ''
+
+      if (
+        String(nextCategoryId) === String(prev.category_id) &&
+        String(nextDestinationId) === String(prev.destination_id)
+      ) {
+        return prev
+      }
+
+      return {
+        ...prev,
+        category_id: nextCategoryId,
+        destination_id: nextDestinationId,
+      }
+    })
+  }, [categories, destinations, initialDataKey])
 
   useEffect(() => {
     let cancelled = false
@@ -884,6 +1372,38 @@ function TourForm({
       ...prev,
       [name]: value,
     }))
+  }
+
+  const handleAgePricingRuleChange = (ruleIndex, field, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      age_pricing_rules: (prev.age_pricing_rules || []).map((rule, index) =>
+        index === ruleIndex ? { ...rule, [field]: value } : rule,
+      ),
+    }))
+  }
+
+  const handleAddAgePricingRule = () => {
+    setFormData((prev) => ({
+      ...prev,
+      age_pricing_rules: [
+        ...(prev.age_pricing_rules || []),
+        createEmptyAgePricingRule((prev.age_pricing_rules || []).length),
+      ],
+    }))
+  }
+
+  const handleRemoveAgePricingRule = (ruleIndex) => {
+    setFormData((prev) => {
+      const currentRules = prev.age_pricing_rules || []
+      const nextRules = currentRules.filter((_, index) => index !== ruleIndex)
+
+      return {
+        ...prev,
+        age_pricing_rules:
+          nextRules.length > 0 ? nextRules : [createEmptyAgePricingRule()],
+      }
+    })
   }
 
   const showConfirmToast = ({
@@ -1006,7 +1526,7 @@ function TourForm({
     if (firstFile) {
       setThumbnailPreview(URL.createObjectURL(firstFile))
       setGalleryPreviews((prev) => {
-        const keptPreviews = thumbnailImage ? prev : getInitialImagePreviews(initialData || {})
+        const keptPreviews = thumbnailImage ? prev : getInitialImagePreviews(resolvedInitialData)
 
         return [...keptPreviews, ...nextObjectUrls]
       })
@@ -1205,19 +1725,19 @@ function TourForm({
 
   const currentCategoryMissing =
     formData.category_id &&
-    !categories.some((item) => String(item.id) === String(formData.category_id))
+    !categories.some((item) => String(getOptionId(item)) === String(formData.category_id))
 
   const currentDestinationMissing =
     formData.destination_id &&
     !destinations.some(
-      (item) => String(item.id) === String(formData.destination_id),
+      (item) => String(getOptionId(item)) === String(formData.destination_id),
     )
 
   const selectedCategory =
-    categories.find((item) => String(item.id) === String(formData.category_id)) ||
-    initialData?.category ||
-    initialData?.category_data ||
-    initialData?.categoryInfo ||
+    categories.find((item) => String(getOptionId(item)) === String(formData.category_id)) ||
+    resolvedInitialData?.category ||
+    resolvedInitialData?.category_data ||
+    resolvedInitialData?.categoryInfo ||
     null
   const durationLimit = getTourDurationLimit(selectedCategory)
   const requestedDurationDays = Number(formData.duration_days || 1)
@@ -1838,8 +2358,8 @@ function TourForm({
                     )}
 
                     {categories.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {getOptionName(item, `Danh mục #${item.id}`)}
+                      <option key={getOptionId(item)} value={getOptionId(item)}>
+                        {getOptionName(item, `Danh mục #${getOptionId(item)}`)}
                       </option>
                     ))}
                   </select>
@@ -1882,8 +2402,8 @@ function TourForm({
                     )}
 
                     {destinations.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {getOptionName(item, `Điểm đến #${item.id}`)}
+                      <option key={getOptionId(item)} value={getOptionId(item)}>
+                        {getOptionName(item, `Điểm đến #${getOptionId(item)}`)}
                       </option>
                     ))}
                   </select>
@@ -1953,9 +2473,107 @@ function TourForm({
                   Giá hiển thị: <span className="font-black text-[#0575f9]">{formatVnd(formData.base_price)}</span>
                 </p>
               </div>
+
+              <div className="border-t border-slate-100 pt-4">
+                <div className="mb-3 flex items-start justify-between gap-3">
+                  <div>
+                    <FieldLabel>Giá vé theo độ tuổi</FieldLabel>
+                    <p className="mt-1 text-[11px] font-medium leading-5 text-slate-400">
+                      Nhập tự do đối tượng kèm khoảng tuổi, ví dụ: Trẻ em (độ tuổi: 1-5), rồi nhập giá tiền.
+                    </p>
+                  </div>
+
+                  <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-blue-600">
+                    {(formData.age_pricing_rules || []).filter(
+                      (rule) =>
+                        String(rule.age_label ?? '').trim() !== '' ||
+                        String(rule.price_value ?? '').trim() !== '',
+                    ).length}{' '}
+                    mức giá
+                  </span>
+                </div>
+
+                <div className="space-y-3">
+                  {(formData.age_pricing_rules || []).map((rule, ruleIndex) => (
+                    <div
+                      key={rule.client_id || rule.id || ruleIndex}
+                      className="rounded-xl border border-slate-200 bg-slate-50/60 p-3"
+                    >
+                      <div className="grid grid-cols-[minmax(0,1fr)_130px_36px] items-end gap-2">
+                        <div>
+                          <FieldLabel>Đối tượng / độ tuổi</FieldLabel>
+                          <input
+                            type="text"
+                            value={rule.age_label ?? ''}
+                            onChange={(e) =>
+                              handleAgePricingRuleChange(
+                                ruleIndex,
+                                'age_label',
+                                e.target.value,
+                              )
+                            }
+                            placeholder="Trẻ em (độ tuổi: 1-5)"
+                            className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                          />
+                        </div>
+
+                        <div>
+                          <FieldLabel>Giá tiền</FieldLabel>
+                          <div className="relative mt-1.5">
+                            <input
+                              type="number"
+                              min="0"
+                              step="1000"
+                              value={rule.price_value ?? ''}
+                              onChange={(e) =>
+                                handleAgePricingRuleChange(
+                                  ruleIndex,
+                                  'price_value',
+                                  e.target.value,
+                                )
+                              }
+                              placeholder="500000"
+                              className="h-10 w-full rounded-lg border border-slate-200 bg-white px-2.5 pr-7 text-xs font-semibold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                            />
+                            <span className="pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-xs font-black text-slate-400">
+                              đ
+                            </span>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveAgePricingRule(ruleIndex)}
+                          className="flex h-10 w-9 items-center justify-center rounded-lg border border-rose-100 bg-white text-lg font-bold text-rose-500 transition hover:bg-rose-50 hover:text-rose-700"
+                          aria-label={`Xóa mức giá #${ruleIndex + 1}`}
+                          title="Xóa dòng"
+                        >
+                          ×
+                        </button>
+                      </div>
+
+                      {String(rule.price_value ?? '').trim() !== '' ? (
+                        <p className="mt-2 text-right text-[11px] font-semibold text-slate-500">
+                          Giá hiển thị:{' '}
+                          <span className="font-black text-blue-600">
+                            {formatVnd(rule.price_value)}
+                          </span>
+                        </p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleAddAgePricingRule}
+                  className="mt-3 inline-flex h-10 w-full items-center justify-center rounded-xl border border-dashed border-blue-300 bg-blue-50/40 px-4 text-xs font-black text-blue-600 transition hover:border-blue-500 hover:bg-blue-50"
+                >
+                  + Thêm giá và tuổi
+                </button>
+              </div>
               </div>
             </div>
-          </div>
 
           <div className={widgetClass}>
             <CardTitle
@@ -2031,6 +2649,7 @@ function TourForm({
             </div>
           </div>
         </div>
+      </div>
     </form>
   )
 }

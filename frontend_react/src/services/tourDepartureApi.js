@@ -8,8 +8,13 @@ export const tourDepartureApi = {
   */
 
   getTours(params = {}) {
-    return apiClient.get("/admin/tours", { params });
-  },
+  return apiClient.get("/admin/tours", {
+    params: {
+      per_page: 1000,
+      ...params,
+    },
+  });
+},
 
   /*
   |--------------------------------------------------------------------------

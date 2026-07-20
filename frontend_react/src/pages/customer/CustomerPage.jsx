@@ -4,9 +4,12 @@ import ChatBox, { clearChatHistory } from "../../components/customer/ChatBox";
 import Footer from "../../components/customer/Footer";
 import Header from "../../components/customer/Header";
 
+
+
 import {
   addWishlist,
   fetchBookings,
+  fetchGuideReviewableBookings,
   fetchHomeContent,
   fetchProfileSummary,
   fetchTours,
@@ -306,6 +309,7 @@ function CustomerPage() {
   const [hasLiveTours, setHasLiveTours] = useState(false);
   const [favorites, setFavorites] = useState(readStoredFavorites);
   const [bookings, setBookings] = useState([]);
+  const [reviewNotifications, setReviewNotifications] = useState([]);
   const [homeContent, setHomeContent] = useState({});
   const [homeLoadError, setHomeLoadError] = useState("");
   const [tourLoadError, setTourLoadError] = useState("");
@@ -506,6 +510,40 @@ function CustomerPage() {
     };
   }, [location.pathname, token]);
 
+  useEffect(() => {
+    if (!token) {
+      setReviewNotifications([]);
+      return undefined;
+    }
+
+    let active = true;
+
+    async function loadReviewNotifications() {
+      try {
+        const items = await fetchGuideReviewableBookings();
+
+        if (active) {
+          setReviewNotifications(Array.isArray(items) ? items : []);
+        }
+      } catch (error) {
+        console.error("Không thể tải thông báo đánh giá:", error);
+
+        if (active) {
+          setReviewNotifications([]);
+        }
+      }
+    }
+
+    loadReviewNotifications();
+
+    const timer = window.setInterval(loadReviewNotifications, 60000);
+
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [token, location.pathname]);
+
   function updateBooking(updatedBooking) {
     setBookings((current) => current.map((booking) => (
       booking.id === updatedBooking.id
@@ -564,6 +602,9 @@ function CustomerPage() {
     route === "/customer/support" ||
     (route === "/customer/profile" && pageParams.get("view") === "support");
 
+  const matchGuideReview = route.match(
+    /^\/customer\/reviews\/(\d+)$/,
+  );
   const matchTourDetail = route.match(/^\/tours\/([^/]+)$/);
 
   const accountRoutes = [
@@ -584,7 +625,13 @@ function CustomerPage() {
     />
   );
 
-  if (matchTourDetail) {
+  if (matchGuideReview) {
+    content = user ? (
+      <GuideReviewPage bookingId={matchGuideReview[1]} />
+    ) : (
+      <Navigate to="/auth/login" replace />
+    );
+  } else if (matchTourDetail) {
     content = (
       <CustomerTourDetailPage
         tourId={matchTourDetail[1]}
@@ -652,7 +699,13 @@ function CustomerPage() {
       className={`vg-app ${location.pathname === "/" ? "is-home-page" : ""
         }`}
     >
-      <Header user={user} onLogout={logout} pendingCount={pendingPaymentCount} />
+      <Header
+        user={user}
+        onLogout={logout}
+        pendingCount={pendingPaymentCount}
+        reviewNotifications={reviewNotifications}
+        reviewNotificationCount={reviewNotifications.length}
+      />
       {content}
       <Footer />
       <ChatBox />
