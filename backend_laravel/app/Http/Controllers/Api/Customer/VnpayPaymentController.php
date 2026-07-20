@@ -95,6 +95,7 @@ class VnpayPaymentController extends Controller
                 'booking_code' => $payment->booking->booking_code,
                 'booking_status' => $payment->booking->status,
                 'payment_status' => $payment->booking->payment_status,
+                'cancel_reason' => $payment->booking->cancel_reason,
                 'tour_title' => $payment->booking->tour?->title,
                 'departure_date' => $payment->booking->tourDeparture?->departure_date?->toDateString(),
                 'number_of_people' => $payment->booking->number_of_people,
@@ -194,6 +195,22 @@ class VnpayPaymentController extends Controller
                 && ($payload['vnp_TransactionStatus'] ?? null) === '00';
 
             if (! $isSuccessful) {
+                $failureReason = match ($payload['vnp_ResponseCode'] ?? null) {
+                    '11' => 'Giao dịch VNPAY đã hết hạn thanh toán.',
+                    '24' => 'Khách hàng hủy thanh toán trên VNPAY.',
+                    default => null,
+                };
+
+                if ($failureReason) {
+                    $this->paymentLifecycleService->failPendingPayment(
+                        $payment,
+                        $failureReason,
+                        $payload
+                    );
+
+                    return ['00', 'Confirm Success'];
+                }
+
                 $payment->update([
                     'gateway_response' => $payload,
                 ]);

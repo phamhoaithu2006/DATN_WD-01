@@ -229,12 +229,18 @@ test('customer booking creates a pending VNPAY payment with checkout url', funct
     ]);
 
     $checkoutUrl = $response->json('data.checkout_url');
+    $payment = Payment::query()->where('booking_id', $bookingId)->firstOrFail();
+    parse_str((string) parse_url($checkoutUrl, PHP_URL_QUERY), $checkoutQuery);
 
     expect($checkoutUrl)
         ->toContain('sandbox.vnpayment.vn/paymentv2/vpcpay.html')
         ->toContain('vnp_TxnRef=')
         ->and(transactionReferenceFromCheckoutUrl($checkoutUrl))
-        ->toMatch('/^P'.$response->json('data.payment.id').'A[A-Z0-9]{20}$/');
+        ->toMatch('/^P'.$response->json('data.payment.id').'A[A-Z0-9]{20}$/')
+        ->and($response->json('data.expires_at'))
+        ->toBe($payment->expires_at->toIso8601String())
+        ->and($checkoutQuery['vnp_ExpireDate'] ?? null)
+        ->toBe($payment->expires_at->copy()->setTimezone('Asia/Ho_Chi_Minh')->format('YmdHis'));
 });
 
 test('customer booking list includes payment and departure needed for pending actions', function () {
@@ -449,7 +455,7 @@ test('VNPAY return status keeps a failed attempt available for retry', function 
     configureVnpayForTest();
     $booking = paymentSafetyBooking(['number_of_people' => 2]);
     $payload = vnpayIpnPayload($booking->payment, [
-        'vnp_ResponseCode' => '24',
+        'vnp_ResponseCode' => '51',
         'vnp_TransactionStatus' => '02',
     ]);
 
@@ -463,6 +469,62 @@ test('VNPAY return status keeps a failed attempt available for retry', function 
     $this->assertDatabaseHas('tour_departures', [
         'id' => $booking->tour_departure_id,
         'booked_slots' => 2,
+    ]);
+});
+
+test('VNPAY return status cancels booking when customer cancels payment', function () {
+    configureVnpayForTest();
+    $booking = paymentSafetyBooking(['number_of_people' => 2]);
+    $payload = vnpayIpnPayload($booking->payment, [
+        'vnp_ResponseCode' => '24',
+        'vnp_TransactionStatus' => '02',
+    ]);
+
+    $this->getJson('/api/vnpay/return-status?'.http_build_query($payload))
+        ->assertOk()
+        ->assertJsonPath('data.status', 'failed')
+        ->assertJsonPath('data.booking_status', 'cancelled')
+        ->assertJsonPath('data.payment_status', 'failed')
+        ->assertJsonPath('data.cancel_reason', 'Khách hàng hủy thanh toán trên VNPAY.');
+
+    $this->assertDatabaseHas('tour_departures', [
+        'id' => $booking->tour_departure_id,
+        'booked_slots' => 0,
+    ]);
+
+    $this->getJson('/api/vnpay/return-status?'.http_build_query($payload))->assertOk();
+
+    $this->assertDatabaseHas('tour_departures', [
+        'id' => $booking->tour_departure_id,
+        'booked_slots' => 0,
+    ]);
+});
+
+test('VNPAY IPN cancels booking when payment gateway reports timeout', function () {
+    configureVnpayForTest();
+    $booking = paymentSafetyBooking(['number_of_people' => 2]);
+    $payload = vnpayIpnPayload($booking->payment, [
+        'vnp_ResponseCode' => '11',
+        'vnp_TransactionStatus' => '02',
+    ]);
+
+    $this->getJson('/api/webhooks/vnpay?'.http_build_query($payload))
+        ->assertOk()
+        ->assertJsonPath('RspCode', '00');
+
+    $this->assertDatabaseHas('payments', [
+        'id' => $booking->payment->id,
+        'status' => 'failed',
+    ]);
+    $this->assertDatabaseHas('bookings', [
+        'id' => $booking->id,
+        'status' => 'cancelled',
+        'payment_status' => 'failed',
+        'cancel_reason' => 'Giao dịch VNPAY đã hết hạn thanh toán.',
+    ]);
+    $this->assertDatabaseHas('tour_departures', [
+        'id' => $booking->tour_departure_id,
+        'booked_slots' => 0,
     ]);
 });
 
@@ -502,7 +564,7 @@ test('VNPAY failed attempt keeps the booking pending and accepts a later success
     configureVnpayForTest();
     $booking = paymentSafetyBooking(['number_of_people' => 2]);
     $payload = vnpayIpnPayload($booking->payment, [
-        'vnp_ResponseCode' => '24',
+        'vnp_ResponseCode' => '51',
         'vnp_TransactionStatus' => '02',
     ]);
 
