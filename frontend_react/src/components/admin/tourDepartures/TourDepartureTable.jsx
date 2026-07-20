@@ -890,7 +890,7 @@ export default function TourDepartureTable({
 
             <p className="mt-1 text-sm text-slate-500">
               {isGuidesTab
-                ? 'Tự động chọn hướng dẫn viên phù hợp cho từng lịch khởi hành.'
+                ? 'Phân công hoặc đổi hướng dẫn viên cho lịch khởi hành được chọn.'
                 : 'Quản lý lịch khởi hành, số chỗ và trạng thái phân công HDV.'}
             </p>
           </div>
@@ -915,27 +915,16 @@ export default function TourDepartureTable({
             Lịch khởi hành
           </button>
 
-          <button
-            type="button"
-            onClick={() => onChangeTab?.('guides')}
-            className={`relative inline-flex items-center gap-2 rounded-t-xl border border-b-0 px-4 py-2.5 text-sm font-black transition ${
-              isGuidesTab
-                ? 'border-slate-200 bg-white text-blue-600'
-                : 'border-transparent text-slate-500 hover:border-slate-200 hover:bg-slate-50 hover:text-slate-900'
-            }`}
-          >
-            <GuideIcon />
-            Phân công HDV
-
-            {unassignedDepartureCount > 0 ? (
-              <span
-                className="absolute -right-2 -top-2 inline-flex min-w-[22px] items-center justify-center rounded-full bg-rose-600 px-1.5 py-0.5 text-[11px] font-black leading-none text-white ring-2 ring-white"
-                title={`${unassignedDepartureCount} lịch sắp tới/đang diễn ra chưa phân công`}
-              >
-                {unassignedDepartureCount > 99 ? '99+' : unassignedDepartureCount}
-              </span>
-            ) : null}
-          </button>
+          {isGuidesTab ? (
+            <button
+              type="button"
+              onClick={() => onChangeTab?.('guides')}
+              className="relative inline-flex items-center gap-2 rounded-t-xl border border-b-0 border-slate-200 bg-white px-4 py-2.5 text-sm font-black text-blue-600 transition"
+            >
+              <GuideIcon />
+              Phân công HDV
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -1005,7 +994,7 @@ export default function TourDepartureTable({
             </div>
 
             <div className="overflow-x-auto rounded-xl border border-slate-200">
-              <table className="w-full min-w-[1500px] text-sm">
+              <table className="w-full min-w-[1250px] text-sm">
                 <thead className="bg-slate-50 text-center text-xs font-bold uppercase text-slate-500">
                   <tr>
                     <th className="border-b px-4 py-4">STT</th>
@@ -1013,9 +1002,7 @@ export default function TourDepartureTable({
                     <th className="border-b px-4 py-4 text-left">Ngày về</th>
                     <th className="border-b px-4 py-4 text-left">Thời điểm tạo</th>
                     <th className="border-b px-4 py-4 text-right">Giá</th>
-                    <th className="border-b px-4 py-4">Tổng chỗ</th>
-                    <th className="border-b px-4 py-4">Đã đặt</th>
-                    <th className="border-b px-4 py-4">Còn lại</th>
+                    <th className="border-b px-4 py-4">Đặt</th>
                     <th className="border-b px-4 py-4 text-left">HDV phụ trách</th>
                     <th className="border-b px-4 py-4">Phân công</th>
                     <th className="border-b px-4 py-4">Trạng thái</th>
@@ -1027,7 +1014,7 @@ export default function TourDepartureTable({
                   {loading ? (
                     <tr>
                       <td
-                        colSpan="12"
+                        colSpan="10"
                         className="px-4 py-14 text-center text-slate-500"
                       >
                         Đang tải lịch khởi hành...
@@ -1036,7 +1023,7 @@ export default function TourDepartureTable({
                   ) : displayedRows.length === 0 ? (
                     <tr>
                       <td
-                        colSpan="12"
+                        colSpan="10"
                         className="px-4 py-14 text-center text-slate-500"
                       >
                         {getAssignmentFilterEmptyText(
@@ -1107,21 +1094,14 @@ export default function TourDepartureTable({
                           </td>
 
                           <td className="px-4 py-4 text-center">
-                            {totalSlots}
-                          </td>
-
-                          <td className="px-4 py-4 text-center">
-                            {bookedSlots}
-                          </td>
-
-                          <td className="px-4 py-4 text-center">
-                            <span
-                              className={`inline-flex min-w-[54px] justify-center rounded-full px-3 py-1 text-xs font-bold ring-1 ${getRemainSlotClass(
-                                remainSlots
-                              )}`}
-                            >
-                              {remainSlots}
-                            </span>
+                            <div className="inline-flex min-w-[74px] flex-col items-center rounded-xl bg-white/80 px-3 py-2 text-xs font-bold text-slate-700 ring-1 ring-slate-200">
+                              <span className="text-sm text-slate-950">
+                                {bookedSlots}/{totalSlots}
+                              </span>
+                              <span className="mt-0.5 text-[10px] font-black uppercase tracking-wide text-slate-400">
+                                đã đặt
+                              </span>
+                            </div>
                           </td>
 
                           <td className="px-4 py-4">
@@ -1254,7 +1234,7 @@ export default function TourDepartureTable({
                                           className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-sky-700 transition hover:bg-sky-50"
                                         >
                                           <GuideIcon />
-                                          {leadAssignment ? 'Xem HDV' : 'Phân HDV'}
+                                          {leadAssignment ? 'Đổi HDV' : 'Phân công HDV'}
                                         </button>
                                       ) : (
                                         <Link
