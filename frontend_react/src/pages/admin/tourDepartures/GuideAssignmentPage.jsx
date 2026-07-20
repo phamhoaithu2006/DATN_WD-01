@@ -847,6 +847,7 @@ function DirectGuideAssignmentPanel({
   focusedDepartureId = null,
   onAssigned,
   onRefreshPlanning,
+  modalLayout = false,
 }) {
   const [departureId, setDepartureId] = useState(focusedDepartureId || '')
   const [mode, setMode] = useState('available')
@@ -1108,9 +1109,21 @@ function DirectGuideAssignmentPanel({
     }
   }
 
+  const panelGridClass = modalLayout
+    ? 'grid h-full min-h-0 gap-4 overflow-hidden xl:grid-cols-[390px_minmax(0,1fr)]'
+    : 'grid gap-5 xl:grid-cols-[420px_minmax(0,1fr)]'
+
+  const leftColumnClass = modalLayout
+    ? 'min-h-0 space-y-4 overflow-y-auto overflow-x-hidden pr-2 overscroll-contain'
+    : 'space-y-4'
+
+  const rightColumnClass = modalLayout
+    ? 'min-h-0 overflow-y-auto overflow-x-hidden rounded-xl border border-slate-200 bg-white p-4 pr-2 overscroll-contain'
+    : 'rounded-xl border border-slate-200 bg-white p-4'
+
   return (
-    <div className="grid gap-5 xl:grid-cols-[420px_minmax(0,1fr)]">
-      <aside className="space-y-4">
+    <div className={panelGridClass}>
+      <aside className={leftColumnClass}>
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <h3 className="text-lg font-black text-slate-900">
             Lịch khởi hành
@@ -1120,121 +1133,7 @@ function DirectGuideAssignmentPanel({
             Chọn lịch và khoảng thời gian để kiểm tra HDV còn trống lịch.
           </p>
 
-          <div className="mt-4">
-            <div className="mb-1 flex items-center justify-between gap-3">
-              <span className="text-sm font-medium text-slate-700">
-                Chọn lịch
-              </span>
-
-              <span className="text-xs font-bold text-slate-500">
-                {sortedDepartureOptions.filter((item) => !hasDepartureAssignedGuide(item)).length} chưa phân công
-              </span>
-            </div>
-
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setDepartureDropdownOpen((current) => !current)}
-                className={`flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left text-sm outline-none transition focus:ring-2 ${
-                  fieldErrors.departureId
-                    ? 'border-rose-500 bg-rose-50/50 text-rose-900 focus:border-rose-500 focus:ring-rose-100'
-                    : selectedDepartureTone?.card || 'border-slate-300 bg-white text-slate-800 focus:border-blue-500 focus:ring-blue-100'
-                }`}
-              >
-                <span className="min-w-0">
-                  {selectedDeparture ? (
-                    <>
-                      <span className={`block truncate font-black ${selectedDepartureTone?.title || 'text-slate-900'}`}>
-                        {selectedDepartureHasAssignedGuide ? 'Đã phân công' : 'Chưa phân công'} · {getDepartureTitle(selectedDeparture)}
-                      </span>
-                      <span className={`mt-0.5 block truncate text-xs font-semibold ${selectedDepartureTone?.meta || 'text-slate-500'}`}>
-                        {getDepartureDateRange(selectedDeparture)}
-                      </span>
-                    </>
-                  ) : (
-                    <span className="text-slate-500">-- Chọn lịch khởi hành --</span>
-                  )}
-                </span>
-
-                <span className="flex shrink-0 items-center gap-2">
-                  {selectedDeparture ? (
-                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ring-1 ${selectedDepartureTone?.badge || 'bg-slate-100 text-slate-600 ring-slate-200'}`}>
-                      {selectedDepartureTone?.badgeText || 'Đang chọn'}
-                    </span>
-                  ) : null}
-
-                  <svg
-                    viewBox="0 0 20 20"
-                    className={`h-4 w-4 text-slate-500 transition ${departureDropdownOpen ? 'rotate-180' : ''}`}
-                    fill="currentColor"
-                    aria-hidden="true"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.168l3.71-3.938a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                </span>
-              </button>
-
-              <FieldError message={fieldErrors.departureId} />
-
-              {departureDropdownOpen ? (
-                <div className="absolute left-0 right-0 z-40 mt-2 max-h-80 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
-                  {sortedDepartureOptions.length === 0 ? (
-                    <div className="rounded-lg bg-slate-50 px-3 py-4 text-center text-sm text-slate-500">
-                      Chưa có lịch khởi hành.
-                    </div>
-                  ) : (
-                    sortedDepartureOptions.map((item) => {
-                      const isSelected = String(item.id) === String(departureId)
-                      const tone = getDirectDepartureCardTone(item, isSelected)
-
-                      return (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => {
-                            setDepartureId(String(item.id))
-                            clearFieldError('departureId')
-                            setGuides([])
-                            setMessage('')
-                            setError('')
-                            setOpenedTourCardKey(null)
-                            setDepartureDropdownOpen(false)
-                          }}
-                          className={`relative mb-2 w-full rounded-xl border px-3 py-3 text-left transition last:mb-0 ${tone.card}`}
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className={`truncate text-sm font-black ${tone.title}`}>
-                                {getDepartureTitle(item)}
-                              </p>
-
-                              <p className={`mt-1 text-xs font-semibold ${tone.meta}`}>
-                                {getDepartureDateRange(item)}
-                              </p>
-                            </div>
-
-                            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black ring-1 ${tone.badge}`}>
-                              {tone.badgeText}
-                            </span>
-                          </div>
-                        </button>
-                      )
-                    })
-                  )}
-                </div>
-              ) : null}
-            </div>
-
-            {departureDropdownOpen ? (
-              <p className="mt-2 text-xs text-slate-500">
-                Danh sách đã được ẩn trong ô chọn lịch. Lịch chưa phân công được đưa lên trước để dễ chọn.
-              </p>
-            ) : null}
-          </div>
+          {/* Đã bỏ ô dropdown Chọn lịch ở đây để tránh trùng với card lịch được chọn bên dưới. */}
 
           {selectedDeparture ? (
             <div className={`mt-4 rounded-lg border p-3 text-sm ${selectedDepartureTone?.card || 'border-blue-100 bg-blue-50 text-blue-800'}`}>
@@ -1401,7 +1300,7 @@ function DirectGuideAssignmentPanel({
         </div>
       </aside>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4">
+      <section className={rightColumnClass}>
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h3 className="text-lg font-black text-slate-900">
@@ -1732,6 +1631,7 @@ export function GuideAssignmentPanel({
   onAssigned,
   onClearFocus,
   embedded = false,
+  modalLayout = false,
 }) {
   const [assignMode, setAssignMode] = useState('direct')
   const [directDepartureId, setDirectDepartureId] = useState(
@@ -1739,7 +1639,7 @@ export function GuideAssignmentPanel({
   )
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
-  const [scheduleTimeFilter, setScheduleTimeFilter] = useState('all')
+  const [scheduleTimeFilter, setScheduleTimeFilter] = useState('active')
   const [monthFilter, setMonthFilter] = useState('all')
   const [yearFilter, setYearFilter] = useState('all')
   const [rows, setRows] = useState([])
@@ -1913,12 +1813,14 @@ export function GuideAssignmentPanel({
         if (group === 'upcoming') acc.upcoming += 1
         if (group === 'ongoing') acc.ongoing += 1
         if (group === 'past') acc.past += 1
+        if (isDepartureActionable(item)) acc.active += 1
 
         acc.all += 1
 
         return acc
       },
       {
+        active: 0,
         upcoming: 0,
         ongoing: 0,
         past: 0,
@@ -1929,6 +1831,11 @@ export function GuideAssignmentPanel({
 
   const scheduleFilterTabs = useMemo(() => {
     return [
+      {
+        key: 'active',
+        label: 'Sắp tới / đang diễn ra',
+        count: scheduleFilterCounts.active,
+      },
       {
         key: 'upcoming',
         label: 'Sắp tới',
@@ -1955,6 +1862,10 @@ export function GuideAssignmentPanel({
   const baseDisplayedRows = useMemo(() => {
     return monthYearFilteredRows.filter((item) => {
       const group = getDepartureScheduleGroup(item)
+
+      if (scheduleTimeFilter === 'active') {
+        return ['upcoming', 'ongoing'].includes(group)
+      }
 
       if (scheduleTimeFilter === 'all') {
         return true
@@ -2125,138 +2036,6 @@ export function GuideAssignmentPanel({
 
   const autoAssignmentContent = (
     <>
-      <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-        <span className="font-bold">Lưu ý:</span>{' '}
-        Chọn nhanh trạng thái lịch bằng các nút Sắp tới, Đang diễn ra, Đã qua hoặc Tất cả bên dưới.
-      </div>
-
-      <div className="mb-5 rounded-xl bg-slate-50 p-4">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(180px,240px)_minmax(180px,220px)_minmax(180px,220px)_auto_auto]">
-          <label className="text-sm font-medium text-slate-700">
-            HDV
-
-            <select
-              value={guideFilter}
-              onChange={(event) => setGuideFilter(event.target.value)}
-              className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-normal outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-            >
-              <option value="all">Tất cả HDV</option>
-              <option value="none">Chưa có HDV</option>
-
-              {guideFilterOptions.map((guide) => (
-                <option key={guide.value} value={guide.value}>
-                  {guide.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="text-sm font-medium text-slate-700">
-            Từ ngày
-
-            <input
-              type="date"
-              value={from}
-              onChange={(event) => {
-                setFrom(event.target.value)
-                clearAutoValidationError('from')
-                clearAutoValidationError('to')
-              }}
-              className={fieldInputClass(
-                autoValidationErrors.from,
-                'mt-1 block w-full rounded-lg border bg-white px-3 py-2 font-normal outline-none transition focus:ring-2'
-              )}
-            />
-            <FieldError message={autoValidationErrors.from} />
-          </label>
-
-          <label className="text-sm font-medium text-slate-700">
-            Đến ngày
-
-            <input
-              type="date"
-              value={to}
-              onChange={(event) => {
-                setTo(event.target.value)
-                clearAutoValidationError('to')
-              }}
-              className={fieldInputClass(
-                autoValidationErrors.to,
-                'mt-1 block w-full rounded-lg border bg-white px-3 py-2 font-normal outline-none transition focus:ring-2'
-              )}
-            />
-            <FieldError message={autoValidationErrors.to} />
-          </label>
-
-          <button
-            type="button"
-            onClick={() => {
-              if (validateAutoFilters()) {
-                void fetchPlanning()
-              }
-            }}
-            className="self-end rounded-lg bg-blue-600 px-4 py-2 font-bold text-white transition hover:bg-blue-700"
-          >
-            Lọc lịch
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setScheduleTimeFilter('all')
-              setMonthFilter('all')
-              setYearFilter('all')
-              setAssignmentFilter('all')
-              setGuideFilter('all')
-              setFrom('')
-              setTo('')
-            }}
-            className="self-end rounded-lg bg-white px-4 py-2 font-bold text-slate-600 ring-1 ring-slate-200 transition hover:bg-slate-100"
-          >
-            Xem tất cả
-          </button>
-        </div>
-      </div>
-
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        {scheduleFilterTabs.map((tab) => {
-          const isActive = scheduleTimeFilter === tab.key
-
-          return (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => setScheduleTimeFilter(tab.key)}
-              className={`rounded-lg px-4 py-2.5 text-[15px] font-medium whitespace-nowrap transition ${
-                isActive
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              {tab.label} ({tab.count})
-            </button>
-          )
-        })}
-      </div>
-
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3">
-        <select
-          value={assignmentFilter}
-          onChange={(event) => setAssignmentFilter(event.target.value)}
-          className="min-w-[220px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-        >
-          {assignmentFilterTabs.map((tab) => (
-            <option key={tab.key} value={tab.key}>
-              {tab.label} ({tab.count})
-            </option>
-          ))}
-        </select>
-
-        <p className="text-sm font-medium text-slate-500">
-          Ưu tiên hiển thị lịch chưa phân công trước.
-        </p>
-      </div>
-
       <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
         <table className="min-w-full text-sm">
           <thead className="bg-slate-50 text-left text-slate-600">
@@ -2464,7 +2243,7 @@ export function GuideAssignmentPanel({
           </h2>
 
           <p className="mt-1 text-slate-500">
-            Tự động chọn HDV đúng khu vực hoặc phân công trực tiếp theo lịch trống.
+            Phân công hoặc đổi hướng dẫn viên theo lịch trống.
           </p>
         </div>
       ) : null}
@@ -2529,6 +2308,7 @@ export function GuideAssignmentPanel({
           focusedDepartureId={directDepartureId || focusedDepartureId}
           onAssigned={onAssigned}
           onRefreshPlanning={fetchPlanning}
+          modalLayout={modalLayout}
         />
       ) : (
         autoAssignmentContent
