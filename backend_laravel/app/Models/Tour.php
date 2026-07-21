@@ -126,6 +126,11 @@ class Tour extends Model
         return $this->hasMany(Review::class, 'tour_id');
     }
 
+    public function tourReviews(): HasMany
+    {
+        return $this->hasMany(TourReview::class, 'tour_id');
+    }
+
     public function agePricingRules(): HasMany
     {
         return $this->hasMany(TourAgePricingRule::class, 'tour_id')

@@ -117,7 +117,6 @@ class GuideReviewSeeder extends Seeder
 
         $reviewers = $this->seedReviewers($customerRole->id);
         $guideIds = [];
-        $tourIds = [];
 
         foreach (self::REVIEWS as $fixture) {
             $guide = Guide::query()->where('guide_code', $fixture['guide_code'])->first();
@@ -229,17 +228,12 @@ class GuideReviewSeeder extends Seeder
             ])->saveQuietly();
 
             $guideIds[] = $guide->id;
-            $tourIds[] = $tour->id;
         }
 
         $guideReviewService = app(GuideReviewService::class);
 
         foreach (array_unique($guideIds) as $guideId) {
             $guideReviewService->refreshGuideRating($guideId);
-        }
-
-        foreach (array_unique($tourIds) as $tourId) {
-            $guideReviewService->refreshTourRating($tourId);
         }
 
         $this->command->info('Đã seed 9 đánh giá mẫu cho hướng dẫn viên.');

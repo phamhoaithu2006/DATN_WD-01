@@ -23,6 +23,7 @@ use App\Http\Controllers\Api\Admin\SupportStaffController;
 use App\Http\Controllers\Api\Admin\TourDepartureController;
 use App\Http\Controllers\Api\Admin\TourDepartureGuideAssignmentController;
 use App\Http\Controllers\Api\Admin\TourManagerController;
+use App\Http\Controllers\Api\Admin\TourReviewController as AdminTourReviewController;
 use App\Http\Controllers\Api\Admin\WidgetController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\Chat\ChatBotController;
@@ -33,6 +34,7 @@ use App\Http\Controllers\Api\Customer\CustomerSupportRequestController;
 use App\Http\Controllers\Api\Customer\GuideReviewController as CustomerGuideReviewController;
 use App\Http\Controllers\Api\Customer\NotificationCustomerController;
 use App\Http\Controllers\Api\Customer\TourController;
+use App\Http\Controllers\Api\Customer\TourReviewController as CustomerTourReviewController;
 use App\Http\Controllers\Api\Customer\VnpayPaymentController;
 use App\Http\Controllers\Api\Customer\WishlistController;
 use App\Http\Controllers\Api\Guide\GuideAttendanceController;
@@ -47,9 +49,11 @@ use App\Http\Controllers\Api\PublicWidgetController;
 use App\Http\Controllers\Api\Support\SupportNotificationController;
 use App\Http\Controllers\Api\Support\SupportProfileController;
 use App\Http\Controllers\Api\Support\SupportRequestController;
+use App\Http\Controllers\Api\TourReviewController as PublicTourReviewController;
 use App\Models\GuideSpecialization;
 use Illuminate\Support\Facades\Route;
-//Chat bot
+
+// Chat bot
 Route::middleware('throttle:20,1')->post('/chatbot', [ChatBotController::class, 'handleChat']);
 // ======Đăng ký và đăng nhập cho người dùng======
 Route::prefix('auth')->group(function () {
@@ -104,6 +108,10 @@ Route::middleware(['auth:sanctum', 'role:customer'])->group(function () {
     Route::get('customer/payments/vnpay/{payment}', [VnpayPaymentController::class, 'status'])->whereNumber('payment');
     Route::get('customer/guide-reviewable-bookings', [CustomerGuideReviewController::class, 'reviewableBookings']);
     Route::post('customer/guide-reviews', [CustomerGuideReviewController::class, 'store']);
+    Route::post('customer/tour-reviews', [CustomerTourReviewController::class, 'store'])->middleware('throttle:10,1');
+    Route::put('customer/tour-reviews/{tourReview}', [CustomerTourReviewController::class, 'update'])
+        ->whereNumber('tourReview')
+        ->middleware('throttle:10,1');
     Route::get('customer/guides/{guide}/reviews', [CustomerGuideReviewController::class, 'guideReviews'])->whereNumber('guide');
     Route::get('customer/guides/{guide}/tour-history', [CustomerGuideReviewController::class, 'guideTourHistory'])->whereNumber('guide');
 
@@ -156,6 +164,8 @@ Route::prefix('tours')->group(function () {
         Route::delete('wishlist/{tour_id}', [WishlistController::class, 'destroy']);
     });
 
+    Route::get('/{slug}/reviews', [PublicTourReviewController::class, 'index']);
+
     // Chi tiết tour theo slug
     Route::get('/{slug}', [TourController::class, 'show_gdkh']);
 });
@@ -186,6 +196,12 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(functi
     // Chức năng báo cáo & thống kê
     Route::get('/reports/overview', [ReportController::class, 'getOverviewStatistics']);
     Route::get('/reports/charts', [ReportController::class, 'getChartStatistics']);
+
+    // Quản lý đánh giá tour
+    Route::get('/tour-reviews', [AdminTourReviewController::class, 'index']);
+    Route::get('/tour-reviews/{tourReview}', [AdminTourReviewController::class, 'show'])->whereNumber('tourReview');
+    Route::patch('/tour-reviews/{tourReview}/status', [AdminTourReviewController::class, 'updateStatus'])
+        ->whereNumber('tourReview');
 
     // Quản lý sao lưu database
     Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {

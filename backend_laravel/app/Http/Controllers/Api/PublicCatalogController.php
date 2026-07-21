@@ -6,8 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\TourResource;
 use App\Models\Category;
 use App\Models\Destination;
-use App\Models\Review;
 use App\Models\Tour;
+use App\Models\TourReview;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\JsonResponse;
@@ -74,8 +74,9 @@ class PublicCatalogController extends Controller
             ->limit(6)
             ->get();
 
-        $reviews = Review::query()
+        $reviews = TourReview::query()
             ->visible()
+            ->whereHas('tour', fn (Builder $query) => $query->where('status', 'published'))
             ->whereNotNull('comment')
             ->where('comment', '!=', '')
             ->with([
@@ -85,7 +86,7 @@ class PublicCatalogController extends Controller
             ->latest('created_at')
             ->limit(3)
             ->get()
-            ->map(fn (Review $review): array => [
+            ->map(fn (TourReview $review): array => [
                 'id' => $review->id,
                 'rating' => (int) $review->rating,
                 'comment' => trim((string) $review->comment),

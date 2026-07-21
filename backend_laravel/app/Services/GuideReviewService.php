@@ -5,37 +5,18 @@ namespace App\Services;
 use App\Models\Booking;
 use App\Models\Guide;
 use App\Models\Review;
-use App\Models\Tour;
 use App\Models\TourGuideAssignment;
 use Illuminate\Database\Eloquent\Builder;
 
 class GuideReviewService
 {
+    public function __construct(
+        private readonly BookingReviewEligibilityService $eligibilityService
+    ) {}
+
     public function isBookingReviewable(Booking $booking): bool
     {
-        if ($booking->status === 'cancelled') {
-            return false;
-        }
-
-        if ($booking->status === 'completed') {
-            return true;
-        }
-
-        $departure = $booking->relationLoaded('tourDeparture')
-            ? $booking->tourDeparture
-            : $booking->tourDeparture()->first();
-
-        if (! $departure) {
-            return false;
-        }
-
-        if ($departure->status === 'completed') {
-            return true;
-        }
-
-        return in_array($booking->status, ['confirmed', 'completed'], true)
-            && $departure->return_date !== null
-            && $departure->return_date->isBefore(today());
+        return $this->eligibilityService->isReviewable($booking);
     }
 
     public function completedAssignmentsQuery(Guide $guide): Builder
@@ -64,22 +45,6 @@ class GuideReviewService
 
         Guide::query()
             ->whereKey($guideId)
-            ->update([
-                'average_rating' => round((float) ($summary?->average_rating ?? 0), 2),
-                'review_count' => (int) ($summary?->review_count ?? 0),
-            ]);
-    }
-
-    public function refreshTourRating(int $tourId): void
-    {
-        $summary = Review::query()
-            ->visible()
-            ->where('tour_id', $tourId)
-            ->selectRaw('COUNT(*) as review_count, COALESCE(AVG(rating), 0) as average_rating')
-            ->first();
-
-        Tour::query()
-            ->whereKey($tourId)
             ->update([
                 'average_rating' => round((float) ($summary?->average_rating ?? 0), 2),
                 'review_count' => (int) ($summary?->review_count ?? 0),

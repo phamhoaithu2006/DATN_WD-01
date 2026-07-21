@@ -77,6 +77,11 @@ class User extends Authenticatable
         return $this->hasMany(Review::class);
     }
 
+    public function tourReviews(): HasMany
+    {
+        return $this->hasMany(TourReview::class);
+    }
+
     public function wishlists()
     {
         return $this->belongsToMany(Tour::class, 'wishlists', 'user_id', 'tour_id')->withTimestamps();

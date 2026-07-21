@@ -137,8 +137,8 @@ test('customer can create and update a guide review after a completed tour', fun
 
     expect((float) $scenario['guide']->refresh()->average_rating)->toBe(5.0)
         ->and((int) $scenario['guide']->review_count)->toBe(1)
-        ->and((float) $scenario['tour']->refresh()->average_rating)->toBe(5.0)
-        ->and((int) $scenario['tour']->review_count)->toBe(1);
+        ->and((float) $scenario['tour']->refresh()->average_rating)->toBe(0.0)
+        ->and((int) $scenario['tour']->review_count)->toBe(0);
 
     $this->postJson('/api/customer/guide-reviews', [
         'booking_id' => $scenario['booking']->id,
