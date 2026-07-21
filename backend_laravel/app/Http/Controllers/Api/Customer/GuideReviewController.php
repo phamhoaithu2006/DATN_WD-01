@@ -70,7 +70,7 @@ class GuideReviewController extends Controller
 
         $bookings->setCollection(
             $bookings->getCollection()
-                ->map(fn(Booking $booking): array => $this->mapReviewableBooking($booking, $request))
+                ->map(fn (Booking $booking): array => $this->mapReviewableBooking($booking, $request))
         );
 
         return response()->json([
@@ -102,7 +102,7 @@ class GuideReviewController extends Controller
         }
 
         $assignment = $booking->tourDeparture?->guideAssignments
-            ->first(fn(TourGuideAssignment $assignment): bool => (int) $assignment->guide_id === (int) $data['guide_id']);
+            ->first(fn (TourGuideAssignment $assignment): bool => (int) $assignment->guide_id === (int) $data['guide_id']);
 
         if (! $assignment) {
             throw ValidationException::withMessages([
@@ -133,7 +133,6 @@ class GuideReviewController extends Controller
             $review->save();
 
             $this->guideReviewService->refreshGuideRating((int) $data['guide_id']);
-            $this->guideReviewService->refreshTourRating((int) $booking->tour_id);
 
             $this->guideReviewNotificationService->markAsCompleted(
                 (int) $user->id,
@@ -190,7 +189,7 @@ class GuideReviewController extends Controller
         $reviews = $query->paginate($this->perPage($request));
         $reviews->setCollection(
             $reviews->getCollection()
-                ->map(fn(Review $review): array => (new GuideReviewResource($review))->resolve($request))
+                ->map(fn (Review $review): array => (new GuideReviewResource($review))->resolve($request))
         );
 
         return response()->json([
@@ -246,7 +245,7 @@ class GuideReviewController extends Controller
 
         $assignments->setCollection(
             $assignments->getCollection()
-                ->map(fn(TourGuideAssignment $assignment): array => $this->mapTourHistoryAssignment($assignment))
+                ->map(fn (TourGuideAssignment $assignment): array => $this->mapTourHistoryAssignment($assignment))
         );
 
         return response()->json([

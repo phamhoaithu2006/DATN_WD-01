@@ -84,6 +84,11 @@ class Booking extends Model
         return $this->hasMany(Review::class);
     }
 
+    public function tourReview(): HasOne
+    {
+        return $this->hasOne(TourReview::class);
+    }
+
     public function tourDeparture(): BelongsTo
     {
         return $this->belongsTo(TourDeparture::class);

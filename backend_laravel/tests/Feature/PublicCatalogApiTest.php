@@ -2,13 +2,14 @@
 
 use App\Models\Category;
 use App\Models\Destination;
-use App\Models\Review;
 use App\Models\Tour;
+use App\Models\TourReview;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 beforeEach(function () {
+    Schema::dropIfExists('tour_reviews');
     Schema::dropIfExists('reviews');
     Schema::dropIfExists('bookings');
     Schema::dropIfExists('tour_images');
@@ -111,6 +112,20 @@ beforeEach(function () {
         $table->string('status')->default('visible');
         $table->timestamps();
     });
+
+    Schema::create('tour_reviews', function (Blueprint $table) {
+        $table->id();
+        $table->unsignedBigInteger('user_id');
+        $table->unsignedBigInteger('tour_id');
+        $table->unsignedBigInteger('booking_id')->nullable()->unique();
+        $table->unsignedBigInteger('tour_departure_id')->nullable();
+        $table->unsignedTinyInteger('rating');
+        $table->text('comment')->nullable();
+        $table->string('status')->default('visible');
+        $table->unsignedBigInteger('moderated_by')->nullable();
+        $table->timestamp('moderated_at')->nullable();
+        $table->timestamps();
+    });
 });
 
 test('public catalog returns only active categories and destinations', function () {
@@ -203,7 +218,7 @@ test('home returns only bookable content and visible customer reviews', function
         'created_at' => now(),
         'updated_at' => now(),
     ]);
-    Review::query()->create([
+    TourReview::query()->create([
         'user_id' => $userId,
         'tour_id' => $tour->id,
         'rating' => 5,

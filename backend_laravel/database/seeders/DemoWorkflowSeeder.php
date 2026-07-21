@@ -7,8 +7,10 @@ use App\Models\Guide;
 use App\Models\Review;
 use App\Models\Tour;
 use App\Models\TourDeparture;
+use App\Models\TourReview;
 use App\Models\User;
 use App\Services\GuideReviewService;
+use App\Services\TourReviewService;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
@@ -628,8 +630,20 @@ class DemoWorkflowSeeder extends Seeder
             ]
         );
 
+        TourReview::query()->updateOrCreate(
+            ['booking_id' => $booking->id],
+            [
+                'user_id' => $this->customer->id,
+                'tour_id' => $booking->tour_id,
+                'tour_departure_id' => $booking->tour_departure_id,
+                'rating' => 5,
+                'comment' => 'Tour tổ chức tốt, lịch trình hợp lý và dịch vụ đúng mô tả.',
+                'status' => 'visible',
+            ]
+        );
+
         app(GuideReviewService::class)->refreshGuideRating($guideId);
-        app(GuideReviewService::class)->refreshTourRating($booking->tour_id);
+        app(TourReviewService::class)->refreshTourRating($booking->tour_id);
     }
 
     private function departure(Tour $tour, string $period, ?string $status = null): TourDeparture

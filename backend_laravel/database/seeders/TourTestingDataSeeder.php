@@ -8,8 +8,10 @@ use App\Models\Destination;
 use App\Models\Guide;
 use App\Models\Review;
 use App\Models\Tour;
+use App\Models\TourReview;
 use App\Models\User;
 use App\Services\GuideReviewService;
+use App\Services\TourReviewService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
@@ -163,8 +165,9 @@ class TourTestingDataSeeder extends Seeder
         if ($guideId) {
             Review::query()->updateOrCreate(['booking_id' => $done->id, 'guide_id' => $guideId], ['user_id' => $done->user_id, 'tour_id' => $done->tour_id, 'tour_departure_id' => $done->tour_departure_id, 'rating' => 5, 'comment' => 'Đánh giá mẫu cho tour đã hoàn thành.', 'status' => 'visible']);
             app(GuideReviewService::class)->refreshGuideRating($guideId);
-            app(GuideReviewService::class)->refreshTourRating($done->tour_id);
         }
+        TourReview::query()->updateOrCreate(['booking_id' => $done->id], ['user_id' => $done->user_id, 'tour_id' => $done->tour_id, 'tour_departure_id' => $done->tour_departure_id, 'rating' => 5, 'comment' => 'Lịch trình tour hợp lý và dịch vụ chu đáo.', 'status' => 'visible']);
+        app(TourReviewService::class)->refreshTourRating($done->tour_id);
     }
 
     private function upsert(string $table, array $keys, array $values, $now, bool $timestamps = true): void

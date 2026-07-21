@@ -3,13 +3,19 @@
 namespace App\Http\Controllers\Api\Customer;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\CustomerTourReviewResource;
 use App\Models\Booking;
 use App\Models\Tour;
+use App\Services\BookingReviewEligibilityService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class CustomerDashboardController extends Controller
 {
+    public function __construct(
+        private readonly BookingReviewEligibilityService $bookingReviewEligibilityService
+    ) {}
+
     public function summary(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -37,9 +43,19 @@ class CustomerDashboardController extends Controller
                 'tour.destination',
                 'tourDeparture',
                 'payment',
+                'tourReview',
             ])
             ->orderByDesc('id')
-            ->get();
+            ->get()
+            ->map(function (Booking $booking) use ($request): array {
+                $data = $booking->toArray();
+                $data['can_review_tour'] = $this->bookingReviewEligibilityService->isReviewable($booking);
+                $data['tour_review'] = $booking->tourReview
+                    ? (new CustomerTourReviewResource($booking->tourReview))->resolve($request)
+                    : null;
+
+                return $data;
+            });
 
         return response()->json([
             'status' => 'success',
