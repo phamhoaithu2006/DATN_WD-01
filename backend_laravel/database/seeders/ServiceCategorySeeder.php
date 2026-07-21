@@ -25,11 +25,7 @@ class ServiceCategorySeeder extends Seeder
                 ['name' => $serviceCategory['name']],
                 [
                     'description' => $serviceCategory['description'],
-<<<<<<< Updated upstream
                     'status' => true,
-=======
-                    'status' => random_int(0, 1) === 1,
->>>>>>> Stashed changes
                 ]
             );
 
