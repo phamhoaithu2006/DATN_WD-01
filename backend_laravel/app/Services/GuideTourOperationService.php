@@ -99,10 +99,12 @@ class GuideTourOperationService
     public function getAttendanceSessions(User $user, TourDeparture $tourDeparture): Collection
     {
         $departure = $this->assignedDepartureForUser($user, $tourDeparture);
-        $this->ensureAttendanceSessionsFromItinerary($departure, $user);
+        $this->ensureDepartureAttendanceSession($departure, $user);
 
         $sessions = AttendanceSession::query()
             ->where('tour_departure_id', $departure->id)
+            ->where('boundary', 'departure')
+            ->whereNull('tour_itinerary_id')
             ->with([
                 'creator:id,full_name,email',
                 'itinerary:id,day_number,sort_order,type,title,start_time,end_time',
@@ -127,7 +129,7 @@ class GuideTourOperationService
             $session->setAttribute(
                 'can_take_attendance',
                 $session->status === 'active'
-                    && $this->itineraryWindowContainsNow($departure, $session->itinerary)
+                    && Carbon::parse($departure->departure_date)->isToday()
             );
         });
     }
@@ -195,37 +197,15 @@ class GuideTourOperationService
     {
         $departure = $this->assignedDepartureForUser($user, $tourDeparture);
         $this->assertDepartureCanTakeAttendance($departure);
-        $itinerary = TourItinerary::query()
-            ->where('tour_id', $departure->tour_id)
-            ->find($data['tour_itinerary_id']);
+        $this->assertBoundaryMatchesToday($departure, 'departure');
+        $this->ensureDepartureAttendanceSession($departure, $user);
 
-        if (! $itinerary) {
-            throw ValidationException::withMessages([
-                'tour_itinerary_id' => 'Lịch trình không thuộc tour đang dẫn.',
-            ]);
-        }
-
-        $scheduledDate = $this->itineraryDate($departure, $itinerary);
-        $this->assertItineraryWindowIsOpen($departure, $itinerary);
-
-        return DB::transaction(function () use ($departure, $user, $itinerary, $scheduledDate): AttendanceSession {
-            TourDeparture::query()->whereKey($departure->id)->lockForUpdate()->firstOrFail();
-
-            return AttendanceSession::query()->firstOrCreate(
-                [
-                    'tour_departure_id' => $departure->id,
-                    'tour_itinerary_id' => $itinerary->id,
-                ],
-                [
-                    'scheduled_date' => $scheduledDate,
-                    'name' => $this->attendanceItineraryLabel($itinerary),
-                    'created_by' => $user->id,
-                ]
-            )->load([
-                'creator:id,full_name,email',
-                'itinerary:id,day_number,sort_order,type,title,start_time,end_time',
-            ]);
-        });
+        return AttendanceSession::query()
+            ->where('tour_departure_id', $departure->id)
+            ->where('boundary', 'departure')
+            ->whereNull('tour_itinerary_id')
+            ->firstOrFail()
+            ->load('creator:id,full_name,email');
     }
 
     /**
@@ -272,6 +252,47 @@ class GuideTourOperationService
                 'checkedOutBy:id,full_name,email',
             ]);
         });
+    }
+
+    /**
+     * @return array{checked_in: int, total_customers: int}
+     *
+     * @throws AuthorizationException|ValidationException
+     */
+    public function checkInAll(User $user, TourDeparture $tourDeparture, AttendanceSession $session): array
+    {
+        $departure = $this->assignedDepartureForUser($user, $tourDeparture);
+        $this->assertDepartureCanTakeAttendance($departure);
+        $this->assertSessionBelongsToDeparture($session, $departure);
+        $this->assertSessionCanTakeAttendance($session, $departure);
+        $participantIds = $this->participantBaseQuery($departure)->pluck('booking_participants.id');
+
+        DB::transaction(function () use ($user, $session, $participantIds): void {
+            AttendanceSession::query()->whereKey($session->id)->lockForUpdate()->firstOrFail();
+            $timestamp = now();
+            $rows = $participantIds->map(fn (int $participantId): array => [
+                'attendance_session_id' => $session->id,
+                'booking_participant_id' => $participantId,
+                'checked_in_at' => $timestamp,
+                'checked_in_by' => $user->id,
+                'status' => 'checked_in',
+                'created_at' => $timestamp,
+                'updated_at' => $timestamp,
+            ])->all();
+
+            if ($rows !== []) {
+                Attendance::query()->upsert(
+                    $rows,
+                    ['attendance_session_id', 'booking_participant_id'],
+                    ['checked_in_at', 'checked_in_by', 'status', 'updated_at']
+                );
+            }
+        });
+
+        return [
+            'checked_in' => $participantIds->count(),
+            'total_customers' => $participantIds->count(),
+        ];
     }
 
     /**
@@ -672,28 +693,20 @@ class GuideTourOperationService
         $this->assertBoundaryMatchesToday($departure, $session->boundary);
     }
 
-    private function ensureAttendanceSessionsFromItinerary(TourDeparture $departure, User $user): void
+    private function ensureDepartureAttendanceSession(TourDeparture $departure, User $user): AttendanceSession
     {
-        $itineraries = TourItinerary::query()
-            ->where('tour_id', $departure->tour_id)
-            ->orderBy('day_number')
-            ->orderBy('sort_order')
-            ->orderBy('id')
-            ->get();
-
-        foreach ($itineraries as $itinerary) {
-            AttendanceSession::query()->updateOrCreate(
-                [
-                    'tour_departure_id' => $departure->id,
-                    'tour_itinerary_id' => $itinerary->id,
-                ],
-                [
-                    'scheduled_date' => $this->itineraryDate($departure, $itinerary),
-                    'name' => $this->attendanceItineraryLabel($itinerary),
-                    'created_by' => $user->id,
-                ]
-            );
-        }
+        return AttendanceSession::query()->updateOrCreate(
+            [
+                'tour_departure_id' => $departure->id,
+                'boundary' => 'departure',
+                'tour_itinerary_id' => null,
+            ],
+            [
+                'scheduled_date' => Carbon::parse($departure->departure_date)->startOfDay(),
+                'name' => 'Điểm danh ngày khởi hành',
+                'created_by' => $user->id,
+            ]
+        );
     }
 
     private function itineraryDate(TourDeparture $departure, TourItinerary $itinerary): Carbon

@@ -782,10 +782,10 @@ class TourDepartureGuideAssignmentController extends Controller
         if (
             $currentLeadAssignment
             && (int) $currentLeadAssignment->guide_id !== (int) $guide->id
-            && Carbon::parse($departure->departure_date)->startOfDay()->lt(Carbon::today()->addDays(6))
+            && Carbon::parse($departure->departure_date)->startOfDay()->lt(Carbon::today()->addDays(4))
         ) {
             return response()->json([
-                'message' => 'Chỉ có thể đổi HDV trước ngày khởi hành ít nhất 5 ngày.',
+                'message' => 'Chỉ có thể đổi HDV khi còn ít nhất 5 ngày tính cả ngày đổi và ngày khởi hành.',
                 'code' => 'GUIDE_REPLACEMENT_TOO_LATE',
             ], 422);
         }

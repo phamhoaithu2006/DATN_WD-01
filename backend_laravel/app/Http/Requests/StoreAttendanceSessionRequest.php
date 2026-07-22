@@ -22,8 +22,6 @@ class StoreAttendanceSessionRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [
-            'tour_itinerary_id' => ['required', 'integer', 'exists:tour_itineraries,id'],
-        ];
+        return [];
     }
 }

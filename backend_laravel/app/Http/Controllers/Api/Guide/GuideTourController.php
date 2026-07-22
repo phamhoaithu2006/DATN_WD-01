@@ -555,11 +555,11 @@ class GuideTourController extends Controller
         }
 
         $departureDate = Carbon::parse($tourDeparture->departure_date)->startOfDay();
-        $minDate = Carbon::today()->addDays(6)->startOfDay();
+        $minDate = Carbon::today()->addDays(4)->startOfDay();
 
-        if ($departureDate->lt($minDate)) {
+        if ($departureDate->lte(Carbon::today()) || $departureDate->lt($minDate)) {
             return response()->json([
-                'message' => 'Yêu cầu đổi HDV cần gửi trước ngày khởi hành ít nhất 5 ngày.',
+                'message' => 'Không thể đổi HDV khi tour đã khởi hành hoặc còn dưới 5 ngày tính cả ngày gửi và ngày khởi hành.',
                 'code' => 'REPLACEMENT_REQUEST_TOO_LATE',
             ], 422);
         }
@@ -609,7 +609,10 @@ class GuideTourController extends Controller
 
                 $lockedDepartureDate = Carbon::parse($lockedDeparture->departure_date)->startOfDay();
 
-                if ($lockedDepartureDate->lt(Carbon::today()->addDays(5)->startOfDay())) {
+                if (
+                    $lockedDepartureDate->lte(Carbon::today())
+                    || $lockedDepartureDate->lt(Carbon::today()->addDays(4)->startOfDay())
+                ) {
                     return ['outcome' => 'too_late'];
                 }
 
@@ -667,7 +670,7 @@ class GuideTourController extends Controller
 
         if ($result['outcome'] === 'too_late') {
             return response()->json([
-                'message' => 'Yêu cầu đổi HDV cần gửi trước ngày khởi hành ít nhất 5 ngày.',
+                'message' => 'Không thể đổi HDV khi tour đã khởi hành hoặc còn dưới 5 ngày tính cả ngày gửi và ngày khởi hành.',
                 'code' => 'REPLACEMENT_REQUEST_TOO_LATE',
             ], 422);
         }

@@ -72,7 +72,7 @@ function getReplacementEligibility(item) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const minimumDepartureDate = new Date(today);
-  minimumDepartureDate.setDate(minimumDepartureDate.getDate() + 5);
+  minimumDepartureDate.setDate(minimumDepartureDate.getDate() + 4);
 
   if (
     Number.isNaN(departureDate.getTime()) ||
@@ -81,14 +81,14 @@ function getReplacementEligibility(item) {
     return {
       allowed: false,
       buttonLabel: "Đã quá hạn đổi HDV",
-      message: "Chỉ có thể yêu cầu đổi HDV trước ngày khởi hành ít nhất 5 ngày.",
+      message: "Chỉ có thể yêu cầu đổi HDV khi còn ít nhất 4 ngày trước khởi hành.",
     };
   }
 
   return {
     allowed: true,
     buttonLabel: "Yêu cầu đổi HDV",
-    message: "Bạn có thể gửi yêu cầu đổi HDV trước ngày khởi hành ít nhất 5 ngày.",
+    message: "Bạn có thể gửi yêu cầu đổi HDV; hạn cuối là 4 ngày trước khởi hành.",
   };
 }
 

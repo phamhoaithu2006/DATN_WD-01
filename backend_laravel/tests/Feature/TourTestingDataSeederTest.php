@@ -103,11 +103,17 @@ test('tour testing data seeder creates a complete and repeatable tour lifecycle'
 
     expect($activeGuideCode)->toBe('HDV001')
         ->and(DB::table('booking_participants')->where('booking_id', $activeBooking->id)->count())->toBe(3)
-        ->and(DB::table('attendance_sessions')->where('tour_departure_id', $activeBooking->tour_departure_id)->count())->toBe(4)
+        ->and(DB::table('attendance_sessions')->where('tour_departure_id', $activeBooking->tour_departure_id)->count())->toBe(1)
         ->and(DB::table('attendance_sessions')
             ->where('tour_departure_id', $activeBooking->tour_departure_id)
             ->whereDate('scheduled_date', today())
-            ->count())->toBeGreaterThan(1);
+            ->count())->toBe(1);
+
+    $ninhBinhBooking = Booking::query()->where('booking_code', 'BK-TST-PENDING')->firstOrFail();
+    expect($ninhBinhBooking->status)->toBe('confirmed')
+        ->and($ninhBinhBooking->payment_status)->toBe('paid')
+        ->and($ninhBinhBooking->tourDeparture->departure_date->toDateString())->toBe(today()->addDay()->toDateString())
+        ->and(DB::table('booking_participants')->where('booking_id', $ninhBinhBooking->id)->count())->toBe(2);
 
     $guideId = DB::table('guides')->where('guide_code', 'HDV001')->value('id');
     $activeAssignments = DB::table('tour_guide_assignments')
@@ -122,7 +128,7 @@ test('tour testing data seeder creates a complete and repeatable tour lifecycle'
 
     expect($activeAssignments)->toBe([
         today()->toDateString(),
-        today()->addDays(3)->toDateString(),
+        today()->addDay()->toDateString(),
         today()->addDays(8)->toDateString(),
     ])->and(DB::table('tour_guide_assignments')
         ->where('guide_id', $guideId)

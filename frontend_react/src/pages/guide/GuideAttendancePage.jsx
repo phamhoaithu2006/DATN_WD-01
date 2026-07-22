@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   checkInGuideCustomer,
+  checkInAllGuideCustomers,
   getGuideAttendanceSessions,
   getGuideAttendanceStatistics,
   getGuideTourCustomers,
@@ -303,22 +304,22 @@ function GuideAttendancePage() {
     setError("");
     try {
       const activeSession = await ensureSession();
-      const missing = visibleCustomers.filter(isUnchecked);
-      for (const customer of missing) {
-        const updated = await checkInGuideCustomer(
-          selectedTour.id,
-          activeSession,
-          customer.id,
-        );
-        setCustomers((current) =>
-          current.map((item) =>
-            item.id === customer.id
-              ? { ...item, attendance: updated.attendance || updated }
-              : item,
-          ),
-        );
-        setAttendanceStats((current) => ({ ...current, checked_in: Number(current.checked_in || 0) + 1, not_checked_in: Math.max(Number(current.not_checked_in || 0) - 1, 0) }));
-      }
+      await checkInAllGuideCustomers(selectedTour.id, activeSession);
+      const [customerPayload, statistics] = await Promise.all([
+        getGuideTourCustomers(selectedTour.id, {
+          page,
+          per_page: 10,
+          keyword: keyword.trim() || undefined,
+          attendance_session_id: activeSession,
+        }),
+        getGuideAttendanceStatistics(selectedTour.id, {
+          attendance_session_id: activeSession,
+        }),
+      ]);
+      const customerPage = normalizePaginator(customerPayload);
+      setCustomers(customerPage.items);
+      setCustomerMeta(customerPage.meta);
+      setAttendanceStats(statistics);
       setMessage("Đã điểm danh tất cả khách chưa có mặt.");
     } catch (err) {
       setError(
@@ -457,27 +458,6 @@ function GuideAttendancePage() {
             </article>
           </section>
           <section className="guide-attendance-card">
-            <nav className="guide-attendance-boundaries" aria-label="Mốc điểm danh theo lịch trình">
-              {attendanceSessions.map((session) => {
-                const isToday = isSameLocalDate(session.scheduled_date);
-
-                return (
-                  <button
-                    key={session.id}
-                    type="button"
-                    className={String(sessionId) === String(session.id) ? "is-active" : ""}
-                    onClick={() => {
-                      setSessionId(session.id);
-                      setPage(1);
-                    }}
-                  >
-                    <strong>{session.name}</strong>
-                    <span>{formatDate(session.scheduled_date)}</span>
-                    {isToday ? <em>Hôm nay</em> : null}
-                  </button>
-                );
-              })}
-            </nav>
             {attendanceSessions.length === 0 ? (
               <div className="guide-attendance-readonly-notice" role="status">
                 Tour chưa có lịch trình để tạo phiên điểm danh.
@@ -541,7 +521,7 @@ function GuideAttendancePage() {
                 onClick={markAll}
                 disabled={busy || !canOperateSession}
               >
-                Điểm danh trang này
+                Điểm danh tất cả
               </button>
             </div>
             <div className="guide-attendance-table">

@@ -120,7 +120,7 @@ class TourTestingDataSeeder extends Seeder
 
         $ongoingTourSlug = 'ha-long-du-thuyen-2-ngay-1-dem-test';
         $upcomingTourOffsets = [
-            'ha-noi-ninh-binh-3-ngay-2-dem-test' => 3,
+            'ha-noi-ninh-binh-3-ngay-2-dem-test' => 1,
             'da-nang-hoi-an-cuoi-tuan-test' => 8,
         ];
 
@@ -168,7 +168,7 @@ class TourTestingDataSeeder extends Seeder
             return;
         }
         $fixtures = [
-            ['BK-TST-PENDING', 'ha-noi-ninh-binh-3-ngay-2-dem-test', 'open', 'pending', 'pending', 'vnpay', 2], ['BK-TST-CONFIRMED', 'ha-long-du-thuyen-2-ngay-1-dem-test', 'ongoing', 'confirmed', 'paid', 'cod', 3],
+            ['BK-TST-PENDING', 'ha-noi-ninh-binh-3-ngay-2-dem-test', 'open', 'confirmed', 'paid', 'vnpay', 2], ['BK-TST-CONFIRMED', 'ha-long-du-thuyen-2-ngay-1-dem-test', 'ongoing', 'confirmed', 'paid', 'cod', 3],
             ['BK-TST-COMPLETED', 'ha-long-du-thuyen-2-ngay-1-dem-test', 'completed', 'completed', 'paid', 'vnpay', 2], ['BK-TST-CANCELLED', 'phu-quoc-sunset-noi-bo-test', 'open', 'cancelled', 'refunded', 'momo', 1], ['BK-TST-FAILED', 'da-nang-hoi-an-cuoi-tuan-test', 'closed', 'pending', 'failed', 'vnpay', 1],
         ];
         $bookings = [];
@@ -198,28 +198,17 @@ class TourTestingDataSeeder extends Seeder
             ->where('tour_guide_assignments.tour_departure_id', $active->tour_departure_id)
             ->value('guides.user_id');
         $activeDeparture = DB::table('tour_departures')->find($active->tour_departure_id);
-        $activeItineraries = DB::table('tour_itineraries')
-            ->where('tour_id', $active->tour_id)
-            ->orderBy('day_number')
-            ->orderBy('sort_order')
-            ->get();
-
-        foreach ($activeItineraries as $itinerary) {
-            $scheduledDate = Carbon::parse($activeDeparture->departure_date)
-                ->addDays(max((int) $itinerary->day_number - 1, 0))
-                ->toDateString();
-            $this->upsert('attendance_sessions', [
-                'tour_departure_id' => $active->tour_departure_id,
-                'tour_itinerary_id' => $itinerary->id,
-            ], [
-                'scheduled_date' => $scheduledDate,
-                'boundary' => null,
-                'name' => "Ngày {$itinerary->day_number} · ".mb_substr((string) $itinerary->start_time, 0, 5)." · {$itinerary->title}",
-                'note' => 'Phiên điểm danh tạo theo lịch trình tour.',
-                'status' => 'active',
-                'created_by' => $guideUserId ?? $adminId ?? $active->user_id,
-            ], $now);
-        }
+        $this->upsert('attendance_sessions', [
+            'tour_departure_id' => $active->tour_departure_id,
+            'tour_itinerary_id' => null,
+            'boundary' => 'departure',
+        ], [
+            'scheduled_date' => Carbon::parse($activeDeparture->departure_date)->toDateString(),
+            'name' => 'Điểm danh ngày khởi hành',
+            'note' => 'Tour chỉ điểm danh một lần vào ngày khởi hành.',
+            'status' => 'active',
+            'created_by' => $guideUserId ?? $adminId ?? $active->user_id,
+        ], $now);
         $done = $bookings['BK-TST-COMPLETED'];
         $guideId = DB::table('tour_guide_assignments')->where('tour_departure_id', $done->tour_departure_id)->value('guide_id');
         if ($guideId) {
