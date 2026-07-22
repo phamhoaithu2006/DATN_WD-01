@@ -6,6 +6,7 @@
 - Tài liệu đối chiếu bổ sung: `docs/reverse-engineering/04-srs.md` (`FR-008`, `FR-010`), `docs/reverse-engineering/05-use-cases.md` (`UC-009`, `UC-018`, `UC-037`, `UC-052`, `UC-053`) và các đặc tả API/DB liên quan trong cùng thư mục.
 - Phạm vi source: route, middleware, controller, service, model, migration và test đang tồn tại. Không đánh giá code style, naming, performance, architecture hay design pattern.
 - Quy ước: `Đúng` khi toàn bộ mệnh đề của rule được source chứng minh; `Sai` khi source thực thi trái rule; `Thiếu` khi chỉ có bằng chứng cho một phần bắt buộc.
+- Trạng thái hậu sửa: các chẩn đoán `BUG-SA-001` và `BUG-SA-004` tại baseline được giữ ở cuối tài liệu để truy vết lịch sử; trạng thái hiện tại được xác minh lại bằng source và automation.
 
 ## Bảng tổng hợp
 
@@ -19,11 +20,11 @@
 | BR-079 | Có | `SupportRequestController.php` | `badgeCount()` | Đúng | Low |
 | BR-080 | Có | `NotificationCustomerController.php` | `getMyNotifications()`, `getNotificationDetail()`, `markAsRead()`, `visibleNotificationsQuery()` | Đúng | High |
 | BR-081 | Có | `NotificationController.php` | `saveDraft()`, `showDraft()`, `updateDraft()`, `destroy()` | Đúng | Medium |
-| BR-082 | Có một phần | `NotificationController.php` | `sendNotification()` | Sai | High |
+| BR-082 | Có | `NotificationController.php` | `sendNotification()` | Đúng | High |
 | BR-083 | Có | `NotificationController.php` | `revoke()` | Đúng | High |
-| BR-084 | Có một phần | `SupportNotificationController.php` | `sendNotification()` | Sai | High |
+| BR-084 | Có | `SupportNotificationController.php` | `sendNotification()` | Đúng | High |
 
-Kết quả: **9 Đúng, 2 Sai, 0 Thiếu**.
+Kết quả hậu sửa: **11/11 Đúng, 0 Sai, 0 Thiếu**.
 
 ## Phân tích chi tiết
 
@@ -253,7 +254,7 @@ Kết quả: **9 Đúng, 2 Sai, 0 Thiếu**.
 
 **Source Code**
 
-- File/Class/Method: `backend_laravel/app/Http/Controllers/Api/Admin/NotificationController.php:171-219`, class `NotificationController`, method `sendNotification()`.
+- File/Class/Method: `backend_laravel/app/Http/Controllers/Api/Admin/NotificationController.php:171-221`, class `NotificationController`, method `sendNotification()`.
 - Route: `POST /api/admin/notifications/send/{id}`, `routes/api.php:409`; Sanctum + admin.
 - Models: `NotificationDraft`, `Notification`, `User`; migrations notification/draft nêu ở BR-080/081.
 - Service/Action/Use Case/Domain Service/Repository/Observer/Listener/Event/Policy/Job/Command/Scheduler: Không sử dụng.
@@ -261,17 +262,17 @@ Kết quả: **9 Đúng, 2 Sai, 0 Thiếu**.
 
 **Database**
 
-- Read draft `status=draft`; recipient query: all users, `users.role_id IN target_ids`, hoặc `users.id IN target_ids`.
+- Read draft theo ID bằng `lockForUpdate()` trong transaction, sau đó kiểm tra `status=draft`; recipient query: all users, `users.role_id IN target_ids`, hoặc `users.id IN target_ids`.
 - Insert `notifications(draft_id,user_id,title,message,type=system,status=unread,created_at,updated_at)`; Update `notification_drafts.status=sent`.
-- Transaction: Có, `DB::transaction()` dòng 175-218. Rollback: tự động khi insert/update ném exception. Lock: Không có.
-- Idempotent: gọi tuần tự sau lần thành công trả `404` vì draft đã sent. **[Suy luận từ source code]** Gọi đồng thời không được bảo vệ: không có row lock, optimistic guard hoặc unique `(draft_id,user_id)`.
+- Transaction: Có, `DB::transaction()` dòng 175-220. Rollback: tự động khi insert/update ném exception. Lock: Có, khóa bi quan row draft bằng `lockForUpdate()` tại dòng 177-179.
+- Idempotent: gọi tuần tự sau lần thành công trả `404` vì draft đã sent. Hai request đồng thời trên MySQL được tuần tự hóa tại row draft; request lấy lock sau đọc lại trạng thái `sent` và trả `404` trước bulk insert.
 - Audit Log: Không có; draft/status và notification là dữ liệu nghiệp vụ.
 
 **Validation:** Không validate request body ở send; dữ liệu đã lưu theo BR-081. **Authorization:** Admin. **Exception:** draft thiếu/đã gửi `404`; recipient rỗng `404`; lỗi DB không có catch riêng.
 
-**Data Integrity:** Transaction đảm bảo bulk insert và status cùng commit/rollback trong từng request. **[Suy luận từ source code]** Hai transaction đồng thời đều đọc được cùng draft `status=draft` tại dòng 177 trước khi một transaction cập nhật dòng 213; mỗi transaction đều chạy bulk insert dòng 210. Câu update chỉ theo khóa model, không kèm điều kiện trạng thái cũ. Migration notification không có unique `(draft_id,user_id)`. Vì vậy cùng một campaign nhận hai bộ notification và cả hai request trả `200`. `FR-010` quy định draft “đã gửi” đi vào nhánh `404`; state flow tại `06-process-and-state-diagrams.md:834-840` cũng yêu cầu bản ghi còn `draft` trước khi bulk insert.
+**Data Integrity:** Transaction đảm bảo bulk insert và status cùng commit/rollback. Row lock được lấy trước khi kiểm tra trạng thái và giữ đến khi transaction kết thúc, nên chỉ transaction đầu tiên được bulk insert. Automation MySQL thực chạy hai request đồng thời xác nhận response `[200,404]`, draft `sent` và chỉ một row notification cho recipient tại `backend_laravel/tests/Feature/BusinessModelConcurrencyMysqlTest.php:456-478`. Regression tuần tự nằm tại `backend_laravel/tests/Feature/BusinessModelAuditBugFixTest.php:202-226`.
 
-**Kết luận:** **Sai**. Luồng tuần tự đúng BR-082, nhưng source không bảo đảm điều kiện chỉ gửi draft đang ở trạng thái `draft` tại thời điểm chuyển trạng thái khi hai request chạy đồng thời.
+**Kết luận:** **Đúng**. Recipient, transaction, rollback, state guard và khóa đồng thời đều có bằng chứng trong source và test.
 
 ### BR-083 — Thu hồi campaign
 
@@ -311,7 +312,7 @@ Kết quả: **9 Đúng, 2 Sai, 0 Thiếu**.
 **Database**
 
 - Read `users` có relation role name `admin`; Insert `notifications(user_id,title,message,type,data,status,created_at,updated_at)`.
-- Payload đặt `type='support_message'`, `data={source,sender_role,sender_user_id}`, `status=unread` tại dòng 135-148.
+- Payload đặt `type='support'`, `data={source,sender_role,sender_user_id}`, `status=unread` tại dòng 135-148; giá trị type khớp enum migration.
 - Transaction: Có, `DB::transaction()` dòng 133-152. Rollback: tự động nếu insert lỗi. Lock: Không có. Idempotent: Không có; mỗi request thành công sẽ tạo thêm notification.
 - Audit Log: Không có audit riêng; metadata người gửi nằm trong `notifications.data`.
 
@@ -319,26 +320,30 @@ Kết quả: **9 Đúng, 2 Sai, 0 Thiếu**.
 
 **Exception:** không có admin trả `404`; validation `422`; lỗi insert không có catch riêng.
 
-**Data Integrity:** Migration định nghĩa enum `notifications.type` chỉ gồm `booking,payment,promotion,system,support` tại `2026_06_10_220130_create_notifications_table.php:19`. Không có migration nào bổ sung `support_message`. Controller insert giá trị ngoài contract DB; trên database thực thi ràng buộc enum, transaction rollback và API không hoàn thành mệnh đề gửi.
+**Data Integrity:** Migration định nghĩa enum `notifications.type` gồm `booking,payment,promotion,system,support` tại `2026_06_10_220130_create_notifications_table.php:19`; controller hiện insert `support`. Automation tạo hai admin và xác minh mỗi admin nhận đúng một notification `support`, `unread` cùng metadata người gửi tại `backend_laravel/tests/Feature/BusinessModelAuditBugFixTest.php:104-136`.
 
-**Kết luận:** **Sai**. Có route, validation, recipient query, transaction và metadata, nhưng giá trị `type` trái schema migration làm flow gửi không được bảo đảm hoạt động trên schema được tài liệu xác định.
+**Kết luận:** **Đúng**. Route, validation, recipient query, transaction, metadata và contract enum đều khớp BR-084.
 
 ## Danh sách BUG
 
 ### BUG-SA-001 — Support notification dùng giá trị type ngoài enum database
 
+- **Trạng thái hậu sửa:** **Resolved**.
 - **Business Rule liên quan:** BR-084.
-- **Mô tả:** Payload bulk insert đặt `notifications.type='support_message'`, trong khi migration chỉ cho phép `booking|payment|promotion|system|support`.
+- **Chẩn đoán baseline:** Payload bulk insert từng đặt `notifications.type='support_message'`, trong khi migration chỉ cho phép `booking|payment|promotion|system|support`.
 - **File/Hàm:** `backend_laravel/app/Http/Controllers/Api/Support/SupportNotificationController.php:113-152`, `SupportNotificationController::sendNotification()`; `backend_laravel/database/migrations/2026_06_10_220130_create_notifications_table.php:14-23`, migration `up()`.
-- **Bằng chứng:** controller dòng 139 ghi `support_message`; migration dòng 19 không chứa giá trị này; toàn bộ migration đã truy vết không có thao tác thay enum notification để bổ sung giá trị.
+- **Bằng chứng baseline:** controller dòng 139 từng ghi `support_message`; migration dòng 19 không chứa giá trị này.
+- **Post-fix:** controller dòng 139 hiện ghi `type='support'`; `BusinessModelAuditBugFixTest.php:104-136` xác minh API thành công, đúng recipient, type, trạng thái và metadata.
 - **Mức độ ảnh hưởng:** **High** — flow cốt lõi gửi thông báo support → admin bị transaction rollback trên driver áp dụng enum.
-- **Điều kiện tái hiện:** dùng schema được tạo từ migration trên một DB thực thi enum; có ít nhất một admin; đăng nhập support staff; gọi `POST /api/notifications/support/send` với title/message hợp lệ; câu insert nhận giá trị ngoài enum.
+- **Điều kiện tái hiện lịch sử:** dùng schema được tạo từ migration trên một DB thực thi enum; có ít nhất một admin; đăng nhập support staff; gọi `POST /api/notifications/support/send` với title/message hợp lệ; câu insert cũ nhận giá trị ngoài enum.
 
 ### BUG-SA-004 — Gửi đồng thời một draft tạo notification trùng
 
+- **Trạng thái hậu sửa:** **Resolved**.
 - **Business Rule liên quan:** BR-082; `FR-010`; state flow chiến dịch notification.
-- **Mô tả:** **[Suy luận từ source code]** Hai request gửi cùng một draft đều vượt qua điều kiện `status=draft`, cùng bulk insert notification và cùng cập nhật `sent`. Trạng thái `sent` không ngăn request thứ hai đã đọc draft trước đó.
-- **File/Hàm:** `backend_laravel/app/Http/Controllers/Api/Admin/NotificationController.php:171-218`, `NotificationController::sendNotification()`; migrations `backend_laravel/database/migrations/2026_06_24_165838_add_draft_id_to_notifications_table.php:14-16` và `2026_06_10_220130_create_notifications_table.php:12-23`.
-- **Bằng chứng:** query dòng 177 không `lockForUpdate()`; insert dòng 210 chạy trước update trạng thái dòng 213; update không có optimistic condition; schema không có unique `(draft_id,user_id)`. `FR-010` tại `docs/reverse-engineering/04-srs.md:181-184` và flow tại `06-process-and-state-diagrams.md:834-840` đưa draft đã gửi vào nhánh `404` thay vì bulk insert lần nữa.
+- **Chẩn đoán baseline:** **[Suy luận từ source code]** Hai request gửi cùng một draft từng có thể vượt qua điều kiện `status=draft`, cùng bulk insert notification và cùng cập nhật `sent` vì chưa khóa row draft.
+- **File/Hàm:** `backend_laravel/app/Http/Controllers/Api/Admin/NotificationController.php:171-221`, `NotificationController::sendNotification()`; migrations `backend_laravel/database/migrations/2026_06_24_165838_add_draft_id_to_notifications_table.php:14-16` và `2026_06_10_220130_create_notifications_table.php:12-23`.
+- **Bằng chứng baseline:** query draft từng không có `lockForUpdate()`; insert chạy trước update trạng thái; schema không có unique `(draft_id,user_id)`. `FR-010` tại `docs/reverse-engineering/04-srs.md:181-184` và flow tại `06-process-and-state-diagrams.md:834-840` đưa draft đã gửi vào nhánh `404` thay vì bulk insert lần nữa.
+- **Post-fix:** `sendNotification()` hiện lấy `lockForUpdate()` trước state guard trong cùng transaction. `BusinessModelConcurrencyMysqlTest.php:456-478` đã chạy thực trên MySQL và xác minh hai request đồng thời trả `[200,404]`, draft `sent`, chỉ một notification; `BusinessModelAuditBugFixTest.php:202-226` xác minh gửi lại tuần tự trả `404`.
 - **Mức độ ảnh hưởng:** **High** — người nhận nhận trùng campaign và dữ liệu notification bị nhân đôi trong core flow gửi thông báo.
-- **Điều kiện tái hiện:** tạo một draft `target_type=specific` có một recipient; dùng hai kết nối DB gửi đồng thời `POST /api/admin/notifications/send/{id}` sao cho cả hai đọc draft trước câu update; quan sát cả hai response `200` và hai row có cùng `draft_id,user_id`.
+- **Điều kiện tái hiện lịch sử:** tạo một draft `target_type=specific` có một recipient; dùng hai kết nối DB gửi đồng thời endpoint trên phiên bản baseline sao cho cả hai đọc draft trước câu update.

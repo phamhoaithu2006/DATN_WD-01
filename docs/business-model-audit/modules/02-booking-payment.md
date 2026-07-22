@@ -5,16 +5,17 @@
 - Tài liệu nguồn: `docs/reverse-engineering/03-business-rules-brd.md` (BR-021–BR-034), đối chiếu `04-srs.md` FR-004/FR-005, `05-use-cases.md` UC-008/UC-013/UC-014/UC-015/UC-028, `07-database-erd.md`, `08-api-specification.md` và `09-permission-crud-matrices.md`.
 - Source được truy vết từ route đến controller, Form Request, service, model, migration, command/scheduler và test hiện hữu.
 - Kết luận BR áp dụng rubric: `Đúng` khi toàn bộ mệnh đề BR có bằng chứng; BUG liên quan yêu cầu bổ sung trong FR/UC/API không tự động đổi kết luận của mệnh đề BR.
+- Trạng thái hậu sửa ngày 2026-07-22 giữ nguyên chẩn đoán lịch sử BUG-AB-001–004 và bổ sung bằng chứng `Resolved` từ source/test hiện tại.
 
 ## Bảng tổng hợp
 
 | Business Rule | Đã triển khai | File | Hàm | Đúng / Sai / Thiếu | Mức độ ảnh hưởng |
 |---|---|---|---|---|---|
-| BR-021 | Có | `StoreBookingRequest.php` | `rules()`, `after()` | Đúng | Medium — BUG-AB-001/002 ở hợp đồng input và schema |
+| BR-021 | Có | `StoreBookingRequest.php`; migration contact nullable | `rules()`, `after()`, migration `up()/down()` | Đúng | Resolved — BUG-AB-001/002; mức độ lịch sử High/Medium |
 | BR-022 | Có | `CustomerBookingController.php` | `preview()`, `store()`, `ensureDepartureCanBeBooked()`, `buildQuantityPricing()` | Đúng | — |
 | BR-023 | Có | `TourPricingService.php` | `resolveBasePrice()`, `resolveDiscountPrice()`, `resolveAdultPrice()` | Đúng | — |
-| BR-024 | Có | `TourPricingService.php`; `CustomerBookingController.php` | `resolveRuleForAge()`, `calculateParticipantPrice()`, `store()` | Đúng | Critical — BUG-AB-003 ở tích hợp tổng tiền booking |
-| BR-025 | Có | `CustomerBookingController.php` | `store()` | Đúng | Critical — BUG-AB-003 ảnh hưởng dữ liệu tiền |
+| BR-024 | Có | `TourPricingService.php`; `CustomerBookingController.php` | `resolveRuleForAge()`, `calculateParticipantPrice()`, `store()` | Đúng | Resolved — BUG-AB-003; mức độ lịch sử Critical |
+| BR-025 | Có | `CustomerBookingController.php` | `store()` | Đúng | Resolved — BUG-AB-003; mức độ lịch sử Critical |
 | BR-026 | Có | `CustomerBookingController.php`; `VnpayService.php` | `store()`, `createPaymentUrl()` | Đúng | — |
 | BR-027 | Có | `CustomerBookingController.php` | `continuePayment()` | Đúng | — |
 | BR-028 | Có | `CustomerBookingController.php`; `VnpayPaymentLifecycleService.php` | `cancel()`, `failPendingPayment()` | Đúng | — |
@@ -23,7 +24,7 @@
 | BR-031 | Có | `VnpayPaymentController.php` | `processVnpayResponse()` | Đúng | — |
 | BR-032 | Có | `VnpayPaymentController.php`; `VnpayPaymentLifecycleService.php` | `processVnpayResponse()`, `failPendingPayment()` | Đúng | — |
 | BR-033 | Có | `ExpirePendingVnpayPayments.php`; `routes/console.php` | `handle()` | Đúng | — |
-| BR-034 | Có | `Admin/PaymentController.php` | `confirm()`, `fail()`, `refund()`, `updateStatus()` | Đúng | High — FR-005 trái source tại BUG-AB-004 |
+| BR-034 | Có | `Admin/PaymentController.php` | `confirm()`, `fail()`, `refund()`, `updateStatus()` | Đúng | Resolved — BUG-AB-004; mức độ lịch sử High |
 
 ## Phân tích chi tiết
 
@@ -39,7 +40,8 @@
 - Model: `Booking`, `BookingContact`, `BookingParticipant`, `TourAgePricingRule`.
 - Observer/Listener/Event/Policy/Job/Command/Scheduler/Notification/Trigger/Stored Procedure/Queue/Cache/API integration: Không sử dụng ở bước Form Request.
 - Middleware: `auth:sanctum`, `role:customer`; `authorize()` còn yêu cầu user khác null.
-- Migrations: `2026_06_10_220060_create_bookings_table.php`; `2026_06_10_220070_create_booking_contacts_table.php`; `2026_06_10_220080_create_booking_participants_table.php`; `2026_07_03_120100_add_pricing_snapshot_to_booking_participants_table.php`.
+- Migrations: `2026_06_10_220060_create_bookings_table.php`; `2026_06_10_220070_create_booking_contacts_table.php`; `2026_06_10_220080_create_booking_participants_table.php`; `2026_07_03_120100_add_pricing_snapshot_to_booking_participants_table.php`; `2026_07_22_010000_make_booking_contact_email_nullable.php`.
+- Test hậu sửa: `backend_laravel/tests/Feature/AuthBookingBusinessModelRegressionTest.php` — các test giới hạn chuỗi booking, email tùy chọn và rollback email nullable.
 
 **Database**
 
@@ -51,19 +53,19 @@
 **Validation/Authorization/Exception**
 
 - `number_of_people`: required|integer|min1|max20.
-- `participants`: required|array|min1|max20; full_name required max255; birth_date required date <=today; gender required in male/female/other; các field nullable theo request.
+- `participants`: required|array|min1|max20; full_name required max150; phone nullable max20; identity_number nullable max30; birth_date required date <=today; gender required in male/female/other.
 - `after()`: count participants phải đúng number; quantity summary không rỗng thì sum quantity phải đúng number.
-- Contact: object required; name/phone required; email nullable/email; các giới hạn chi tiết tại API Specification #33.
+- Contact: object required; name required max150; email nullable|email|max150; phone required max20; address nullable max255; special_request nullable max2000.
 - Authorization: chỉ current customer; guest `401`, role khác `403`, Form Request authorization false theo framework.
 - Exception: validation `422`; lỗi DB trong transaction không có catch custom.
 
 **Notification/Queue/Audit/Data Integrity**
 
 - Notification/Queue/Audit Log: Không sử dụng trong tạo booking.
-- `contact_email` nullable ở request nhưng cột không nullable là BUG-AB-001. Nhiều giới hạn chuỗi API lớn hơn cột migration là BUG-AB-002.
+- Migration hậu sửa làm `booking_contacts.contact_email VARCHAR(150)` nullable. Khi rollback, migration đổi các giá trị null thành chuỗi rỗng trước khi khôi phục `NOT NULL`, nên không xóa bản ghi contact. Các giới hạn chuỗi request hiện không vượt giới hạn cột tương ứng.
 - Duplicate/double submit: booking code dùng ULID + unique DB, nhưng không có client idempotency key; hai request hợp lệ là hai booking độc lập theo source.
 
-**Kết luận: Đúng.** Mọi mệnh đề trực tiếp BR-021 được triển khai. Hai sai lệch hợp đồng API/schema được lập BUG độc lập.
+**Kết luận: Đúng.** Mọi mệnh đề trực tiếp BR-021 được triển khai; BUG-AB-001/002 đã được xử lý và có test hồi quy cho create, validation và rollback migration.
 
 ### BR-022 — Điều kiện tour/departure đủ điều kiện đặt
 
@@ -124,6 +126,7 @@
 - Read age rules active theo relation đã order; tuổi là `birthDate->diffInYears(travelDate)` với travelDate là ngày đi.
 - Rule đầu tiên chứa tuổi được chọn; `free=0`, `fixed=price_value`, mặc định percentage; không rule dùng adult price.
 - Store ghi snapshot `booking_participants.unit_price/pricing_rule_label/pricing_type/pricing_value` theo kết quả service.
+- Store tính `$participantsSubtotal` bằng tổng `unit_price` của `$pricedParticipants`; `$totalAmount` sau discount được dùng chung cho `bookings.total_amount` và `payments.amount`.
 - Transaction/Rollback/Lock: các snapshot ghi trong transaction BR-025; tour/departure bị khóa. Service tự thân không transaction.
 - Idempotency: method tính giá không side effect; create booking không idempotent.
 
@@ -131,9 +134,9 @@
 
 - DOB required <= today. Nếu có active rules, participant_type khác adult nhưng không khớp rule thì store ném ValidationException.
 - Customer middleware; không policy. Không notification/queue/audit.
-- Data integrity: `booking.total_amount` không được tính từ collection `$pricedParticipants`; controller dùng `$pricingSummary['subtotal']` từ `quantity_summary`. Không có bước đối chiếu rule/quantity do client chọn với DOB-derived rule của participant. Sai lệch yêu cầu UC-013/FR-004 được lập BUG-AB-003.
+- Data integrity: tổng tiền lưu không còn lấy từ subtotal của `quantity_summary`; source dùng trực tiếp collection participant đã được tính lại theo DOB. `quantity_summary` vẫn được dùng để kiểm tổng số người và cho luồng preview; source không có bước đối chiếu từng nhóm quantity với từng DOB, nhưng dữ liệu tiền lưu lấy DOB làm nguồn có thẩm quyền.
 
-**Kết luận: Đúng.** Service và snapshot triển khai đầy đủ mệnh đề BR-024; lỗi tích hợp tổng tiền là BUG ở flow booking rộng hơn.
+**Kết luận: Đúng.** Service, snapshot và tổng tiền booking/payment triển khai theo giá tính từ DOB; BUG-AB-003 đã được xử lý và có test hồi quy.
 
 ### BR-025 — Transaction tạo booking VNPAY
 
@@ -152,6 +155,7 @@
 - Lock: `tour_departures` và `tours` bằng `lockForUpdate()`.
 - Insert `bookings` (`pending/unpaid`, promotion null, discount 0), `booking_contacts`, `booking_participants` snapshots, `payments` (`vnpay/pending`), `booking_status_histories` (null→pending).
 - Update `tour_departures.booked_slots += number_of_people`.
+- Tính `$participantsSubtotal = $pricedParticipants->sum('unit_price')`; sau discount, cùng `$totalAmount` được insert vào `bookings.total_amount` và `payments.amount`.
 - Transaction: `DB::transaction(closure, 3)`; số `3` là deadlock retry count của Laravel transaction. Exception trong closure rollback toàn bộ DB writes.
 - Delete/Soft Delete/Restore/Pivot/Audit Log: Không có. `booking_status_histories` là lịch sử trạng thái có bằng chứng, không tự gán là audit log tổng quát.
 - Idempotent: Không có request/idempotency key; ULID chỉ tạo booking_code mới.
@@ -161,10 +165,10 @@
 - Validation BR-021/022/024; VNPAY chưa cấu hình ném ValidationException trước transaction; customer current user làm `user_id/changed_by`.
 - Exception DB/validation không catch trong method; rollback chỉ áp dụng phần closure. URL được tạo sau commit.
 - Duplicate/Double Submit: không có idempotency guard. Overbooking được lock và kiểm lại trong transaction.
-- Total pricing mismatch được chứng minh tại BUG-AB-003.
+- Total pricing dùng cùng nguồn `$pricedParticipants` với các snapshot hành khách; test hậu sửa dùng quantity free không khớp DOB adult để chứng minh booking/payment vẫn lưu giá adult theo DOB.
 - Notification/Queue: Không sử dụng.
 
-**Kết luận: Đúng.** Các bảng, state, lock, retry, history, slot và promotion/discount đều khớp mệnh đề.
+**Kết luận: Đúng.** Các bảng, state, lock, retry, history, slot, promotion/discount và tổng tiền theo DOB đều khớp mệnh đề; BUG-AB-003 đã Resolved.
 
 ### BR-026 — Hạn payment 15 phút và checkout URL
 
@@ -356,69 +360,86 @@
 
 **Database và kiểm soát**
 
-- Lock payment; update status success/failed/refunded cùng metadata; nếu có booking, update `bookings.payment_status` paid/failed/refunded.
+- Lock payment bằng `lockForUpdate()`, đọc trạng thái hiện tại rồi kiểm tra trạng thái đích trước khi write; nếu hợp lệ, update payment cùng metadata và update `bookings.payment_status` tương ứng.
 - Transaction `DB::transaction()`; rollback implicit. Không lock booking row trực tiếp. Không insert status history/audit.
-- Không kiểm `payment.status` cũ trong bất kỳ action. Repeated confirm cập nhật `paid_at=now`; source chấp nhận fail/refund sau trạng thái khác.
-- Idempotent: không có guard; confirm lặp thay `paid_at`; các action luôn thực hiện update.
+- Ma trận transition hợp lệ được chứng minh trực tiếp trong `updateStatus()`:
+
+| Trạng thái hiện tại | Trạng thái đích hợp lệ | Endpoint |
+|---|---|---|
+| `pending` | `success` | `PATCH /confirm` |
+| `pending` | `failed` | `PATCH /fail` |
+| `failed` | `success` | `PATCH /confirm` |
+| `success` | `refunded` | `PATCH /refund` |
+
+- Mọi transition khác, gồm các same-state có endpoint tương ứng (`failed→failed`, `success→success`, `refunded→refunded`) và mọi action từ `refunded`, ném `ValidationException` tại field `status`, trả `422` và không cập nhật payment/booking.
+- Idempotent: không có success idempotent; gọi lặp action đã đạt trạng thái đích trả `422` và không ghi lại dữ liệu.
 
 **Validation/Authorization/Exception/Data Integrity**
 
 - Confirm: transaction_code sometimes nullable string max100; gateway_response sometimes nullable array. Fail/refund không body validation.
-- Admin-only; payment missing trả custom `404`; validation `422`; không try/catch.
+- Admin-only; payment missing trả custom `404`; input/transition validation trả `422`; không try/catch.
 - Notification/Queue/Audit: Không sử dụng.
-- BR-034 đã nói rõ không kiểm transition, nên mệnh đề BR khớp. Tuy nhiên FR-005 Exception Flow nói “chuyển trạng thái không hợp lệ bị từ chối”; source không có nhánh đó. Đây là BUG-AB-004, không suy ra một ma trận transition mong muốn.
+- Lock và guard nằm trong cùng transaction. Với hai action đồng thời, payment row được serialize; action thứ hai đánh giá transition trên state đã commit của action thứ nhất.
+- Test hậu sửa: `backend_laravel/tests/Feature/AuthBookingBusinessModelRegressionTest.php` bao phủ bốn transition hợp lệ và tám transition không hợp lệ; `backend_laravel/tests/Feature/PaymentBookingSafetyTest.php` bao phủ đồng bộ payment/booking theo các chuỗi hợp lệ.
 
-**Kết luận: Đúng.**
+**Kết luận: Đúng.** FR-005 Exception Flow và source hiện cùng từ chối transition không hợp lệ; BUG-AB-004 đã Resolved.
 
 ## Danh sách BUG đã chứng minh
 
-### BUG-AB-001 — API cho phép bỏ `contact_email` nhưng schema bắt buộc giá trị
+### BUG-AB-001 — API cho phép bỏ `contact_email` nhưng schema bắt buộc giá trị — Resolved
 
 - Business Rule/Requirement: BR-021; FR-004; UC-013; API Specification #33.
-- Mô tả: Form Request khai báo `contact.contact_email` nullable và controller truyền null khi thiếu; migration khai báo `booking_contacts.contact_email` không nullable.
-- File/Hàm:
+- **Chẩn đoán lịch sử:** Form Request khai báo `contact.contact_email` nullable và controller truyền null khi thiếu, trong khi migration tạo bảng khai báo `booking_contacts.contact_email` không nullable.
+- File/Hàm tại thời điểm chẩn đoán:
   - `backend_laravel/app/Http/Requests/Customer/StoreBookingRequest.php` — `rules()` (`nullable|email|max:255`).
   - `backend_laravel/app/Http/Controllers/Api/Customer/CustomerBookingController.php` — `store()` (`$data['contact']['contact_email'] ?? null`).
   - `backend_laravel/database/migrations/2026_06_10_220070_create_booking_contacts_table.php` — `up()` (`string('contact_email', 150)` không `nullable()`).
-- Bằng chứng: payload không có email vượt qua rule nullable; create contact nhận null; schema không chấp nhận null. Write nằm trong transaction nên exception DB rollback dữ liệu booking trong closure.
+- Bằng chứng lịch sử: payload không có email vượt qua rule nullable; create contact nhận null; schema cũ không chấp nhận null. Write nằm trong transaction nên exception DB rollback dữ liệu booking trong closure.
 - Mức độ ảnh hưởng: High.
-- Điều kiện tái hiện: VNPAY đã cấu hình; customer hợp lệ; tour/departure bookable; gửi booking hợp lệ nhưng bỏ `contact.contact_email`.
-- Không đề xuất sửa.
+- Điều kiện tái hiện lịch sử: VNPAY đã cấu hình; customer hợp lệ; tour/departure bookable; gửi booking hợp lệ nhưng bỏ `contact.contact_email`.
+- **Post-fix / Trạng thái: Resolved.** `2026_07_22_010000_make_booking_contact_email_nullable.php::up()` đổi cột `VARCHAR(150)` thành nullable. `down()` backfill null thành chuỗi rỗng rồi khôi phục `NOT NULL`, giữ nguyên row.
+- Bằng chứng test hậu sửa: `AuthBookingBusinessModelRegressionTest.php` — `đặt tour cho phép bỏ contact email và lưu null`; `rollback contact email nullable giữ lại bản ghi bằng chuỗi rỗng`.
+- Source conformance hậu sửa: BR-021 **Đúng**.
 
-### BUG-AB-002 — Giới hạn chuỗi booking trong validation vượt giới hạn cột
+### BUG-AB-002 — Giới hạn chuỗi booking trong validation vượt giới hạn cột — Resolved
 
 - Business Rule/Requirement: BR-021; FR-004; UC-013; API Specification #33; cùng BUG đã ghi cho auth/profile tại module 01.
-- Mô tả: validation cho phép nhiều chuỗi dài hơn schema vật lý.
-- File/Hàm/Bằng chứng:
+- **Chẩn đoán lịch sử:** validation từng cho phép nhiều chuỗi dài hơn schema vật lý.
+- File/Hàm/Bằng chứng lịch sử:
   - `StoreBookingRequest::rules()`: contact_name 255 trong khi migration contact_name 150; contact_email 255 vs 150; contact_phone 30 vs 20; address 500 vs 255; participant full_name 255 vs 150; phone 30 vs 20; identity_number 50 vs 30.
   - Migration: `2026_06_10_220070_create_booking_contacts_table.php::up()` và `2026_06_10_220080_create_booking_participants_table.php::up()`.
-- Kết quả DB cụ thể (reject hoặc truncate) phụ thuộc driver/chế độ DB; **KHÔNG TÌM THẤY BẰNG CHỨNG TRONG SOURCE CODE** để khẳng định một kết quả runtime duy nhất. Sai lệch giới hạn là trực tiếp và đầy đủ.
+- Kết quả DB cụ thể (reject hoặc truncate) từng phụ thuộc driver/chế độ DB; **KHÔNG TÌM THẤY BẰNG CHỨNG TRONG SOURCE CODE** để khẳng định một kết quả runtime duy nhất tại thời điểm audit.
 - Mức độ ảnh hưởng: Medium.
-- Điều kiện tái hiện: gửi từng field với độ dài nằm giữa giới hạn cột+1 và giới hạn validation, giữ mọi dữ liệu khác hợp lệ.
-- Không đề xuất sửa.
+- Điều kiện tái hiện lịch sử: gửi từng field với độ dài nằm giữa giới hạn cột+1 và giới hạn validation, giữ mọi dữ liệu khác hợp lệ.
+- **Post-fix / Trạng thái: Resolved.** `StoreBookingRequest::rules()` hiện giới hạn contact name/email/phone/address là 150/150/20/255 và participant full_name/phone/identity_number là 150/20/30, khớp migration.
+- Bằng chứng test hậu sửa: dataset `đặt tour từ chối chuỗi dài hơn giới hạn cột booking` trong `AuthBookingBusinessModelRegressionTest.php` bao phủ cả bảy field và xác nhận `422`.
+- Source conformance hậu sửa: BR-021 **Đúng**.
 
-### BUG-AB-003 — Tổng tiền booking không được đối chiếu với giá tính theo ngày sinh hành khách
+### BUG-AB-003 — Tổng tiền booking không được đối chiếu với giá tính theo ngày sinh hành khách — Resolved
 
 - Business Rule/Requirement: BR-024, BR-025; FR-004; UC-013 (“tính giá theo tuổi” và “store ... tính lại giá”).
-- Mô tả: controller tính snapshot từng participant từ DOB bằng `calculateParticipantPrice()`, nhưng `booking.total_amount` và `payment.amount` lấy từ subtotal của `quantity_summary`. Không có code so sánh rule/quantity client chọn với rule suy ra từ DOB hoặc so tổng snapshot với subtotal.
-- File/Hàm:
+- **Chẩn đoán lịch sử:** controller tính snapshot từng participant từ DOB bằng `calculateParticipantPrice()`, nhưng từng lấy `booking.total_amount` và `payment.amount` từ subtotal của `quantity_summary`.
+- File/Hàm tại thời điểm chẩn đoán và hậu sửa:
   - `backend_laravel/app/Http/Controllers/Api/Customer/CustomerBookingController.php` — `store()`, `buildQuantityPricing()`.
   - `backend_laravel/app/Services/TourPricingService.php` — `calculateParticipantPrice()`, `resolveRuleForAge()`.
-- Bằng chứng vị trí: `store()` tạo `$pricedParticipants` từ DOB; sau đó `$totalAmount = ... $pricingSummary['subtotal']`; insert participant dùng `$pricedParticipants`, còn booking/payment dùng `$totalAmount`.
-- Database bị ghi: `booking_participants.unit_price/pricing_*` theo DOB; `bookings.total_amount` và `payments.amount` theo quantity summary; tất cả commit cùng transaction dù giá trị không được đối chiếu.
+- Bằng chứng lịch sử: `store()` tạo `$pricedParticipants` từ DOB nhưng từng tính `$totalAmount` từ `$pricingSummary['subtotal']`; snapshot participant và tổng booking/payment vì vậy có thể khác nguồn.
 - Mức độ ảnh hưởng: Critical (dữ liệu tài chính cốt lõi).
-- Điều kiện tái hiện: tạo tour có rule `free` cho tuổi nhỏ và giá adult >0; gửi một participant DOB người lớn nhưng `quantity_summary` chọn rule free với quantity 1. Source chấp nhận rule thuộc tour/active, tính snapshot participant theo DOB nhưng subtotal theo rule free.
-- Không đề xuất sửa.
+- Điều kiện tái hiện lịch sử: tạo tour có rule `free` cho tuổi nhỏ và giá adult >0; gửi một participant DOB người lớn nhưng `quantity_summary` chọn rule free với quantity 1.
+- **Post-fix / Trạng thái: Resolved.** `store()` hiện tính `$participantsSubtotal` từ tổng `unit_price` của `$pricedParticipants`, sau đó dùng cùng `$totalAmount` cho `bookings.total_amount` và `payments.amount` trong transaction.
+- Bằng chứng test hậu sửa: `AuthBookingBusinessModelRegressionTest.php` — `tổng tiền booking và payment được tính từ ngày sinh hành khách`; fixture free child + DOB adult xác nhận cả participant, booking và payment đều dùng 1.500.000 theo DOB.
+- Source conformance hậu sửa: BR-024 và BR-025 **Đúng**.
 
-### BUG-AB-004 — FR-005 tuyên bố từ chối transition payment không hợp lệ nhưng source không kiểm transition
+### BUG-AB-004 — FR-005 tuyên bố từ chối transition payment không hợp lệ nhưng source không kiểm transition — Resolved
 
-- Business Rule/Requirement: BR-034 ghi hiện trạng không kiểm; FR-005 Exception Flow lại ghi “chuyển trạng thái không hợp lệ bị từ chối”; UC-028 xác nhận không có nhánh từ chối state transition.
-- Mô tả: ba endpoint admin ghi status đích mà không đọc/validate status hiện tại để quyết định cho phép hay từ chối. Source vì vậy không triển khai mệnh đề từ chối của FR-005.
+- Business Rule/Requirement: BR-034; FR-005 Exception Flow; UC-028.
+- **Chẩn đoán lịch sử:** ba endpoint admin từng ghi status đích mà không đọc/validate status hiện tại; test cũ từng chấp nhận chuỗi pending→success→failed→refunded.
 - File/Hàm: `backend_laravel/app/Http/Controllers/Api/Admin/PaymentController.php` — `confirm()`, `fail()`, `refund()`, `updateStatus()`.
-- Bằng chứng: `updateStatus()` lock payment rồi xây `paymentData` với status đích và update; không có điều kiện trên `$payment->status`. Test `backend_laravel/tests/Feature/PaymentBookingSafetyTest.php` — `admin payment actions synchronize booking payment status` thực hiện tuần tự pending→success→failed→refunded và assert mọi response thành công.
+- Bằng chứng lịch sử: `updateStatus()` từng lock payment rồi update không có điều kiện trên `$payment->status`.
 - Mức độ ảnh hưởng: High (state payment/booking cốt lõi).
-- Điều kiện tái hiện: admin gọi confirm trên payment pending, sau đó gọi fail và refund trên cùng payment; source chấp nhận cả ba. Tài liệu không xác định transition nào được coi là hợp lệ, vì vậy audit không suy ra ma trận transition.
-- Không đề xuất sửa.
+- Điều kiện tái hiện lịch sử: admin gọi confirm trên payment pending, sau đó gọi fail và refund trên cùng payment; source cũ chấp nhận cả ba.
+- **Post-fix / Trạng thái: Resolved.** Source hiện triển khai ma trận A: pending→success/failed; failed→success; success→refunded; mọi transition còn lại mà ba endpoint có thể yêu cầu, gồm same-state, trả `422`. Guard chạy trong transaction sau `lockForUpdate()`.
+- Bằng chứng test hậu sửa: `AuthBookingBusinessModelRegressionTest.php` bao phủ 4 transition hợp lệ và 8 transition bị từ chối, đồng thời assert payment/booking không đổi ở nhánh `422`; `PaymentBookingSafetyTest.php` kiểm các chuỗi hợp lệ pending→success→refunded và pending→failed→success.
+- Source conformance hậu sửa: BR-034 **Đúng**.
 
 ## Thành phần không sử dụng/không tìm thấy
 

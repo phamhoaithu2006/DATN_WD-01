@@ -5,7 +5,7 @@
 - Register này hợp nhất BUG đã được chứng minh trong bảy module audit `01`–`07`.
 - Chỉ ghi nhận sai lệch Business Model/source code đã có bằng chứng trong các module; không bổ sung nhận định code style, performance, architecture, design pattern hoặc đề xuất refactor.
 - `BUG-AB-002` xuất hiện trong cả module 01 và module 02 được hợp nhất thành **một BUG duy nhất**, đồng thời giữ đủ bằng chứng auth/profile và booking.
-- Tổng số BUG duy nhất trong phạm vi hiện tại: **15**.
+- Tổng số BUG lịch sử duy nhất: **15**. Tại snapshot hậu sửa ngày 2026-07-22, cả 15 có disposition **Resolved**; diagnosis gốc vẫn được giữ để truy vết.
 - Module 03 (`docs/business-model-audit/modules/03-reviews.md`) không có BUG ID đã được chứng minh trong mục `Danh sách BUG`.
 
 ## Bảng tổng hợp
@@ -28,7 +28,20 @@
 | BUG-XD-002 | Guide cập nhật `certificate_type` hợp lệ nhưng dữ liệu bị bỏ qua | SR-006; FR-017; UC-043; API #66 | Medium | `docs/business-model-audit/modules/07-cross-document-requirements.md` |
 | BUG-XD-003 | UC-019 yêu cầu upload avatar admin nhưng API chỉ nhận URL chuỗi | SR-005; UC-019; đối chiếu API #184 | Medium | `docs/business-model-audit/modules/07-cross-document-requirements.md` |
 
-## Chi tiết BUG
+## Disposition hậu sửa
+
+| Nhóm | BUG | Source fix | Regression runtime | Trạng thái |
+| --- | --- | --- | --- | --- |
+| Auth/Booking/Payment | BUG-AB-001–BUG-AB-004 | Có | SQLite và MySQL | Resolved |
+| Guide/Concurrency | BUG-RG-001–BUG-RG-004 | Có | Test tuần tự/stale-state và hai process MySQL | Resolved |
+| Support/Admin | BUG-SA-001–BUG-SA-004 | Có | SQLite/MySQL; SA-003/SA-004 có hai process MySQL | Resolved |
+| Cross-document | BUG-XD-001–BUG-XD-003 | Có | SQLite và MySQL | Resolved |
+
+Source fix, migration, test case và kết quả chạy từng BUG được ghi tại [11-post-fix-verification.md](11-post-fix-verification.md). Severity trong bảng tổng hợp là mức ảnh hưởng lịch sử, không phải số lỗi còn mở.
+
+## Chi tiết diagnosis lịch sử
+
+Các mục dưới đây mô tả source tại baseline audit `d9ddfd25c02d94ebfd1cd12ce42341cfbeaa6219`. Không đọc các câu hiện trạng cũ như trạng thái của working tree hậu sửa; bằng chứng resolution nằm ở mục trên.
 
 ### BUG-AB-001 — API cho phép bỏ `contact_email` nhưng schema bắt buộc giá trị
 

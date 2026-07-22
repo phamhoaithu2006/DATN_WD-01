@@ -50,7 +50,7 @@ class GuideLeaveRequestController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        if (!$this->leaveTablesReady()) {
+        if (! $this->leaveTablesReady()) {
             return response()->json([
                 'status' => 'success',
                 'message' => 'Chưa tạo bảng guide_leave_requests. Hãy chạy php artisan migrate.',
@@ -67,7 +67,7 @@ class GuideLeaveRequestController extends Controller
 
         $guide = $this->getGuide($request);
 
-        if (!$guide) {
+        if (! $guide) {
             return response()->json([
                 'status' => 'success',
                 'message' => 'Tài khoản chưa có hồ sơ HDV.',
@@ -128,7 +128,7 @@ class GuideLeaveRequestController extends Controller
 
     public function summary(Request $request): JsonResponse
     {
-        if (!$this->leaveTablesReady()) {
+        if (! $this->leaveTablesReady()) {
             return response()->json([
                 'status' => 'success',
                 'message' => 'Chưa tạo bảng guide_leave_requests. Hãy chạy php artisan migrate.',
@@ -147,7 +147,7 @@ class GuideLeaveRequestController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        if (!$this->leaveTablesReady()) {
+        if (! $this->leaveTablesReady()) {
             return response()->json([
                 'message' => 'Chưa tạo bảng guide_leave_requests. Hãy chạy php artisan migrate trước khi gửi đơn xin nghỉ.',
             ], 500);
@@ -155,7 +155,7 @@ class GuideLeaveRequestController extends Controller
 
         $guide = $this->getGuide($request);
 
-        if (!$guide) {
+        if (! $guide) {
             return response()->json([
                 'message' => 'Tài khoản chưa có hồ sơ HDV.',
             ], 404);
@@ -183,20 +183,24 @@ class GuideLeaveRequestController extends Controller
         $startDate = Carbon::parse($validated['start_date'])->toDateString();
         $endDate = Carbon::parse($validated['end_date'])->toDateString();
 
-        $overlapExists = GuideLeaveRequest::query()
-            ->where('guide_id', $guide->id)
-            ->whereIn('status', ['pending', 'approved'])
-            ->whereDate('start_date', '<=', $endDate)
-            ->whereDate('end_date', '>=', $startDate)
-            ->exists();
-
-        if ($overlapExists) {
-            return response()->json([
-                'message' => 'Bạn đã có đơn xin nghỉ đang chờ duyệt hoặc đã duyệt trùng khoảng thời gian này.',
-            ], 422);
-        }
-
         $leaveRequest = DB::transaction(function () use ($request, $guide, $validated, $startDate, $endDate) {
+            Guide::query()
+                ->whereKey($guide->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $overlapExists = GuideLeaveRequest::query()
+                ->where('guide_id', $guide->id)
+                ->whereIn('status', ['pending', 'approved'])
+                ->whereDate('start_date', '<=', $endDate)
+                ->whereDate('end_date', '>=', $startDate)
+                ->lockForUpdate()
+                ->first(['id']) !== null;
+
+            if ($overlapExists) {
+                return null;
+            }
+
             $leaveRequest = GuideLeaveRequest::query()->create([
                 'guide_id' => $guide->id,
                 'user_id' => $request->user()->id,
@@ -224,7 +228,13 @@ class GuideLeaveRequestController extends Controller
             $this->notifyAdminsAboutLeaveRequest($leaveRequest, 'created');
 
             return $leaveRequest;
-        });
+        }, 3);
+
+        if (! $leaveRequest) {
+            return response()->json([
+                'message' => 'Bạn đã có đơn xin nghỉ đang chờ duyệt hoặc đã duyệt trùng khoảng thời gian này.',
+            ], 422);
+        }
 
         return response()->json([
             'status' => 'success',
@@ -235,7 +245,7 @@ class GuideLeaveRequestController extends Controller
 
     public function cancel(Request $request, GuideLeaveRequest $leaveRequest): JsonResponse
     {
-        if (!$this->leaveTablesReady()) {
+        if (! $this->leaveTablesReady()) {
             return response()->json([
                 'message' => 'Chưa tạo bảng guide_leave_requests.',
             ], 500);
@@ -248,34 +258,52 @@ class GuideLeaveRequestController extends Controller
             404
         );
 
-        if ($leaveRequest->status !== 'pending') {
-            return response()->json([
-                'message' => 'Chỉ có thể hủy đơn xin nghỉ chưa được admin thao tác.',
-            ], 422);
-        }
+        $cancelledLeaveRequest = DB::transaction(function () use ($request, $leaveRequest, $guide) {
+            $lockedLeaveRequest = GuideLeaveRequest::query()
+                ->whereKey($leaveRequest->id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        DB::transaction(function () use ($request, $leaveRequest) {
-            $leaveRequest->update([
+            abort_unless(
+                (int) $lockedLeaveRequest->guide_id === (int) $guide->id,
+                404
+            );
+
+            if ($lockedLeaveRequest->status !== 'pending') {
+                return null;
+            }
+
+            $lockedLeaveRequest->update([
                 'status' => 'cancelled',
                 'cancel_reason' => $request->input('cancel_reason'),
                 'cancelled_at' => now(),
             ]);
 
-            $leaveRequest->load($this->leaveRequestRelations(true));
+            $lockedLeaveRequest->load($this->leaveRequestRelations(true));
 
-            $this->notifyAdminsAboutLeaveRequest($leaveRequest, 'cancelled');
-        });
+            $this->notifyAdminsAboutLeaveRequest($lockedLeaveRequest, 'cancelled');
+
+            return $lockedLeaveRequest;
+        }, 3);
+
+        if (! $cancelledLeaveRequest) {
+            return response()->json([
+                'message' => 'Chỉ có thể hủy đơn xin nghỉ chưa được admin thao tác.',
+            ], 422);
+        }
 
         return response()->json([
             'status' => 'success',
             'message' => 'Đã hủy đơn xin nghỉ.',
-            'data' => $this->serializeLeaveRequest($leaveRequest->fresh()->load($this->leaveRequestRelations())),
+            'data' => $this->serializeLeaveRequest(
+                $cancelledLeaveRequest->fresh()->load($this->leaveRequestRelations())
+            ),
         ]);
     }
 
     private function summaryForGuide(Guide $guide): array
     {
-        if (!$this->leaveTablesReady()) {
+        if (! $this->leaveTablesReady()) {
             return $this->emptySummary();
         }
 
@@ -405,7 +433,7 @@ class GuideLeaveRequestController extends Controller
         string $message,
         array $data = []
     ): void {
-        if (!$userId || !Schema::hasTable('notifications')) {
+        if (! $userId || ! Schema::hasTable('notifications')) {
             return;
         }
 

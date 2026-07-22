@@ -183,7 +183,8 @@ class CustomerBookingController extends Controller
 
                     return $participant;
                 });
-            $totalAmount = round(max(0, $pricingSummary['subtotal'] - $discountAmount), 2);
+            $participantsSubtotal = (float) $pricedParticipants->sum('unit_price');
+            $totalAmount = round(max(0, $participantsSubtotal - $discountAmount), 2);
 
             $booking = Booking::create([
                 'booking_code' => 'BK-'.Str::upper((string) Str::ulid()),

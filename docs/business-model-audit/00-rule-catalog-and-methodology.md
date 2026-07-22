@@ -2,7 +2,7 @@
 
 ## 1. Baseline và nguyên tắc khử trùng lặp
 
-- Baseline source và tài liệu: commit `d9ddfd25c02d94ebfd1cd12ce42341cfbeaa6219`, nhánh `docs/reverse-engineering-business-requirements` tại thời điểm audit.
+- Baseline audit lịch sử: commit `d9ddfd25c02d94ebfd1cd12ce42341cfbeaa6219`. Snapshot hậu sửa ngày 2026-07-22 là working tree nhánh `fix/business-model-audit-bugs`, kế thừa commit tài liệu `044d8cd59083e5f7ca5a1a202b0fdc581be47bc5`; xem `11-post-fix-verification.md`.
 - Bộ tài liệu đầu vào gồm đủ 12 file trong `docs/reverse-engineering`: `README.md`, `01-executive-domain-analysis.md`, `02-module-analysis.md`, `03-business-rules-brd.md`, `04-srs.md`, `05-use-cases.md`, `06-process-and-state-diagrams.md`, `07-database-erd.md`, `08-api-specification.md`, `09-permission-crud-matrices.md`, `10-unverified-findings.md`, `source-evidence-index.md`.
 - `BR-001`–`BR-096` là yêu cầu chuẩn gốc. Một FR, UC, process, diagram, API hoặc dòng ma trận diễn đạt lại cùng hành vi được ánh xạ về BR tương ứng, không sinh thêm rule.
 - Chỉ tạo `SR-###` khi tài liệu có một mệnh đề chức năng/NFR trực tiếp, source có hành vi tương ứng, nhưng nội dung đó chưa được câu chữ của `BR-001`–`BR-096` bao phủ.
@@ -106,7 +106,7 @@ Phân tích source và test cho `SR-001`–`SR-013` nằm tại `modules/07-cros
 | NFR-002 | BR-004; BR-027–BR-028; BR-037; BR-040; BR-046–BR-047; BR-062; BR-070; BR-072; BR-080; SR-002–SR-007; SR-009; SR-011–SR-013 |
 | NFR-003 | BR-038 đối với tour review; SR-010 đối với toàn bộ declaration route |
 | NFR-004 | Các BR có transaction: BR-014, BR-019, BR-025, BR-028, BR-030–BR-034, BR-037, BR-040–BR-041, BR-048–BR-049, BR-056, BR-060–BR-061, BR-064–BR-067, BR-069, BR-073, BR-075–BR-077, BR-082, BR-084, BR-096; SR-006 có transaction cập nhật profile guide |
-| NFR-005 | Các BR có `lockForUpdate`: BR-025, BR-028, BR-030–BR-033, BR-037, BR-040–BR-041, BR-056, BR-064–BR-067, BR-096 |
+| NFR-005 | Các BR có `lockForUpdate`: BR-025, BR-028, BR-030–BR-033, BR-037, BR-040–BR-041, BR-056, BR-060–BR-061, BR-064–BR-073, BR-082, BR-096 |
 | NFR-006 | BR-045; BR-076; SR-006. Các rollback transaction khác đi cùng NFR-004 |
 | NFR-007 | BR-089. Phần “không có logging thống nhất” là giới hạn bằng chứng, không sinh SR |
 | NFR-008 | BR-086. Phần “không có cache catalog/report” là giới hạn bằng chứng, không sinh SR |
@@ -299,12 +299,12 @@ ERD là bằng chứng schema, FK, unique và index theo migration. Các bảng 
 
 1. `03-business-rules-brd.md` §9.3 dẫn payment admin tới `BR-088–BR-089`; hai BR này là chatbot. Nguồn đúng của payment admin là `BR-034`, `Admin\PaymentController::{confirm,fail,refund,updateStatus}`.
 2. Cùng §9.3 dẫn leave tới `BR-061–BR-071`; nhóm leave thực tế là `BR-068–BR-071`. `BR-061` là xóa assignment, `BR-062`–`BR-067` là vận hành guide.
-3. FR-005 Exception Flow tuyên bố chuyển trạng thái payment không hợp lệ bị từ chối, trong khi BR-034 và `Admin\PaymentController::updateStatus()` không kiểm tra trạng thái cũ. Sai lệch đã được lập `BUG-AB-004` tại `modules/02-booking-payment.md`; không tạo BUG-XD trùng.
+3. FR-005 Exception Flow yêu cầu từ chối payment transition không hợp lệ. Sai lệch lịch sử được lập `BUG-AB-004`; source hậu sửa đã triển khai ma trận tại `Admin\PaymentController::updateStatus()` và được xác minh trong `11-post-fix-verification.md`.
 4. UC-037 ghi revoke notification campaign có transaction; BR-083, NFR-004 và `Admin\NotificationController::revoke()` xác nhận flow này không có transaction. Đây là bất nhất nội bộ tài liệu, không phải BUG source mới.
 5. FR-019 đặt Guide profile làm precondition toàn module; UC-044 và API #60 mô tả nhánh dashboard không có profile vẫn trả HTTP 200 với payload rỗng, đúng với `GuideDashboardController::show()`. Đây là bất nhất nội bộ tài liệu, không phải BUG source mới.
-6. FR-018, UC-030 và API #211 tuyên bố assignment phải áp dụng `TourDepartureMutationGuard`, nhưng controller/service assignment không gọi guard. Sai lệch được lập `BUG-XD-001` tại `modules/07-cross-document-requirements.md`.
-7. FR-017/API #66 cho phép cập nhật `certificate_type`; controller nhận field nhưng `Guide::$fillable` không chứa field này. Sai lệch được lập `BUG-XD-002`.
-8. UC-019 yêu cầu upload avatar admin có validation type/size và ghi public storage; `AdminProfileController::update()` chỉ nhận URL chuỗi. Sai lệch được lập `BUG-XD-003`.
+6. `BUG-XD-001` là sai lệch lịch sử giữa FR-018/UC-030/API #211 và assignment source. Source hậu sửa gọi `TourDepartureMutationGuard` ở sáu endpoint, đồng thời kiểm tra lại trong write transaction.
+7. `BUG-XD-002` là sai lệch lịch sử của `certificate_type`. Source hậu sửa khôi phục cột `guides.certificate_type VARCHAR(100) NULL`, bổ sung `$fillable` và validation tương ứng.
+8. `BUG-XD-003` là sai lệch lịch sử về avatar admin. `AdminProfileController::update()` hậu sửa nhận file ảnh tối đa 5.120 KB, ghi public storage, giữ input URL cũ và từ chối gửi đồng thời hai input.
 9. Các mục frontend thiếu integration tại UV-031–UV-035 và các mô tả placeholder trong Module Analysis là mô tả đúng hiện trạng, không phải cam kết đã triển khai.
 
 ## 5. Rubric audit áp dụng cho từng BR/SR

@@ -784,15 +784,6 @@ test('admin payment actions synchronize booking payment status', function () {
         'payment_status' => 'paid',
     ]);
 
-    $this->patchJson("/api/admin/payments/{$booking->payment->id}/fail")
-        ->assertOk()
-        ->assertJsonPath('data.status', 'failed');
-
-    $this->assertDatabaseHas('bookings', [
-        'id' => $booking->id,
-        'payment_status' => 'failed',
-    ]);
-
     $this->patchJson("/api/admin/payments/{$booking->payment->id}/refund")
         ->assertOk()
         ->assertJsonPath('data.status', 'refunded');
@@ -800,6 +791,26 @@ test('admin payment actions synchronize booking payment status', function () {
     $this->assertDatabaseHas('bookings', [
         'id' => $booking->id,
         'payment_status' => 'refunded',
+    ]);
+
+    $failedBooking = paymentSafetyBooking();
+
+    $this->patchJson("/api/admin/payments/{$failedBooking->payment->id}/fail")
+        ->assertOk()
+        ->assertJsonPath('data.status', 'failed');
+
+    $this->assertDatabaseHas('bookings', [
+        'id' => $failedBooking->id,
+        'payment_status' => 'failed',
+    ]);
+
+    $this->patchJson("/api/admin/payments/{$failedBooking->payment->id}/confirm")
+        ->assertOk()
+        ->assertJsonPath('data.status', 'success');
+
+    $this->assertDatabaseHas('bookings', [
+        'id' => $failedBooking->id,
+        'payment_status' => 'paid',
     ]);
 });
 
