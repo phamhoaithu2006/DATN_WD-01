@@ -136,7 +136,7 @@ class SupportNotificationController extends Controller
                     'user_id' => $adminId,
                     'title' => $validated['title'],
                     'message' => $validated['message'],
-                    'type' => 'support_message',
+                    'type' => 'support',
                     'data' => json_encode([
                         'source' => 'support_to_admin',
                         'sender_role' => 'support staff',

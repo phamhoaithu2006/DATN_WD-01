@@ -7,6 +7,7 @@ use App\Models\Payment;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class PaymentController extends Controller
 {
@@ -80,6 +81,20 @@ class PaymentController extends Controller
 
             if (! $payment) {
                 return null;
+            }
+
+            $allowedTransitions = [
+                'pending' => ['success', 'failed'],
+                'failed' => ['success'],
+                'success' => ['refunded'],
+            ];
+
+            if (! in_array($paymentStatus, $allowedTransitions[$payment->status] ?? [], true)) {
+                throw ValidationException::withMessages([
+                    'status' => [
+                        "Không thể chuyển trạng thái thanh toán từ {$payment->status} sang {$paymentStatus}.",
+                    ],
+                ]);
             }
 
             $paymentData = array_filter([

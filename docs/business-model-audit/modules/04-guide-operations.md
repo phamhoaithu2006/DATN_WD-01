@@ -6,6 +6,7 @@
 - Đối chiếu thêm các module/SRS/use case/sơ đồ/ERD/API/matrix/điểm chưa xác minh trong `docs/reverse-engineering`.
 - Chỉ xác minh business model với source. Không review style, naming, performance, architecture, pattern hoặc đề xuất sửa.
 - `Đúng`: toàn bộ mệnh đề có bằng chứng; `Sai`: có execution path trái mệnh đề; `Thiếu`: source chỉ chứng minh một phần.
+- Trạng thái hậu sửa: **20/20 Business Rule Đúng**. Bốn chẩn đoán `BUG-RG-001`–`BUG-RG-004` được giữ lại ở cuối tài liệu như lịch sử và đã có trạng thái `Resolved` theo source/test hiện tại.
 
 ## Bảng tổng hợp
 
@@ -26,11 +27,32 @@
 | BR-066 | Có | `backend_laravel/app/Services/GuideTourOperationService.php`; `backend_laravel/app/Http/Requests/UpdateAttendanceNoteRequest.php` | `updateAttendanceNote()` | Đúng | — |
 | BR-067 | Có | `backend_laravel/app/Services/GuideTourOperationService.php` | `ensureStagesForDeparture()`, `advanceStage()` | Đúng | — |
 | BR-068 | Có | `backend_laravel/app/Http/Controllers/Api/Guide/GuideLeaveRequestController.php` | `store()` | Đúng | — |
-| BR-069 | Có nhưng không bảo đảm khi đồng thời | `backend_laravel/app/Http/Controllers/Api/Guide/GuideLeaveRequestController.php` | `store()` | Sai | High |
-| BR-070 | Có nhưng có race với admin decision | `backend_laravel/app/Http/Controllers/Api/Guide/GuideLeaveRequestController.php` | `cancel()` | Sai | High |
-| BR-071 | Có nhưng có race với guide cancel | `backend_laravel/app/Http/Controllers/Api/Admin/AdminGuideLeaveRequestController.php` | `updateStatus()` | Sai | High |
-| BR-072 | Có nhưng không bảo đảm một pending khi đồng thời | `backend_laravel/app/Http/Controllers/Api/Guide/GuideTourController.php` | `requestReplacement()` | Sai | High |
-| BR-073 | Có nhưng pending check không atomic | `backend_laravel/app/Http/Controllers/Api/Admin/AdminGuideReplacementRequestController.php` | `approve()`, `reject()` | Sai | High |
+| BR-069 | Có; overlap check được serialize trong transaction | `backend_laravel/app/Http/Controllers/Api/Guide/GuideLeaveRequestController.php` | `store()` | Đúng | — |
+| BR-070 | Có; row lock và tái kiểm tra state/owner | `backend_laravel/app/Http/Controllers/Api/Guide/GuideLeaveRequestController.php` | `cancel()` | Đúng | — |
+| BR-071 | Có; decision và notification cùng transaction | `backend_laravel/app/Http/Controllers/Api/Admin/AdminGuideLeaveRequestController.php` | `updateStatus()` | Đúng | — |
+| BR-072 | Có; departure/assignment/pending được lock và tái kiểm tra | `backend_laravel/app/Http/Controllers/Api/Guide/GuideTourController.php` | `requestReplacement()` | Đúng | — |
+| BR-073 | Có; approve/reject lock cùng departure/request và tái kiểm tra pending | `backend_laravel/app/Http/Controllers/Api/Admin/AdminGuideReplacementRequestController.php` | `approve()`, `reject()` | Đúng | — |
+
+## Đối chiếu hậu sửa BUG-XD-001 và BUG-XD-002
+
+### BUG-XD-001 — Assignment mutation guard — Resolved
+
+- Sáu endpoint assignment đều gọi `TourDepartureMutationGuard::assertCanMutate()`: `candidates()` dòng 80–95, `autoAssign()` dòng 97–116, `assign()` dòng 118–143, `cancel()` dòng 145–207, `directCandidates()` dòng 420–426 và `directAssign()` dòng 751–756 trong `backend_laravel/app/Http/Controllers/Api/Admin/TourDepartureGuideAssignmentController.php`.
+- Các write flow tái kiểm tra sau khi lock: `GuideAssignmentService::autoAssign()` dòng 378–435 và `assignSpecific()` dòng 441–499; `TourDepartureGuideAssignmentController::cancel()` dòng 165–202; `directAssign()` dòng 852–869. Departure có `departure_date <= today` bị trả `422` field `departure` qua guard.
+- Route: `backend_laravel/routes/api.php:425-453`; middleware: `auth:sanctum`, `role:admin`; Policy/Gate không sử dụng.
+- Test: `backend_laravel/tests/Feature/GuideBusinessModelRegressionTest.php:150-216` xác minh cả sáu endpoint bị chặn ở boundary hôm nay và cancel vẫn thành công với departure tương lai.
+
+### BUG-XD-002 — `certificate_type` được lưu và trả qua API — Resolved
+
+- Migration: `backend_laravel/database/migrations/2026_07_22_000000_restore_certificate_type_to_guides_table.php:9-22` thêm `guides.certificate_type` dạng nullable `VARCHAR(100)`; `down()` drop column.
+- Model: `backend_laravel/app/Models/Guide.php:15-24` có `certificate_type` trong `$fillable`.
+- API: `GuideProfileController::show()` trả field tại `backend_laravel/app/Http/Controllers/Api/Guide/GuideProfileController.php:40-53`; `update()` validate `sometimes|string|max:100` và đưa field vào payload update tại dòng 93–137. Route `GET|PUT /api/guide/profile` dùng `auth:sanctum`, `role:tour guide`.
+- Test: `backend_laravel/tests/Feature/GuideBusinessModelRegressionTest.php:116-148` xác minh schema, ghi/đọc 100 ký tự và từ chối 101 ký tự.
+
+### Bằng chứng automation hậu sửa
+
+- `backend_laravel/tests/Feature/GuideBusinessModelRegressionTest.php` có 8 test cho schema/API `certificate_type`, mutation guard sáu endpoint, stale-state leave, overlap leave, replacement pending và processed-state replacement.
+- `backend_laravel/tests/Feature/BusinessModelConcurrencyMysqlTest.php` đã chạy toàn file trên MySQL: **6 test pass, 15 assertions**. Bốn case Guide tại dòng 241–430 đều pass, tương ứng `BUG-RG-001`–`BUG-RG-004`; hai case còn lại thuộc module khác.
 
 ## Phân tích chi tiết
 
@@ -38,7 +60,7 @@
 
 #### Source Code
 
-- File/Class/Hàm: `backend_laravel/app/Services/GuideAssignmentService.php:16` — `restDays()` dòng 22–25, `eligibleGuidesQuery()` dòng 100–199, `hasScheduleConflict()` dòng 332–369, `dateRange()` dòng 498–510.
+- File/Class/Hàm: `backend_laravel/app/Services/GuideAssignmentService.php:16` — `restDays()` dòng 26–29, `eligibleGuidesQuery()` dòng 104–203, `hasScheduleConflict()` dòng 336–373, `dateRange()` dòng 506–518.
 - Routes: candidate/auto/strict assignment trong `backend_laravel/routes/api.php:425-439`.
 - Controller: `TourDepartureGuideAssignmentController::{candidates,autoAssign,assign}`.
 - Service: `GuideAssignmentService`; Model: `Guide`, `TourGuideAssignment`, `TourDeparture`.
@@ -69,8 +91,8 @@
 
 #### Source Code
 
-- File/Class/Hàm: `backend_laravel/app/Services/GuideAssignmentService.php` — `applyFairWorkloadOrder()` dòng 210–327.
-- Call site: `eligibleGuidesQuery()` dòng 198; cuối cùng `autoAssign()` lấy `first()`.
+- File/Class/Hàm: `backend_laravel/app/Services/GuideAssignmentService.php` — `applyFairWorkloadOrder()` dòng 214–331.
+- Call site: `eligibleGuidesQuery()` dòng 202; cuối cùng `autoAssign()` lấy `first()`.
 - Route: `POST /api/admin/tour-departures/{departure}/auto-assign-guide`.
 - Service/Model: `GuideAssignmentService`; `Guide`, `TourGuideAssignment`, `TourDeparture`.
 - Migration: `backend_laravel/database/migrations/2026_06_28_092905_create_tour_guide_assignments_table.php`; `backend_laravel/database/migrations/2026_07_07_080821_add_assignment_fields_to_tour_guide_assignments_table.php`.
@@ -99,8 +121,8 @@
 
 #### Source Code
 
-- File/Class/Hàm: `backend_laravel/app/Services/GuideAssignmentService.php` — `autoAssign()` dòng 374–430.
-- Controller/Route: `TourDepartureGuideAssignmentController::autoAssign()` dòng 93–109; `POST /api/admin/tour-departures/{departure}/auto-assign-guide`.
+- File/Class/Hàm: `backend_laravel/app/Services/GuideAssignmentService.php` — `autoAssign()` dòng 378–435.
+- Controller/Route: `TourDepartureGuideAssignmentController::autoAssign()` dòng 97–116; `POST /api/admin/tour-departures/{departure}/auto-assign-guide`.
 - Service/Model: `GuideAssignmentService`; `TourDeparture`, `Guide`, `TourGuideAssignment`.
 - Migration: `backend_laravel/database/migrations/2026_06_28_092905_create_tour_guide_assignments_table.php`; `backend_laravel/database/migrations/2026_07_07_080821_add_assignment_fields_to_tour_guide_assignments_table.php`.
 - Middleware: admin auth/role; Policy/Gate không dùng.
@@ -109,7 +131,7 @@
 
 #### Database
 
-- Lock/read: departure `lockForUpdate`; tìm lead `assigned|confirmed`; nếu chưa có thì candidate guide `lockForUpdate` và tái kiểm schedule.
+- Lock/read: departure `lockForUpdate`; tái kiểm tra `TourDepartureMutationGuard`; tìm lead `assigned|confirmed`; nếu chưa có thì candidate guide `lockForUpdate` và tái kiểm schedule.
 - Insert: assignment `tour_departure_id`, `guide_id`, `role=lead`, `status=assigned`, `assigned_by`, `assigned_at`.
 - Unique: `(guide_id,tour_departure_id)` tại `2026_06_28_092905_create_tour_guide_assignments_table.php:24`; DB không có unique “một lead/departure”.
 - Transaction: `DB::transaction(..., 3)`; tự retry deadlock tối đa theo tham số attempts. Rollback tự động khi exception thoát.
@@ -118,7 +140,7 @@
 
 #### Validation, Authorization, Exception và Data Integrity
 
-- Không candidate hoặc schedule conflict ném ValidationException/422; departure thiếu 404.
+- Departure có ngày khởi hành `<= today` bị controller chặn 422 và được service tái kiểm tra sau row lock; không candidate hoặc schedule conflict ném ValidationException/422; departure thiếu 404.
 - Departure row lock serialize auto/strict service calls dùng cùng departure.
 - Notification helpers catch/report Throwable nên notification lỗi không rollback assignment vì được gọi sau service transaction.
 
@@ -130,8 +152,8 @@
 
 #### Source Code
 
-- File/Class/Hàm: `backend_laravel/app/Services/GuideAssignmentService.php` — `assignSpecific()` dòng 435–491; `eligibleGuidesQuery()`/`hasScheduleConflict()`.
-- Controller/Route: `TourDepartureGuideAssignmentController::assign()` dòng 111–133; `POST /api/admin/tour-departures/{departure}/assign-guide`.
+- File/Class/Hàm: `backend_laravel/app/Services/GuideAssignmentService.php` — `assignSpecific()` dòng 441–499; `eligibleGuidesQuery()`/`hasScheduleConflict()`.
+- Controller/Route: `TourDepartureGuideAssignmentController::assign()` dòng 118–143; `POST /api/admin/tour-departures/{departure}/assign-guide`.
 - Service/Model: `GuideAssignmentService`; `TourDeparture`, `Guide`, `TourGuideAssignment`.
 - Migration: `backend_laravel/database/migrations/2026_06_28_092905_create_tour_guide_assignments_table.php`; `backend_laravel/database/migrations/2026_07_07_080821_add_assignment_fields_to_tour_guide_assignments_table.php`.
 - Middleware: admin auth/role. Policy/Gate không dùng.
@@ -140,7 +162,7 @@
 
 #### Database
 
-- Read/lock: reload+lock departure; kiểm tồn tại lead `assigned|confirmed`; query đúng guide từ strict eligible set và lock guide.
+- Read/lock: reload+lock departure; tái kiểm tra mutation guard; kiểm tồn tại lead `assigned|confirmed`; query đúng guide từ strict eligible set và lock guide.
 - Insert: role lead, status assigned, actor/time như BR-056.
 - Transaction: `DB::transaction(...,3)`; rollback khi exception; lock departure/guide.
 - Idempotent: không; khi đã có lead, kể cả cùng guide, trả validation thay vì success.
@@ -148,7 +170,7 @@
 
 #### Validation, Authorization, Exception và Data Integrity
 
-- Body `guide_id|required|integer|exists:guides,id` tại controller.
+- Departure `<= today` trả 422 field `departure` ở controller và được tái kiểm tra trong transaction; body `guide_id|required|integer|exists:guides,id` tại controller.
 - Existing lead: ValidationException field departure; guide không đủ tất cả khu vực/trống lịch: ValidationException field guide_id.
 - Một lead trong strict flow được bảo vệ bằng departure lock + existence check.
 
@@ -160,7 +182,7 @@
 
 #### Source Code
 
-- File/Class/Hàm: `backend_laravel/app/Http/Controllers/Api/Admin/TourDepartureGuideAssignmentController.php:18` — `directCandidates()` dòng 383–709.
+- File/Class/Hàm: `backend_laravel/app/Http/Controllers/Api/Admin/TourDepartureGuideAssignmentController.php:18` — `directCandidates()` dòng 420–749.
 - Route: `GET /api/admin/tour-departures/{departure}/direct-guide-candidates`.
 - Service: Không sử dụng `GuideAssignmentService` trong method này; logic nằm trực tiếp controller.
 - Model/query: `Guide`, `TourGuideAssignment`; leave và language dùng query builder; destinations qua relation.
@@ -173,7 +195,7 @@
 - Read: active guides chưa có active assignment trên chính departure; destinations, languages; assignment overlap; leave `pending|approved`; assigned tours.
 - `is_area_match`: tập destination guide intersect tập destination tour không rỗng.
 - `is_available`: không có assignment overlap và không có leave conflict. `is_eligible`: hai cờ cùng true.
-- Insert/Update/Delete/Transaction/Rollback/Lock/Audit Log: Không dùng; list read-only.
+- Insert/Update/Delete/Transaction/Rollback/Lock/Audit Log: Không dùng; list read-only. Trước query, controller gọi mutation guard và trả 422 cho departure `<= today`.
 - Idempotent: GET read-only.
 
 #### Validation, Authorization, Exception và Data Integrity
@@ -191,7 +213,7 @@
 
 #### Source Code
 
-- File/Class/Hàm: `backend_laravel/app/Http/Controllers/Api/Admin/TourDepartureGuideAssignmentController.php` — `directAssign()` dòng 711–901.
+- File/Class/Hàm: `backend_laravel/app/Http/Controllers/Api/Admin/TourDepartureGuideAssignmentController.php` — `directAssign()` dòng 751–958.
 - Route: `POST /api/admin/tour-departures/{departure}/direct-assign-guide`.
 - Service: Không sử dụng `GuideAssignmentService`; logic controller. Model: `Guide`, `TourGuideAssignment`, `TourDeparture`; leave query builder.
 - Migration: `backend_laravel/database/migrations/2026_06_28_092905_create_tour_guide_assignments_table.php`; `backend_laravel/database/migrations/2026_07_13_000000_create_guide_leave_requests_tables.php`.
@@ -203,7 +225,7 @@
 
 - Read: guide; active assignment khác departure giao `[departure_date, return_date]`; leave `pending|approved` giao range; destination tour/guide.
 - Insert/Update/Delete: chỉ xảy ra sau các guard, mô tả BR-060.
-- Transaction: guard conflict/leave/area nằm trước transaction. Rollback: không áp dụng cho các guard read-only; mutation/rollback phía sau được mô tả tại BR-060. Lock: Không dùng trên guide/departure/guard rows.
+- Transaction: guard conflict/leave/area nằm trước transaction. Rollback: không áp dụng cho các guard read-only; mutation/rollback phía sau được mô tả tại BR-060. Mutation guard được gọi trước validation và tái kiểm tra sau khi lock departure trong transaction.
 - Idempotent: cùng current guide không tạo record mới ở BR-060; guard lỗi được thực thi trước nhánh đó.
 - Audit: assignment actor/time khi create; không audit-log.
 
@@ -211,8 +233,8 @@
 
 - Body: `guide_id|required|integer|exists:guides,id`; `force_area_mismatch|nullable|boolean`.
 - Schedule conflict trả 422 + `GUIDE_SCHEDULE_CONFLICT`; leave conflict 422 + `GUIDE_LEAVE_CONFLICT`; area mismatch không force trả 409 + `AREA_MISMATCH_CONFIRM_REQUIRED`.
-- Force chỉ bỏ area guard, không bỏ schedule/leave guard.
-- **[Suy luận từ source code]** Race: guard nằm ngoài transaction/không lock nên execution path cho phép dữ liệu conflict đổi trước insert; rule không nêu concurrency, ghi nhận rủi ro nhưng kết luận mệnh đề tuần tự đúng.
+- Force chỉ bỏ area guard, không bỏ schedule/leave guard. Departure `<= today` trả 422 field `departure`.
+- **[Suy luận từ source code]** Race: các precheck schedule/leave/area nằm ngoài transaction và không lock guide/conflict rows nên execution path cho phép dữ liệu conflict đổi trước insert; rule không nêu concurrency, ghi nhận rủi ro nhưng kết luận mệnh đề tuần tự đúng. Mutation guard ngày departure vẫn được tái kiểm tra sau departure lock như đã nêu.
 
 #### Kết luận
 
@@ -222,7 +244,7 @@
 
 #### Source Code
 
-- File/Class/Hàm: `backend_laravel/app/Http/Controllers/Api/Admin/TourDepartureGuideAssignmentController.php` — `directAssign()` dòng 806–900; `notifyGuideDirectAssigned()` dòng 903–947, `notifyGuideDirectReplaced()` dòng 949–999, admin notification helpers dòng 1021–1065.
+- File/Class/Hàm: `backend_laravel/app/Http/Controllers/Api/Admin/TourDepartureGuideAssignmentController.php` — `directAssign()` dòng 751–958; notification helpers sau method này.
 - Route: `POST /api/admin/tour-departures/{departure}/direct-assign-guide`.
 - Service: notification admin qua `App\Services\AdminNotificationService`; assignment logic không tách service.
 - Model: `TourGuideAssignment`, `Guide`, `TourDeparture`, `Notification`.
@@ -236,15 +258,15 @@
 - Read: lead current status `assigned|confirmed` trên departure.
 - Cùng guide: trả existing assignment, không insert/delete và không gọi helper notification trong closure.
 - Guide khác: insert notification (helper catch lỗi), hard delete lead cũ, insert assignment mới role lead/status assigned/actor/time, insert notification guide/admin.
-- Transaction: assignment replacement và lời gọi helper nằm trong `DB::transaction()` dòng 809–887. Rollback DB mutation nếu exception thoát; các guide/admin helper catch/report `Throwable`, nên lỗi đã bị catch không rollback transaction.
-- Lock: Không có `lockForUpdate()` trong direct flow. Unique chỉ `(guide_id,departure_id)`, không unique lead per departure.
+- Transaction: assignment replacement và lời gọi helper nằm trong `DB::transaction(..., 3)` dòng 852–945. Rollback DB mutation nếu exception thoát; các guide/admin helper catch/report `Throwable`, nên lỗi đã bị catch không rollback transaction.
+- Lock: departure được reload bằng `lockForUpdate()` trước khi đọc lead và mutation guard được tái kiểm tra. Unique chỉ `(guide_id,departure_id)`, không unique lead per departure; departure lock serialize direct mutation trên cùng departure.
 - Idempotent: cùng guide giữ assignment; response vẫn 201. Không có idempotency key.
 - Audit: new assignment has actor/time; hard-deleted old assignment không có history row; notifications là thông báo, không phải audit log.
 
 #### Validation, Authorization, Exception và Data Integrity
 
 - Guard/authorization theo BR-059.
-- **[Suy luận từ source code]** Concurrent direct requests cùng đọc lead cũ theo execution path đã nêu, mỗi request delete cùng row rồi tạo lead cho guide khác; DB không cấm nhiều lead khác guide trên một departure. Rule không phát biểu invariant “mọi thời điểm chỉ một lead” cho direct concurrent execution, nên không lập BUG từ riêng mệnh đề này; scenario đã được đưa vào test-case catalog.
+- **[Suy luận từ source code]** Các direct mutation cùng departure được serialize bằng departure row lock; request chạy sau đọc lại lead sau khi request trước commit.
 - Notification bị thiếu trong nhánh helper bắt lỗi nhưng assignment vẫn commit; rule chứng minh lời gọi gửi, không cam kết delivery.
 
 #### Kết luận
@@ -255,7 +277,7 @@
 
 #### Source Code
 
-- File/Class/Hàm: `backend_laravel/app/Http/Controllers/Api/Admin/TourDepartureGuideAssignmentController.php` — `cancel()` dòng 135–169, `notifyGuideAssignmentRemoved()` dòng 345–381, `notifyAdminGuideAssignmentCancelled()` dòng 1067–1088.
+- File/Class/Hàm: `backend_laravel/app/Http/Controllers/Api/Admin/TourDepartureGuideAssignmentController.php` — `cancel()` dòng 145–207, các helper notification trong cùng controller.
 - Route: `PATCH /api/admin/tour-departures/{departure}/guide-assignments/{assignment}/cancel`.
 - Model: `backend_laravel/app/Models/TourGuideAssignment.php:8`; không dùng trait `SoftDeletes`.
 - Service: `AdminNotificationService` cho admin notification; không service assignment trong cancel.
@@ -268,14 +290,14 @@
 - Insert: notification guide/admin; Delete: hard delete `tour_guide_assignments` row; Update không có.
 - Migration `2026_06_28_092905_create_tour_guide_assignments_table.php` không có `deleted_at`.
 - Transaction: notification calls + delete trong transaction. Rollback khi exception thoát; helper notification catch/report nên lỗi notification đã catch không rollback delete.
-- Lock: Không dùng. Idempotent: lần thứ hai route-model binding không còn row và trả 404.
+- Lock: departure và assignment được `lockForUpdate()`; relation assignment/departure và mutation guard được tái kiểm tra sau lock. Idempotent: lần thứ hai route-model binding không còn row và trả 404.
 - Audit: notification lưu dấu khi insert thành công; không có assignment history/audit log.
 
 #### Validation, Authorization, Exception và Data Integrity
 
-- Không body validation. Chỉ admin; departure/assignment missing hoặc mismatch 404.
+- Không body validation. Chỉ admin; departure/assignment missing hoặc mismatch 404; departure `<= today` trả 422 field `departure`.
 - Hard delete xóa bằng chứng assignment gốc ngoài notification; đây đúng rule, không lập BUG.
-- **[Suy luận từ source code]** Concurrent cancel/replace không khóa row; scenario đã được đưa vào test-case catalog nhưng không có mệnh đề kết quả đồng thời để lập BUG.
+- **[Suy luận từ source code]** Concurrent cancel/replace trên cùng departure được serialize bằng departure row lock; assignment được tái đọc sau lock trước delete.
 
 #### Kết luận
 
@@ -495,7 +517,7 @@
 
 #### Source Code
 
-- File/Class/Hàm: `backend_laravel/app/Http/Controllers/Api/Guide/GuideLeaveRequestController.php` — `store()` dòng 183–233, `notifyAdminsAboutLeaveRequest()` dòng 356–400, `createNotification()` dòng 402–426.
+- File/Class/Hàm: `backend_laravel/app/Http/Controllers/Api/Guide/GuideLeaveRequestController.php` — `store()` dòng 148–244, trong đó transaction/lock/recheck tại dòng 186–231; các helper notification trong cùng controller.
 - Route: `POST /api/guide/leave-requests`.
 - Service: Không sử dụng; controller thao tác Eloquent trực tiếp.
 - Model: `GuideLeaveRequest`, `GuideLeaveRequestAttachment`, `Notification`, `Guide`, `User`.
@@ -508,27 +530,27 @@
 - Check overlap: cùng guide, status `pending|approved`, inclusive `start_date <= newEnd AND end_date >= newStart`.
 - Insert: `guide_leave_requests` pending; attachment rows; notifications admin.
 - File storage: public disk `guide-leave-requests`; file được ghi trong closure nhưng filesystem không tham gia DB rollback.
-- Transaction: insert request/attachment/notification trong `DB::transaction()` dòng 199–227. Rollback DB khi exception thoát.
-- Lock: Không có. Overlap check nằm trước transaction. Migration không có unique/exclusion constraint theo khoảng ngày; chỉ indexes.
-- Idempotent: không có idempotency key; gọi tuần tự cùng range sau lần đầu trả 422, nhưng execution path đồng thời cho cả hai request qua check.
+- Transaction: lock/check và insert request/attachment/notification cùng trong `DB::transaction(..., 3)` dòng 186–231. Rollback DB khi exception thoát.
+- Lock: guide row là stable serialization row được `lockForUpdate()` tại dòng 187–190; overlap `pending|approved` được tái query bằng `lockForUpdate()` tại dòng 192–198 trước insert. Migration vẫn chỉ có indexes và không có exclusion constraint theo range; invariant được bảo vệ bằng application transaction/row lock.
+- Idempotent: không có idempotency key; request đến sau khi giành guide lock sẽ đọc row đã commit và trả 422 nếu overlap.
 - Audit: timestamps/request user; không audit-log.
 
 #### Validation, Authorization, Exception và Data Integrity
 
 - Validation/authorization theo BR-068.
-- Flow tuần tự đúng: overlap trả 422 trước insert.
-- **[Suy luận từ source code]** Race Condition: (1) request A và B cùng query `exists()` trước transaction, (2) cả hai thấy false, (3) mỗi transaction insert pending; không row lock và không DB constraint ngăn overlap. Khi đó source cho phép hai đơn giao nhau, trái mệnh đề tuyệt đối “không được tạo”.
+- Overlap trả 422 trước insert; guide lock serialize các request của cùng guide.
+- Test tuần tự: `backend_laravel/tests/Feature/GuideBusinessModelRegressionTest.php:218-244`. Test concurrency MySQL: `backend_laravel/tests/Feature/BusinessModelConcurrencyMysqlTest.php:241-275` xác minh status `[201, 422]` và chỉ một leave active.
 - **[Suy luận từ source code]** Files đã store không được xóa nếu DB transaction rollback; execution path để lại orphan file, không làm mất record nghiệp vụ.
 
 #### Kết luận
 
-**Sai.** Rule đúng trong thực thi tuần tự nhưng không được bảo đảm khi hai request đồng thời. Xem `BUG-RG-001`.
+**Đúng.** Overlap invariant được tái kiểm tra trong transaction sau guide row lock; `BUG-RG-001` đã `Resolved`.
 
 ### BR-070 — Guide chỉ hủy đơn của mình khi còn pending
 
 #### Source Code
 
-- File/Class/Hàm: `backend_laravel/app/Http/Controllers/Api/Guide/GuideLeaveRequestController.php` — `cancel()` dòng 236–274; notification helpers dòng 356–426.
+- File/Class/Hàm: `backend_laravel/app/Http/Controllers/Api/Guide/GuideLeaveRequestController.php` — `cancel()` dòng 246–302; notification helpers trong cùng controller.
 - Route: `PATCH /api/guide/leave-requests/{leaveRequest}/cancel`.
 - Service: Không sử dụng. Model: `Guide`, `GuideLeaveRequest`, `Notification`.
 - Migration: `backend_laravel/database/migrations/2026_07_13_000000_create_guide_leave_requests_tables.php`; `backend_laravel/database/migrations/2026_06_10_220130_create_notifications_table.php`.
@@ -537,11 +559,11 @@
 
 #### Database
 
-- Read: guide profile/owner và `guide_leave_requests.status`.
+- Read: guide profile/owner; trong transaction reload request row, owner và `guide_leave_requests.status`.
 - Update: `status='cancelled'`, unvalidated `cancel_reason` từ input, `cancelled_at`, timestamps.
 - Insert: admin notifications. Delete: Không có; model có SoftDeletes nhưng endpoint chỉ update status.
-- Transaction: update+notifications trong `DB::transaction()` dòng 257–267. Rollback DB khi exception thoát.
-- Lock: Không có `lockForUpdate`; status/owner check ở trước transaction.
+- Transaction: row lock, owner/state recheck, update và notifications trong `DB::transaction(..., 3)` dòng 261–287. Rollback DB khi exception thoát.
+- Lock: request row được `lockForUpdate()` tại dòng 262–265; owner tái kiểm tra dòng 267–270; chỉ status `pending` mới được update tại dòng 272–280.
 - Idempotent: lần tuần tự tiếp theo trả 422 vì không pending; không idempotency key.
 - Audit: cancel reason/time; không audit-log history.
 
@@ -549,17 +571,17 @@
 
 - Owner mismatch/no guide profile abort 404; status không pending trả 422.
 - `cancel_reason` validation: **KHÔNG TÌM THẤY BẰNG CHỨNG TRONG SOURCE CODE**; rule không yêu cầu constraint.
-- **[Suy luận từ source code]** Race với admin decision: guide đọc pending; admin cập nhật approved; sau đó guide transaction vẫn ghi cancelled vì không lock/tái kiểm. Nhánh ngược lại để admin đọc guard cũ rồi ghi approved sau cancel cũng tồn tại. Mutation được thực thi khi state không còn pending, trái rule.
+- Test stale-model: `backend_laravel/tests/Feature/GuideBusinessModelRegressionTest.php:246-281`; test cancel/decision thật sự đồng thời trên MySQL: `backend_laravel/tests/Feature/BusinessModelConcurrencyMysqlTest.php:277-321`, kết quả một action 200 và action còn lại 422.
 
 #### Kết luận
 
-**Sai.** Ownership và tuần tự đúng, nhưng điều kiện “chỉ khi pending” không atomic. Xem `BUG-RG-002` cùng BR-071.
+**Đúng.** Ownership và state `pending` được tái kiểm tra trên row đã lock; `BUG-RG-002` đã `Resolved`.
 
 ### BR-071 — Admin chỉ quyết định approved/rejected, chặn cancelled/quá hạn và cho đổi quyết định
 
 #### Source Code
 
-- File/Class/Hàm: `backend_laravel/app/Http/Controllers/Api/Admin/AdminGuideLeaveRequestController.php:15` — `approve()` dòng 168–171, `reject()` 173–176, `updateDecision()` 178–185, `updateStatus()` 187–234; notifications dòng 296–405.
+- File/Class/Hàm: `backend_laravel/app/Http/Controllers/Api/Admin/AdminGuideLeaveRequestController.php:15` — `approve()` dòng 168–171, `reject()` 173–176, `updateDecision()` 178–185, `updateStatus()` 187–256; notification helpers trong cùng controller.
 - Routes: POST approve/reject và PATCH decision tại `backend_laravel/routes/api.php:487-489`.
 - Service/Form Request: Không sử dụng; controller validation trực tiếp.
 - Model: `GuideLeaveRequest`, `Guide`, `Notification`, `User`.
@@ -573,8 +595,8 @@
 - Read: current status/end date; guide/admin relations.
 - Update: status approved/rejected; admin_note; admin_id; reviewed_at; timestamps.
 - Insert: guide/admin notifications. Delete: Không có.
-- Transaction: Không sử dụng trong `updateStatus()`. Rollback: Không có atomic rollback bao trùm leave update + nhiều notification inserts.
-- Lock: Không sử dụng; state check trước update.
+- Transaction: lock, state/date recheck, update và các notification insert nằm trong `DB::transaction(..., 3)` dòng 196–238; exception thoát closure rollback toàn bộ DB mutation.
+- Lock: request row được `lockForUpdate()` tại dòng 197–200; cancelled/end-date guard được đánh giá trên model đã reload sau lock.
 - Idempotent: source cho phép quyết định lại approved/rejected nếu chưa cancelled/quá hạn; mỗi lần cập nhật reviewer/time/note và tạo notification mới.
 - Audit: actor/time/note/current status trên request; không lưu lịch sử các quyết định cũ ngoài notification text/data.
 
@@ -583,17 +605,17 @@
 - Decision PATCH: status required `approved|rejected`; admin_note nullable string max2000 ở common update.
 - Cancelled trả 422; `end_date < today` trả 422; approved/rejected hiện hữu không bị chặn nên được đổi quyết định.
 - Chỉ admin route. Missing model 404.
-- **[Suy luận từ source code]** Race với guide cancel như BR-070 do không transaction/lock/conditional status update. Ngoài ra, notification insert ném exception sau request update làm state đã đổi, API trả lỗi và notification đã gửi một phần; source không rollback.
+- Test redecision: `backend_laravel/tests/Feature/GuideBusinessModelRegressionTest.php:283-296`; stale-model và cancel/decision concurrency được bao phủ tại dòng 246–281 của file này và `BusinessModelConcurrencyMysqlTest.php:277-321`.
 
 #### Kết luận
 
-**Sai.** Vocabulary, guards và redecision đúng tuần tự, nhưng “không xử lý cancelled” không được bảo đảm đồng thời với guide cancel. Xem `BUG-RG-002`.
+**Đúng.** Vocabulary, guards, redecision, transaction và row lock bảo đảm admin không xử lý state cancelled đã thắng lock; `BUG-RG-002` đã `Resolved`.
 
 ### BR-072 — Guide tạo một pending replacement request hợp lệ
 
 #### Source Code
 
-- File/Class/Hàm: `backend_laravel/app/Http/Controllers/Api/Guide/GuideTourController.php:15` — `requestReplacement()` dòng 532–617, `notifyAdminsAboutReplacementRequest()` dòng 642–708.
+- File/Class/Hàm: `backend_laravel/app/Http/Controllers/Api/Guide/GuideTourController.php:15` — `requestReplacement()` dòng 533–692, notification helper sau method này.
 - Request: `backend_laravel/app/Http/Requests/StoreGuideReplacementRequest.php:8` — `rules()` dòng 18–23.
 - Route: `POST /api/guide/tours/{tourDeparture}/replacement-requests`.
 - Service/Model: Không service hoặc Eloquent model riêng cho request; `Guide`, `TourDeparture`, `Notification`; assignment/request dùng `DB::table`. `App\Models\GuideReplacementRequest`: **KHÔNG TÌM THẤY BẰNG CHỨNG TRONG SOURCE CODE**.
@@ -605,29 +627,28 @@
 
 - Read: assignment cùng departure/guide với `status != cancelled`; departure date; pending request cùng `(departure,current_guide)`.
 - Insert: `guide_replacement_requests` gồm departure/current guide/requester/reason/evidence/status pending/timestamps; notifications admin.
-- File: evidence store trên public disk trước DB transaction.
-- Transaction: request insert + notification insert trong transaction. Rollback DB khi exception thoát; file không rollback.
-- Lock: Không dùng; duplicate-pending check ngoài transaction.
+- File: evidence store trên public disk trước DB transaction; file được xóa khi transaction ném exception hoặc khi recheck trả outcome không tạo request tại dòng 650–660.
+- Transaction: departure/assignment/date/pending recheck, request insert và notification insert trong `DB::transaction(..., 3)` dòng 587–649. Rollback DB khi exception thoát.
+- Lock: departure row dùng làm stable serialization row tại dòng 594–597; assignment và pending request được `lockForUpdate()` và tái kiểm tra tại dòng 599–625.
 - Constraint: migration `2026_07_12_000000_create_guide_replacement_requests_table.php` có indexes `(departure,status)` và `(current_guide,status)`, không unique conditional/key ngăn hai pending.
-- Idempotent: gọi tuần tự thứ hai trả 409; concurrent không được bảo đảm.
+- Idempotent: không có idempotency key; request thứ hai cùng guide/departure trả 409 sau early check hoặc sau khi giành departure lock và tái kiểm tra pending.
 - Audit: requested_by/timestamps; không audit-log.
 
 #### Validation, Authorization, Exception và Data Integrity
 
 - Reason required string 10–2000; evidence nullable one file JPG/JPEG/PNG/WebP/PDF max5120 KB.
 - Phải gửi khi `departure_date >= today+5 days`; quá muộn 422. Không assignment 403; không guide profile 404; pending hiện hữu 409.
-- **[Suy luận từ source code]** Race Condition: hai request đồng thời cùng thấy không pending rồi đều insert; không lock/unique. Điều này trái “không có yêu cầu pending khác” như invariant tạo.
-- **[Suy luận từ source code]** DB failure sau file store để lại orphan evidence; đây không phải mệnh đề chính.
+- Test tuần tự: `backend_laravel/tests/Feature/GuideBusinessModelRegressionTest.php:298-330`; test concurrency MySQL: `backend_laravel/tests/Feature/BusinessModelConcurrencyMysqlTest.php:323-356`, status `[201, 409]` và đúng một pending row.
 
 #### Kết luận
 
-**Sai.** Flow tuần tự đúng nhưng một-pending không atomic. Xem `BUG-RG-003`.
+**Đúng.** Invariant một pending được tái kiểm tra sau departure row lock trong cùng transaction; `BUG-RG-003` đã `Resolved`.
 
 ### BR-073 — Admin chỉ xử lý replacement pending và thay assignment trong transaction
 
 #### Source Code
 
-- File/Class/Hàm: `backend_laravel/app/Http/Controllers/Api/Admin/AdminGuideReplacementRequestController.php:14` — `approve()` dòng 51–137, `reject()` 139–183, `findReplacementGuide()` 185–220, notifications 222–335.
+- File/Class/Hàm: `backend_laravel/app/Http/Controllers/Api/Admin/AdminGuideReplacementRequestController.php:14` — `approve()` dòng 51–160, `reject()` 162–228, `findReplacementGuide()` 230–266, notification helpers sau các method này.
 - Routes: `POST /api/admin/guide-replacement-requests/{id}/approve|reject`.
 - Service/Repository: Không sử dụng; query builder/controller. Model: `Guide`, `TourDeparture`, `Notification`; request/assignment query builder. Eloquent request model không tồn tại.
 - Migration: `backend_laravel/database/migrations/2026_07_12_000000_create_guide_replacement_requests_table.php`; `backend_laravel/database/migrations/2026_06_28_092905_create_tour_guide_assignments_table.php`.
@@ -640,24 +661,25 @@
 - Candidate: guide khác current; active nếu column tồn tại; không có overlapping assignment status `assigned`; ưu tiên COUNT assigned ASC rồi guide ID ASC. Leave/destination/rest-day/confirmed assignment không nằm trong query, đúng vocabulary cụ thể của rule.
 - Approve update: assignment current guide chỉ khi status assigned -> cancelled; insert new lead assigned; request -> approved, replacement/reviewer/time/note; notifications.
 - Reject update: request -> rejected, reviewer/time/note; notifications.
-- Transaction: approve/reject mutations trong transaction; rollback DB khi exception thoát.
-- Lock: Không có. Pending check và candidate selection nằm trước transaction; update không có `WHERE status='pending'`.
-- Idempotent: gọi tuần tự sau processed trả 409; concurrent không được bảo đảm.
+- Transaction: approve/reject bao gồm departure/request lock, pending recheck, assignment/request mutation và notifications trong `DB::transaction(..., 3)`; rollback DB khi exception thoát.
+- Lock: cả hai action lock departure trước, sau đó lock replacement request và tái kiểm tra `status='pending'` (`approve()` dòng 57–83; `reject()` dòng 168–194). Candidate guide của approve dùng `lockForUpdate()` dòng 252–265. Các update request còn có conditional `WHERE status='pending'` dòng 114–117 và 196–199.
+- Idempotent: không có idempotency key; action đến sau lock và thấy non-pending trả 409 mà không mutation/notification.
 - Audit: reviewer/time/note; không decision history/audit-log.
 
 #### Validation, Authorization, Exception và Data Integrity
 
 - admin_note nullable string max2000; request missing 404; non-pending 409; không candidate 422.
-- **[Suy luận từ source code]** Race approve/reject: cả hai đọc pending trước transaction theo execution path cạnh tranh. Approve thay assignment và set approved, sau đó reject set request rejected; final request rejected trong khi replacement assignment đã được tạo. Hai approve cạnh tranh insert; unique `(guide_id,departure_id)` chỉ chặn khi cùng candidate và phát sinh DB exception, không biến check pending thành atomic.
-- Nhánh trên trái rule “chỉ xử lý pending” và làm request state không khớp assignment state.
+- Test tuần tự: `backend_laravel/tests/Feature/GuideBusinessModelRegressionTest.php:332-383`; test approve/reject thật sự đồng thời trên MySQL: `backend_laravel/tests/Feature/BusinessModelConcurrencyMysqlTest.php:358-430`, status `[200, 409]` và assignment khớp state approved/rejected cuối.
 
 #### Kết luận
 
-**Sai.** Transaction bao mutation nhưng pending guard không nằm trong lock/conditional update. Xem `BUG-RG-004`.
+**Đúng.** Pending guard được tái kiểm tra sau row lock, update có điều kiện state và mutation/notification cùng transaction; `BUG-RG-004` đã `Resolved`.
 
 ## Danh sách BUG
 
-### BUG-RG-001 — Hai request đồng thời tạo được hai đơn nghỉ giao nhau
+Phần “Mô tả/Bằng chứng/Điều kiện tái hiện” bên dưới là **chẩn đoán lịch sử trước khi sửa**; số dòng trong phần này thuộc snapshot source tại thời điểm audit. Mỗi BUG có thêm bằng chứng source/test hậu sửa và không còn được tính là BUG đang mở.
+
+### BUG-RG-001 — Hai request đồng thời tạo được hai đơn nghỉ giao nhau — Resolved
 
 - Business Rule: BR-069.
 - Mô tả: **[Suy luận từ source code]** Hai POST đồng thời cho cùng guide/range cùng vượt overlap check và cùng insert pending theo execution path check-then-insert.
@@ -666,8 +688,9 @@
 - Database: hai insert vào `guide_leave_requests`; mỗi request tiếp tục insert attachment/notification khi dữ liệu liên quan tồn tại.
 - Mức độ ảnh hưởng: **High** — invariant đơn nghỉ cốt lõi bị phá, dữ liệu availability chứa hai leave giao nhau.
 - Điều kiện tái hiện: Guide hợp lệ chưa có leave; phát hai POST cùng lúc với các khoảng giao nhau và dữ liệu hợp lệ; cả hai thực hiện overlap SELECT trước khi transaction kia commit.
+- **Post-fix — Resolved:** `GuideLeaveRequestController::store()` hiện lock guide row, tái query overlap và insert trong cùng transaction (`backend_laravel/app/Http/Controllers/Api/Guide/GuideLeaveRequestController.php:186-231`). `BusinessModelConcurrencyMysqlTest.php:241-275` chạy hai process và assert `[201, 422]`, một active row.
 
-### BUG-RG-002 — Cancel và admin decision ghi đè state không còn hợp lệ khi đồng thời
+### BUG-RG-002 — Cancel và admin decision ghi đè state không còn hợp lệ khi đồng thời — Resolved
 
 - Business Rule: BR-070, BR-071.
 - Mô tả: **[Suy luận từ source code]** Guide cancel và admin approve/reject đồng thời cùng kiểm tra state cũ rồi ghi state mới theo execution path cạnh tranh; kết quả cho phép cancel request đã approved hoặc admin xử lý request đã cancelled.
@@ -676,8 +699,9 @@
 - Database: cạnh tranh update `guide_leave_requests.status`, reviewer/cancel fields; notifications ghi hai kết quả mâu thuẫn khi cả hai insert thành công.
 - Mức độ ảnh hưởng: **High** — state machine cốt lõi bị phá.
 - Điều kiện tái hiện: Request pending, chưa quá hạn; guide gửi cancel đồng thời admin approve/reject sao cho cả hai đọc pending/cancelled guard trước update của bên kia.
+- **Post-fix — Resolved:** guide cancel và admin decision đều lock/reload request row, tái kiểm tra state và ghi notification trong transaction (`GuideLeaveRequestController.php:261-287`; `AdminGuideLeaveRequestController.php:196-238`). `BusinessModelConcurrencyMysqlTest.php:277-321` assert chỉ một transition thắng (`[200, 422]`).
 
-### BUG-RG-003 — Hai request đồng thời tạo nhiều replacement pending cho cùng guide/departure
+### BUG-RG-003 — Hai request đồng thời tạo nhiều replacement pending cho cùng guide/departure — Resolved
 
 - Business Rule: BR-072.
 - Mô tả: **[Suy luận từ source code]** Duplicate check là check-then-insert không lock và DB không unique; hai request đồng thời tạo hai pending theo execution path cạnh tranh.
@@ -686,8 +710,9 @@
 - Database: duplicate logical rows trong `guide_replacement_requests`; duplicate notification admin.
 - Mức độ ảnh hưởng: **High** — flow replacement cốt lõi có nhiều yêu cầu active mâu thuẫn.
 - Điều kiện tái hiện: Guide được assignment, departure còn ít nhất 5 ngày, chưa có pending; gửi hai POST đồng thời cùng departure.
+- **Post-fix — Resolved:** `GuideTourController::requestReplacement()` lock departure/assignment, tái kiểm tra pending rồi insert trong cùng transaction (`backend_laravel/app/Http/Controllers/Api/Guide/GuideTourController.php:587-649`). `BusinessModelConcurrencyMysqlTest.php:323-356` assert `[201, 409]` và một pending row.
 
-### BUG-RG-004 — Approve/reject replacement đồng thời làm request và assignment không nhất quán
+### BUG-RG-004 — Approve/reject replacement đồng thời làm request và assignment không nhất quán — Resolved
 
 - Business Rule: BR-073.
 - Mô tả: **[Suy luận từ source code]** Hai action đều đọc pending trước transaction, không lock request. Approve tạo assignment thay thế rồi reject ghi request rejected theo execution path cạnh tranh.
@@ -696,3 +721,4 @@
 - Database: update `tour_guide_assignments`, insert assignment mới, update `guide_replacement_requests`, insert notifications.
 - Mức độ ảnh hưởng: **High** — trạng thái request không phản ánh assignment thực tế.
 - Điều kiện tái hiện: Một request pending có candidate; gửi approve và reject đồng thời để cả hai đọc pending trước khi một transaction commit.
+- **Post-fix — Resolved:** approve/reject cùng lock departure rồi request, tái kiểm tra pending, update có `WHERE status='pending'` và giữ mutation/notification trong transaction (`AdminGuideReplacementRequestController.php:57-133`, `168-211`). `BusinessModelConcurrencyMysqlTest.php:358-430` assert `[200, 409]` và assignment khớp state cuối.
