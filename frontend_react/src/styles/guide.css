@@ -164,6 +164,64 @@
   stroke: #ffffff;
 }
 
+.support-nav-group {
+  display: grid;
+  gap: 4px;
+}
+
+.support-nav-parent {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.guide-nav-main {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+}
+
+.support-nav-caret {
+  width: 16px;
+  height: 16px;
+  margin-left: auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+  transition: transform 160ms ease;
+}
+
+.support-nav-caret.is-open {
+  transform: rotate(180deg);
+}
+
+.support-nav-children {
+  display: grid;
+  gap: 2px;
+  margin: -1px 0 4px 34px;
+}
+
+.support-nav-child {
+  border-radius: 9px;
+  color: #64748b;
+  padding: 9px 12px;
+  text-decoration: none;
+  font-size: 0.84rem;
+  font-weight: 650;
+}
+
+.support-nav-child:hover,
+.support-nav-child.active {
+  color: #1454f0;
+  background: rgba(20, 84, 240, 0.08);
+}
+
 .guide-nav-badge {
   background: #ff6a00;
   color: #ffffff;
@@ -3947,6 +4005,18 @@
   border: 1px solid #e5e7eb;
   background: #ffffff;
   box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
+}
+
+.guide-history-page {
+  min-width: 0;
+}
+
+.guide-history-loading {
+  margin: 16px 0 0;
+  color: #334155;
+  font-size: 0.92rem;
+  font-weight: 750;
+  text-align: center;
 }
 
 .guide-tour-list-head {
@@ -9492,6 +9562,25 @@
   font-weight: 950;
   cursor: pointer;
 }
+
+.guide-shot-row-actions .guide-shot-replacement-button {
+  height: auto;
+  min-height: 28px;
+  padding: 5px 9px;
+  border: 1px solid #fbbf24;
+  background: #fffbeb;
+  color: #b45309;
+  font-size: 0.7rem;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.guide-shot-row-actions .guide-shot-replacement-button:disabled {
+  border-color: #e2e8f0;
+  background: #f8fafc;
+  color: #94a3b8;
+  cursor: not-allowed;
+}
 .guide-shot-pagination,
 .guide-attendance-footer {
   display: flex;
@@ -9931,6 +10020,40 @@
   font-weight: 800;
   box-shadow: 0 8px 22px rgba(15, 23, 42, 0.16);
   cursor: pointer;
+}
+
+.guide-tour-detail-actions {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.guide-tour-detail-actions .guide-tour-detail-close {
+  position: static;
+}
+
+.guide-tour-detail-replacement {
+  min-height: 36px;
+  border: 1px solid #fbbf24;
+  border-radius: 999px;
+  background: #fffbeb;
+  color: #b45309;
+  padding: 0 13px;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.guide-tour-detail-replacement:disabled {
+  border-color: #e2e8f0;
+  background: #f8fafc;
+  color: #94a3b8;
+  cursor: not-allowed;
 }
 .guide-tour-detail-hero {
   min-height: 230px;

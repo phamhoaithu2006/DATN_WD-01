@@ -4,6 +4,7 @@ import apiClient from '../../services/apiClient'
 import adminGuideLeaveRequestApi from '../../services/adminGuideLeaveRequestApi.js'
 import AdminPageHeader from '../../components/admin/AdminPageHeader'
 import AdminGuideLeaveRequestsPanel from '../../components/admin/guides/AdminGuideLeaveRequestsPanel.jsx'
+import AdminGuideActivityPanel from '../../components/admin/guides/AdminGuideActivityPanel.jsx'
 import Icon from '../../components/customer/Icon'
 import '../../styles/support-staff.css'
 
@@ -328,6 +329,7 @@ function GuideManagementPage() {
   const [leavePanelOpen, setLeavePanelOpen] = useState(
     searchParams.get('openLeaveRequests') === '1',
   )
+  const [activityPanelOpen, setActivityPanelOpen] = useState(false)
   const [leaveSummary, setLeaveSummary] = useState({
     pending_count: 0,
     processed_count: 0,
@@ -1057,17 +1059,27 @@ function GuideManagementPage() {
                   </button>
                 </div>
 
-                <button
-                  type="button"
-                  className={`admin-guide-leave-menu-button ${leavePanelOpen ? 'active' : ''}`}
-                  onClick={() => setLeavePanelOpen((current) => !current)}
-                >
-                  Đơn xin nghỉ
+                <div className="admin-guide-header-secondary-actions">
+                  <button
+                    type="button"
+                    className={`admin-guide-leave-menu-button ${leavePanelOpen ? 'active' : ''}`}
+                    onClick={() => setLeavePanelOpen((current) => !current)}
+                  >
+                    Đơn xin nghỉ
 
-                  {leavePendingCount > 0 ? (
-                    <span>{leavePendingCount > 99 ? '99+' : leavePendingCount}</span>
-                  ) : null}
-                </button>
+                    {leavePendingCount > 0 ? (
+                      <span>{leavePendingCount > 99 ? '99+' : leavePendingCount}</span>
+                    ) : null}
+                  </button>
+
+                  <button
+                    type="button"
+                    className={`admin-guide-leave-menu-button ${activityPanelOpen ? 'active' : ''}`}
+                    onClick={() => setActivityPanelOpen((current) => !current)}
+                  >
+                    Lịch sử thao tác
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -1903,6 +1915,14 @@ function GuideManagementPage() {
               highlightRequestId={highlightedLeaveRequestId}
               onClose={() => setLeavePanelOpen(false)}
             />
+          </div>
+        </div>
+      ) : null}
+
+      {activityPanelOpen ? (
+        <div className="admin-guide-leave-card-backdrop" role="presentation" onMouseDown={() => setActivityPanelOpen(false)}>
+          <div className="admin-guide-leave-card-modal" role="dialog" aria-modal="true" aria-label="Lịch sử thao tác HDV" onMouseDown={(event) => event.stopPropagation()}>
+            <AdminGuideActivityPanel onClose={() => setActivityPanelOpen(false)} />
           </div>
         </div>
       ) : null}

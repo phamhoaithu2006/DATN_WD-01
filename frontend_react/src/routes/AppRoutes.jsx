@@ -41,6 +41,7 @@ import GuideToursPage from '../pages/guide/GuideToursPage'
 import GuideReviewsPage from '../pages/guide/GuideReviews/GuideReviewsPage'
 import SupportLayout from '../layouts/SupportLayout'
 import SupportDashboardPage from '../pages/support/SupportDashboardPage'
+import SupportChatbotPage from '../pages/support/SupportChatbotPage'
 import SupportProfilePage from '../pages/support/SupportProfilePage'
 import SupportNotificationsPage from '../pages/support/SupportNotificationsPage'
 import SupportRequestsPage from '../pages/support/SupportRequestsPage'
@@ -112,6 +113,7 @@ function AppRoutes() {
     <Route path="/guide/profile" element={guidePage(<GuideProfilePage />)} />
     <Route path="/support" element={supportPage(<SupportDashboardPage />)} />
     <Route path="/support/profile" element={supportPage(<SupportProfilePage />)} />
+    <Route path="/support/chatbot" element={supportPage(<SupportChatbotPage />)} />
     <Route path="/support/work-schedule" element={supportPage(<SupportWorkSchedulePage />)} />
     <Route path="/support/requests" element={supportPage(<SupportRequestsPage />)} />
     <Route path="/support/notifications" element={supportPage(<SupportNotificationsPage />)} />

@@ -7,9 +7,9 @@ use App\Models\Guide;
 use App\Models\GuideLeaveRequest;
 use App\Models\Notification;
 use App\Models\User;
-use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 class AdminGuideLeaveRequestController extends Controller
@@ -189,39 +189,61 @@ class AdminGuideLeaveRequestController extends Controller
         GuideLeaveRequest $leaveRequest,
         string $status
     ): JsonResponse {
-        if ($leaveRequest->status === 'cancelled') {
-            return response()->json([
-                'message' => 'Đơn xin nghỉ này đã bị HDV hủy, không thể phê duyệt.',
-            ], 422);
-        }
-
-        if ($leaveRequest->end_date && $leaveRequest->end_date->lt(now()->startOfDay())) {
-            return response()->json([
-                'message' => 'Thời gian xin nghỉ đã qua nên không thể sửa trạng thái phê duyệt.',
-            ], 422);
-        }
-
         $validated = $request->validate([
             'admin_note' => ['nullable', 'string', 'max:2000'],
         ]);
 
-        $oldStatus = $leaveRequest->status;
+        $result = DB::transaction(function () use ($request, $leaveRequest, $status, $validated) {
+            $lockedLeaveRequest = GuideLeaveRequest::query()
+                ->whereKey($leaveRequest->id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        $leaveRequest->update([
-            'status' => $status,
-            'admin_note' => $validated['admin_note'] ?? null,
-            'admin_id' => $request->user()?->id,
-            'reviewed_at' => now(),
-        ]);
+            if ($lockedLeaveRequest->status === 'cancelled') {
+                return [
+                    'error' => 'Đơn xin nghỉ này đã bị HDV hủy, không thể phê duyệt.',
+                ];
+            }
 
-        $leaveRequest->load([
-            'guide.user:id,full_name,email',
-            'attachments',
-            'admin:id,full_name,email',
-        ]);
+            if (
+                $lockedLeaveRequest->end_date
+                && $lockedLeaveRequest->end_date->lt(now()->startOfDay())
+            ) {
+                return [
+                    'error' => 'Thời gian xin nghỉ đã qua nên không thể sửa trạng thái phê duyệt.',
+                ];
+            }
 
-        $this->notifyGuide($leaveRequest, $oldStatus);
-        $this->notifyAdminsDecision($leaveRequest, $request->user(), $oldStatus);
+            $oldStatus = $lockedLeaveRequest->status;
+
+            $lockedLeaveRequest->update([
+                'status' => $status,
+                'admin_note' => $validated['admin_note'] ?? null,
+                'admin_id' => $request->user()?->id,
+                'reviewed_at' => now(),
+            ]);
+
+            $lockedLeaveRequest->load([
+                'guide.user:id,full_name,email',
+                'attachments',
+                'admin:id,full_name,email',
+            ]);
+
+            $this->notifyGuide($lockedLeaveRequest, $oldStatus);
+            $this->notifyAdminsDecision($lockedLeaveRequest, $request->user(), $oldStatus);
+
+            return [
+                'leave_request' => $lockedLeaveRequest,
+            ];
+        }, 3);
+
+        if (isset($result['error'])) {
+            return response()->json([
+                'message' => $result['error'],
+            ], 422);
+        }
+
+        $leaveRequest = $result['leave_request'];
 
         return response()->json([
             'status' => 'success',
@@ -297,7 +319,7 @@ class AdminGuideLeaveRequestController extends Controller
     {
         $guideUserId = $leaveRequest->guide?->user_id;
 
-        if (!$guideUserId) {
+        if (! $guideUserId) {
             return;
         }
 
@@ -385,7 +407,7 @@ class AdminGuideLeaveRequestController extends Controller
         string $message,
         array $data = []
     ): void {
-        if (!$userId) {
+        if (! $userId) {
             return;
         }
 

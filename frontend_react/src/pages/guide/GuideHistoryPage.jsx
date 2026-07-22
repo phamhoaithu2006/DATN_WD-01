@@ -376,7 +376,7 @@ function GuideHistoryPage() {
   }
 
   return (
-    <section className="guide-tour-list-shell">
+    <section className="guide-history-page">
       <div className="guide-card">
         <div className="guide-card-header">
           <SectionHeader
@@ -435,10 +435,7 @@ function GuideHistoryPage() {
           {error ? <div className="guide-dashboard-error" style={{ marginTop: 16 }}>{error}</div> : null}
 
           {loading ? (
-            <div className="guide-empty-card" style={{ marginTop: 16 }}>
-              <strong>Đang tải lịch sử tour...</strong>
-              <p>Vui lòng chờ trong giây lát.</p>
-            </div>
+            <p className="guide-history-loading">Đang tải lịch sử tour...</p>
           ) : items.length === 0 ? (
             <div className="guide-empty-card" style={{ marginTop: 16 }}>
               <strong>Chưa có tour đã hoàn thành</strong>

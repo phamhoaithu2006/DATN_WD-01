@@ -21,11 +21,11 @@ class CustomerController extends Controller
     {
         // 1. Kiểm tra dữ liệu FE gửi lên
         $validatedData = $request->validate([
-            // Họ tên bắt buộc, là chuỗi và tối đa 255 ký tự
-            'full_name' => 'required|string|max:255',
+            // Họ tên bắt buộc, là chuỗi và tối đa 150 ký tự
+            'full_name' => 'required|string|max:150',
 
             // Số điện thoại có thể bỏ trống, tối đa 20 ký tự
-            'phone' => 'nullable|string|max:10',
+            'phone' => 'nullable|string|max:20',
 
             // FE gửi file ảnh với key là "avatar"
             // Chỉ nhận jpg, jpeg, png, webp và dung lượng tối đa 2MB

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\Admin\AdminGuideLeaveRequestController;
+use App\Http\Controllers\Api\Admin\AdminGuideActivityController;
 use App\Http\Controllers\Api\Admin\AdminGuideReplacementRequestController;
 use App\Http\Controllers\Api\Admin\AdminNotificationBellController;
 use App\Http\Controllers\Api\Admin\AdminNotificationController;
@@ -413,6 +414,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(functi
 
     // Đơn xin nghỉ HDV
     Route::get('guide-leave-requests', [AdminGuideLeaveRequestController::class, 'index']);
+    Route::get('guide-activities', [AdminGuideActivityController::class, 'index']);
     Route::get('guide-leave-requests/{leaveRequest}', [AdminGuideLeaveRequestController::class, 'show']);
     Route::post('guide-leave-requests/{leaveRequest}/approve', [AdminGuideLeaveRequestController::class, 'approve']);
     Route::post('guide-leave-requests/{leaveRequest}/reject', [AdminGuideLeaveRequestController::class, 'reject']);

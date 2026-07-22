@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { getSupportRequestBadgeCount } from '../../services/supportRequestApi'
 
 const supportMenuItems = [
@@ -14,27 +14,7 @@ const supportMenuItems = [
     ),
   },
   {
-    label: 'Lịch làm việc',
-    path: '/support/work-schedule',
-    icon: (
-      <>
-        <rect
-          x="3"
-          y="4"
-          width="18"
-          height="18"
-          rx="2"
-          ry="2"
-        />
-        <line x1="16" y1="2" x2="16" y2="6" />
-        <line x1="8" y1="2" x2="8" y2="6" />
-        <line x1="3" y1="10" x2="21" y2="10" />
-      </>
-    ),
-  },
-  {
     label: 'Yêu cầu hỗ trợ',
-    path: '/support/requests',
     icon: (
       <>
         <path d="M12 2a10 10 0 1 0 10 10" />
@@ -42,6 +22,10 @@ const supportMenuItems = [
         <circle cx="12" cy="16" r="1" />
       </>
     ),
+    children: [
+      { label: 'Form hỗ trợ', path: '/support/requests' },
+      { label: 'Chatbot AI hỗ trợ', path: '/support/chatbot' },
+    ],
   },
   {
     label: 'Thông báo',
@@ -59,8 +43,15 @@ function SupportSidebar({
   collapsed = false,
   onLogout,
 }) {
+  const location = useLocation()
+  const navigate = useNavigate()
   const [requestBadge, setRequestBadge] =
     useState(0)
+  const isSupportRequestSection =
+    location.pathname === '/support/requests' ||
+    location.pathname === '/support/chatbot'
+  const [supportMenuOpen, setSupportMenuOpen] =
+    useState(true)
 
   /*
   |--------------------------------------------------------------------------
@@ -196,12 +187,87 @@ function SupportSidebar({
       >
         {supportMenuItems.map((item) => {
           const isRequestMenu =
-            item.path ===
-            '/support/requests'
+            Boolean(item.children)
 
           const showBadge =
             isRequestMenu &&
             requestBadge > 0
+
+          if (item.children) {
+            return (
+              <div className="support-nav-group" key={item.label}>
+                <button
+                  type="button"
+                  className={`guide-nav-link support-nav-parent ${
+                    isSupportRequestSection ? 'active' : ''
+                  }`}
+                  title={collapsed ? item.label : undefined}
+                  aria-expanded={!collapsed && supportMenuOpen}
+                  onClick={() => {
+                    if (collapsed) {
+                      navigate('/support/requests')
+                      return
+                    }
+
+                    setSupportMenuOpen((current) => !current)
+                  }}
+                >
+                  <span className="guide-nav-main">
+                    <span className="guide-nav-icon-wrap">
+                      <svg
+                        className="guide-nav-icon"
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                      >
+                        {item.icon}
+                      </svg>
+                    </span>
+
+                    {!collapsed && (
+                      <span className="guide-nav-label">{item.label}</span>
+                    )}
+                  </span>
+
+                  {showBadge && (
+                    <span
+                      className="guide-nav-badge"
+                      aria-label={`${requestBadge} yêu cầu cần xử lý`}
+                    >
+                      {requestBadge > 99 ? '99+' : requestBadge}
+                    </span>
+                  )}
+
+                  {!collapsed && (
+                    <svg
+                      className={`support-nav-caret ${supportMenuOpen ? 'is-open' : ''}`}
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                  )}
+                </button>
+
+                {!collapsed && supportMenuOpen ? (
+                  <div className="support-nav-children">
+                    {item.children.map((child) => (
+                      <NavLink
+                        key={child.path}
+                        to={child.path}
+                        className={({ isActive }) =>
+                          isActive
+                            ? 'support-nav-child active'
+                            : 'support-nav-child'
+                        }
+                      >
+                        {child.label}
+                      </NavLink>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            )
+          }
 
           return (
             <NavLink

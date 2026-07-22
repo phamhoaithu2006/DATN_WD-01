@@ -11,6 +11,12 @@ Nguyên tắc áp dụng cho toàn bộ bộ tài liệu:
 
 Phạm vi kiểm kê tại baseline: 239 route ứng dụng gồm 238 API và 1 web route; 63 bảng duy nhất từ migration PHP active; 51 controller, 43 file model, 14 service, 14 Form Request, 14 API Resource, 80 migration PHP active, 21 seeder, 3 factory, 18 test backend, 62 page và 60 component React. Nguồn và cách tái kiểm tra nằm tại [Source Evidence Index](source-evidence-index.md).
 
+## Cập nhật hậu sửa ngày 2026-07-22
+
+Bộ tài liệu đã được đối chiếu lại trên working tree nhánh `fix/business-model-audit-bugs`, kế thừa commit `044d8cd59083e5f7ca5a1a202b0fdc581be47bc5`. Đây là snapshot chưa có commit riêng tại thời điểm cập nhật. Route và số bảng không đổi; source hiện có 83 migration PHP active và 22 file test PHP. Cả 15 BUG của đợt audit đã có disposition **Resolved**; 96/96 Business Rule và 13/13 Supplemental Requirement được đối chiếu là đúng. Chi tiết source, transaction/lock, migration và kết quả chạy test nằm tại [Xác minh hậu sửa Business Model](../business-model-audit/11-post-fix-verification.md).
+
+Các số liệu `80 migration`, `18 test` và kết luận lỗi tương ứng ở phần baseline chỉ mô tả snapshot lịch sử. Nội dung hiện hành trong bộ tài liệu này ưu tiên trạng thái hậu sửa nêu trên.
+
 ## Executive Summary
 
 Hệ thống là nền tảng quản lý và bán tour với các không gian public/customer, tour guide, support staff và admin. Bằng chứng về domain, actor, module, menu, chức năng, phạm vi đã xác minh và các giới hạn được tổng hợp tại [Executive Summary & Domain Analysis](01-executive-domain-analysis.md).
