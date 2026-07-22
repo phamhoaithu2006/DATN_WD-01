@@ -1,6 +1,7 @@
 ﻿import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getGuideDashboard } from '../../services/guideDashboardApi'
+import { getGuideLeaveRequestSummary } from '../../services/guideLeaveRequestApi'
 import { mediaUrl } from '../../utils/mediaUrl'
 import { formatDateDdMmYyyy } from '../../utils/dateFormat'
 
@@ -437,8 +438,24 @@ function GuideDashboardPage() {
       setError('')
 
       try {
-        const response = await getGuideDashboard()
-        if (mounted) setDashboard(response?.data || null)
+        const [dashboardResult, leaveSummaryResult] = await Promise.allSettled([
+          getGuideDashboard(),
+          getGuideLeaveRequestSummary(),
+        ])
+
+        if (dashboardResult.status === 'rejected') {
+          throw dashboardResult.reason
+        }
+
+        if (mounted) {
+          setDashboard({
+            ...(dashboardResult.value?.data || {}),
+            leave_summary:
+              leaveSummaryResult.status === 'fulfilled'
+                ? leaveSummaryResult.value?.data || {}
+                : {},
+          })
+        }
       } catch (err) {
         if (mounted) {
           setError(err?.response?.data?.message || 'Không tải được dữ liệu trang chủ HDV.')
@@ -467,6 +484,7 @@ function GuideDashboardPage() {
   const incomeRows = useMemo(() => dashboard?.income_rows ?? [], [dashboard?.income_rows])
   const tourOverview = dashboard?.tour_overview || {}
   const recentReviews = useMemo(() => dashboard?.recent_reviews ?? [], [dashboard?.recent_reviews])
+  const leaveSummary = dashboard?.leave_summary || {}
   const [heroImage] = useState(() => getRandomHeroImage())
 
   const fullName = guide.user?.full_name || guide.user?.name || 'Hướng dẫn viên'
@@ -516,6 +534,23 @@ function GuideDashboardPage() {
 
   const monthIncome = Number(summary.income?.current_month_revenue || 0)
   const yearIncome = Number(summary.income?.current_year_revenue || 0)
+  const leavePendingCount = Number(leaveSummary.pending_count || 0)
+  const leaveCurrentCount = Number(leaveSummary.busy_leave_count || 0)
+  const leaveUpcomingCount = Number(leaveSummary.upcoming_busy_leave_count || 0)
+  const leaveStatus = leavePendingCount > 0
+    ? 'Chờ duyệt đơn nghỉ'
+    : leaveCurrentCount > 0
+      ? 'Đang nghỉ'
+      : leaveUpcomingCount > 0
+        ? 'Sắp nghỉ'
+        : 'Không có đơn nghỉ'
+  const leaveSubtitle = leavePendingCount > 0
+    ? `${formatNumber(leavePendingCount)} đơn đang chờ duyệt`
+    : leaveCurrentCount > 0
+      ? 'Đang trong thời gian đã đăng ký'
+      : leaveUpcomingCount > 0
+        ? 'Đơn nghỉ đã được tạo'
+        : 'Sẵn sàng nhận tour'
 
   return (
     <section className="guide-dashboard-overview">
@@ -619,6 +654,21 @@ function GuideDashboardPage() {
                 <>
                   <path d="M12 3v18" />
                   <path d="M16.5 7.5c0-2.2-2-4-4.5-4s-4.5 1.8-4.5 4 2 3.5 4.5 4 4.5 1.8 4.5 4-2 4-4.5 4-4.5-1.8-4.5-4" />
+                </>
+              )}
+            />
+            <StatCard
+              title="Trạng thái nghỉ"
+              value={leaveStatus}
+              subtitle={leaveSubtitle}
+              tone={leavePendingCount > 0 ? 'amber' : leaveCurrentCount > 0 ? 'red' : 'green'}
+              icon={(
+                <>
+                  <path d="M7 3v3" />
+                  <path d="M17 3v3" />
+                  <rect x="4" y="5" width="16" height="16" rx="3" />
+                  <path d="M4 10h16" />
+                  <path d="m9 15 2 2 4-4" />
                 </>
               )}
             />
