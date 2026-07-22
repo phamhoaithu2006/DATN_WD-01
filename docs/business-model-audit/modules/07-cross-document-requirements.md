@@ -3,7 +3,7 @@
 ## Phạm vi và baseline
 
 - Audit `SR-001`–`SR-013` được chuẩn hóa tại `docs/business-model-audit/00-rule-catalog-and-methodology.md` từ FR, NFR, UC, diagram, ERD, API và ma trận nhưng chưa được câu chữ `BR-001`–`BR-096` bao phủ đầy đủ.
-- Baseline: commit `d9ddfd25c02d94ebfd1cd12ce42341cfbeaa6219`; 239 route theo `php artisan route:list --except-vendor --json`.
+- Baseline lịch sử: commit `d9ddfd25c02d94ebfd1cd12ce42341cfbeaa6219`. Snapshot hậu sửa: working tree nhánh `fix/business-model-audit-bugs` kế thừa `044d8cd59083e5f7ca5a1a202b0fdc581be47bc5`; 239 route tổng cộng, gồm 238 API route.
 - Không review code style, naming, performance, architecture, design pattern và không đề xuất refactor.
 - Trong phạm vi SR này, source không có layer Action/Use Case/Domain Service/Repository/Observer/Listener/Event/Policy riêng. Service, middleware, frontend và test chỉ được ghi khi có lời gọi/bằng chứng trực tiếp.
 
@@ -15,8 +15,8 @@
 | SR-002 | Có | `routes/api.php`; `AuthController.php` | closure `/auth/me`; `me()` | Đúng | — |
 | SR-003 | Có | `CustomerDashboardController.php` | `summary()` | Đúng | — |
 | SR-004 | Có | `WishlistController.php`; migration wishlist | `index()`, `store()`, `destroy()` | Đúng | — |
-| SR-005 | Một phần | `AdminProfileController.php` | `show()`, `update()`, `changePassword()` | Thiếu | Medium — BUG-XD-003 |
-| SR-006 | Một phần | `GuideProfileController.php`; `Guide.php` | `show()`, `update()`, `changePassword()` | Thiếu | Medium — BUG-XD-002 |
+| SR-005 | Có | `AdminProfileController.php` | `show()`, `update()`, `changePassword()` | Đúng | BUG-XD-003 — Resolved |
+| SR-006 | Có | `GuideProfileController.php`; `Guide.php`; migration restore certificate type | `show()`, `update()`, `changePassword()` | Đúng | BUG-XD-002 — Resolved |
 | SR-007 | Có | `SupportProfileController.php` | `show()`, `update()`, `changePassword()` | Đúng | Medium — [Suy luận từ source code] nguy cơ partial update khi lần ghi thứ hai lỗi |
 | SR-008 | Có | `GuideDashboardController.php` | `show()` và helper aggregate | Đúng | Low — giới hạn đếm/filter được ghi nhận |
 | SR-009 | Có | `AdminTourDepartureBookingController.php` | `index()` | Đúng | — |
@@ -129,13 +129,13 @@
 **Database, Validation và Exception**
 
 - Read current user; update `users.full_name/email/phone/avatar_url` và password hash.
-- Profile: fields `sometimes`; name/email max150, email unique bỏ qua current user, phone max20, `avatar_url` nullable string max500. Password: current required; new field `password` min6, confirmed; current sai trả `422`.
+- Profile: fields `sometimes`; name/email max150, email unique bỏ qua current user, phone max20, `avatar_url` nullable string max500; `avatar` là JPG/JPEG/PNG/WebP tối đa 5.120 KB. Gửi đồng thời file và `avatar_url` trả `422`. Password: current required; new field `password` min6, confirmed; current sai trả `422`.
 - Authorization/Middleware: Sanctum yêu cầu đăng nhập; `CheckRole::handle()` chỉ cho admin. Controller luôn lấy user từ `$request->user()`.
 - Transaction/Rollback/Lock: Không có. Idempotency key: Không có. Update một row; không có history/audit/notification.
-- Data Integrity: email unique được validation bảo vệ; mỗi action chỉ update current `users` row. Upload avatar theo UC-019 không có mutation file hoặc cột tương ứng trong action.
-- UC-019 ghi avatar có type/size và file được ghi public storage. Controller không nhận file `avatar`, không dùng `Storage`, chỉ nhận chuỗi `avatar_url`. API #184 mô tả đúng source, tạo bất nhất trực tiếp giữa UC và API/source.
+- Data Integrity: email unique được validation bảo vệ; mỗi action chỉ update current `users` row. File avatar hợp lệ được lưu dưới disk `public/avatars`, URL public được ghi vào `users.avatar_url`; input URL cũ vẫn được hỗ trợ.
+- Không có transaction kết hợp filesystem và update user; rollback file khi DB update lỗi: **KHÔNG TÌM THẤY BẰNG CHỨNG TRONG SOURCE CODE**.
 
-**Kết luận: Thiếu.** Xem BUG-XD-003. Các thao tác show, field text và password được triển khai; clause upload avatar của UC-019 không được triển khai. Test tự động admin profile: **KHÔNG TÌM THẤY BẰNG CHỨNG TRONG SOURCE CODE**.
+**Kết luận: Đúng.** `BUG-XD-003` đã được sửa. `BusinessModelAuditBugFixTest.php` xác minh upload, lưu DB/storage, mutual exclusion và giới hạn 5.120 KB.
 
 ### SR-006 — Hồ sơ và mật khẩu tour guide
 
@@ -143,7 +143,7 @@
 
 - File/Class/Method: `backend_laravel/app/Http/Controllers/Api/Guide/GuideProfileController.php` — `show()`, `update()`, `changePassword()`; `backend_laravel/app/Models/Guide.php` — `$fillable` và relations.
 - Route: `GET|PUT /api/guide/profile`, `PUT /api/guide/change-password`; `auth:sanctum`, `role:tour guide`.
-- Model/Migration: `User`, `Guide`, `Language`, `GuideLanguage`, `GuideExperience`, `Certificate`; users/guides/language-level/guide-language/certificate/experience migrations.
+- Model/Migration: `User`, `Guide`, `Language`, `GuideLanguage`, `GuideExperience`, `Certificate`; users/guides/language-level/guide-language/certificate/experience migrations và `2026_07_22_000000_restore_certificate_type_to_guides_table.php`.
 - Frontend: `frontend_react/src/services/guideProfileApi.js`; `GuideProfilePage.jsx`; route `/guide/profile` qua guide guard.
 - Service/Repository/Observer/Listener/Event/Policy/Gate/Notification/Queue/Cache/Audit: Không sử dụng.
 
@@ -156,11 +156,11 @@
 
 **Validation, Authorization và Data Integrity**
 
-- User: name/email/phone; avatar JPG/JPEG/PNG/WebP max5120 KB. Guide: `certificate_type` max255, experience 0–40, status active/inactive. Language ID exists; `level_id` chỉ integer. Certificate ID exists; issued year 1900 đến năm hiện tại. Password cũ/mới, min6/confirmed; sai hoặc trùng cũ trả `400`.
+- User: name/email/phone; avatar JPG/JPEG/PNG/WebP max5120 KB. Guide: `certificate_type` max100, experience 0–40, status active/inactive. Language ID exists; `level_id` chỉ integer. Certificate ID exists; issued year 1900 đến năm hiện tại. Password cũ/mới, min6/confirmed; sai hoặc trùng cũ trả `400`.
 - Không có profile trả `404`; middleware chặn guest/non-guide. `RbacAuthorizationTest.php` chỉ có negative test customer gọi `/api/guide/profile` nhận `403`.
-- Controller đưa `certificate_type` vào `$guideUpdateData` và gọi `$guide->update()`, nhưng `Guide::$fillable` không chứa `certificate_type`; AppServiceProvider không bật strict discard. Field hợp lệ bị bỏ qua, trong khi API #66/FR-017 cho phép cập nhật.
+- Controller đưa `certificate_type` vào `$guideUpdateData`; `Guide::$fillable` chứa field này và migration hậu sửa tạo `guides.certificate_type VARCHAR(100) NULL`.
 
-**Kết luận: Thiếu.** Xem BUG-XD-002. Các phần show, password, user fields, avatar, language/certificate relation có code; cập nhật `certificate_type` không thay đổi DB.
+**Kết luận: Đúng.** `BUG-XD-002` đã được sửa. `GuideBusinessModelRegressionTest.php` xác minh PUT/GET round-trip ở biên 100 ký tự và từ chối 101 ký tự.
 
 ### SR-007 — Hồ sơ và mật khẩu support staff
 
@@ -332,32 +332,33 @@
 
 ## Danh sách BUG
 
-### BUG-XD-001 — Assignment không áp dụng mutation guard đã được FR/UC/API tuyên bố
+### BUG-XD-001 — Assignment không áp dụng mutation guard đã được FR/UC/API tuyên bố — Resolved
 
 - Business Rule liên quan: FR-018 Preconditions; UC-030 Preconditions/Exception; API #211; đối chiếu BR-018.
-- Mô tả: tài liệu yêu cầu departure không bị `TourDepartureMutationGuard` khóa trước khi phân công và API #211 ghi nhánh `422` khi bị khóa. Source assignment không gọi guard ở candidate/auto/strict/direct/cancel.
-- File/Hàm: `backend_laravel/app/Http/Controllers/Api/Admin/TourDepartureGuideAssignmentController.php::{candidates,autoAssign,assign,directCandidates,directAssign,cancel}`; `backend_laravel/app/Services/GuideAssignmentService.php::{eligibleGuidesQuery,autoAssign,assignSpecific}`. Guard chỉ được gọi tại `Admin/TourDepartureController::{update,destroy}` qua `backend_laravel/app/Services/TourDepartureMutationGuard.php`.
-- Bằng chứng: không có import/injection/lời gọi `TourDepartureMutationGuard` trong controller/service assignment; BR-018 và BP-04 cũng ghi rõ giới hạn này.
+- Diagnosis lịch sử: assignment source không gọi guard ở candidate/auto/strict/direct/cancel.
+- Source hậu sửa: `TourDepartureGuideAssignmentController::{candidates,autoAssign,assign,directCandidates,directAssign,cancel}` gọi `TourDepartureMutationGuard`; `GuideAssignmentService::{autoAssign,assignSpecific}` và direct/cancel write flow kiểm tra lại sau khi khóa departure.
+- Test: `GuideBusinessModelRegressionTest.php` xác minh cả sáu API trả `422` với `departure_date <= hôm nay` và future cancel vẫn thành công.
 - Mức độ ảnh hưởng: High.
-- Điều kiện tái hiện: tạo departure có `departure_date <= hôm nay`, admin hợp lệ và guide đủ điều kiện; gọi `POST /api/admin/tour-departures/{departure}/auto-assign-guide` hoặc `/assign-guide`. Request không bị guard từ chối theo điều kiện ngày đã ghi trong FR/UC.
+- Điều kiện tái hiện lịch sử: tạo departure có `departure_date <= hôm nay` rồi gọi assignment API; source cũ không từ chối. Hậu sửa, cùng điều kiện trả `422`.
 
-### BUG-XD-002 — Guide cập nhật `certificate_type` hợp lệ nhưng dữ liệu bị bỏ qua
+### BUG-XD-002 — Guide cập nhật `certificate_type` hợp lệ nhưng dữ liệu bị bỏ qua — Resolved
 
 - Business Rule liên quan: SR-006; FR-017; UC-043; API #66.
-- Mô tả: controller validate và đưa `certificate_type` vào payload update, nhưng model không cho mass assign field này.
-- File/Hàm: `backend_laravel/app/Http/Controllers/Api/Guide/GuideProfileController.php::update()`; `backend_laravel/app/Models/Guide.php::$fillable`; `backend_laravel/app/Providers/AppServiceProvider.php::boot()`.
-- Bằng chứng: `GuideProfileController::update()` tạo `$guideUpdateData['certificate_type']` rồi gọi `$guide->update($guideUpdateData)`; `Guide::$fillable` thiếu `certificate_type`; provider không bật chế độ ném exception khi silently discard.
+- Diagnosis lịch sử: controller nhận field, model loại khỏi mass assignment và schema migrate-fresh đã xóa cột.
+- Source hậu sửa: `GuideProfileController::update()` dùng `max:100`; `Guide::$fillable` chứa field; migration `2026_07_22_000000_restore_certificate_type_to_guides_table.php` khôi phục cột nullable.
+- Test: `GuideBusinessModelRegressionTest.php` xác minh lưu và đọc lại đúng.
 - Mức độ ảnh hưởng: Medium.
-- Điều kiện tái hiện: đăng nhập role tour guide có profile; `PUT /api/guide/profile` với `certificate_type` mới hợp lệ; response thành công nhưng đọc lại profile/DB vẫn giữ giá trị cũ.
+- Điều kiện tái hiện lịch sử: PUT `certificate_type` mới từng trả success nhưng không lưu. Hậu sửa, GET đọc lại đúng giá trị.
 
-### BUG-XD-003 — UC-019 yêu cầu upload avatar admin nhưng API chỉ nhận URL chuỗi
+### BUG-XD-003 — UC-019 yêu cầu upload avatar admin nhưng API chỉ nhận URL chuỗi — Resolved
 
 - Business Rule liên quan: SR-005; UC-019; đối chiếu API #184.
-- Mô tả: UC-019 ghi validation avatar theo type/size và ghi file public storage; source không nhận file và không thao tác storage.
+- Diagnosis lịch sử: UC-019 ghi validation avatar theo type/size và ghi file public storage; source cũ không nhận file.
 - File/Hàm: `backend_laravel/app/Http/Controllers/Api/Admin/AdminProfileController.php::update()`; `backend_laravel/routes/api.php`; `backend_laravel/app/Models/User.php`.
-- Bằng chứng: validation chỉ có `avatar_url => nullable|string|max:500`; không có rule `image|mimes|max`, `hasFile()`, `store()` hoặc `Storage` trong controller.
+- Source hậu sửa: validation nhận `avatar` JPG/JPEG/PNG/WebP tối đa 5.120 KB, lưu `public/avatars`, ghi URL và từ chối file + URL đồng thời; input `avatar_url` vẫn tương thích.
+- Test: `BusinessModelAuditBugFixTest.php` xác minh upload, validation và storage.
 - Mức độ ảnh hưởng: Medium.
-- Điều kiện tái hiện: admin gửi multipart `avatar` hợp lệ theo UC-019 tới `PUT /api/admin/profile`; field không được validation/update và không có file mới trong public storage.
+- Điều kiện tái hiện lịch sử: multipart `avatar` từng bị bỏ qua. Hậu sửa, file được lưu và response/DB trả URL public.
 
 ## Source Code Reference tổng hợp
 
@@ -365,5 +366,5 @@
 - Controllers: các controller nêu tại từng SR.
 - Middleware: `backend_laravel/app/Http/Middleware/CheckRole.php`; Sanctum config/middleware Laravel.
 - Models/migrations: nêu tại từng SR; constraint được lấy từ migration, không suy từ model.
-- Tests: `backend_laravel/tests/Feature/RbacAuthorizationTest.php`, `ApiRateLimitTest.php`, `GuideTourAttendanceApiTest.php`, `PaymentBookingSafetyTest.php`.
+- Tests: `backend_laravel/tests/Feature/RbacAuthorizationTest.php`, `ApiRateLimitTest.php`, `GuideTourAttendanceApiTest.php`, `PaymentBookingSafetyTest.php`, `GuideBusinessModelRegressionTest.php`, `BusinessModelAuditBugFixTest.php`, `BusinessModelConcurrencyMysqlTest.php`.
 - Frontend: `frontend_react/src/routes/AppRoutes.jsx`, services/pages/components nêu tại từng SR.

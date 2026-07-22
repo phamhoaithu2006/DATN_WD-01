@@ -15,6 +15,10 @@ use Illuminate\Validation\ValidationException;
 
 class GuideAssignmentService
 {
+    public function __construct(
+        private readonly TourDepartureMutationGuard $mutationGuard
+    ) {}
+
     /**
      * Số ngày HDV phải nghỉ giữa hai tour.
      * Mặc định: 1 ngày.
@@ -40,9 +44,9 @@ class GuideAssignmentService
             : null;
 
         $needsReload =
-            !$tour ||
-            !$tour->relationLoaded('destinations') ||
-            !array_key_exists(
+            ! $tour ||
+            ! $tour->relationLoaded('destinations') ||
+            ! array_key_exists(
                 'destination_id',
                 $tour->getAttributes()
             );
@@ -72,7 +76,7 @@ class GuideAssignmentService
     ): Collection {
         $tour = $this->getTourForDeparture($departure);
 
-        if (!$tour) {
+        if (! $tour) {
             return collect();
         }
 
@@ -384,6 +388,8 @@ class GuideAssignmentService
                 ->lockForUpdate()
                 ->findOrFail($departureId);
 
+            $this->mutationGuard->assertCanMutate($departure);
+
             $currentAssignment = $departure->guideAssignments()
                 ->whereIn('status', ['assigned', 'confirmed'])
                 ->where('role', 'lead')
@@ -405,7 +411,7 @@ class GuideAssignmentService
                 ->first();
 
             if (
-                !$guide ||
+                ! $guide ||
                 $this->hasScheduleConflict($guide, $departure)
             ) {
                 throw ValidationException::withMessages([
@@ -447,6 +453,8 @@ class GuideAssignmentService
                 ->lockForUpdate()
                 ->findOrFail($departure->id);
 
+            $this->mutationGuard->assertCanMutate($departure);
+
             $alreadyHasLeadGuide = $departure->guideAssignments()
                 ->whereIn('status', ['assigned', 'confirmed'])
                 ->where('role', 'lead')
@@ -466,7 +474,7 @@ class GuideAssignmentService
                 ->first();
 
             if (
-                !$guide ||
+                ! $guide ||
                 $this->hasScheduleConflict($guide, $departure)
             ) {
                 throw ValidationException::withMessages([

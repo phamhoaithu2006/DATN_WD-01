@@ -15,6 +15,7 @@ class Guide extends Model
     protected $fillable = [
         'user_id',
         'guide_code',
+        'certificate_type',
         'avatar_url', // ← thêm
         'experience_years',
         'average_rating',

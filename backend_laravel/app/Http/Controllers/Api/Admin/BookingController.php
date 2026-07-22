@@ -261,26 +261,42 @@ class BookingController extends Controller
         }
 
         DB::transaction(function () use ($booking, $data, $participants, $contact, $pricingSummary) {
-            $shouldReleaseSlots = ($data['status'] ?? null) === 'cancelled'
-                && $booking->status !== 'cancelled';
-            $slotsToRelease = (int) $booking->number_of_people;
+            $lockedBooking = Booking::query()
+                ->with('tourDeparture')
+                ->lockForUpdate()
+                ->findOrFail($booking->id);
+            $requestedStatus = $data['status'] ?? null;
 
-            $booking->update($data);
+            if (
+                $lockedBooking->status === 'cancelled'
+                && $requestedStatus !== null
+                && $requestedStatus !== 'cancelled'
+            ) {
+                throw ValidationException::withMessages([
+                    'status' => 'Booking đã hủy không thể chuyển sang trạng thái khác.',
+                ]);
+            }
+
+            $shouldReleaseSlots = ($data['status'] ?? null) === 'cancelled'
+                && $lockedBooking->status !== 'cancelled';
+            $slotsToRelease = (int) $lockedBooking->number_of_people;
+
+            $lockedBooking->update($data);
 
             if ($shouldReleaseSlots) {
-                $this->releaseBookedSlots($booking, $slotsToRelease);
+                $this->releaseBookedSlots($lockedBooking, $slotsToRelease);
             }
 
             if ($contact !== null) {
-                $booking->contact()->updateOrCreate(
-                    ['booking_id' => $booking->id],
+                $lockedBooking->contact()->updateOrCreate(
+                    ['booking_id' => $lockedBooking->id],
                     $contact
                 );
             }
 
             if ($participants !== null && $pricingSummary !== null) {
-                $booking->participants()->delete();
-                $booking->participants()->createMany($pricingSummary['participants']);
+                $lockedBooking->participants()->delete();
+                $lockedBooking->participants()->createMany($pricingSummary['participants']);
             }
         });
 

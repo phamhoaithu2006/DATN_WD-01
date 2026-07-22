@@ -7,16 +7,17 @@
 - `Đúng`: toàn bộ mệnh đề của Business Rule có bằng chứng trực tiếp trong source. `Sai`: source thực thi trái mệnh đề. `Thiếu`: chỉ có bằng chứng cho một phần bắt buộc.
 - Không đánh giá code style, clean code, naming, performance, architecture hoặc design pattern; không đề xuất sửa/refactor.
 - Trong phạm vi này không có thư mục/layer `Actions`, `UseCases`, `Domain Services`, `Repositories`, `Observers`, `Listeners`, `Events` hoặc `Jobs`. Khi từng rule không gọi thành phần tương ứng, tài liệu ghi `Không sử dụng`.
+- Trạng thái hậu sửa ngày 2026-07-22 giữ nguyên chẩn đoán lịch sử của BUG-AB-002 và bổ sung bằng chứng `Resolved` từ source/test hiện tại.
 
 ## Bảng tổng hợp
 
 | Business Rule | Đã triển khai | File | Hàm | Đúng / Sai / Thiếu | Mức độ ảnh hưởng |
 |---|---|---|---|---|---|
-| BR-001 | Có | `AuthController.php`; migrations users/roles/settings/tokens | `register()` | Đúng | Medium — có sai lệch validation/schema tại BUG-AB-002 |
+| BR-001 | Có | `AuthController.php`; migrations users/roles/settings/tokens | `register()` | Đúng | Resolved — BUG-AB-002; mức độ lịch sử Medium |
 | BR-002 | Có | `AuthController.php` | `login()` | Đúng | — |
 | BR-003 | Có | `AuthController.php`; `Setting.php` | `login()`, `logout()` | Đúng | — |
 | BR-004 | Có | `CheckRole.php`; `routes/api.php`; `bootstrap/app.php` | `handle()` | Đúng | — |
-| BR-005 | Có | `CustomerController.php` | `updateProfile()` | Đúng | Medium — có sai lệch validation/schema tại BUG-AB-002 |
+| BR-005 | Có | `CustomerController.php` | `updateProfile()` | Đúng | Resolved — BUG-AB-002; mức độ lịch sử Medium |
 | BR-006 | Có | `CustomerController.php`; `Setting.php` | `changePassword()` | Đúng | — |
 | BR-007 | Có | `CustomerController.php` | `forgotPassword()`, `resetPassword()` | Đúng | — |
 | BR-008 | Có | `routes/api.php`; `CustomerManagerController.php` | `index_role()` | Đúng | — |
@@ -49,6 +50,7 @@
 - Middleware: throttle; route public, không dùng `auth:sanctum`/role.
 - Trigger/Stored Procedure/Queue/Cache/API integration: Không sử dụng.
 - Migration: `0001_01_01_000000_create_users_table.php`; `2026_06_10_215900_create_roles_table.php`; `2026_06_10_215910_add_vivugo_columns_to_users_table.php`; `2026_06_10_055225_create_personal_access_tokens_table.php`; `2026_06_13_000001_create_settings_table.php`.
+- Test hậu sửa: `backend_laravel/tests/Feature/AuthBookingBusinessModelRegressionTest.php` — `đăng ký từ chối chuỗi dài hơn giới hạn cột users`.
 
 **Database**
 
@@ -60,7 +62,7 @@
 
 **Validation và Authorization**
 
-- `full_name`: required|string|max:255; `email`: required|email|unique:users,email; `phone`: required|string|unique:users,phone; `password`: required|string|`Password::min(Setting::intValueFor(..., 8))`|confirmed.
+- `full_name`: required|string|max:150; `email`: required|email|max:150|unique:users,email; `phone`: required|string|max:20|unique:users,phone; `password`: required|string|`Password::min(Setting::intValueFor(..., 8))`|confirmed.
 - Guest được phép; mọi actor đều đi qua cùng route public. Vượt throttle trả `429`; validation trả `422`.
 - `Role::where('name', 'customer')->firstOrFail()` phát sinh not-found nếu role thiếu. Không có try/catch nghiệp vụ.
 
@@ -68,9 +70,9 @@
 
 - Notification/Queue/Audit Log: Không sử dụng.
 - Exception: Laravel validation; `ModelNotFoundException` từ `firstOrFail`; lỗi DB không được bắt tại method.
-- Data integrity: migration có unique cho `users.email` nhưng không có unique cho `users.phone`; validation ứng dụng kiểm tra phone trước insert. Validation cho `full_name` tối đa 255, còn `email` và `phone` không có rule `max`; schema theo migration giới hạn lần lượt 150, 150 và 20 ký tự. Đây là chuỗi bằng chứng của BUG-AB-002. Không có row lock/transaction bảo vệ chuỗi check-then-insert của phone.
+- Data integrity: migration có unique cho `users.email` nhưng không có unique cho `users.phone`; validation ứng dụng kiểm tra phone trước insert. Giới hạn validation `full_name/email/phone` hiện khớp các cột 150/150/20. Không có row lock/transaction bảo vệ chuỗi check-then-insert của phone.
 
-**Kết luận: Đúng.** Toàn bộ mệnh đề BR-001 có code trực tiếp. Sai lệch giới hạn validation/schema là yêu cầu liên quan trong API Specification và được lập BUG riêng; không làm thay đổi kết luận mệnh đề BR.
+**Kết luận: Đúng.** Toàn bộ mệnh đề BR-001 có code trực tiếp; sai lệch giới hạn validation/schema của BUG-AB-002 đã được xử lý và có test hồi quy.
 
 ### BR-002 — Đăng nhập bằng email hoặc SĐT
 
@@ -147,6 +149,7 @@
 - Model/Migration: `User`; `0001_01_01_000000_create_users_table.php`; `2026_06_10_215910_add_vivugo_columns_to_users_table.php`.
 - Service/Action/Use Case/Domain Service/Repository/Observer/Listener/Event/Policy/Job/Command/Scheduler/Notification/Trigger/Stored Procedure/Queue/Cache/API integration: Không sử dụng.
 - Storage integration: Laravel `Storage::disk('public')` cho `avatars`.
+- Test hậu sửa: `backend_laravel/tests/Feature/AuthBookingBusinessModelRegressionTest.php` — các test `cập nhật hồ sơ ... giới hạn cột users`.
 
 **Database**
 
@@ -157,12 +160,12 @@
 
 **Validation/Authorization/Exception/Data Integrity**
 
-- `full_name` required|string|max:255; `phone` nullable|string|max:10; `avatar` nullable|image|mimes jpg,jpeg,png,webp|max:5120 KB.
+- `full_name` required|string|max:150; `phone` nullable|string|max:20; `avatar` nullable|image|mimes jpg,jpeg,png,webp|max:5120 KB.
 - Chỉ current customer qua route middleware; method lấy `$request->user()`.
 - Validation/file/DB exception không được catch.
-- Data integrity: file mới được lưu và nhánh avatar nội bộ xóa file cũ trước `$user->update()`. Không có transaction kết hợp filesystem/DB. Giới hạn `full_name` 255 lớn hơn cột 150 là một phần BUG-AB-002.
+- Data integrity: file mới được lưu và nhánh avatar nội bộ xóa file cũ trước `$user->update()`. Không có transaction kết hợp filesystem/DB. Giới hạn `full_name/phone` hiện khớp các cột 150/20.
 
-**Kết luận: Đúng.** Mọi mệnh đề BR-005 khớp code; sai lệch schema được ghi riêng.
+**Kết luận: Đúng.** Mọi mệnh đề BR-005 khớp code; sai lệch schema của BUG-AB-002 đã được xử lý và có test biên 20/21 ký tự cho SĐT.
 
 ### BR-006 — Đổi mật khẩu khi biết mật khẩu hiện tại
 
@@ -404,21 +407,21 @@
 
 **Kết luận: Đúng.**
 
-### BR-018 — Khóa sửa/xóa departure đã bắt đầu hoặc đã qua
+### BR-018 — Khóa sửa/xóa/phân công departure đã bắt đầu hoặc đã qua
 
 **Source Code**
 
-- File/Class/Method: `backend_laravel/app/Services/TourDepartureMutationGuard.php` — `isLocked()`, `assertCanMutate()`; `TourDepartureController::update()`, `destroy()`.
-- Routes: `PUT/DELETE /api/admin/tours/departures/{id}`; admin middleware.
-- Model/Migration: `TourDeparture`; departures migration.
-- Action/Use Case/Domain Service/Repository/Observer/Listener/Event/Policy/Job/Command/Scheduler/Notification/Trigger/Stored Procedure/Queue/Cache/API integration: Không sử dụng.
+- File/Class/Method: `backend_laravel/app/Services/TourDepartureMutationGuard.php` — `isLocked()`, `assertCanMutate()`; `TourDepartureController::update()`, `destroy()`; `TourDepartureGuideAssignmentController::{candidates,autoAssign,assign,cancel,directCandidates,directAssign}`; `GuideAssignmentService::{autoAssign,assignSpecific}`.
+- Routes: `PUT/DELETE /api/admin/tours/departures/{id}` và sáu route candidate/assignment theo departure; admin middleware.
+- Model/Migration: `TourDeparture`, `TourGuideAssignment`; departures/assignments migrations.
+- Service: `TourDepartureMutationGuard`, `GuideAssignmentService`. Action/Use Case/Repository/Observer/Listener/Event/Policy/Job/Command/Scheduler/Notification/Trigger/Stored Procedure/Queue/Cache/API integration: Không sử dụng riêng cho guard.
 
 **Database và kiểm soát**
 
-- Guard chỉ read `departure_date`; nếu `startOfDay <= today` ném ValidationException trước write.
-- Update/delete có các write riêng mô tả BR-019/020; transaction và rollback không nằm trong guard. Lock: không có ở guard. Idempotent: không áp dụng cho nhánh bị chặn.
+- Guard đọc `departure_date`; nếu `startOfDay <= today` ném ValidationException trước mutation/candidate query. Sáu action assignment đều gọi guard; các write path khóa departure và kiểm tra lại guard trong transaction.
+- Update/delete có các write riêng mô tả BR-019/020. Assignment write có transaction/row lock; guard tự thân không mở transaction. Idempotent: không áp dụng cho nhánh bị chặn.
 - Validation/authorization: admin + guard; lỗi field `departure` trả `422`.
-- Controller assignment không gọi guard trong chuỗi source BR này; chính mệnh đề BR-018 đã ghi rõ giới hạn đó.
+- Regression: `GuideBusinessModelRegressionTest.php` xác minh cả sáu API trả `422` với departure ngày hôm nay. `BUG-XD-001` đã **Resolved**.
 - Audit/Queue: Không sử dụng; notification chỉ thuộc nhánh update/delete controller, không phải guard.
 - Data integrity: nhánh guard bị chặn ném exception trước mutation; tính toàn vẹn của write update/delete được truy vết riêng tại BR-019/BR-020.
 
@@ -470,18 +473,20 @@
 
 ## BUG thuộc module
 
-### BUG-AB-002 — Giới hạn độ dài API lớn hơn giới hạn cột dữ liệu
+### BUG-AB-002 — Giới hạn độ dài API lớn hơn giới hạn cột dữ liệu — Resolved
 
 - Business Rule/Requirement liên quan: BR-001, BR-005; FR-001; API Specification #2 và #30. Phần booking của cùng BUG được dẫn tiếp ở module `02-booking-payment.md`.
-- Mô tả: API đăng ký cho phép `full_name` dài tối đa 255 ký tự và không đặt giới hạn độ dài tường minh cho `email`/`phone`; API cập nhật hồ sơ cũng cho phép `full_name` tối đa 255. Migration giới hạn `users.full_name` và `users.email` ở 150 ký tự, `users.phone` ở 20 ký tự. Đây là sai lệch trực tiếp giữa hợp đồng validation và schema.
-- File/Hàm:
+- **Chẩn đoán lịch sử:** API đăng ký từng cho phép `full_name` dài tối đa 255 ký tự và không đặt giới hạn độ dài tường minh cho `email`/`phone`; API cập nhật hồ sơ từng cho phép `full_name` tối đa 255. Migration giới hạn `users.full_name` và `users.email` ở 150 ký tự, `users.phone` ở 20 ký tự.
+- File/Hàm tại thời điểm chẩn đoán:
   - `backend_laravel/app/Http/Controllers/Api/AuthController.php` — `register()` (`full_name max:255`; `email`/`phone` không có rule `max`).
   - `backend_laravel/app/Http/Controllers/Api/Customer/CustomerController.php` — `updateProfile()` (`full_name max:255`).
   - `backend_laravel/database/migrations/2026_06_10_215910_add_vivugo_columns_to_users_table.php` — `up()` (`full_name VARCHAR(150)`, `email VARCHAR(150)` trên driver không phải SQLite, `phone VARCHAR(20)`).
-- Bằng chứng: payload `full_name` dài 151–255, email hợp lệ dài hơn 150 hoặc phone dài hơn 20 không bị validation tương ứng loại chỉ vì độ dài, nhưng vượt giới hạn migration. Kết quả DB cụ thể (reject hay truncate) phụ thuộc driver/chế độ DB; **KHÔNG TÌM THẤY BẰNG CHỨNG TRONG SOURCE CODE** để khẳng định một trong hai kết quả runtime.
+- Bằng chứng lịch sử: payload `full_name` dài 151–255, email hợp lệ dài hơn 150 hoặc phone dài hơn 20 không bị validation tương ứng loại chỉ vì độ dài, nhưng vượt giới hạn migration. Kết quả DB cụ thể (reject hay truncate) phụ thuộc driver/chế độ DB; **KHÔNG TÌM THẤY BẰNG CHỨNG TRONG SOURCE CODE** để khẳng định một trong hai kết quả runtime tại thời điểm audit.
 - Mức độ ảnh hưởng: Medium.
-- Điều kiện tái hiện: gọi đăng ký với từng payload có `full_name` 151 ký tự, email hợp lệ dài hơn 150 hoặc phone dài hơn 20; gọi cập nhật profile với `full_name` 151 ký tự; quan sát validation chấp nhận trước bước ghi cột ngắn hơn.
-- Không đề xuất sửa.
+- Điều kiện tái hiện lịch sử: gọi đăng ký với từng payload có `full_name` 151 ký tự, email hợp lệ dài hơn 150 hoặc phone dài hơn 20; gọi cập nhật profile với `full_name` 151 ký tự; validation cũ cho phép đi tiếp trước bước ghi.
+- **Post-fix / Trạng thái: Resolved.** `AuthController::register()` hiện giới hạn `full_name/email/phone` lần lượt 150/150/20; `CustomerController::updateProfile()` giới hạn `full_name/phone` là 150/20, khớp migration users.
+- Bằng chứng test hậu sửa: `backend_laravel/tests/Feature/AuthBookingBusinessModelRegressionTest.php` kiểm 151 ký tự cho `full_name`, email dài hơn 150 và phone 21 đều trả `422`; profile chấp nhận phone 20, từ chối phone 21.
+- Source conformance hậu sửa: BR-001 và BR-005 **Đúng**.
 
 ## Các thành phần không tìm thấy trong phạm vi BR-001–BR-020
 

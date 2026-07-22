@@ -8,6 +8,28 @@
 - **KHÔNG TÌM THẤY BẰNG CHỨNG TRONG SOURCE CODE**: không có đủ source để xác nhận.
 - Các mã `401`, `403`, `404`, `409`, `422`, `503` chỉ được ghi khi controller, middleware hoặc test có nhánh trả về tương ứng.
 
+## 1.1. Snapshot hậu sửa Business Model — 2026-07-22
+
+Snapshot này chỉ phản ánh 15 BUG đã được đối chiếu hậu sửa trong `docs/business-model-audit/11-post-fix-verification.md`. Các mục `UV-*` ngoài phạm vi không được thay đổi kết luận trong tài liệu này. Toàn bộ API route trong bảng được khai báo tại `backend_laravel/routes/api.php`.
+
+| BUG | Hành vi hậu sửa đã truy vết | File, class, method và route | Model và migration | Test hậu sửa | Trạng thái |
+| --- | --- | --- | --- | --- | --- |
+| BUG-AB-001 | `contact_email` là tùy chọn; khi không gửi, booking lưu `NULL`; rollback đổi `NULL` thành chuỗi rỗng trước khi khôi phục `NOT NULL`. | `backend_laravel/app/Http/Requests/Customer/StoreBookingRequest.php`, class `StoreBookingRequest`, method `rules`; `backend_laravel/app/Http/Controllers/Api/Customer/CustomerBookingController.php`, class `CustomerBookingController`, method `store`; route `POST /api/customer/bookings`. | Models `Booking`, `BookingContact`; migration `backend_laravel/database/migrations/2026_07_22_010000_make_booking_contact_email_nullable.php`, methods `up`, `down`. | `backend_laravel/tests/Feature/AuthBookingBusinessModelRegressionTest.php`: “đặt tour cho phép bỏ contact email và lưu null”, “rollback contact email nullable giữ lại bản ghi bằng chuỗi rỗng”. | Resolved |
+| BUG-AB-002 | Giới hạn request được đồng bộ với độ dài cột: đăng ký `full_name/email/phone` là `150/150/20`; customer profile `full_name/phone` là `150/20`; booking contact là `150/150/20/255`, participant là `150/20/30`. | `backend_laravel/app/Http/Controllers/Api/AuthController.php`, `AuthController::register`, route `POST /api/auth/register`; `backend_laravel/app/Http/Controllers/Api/Customer/CustomerController.php`, `CustomerController::updateProfile`, route `PUT /api/profile/update`; `backend_laravel/app/Http/Requests/Customer/StoreBookingRequest.php`, `StoreBookingRequest::rules`, route `POST /api/customer/bookings`. | Models `User`, `BookingContact`, `BookingParticipant`; migrations `2026_06_10_215910_add_vivugo_columns_to_users_table.php`, `2026_06_10_220070_create_booking_contacts_table.php`, `2026_06_10_220080_create_booking_participants_table.php`. | `backend_laravel/tests/Feature/AuthBookingBusinessModelRegressionTest.php`: các test biên và biên +1 cho đăng ký, hồ sơ và booking. | Resolved |
+| BUG-AB-003 | Giá từng hành khách được tính từ `birth_date`; `bookings.total_amount` và `payments.amount` cùng lấy từ tổng `unit_price` đã định giá của participant trong transaction tạo booking. | `backend_laravel/app/Http/Controllers/Api/Customer/CustomerBookingController.php`, class `CustomerBookingController`, method `store`; `backend_laravel/app/Services/TourPricingService.php`, class `TourPricingService`, method `calculateParticipantPrice`; route `POST /api/customer/bookings`. | Models `Booking`, `BookingParticipant`, `Payment`, `TourAgePricingRule`; migrations `2026_06_10_220060_create_bookings_table.php`, `2026_06_10_220080_create_booking_participants_table.php`, `2026_07_03_120000_create_tour_age_pricing_rules_table.php`, `2026_07_03_120100_add_pricing_snapshot_to_booking_participants_table.php`, `2026_06_10_220090_create_payments_table.php`. | `backend_laravel/tests/Feature/AuthBookingBusinessModelRegressionTest.php`: “tổng tiền booking và payment được tính từ ngày sinh hành khách”. | Resolved |
+| BUG-AB-004 | Chuyển trạng thái payment chỉ cho `pending→success/failed`, `failed→success`, `success→refunded`; cạnh khác trả `422`. Payment được khóa và payment/booking được cập nhật trong cùng transaction. | `backend_laravel/app/Http/Controllers/Api/Admin/PaymentController.php`, class `PaymentController`, methods `confirm`, `fail`, `refund`, `updateStatus`; routes `PATCH /api/admin/payments/{id}/confirm`, `PATCH /api/admin/payments/{id}/fail`, `PATCH /api/admin/payments/{id}/refund`. | Models `Payment`, `Booking`; migrations `2026_06_10_220090_create_payments_table.php`, `2026_06_10_220060_create_bookings_table.php`; không có migration hậu sửa riêng. | `backend_laravel/tests/Feature/AuthBookingBusinessModelRegressionTest.php`: ma trận hợp lệ/không hợp lệ; `backend_laravel/tests/Feature/PaymentBookingSafetyTest.php`: các chuỗi trạng thái hợp lệ. | Resolved |
+| BUG-RG-001 | Tạo đơn nghỉ chạy trong transaction, khóa row guide rồi tái kiểm tra đơn `pending/approved` giao nhau bằng locking read; trùng khoảng ngày trả `422`. | `backend_laravel/app/Http/Controllers/Api/Guide/GuideLeaveRequestController.php`, class `GuideLeaveRequestController`, method `store`; route `POST /api/guide/leave-requests`. | Models `Guide`, `GuideLeaveRequest`, `GuideLeaveRequestAttachment`; migration `2026_07_13_000000_create_guide_leave_requests_tables.php`. | `backend_laravel/tests/Feature/GuideBusinessModelRegressionTest.php`: “đơn nghỉ giao nhau chỉ tạo một bản ghi active”; `backend_laravel/tests/Feature/BusinessModelConcurrencyMysqlTest.php`: hai request đồng thời nhận `201 + 422`. | Resolved |
+| BUG-RG-002 | Guide cancel và admin decision đều khóa lại cùng row leave và đọc lại trạng thái trong transaction: cancel chỉ ghi khi còn `pending`; admin từ chối row đã `cancelled` hoặc đã hết kỳ nghỉ. | `backend_laravel/app/Http/Controllers/Api/Guide/GuideLeaveRequestController.php`, `GuideLeaveRequestController::cancel`, route `PATCH /api/guide/leave-requests/{leaveRequest}/cancel`; `backend_laravel/app/Http/Controllers/Api/Admin/AdminGuideLeaveRequestController.php`, `AdminGuideLeaveRequestController::{approve,reject,updateDecision,updateStatus}`, routes `POST /api/admin/guide-leave-requests/{leaveRequest}/approve`, `POST /api/admin/guide-leave-requests/{leaveRequest}/reject`, `PATCH /api/admin/guide-leave-requests/{leaveRequest}/decision`. | Model `GuideLeaveRequest`; migration `2026_07_13_000000_create_guide_leave_requests_tables.php`. | `backend_laravel/tests/Feature/GuideBusinessModelRegressionTest.php`: test tái đọc stale model; `backend_laravel/tests/Feature/BusinessModelConcurrencyMysqlTest.php`: cancel đối đầu approve nhận `200 + 422`. | Resolved |
+| BUG-RG-003 | Tạo replacement request khóa departure và assignment, tái kiểm tra request pending trong transaction; evidence đã lưu được xóa nếu transaction không tạo request hoặc phát sinh exception. | `backend_laravel/app/Http/Controllers/Api/Guide/GuideTourController.php`, class `GuideTourController`, method `requestReplacement`; route `POST /api/guide/tours/{tourDeparture}/replacement-requests`. | Models `TourDeparture`, `Guide`; bảng `tour_guide_assignments` và `guide_replacement_requests` được query trực tiếp; migrations `2026_06_28_092905_create_tour_guide_assignments_table.php`, `2026_07_12_000000_create_guide_replacement_requests_table.php`. | `backend_laravel/tests/Feature/GuideBusinessModelRegressionTest.php`: chỉ một pending; `backend_laravel/tests/Feature/BusinessModelConcurrencyMysqlTest.php`: hai request đồng thời nhận `201 + 409`. | Resolved |
+| BUG-RG-004 | Approve/reject cùng khóa departure trước rồi khóa replacement request, chỉ xử lý state `pending`; assignment, request và notification được ghi trong một transaction, stale action trả `409`. | `backend_laravel/app/Http/Controllers/Api/Admin/AdminGuideReplacementRequestController.php`, class `AdminGuideReplacementRequestController`, methods `approve`, `reject`; routes `POST /api/admin/guide-replacement-requests/{id}/approve`, `POST /api/admin/guide-replacement-requests/{id}/reject`. | Models `TourDeparture`, `Guide`; bảng `tour_guide_assignments`, `guide_replacement_requests`, `notifications`; migrations `2026_06_28_092905_create_tour_guide_assignments_table.php`, `2026_07_12_000000_create_guide_replacement_requests_table.php`. | `backend_laravel/tests/Feature/GuideBusinessModelRegressionTest.php`: request đã duyệt không bị reject ghi đè; `backend_laravel/tests/Feature/BusinessModelConcurrencyMysqlTest.php`: approve đối đầu reject nhận `200 + 409`. | Resolved |
+| BUG-SA-001 | Support gửi cho toàn bộ admin với notification `type=support`, `status=unread` và metadata nguồn gửi trong transaction. | `backend_laravel/app/Http/Controllers/Api/Support/SupportNotificationController.php`, class `SupportNotificationController`, method `sendNotification`; route `POST /api/notifications/support/send`. | Models `Notification`, `User`; migrations `2026_06_10_220130_create_notifications_table.php`, `2026_06_24_161627_modify_notifications_table.php`; không có migration hậu sửa riêng. | `backend_laravel/tests/Feature/BusinessModelAuditBugFixTest.php`: “nhân viên hỗ trợ gửi được thông báo hợp lệ tới toàn bộ admin”. | Resolved |
+| BUG-SA-002 | Contract widget giữ `image_url` bắt buộc cho type `image` và cho phép `NULL` với type `html`; rollback backfill `NULL` thành chuỗi rỗng trước khi khôi phục `NOT NULL`. | `backend_laravel/app/Http/Controllers/Api/Admin/WidgetController.php`, class `WidgetController`, methods `store`, `update`, `rules`, `payload`; routes `POST /api/admin/widgets`, `PUT /api/admin/widgets/{id}`. | Model `Banner`; migration `backend_laravel/database/migrations/2026_07_22_000000_make_banner_image_url_nullable.php`, methods `up`, `down`. | `backend_laravel/tests/Feature/BusinessModelAuditBugFixTest.php`: tạo HTML widget không ảnh và rollback giữ row. | Resolved |
+| BUG-SA-003 | Admin khóa booking khi update/hủy; `cancelled` là terminal; chỉ transition hủy đầu tiên hoàn `booked_slots`, gọi hủy lặp không hoàn chỗ lần nữa. | `backend_laravel/app/Http/Controllers/Api/Admin/BookingController.php`, class `BookingController`, methods `update`, `softDelete`, `releaseBookedSlots`; routes `PUT /api/admin/bookings/{id}`, `PATCH /api/admin/bookings/{id}/cancel`. | Models `Booking`, `TourDeparture`; migrations `2026_06_10_220060_create_bookings_table.php`, `2026_06_10_220040_create_tour_departures_table.php`. | `backend_laravel/tests/Feature/BusinessModelAuditBugFixTest.php`: booking đã hủy không mở lại/hoàn lần hai; `backend_laravel/tests/Feature/BusinessModelConcurrencyMysqlTest.php`: hủy đồng thời chỉ hoàn một lần. | Resolved |
+| BUG-SA-004 | Gửi campaign khóa row draft và tái kiểm tra `status=draft` trước bulk insert; lần gửi sau khi draft đã `sent` trả `404`. | `backend_laravel/app/Http/Controllers/Api/Admin/NotificationController.php`, class `NotificationController`, method `sendNotification`; route `POST /api/admin/notifications/send/{id}`. | Models `NotificationDraft`, `Notification`, `User`; migrations `2026_06_24_152026_create_notification_drafts_table.php`, `2026_06_10_220130_create_notifications_table.php`, `2026_06_24_165838_add_draft_id_to_notifications_table.php`; không có migration hậu sửa riêng. | `backend_laravel/tests/Feature/BusinessModelAuditBugFixTest.php`: gửi lặp chỉ một notification/recipient; `backend_laravel/tests/Feature/BusinessModelConcurrencyMysqlTest.php`: hai request nhận `200 + 404`. | Resolved |
+| BUG-XD-001 | Cả sáu API candidates/auto assign/assign/cancel/direct candidates/direct assign chặn departure có ngày khởi hành `<= hôm nay` bằng `422`; các write flow tái kiểm tra guard sau khi khóa departure. | `backend_laravel/app/Http/Controllers/Api/Admin/TourDepartureGuideAssignmentController.php`, `TourDepartureGuideAssignmentController::{candidates,autoAssign,assign,cancel,directCandidates,directAssign}`; `backend_laravel/app/Services/GuideAssignmentService.php`, `GuideAssignmentService::{autoAssign,assignSpecific}`; `backend_laravel/app/Services/TourDepartureMutationGuard.php`, `TourDepartureMutationGuard::assertCanMutate`; routes `GET /api/admin/tour-departures/{departure}/guide-candidates`, `POST /api/admin/tour-departures/{departure}/auto-assign-guide`, `POST /api/admin/tour-departures/{departure}/assign-guide`, `PATCH /api/admin/tour-departures/{departure}/guide-assignments/{assignment}/cancel`, `GET /api/admin/tour-departures/{departure}/direct-guide-candidates`, `POST /api/admin/tour-departures/{departure}/direct-assign-guide`. | Models `TourDeparture`, `TourGuideAssignment`, `Guide`; migrations `2026_06_10_220040_create_tour_departures_table.php`, `2026_06_28_092905_create_tour_guide_assignments_table.php`; không có migration hậu sửa riêng. | `backend_laravel/tests/Feature/GuideBusinessModelRegressionTest.php`: sáu API trả `422` với departure bắt đầu hôm nay; future cancel vẫn thành công. | Resolved |
+| BUG-XD-002 | Guide tự cập nhật/đọc lại `certificate_type` tối đa 100 ký tự; 101 ký tự trả `422`; field có trong mass assignment. | `backend_laravel/app/Http/Controllers/Api/Guide/GuideProfileController.php`, class `GuideProfileController`, methods `show`, `update`; routes `GET /api/guide/profile` và `PUT /api/guide/profile`; `backend_laravel/app/Models/Guide.php`, class `Guide`, thuộc tính `fillable`. | Model `Guide`; migration `backend_laravel/database/migrations/2026_07_22_000000_restore_certificate_type_to_guides_table.php`, methods `up`, `down`, khôi phục `VARCHAR(100) NULL`. | `backend_laravel/tests/Feature/GuideBusinessModelRegressionTest.php`: round-trip 100 ký tự và từ chối 101 ký tự. | Resolved |
+| BUG-XD-003 | Admin profile nhận một trong hai nguồn avatar: `avatar_url` tối đa 500 hoặc file JPG/JPEG/PNG/WebP tối đa 5.120 KB; gửi đồng thời hai nguồn trả `422`; file được lưu ở disk `public`, thư mục `avatars`. | `backend_laravel/app/Http/Controllers/Api/Admin/AdminProfileController.php`, class `AdminProfileController`, method `update`; route `PUT /api/admin/profile`. | Model `User`; migrations `0001_01_01_000000_create_users_table.php`, `2026_06_10_215910_add_vivugo_columns_to_users_table.php`; không có migration hậu sửa riêng. | `backend_laravel/tests/Feature/BusinessModelAuditBugFixTest.php`: upload avatar, mutual exclusion và giới hạn dung lượng. | Resolved |
+
 ## 2. Authentication, RBAC và hồ sơ
 
 ### Chức năng
@@ -30,9 +52,10 @@
 
 | Luồng | Required | Optional/rule |
 | --- | --- | --- |
-| Register | `full_name`, `email`, `phone`, `password`, `password_confirmation` | Validation của `AuthController::register()` yêu cầu email/phone unique; password dùng `Setting::password_min_length`, mặc định 8; confirmed. Chỉ email có unique ở migration `users`; phone không có unique DB |
+| Register | `full_name`, `email`, `phone`, `password`, `password_confirmation` | `full_name` tối đa 150; email hợp lệ, tối đa 150 và unique; phone tối đa 20 và unique ở validation; password dùng `Setting::password_min_length`, mặc định 8, và confirmed. Chỉ email có unique ở migration `users`; phone không có unique DB |
 | Login | `identifier`, `password` | `remember` boolean; identifier có thể nhận fallback từ field `email` |
-| Customer profile | `full_name` | `phone` nullable tối đa 10; avatar image JPG/JPEG/PNG/WebP, tối đa 5.120 KB |
+| Customer profile | `full_name` | `full_name` tối đa 150; `phone` nullable tối đa 20; avatar image JPG/JPEG/PNG/WebP, tối đa 5.120 KB |
+| Admin profile | Không có field bắt buộc vì các field dùng `sometimes` | `full_name` tối đa 150; email tối đa 150 và unique bỏ qua chính user; phone nullable tối đa 20; `avatar_url` nullable tối đa 500 hoặc file `avatar` JPG/JPEG/PNG/WebP tối đa 5.120 KB; gửi đồng thời hai nguồn avatar trả `422` |
 | Customer password | `current_password`, `new_password`, confirmation | Độ dài theo setting; mật khẩu cũ phải đúng |
 | Support profile | Các field gửi lên dùng `sometimes`: `full_name`, `email`, `status` | `phone` nullable; status `active/inactive`; email unique |
 | Support password | `old_password`, `new_password`, confirmation | New password tối thiểu 6, phải khác password cũ |
@@ -56,6 +79,7 @@
 5. React gặp `401` sẽ xóa session và chuyển login; gặp `403` ở trang `/admin` cũng chuyển login.
 6. Customer đổi password sai password cũ trả `400`; support trả `422`.
 7. Backend forgot-password lưu OTP vào user và response hiện trả cả `otp_in_db`; React `ForgotPasswordPage` lại hiển thị tính năng đang chuẩn bị và không gọi API.
+8. Admin cập nhật profile bằng URL hoặc file avatar; file được lưu tại disk `public` trong thư mục `avatars`, URL public được ghi vào `users.avatar_url`; request có cả `avatar` và `avatar_url` trả `422`.
 
 ### Database
 
@@ -72,14 +96,16 @@
 
 ### Source Code Reference
 
-- Route: `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`, `GET /api/user`, `POST /api/forgot-password`, `POST /api/reset-password`; file `backend_laravel/routes/api.php`. Route `/auth/me` dùng closure tại route; route `/user` gọi `AuthController::me`.
+- Route: `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`, `GET /api/user`, `POST /api/forgot-password`, `POST /api/reset-password`, `GET|PUT /api/admin/profile`, `PUT /api/admin/profile/password`; file `backend_laravel/routes/api.php`. Route `/auth/me` dùng closure tại route; route `/user` gọi `AuthController::me`.
 - File/class/method: `backend_laravel/app/Http/Controllers/Api/AuthController.php`; `AuthController::{register,login,logout,me}`; `me` được route `/api/user` sử dụng.
 - File/class/method: `backend_laravel/app/Http/Controllers/Api/Customer/CustomerController.php`; `CustomerController::{updateProfile,changePassword,forgotPassword,resetPassword}`.
+- File/class/method: `backend_laravel/app/Http/Controllers/Api/Admin/AdminProfileController.php`; `AdminProfileController::{show,update,changePassword}`.
 - File/class/method: `backend_laravel/app/Http/Controllers/Api/Guide/GuideProfileController.php`; `GuideProfileController::{show,update,changePassword}`.
 - File/class/method: `backend_laravel/app/Http/Controllers/Api/Support/SupportProfileController.php`; `SupportProfileController::{show,update,changePassword}`.
 - Frontend: `frontend_react/src/pages/auth/AuthPage.jsx`, `ForgotPasswordPage.jsx`, `frontend_react/src/components/admin/ProtectedAdminRoute.jsx`, `frontend_react/src/services/apiClient.js`, `authStorage.js`.
 - Models: `User`, `Role`, `Setting`.
 - Migrations: `0001_01_01_000000_create_users_table.php`, `2026_06_10_215900_create_roles_table.php`, `2026_06_10_215910_add_vivugo_columns_to_users_table.php`, `2026_06_10_055225_create_personal_access_tokens_table.php`, `2026_06_13_144107_add_otp_to_users_table.php`.
+- Tests hậu sửa: `backend_laravel/tests/Feature/AuthBookingBusinessModelRegressionTest.php` kiểm biên validation đăng ký/customer profile; `backend_laravel/tests/Feature/BusinessModelAuditBugFixTest.php` kiểm upload avatar admin, loại trừ đồng thời `avatar`/`avatar_url` và dung lượng tối đa.
 
 ## 3. Public catalog, tìm kiếm tour và trang chủ
 
@@ -191,8 +217,8 @@ API tour nhận các query tùy chọn:
 | --- | --- | --- |
 | Preview | `tour_departure_id`, `quantity_summary` | 1–20 nhóm; `rule_id` nullable/existing; quantity 0–20 |
 | Booking | `tour_departure_id`, `number_of_people`, `contact`, `participants` | Người 1–20; note tối đa 2.000; quantity summary tùy chọn |
-| Contact | `contact_name`, `contact_phone` | email nullable/email; address tối đa 500; special request tối đa 2.000 |
-| Participant | `full_name`, `birth_date`, `gender` | phone, identity, participant type; gender `male/female/other`; birth date không sau hôm nay |
+| Contact | `contact_name`, `contact_phone` | Tên tối đa 150; email nullable, đúng định dạng, tối đa 150; phone tối đa 20; address tối đa 255; special request tối đa 2.000 |
+| Participant | `full_name`, `birth_date`, `gender` | Tên tối đa 150; phone nullable tối đa 20; identity nullable tối đa 30; participant type nullable trong `adult/child/infant`; gender `male/female/other`; birth date không sau hôm nay |
 
 Validation chéo:
 
@@ -221,11 +247,13 @@ Frontend `TourDetailPage` còn áp dụng rule chặt hơn cho tên, phone, emai
 2. Create yêu cầu VNPAY đã cấu hình; chưa cấu hình trả validation error.
 3. Transaction khóa departure và tour bằng `lockForUpdate` để tránh overbooking.
 4. Giá người lớn ưu tiên giá lịch; rule tuổi có kiểu `free`, `fixed`, `percentage`.
-5. Hệ thống tạo `Booking`, `BookingContact`, các `BookingParticipant`, một `Payment` VNPAY pending và `BookingStatusHistory`.
-6. Link VNPAY có hạn 15 phút; booked slots tăng trong cùng transaction.
-7. Continue payment chỉ áp dụng booking `pending`, payment status `unpaid`, payment VNPAY `pending` và chưa hết hạn.
-8. Customer cancel chỉ áp dụng cùng trạng thái trên; lifecycle service đánh failed payment, cancelled booking và hoàn booked slots.
-9. Admin xóa vĩnh viễn chỉ khi booking status là `cancelled`.
+5. Khi tạo booking, `birth_date` của từng participant được truyền vào `TourPricingService::calculateParticipantPrice`; `bookings.total_amount` là tổng `unit_price` của các participant sau định giá trừ discount, và `payments.amount` nhận đúng cùng giá trị này. Giá không lấy từ nhóm tuổi client tự chọn trong `quantity_summary`.
+6. Hệ thống tạo `Booking`, `BookingContact`, các `BookingParticipant`, một `Payment` VNPAY pending và `BookingStatusHistory`.
+7. Link VNPAY có hạn 15 phút; booked slots tăng trong cùng transaction.
+8. Continue payment chỉ áp dụng booking `pending`, payment status `unpaid`, payment VNPAY `pending` và chưa hết hạn.
+9. Customer cancel chỉ áp dụng cùng trạng thái trên; lifecycle service đánh failed payment, cancelled booking và hoàn booked slots.
+10. Admin `update` và `softDelete` khóa booking trong transaction. Booking đã `cancelled` không thể chuyển lại trạng thái khác; chỉ lần đầu chuyển sang `cancelled` hoàn số chỗ, còn thao tác hủy lặp không hoàn thêm.
+11. Admin xóa vĩnh viễn chỉ khi booking status là `cancelled`.
 
 Exception có bằng chứng:
 
@@ -238,6 +266,7 @@ Exception có bằng chứng:
 
 - `bookings` N-1 `users`, `tours`, `tour_departures`; status và payment status có index.
 - `booking_contacts.booking_id` unique: một contact/booking.
+- `booking_contacts.contact_email` là `VARCHAR(150) NULL` sau migration `2026_07_22_010000_make_booking_contact_email_nullable.php`; `down()` backfill `NULL` thành `''` trước khi đổi lại `NOT NULL`.
 - `booking_participants` N-1 booking; pricing snapshot được bổ sung bởi migration `2026_07_03_120100_add_pricing_snapshot_to_booking_participants_table.php`.
 - `payments.booking_id` unique: một payment/booking.
 - `booking_status_histories` lưu old/new status, người thay đổi và note.
@@ -248,6 +277,8 @@ Exception có bằng chứng:
 - Không overbook: kiểm tra slot dưới row lock. (Nguồn: BR-025 tại `docs/reverse-engineering/03-business-rules-brd.md`.)
 - Hủy/chấm dứt payment pending phải hoàn số chỗ, không giảm dưới 0. (Nguồn: BR-028 và BR-032 tại `docs/reverse-engineering/03-business-rules-brd.md`.)
 - Payment status không được sửa qua admin booking update; dùng payment endpoints. (Nguồn: BR-096 và BR-034 tại `docs/reverse-engineering/03-business-rules-brd.md`.)
+- `birth_date` participant là dữ liệu định giá khi tạo booking; tổng booking và amount payment cùng lấy từ tổng snapshot giá participant. (Nguồn: file `backend_laravel/app/Http/Controllers/Api/Customer/CustomerBookingController.php`; class `CustomerBookingController`; method `store`; route `POST /api/customer/bookings`; models `Booking`, `BookingParticipant`, `Payment`; migrations booking/participant/payment nêu dưới đây; test `AuthBookingBusinessModelRegressionTest.php`.)
+- Booking admin đã `cancelled` là terminal và chỉ lần chuyển hủy đầu tiên hoàn slot. (Nguồn: file `backend_laravel/app/Http/Controllers/Api/Admin/BookingController.php`; class `BookingController`; methods `update`, `softDelete`, `releaseBookedSlots`; routes `PUT /api/admin/bookings/{id}`, `PATCH /api/admin/bookings/{id}/cancel`; models `Booking`, `TourDeparture`; migrations booking/departure; tests `BusinessModelAuditBugFixTest.php`, `BusinessModelConcurrencyMysqlTest.php`.)
 
 ### Source Code Reference
 
@@ -256,7 +287,8 @@ Exception có bằng chứng:
 - Requests/services: `StoreBookingRequest`, `TourPricingService`, `VnpayPaymentLifecycleService`.
 - Frontend: `TourDetailPage.jsx`, `ProfileDashboard.jsx`, `customerApi.js`, `BookingManagementPage.jsx`, `bookingApi.js`.
 - Models: `Booking`, `BookingContact`, `BookingParticipant`, `BookingStatusHistory`, `TourDeparture`, `Payment`.
-- Migrations: `2026_06_10_220060_create_bookings_table.php`, `2026_06_10_220070_create_booking_contacts_table.php`, `2026_06_10_220080_create_booking_participants_table.php`, `2026_06_10_220090_create_payments_table.php`, `2026_06_10_220200_create_booking_status_histories_table.php`, `2026_07_04_005529_add_unique_booking_code_to_bookings_table.php`.
+- Migrations: `2026_06_10_220060_create_bookings_table.php`, `2026_06_10_220070_create_booking_contacts_table.php`, `2026_07_22_010000_make_booking_contact_email_nullable.php`, `2026_06_10_220080_create_booking_participants_table.php`, `2026_07_03_120100_add_pricing_snapshot_to_booking_participants_table.php`, `2026_06_10_220090_create_payments_table.php`, `2026_06_10_220200_create_booking_status_histories_table.php`, `2026_07_04_005529_add_unique_booking_code_to_bookings_table.php`.
+- Tests hậu sửa: `backend_laravel/tests/Feature/AuthBookingBusinessModelRegressionTest.php` kiểm giới hạn chuỗi, contact email nullable/rollback và total theo DOB; `backend_laravel/tests/Feature/BusinessModelAuditBugFixTest.php` cùng `BusinessModelConcurrencyMysqlTest.php` kiểm trạng thái hủy terminal và hoàn slot đúng một lần.
 
 ## 6. Thanh toán VNPAY và quản trị payment
 
@@ -272,6 +304,7 @@ Exception có bằng chứng:
 - Customer status: route-model payment; controller kiểm tra method `vnpay` và booking owner.
 - Return/IPN: query VNPAY, chữ ký và số tiền được kiểm tra.
 - Admin confirm: `transaction_code` tối đa 100, `gateway_response` nullable array.
+- Admin transition: chỉ `pending→success`, `pending→failed`, `failed→success`, `success→refunded`; mọi transition khác, kể cả giữ nguyên trạng thái, trả validation `422`.
 - Output status gồm payment status, amount, transaction code, expires_at, booking/payment status, cancel reason, tour và ngày đi.
 
 ### Flow và exception
@@ -283,22 +316,25 @@ Exception có bằng chứng:
 5. Hết hạn hoặc customer hủy trên gateway: lifecycle chuyển payment `failed`, booking `cancelled`, payment status `failed`, hoàn slots và ghi history.
 6. Callback lặp lại không xử lý lại payment đã hết pending.
 7. VNPAY chưa cấu hình: return `503`; signature sai hoặc amount sai: `422`; không tìm thấy: `404`.
+8. Admin confirm/fail/refund đi qua `PaymentController::updateStatus`: transaction khóa payment bằng `lockForUpdate`, kiểm transition rồi cập nhật `payments.status` và `bookings.payment_status`; transition không hợp lệ ném `ValidationException` trước khi ghi.
 
 ### Database và business rules
 
 - Payment methods migration cho phép `vnpay`, `momo`, `cod`; status `pending`, `success`, `failed`, `refunded`. (Nguồn: file `backend_laravel/database/migrations/2026_06_10_220090_create_payments_table.php`; class migration ẩn danh; method `up`; route không áp dụng; model `Payment`; migration chính file trên.)
 - Một payment/booking qua unique `booking_id`. (Nguồn: file `backend_laravel/database/migrations/2026_06_10_220090_create_payments_table.php`; class migration ẩn danh; method `up`; route không áp dụng; models `Payment`, `Booking`; migration chính file trên.)
 - Admin payment update đồng bộ `bookings.payment_status` trong transaction. (Nguồn: BR-034 tại `docs/reverse-engineering/03-business-rules-brd.md`.)
+- Ma trận chuyển trạng thái payment admin là `pending→success/failed`, `failed→success`, `success→refunded`; payment row được khóa trước khi kiểm và cập nhật. (Nguồn: file `backend_laravel/app/Http/Controllers/Api/Admin/PaymentController.php`; class `PaymentController`; methods `confirm`, `fail`, `refund`, `updateStatus`; routes `PATCH /api/admin/payments/{id}/confirm`, `/fail`, `/refund`; models `Payment`, `Booking`; migrations payment/booking; tests `AuthBookingBusinessModelRegressionTest.php`, `PaymentBookingSafetyTest.php`.)
 - Scheduler `vnpay:expire-pending-payments` chạy mỗi phút. (Nguồn: BR-033 tại `docs/reverse-engineering/03-business-rules-brd.md`.)
 
 ### Source Code Reference
 
 - Routes: `GET /api/customer/payments/vnpay/{payment}`, `GET /api/vnpay/return-status`, `GET /api/webhooks/vnpay`, admin `/api/admin/payments*`.
-- Controllers: `Customer/VnpayPaymentController::{status,returnStatus,ipn}`, `Admin/PaymentController::{index,show,confirm,fail,refund}`.
+- Controllers: `Customer/VnpayPaymentController::{status,returnStatus,ipn}`, `Admin/PaymentController::{index,show,confirm,fail,refund,updateStatus}`.
 - Services: `VnpayService::{createPaymentUrl,verifyResponse}`, `VnpayPaymentLifecycleService::failPendingPayment`.
 - Command/scheduler: `ExpirePendingVnpayPayments`, `backend_laravel/routes/console.php`.
 - Frontend: `VnpayPaymentResultPage.jsx`, `customerApi.js`, `paymentApi.js`, `BookingManagementPage.jsx`.
 - Model/migrations: `Payment`; `2026_06_10_220090_create_payments_table.php`, `2026_07_15_000000_add_vnpay_expiry_to_payments_table.php`.
+- Tests hậu sửa: `backend_laravel/tests/Feature/AuthBookingBusinessModelRegressionTest.php` kiểm toàn bộ ma trận transition; `backend_laravel/tests/Feature/PaymentBookingSafetyTest.php` kiểm các chuỗi transition hợp lệ và đồng bộ booking.
 
 ## 7. Đánh giá tour
 
@@ -567,17 +603,19 @@ Support list:
 ### Flow, nhánh và exception
 
 1. Admin lưu draft bằng `updateOrCreate` với status draft.
-2. Send chạy transaction, giải target thành users, bulk insert notifications và chuyển draft sang sent.
-3. Không có recipient trả `404`; draft không tồn tại/đã gửi trả `404`.
+2. Send chạy transaction, khóa draft bằng `lockForUpdate`, tái kiểm tra `status=draft`, giải target thành users, bulk insert notifications và chuyển draft sang sent.
+3. Không có recipient trả `404`; draft không tồn tại/đã gửi trả `404`. Do kiểm tra trạng thái được thực hiện sau row lock, request gửi lặp không tạo thêm bộ notification từ cùng draft.
 4. Revoke xóa notification theo `draft_id` và đưa campaign về draft.
 5. Customer/support detail chỉ query notification cùng `user_id`; của người khác trả `404`.
-6. Support gửi tới user có role admin trong transaction.
+6. Support gửi tới user có role admin trong transaction; mỗi row được insert với `type=support`, `status=unread` và `data` chứa `source=support_to_admin`, role cùng user ID người gửi.
 
 ### Database và business rules
 
 - `notification_drafts`: target type/IDs, status draft/sent, soft delete. (Nguồn: files `backend_laravel/database/migrations/2026_06_24_152026_create_notification_drafts_table.php`, `backend_laravel/database/migrations/2026_06_24_155228_add_deleted_at_to_notification_drafts_table.php`; classes migration ẩn danh; methods `up`; routes `/api/admin/notifications/draft*`; model `NotificationDraft`; migrations hai file trên; xem thêm BR-081 tại `docs/reverse-engineering/03-business-rules-brd.md`.)
 - `notifications`: user, draft, title/message, type/data, status/read_at. (Nguồn: files `backend_laravel/database/migrations/2026_06_10_220130_create_notifications_table.php`, `backend_laravel/database/migrations/2026_06_24_161627_modify_notifications_table.php`, `backend_laravel/database/migrations/2026_06_24_165838_add_draft_id_to_notifications_table.php`; classes migration ẩn danh; methods `up`; routes notification customer/support/admin; model `Notification`; migrations ba file trên.)
 - Campaign send dùng transaction và bulk insert. (Nguồn: BR-082 tại `docs/reverse-engineering/03-business-rules-brd.md`.)
+- Campaign send khóa `notification_drafts` và kiểm tra lại state `draft` trong transaction trước khi insert vào `notifications`. (Nguồn: file `backend_laravel/app/Http/Controllers/Api/Admin/NotificationController.php`; class `NotificationController`; method `sendNotification`; route `POST /api/admin/notifications/send/{id}`; models `NotificationDraft`, `Notification`, `User`; migrations notification/draft nêu dưới đây; tests `BusinessModelAuditBugFixTest.php`, `BusinessModelConcurrencyMysqlTest.php`.)
+- Notification do support gửi tới admin có `type=support`. (Nguồn: file `backend_laravel/app/Http/Controllers/Api/Support/SupportNotificationController.php`; class `SupportNotificationController`; method `sendNotification`; route `POST /api/notifications/support/send`; models `Notification`, `User`; migrations notification nêu dưới đây; test `BusinessModelAuditBugFixTest.php`.)
 - React `CustomerNotificationBell` polling mỗi 60 giây; `SupportNotificationBell` và `AdminNotificationBell` polling mỗi 30 giây; `GuideNotificationBell` chỉ tải khi mount, không có polling. (Nguồn: files `frontend_react/src/components/customer/CustomerNotificationBell.jsx`, `frontend_react/src/components/support/SupportNotificationBell.jsx`, `frontend_react/src/components/admin/notifications/AdminNotificationBell.jsx`, `frontend_react/src/components/guide/GuideNotificationBell.jsx`; các component cùng tên; method/hook `useEffect`; route UI theo layout từng actor; model/migration không áp dụng cho timer frontend.)
 - Guide notification service frontend đặt endpoint `/notifications/customers`; backend route này chỉ yêu cầu auth và controller có nhánh visible query dùng chung. Tên endpoint không chứng minh chỉ customer được gọi. (Nguồn: files `frontend_react/src/services/guideNotificationApi.js`, `backend_laravel/routes/api.php`, `backend_laravel/app/Http/Controllers/Api/Customer/NotificationCustomerController.php`; class `NotificationCustomerController`; methods `getMyNotifications`, `visibleNotificationsQuery`; route `/api/notifications/customers`; model `Notification`; migration notifications; xem thêm BR-080 tại `docs/reverse-engineering/03-business-rules-brd.md`.)
 
@@ -589,6 +627,7 @@ Support list:
 - Frontend: `AdminNotificationsPage.jsx`, các notification bell/page và notification API services.
 - Models: `Notification`, `NotificationDraft`, `User`.
 - Migrations: `2026_06_10_220130_create_notifications_table.php`, `2026_06_24_152026_create_notification_drafts_table.php`, `2026_06_24_155228_add_deleted_at_to_notification_drafts_table.php`, `2026_06_24_161627_modify_notifications_table.php`, `2026_06_24_165838_add_draft_id_to_notifications_table.php`.
+- Tests hậu sửa: `backend_laravel/tests/Feature/BusinessModelAuditBugFixTest.php` kiểm notification support và gửi draft lặp tuần tự; `backend_laravel/tests/Feature/BusinessModelConcurrencyMysqlTest.php` kiểm hai request gửi cùng draft chỉ một request thành công.
 
 ## 12. Dashboard và báo cáo
 
@@ -788,11 +827,12 @@ Frontend `TourForm` có thêm validation về title 5–180, description cho non
 ### Flow, nhánh và exception
 
 1. Return date tự tính bằng departure date + `tour.duration_nights`.
-2. `TourDepartureMutationGuard` khóa sửa/xóa/phân công nếu ngày đi <= hôm nay.
-3. Nếu update không làm thay đổi field, trả message không có thay đổi.
-4. Departure có active booking mà chưa `confirm_booked_change` trả `409`, code `BOOKED_DEPARTURE_CONFIRMATION_REQUIRED`.
-5. Khi đã xác nhận, transaction lưu lịch và gửi thông báo tới customer/guide; đồng thời tạo admin notification.
-6. Delete bị từ chối `422` nếu có bất kỳ booking liên kết; nếu không, transaction tạo notification rồi xóa.
+2. `TourDepartureMutationGuard` chặn sửa/xóa departure và cả sáu API phân công `candidates`, `autoAssign`, `assign`, `cancel`, `directCandidates`, `directAssign` nếu ngày đi `<= hôm nay`; guard ném validation `422`.
+3. Các flow ghi assignment khóa departure rồi gọi lại guard trong transaction; cancel còn khóa assignment, còn `GuideAssignmentService::{autoAssign,assignSpecific}` khóa departure trước khi kiểm/tạo assignment.
+4. Nếu update không làm thay đổi field, trả message không có thay đổi.
+5. Departure có active booking mà chưa `confirm_booked_change` trả `409`, code `BOOKED_DEPARTURE_CONFIRMATION_REQUIRED`.
+6. Khi đã xác nhận, transaction lưu lịch và gửi thông báo tới customer/guide; đồng thời tạo admin notification.
+7. Delete bị từ chối `422` nếu có bất kỳ booking liên kết; nếu không, transaction tạo notification rồi xóa.
 
 ### Database và business rules
 
@@ -804,10 +844,12 @@ Frontend `TourForm` có thêm validation về title 5–180, description cho non
 
 - Routes: `GET|POST /api/admin/tours/{tourId}/departures`, `PUT|DELETE /api/admin/tours/departures/{id}`, `GET /api/admin/tour-departures/{tourDeparture}/booked-customers`.
 - Controller: `Admin/TourDepartureController::{index,store,update,destroy}`, `AdminTourDepartureBookingController::index`.
-- Services: `TourDepartureMutationGuard::{isLocked,assertCanMutate}`, `TourDepartureChangeNotificationService`, `AdminNotificationService`.
+- Controllers liên quan guard phân công: `backend_laravel/app/Http/Controllers/Api/Admin/TourDepartureGuideAssignmentController.php`; `TourDepartureGuideAssignmentController::{candidates,autoAssign,assign,cancel,directCandidates,directAssign}`; routes tương ứng dưới `/api/admin/tour-departures/{departure}`.
+- Services: `TourDepartureMutationGuard::{isLocked,assertCanMutate}`, `GuideAssignmentService::{autoAssign,assignSpecific}`, `TourDepartureChangeNotificationService`, `AdminNotificationService`.
 - Frontend: `TourDepartureListPage`, `TourDepartureCreatePage`, `TourDepartureEditPage`, `tourDepartureApi.js`.
 - Model: `TourDeparture`.
 - Migrations: `2026_06_10_220040_create_tour_departures_table.php`, `2026_07_06_000001_add_base_and_discount_price_to_tour_departures_table.php`.
+- Test hậu sửa: `backend_laravel/tests/Feature/GuideBusinessModelRegressionTest.php` kiểm cả sáu API trả `422` với departure khởi hành hôm nay và cancel được assignment của departure tương lai; models `TourDeparture`, `TourGuideAssignment`, `Guide`; migration assignment `2026_06_28_092905_create_tour_guide_assignments_table.php`.
 
 ## 18. Quản lý hồ sơ hướng dẫn viên
 
@@ -816,7 +858,7 @@ Frontend `TourForm` có thêm validation về title 5–180, description cho non
 - Admin list/search/filter/statistics/detail/create/update, soft delete, trash, restore, force delete, upload/delete avatar và lấy account guide chưa có hồ sơ.
 - Guide xem/sửa hồ sơ và đổi password.
 
-### Input/validation admin
+### Input/validation
 
 - Create: `user_id` bắt buộc, tồn tại, unique trong guide chưa xóa; experience 0–40; status `active/inactive/locked`.
 - `destination_ids` bắt buộc array tối thiểu 1, từng ID distinct và tồn tại.
@@ -824,6 +866,7 @@ Frontend `TourForm` có thêm validation về title 5–180, description cho non
 - Experiences nullable; certificate tồn tại, issued year 1900 đến năm hiện tại.
 - Update dùng `sometimes`; nếu gửi destinations vẫn phải có tối thiểu 1.
 - Frontend yêu cầu ít nhất một language và một certificate; backend cho phép hai array này nullable. Đây là khác biệt validation giữa UI và API.
+- Guide tự cập nhật profile: `certificate_type` dùng `sometimes|string|max:100`; response `show` trả lại field này.
 
 ### Output, flow và exception
 
@@ -833,6 +876,7 @@ Frontend `TourForm` có thêm validation về title 5–180, description cho non
 4. Soft delete/restore/force delete có route riêng.
 5. Avatar lưu/xóa trong public storage.
 6. Tài khoản không có guide profile khi gọi guide profile API nhận `404`.
+7. `GuideProfileController::update` đưa `certificate_type` vào dữ liệu cập nhật guide; `Guide::$fillable` cho phép ghi field này trong transaction cập nhật profile.
 
 ### Database và business rules
 
@@ -840,14 +884,16 @@ Frontend `TourForm` có thêm validation về title 5–180, description cho non
 - `guide_destinations` là pivot guide-destination, được ánh xạ qua `Guide::destinations()` và `Destination::guides()`. App model `GuideDestination`: **KHÔNG TÌM THẤY BẰNG CHỨNG TRONG SOURCE CODE** vì `backend_laravel/app/Models/GuideDestination.php` khai báo class `TourGuideAssignment`. (Nguồn: files `backend_laravel/database/migrations/2026_07_07_055358_create_guide_destinations_table.php`, `backend_laravel/app/Models/Guide.php`, `backend_laravel/app/Models/Destination.php`; classes migration ẩn danh, `Guide`, `Destination`; methods migration `up`, `Guide::destinations`, `Destination::guides`; routes `/api/admin/guides*`; models hợp lệ `Guide`, `Destination`; migration pivot trên.)
 - `guide_languages` unique `(guide_id, language_id)`. (Nguồn: file `backend_laravel/database/migrations/2026_06_24_042946_drop_and_recreate_guide_languages_table.php`; class migration ẩn danh; method `up`; routes `/api/admin/guides*`; models `GuideLanguage`, `Guide`, `Language`; migration chính file trên.)
 - `guide_experiences` unique `(guide_id, certificate_id)`. (Nguồn: file `backend_laravel/database/migrations/2026_06_24_042950_drop_and_recreate_guide_experiences_table.php`; class migration ẩn danh; method `up`; routes `/api/admin/guides*`; models `GuideExperience`, `Guide`, `Certificate`; migration chính file trên.)
+- `guides.certificate_type` là `VARCHAR(100) NULL`; migration hậu sửa khôi phục cột đã bị migration specialization loại bỏ, và `down()` xóa cột. (Nguồn: file `backend_laravel/database/migrations/2026_07_22_000000_restore_certificate_type_to_guides_table.php`; class migration ẩn danh; methods `up`, `down`; route `GET|PUT /api/guide/profile`; controller `GuideProfileController::{show,update}`; model `Guide`, thuộc tính `fillable`; test `GuideBusinessModelRegressionTest.php`.)
 
 ### Source Code Reference
 
 - Routes: `/api/admin/guides*`, `/api/guide/profile`, `/api/guide/change-password`.
-- Controllers: `Admin/GuideController::{index,search,filter,show,store,update,destroy,trashed,restore,forceDelete,statistics,availableUsers,uploadAvatar,deleteAvatar}`; `Guide/GuideProfileController`.
+- Controllers: `Admin/GuideController::{index,search,filter,show,store,update,destroy,trashed,restore,forceDelete,statistics,availableUsers,uploadAvatar,deleteAvatar}`; `backend_laravel/app/Http/Controllers/Api/Guide/GuideProfileController.php`, `GuideProfileController::{show,update,changePassword}`.
 - Frontend: `GuideManagementPage.jsx`, `GuideTrashPage.jsx`, `GuideProfilePage.jsx`; guide/admin API services.
 - Models hợp lệ: `Guide`, `GuideLanguage`, `GuideExperience`, `User`, `Destination`, `Language`, `Certificate`. Pivot `guide_destinations` dùng `Guide::destinations()`/`Destination::guides()`; App model `GuideDestination`: **KHÔNG TÌM THẤY BẰNG CHỨNG TRONG SOURCE CODE** vì file `backend_laravel/app/Models/GuideDestination.php` khai báo class `TourGuideAssignment`.
-- Migrations: `2026_06_14_145318_create_guides_table.php`, `2026_07_07_055358_create_guide_destinations_table.php`, `2026_06_24_042946_drop_and_recreate_guide_languages_table.php`, `2026_06_24_042950_drop_and_recreate_guide_experiences_table.php`.
+- Migrations: `2026_06_14_145318_create_guides_table.php`, `2026_06_27_143013_add_specialization_id_to_guides_table.php`, `2026_07_22_000000_restore_certificate_type_to_guides_table.php`, `2026_07_07_055358_create_guide_destinations_table.php`, `2026_06_24_042946_drop_and_recreate_guide_languages_table.php`, `2026_06_24_042950_drop_and_recreate_guide_experiences_table.php`.
+- Test hậu sửa: `backend_laravel/tests/Feature/GuideBusinessModelRegressionTest.php` kiểm `PUT`/`GET /api/guide/profile` round-trip 100 ký tự và từ chối 101 ký tự với `422`.
 
 ## 19. Phân công và yêu cầu thay hướng dẫn viên
 
@@ -873,6 +919,11 @@ Frontend `TourForm` có thêm validation về title 5–180, description cho non
 
 ### Flow và business rules
 
+Departure mutation guard:
+
+1. `candidates`, `autoAssign`, `assign`, `cancel`, `directCandidates` và `directAssign` đều gọi `TourDepartureMutationGuard::assertCanMutate`; departure có ngày khởi hành `<= hôm nay` bị từ chối `422` trước khi trả candidates hoặc thay đổi assignment.
+2. `GuideAssignmentService::{autoAssign,assignSpecific}`, controller `cancel` và `directAssign` khóa departure rồi gọi lại guard trong transaction; cancel còn khóa assignment trước khi xóa.
+
 Eligible/auto assignment:
 
 1. Guide phải active, có user và phụ trách toàn bộ destination của tour. (Nguồn: BR-053 tại `docs/reverse-engineering/03-business-rules-brd.md`.)
@@ -896,6 +947,8 @@ Replacement:
 4. Admin chỉ xử lý request pending; đã xử lý trả `409`. (Nguồn: BR-073 tại `docs/reverse-engineering/03-business-rules-brd.md`.)
 5. Approve tự tìm guide active, không trùng lịch, ít assignment hơn; không tìm được trả `422`. (Nguồn: BR-073 tại `docs/reverse-engineering/03-business-rules-brd.md`.)
 6. Transaction hủy assignment cũ, tạo assignment mới, cập nhật request và gửi notification. (Nguồn: BR-073 tại `docs/reverse-engineering/03-business-rules-brd.md`.)
+7. `GuideTourController::requestReplacement` khóa departure và assignment, rồi tái kiểm tra request pending bằng locking read; nếu không tạo được request hoặc transaction ném exception, evidence vừa lưu được xóa khỏi disk `public`.
+8. `AdminGuideReplacementRequestController::{approve,reject}` cùng khóa departure rồi khóa request, đọc lại state `pending`; approve/reject cạnh tranh chỉ một action ghi được, action stale trả `409`. Assignment, replacement request và notification nằm trong transaction của action thắng.
 
 ### Database
 
@@ -906,11 +959,12 @@ Replacement:
 
 - Routes: `/api/admin/tour-departures/guide-planning`, candidates/assign/auto/direct/cancel; `/api/guide/tours/{tourDeparture}/replacement-requests`; `/api/admin/guide-replacement-requests*`.
 - Controllers: `TourDepartureGuideAssignmentController::{planning,candidates,autoAssign,assign,cancel,directCandidates,directAssign}`, `GuideTourController::{requestReplacement,replacementRequestStatus}`, `AdminGuideReplacementRequestController::{index,approve,reject}`.
-- Service: `GuideAssignmentService::{eligibleGuidesQuery,autoAssign,assignSpecific}`.
+- Services: `backend_laravel/app/Services/GuideAssignmentService.php`, `GuideAssignmentService::{eligibleGuidesQuery,autoAssign,assignSpecific}`; `backend_laravel/app/Services/TourDepartureMutationGuard.php`, `TourDepartureMutationGuard::{isLocked,assertCanMutate}`.
 - Frontend: `TourDepartureListPage` và assignment components/services; guide tour replacement UI/service.
 - Models: `TourGuideAssignment`, `Guide`, `TourDeparture`.
 - Bảng `guide_replacement_requests` được `GuideTourController` và `AdminGuideReplacementRequestController` thao tác bằng `DB::table`; App model `GuideReplacementRequest`: **KHÔNG TÌM THẤY BẰNG CHỨNG TRONG SOURCE CODE**.
 - Migrations: `2026_06_28_092905_create_tour_guide_assignments_table.php`, `2026_07_07_080821_add_assignment_fields_to_tour_guide_assignments_table.php`, `2026_07_12_000000_create_guide_replacement_requests_table.php`.
+- Tests hậu sửa: `backend_laravel/tests/Feature/GuideBusinessModelRegressionTest.php` kiểm sáu API guard, future cancel, một request pending và stale approve/reject; `backend_laravel/tests/Feature/BusinessModelConcurrencyMysqlTest.php` kiểm hai create replacement nhận `201 + 409` và approve đối đầu reject nhận `200 + 409`.
 
 ## 20. Không gian hướng dẫn viên, điểm danh và tiến độ tour
 
@@ -980,12 +1034,13 @@ Replacement:
 ### Flow, state và exception
 
 1. Create từ guide profile, cấm khoảng ngày giao với đơn pending/approved; giao nhau trả `422`.
-2. Transaction tạo request pending, attachments và notification admin.
-3. Guide chỉ hủy request của mình và chỉ khi pending; khác trạng thái trả `422`.
-4. Admin không xử lý request cancelled.
-5. Admin không đổi quyết định khi end date đã qua.
-6. Approve/reject lưu admin, note, reviewed time và gửi notification cho guide/admin.
-7. Trạng thái: `pending`, `approved`, `rejected`, `cancelled`; UI còn suy ra leave state `upcoming/current/expired` từ ngày.
+2. Transaction tạo request khóa row `guides` trước, sau đó tái kiểm tra leave `pending/approved` giao nhau bằng locking read; chỉ khi không giao nhau mới tạo request pending, attachments và notification admin.
+3. Guide cancel khóa lại row `guide_leave_requests`, kiểm tra lại quyền sở hữu và state `pending` trong transaction; khác trạng thái trả `422`.
+4. Admin approve/reject/update decision cũng khóa cùng leave row trong transaction rồi mới kiểm tra state/ngày và cập nhật; row đã được guide chuyển sang `cancelled` hoặc đã hết kỳ nghỉ bị trả `422`, không bị decision dựa trên route-model binding cũ ghi đè.
+5. Admin không xử lý request cancelled.
+6. Admin không đổi quyết định khi end date đã qua.
+7. Approve/reject lưu admin, note, reviewed time và gửi notification cho guide/admin.
+8. Trạng thái: `pending`, `approved`, `rejected`, `cancelled`; UI còn suy ra leave state `upcoming/current/expired` từ ngày.
 
 ### Database
 
@@ -995,10 +1050,11 @@ Replacement:
 ### Source Code Reference
 
 - Routes: `/api/guide/leave-requests*`, `/api/admin/guide-leave-requests*`.
-- Controllers: `GuideLeaveRequestController::{index,summary,store,cancel}`, `AdminGuideLeaveRequestController::{index,summary,show,approve,reject,updateDecision}`.
+- Controllers: `backend_laravel/app/Http/Controllers/Api/Guide/GuideLeaveRequestController.php`, `GuideLeaveRequestController::{index,summary,store,cancel}`; `backend_laravel/app/Http/Controllers/Api/Admin/AdminGuideLeaveRequestController.php`, `AdminGuideLeaveRequestController::{index,summary,show,approve,reject,updateDecision,updateStatus}`.
 - Frontend: guide leave widget/components/services và guide management leave panel/services.
 - Model: `GuideLeaveRequest`, `GuideLeaveRequestAttachment`.
 - Migration: `2026_07_13_000000_create_guide_leave_requests_tables.php`.
+- Tests hậu sửa: `backend_laravel/tests/Feature/GuideBusinessModelRegressionTest.php` kiểm overlap, stale cancel/admin decision; `backend_laravel/tests/Feature/BusinessModelConcurrencyMysqlTest.php` kiểm create đồng thời nhận `201 + 422` và cancel đối đầu approve nhận `200 + 422`.
 
 ## 22. Quản lý nhân viên hỗ trợ và không gian support
 
@@ -1098,7 +1154,7 @@ Widget:
 - Public không trả security/payment/backup keys ngoài `PUBLIC_KEYS`.
 - Widget visible phải active, start date chưa sau hiện tại và end date chưa qua.
 - `settings.key` unique, group indexed.
-- `banners` được mở rộng để lưu type/position/pages/order/date/status.
+- `banners` được mở rộng để lưu type/position/pages/order/date/status; `image_url` là `VARCHAR(500) NULL`, cho phép widget `html` không có ảnh. Migration rollback đổi các giá trị `NULL` thành chuỗi rỗng trước khi khôi phục `NOT NULL`.
 
 ### UI status
 
@@ -1108,10 +1164,11 @@ Widget:
 ### Source Code Reference
 
 - Routes: `GET|PUT /api/admin/settings`, `GET /api/settings/public`, CRUD `/api/admin/widgets`, `PATCH /toggle-status`, `GET /api/widgets`.
-- Controllers: `SettingController::{index,update}`, `PublicSettingController::show`, `Admin/WidgetController`, `PublicWidgetController::index`.
+- Controllers: `SettingController::{index,update}`, `PublicSettingController::show`, `backend_laravel/app/Http/Controllers/Api/Admin/WidgetController.php`, `WidgetController::{index,store,show,update,destroy,toggleStatus,rules,payload}`, `PublicWidgetController::index`.
 - Frontend: settings pages, `SettingsDetailPage.jsx`, `frontend_react/src/services/adminSettingService.js`; `BrandLogo`, public layout.
 - Models: `Setting`, `Banner`.
-- Migrations: `2026_06_13_000001_create_settings_table.php`, `2026_06_10_220190_create_banners_table.php`, `2026_06_13_000002_add_widget_columns_to_banners_table.php`.
+- Migrations: `2026_06_13_000001_create_settings_table.php`, `2026_06_10_220190_create_banners_table.php`, `2026_06_13_000002_add_widget_columns_to_banners_table.php`, `2026_07_22_000000_make_banner_image_url_nullable.php` (`up` nullable; `down` backfill rồi `NOT NULL`).
+- Test hậu sửa: `backend_laravel/tests/Feature/BusinessModelAuditBugFixTest.php` kiểm `POST /api/admin/widgets` tạo HTML widget không ảnh và rollback giữ lại row; model `Banner`.
 
 ## 25. Sao lưu database
 

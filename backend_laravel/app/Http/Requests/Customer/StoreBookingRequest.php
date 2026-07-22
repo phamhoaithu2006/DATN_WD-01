@@ -62,25 +62,25 @@ class StoreBookingRequest extends FormRequest
             'contact.contact_name' => [
                 'required',
                 'string',
-                'max:255',
+                'max:150',
             ],
 
             'contact.contact_email' => [
                 'nullable',
                 'email',
-                'max:255',
+                'max:150',
             ],
 
             'contact.contact_phone' => [
                 'required',
                 'string',
-                'max:30',
+                'max:20',
             ],
 
             'contact.address' => [
                 'nullable',
                 'string',
-                'max:500',
+                'max:255',
             ],
 
             'contact.special_request' => [
@@ -99,13 +99,13 @@ class StoreBookingRequest extends FormRequest
             'participants.*.full_name' => [
                 'required',
                 'string',
-                'max:255',
+                'max:150',
             ],
 
             'participants.*.phone' => [
                 'nullable',
                 'string',
-                'max:30',
+                'max:20',
             ],
 
             'participants.*.birth_date' => [
@@ -124,7 +124,7 @@ class StoreBookingRequest extends FormRequest
             'participants.*.identity_number' => [
                 'nullable',
                 'string',
-                'max:50',
+                'max:30',
             ],
 
             'participants.*.participant_type' => [

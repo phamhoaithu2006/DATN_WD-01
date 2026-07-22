@@ -5,6 +5,7 @@
 - Business Rule: `BR-085`–`BR-096` tại `docs/reverse-engineering/03-business-rules-brd.md:354-365`.
 - Tài liệu đối chiếu bổ sung: `FR-009`, `FR-011`–`FR-014`, `FR-017`, `FR-021`–`FR-025` trong `04-srs.md`; `UC-007`, `UC-020`–`UC-023`, `UC-027`, `UC-029`, `UC-033`–`UC-035`, `UC-039`–`UC-042` trong `05-use-cases.md`; API/ERD/state machine liên quan.
 - Chỉ xác minh Business Model so với source; không review style, naming, performance, architecture, pattern và không đề xuất thay đổi.
+- Trạng thái hậu sửa: các chẩn đoán `BUG-SA-002` và `BUG-SA-003` tại baseline được giữ ở cuối tài liệu để truy vết lịch sử; trạng thái hiện tại được xác minh lại bằng source, migration và automation.
 
 ## Bảng tổng hợp
 
@@ -20,10 +21,10 @@
 | BR-092 | Có | `GuideController.php`, `SupportStaffController.php` | CRUD/trash/restore/force-delete/avatar methods | Đúng | High |
 | BR-093 | Có | ba controller category/destination/service category | CRUD/trash/restore methods | Đúng | Medium |
 | BR-094 | Có | `LanguageController.php`, `CertificateController.php` | CRUD language/level/certificate | Đúng | Medium |
-| BR-095 | Có một phần | `SettingController.php`, `WidgetController.php` | settings `index()/update()`, widget CRUD/toggle | Sai | High |
-| BR-096 | Có một phần | `BookingController.php` | `store()`, `update()`, `softDelete()`, `destroy()`, `releaseBookedSlots()` | Sai | High |
+| BR-095 | Có | `SettingController.php`, `WidgetController.php` | settings `index()/update()`, widget CRUD/toggle | Đúng | High |
+| BR-096 | Có | `BookingController.php` | `store()`, `update()`, `softDelete()`, `destroy()`, `releaseBookedSlots()` | Đúng | High |
 
-Kết quả: **10 Đúng, 2 Sai, 0 Thiếu**.
+Kết quả hậu sửa: **12/12 Đúng, 0 Sai, 0 Thiếu**.
 
 ## Phân tích chi tiết
 
@@ -315,7 +316,7 @@ Kết quả: **10 Đúng, 2 Sai, 0 Thiếu**.
 **Database**
 
 - Settings Read/Insert/Update `settings(key,value,group)` qua `updateOrCreate`; không delete. Widget CRUD/Update status/Delete vật lý `banners`.
-- Migrations: `2026_06_13_000001_create_settings_table.php`; `2026_06_10_220190_create_banners_table.php`; `2026_06_13_000002_add_widget_columns_to_banners_table.php`.
+- Migrations: `2026_06_13_000001_create_settings_table.php`; `2026_06_10_220190_create_banners_table.php`; `2026_06_13_000002_add_widget_columns_to_banners_table.php`; `2026_07_22_000000_make_banner_image_url_nullable.php`.
 - Transaction/Rollback/Lock: Không có. Settings update nhiều key tuần tự không transaction. Idempotent: `updateOrCreate` theo unique key là ổn định với cùng payload; widget create không idempotent; toggle cố ý đổi trạng thái mỗi lần.
 - Audit Log: Không có.
 
@@ -325,17 +326,17 @@ Kết quả: **10 Đúng, 2 Sai, 0 Thiếu**.
 
 **Exception:** settings/widget validation `422`; widget not found `404`; không có catch DB riêng.
 
-**Data Integrity:** `banners.image_url` được tạo NOT NULL tại migration `2026_06_10_220190_create_banners_table.php:17`. Migration bổ sung widget không thay nullable. Với `type=html`, validation không yêu cầu image và `payload()` đặt `image_url=null` tại `WidgetController.php:148-150`, làm insert/update trái contract DB trên schema thực thi NOT NULL. Vì vậy CRUD không vận hành đúng cho một type được rule/model cho phép.
+**Data Integrity:** Migration hậu sửa `2026_07_22_000000_make_banner_image_url_nullable.php:10-26` đổi `banners.image_url` thành nullable, khớp validation `required_if:type,image` và payload HTML đặt null. `down()` chuyển mọi null thành chuỗi rỗng trước khi khôi phục NOT NULL, nên rollback không làm mất row HTML. `BusinessModelAuditBugFixTest.php:138-177` xác minh cả create HTML không ảnh và rollback giữ nội dung.
 
-**Kết luận:** **Sai**. Phần settings/public visibility đúng; phần CRUD widget `html` trái schema, nên toàn bộ mệnh đề BR-095 không đạt.
+**Kết luận:** **Đúng**. Settings/public visibility đúng; schema hậu sửa đồng nhất với CRUD cho cả widget image và HTML.
 
 ### BR-096 — Quản lý booking của admin
 
-**Business Rule:** Create luôn `pending/unpaid` và payment COD `pending`; update cấm `payment_status`, cho đổi booking status và tính lại giá; lần hủy đầu hoàn slot; hard delete chỉ booking cancelled.
+**Business Rule:** Create luôn `pending/unpaid` và payment COD `pending`; update cấm `payment_status`, cho đổi booking status và tính lại giá; booking `cancelled` là trạng thái cuối; lần hủy đầu hoàn slot; hard delete chỉ booking cancelled.
 
 **Source Code**
 
-- File/Class/Methods: `backend_laravel/app/Http/Controllers/Api/Admin/BookingController.php:19-449`, class `BookingController`; `store()`, `update()`, `softDelete()`, `destroy()`, `resolveDeparture()`, `buildParticipantPricing()`, `releaseBookedSlots()`.
+- File/Class/Methods: `backend_laravel/app/Http/Controllers/Api/Admin/BookingController.php:19-466`, class `BookingController`; `store()`, `update()`, `softDelete()`, `destroy()`, `resolveDeparture()`, `buildParticipantPricing()`, `releaseBookedSlots()`.
 - Routes: `/api/admin/bookings*`, `routes/api.php:376-383`; Sanctum + admin.
 - Service: `backend_laravel/app/Services/TourPricingService.php`, `resolveAdultPrice()`, `calculateParticipantPrice()`. Action, Use Case, Domain Service, Repository: Không sử dụng.
 - Models: `Booking`, `Payment`, `Tour`, `TourDeparture`, `BookingContact`, `BookingParticipant`; migrations `2026_06_10_220060_create_bookings_table.php`, `2026_06_10_220090_create_payments_table.php`, `2026_06_10_220070_create_booking_contacts_table.php`, `2026_06_10_220080_create_booking_participants_table.php`, `2026_07_03_120100_add_pricing_snapshot_to_booking_participants_table.php`, `2026_06_10_220040_create_tour_departures_table.php`.
@@ -347,38 +348,42 @@ Kết quả: **10 Đúng, 2 Sai, 0 Thiếu**.
 - Store Insert `bookings` với `status=pending,payment_status=unpaid`, optional contact/participants và `payments(payment_method=cod,status=pending,paid_at=null)` trong transaction.
 - Update booking/contact; delete/reinsert participant; tính lại `total_amount`; cấm payload payment status.
 - Cancel Update `bookings.status,cancelled_at` và Update `tour_departures.booked_slots`; destroy gọi `Booking::delete()`. Model không dùng SoftDeletes nên đây là hard delete.
-- Transaction: store/update/softDelete có. Rollback: tự động. Lock: dedicated `softDelete()` khóa booking và `releaseBookedSlots()` khóa departure; `update()` không khóa booking trước khi xác định `$shouldReleaseSlots`.
-- Idempotent: dedicated cancel gọi tuần tự lần hai không release; destroy sau lần đầu không còn resource; create không idempotent.
+- Transaction: store/update/softDelete có. Rollback: tự động. Lock: `update()` và `softDelete()` đều re-query rồi khóa booking bằng `lockForUpdate()` trước state guard; `releaseBookedSlots()` khóa departure trước khi trừ slot.
+- Idempotent: cancel tuần tự hoặc đồng thời chỉ release ở transaction đầu; booking đã cancelled không thể chuyển lại trạng thái khác; destroy sau lần đầu không còn resource; create không idempotent.
 - Audit Log/History: controller chỉ eager-load `statusHistories()` ở show, không ghi lịch sử trong các method BR-096.
 
 **Validation:** store IDs/pricing/contact/participants; update status allowlist, `payment_status=prohibited`, price/contact/participants; destroy kiểm tra status cancelled. **Authorization:** Admin.
 
-**Exception:** validation/price rule `422`; model thiếu `404`; destroy non-cancelled `422`; không catch riêng transaction.
+**Exception:** validation/price rule `422`; update booking đã cancelled sang trạng thái khác ném `ValidationException` và trả `422` tại field `status`; model thiếu `404`; destroy non-cancelled `422`; không catch riêng transaction.
 
 **Data Integrity:**
 
-- Dedicated cancel khóa booking nên hai request PATCH tuần tự/đồng thời không cùng release.
-- Tuy nhiên `update()` cho phép đổi `cancelled` trở lại `pending|confirmed|completed` mà không giữ cờ “slot đã release” hoặc đặt lại slot. Sau đó gọi cancel lần nữa sẽ release cùng booking lần thứ hai.
-- **[Suy luận từ source code]** Ngoài ra hai request `PUT ... {status:cancelled}` đồng thời cùng load booking trước transaction ở dòng 211 và cùng tính `$shouldReleaseSlots=true` ở dòng 264-266 khi được xen kẽ trước lần update đầu; sau đó chúng lần lượt trừ slot. Method không `lockForUpdate()` booking. Cả hai hành vi trái mệnh đề “hủy lần đầu hoàn số chỗ”.
+- `update()` khóa lại row booking trong transaction trước khi đọc trạng thái; nếu trạng thái hiện tại là `cancelled` và request yêu cầu trạng thái khác, source ném validation exception trước update.
+- Cả `update()` và dedicated cancel chỉ đặt cờ release khi row đã khóa chưa ở trạng thái `cancelled`; sau đó `releaseBookedSlots()` khóa row departure và trừ đúng `number_of_people` một lần.
+- `BusinessModelAuditBugFixTest.php:179-200` xác minh booking đã hủy không thể mở lại và lần cancel sau không trừ thêm slot. `BusinessModelConcurrencyMysqlTest.php:432-454` đã chạy thực hai thao tác hủy đồng thời trên MySQL, xác minh cả hai response `200`, booking `cancelled` và `booked_slots` chỉ giảm từ 8 xuống 6.
 
-**Kết luận:** **Sai**. Các mệnh đề create/payment/prohibited/hard-delete có bằng chứng, nhưng source không bảo đảm chỉ lần hủy đầu tiên được hoàn slot qua mọi route status mà rule cho phép.
+**Kết luận:** **Đúng**. Các mệnh đề create/payment/prohibited/hard-delete giữ nguyên; terminal guard và row lock bảo đảm chỉ lần hủy đầu hoàn slot.
 
 ## Danh sách BUG
 
 ### BUG-SA-002 — Widget HTML hợp lệ theo validation nhưng trái cột image_url NOT NULL
 
+- **Trạng thái hậu sửa:** **Resolved**.
 - **Business Rule liên quan:** BR-095.
-- **Mô tả:** `type=html` cho phép bỏ `image_url` và payload đặt null, trong khi migration gốc bắt buộc `banners.image_url`.
+- **Chẩn đoán baseline:** `type=html` cho phép bỏ `image_url` và payload đặt null, trong khi migration gốc bắt buộc `banners.image_url`.
 - **File/Hàm:** `backend_laravel/app/Http/Controllers/Api/Admin/WidgetController.php:31-41,113-152`, `store()`, `update()`, `rules()`, `payload()`; `backend_laravel/database/migrations/2026_06_10_220190_create_banners_table.php:14-27`, migration `up()`; `2026_06_13_000002_add_widget_columns_to_banners_table.php:9-17` không đổi nullable.
-- **Bằng chứng:** rule `image_url` chỉ `required_if:type,image`; nhánh HTML gán null; schema cột string không nullable.
+- **Bằng chứng baseline:** rule `image_url` chỉ `required_if:type,image`; nhánh HTML gán null; schema gốc tạo cột string không nullable.
+- **Post-fix:** `2026_07_22_000000_make_banner_image_url_nullable.php` đổi cột thành nullable; `down()` chuyển null thành chuỗi rỗng trước khi khôi phục NOT NULL. `BusinessModelAuditBugFixTest.php:138-177` xác minh create HTML và rollback bảo toàn row/nội dung.
 - **Mức độ ảnh hưởng:** **High** — một loại widget được Business Model công bố không thể create/update với payload hợp lệ trên schema migration.
-- **Điều kiện tái hiện:** admin gọi `POST /api/admin/widgets` với `title`, `type=html`, `html_content` hợp lệ và không gửi `image_url` trên DB thực thi NOT NULL.
+- **Điều kiện tái hiện lịch sử:** admin gọi endpoint trên schema baseline với `title`, `type=html`, `html_content` hợp lệ và không gửi `image_url`.
 
 ### BUG-SA-003 — Booking hoàn slot nhiều lần qua chuyển trạng thái admin
 
+- **Trạng thái hậu sửa:** **Resolved**.
 - **Business Rule liên quan:** BR-096.
-- **Mô tả:** Source chỉ so trạng thái hiện tại, không lưu việc slot đã được hoàn. Update cho phép khôi phục booking cancelled sang trạng thái khác; lần cancel sau tiếp tục trừ slot. **[Suy luận từ source code]** Nhánh PUT-cancel cũng không khóa booking trước kiểm tra và có race khi hai request cùng chạy.
-- **File/Hàm:** `backend_laravel/app/Http/Controllers/Api/Admin/BookingController.php:209-285`, `update()`; dòng 217 cho mọi status, dòng 263-272 tính/release; `softDelete()` dòng 295-311; `releaseBookedSlots()` dòng 434-449.
-- **Bằng chứng:** không có field/guard lịch sử “slots_released”; khi status trước request không phải cancelled thì `$shouldReleaseSlots=true`; `max(0, booked_slots-slotsToRelease)` che số âm nhưng làm mất số slot đang giữ bởi booking khác.
+- **Chẩn đoán baseline:** Source từng cho phép khôi phục booking cancelled sang trạng thái khác; lần cancel sau tiếp tục trừ slot. **[Suy luận từ source code]** Nhánh PUT-cancel cũng chưa khóa booking trước kiểm tra và có race khi hai request cùng chạy.
+- **File/Hàm:** `backend_laravel/app/Http/Controllers/Api/Admin/BookingController.php:209-308`, `update()`; `softDelete()` dòng 311-333; `releaseBookedSlots()` dòng 450-465. Chẩn đoán baseline được đối chiếu với phiên bản trước khi bổ sung block khóa/recheck dòng 263-301.
+- **Bằng chứng baseline:** không có terminal guard; khi status trước request không phải cancelled thì `$shouldReleaseSlots=true`; việc mở lại rồi hủy tiếp hoặc hai request cùng đọc trạng thái cũ có thể trừ thêm slot.
+- **Post-fix:** `update()` và `softDelete()` hiện khóa row booking trước state guard; booking cancelled bị chặn chuyển trạng thái; departure tiếp tục được khóa khi release. `BusinessModelAuditBugFixTest.php:179-200` xác minh terminal guard và không release lần hai; `BusinessModelConcurrencyMysqlTest.php:432-454` xác minh hủy đồng thời trên MySQL chỉ giảm slot một lần.
 - **Mức độ ảnh hưởng:** **High** — sai số sức chứa lịch khởi hành, ảnh hưởng flow booking cốt lõi.
-- **Điều kiện tái hiện:** (1) booking confirmed có 2 người và departure có booked slots; (2) cancel để release; (3) PUT booking về confirmed; (4) cancel lần nữa; hoặc gửi đồng thời hai PUT status cancelled đã cùng load trạng thái cũ; (5) quan sát `tour_departures.booked_slots` bị trừ thêm.
+- **Điều kiện tái hiện lịch sử:** trên phiên bản baseline, cancel booking confirmed, PUT về confirmed rồi cancel lần nữa; hoặc cho hai request hủy cùng đọc trạng thái cũ trước update.

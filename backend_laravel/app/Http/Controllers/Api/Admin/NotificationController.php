@@ -174,9 +174,11 @@ class NotificationController extends Controller
         // Bắt đầu transaction để đảm bảo dữ liệu không bị lỗi giữa chừng
         return DB::transaction(function () use ($id) {
 
-            $draft = NotificationDraft::where('id', $id)->where('status', 'draft')->first();
+            $draft = NotificationDraft::query()
+                ->lockForUpdate()
+                ->find($id);
 
-            if (!$draft) {
+            if (! $draft || $draft->status !== 'draft') {
                 return response()->json(['message' => 'Bản nháp không tồn tại hoặc đã gửi!'], 404);
             }
 

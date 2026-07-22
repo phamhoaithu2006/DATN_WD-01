@@ -13,6 +13,16 @@ Tài liệu này là chỉ mục source dùng cho bộ tài liệu reverse engin
 
 Không dùng thời điểm sửa file làm bằng chứng nghiệp vụ. Commit và đường dẫn tương đối repository là khóa truy vết chính.
 
+### 1.1 Snapshot hậu sửa ngày 2026-07-22
+
+- Nhánh làm việc: `fix/business-model-audit-bugs`, kế thừa commit `044d8cd59083e5f7ca5a1a202b0fdc581be47bc5`; thay đổi hậu sửa chưa có commit riêng tại thời điểm lập chỉ mục.
+- Route vẫn là 238 API và 1 web route; schema vẫn có 63 bảng.
+- Inventory hiện hành: 83 migration `.php` active và 22 file test PHP.
+- Bốn file test bổ sung: `AuthBookingBusinessModelRegressionTest.php`, `BusinessModelAuditBugFixTest.php`, `BusinessModelConcurrencyMysqlTest.php`, `GuideBusinessModelRegressionTest.php`.
+- Kết quả thực thi và mapping 15 BUG nằm tại [Xác minh hậu sửa Business Model](../business-model-audit/11-post-fix-verification.md).
+
+Các inventory 80 migration/18 test bên dưới được giữ làm bằng chứng cho baseline lịch sử; khi đọc hành vi hiện tại phải áp dụng snapshot hậu sửa này.
+
 ## 2. Phạm vi phân tích
 
 ### 2.1 Bao gồm
@@ -252,7 +262,7 @@ backend_laravel/app/Models/Wishlist.php
 
 Bằng chứng: `rg -n '^class ' backend_laravel/app/Models/*.php`. Đây là class collision/mismatch trực tiếp từ source; không tự kết luận file nào được autoloader nạp thành công ở production.
 
-### 4.6 Migrations — 80 active `.php` và 1 `.bak`
+### 4.6 Migrations — 80 active `.php` tại baseline, 83 tại snapshot hậu sửa và 1 `.bak`
 
 ```text
 backend_laravel/database/migrations/0001_01_01_000000_create_users_table.php
@@ -335,6 +345,9 @@ backend_laravel/database/migrations/2026_07_16_220919_create_support_requests_ta
 backend_laravel/database/migrations/2026_07_16_220920_create_support_request_attachments_table.php
 backend_laravel/database/migrations/2026_07_18_000000_add_boundary_to_attendance_sessions_table.php
 backend_laravel/database/migrations/2026_07_21_000000_create_tour_reviews_table.php
+backend_laravel/database/migrations/2026_07_22_000000_make_banner_image_url_nullable.php
+backend_laravel/database/migrations/2026_07_22_000000_restore_certificate_type_to_guides_table.php
+backend_laravel/database/migrations/2026_07_22_010000_make_booking_contact_email_nullable.php
 ```
 
 File backup được catalog riêng:
@@ -343,7 +356,7 @@ File backup được catalog riêng:
 backend_laravel/database/migrations/2026_06_14_144719_create_destinations_table.php.bak
 ```
 
-Laravel migration discovery theo file `.php` không nhận file `.php.bak`; vì vậy file `.bak` không được tính vào 80 migration active hay schema runtime. File này vẫn là tracked evidence và chứa thêm một lời gọi tạo bảng `destinations`, nhưng không được gộp vào số 63 tên bảng active.
+Laravel migration discovery theo file `.php` không nhận file `.php.bak`; vì vậy file `.bak` không được tính vào 80 migration active ở baseline hay 83 migration active tại snapshot hậu sửa. File này vẫn là tracked evidence và chứa thêm một lời gọi tạo bảng `destinations`, nhưng không được gộp vào số 63 tên bảng active.
 
 ### 4.7 Seeders và factories
 
@@ -430,7 +443,7 @@ frontend_react/package-lock.json
 frontend_react/vite.config.js
 ```
 
-### 4.9 Tests — 18 file
+### 4.9 Tests — 18 file tại baseline; 22 file tại snapshot hậu sửa
 
 ```text
 backend_laravel/tests/Feature/ApiRateLimitTest.php
@@ -451,6 +464,10 @@ backend_laravel/tests/Feature/TourTestingDataSeederTest.php
 backend_laravel/tests/Pest.php
 backend_laravel/tests/TestCase.php
 backend_laravel/tests/Unit/ExampleTest.php
+backend_laravel/tests/Feature/AuthBookingBusinessModelRegressionTest.php
+backend_laravel/tests/Feature/BusinessModelAuditBugFixTest.php
+backend_laravel/tests/Feature/BusinessModelConcurrencyMysqlTest.php
+backend_laravel/tests/Feature/GuideBusinessModelRegressionTest.php
 ```
 
 ### 4.10 React router và entrypoint
@@ -786,7 +803,7 @@ Expected lần lượt: `62`, `60`, `31`.
 | [04-srs.md](./04-srs.md) | Functional/NFR requirements có truy vết. | 25 FR, NFR có evidence, test traceability. |
 | [05-use-cases.md](./05-use-cases.md) | Use case theo actor/module. | Trigger/precondition/flow/exception từ controller/service và UI route. |
 | [06-process-and-state-diagrams.md](./06-process-and-state-diagrams.md) | Sequence/activity/state diagrams. | Chuyển trạng thái và transaction/lock trong controller/service/migration. |
-| [07-database-erd.md](./07-database-erd.md) | ERD, FK, unique, index, cardinality và rollback/backfill. | 80 migration `.php`; model chỉ dùng bổ trợ quan hệ ORM. |
+| [07-database-erd.md](./07-database-erd.md) | ERD, FK, unique, index, cardinality và rollback/backfill. | 80 migration `.php` tại baseline, 83 tại snapshot hậu sửa; model chỉ dùng bổ trợ quan hệ ORM. |
 | [08-api-specification.md](./08-api-specification.md) | API method/path/request/validation/auth/response catalog. | `route:list`, `routes/api.php`, Form Requests, controllers/resources/tests. |
 | [09-permission-crud-matrices.md](./09-permission-crud-matrices.md) | Permission matrix và CRUD matrix. | Middleware/ownership/assignment checks và route/controller mutations. |
 | `source-evidence-index.md` | Baseline, source catalog, commands tái kiểm và quy ước trích nguồn. | `git ls-files`, syntax scan, artifact/route/schema counts. |

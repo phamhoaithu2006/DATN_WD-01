@@ -285,17 +285,17 @@ Chi tiết 45 ID và bằng chứng đã kiểm tra nằm tại [10-unverified-f
 
 ## Ma trận canonical → source audit → test case → BUG
 
-`Không có` trong cột BUG nghĩa là không có BUG ID đã được chứng minh cho canonical row đó; không đồng nghĩa mọi nhánh runtime đã được kiểm thử tự động. Dải test trong bảng trỏ tới file T01–T07 ở mục khóa module.
+`Không có` trong cột BUG nghĩa là không có BUG ID lịch sử cho canonical row đó; không đồng nghĩa mọi nhánh runtime đã được kiểm thử tự động. Các BUG có hậu tố `Resolved` đã được đối chiếu tại `11-post-fix-verification.md`.
 
 ### BR-001–BR-020 — M01/T01
 
 | Canonical | Kết luận audit | Source audit | Test case thiết kế | BUG liên quan |
 | --- | --- | --- | --- | --- |
-| BR-001 | Đúng | M01 | TC-AC-001–TC-AC-006 | BUG-AB-002 — TC-AC-005 |
+| BR-001 | Đúng | M01 | TC-AC-001–TC-AC-006 | BUG-AB-002 — Resolved — TC-AC-005 |
 | BR-002 | Đúng | M01 | TC-AC-007–TC-AC-011 | Không có |
 | BR-003 | Đúng | M01 | TC-AC-012–TC-AC-014 | Không có |
 | BR-004 | Đúng | M01 | TC-AC-015–TC-AC-017 | Không có |
-| BR-005 | Đúng | M01 | TC-AC-018–TC-AC-021 | BUG-AB-002 |
+| BR-005 | Đúng | M01 | TC-AC-018–TC-AC-021 | BUG-AB-002 — Resolved |
 | BR-006 | Đúng | M01 | TC-AC-022–TC-AC-024 | Không có |
 | BR-007 | Đúng | M01 | TC-AC-025–TC-AC-028 | Không có |
 | BR-008 | Đúng | M01 | TC-AC-029–TC-AC-030 | Không có |
@@ -308,7 +308,7 @@ Chi tiết 45 ID và bằng chứng đã kiểm tra nằm tại [10-unverified-f
 | BR-015 | Đúng | M01 | TC-AC-047–TC-AC-048 | Không có |
 | BR-016 | Đúng | M01 | TC-AC-049–TC-AC-050 | Không có |
 | BR-017 | Đúng | M01 | TC-AC-051–TC-AC-052 | Không có |
-| BR-018 | Đúng | M01 | TC-AC-053–TC-AC-054 | BUG-XD-001 đối chiếu FR-018/UC-030/API #211 — TC-AC-054 |
+| BR-018 | Đúng | M01 | TC-AC-053–TC-AC-054 | BUG-XD-001 — Resolved — TC-AC-054 |
 | BR-019 | Đúng | M01 | TC-AC-055–TC-AC-058 | Không có |
 | BR-020 | Đúng | M01 | TC-AC-059–TC-AC-061 | Không có |
 
@@ -316,11 +316,11 @@ Chi tiết 45 ID và bằng chứng đã kiểm tra nằm tại [10-unverified-f
 
 | Canonical | Kết luận audit | Source audit | Test case thiết kế | BUG liên quan |
 | --- | --- | --- | --- | --- |
-| BR-021 | Đúng | M02 | TC-BP-001–TC-BP-009 | BUG-AB-001 — TC-BP-007; BUG-AB-002 — TC-BP-008–TC-BP-009 |
+| BR-021 | Đúng | M02 | TC-BP-001–TC-BP-009 | BUG-AB-001/002 — Resolved — TC-BP-007–TC-BP-009 |
 | BR-022 | Đúng | M02 | TC-BP-010–TC-BP-015 | Không có |
 | BR-023 | Đúng | M02 | TC-BP-016–TC-BP-018 | Không có |
-| BR-024 | Đúng | M02 | TC-BP-019–TC-BP-022 | BUG-AB-003 — TC-BP-022 |
-| BR-025 | Đúng | M02 | TC-BP-014, TC-BP-022–TC-BP-026 | BUG-AB-003 — TC-BP-022 |
+| BR-024 | Đúng | M02 | TC-BP-019–TC-BP-022 | BUG-AB-003 — Resolved — TC-BP-022 |
+| BR-025 | Đúng | M02 | TC-BP-014, TC-BP-022–TC-BP-026 | BUG-AB-003 — Resolved — TC-BP-022 |
 | BR-026 | Đúng | M02 | TC-BP-027 | Không có |
 | BR-027 | Đúng | M02 | TC-BP-028–TC-BP-032 | Không có |
 | BR-028 | Đúng | M02 | TC-BP-030, TC-BP-032–TC-BP-035 | Không có |
@@ -329,7 +329,7 @@ Chi tiết 45 ID và bằng chứng đã kiểm tra nằm tại [10-unverified-f
 | BR-031 | Đúng | M02 | TC-BP-047–TC-BP-048 | Không có |
 | BR-032 | Đúng | M02 | TC-BP-048–TC-BP-053 | Không có |
 | BR-033 | Đúng | M02 | TC-BP-054–TC-BP-057 | Không có |
-| BR-034 | Đúng | M02 | TC-BP-058–TC-BP-065 | BUG-AB-004 — TC-BP-060 |
+| BR-034 | Đúng | M02 | TC-BP-058–TC-BP-065 | BUG-AB-004 — Resolved — TC-BP-060 |
 
 ### BR-035–BR-053 — M03/T03
 
@@ -374,11 +374,11 @@ Chi tiết 45 ID và bằng chứng đã kiểm tra nằm tại [10-unverified-f
 | BR-066 | Đúng | M04 | TC-GOP-043–TC-GOP-046 | Không có |
 | BR-067 | Đúng | M04 | TC-GOP-047–TC-GOP-050 | Không có |
 | BR-068 | Đúng | M04 | TC-GOP-051–TC-GOP-054 | Không có |
-| BR-069 | Sai | M04 | TC-GOP-055–TC-GOP-058 | BUG-RG-001 — TC-GOP-058 |
-| BR-070 | Sai | M04 | TC-GOP-059–TC-GOP-061 | BUG-RG-002 — TC-GOP-061 |
-| BR-071 | Sai | M04 | TC-GOP-061–TC-GOP-064 | BUG-RG-002 — TC-GOP-061 |
-| BR-072 | Sai | M04 | TC-GOP-065–TC-GOP-069 | BUG-RG-003 — TC-GOP-069 |
-| BR-073 | Sai | M04 | TC-GOP-070–TC-GOP-073 | BUG-RG-004 — TC-GOP-073 |
+| BR-069 | Đúng | M04 | TC-GOP-055–TC-GOP-058 | BUG-RG-001 — Resolved — TC-GOP-058 |
+| BR-070 | Đúng | M04 | TC-GOP-059–TC-GOP-061 | BUG-RG-002 — Resolved — TC-GOP-061 |
+| BR-071 | Đúng | M04 | TC-GOP-061–TC-GOP-064 | BUG-RG-002 — Resolved — TC-GOP-061 |
+| BR-072 | Đúng | M04 | TC-GOP-065–TC-GOP-069 | BUG-RG-003 — Resolved — TC-GOP-069 |
+| BR-073 | Đúng | M04 | TC-GOP-070–TC-GOP-073 | BUG-RG-004 — Resolved — TC-GOP-073 |
 
 ### BR-074–BR-084 — M05/T05
 
@@ -392,9 +392,9 @@ Chi tiết 45 ID và bằng chứng đã kiểm tra nằm tại [10-unverified-f
 | BR-079 | Đúng | M05 | TC-SA-079-01–TC-SA-079-02 | Không có |
 | BR-080 | Đúng | M05 | TC-SA-080-01–TC-SA-080-04 | Không có |
 | BR-081 | Đúng | M05 | TC-SA-081-01–TC-SA-081-05 | Không có |
-| BR-082 | Sai | M05 | TC-SA-082-01–TC-SA-082-05 | BUG-SA-004 — TC-SA-082-05 |
+| BR-082 | Đúng | M05 | TC-SA-082-01–TC-SA-082-05 | BUG-SA-004 — Resolved — TC-SA-082-05 |
 | BR-083 | Đúng | M05 | TC-SA-083-01–TC-SA-083-04 | Không có |
-| BR-084 | Sai | M05 | TC-SA-084-01–TC-SA-084-04 | BUG-SA-001 — TC-SA-084-01 |
+| BR-084 | Đúng | M05 | TC-SA-084-01–TC-SA-084-04 | BUG-SA-001 — Resolved — TC-SA-084-01 |
 
 ### BR-085–BR-096 — M06/T06
 
@@ -410,8 +410,8 @@ Chi tiết 45 ID và bằng chứng đã kiểm tra nằm tại [10-unverified-f
 | BR-092 | Đúng | M06 | TC-SA-092-01–TC-SA-092-05 | Không có |
 | BR-093 | Đúng | M06 | TC-SA-093-01–TC-SA-093-06 | Không có |
 | BR-094 | Đúng | M06 | TC-SA-094-01–TC-SA-094-04 | Không có |
-| BR-095 | Sai | M06 | TC-SA-095-01–TC-SA-095-06 | BUG-SA-002 — TC-SA-095-05 |
-| BR-096 | Sai | M06 | TC-SA-096-01–TC-SA-096-08 | BUG-SA-003 — TC-SA-096-05–TC-SA-096-06 |
+| BR-095 | Đúng | M06 | TC-SA-095-01–TC-SA-095-06 | BUG-SA-002 — Resolved — TC-SA-095-05 |
+| BR-096 | Đúng | M06 | TC-SA-096-01–TC-SA-096-08 | BUG-SA-003 — Resolved — TC-SA-096-05–TC-SA-096-06 |
 
 ### SR-001–SR-013 — M07/T07
 
@@ -421,8 +421,8 @@ Chi tiết 45 ID và bằng chứng đã kiểm tra nằm tại [10-unverified-f
 | SR-002 | Đúng | M07 | TC-XD-008–TC-XD-011 | Không có |
 | SR-003 | Đúng | M07 | TC-XD-012–TC-XD-014 | Không có |
 | SR-004 | Đúng | M07 | TC-XD-015–TC-XD-021 | Không có |
-| SR-005 | Thiếu | M07 | TC-XD-022–TC-XD-027 | BUG-XD-003 — TC-XD-027 |
-| SR-006 | Thiếu | M07 | TC-XD-028–TC-XD-035 | BUG-XD-002 — TC-XD-030 |
+| SR-005 | Đúng | M07 | TC-XD-022–TC-XD-027 | BUG-XD-003 — Resolved — TC-XD-027 |
+| SR-006 | Đúng | M07 | TC-XD-028–TC-XD-035 | BUG-XD-002 — Resolved — TC-XD-030 |
 | SR-007 | Đúng | M07 | TC-XD-036–TC-XD-041 | Không có |
 | SR-008 | Đúng | M07 | TC-XD-042–TC-XD-047 | Không có |
 | SR-009 | Đúng | M07 | TC-XD-048–TC-XD-053 | Không có |
@@ -441,15 +441,15 @@ Chi tiết 45 ID và bằng chứng đã kiểm tra nằm tại [10-unverified-f
 | XD | BUG-XD-001–BUG-XD-003 | 3 |
 | **Tổng** | **15 ID duy nhất** | **15** |
 
-Mức độ theo [08-bug-register.md](08-bug-register.md): Critical 1, High 11, Medium 3, Low 0.
+Mức độ lịch sử theo [08-bug-register.md](08-bug-register.md): Critical 1, High 11, Medium 3, Low 0. Disposition hậu sửa: 15 Resolved, 0 Open.
 
 ## Kiểm soát tổng
 
 | Đối tượng | Đúng | Sai | Thiếu | Tổng |
 | --- | ---: | ---: | ---: | ---: |
-| BR-001–BR-096 | 87 | 9 | 0 | 96 |
-| SR-001–SR-013 | 11 | 0 | 2 | 13 |
-| **Canonical** | **98** | **9** | **2** | **109** |
+| BR-001–BR-096 | 96 | 0 | 0 | 96 |
+| SR-001–SR-013 | 13 | 0 | 0 | 13 |
+| **Canonical** | **109** | **0** | **0** | **109** |
 
 - 96 BR xuất hiện đúng một lần trong cột canonical của bảng BR.
 - 13 SR xuất hiện đúng một lần trong cột canonical của bảng SR.
