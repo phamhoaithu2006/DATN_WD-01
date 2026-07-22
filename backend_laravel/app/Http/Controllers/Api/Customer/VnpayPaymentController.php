@@ -83,6 +83,7 @@ class VnpayPaymentController extends Controller
     private function paymentStatusResponse(Payment $payment): JsonResponse
     {
         $payment->loadMissing(['booking.tour', 'booking.tourDeparture']);
+
         return response()->json([
             'success' => true,
             'data' => [
@@ -94,11 +95,25 @@ class VnpayPaymentController extends Controller
                 'booking_code' => $payment->booking->booking_code,
                 'booking_status' => $payment->booking->status,
                 'payment_status' => $payment->booking->payment_status,
+                'cancel_reason' => $payment->booking->cancel_reason,
                 'tour_title' => $payment->booking->tour?->title,
                 'departure_date' => $payment->booking->tourDeparture?->departure_date?->toDateString(),
                 'number_of_people' => $payment->booking->number_of_people,
+                'last_attempt_status' => $this->lastAttemptStatus($payment),
             ],
         ]);
+    }
+
+    private function lastAttemptStatus(Payment $payment): ?string
+    {
+        if (! $payment->gateway_response) {
+            return null;
+        }
+
+        return ($payment->gateway_response['vnp_ResponseCode'] ?? null) === '00'
+            && ($payment->gateway_response['vnp_TransactionStatus'] ?? null) === '00'
+                ? 'success'
+                : 'failed';
     }
 
     public function ipn(Request $request): JsonResponse
@@ -126,7 +141,13 @@ class VnpayPaymentController extends Controller
 
     private function paymentIdFromPayload(array $payload): ?int
     {
-        $paymentId = filter_var($payload['vnp_TxnRef'] ?? null, FILTER_VALIDATE_INT, [
+        $transactionReference = (string) ($payload['vnp_TxnRef'] ?? '');
+
+        if (preg_match('/^P([1-9]\d*)A[A-Z0-9]+$/i', $transactionReference, $matches) === 1) {
+            return (int) $matches[1];
+        }
+
+        $paymentId = filter_var($transactionReference, FILTER_VALIDATE_INT, [
             'options' => ['min_range' => 1],
         ]);
 
@@ -174,11 +195,25 @@ class VnpayPaymentController extends Controller
                 && ($payload['vnp_TransactionStatus'] ?? null) === '00';
 
             if (! $isSuccessful) {
-                $this->paymentLifecycleService->failPendingPayment(
-                    $payment,
-                    'Thanh toán VNPAY không thành công hoặc đã bị hủy.',
-                    $payload
-                );
+                $failureReason = match ($payload['vnp_ResponseCode'] ?? null) {
+                    '11' => 'Giao dịch VNPAY đã hết hạn thanh toán.',
+                    '24' => 'Khách hàng hủy thanh toán trên VNPAY.',
+                    default => null,
+                };
+
+                if ($failureReason) {
+                    $this->paymentLifecycleService->failPendingPayment(
+                        $payment,
+                        $failureReason,
+                        $payload
+                    );
+
+                    return ['00', 'Confirm Success'];
+                }
+
+                $payment->update([
+                    'gateway_response' => $payload,
+                ]);
 
                 return ['00', 'Confirm Success'];
             }

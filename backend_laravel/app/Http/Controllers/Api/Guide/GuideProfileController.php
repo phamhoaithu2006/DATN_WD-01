@@ -6,14 +6,14 @@ use App\Http\Controllers\Controller;
 use App\Models\Guide;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 
 class GuideProfileController extends Controller
 {
-    //Lấy thông tin hdv (I)
+    // Lấy thông tin hdv (I)
     public function show(Request $request)
     {
         // Lấy thông tin user hiện tại từ token xác thực
@@ -30,7 +30,7 @@ class GuideProfileController extends Controller
             ->first();
 
         // Kiểm tra nếu không tìm thấy bản ghi (trường hợp user chưa thiết lập thông tin HDV)
-        if (!$guide) {
+        if (! $guide) {
             return response()->json([
                 'success' => false,
                 'message' => 'Tài khoản này chưa có thông tin HDV',
@@ -56,14 +56,14 @@ class GuideProfileController extends Controller
                 'user' => $guide->user,
 
                 // Mapping lại danh sách ngôn ngữ để lấy thêm thông tin từ bảng trung gian (pivot)
-                'guideLanguages' => $guide->guideLanguages->map(fn($language) => [
+                'guideLanguages' => $guide->guideLanguages->map(fn ($language) => [
                     'id' => $language->id,
                     'name' => $language->name,
                     'level_id' => $language->pivot->level_id, // Lấy trình độ ngôn ngữ từ bảng pivot
                 ]),
 
                 // Mapping lại danh sách chứng chỉ từ mối quan hệ experiences
-                'certificates' => $guide->experiences->map(fn($exp) => [
+                'certificates' => $guide->experiences->map(fn ($exp) => [
                     'id' => $exp->certificate?->id,
                     'name' => $exp->certificate?->name,
                     'issued_by' => $exp->certificate?->issued_by,
@@ -73,7 +73,7 @@ class GuideProfileController extends Controller
         ]);
     }
 
-    //Sửa thông tin hdv (II)
+    // Sửa thông tin hdv (II)
     public function update(Request $request)
     {
         // 1. Lấy user đang đăng nhập từ token Sanctum
@@ -83,7 +83,7 @@ class GuideProfileController extends Controller
         $guide = Guide::where('user_id', $user->id)->first();
 
         // Nếu user chưa có profile HDV thì không cho cập nhật
-        if (!$guide) {
+        if (! $guide) {
             return response()->json([
                 'success' => false,
                 'message' => 'Tài khoản này chưa có thông tin HDV',
@@ -93,14 +93,14 @@ class GuideProfileController extends Controller
         // 3. Validate dữ liệu FE gửi lên
         $validated = $request->validate([
             'full_name' => 'sometimes|string|max:255',
-            'email' => 'sometimes|email|max:255|unique:users,email,' . $user->id,
+            'email' => 'sometimes|email|max:255|unique:users,email,'.$user->id,
             'phone' => 'sometimes|nullable|string|max:10',
 
             // FE gửi file ảnh với key là avatar
             // Chỉ nhận jpg, jpeg, png, webp, tối đa 2MB
             'avatar' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
 
-            'certificate_type' => 'sometimes|string|max:255',
+            'certificate_type' => 'sometimes|string|max:100',
             'experience_years' => 'sometimes|integer|min:0|max:40',
             'status' => 'sometimes|in:active,inactive',
 
@@ -110,7 +110,7 @@ class GuideProfileController extends Controller
 
             'certificates' => 'sometimes|array',
             'certificates.*.certificate_id' => 'required_with:certificates|exists:certificates,id',
-            'certificates.*.issued_year' => 'nullable|integer|min:1900|max:' . date('Y'),
+            'certificates.*.issued_year' => 'nullable|integer|min:1900|max:'.date('Y'),
         ]);
 
         // 4. Chuẩn bị dữ liệu cập nhật cho bảng users
@@ -158,7 +158,7 @@ class GuideProfileController extends Controller
             $newAvatarPath = $request->file('avatar')->store('avatars', 'public');
 
             // Nếu upload lỗi thì dừng
-            if (!$newAvatarPath) {
+            if (! $newAvatarPath) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Không thể lưu ảnh avatar',
@@ -168,7 +168,7 @@ class GuideProfileController extends Controller
             // Tạo link public để lưu database
             // Ví dụ:
             // http://localhost:8000/storage/avatars/abcXYZ123.jpg
-            $userUpdateData['avatar_url'] = asset('storage/' . $newAvatarPath);
+            $userUpdateData['avatar_url'] = asset('storage/'.$newAvatarPath);
 
             // Lấy đường dẫn avatar cũ để xóa sau khi update DB thành công
             if ($user->avatar_url) {
@@ -198,12 +198,12 @@ class GuideProfileController extends Controller
                 $guideUpdateData
             ) {
                 // Cập nhật thông tin User
-                if (!empty($userUpdateData)) {
+                if (! empty($userUpdateData)) {
                     $user->update($userUpdateData);
                 }
 
                 // Cập nhật thông tin Guide
-                if (!empty($guideUpdateData)) {
+                if (! empty($guideUpdateData)) {
                     $guide->update($guideUpdateData);
                 }
 
@@ -267,7 +267,7 @@ class GuideProfileController extends Controller
         ]);
     }
 
-    //Sửa pass khi nhớ pass (III)
+    // Sửa pass khi nhớ pass (III)
     public function changePassword(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -291,7 +291,7 @@ class GuideProfileController extends Controller
         $user = $request->user();
 
         // Kiểm tra mật khẩu cũ
-        if (!Hash::check($request->old_password, $user->password)) {
+        if (! Hash::check($request->old_password, $user->password)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Mật khẩu cũ không đúng.',

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { tourDepartureApi } from '../../../services/tourDepartureApi'
 import adminGuideReplacementRequestApi from '../../../services/adminGuideReplacementRequestApi'
-import AdminPageHeader from '../../../components/admin/AdminPageHeader'
 import TourDepartureTable from '../../../components/admin/tourDepartures/TourDepartureTable'
 import { GuideAssignmentPanel } from './GuideAssignmentPage.jsx'
 import TourDepartureBookingModal from '../../../components/admin/tourDepartures/TourDepartureBookingModal.jsx'
@@ -239,14 +238,13 @@ export default function TourDepartureListPage() {
   const [fieldErrors, setFieldErrors] = useState({})
   const [departures, setDepartures] = useState([])
   const [allDepartures, setAllDepartures] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [departuresReady, setDeparturesReady] = useState(false)
+  const [loading, setLoading] = useState(false)
   const [replacementRequests, setReplacementRequests] = useState([])
   const [replacementPanelOpen, setReplacementPanelOpen] = useState(false)
   const [highlightedReplacementDepartureId, setHighlightedReplacementDepartureId] = useState(null)
 
   const [activeTab, setActiveTab] = useState('departures')
-  const [scheduleFilter, setScheduleFilter] = useState('all')
+  const [scheduleFilter, setScheduleFilter] = useState('upcoming')
   const [focusedDepartureId, setFocusedDepartureId] = useState(null)
 
   /*
@@ -263,6 +261,7 @@ export default function TourDepartureListPage() {
   const [detailError, setDetailError] = useState('')
   const [detailPayload, setDetailPayload] = useState(null)
   const [detailDepartureId, setDetailDepartureId] = useState(null)
+  const [detailDeparture, setDetailDeparture] = useState(null)
 
   const fetchTours = useCallback(async () => {
     try {
@@ -295,11 +294,8 @@ export default function TourDepartureListPage() {
   }, [])
 
   const fetchDepartures = useCallback(async (tourId = '', sourceTours = tours) => {
-    let shouldFinalize = true
-
     try {
       setLoading(true)
-      setDeparturesReady(false)
 
       if (tourId) {
         const selectedTour = sourceTours.find(
@@ -328,7 +324,8 @@ export default function TourDepartureListPage() {
       }
 
       if (!sourceTours.length) {
-        shouldFinalize = false
+        setDepartures([])
+        setAllDepartures([])
         return
       }
 
@@ -350,10 +347,7 @@ export default function TourDepartureListPage() {
         getRequestErrorMessage(error, 'Không tải được lịch khởi hành')
       )
     } finally {
-      if (shouldFinalize) {
-        setLoading(false)
-        setDeparturesReady(true)
-      }
+      setLoading(false)
     }
   }, [tours, normalizeDeparturesForTour, replaceDeparturesForTour])
 
@@ -416,32 +410,19 @@ const fetchReplacementRequests = useCallback(async () => {
   }, [])
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      void fetchTours()
-    }, 0)
-
-    return () => window.clearTimeout(timeoutId)
+    void fetchTours()
   }, [fetchTours])
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      void fetchDepartures(selectedTourId)
-    }, 0)
-
-    return () => window.clearTimeout(timeoutId)
+    void fetchDepartures(selectedTourId)
   }, [selectedTourId, fetchDepartures])
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      void fetchReplacementRequests()
-    }, 0)
-
-    return () => window.clearTimeout(timeoutId)
+    void fetchReplacementRequests()
   }, [fetchReplacementRequests])
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      const state = location.state || {}
+    const state = location.state || {}
     const nextNewDepartureIds = new Set()
     const nextNewAssignmentDepartureIds = new Set()
 
@@ -477,10 +458,7 @@ const fetchReplacementRequests = useCallback(async () => {
         replace: true,
         state: null,
       })
-      }
-    }, 0)
-
-    return () => window.clearTimeout(timeoutId)
+    }
   }, [
     location.pathname,
     location.search,
@@ -490,8 +468,7 @@ const fetchReplacementRequests = useCallback(async () => {
 
 
 useEffect(() => {
-  const timeoutId = window.setTimeout(() => {
-    const params = new URLSearchParams(location.search)
+  const params = new URLSearchParams(location.search)
   const shouldOpenReplacement =
     params.get('openReplacementRequests') === '1' ||
     params.get('replacementRequest') === '1'
@@ -512,10 +489,7 @@ useEffect(() => {
     setFocusedDepartureId(null)
   }
 
-    void fetchReplacementRequests()
-  }, 0)
-
-  return () => window.clearTimeout(timeoutId)
+  void fetchReplacementRequests()
 }, [location.search, fetchReplacementRequests])
 
   const handleDelete = async (departure) => {
@@ -594,7 +568,7 @@ useEffect(() => {
     }
 
     setFocusedDepartureId(departureId)
-    setActiveTab('guides')
+    setActiveTab('departures')
   }
 
   const requestEdit = (departure) => {
@@ -638,7 +612,12 @@ useEffect(() => {
   }
 
   const openDepartureDetail = async (departureId) => {
+    const departure = departures.find(
+      (item) => String(item.id) === String(departureId)
+    )
+
     setDetailDepartureId(departureId)
+    setDetailDeparture(departure || null)
     setDetailPayload(null)
     setDetailError('')
     setDetailOpen(true)
@@ -651,6 +630,12 @@ useEffect(() => {
     setDetailPayload(null)
     setDetailError('')
     setDetailDepartureId(null)
+    setDetailDeparture(null)
+  }
+
+  const openAssignmentFromDetail = (departureId) => {
+    closeDepartureDetail()
+    openGuideAssignment(departureId)
   }
 
   const handleAssigned = async (payload = null) => {
@@ -833,26 +818,6 @@ const rejectReplacementRequest = async (request) => {
 
   return (
     <div className="p-6">
-      <AdminPageHeader
-        breadcrumb={['ViVuGo', 'Lịch Khởi Hành']}
-        title="Quản Lý Lịch Khởi Hành"
-        description="Phân loại lịch sắp tới, lịch đã qua và phân công hướng dẫn viên."
-        actions={
-          <Link
-            to={`/admin/tour-departures/create?tourId=${selectedTourId}`}
-            onClick={(event) => {
-              if (!validateBeforeCreateDeparture()) {
-                event.preventDefault()
-              }
-            }}
-            className="inline-flex h-11 items-center justify-center rounded-2xl bg-blue-600 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700"
-          >
-            + Thêm lịch khởi hành
-          </Link>
-        }
-      />
-
-      {/*
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">
@@ -876,7 +841,6 @@ const rejectReplacementRequest = async (request) => {
           + Thêm lịch khởi hành
         </Link>
       </div>
-      */}
 
       <div className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="mb-3">
@@ -904,7 +868,7 @@ const rejectReplacementRequest = async (request) => {
             clearFieldError('selectedTourId')
             setFocusedDepartureId(null)
             setActiveTab('departures')
-            setScheduleFilter('all')
+            setScheduleFilter('upcoming')
           }}
           className={`h-11 w-full rounded-lg border bg-white px-3 text-sm outline-none transition focus:ring-2 ${
             fieldErrors.selectedTourId
@@ -1041,7 +1005,6 @@ const rejectReplacementRequest = async (request) => {
         selectedTourId={selectedTourId}
         activeTab={activeTab}
         scheduleFilter={scheduleFilter}
-        departuresReady={departuresReady}
         onChangeTab={handleChangeTab}
         onChangeScheduleFilter={setScheduleFilter}
         onDelete={handleDelete}
@@ -1066,11 +1029,58 @@ const rejectReplacementRequest = async (request) => {
         }
       />
 
+      {focusedDepartureId ? (
+        <div
+          className="fixed inset-y-0 right-0 z-[70] flex items-start justify-center bg-slate-950/45 px-5 py-8 backdrop-blur-sm md:left-[280px]"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setFocusedDepartureId(null)
+            }
+          }}
+        >
+          <section className="w-full max-w-[1180px] overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
+            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 bg-white px-5 py-4">
+              <div>
+                <p className="text-xs font-black uppercase tracking-wide text-blue-600">
+                  Phân công HDV
+                </p>
+                <h3 className="mt-1 text-xl font-black text-slate-950">
+                  Phân công / đổi hướng dẫn viên
+                </h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  Đang thao tác ngay trong trang lịch khởi hành. Bấm ra ngoài card hoặc nút Đóng để tắt.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setFocusedDepartureId(null)}
+                className="rounded-2xl bg-slate-100 px-4 py-2 text-sm font-black text-slate-700 transition hover:bg-slate-200"
+              >
+                Đóng
+              </button>
+            </div>
+
+            <div className="max-h-[calc(100vh-170px)] overflow-y-auto p-5">
+              <GuideAssignmentPanel
+                embedded
+                selectedTourId={selectedTourId}
+                focusedDepartureId={focusedDepartureId}
+                onClearFocus={() => setFocusedDepartureId(null)}
+                onAssigned={handleAssigned}
+              />
+            </div>
+          </section>
+        </div>
+      ) : null}
+
       <TourDepartureBookingModal
         open={detailOpen}
         loading={detailLoading}
         error={detailError}
         payload={detailPayload}
+        departure={detailDeparture}
+        onOpenAssignment={openAssignmentFromDetail}
         onClose={closeDepartureDetail}
         onPageChange={(page) => {
           if (detailDepartureId) {

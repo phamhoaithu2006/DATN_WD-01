@@ -44,6 +44,9 @@ function VnpayPaymentResultPage() {
 
   const isSuccessful = payment?.status === 'success' && payment?.payment_status === 'paid'
   const isFailed = payment?.status === 'failed' || payment?.booking_status === 'cancelled'
+  const isAttemptFailed = !isFailed && payment?.last_attempt_status === 'failed'
+  const isCancelledByCustomer = payment?.cancel_reason === 'Khách hàng hủy thanh toán trên VNPAY.'
+  const isExpired = payment?.cancel_reason?.toLowerCase().includes('hết hạn')
   const displayError = missingPaymentId ? 'Không tìm thấy mã thanh toán VNPAY.' : error
   const isLoading = !missingPaymentId && loading
 
@@ -185,22 +188,27 @@ function VnpayPaymentResultPage() {
             <div className="text-center mb-6">
               <div className={`w-20 h-20 mx-auto mb-4 flex items-center justify-center rounded-full border shadow-inner transition-all duration-300
                 ${isSuccessful ? 'bg-emerald-50 border-emerald-200 text-emerald-600 shadow-emerald-100/30' : 
-                  isFailed || displayError ? 'bg-rose-50 border-rose-200 text-rose-600 shadow-rose-100/30' : 
+                  isFailed || isAttemptFailed || displayError ? 'bg-rose-50 border-rose-200 text-rose-600 shadow-rose-100/30' :
                   'bg-amber-50 border-amber-200 text-amber-600 shadow-amber-100/30'}`}
               >
-                <Icon name={isSuccessful ? 'shield' : isFailed || displayError ? 'close' : 'clock'} size={36} />
+                <Icon name={isSuccessful ? 'shield' : isFailed || isAttemptFailed || displayError ? 'close' : 'clock'} size={36} />
               </div>
 
               <h1 className="text-xl font-bold text-slate-900 uppercase tracking-wide">
                 {displayError ? 'Không thể xác nhận' : 
                  isSuccessful ? 'Thanh toán thành công' : 
-                 isFailed ? 'Thanh toán chưa hoàn tất' : 
+                 isCancelledByCustomer ? 'Đã hủy đơn đặt tour' :
+                 isExpired ? 'Giao dịch đã hết hạn' :
+                 isFailed || isAttemptFailed ? 'Thanh toán chưa hoàn tất' :
                  'Đang chờ xác nhận'}
               </h1>
               
               <p className="text-sm text-slate-500 mt-2 leading-relaxed">
                 {displayError || (
                   isSuccessful ? `Cảm ơn quý khách! Đơn hàng của bạn đã được thanh toán an toàn.` :
+                  isCancelledByCustomer ? 'Bạn đã hủy thanh toán trên VNPAY. Đơn đặt tour đã được hủy và số chỗ đã được hoàn lại.' :
+                  isExpired ? 'Thời gian thanh toán trên VNPAY đã hết. Đơn đặt tour đã được hủy và số chỗ đã được hoàn lại.' :
+                  isAttemptFailed ? 'Lần thanh toán này chưa hoàn thành. Đơn vẫn được giữ, bạn có thể thanh toán lại từ hồ sơ chuyến đi.' :
                   isFailed ? 'Giao dịch chưa hoàn thành. Quý khách vui lòng kiểm tra lại.' :
                   'Hệ thống đang kiểm tra kết quả giao dịch từ VNPAY.'
                 )}
@@ -253,16 +261,18 @@ function VnpayPaymentResultPage() {
                 <span className="text-slate-500">Trạng thái</span>
                 <span className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-full uppercase tracking-wider border
                   ${isSuccessful ? 'text-emerald-800 bg-emerald-100/70 border-emerald-200' :
-                    isFailed || displayError ? 'text-rose-800 bg-rose-100/70 border-rose-200' :
+                    isFailed || isAttemptFailed || displayError ? 'text-rose-800 bg-rose-100/70 border-rose-200' :
                     'text-amber-800 bg-amber-100/70 border-amber-200'}`}
                 >
                   <span className={`w-1.5 h-1.5 rounded-full ${
                     isSuccessful ? 'bg-emerald-500 animate-pulse' :
-                    isFailed || displayError ? 'bg-rose-500' :
+                    isFailed || isAttemptFailed || displayError ? 'bg-rose-500' :
                     'bg-amber-500 animate-pulse'
                   }`} />
                   {isSuccessful ? 'Đã thanh toán' :
-                   isFailed || displayError ? 'Thất bại' :
+                   isCancelledByCustomer ? 'Đã hủy' :
+                   isExpired ? 'Hết hạn' :
+                   isFailed || isAttemptFailed || displayError ? 'Thất bại' :
                    'Chờ xác nhận'}
                 </span>
               </div>

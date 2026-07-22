@@ -3492,3 +3492,58 @@
     border-bottom: 1px solid #e6edf5;
   }
 }
+
+.admin-guide-header-secondary-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.guide-page .guide-header-actions-button-stack {
+  width: 370px;
+}
+
+.guide-page .guide-header-actions-primary-buttons > * {
+  flex: 1 1 0;
+  justify-content: center;
+}
+
+.admin-guide-header-secondary-actions .admin-guide-leave-menu-button {
+  flex: 1 1 0;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.admin-guide-activity-list {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-guide-activity-item {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.35fr) minmax(0, 1fr);
+  gap: 16px;
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.admin-guide-activity-item > div:first-child,
+.admin-guide-activity-content {
+  display: grid;
+  gap: 5px;
+}
+
+.admin-guide-activity-item span,
+.admin-guide-activity-item time {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.admin-guide-activity-content p {
+  margin: 0;
+  color: #475569;
+  font-size: 13px;
+}

@@ -9,6 +9,7 @@ use App\Models\Booking;
 use App\Models\Guide;
 use App\Models\Review;
 use App\Models\TourGuideAssignment;
+use App\Services\GuideReviewNotificationService;
 use App\Services\GuideReviewService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,7 +19,8 @@ use Illuminate\Validation\ValidationException;
 class GuideReviewController extends Controller
 {
     public function __construct(
-        private readonly GuideReviewService $guideReviewService
+        private readonly GuideReviewService $guideReviewService,
+        private readonly GuideReviewNotificationService $guideReviewNotificationService
     ) {}
 
     public function reviewableBookings(Request $request): JsonResponse
@@ -131,7 +133,12 @@ class GuideReviewController extends Controller
             $review->save();
 
             $this->guideReviewService->refreshGuideRating((int) $data['guide_id']);
-            $this->guideReviewService->refreshTourRating((int) $booking->tour_id);
+
+            $this->guideReviewNotificationService->markAsCompleted(
+                (int) $user->id,
+                (int) $booking->id,
+                (int) $data['guide_id']
+            );
 
             return [$review, $created];
         });

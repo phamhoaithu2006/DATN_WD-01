@@ -109,7 +109,7 @@ function getPageNumbers(currentPage, lastPage) {
   const end = Math.min(lastPage, start + 4);
   return Array.from({ length: end - start + 1 }, (_, index) => start + index);
 }
-function TourRow({ customerCount, item, onDetail }) {
+function TourRow({ customerCount, item, onDetail, onOpenReplacement }) {
   const image = getTourImage(item);
   const title = getTourTitle(item);
   return (
@@ -162,6 +162,14 @@ function TourRow({ customerCount, item, onDetail }) {
         <button type="button" onClick={() => onDetail(item)}>
           Chi tiết
         </button>
+        <button
+          type="button"
+          className="guide-shot-replacement-button"
+          disabled={!getReplacementEligibility(item).allowed}
+          onClick={() => onOpenReplacement(item)}
+        >
+          {getReplacementEligibility(item).buttonLabel}
+        </button>
       </div>
     </article>
   );
@@ -197,14 +205,24 @@ function TourDetailModal({
         aria-label="Chi tiết tour"
         onClick={(event) => event.stopPropagation()}
       >
-        <button
-          type="button"
-          className="guide-tour-detail-close"
-          onClick={onClose}
-          aria-label="Đóng"
-        >
-          ×
-        </button>
+        <div className="guide-tour-detail-actions">
+          <button
+            type="button"
+            className="guide-tour-detail-replacement"
+            disabled={!replacementEligibility.allowed}
+            onClick={() => onOpenReplacement(item)}
+          >
+            {replacementEligibility.buttonLabel}
+          </button>
+          <button
+            type="button"
+            className="guide-tour-detail-close"
+            onClick={onClose}
+            aria-label="Đóng"
+          >
+            ×
+          </button>
+        </div>
         <div className="guide-tour-detail-hero">
           {image ? (
             <img src={image} alt={title} />
@@ -307,27 +325,6 @@ function TourDetailModal({
                 : "Tour này chưa có khách hàng."}
             </p>
           )}
-        </div>
-        <div className="guide-tour-detail-section guide-replacement-section">
-          <div className="guide-replacement-head">
-            <div>
-              <h3>Yêu cầu đổi HDV</h3>
-              <p>
-                Gửi yêu cầu cho admin nếu bạn không thể tiếp tục phụ trách tour
-                này.
-              </p>
-            </div>
-            <button
-              type="button"
-              disabled={!replacementEligibility.allowed}
-              onClick={() => onOpenReplacement(item)}
-            >
-              {replacementEligibility.buttonLabel}
-            </button>
-          </div>
-          <p className="guide-replacement-muted">
-            {replacementEligibility.message}
-          </p>
         </div>
       </section>
     </div>
@@ -693,6 +690,12 @@ function GuideToursPage() {
                 customerCount={customerCounts[item.id]}
                 item={item}
                 onDetail={openDetail}
+                onOpenReplacement={(tour) => {
+                  setReplacementTour(tour);
+                  setReplacementReason("");
+                  setReplacementFile(null);
+                  setReplacementError("");
+                }}
               />
             ))}
           </div>

@@ -11,6 +11,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 
 class GuideTourController extends Controller
 {
@@ -582,29 +583,103 @@ class GuideTourController extends Controller
             $evidencePath = $request->file('evidence')->store('guide-replacement-evidence', 'public');
         }
 
-        $requestId = null;
+        try {
+            $result = DB::transaction(function () use (
+                $request,
+                $tourDeparture,
+                $guide,
+                $validated,
+                $evidencePath
+            ) {
+                $lockedDeparture = TourDeparture::query()
+                    ->whereKey($tourDeparture->id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
 
-        DB::transaction(function () use (
-            $request,
-            $tourDeparture,
-            $guide,
-            $validated,
-            $evidencePath,
-            &$requestId
-        ) {
-            $requestId = DB::table('guide_replacement_requests')->insertGetId([
-                'tour_departure_id' => $tourDeparture->id,
-                'current_guide_id' => $guide->id,
-                'requested_by' => $request->user()->id,
-                'reason' => $validated['reason'],
-                'evidence_path' => $evidencePath,
-                'status' => 'pending',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
+                $lockedAssignment = DB::table('tour_guide_assignments')
+                    ->where('tour_departure_id', $lockedDeparture->id)
+                    ->where('guide_id', $guide->id)
+                    ->where('status', '!=', 'cancelled')
+                    ->lockForUpdate()
+                    ->first();
 
-            $this->notifyAdminsAboutReplacementRequest($tourDeparture, $guide, $validated['reason'], $requestId);
-        });
+                if (! $lockedAssignment) {
+                    return ['outcome' => 'forbidden'];
+                }
+
+                $lockedDepartureDate = Carbon::parse($lockedDeparture->departure_date)->startOfDay();
+
+                if ($lockedDepartureDate->lt(Carbon::today()->addDays(5)->startOfDay())) {
+                    return ['outcome' => 'too_late'];
+                }
+
+                $pendingRequest = DB::table('guide_replacement_requests')
+                    ->where('tour_departure_id', $lockedDeparture->id)
+                    ->where('current_guide_id', $guide->id)
+                    ->where('status', 'pending')
+                    ->lockForUpdate()
+                    ->first(['id']);
+
+                if ($pendingRequest) {
+                    return ['outcome' => 'pending'];
+                }
+
+                $requestId = DB::table('guide_replacement_requests')->insertGetId([
+                    'tour_departure_id' => $lockedDeparture->id,
+                    'current_guide_id' => $guide->id,
+                    'requested_by' => $request->user()->id,
+                    'reason' => $validated['reason'],
+                    'evidence_path' => $evidencePath,
+                    'status' => 'pending',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+                $this->notifyAdminsAboutReplacementRequest(
+                    $lockedDeparture,
+                    $guide,
+                    $validated['reason'],
+                    $requestId
+                );
+
+                return [
+                    'outcome' => 'created',
+                    'request_id' => $requestId,
+                ];
+            }, 3);
+        } catch (\Throwable $exception) {
+            if ($evidencePath) {
+                Storage::disk('public')->delete($evidencePath);
+            }
+
+            throw $exception;
+        }
+
+        if ($result['outcome'] !== 'created' && $evidencePath) {
+            Storage::disk('public')->delete($evidencePath);
+        }
+
+        if ($result['outcome'] === 'forbidden') {
+            return response()->json([
+                'message' => 'Bạn không được phân công cho lịch khởi hành này.',
+            ], 403);
+        }
+
+        if ($result['outcome'] === 'too_late') {
+            return response()->json([
+                'message' => 'Yêu cầu đổi HDV cần gửi trước ngày khởi hành ít nhất 5 ngày.',
+                'code' => 'REPLACEMENT_REQUEST_TOO_LATE',
+            ], 422);
+        }
+
+        if ($result['outcome'] === 'pending') {
+            return response()->json([
+                'message' => 'Bạn đã gửi yêu cầu đổi HDV cho lịch này và đang chờ admin duyệt.',
+                'code' => 'REPLACEMENT_REQUEST_PENDING',
+            ], 409);
+        }
+
+        $requestId = $result['request_id'];
 
         return response()->json([
             'message' => 'Đã gửi yêu cầu đổi HDV. Admin sẽ xem xét và phản hồi.',

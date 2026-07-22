@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import { useLocale } from "../../contexts/LocaleContext";
 import { createCustomerBooking, fetchTourDetail, previewCustomerBooking } from "../../services/customerApi";
 import { readSession, readToken } from "../../services/authStorage";
@@ -47,6 +48,38 @@ function getPricingRuleText(rule) {
   return `${rule.price_value}% giá người lớn`;
 }
 
+function isValidPhone(value) {
+  const phone = String(value || "").replace(/\D/g, "");
+  return phone.length === 10 && phone.charAt(0) === "0";
+}
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const IDENTITY_REGEX = /^[A-Za-z0-9-]{6,20}$/;
+
+function normalizePhone(value) {
+  return String(value || "").trim().replace(/\D/g, "");
+}
+
+function getAgeFromBirthDate(birthDate, referenceDate) {
+  const birth = new Date(`${birthDate}T00:00:00`);
+  const reference = new Date(`${referenceDate}T00:00:00`);
+
+  if (Number.isNaN(birth.getTime()) || Number.isNaN(reference.getTime())) {
+    return null;
+  }
+
+  let age = reference.getFullYear() - birth.getFullYear();
+  const monthDifference = reference.getMonth() - birth.getMonth();
+
+  if (
+    monthDifference < 0 ||
+    (monthDifference === 0 && reference.getDate() < birth.getDate())
+  ) {
+    age -= 1;
+  }
+
+  return age;
+}
+
 function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = [], onFavorite }) {
   const { currency, formatCurrency } = useLocale();
   const navigate = useNavigate();
@@ -86,6 +119,7 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
     };
   });
   const [participants, setParticipants] = useState([]);
+  const [fieldErrors, setFieldErrors] = useState({ contact: {}, participants: {} });
 
   const [itineraryCollapsed, setItineraryCollapsed] = useState(false);
 
@@ -237,6 +271,21 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
     }))
     .filter((item) => item.quantity > 0);
 
+  const notifyValidationError = (message) => {
+    toast.error(message, {
+      id: "tour-booking-validation",
+      duration: 4500,
+    });
+  };
+
+  const notifyRequestError = (message) => {
+    setBookingError(message);
+    toast.error(message, {
+      id: "tour-booking-request-error",
+      duration: 5000,
+    });
+  };
+
   const updateQuantity = (ruleId, nextQuantity) => {
     const isAdultGroup = String(ruleId) === String(adultPricingRule.id);
     const safeQuantity = Math.max(isAdultGroup ? 1 : 0, nextQuantity);
@@ -244,7 +293,7 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
     const nextTotal = totalGuests - Number(effectiveQuantities[ruleId] || 0) + safeQuantity;
 
     if (availableSlots > 0 && nextTotal > availableSlots) {
-      setBookingError(`Lịch này chỉ còn ${availableSlots} chỗ trống.`);
+      notifyValidationError(`Lịch này chỉ còn ${availableSlots} chỗ trống.`);
       return;
     }
 
@@ -260,14 +309,118 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
     identity_number: "",
   });
 
+  const clearContactError = (field) => {
+    setFieldErrors((current) => ({
+      ...current,
+      contact: { ...current.contact, [field]: "" },
+    }));
+  };
+
+  const clearParticipantError = (index, field) => {
+    setFieldErrors((current) => ({
+      ...current,
+      participants: {
+        ...current.participants,
+        [index]: { ...current.participants?.[index], [field]: "" },
+      },
+    }));
+  };
+
   const updateContactField = (field, value) => {
     setContact((current) => ({ ...current, [field]: value }));
+    clearContactError(field);
   };
 
   const updateParticipantField = (index, field, value) => {
     setParticipants((current) => current.map((participant, itemIndex) => (
       itemIndex === index ? { ...participant, [field]: value } : participant
     )));
+    clearParticipantError(index, field);
+  };
+
+  const errorInputStyle = (hasError) => (hasError
+    ? { borderColor: "#dc2626", boxShadow: "0 0 0 1px #dc2626" }
+    : undefined);
+
+  const fieldErrorStyle = {
+    display: "block",
+    color: "#dc2626",
+    fontSize: "0.78rem",
+    lineHeight: 1.35,
+    marginTop: 5,
+  };
+
+  const validateBookingInformation = () => {
+    const errors = { contact: {}, participants: {} };
+    const contactName = String(contact.contact_name || "").trim();
+    const contactPhone = normalizePhone(contact.contact_phone);
+    const contactEmail = String(contact.contact_email || "").trim();
+    const contactAddress = String(contact.address || "").trim();
+    const specialRequest = String(contact.special_request || "").trim();
+
+    if (!contactName) errors.contact.contact_name = "Vui lòng nhập họ tên người liên hệ.";
+    else if (contactName.length < 2) errors.contact.contact_name = "Họ tên phải có ít nhất 2 ký tự.";
+    else if (contactName.length > 100) errors.contact.contact_name = "Họ tên không được vượt quá 100 ký tự.";
+
+    if (!contactPhone) errors.contact.contact_phone = "Vui lòng nhập số điện thoại liên hệ.";
+    else if (!isValidPhone(contactPhone)) {
+      errors.contact.contact_phone = "Số điện thoại bắt buộc gồm đúng 10 chữ số và bắt đầu bằng số 0.";
+    }
+
+    if (!contactEmail) errors.contact.contact_email = "Vui lòng nhập email liên hệ.";
+    else if (contactEmail.length > 150) errors.contact.contact_email = "Email không được vượt quá 150 ký tự.";
+    else if (!EMAIL_REGEX.test(contactEmail)) errors.contact.contact_email = "Email không đúng định dạng, ví dụ: ten@email.com.";
+
+    if (contactAddress.length > 255) errors.contact.address = "Địa chỉ không được vượt quá 255 ký tự.";
+    if (specialRequest.length > 500) errors.contact.special_request = "Yêu cầu đặc biệt không được vượt quá 500 ký tự.";
+
+    const referenceDate = selectedDeparture?.departure_date || new Date().toISOString().split("T")[0];
+
+    participants.forEach((participant, index) => {
+      const itemErrors = {};
+      const fullName = String(participant.full_name || "").trim();
+      const birthDate = String(participant.birth_date || "").trim();
+      const phone = normalizePhone(participant.phone);
+      const identityNumber = String(participant.identity_number || "").trim();
+
+      if (!fullName) itemErrors.full_name = "Vui lòng nhập họ tên hành khách.";
+      else if (fullName.length < 2) itemErrors.full_name = "Họ tên phải có ít nhất 2 ký tự.";
+      else if (fullName.length > 100) itemErrors.full_name = "Họ tên không được vượt quá 100 ký tự.";
+
+      if (!birthDate) itemErrors.birth_date = "Vui lòng chọn ngày sinh.";
+      else {
+        const age = getAgeFromBirthDate(birthDate, referenceDate);
+        if (age === null || age < 0) itemErrors.birth_date = "Ngày sinh không hợp lệ hoặc sau ngày khởi hành.";
+        else if (age > 120) itemErrors.birth_date = "Tuổi hành khách không được vượt quá 120.";
+      }
+
+      if (!participant.gender || !["male", "female", "other"].includes(participant.gender)) {
+        itemErrors.gender = "Vui lòng chọn giới tính.";
+      }
+
+      if (phone && !isValidPhone(phone)) {
+        itemErrors.phone = "Số điện thoại bắt buộc gồm đúng 10 chữ số và bắt đầu bằng số 0.";
+      }
+
+      if (identityNumber && !IDENTITY_REGEX.test(identityNumber)) {
+        itemErrors.identity_number = "CCCD/Hộ chiếu chỉ gồm chữ, số hoặc dấu gạch ngang; dài 6–20 ký tự.";
+      }
+
+      if (Object.keys(itemErrors).length) errors.participants[index] = itemErrors;
+    });
+
+    if (participants.length !== totalGuests) {
+      errors.participants._form = `Thông tin hành khách phải có đủ ${totalGuests} người.`;
+    }
+
+    const hasErrors = Object.keys(errors.contact).length > 0
+      || Object.keys(errors.participants).length > 0;
+
+    setFieldErrors(errors);
+
+    if (Object.keys(errors.contact).length > 0) setUseCustomContact(true);
+
+    return !hasErrors;
   };
 
   const handleClearAll = () => {
@@ -280,18 +433,41 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
     setBookingError("");
 
     if (!readToken()) {
+      toast.info("Vui lòng đăng nhập để tiếp tục đặt tour.", {
+        id: "tour-booking-login",
+      });
       navigate("/auth/login");
       return;
     }
 
     if (checkoutStep === 1) {
       if (!selectedDeparture) {
-        setBookingError("Vui lòng chọn ngày khởi hành có sẵn.");
+        notifyValidationError("Vui lòng chọn ngày khởi hành có sẵn.");
+        return;
+      }
+
+      if (selectedDeparture.status && selectedDeparture.status !== "open") {
+        notifyValidationError("Lịch khởi hành này hiện không còn nhận đặt chỗ.");
+        return;
+      }
+
+      if (Number(selectedDeparture.available_slots ?? availableSlots) <= 0) {
+        notifyValidationError("Lịch khởi hành này đã hết chỗ.");
         return;
       }
 
       if (totalGuests < 1) {
-        setBookingError("Vui lòng chọn ít nhất 1 khách đặt tour.");
+        notifyValidationError("Vui lòng chọn ít nhất 1 khách đặt tour.");
+        return;
+      }
+
+      if (availableSlots > 0 && totalGuests > availableSlots) {
+        notifyValidationError(`Lịch này chỉ còn ${availableSlots} chỗ trống.`);
+        return;
+      }
+
+      if (!buildQuantitySummary().length) {
+        notifyValidationError("Vui lòng chọn số lượng khách phù hợp.");
         return;
       }
 
@@ -303,40 +479,34 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
         });
         setBookingPreview(preview);
       } catch (error) {
-        setBookingError(error.response?.data?.message || "Chưa thể tính giá từ máy chủ, vui lòng thử lại.");
+        notifyRequestError(
+          error.response?.data?.message ||
+          "Chưa thể tính giá từ máy chủ, vui lòng thử lại."
+        );
         return;
       } finally {
         setPreviewLoading(false);
       }
 
-      const initialParticipants = Array.from({ length: totalGuests }, () => createParticipantTemplate());
+      const initialParticipants = Array.from(
+        { length: totalGuests },
+        () => createParticipantTemplate()
+      );
       setParticipants(initialParticipants);
+      setFieldErrors({ contact: {}, participants: {} });
       setCheckoutStep(2);
       return;
     }
 
     if (checkoutStep === 2) {
-      if (!contact.contact_name || !contact.contact_phone) {
-        setBookingError("Vui lòng nhập tên và số điện thoại liên hệ.");
-        return;
-      }
-
-      const hasMissingParticipant = participants.some((participant) => (
-        !participant.full_name || !participant.birth_date || !participant.gender
-      ));
-
-      if (participants.length !== totalGuests || hasMissingParticipant) {
-        setBookingError(`Vui lòng nhập đầy đủ thông tin ${totalGuests} hành khách để phục vụ điểm danh tour.`);
-        return;
-      }
-
-      const todayStrLimit = new Date().toISOString().split("T")[0];
-      const hasFutureBirthDate = participants.some((participant) => (
-        participant.birth_date && participant.birth_date > todayStrLimit
-      ));
-
-      if (hasFutureBirthDate) {
-        setBookingError("Ngày sinh của hành khách không thể ở thời điểm tương lai.");
+      if (!validateBookingInformation()) {
+        notifyValidationError("Vui lòng kiểm tra các trường đang báo đỏ.");
+        requestAnimationFrame(() => {
+          document.querySelector('[data-validation-error="true"]')?.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
+        });
         return;
       }
 
@@ -346,9 +516,21 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
           tour_departure_id: Number(selectedDeparture.id),
           number_of_people: totalGuests,
           quantity_summary: buildQuantitySummary(),
-          contact,
-          participants,
-          note: contact.special_request || undefined,
+          contact: {
+            ...contact,
+            contact_name: String(contact.contact_name || "").trim(),
+            contact_email: String(contact.contact_email || "").trim(),
+            contact_phone: normalizePhone(contact.contact_phone),
+            address: String(contact.address || "").trim(),
+            special_request: String(contact.special_request || "").trim(),
+          },
+          participants: participants.map((participant) => ({
+            ...participant,
+            full_name: String(participant.full_name || "").trim(),
+            phone: normalizePhone(participant.phone) || "",
+            identity_number: String(participant.identity_number || "").trim(),
+          })),
+          note: String(contact.special_request || "").trim() || undefined,
         });
 
         if (!booking?.checkout_url) {
@@ -357,10 +539,18 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
 
         setCreatedBooking(booking);
         setCheckoutStep(3);
+        toast.success("Thông tin hợp lệ. Đơn đặt tour đã được tạo.", {
+          id: "tour-booking-created",
+        });
       } catch (error) {
         const errors = error.response?.data?.errors;
         const firstError = errors ? Object.values(errors).flat()[0] : null;
-        setBookingError(firstError || error.response?.data?.message || error.message || "Không thể lưu đơn chờ thanh toán, vui lòng thử lại.");
+        notifyRequestError(
+          firstError ||
+          error.response?.data?.message ||
+          error.message ||
+          "Không thể lưu đơn chờ thanh toán, vui lòng thử lại."
+        );
       } finally {
         setBookingSubmitting(false);
       }
@@ -369,7 +559,9 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
     }
 
     if (!createdBooking?.checkout_url) {
-      setBookingError("Không tìm thấy liên kết thanh toán. Vui lòng tiếp tục từ trang đơn hàng.");
+      notifyRequestError(
+        "Không tìm thấy liên kết thanh toán. Vui lòng tiếp tục từ trang đơn hàng."
+      );
       return;
     }
 
@@ -534,7 +726,7 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                 </div>
               ) : null}
 
-              <form onSubmit={handleBookingSubmit}>
+              <form onSubmit={handleBookingSubmit} noValidate>
                 {checkoutStep === 1 && (
                   <>
                     {/* Date Picker Input */}
@@ -628,39 +820,81 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                       </div>
                       {useCustomContact && (
                         <div className="vg-checkout-grid" style={{ marginBottom: 12 }}>
-                          <input
-                            className="vg-checkout-input"
-                            value={contact.contact_name}
-                            onChange={(e) => updateContactField("contact_name", e.target.value)}
-                            placeholder="Họ tên liên hệ"
-                          />
-                          <input
-                            className="vg-checkout-input"
-                            value={contact.contact_phone}
-                            onChange={(e) => updateContactField("contact_phone", e.target.value)}
-                            placeholder="Số điện thoại"
-                          />
-                          <input
-                            className="vg-checkout-input"
-                            value={contact.contact_email}
-                            onChange={(e) => updateContactField("contact_email", e.target.value)}
-                            placeholder="Email liên hệ"
-                          />
-                          <input
-                            className="vg-checkout-input"
-                            value={contact.address}
-                            onChange={(e) => updateContactField("address", e.target.value)}
-                            placeholder="Địa chỉ"
-                          />
+                          <div className="vg-input-group">
+                            <label>Họ tên người liên hệ *</label>
+                            <input
+                              className="vg-checkout-input"
+                              style={errorInputStyle(Boolean(fieldErrors.contact.contact_name))}
+                              data-validation-error={fieldErrors.contact.contact_name ? "true" : undefined}
+                              value={contact.contact_name}
+                              maxLength={100}
+                              onChange={(e) => updateContactField("contact_name", e.target.value)}
+                              placeholder="Họ tên liên hệ"
+                            />
+                            {fieldErrors.contact.contact_name && <small style={fieldErrorStyle}>{fieldErrors.contact.contact_name}</small>}
+                          </div>
+                          <div className="vg-input-group">
+                            <label>Số điện thoại *</label>
+                            <input
+                              className="vg-checkout-input"
+                              style={errorInputStyle(Boolean(fieldErrors.contact.contact_phone))}
+                              data-validation-error={fieldErrors.contact.contact_phone ? "true" : undefined}
+                              value={contact.contact_phone}
+                              inputMode="numeric"
+                              maxLength={10}
+                              onChange={(e) => updateContactField(
+                                "contact_phone",
+                                e.target.value.replace(/\D/g, "").slice(0, 10)
+                              )}
+                              placeholder="Ví dụ: 0123456789"
+                            />
+                            {fieldErrors.contact.contact_phone && (
+                              <small style={fieldErrorStyle}>{fieldErrors.contact.contact_phone}</small>
+                            )}
+                          </div>
+                          <div className="vg-input-group">
+                            <label>Email *</label>
+                            <input
+                              className="vg-checkout-input"
+                              style={errorInputStyle(Boolean(fieldErrors.contact.contact_email))}
+                              data-validation-error={fieldErrors.contact.contact_email ? "true" : undefined}
+                              type="email"
+                              value={contact.contact_email}
+                              maxLength={150}
+                              onChange={(e) => updateContactField("contact_email", e.target.value)}
+                              placeholder="ten@email.com"
+                            />
+                            {fieldErrors.contact.contact_email && <small style={fieldErrorStyle}>{fieldErrors.contact.contact_email}</small>}
+                          </div>
+                          <div className="vg-input-group">
+                            <label>Địa chỉ</label>
+                            <input
+                              className="vg-checkout-input"
+                              style={errorInputStyle(Boolean(fieldErrors.contact.address))}
+                              data-validation-error={fieldErrors.contact.address ? "true" : undefined}
+                              value={contact.address}
+                              maxLength={255}
+                              onChange={(e) => updateContactField("address", e.target.value)}
+                              placeholder="Địa chỉ"
+                            />
+                            {fieldErrors.contact.address && <small style={fieldErrorStyle}>{fieldErrors.contact.address}</small>}
+                          </div>
                         </div>
                       )}
-                      <textarea
-                        className="vg-checkout-input"
-                        value={contact.special_request}
-                        onChange={(e) => updateContactField("special_request", e.target.value)}
-                        placeholder="Yêu cầu đặc biệt nếu có (ăn chay, dị ứng, xe đẩy...)"
-                        rows={3}
-                      />
+                      <div className="vg-input-group">
+                        <label>Yêu cầu đặc biệt</label>
+                        <textarea
+                          className="vg-checkout-input"
+                          style={errorInputStyle(Boolean(fieldErrors.contact.special_request))}
+                          data-validation-error={fieldErrors.contact.special_request ? "true" : undefined}
+                          value={contact.special_request}
+                          maxLength={500}
+                          onChange={(e) => updateContactField("special_request", e.target.value)}
+                          placeholder="Yêu cầu đặc biệt nếu có (ăn chay, dị ứng, xe đẩy...)"
+                          rows={3}
+                        />
+                        {fieldErrors.contact.special_request && <small style={fieldErrorStyle}>{fieldErrors.contact.special_request}</small>}
+                      </div>
                     </section>
 
                     <section className="checkout-section" style={{ marginTop: 16 }}>
@@ -668,6 +902,11 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                         <h4>Thông tin hành khách tham gia</h4>
                         <span style={{ fontSize: "0.85rem", color: "#687176" }}>{participants.length}/{totalGuests} khách</span>
                       </div>
+                      {fieldErrors.participants?._form && (
+                        <div className="booking-inline-error" data-validation-error="true" style={{ marginBottom: 12 }}>
+                          {fieldErrors.participants._form}
+                        </div>
+                      )}
                       {participants.map((p, index) => (
                         <div className="vg-participant-card" key={index}>
                           <div className="vg-participant-card-header">
@@ -681,27 +920,36 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                               <label>Họ tên hành khách *</label>
                               <input
                                 className="vg-checkout-input"
+                                style={errorInputStyle(Boolean(fieldErrors.participants?.[index]?.full_name))}
+                                data-validation-error={fieldErrors.participants?.[index]?.full_name ? "true" : undefined}
                                 value={p.full_name}
+                                maxLength={100}
                                 onChange={(e) => updateParticipantField(index, "full_name", e.target.value)}
                                 placeholder="Họ và tên như trong giấy tờ"
                                 required
                               />
+                              {fieldErrors.participants?.[index]?.full_name && <small style={fieldErrorStyle}>{fieldErrors.participants[index].full_name}</small>}
                             </div>
                             <div className="vg-input-group">
                               <label>Ngày sinh *</label>
                               <input
                                 className="vg-checkout-input"
+                                style={errorInputStyle(Boolean(fieldErrors.participants?.[index]?.birth_date))}
+                                data-validation-error={fieldErrors.participants?.[index]?.birth_date ? "true" : undefined}
                                 type="date"
                                 value={p.birth_date}
                                 onChange={(e) => updateParticipantField(index, "birth_date", e.target.value)}
                                 max={todayStr}
                                 required
                               />
+                              {fieldErrors.participants?.[index]?.birth_date && <small style={fieldErrorStyle}>{fieldErrors.participants[index].birth_date}</small>}
                             </div>
                             <div className="vg-input-group">
                               <label>Giới tính</label>
                               <select
                                 className="vg-checkout-input"
+                                style={errorInputStyle(Boolean(fieldErrors.participants?.[index]?.gender))}
+                                data-validation-error={fieldErrors.participants?.[index]?.gender ? "true" : undefined}
                                 value={p.gender}
                                 onChange={(e) => updateParticipantField(index, "gender", e.target.value)}
                               >
@@ -709,24 +957,34 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                                 <option value="female">Nữ</option>
                                 <option value="other">Khác</option>
                               </select>
+                              {fieldErrors.participants?.[index]?.gender && <small style={fieldErrorStyle}>{fieldErrors.participants[index].gender}</small>}
                             </div>
                             <div className="vg-input-group">
                               <label>Số điện thoại</label>
                               <input
                                 className="vg-checkout-input"
+                                style={errorInputStyle(Boolean(fieldErrors.participants?.[index]?.phone))}
+                                data-validation-error={fieldErrors.participants?.[index]?.phone ? "true" : undefined}
                                 value={p.phone}
+                                inputMode="tel"
+                                maxLength={15}
                                 onChange={(e) => updateParticipantField(index, "phone", e.target.value)}
-                                placeholder="Số điện thoại liên lạc"
+                                placeholder="Ví dụ: 0912345678"
                               />
+                              {fieldErrors.participants?.[index]?.phone && <small style={fieldErrorStyle}>{fieldErrors.participants[index].phone}</small>}
                             </div>
                             <div className="vg-input-group">
                               <label>CCCD / Hộ chiếu</label>
                               <input
                                 className="vg-checkout-input"
+                                style={errorInputStyle(Boolean(fieldErrors.participants?.[index]?.identity_number))}
+                                data-validation-error={fieldErrors.participants?.[index]?.identity_number ? "true" : undefined}
                                 value={p.identity_number}
+                                maxLength={20}
                                 onChange={(e) => updateParticipantField(index, "identity_number", e.target.value)}
                                 placeholder="Số CCCD hoặc số hộ chiếu"
                               />
+                              {fieldErrors.participants?.[index]?.identity_number && <small style={fieldErrorStyle}>{fieldErrors.participants[index].identity_number}</small>}
                             </div>
                           </div>
                         </div>

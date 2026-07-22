@@ -142,6 +142,21 @@ export async function updateProfile(payload) {
 export async function changePassword(payload) {
   return api.put('/profile/change-password', payload)
 }
+export async function fetchGuideReviewableBookings(params = {}) {
+  const response = await api.get("/customer/guide-reviewable-bookings", {
+    params: {
+      per_page: 50,
+      ...params,
+    },
+  });
 
+  return response.data?.data?.data || [];
+}
+
+export async function submitGuideReview(payload) {
+  const response = await api.post("/customer/guide-reviews", payload);
+
+  return response.data?.data || response.data;
+}
 
 export default api

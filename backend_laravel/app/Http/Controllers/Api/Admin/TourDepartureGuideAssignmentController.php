@@ -9,6 +9,7 @@ use App\Models\TourDeparture;
 use App\Models\TourGuideAssignment;
 use App\Services\AdminNotificationService;
 use App\Services\GuideAssignmentService;
+use App\Services\TourDepartureMutationGuard;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -78,8 +79,11 @@ class TourDepartureGuideAssignmentController extends Controller
 
     public function candidates(
         TourDeparture $departure,
-        GuideAssignmentService $service
+        GuideAssignmentService $service,
+        TourDepartureMutationGuard $guard
     ) {
+        $guard->assertCanMutate($departure);
+
         $guides = $service
             ->eligibleGuidesQuery($departure)
             ->get();
@@ -92,8 +96,11 @@ class TourDepartureGuideAssignmentController extends Controller
 
     public function autoAssign(
         TourDeparture $departure,
-        GuideAssignmentService $service
+        GuideAssignmentService $service,
+        TourDepartureMutationGuard $guard
     ) {
+        $guard->assertCanMutate($departure);
+
         $assignment = $service->autoAssign(
             $departure->id,
             auth()->id()
@@ -111,8 +118,11 @@ class TourDepartureGuideAssignmentController extends Controller
     public function assign(
         Request $request,
         TourDeparture $departure,
-        GuideAssignmentService $service
+        GuideAssignmentService $service,
+        TourDepartureMutationGuard $guard
     ) {
+        $guard->assertCanMutate($departure);
+
         $validated = $request->validate([
             'guide_id' => ['required', 'integer', 'exists:guides,id'],
         ]);
@@ -134,12 +144,15 @@ class TourDepartureGuideAssignmentController extends Controller
 
     public function cancel(
         TourDeparture $departure,
-        TourGuideAssignment $assignment
+        TourGuideAssignment $assignment,
+        TourDepartureMutationGuard $guard
     ) {
         abort_unless(
             (int) $assignment->tour_departure_id === (int) $departure->id,
             404
         );
+
+        $guard->assertCanMutate($departure);
 
         $assignment->loadMissing([
             'guide.user:id,full_name,email',
@@ -149,19 +162,44 @@ class TourDepartureGuideAssignmentController extends Controller
             'tour:id,title',
         ]);
 
-        DB::transaction(function () use ($assignment, $departure) {
+        DB::transaction(function () use ($assignment, $departure, $guard) {
+            $lockedDeparture = TourDeparture::query()
+                ->whereKey($departure->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $guard->assertCanMutate($lockedDeparture);
+
+            $lockedAssignment = TourGuideAssignment::query()
+                ->whereKey($assignment->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            abort_unless(
+                (int) $lockedAssignment->tour_departure_id === (int) $lockedDeparture->id,
+                404
+            );
+
+            $lockedAssignment->loadMissing([
+                'guide.user:id,full_name,email',
+            ]);
+
+            $lockedDeparture->loadMissing([
+                'tour:id,title',
+            ]);
+
             /*
          * Gửi thông báo trước khi xóa,
          * vì sau khi xóa có thể mất relation guide/user.
          */
-            $this->notifyGuideAssignmentRemoved($assignment, $departure);
-            $this->notifyAdminGuideAssignmentCancelled($departure, $assignment);
+            $this->notifyGuideAssignmentRemoved($lockedAssignment, $lockedDeparture);
+            $this->notifyAdminGuideAssignmentCancelled($lockedDeparture, $lockedAssignment);
 
             /*
          * Xóa cứng khỏi bảng tour_guide_assignments.
          */
-            $assignment->delete();
-        });
+            $lockedAssignment->delete();
+        }, 3);
 
         return response()->json([
             'message' => 'Đã hoàn tác phân công HDV.',
@@ -381,8 +419,11 @@ class TourDepartureGuideAssignmentController extends Controller
 
     public function directCandidates(
         Request $request,
-        TourDeparture $departure
+        TourDeparture $departure,
+        TourDepartureMutationGuard $guard
     ) {
+        $guard->assertCanMutate($departure);
+
         $validated = $request->validate([
             'mode' => ['nullable', 'in:eligible,all'],
             'keyword' => ['nullable', 'string', 'max:255'],
@@ -709,8 +750,11 @@ class TourDepartureGuideAssignmentController extends Controller
 
     public function directAssign(
         Request $request,
-        TourDeparture $departure
+        TourDeparture $departure,
+        TourDepartureMutationGuard $guard
     ) {
+        $guard->assertCanMutate($departure);
+
         $validated = $request->validate([
             'guide_id' => ['required', 'integer', 'exists:guides,id'],
             'force_area_mismatch' => ['nullable', 'boolean'],
@@ -825,9 +869,22 @@ class TourDepartureGuideAssignmentController extends Controller
         DB::transaction(function () use (
             $departure,
             $guide,
+            $guard,
             &$assignment,
             &$isReplacing
         ) {
+            $departure = TourDeparture::query()
+                ->with([
+                    'tour:id,title,destination_id',
+                    'tour.destination:id,name,province_city,country',
+                    'tour.destinations:id,name,province_city,country',
+                ])
+                ->whereKey($departure->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $guard->assertCanMutate($departure);
+
             /*
          * Lấy HDV cũ đang được phân công cho lịch này.
          */
@@ -901,7 +958,7 @@ class TourDepartureGuideAssignmentController extends Controller
                     $assignment
                 );
             }
-        });
+        }, 3);
 
         return response()->json([
             'message' => $isReplacing

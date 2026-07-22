@@ -54,52 +54,43 @@ class AdminGuideReplacementRequestController extends Controller
             'admin_note' => ['nullable', 'string', 'max:2000'],
         ]);
 
-        $replacementRequest = DB::table('guide_replacement_requests')
-            ->where('id', $id)
-            ->first();
+        $result = DB::transaction(function () use ($request, $validated, $id) {
+            $requestSnapshot = DB::table('guide_replacement_requests')
+                ->where('id', $id)
+                ->first();
 
-        if (! $replacementRequest) {
-            return response()->json([
-                'message' => 'Không tìm thấy yêu cầu đổi HDV.',
-            ], 404);
-        }
+            if (! $requestSnapshot) {
+                return ['outcome' => 'not_found'];
+            }
 
-        if ($replacementRequest->status !== 'pending') {
-            return response()->json([
-                'message' => 'Yêu cầu này đã được xử lý.',
-            ], 409);
-        }
+            $departure = TourDeparture::query()
+                ->with('tour:id,title')
+                ->whereKey($requestSnapshot->tour_departure_id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        $departure = TourDeparture::query()
-            ->with('tour:id,title')
-            ->findOrFail($replacementRequest->tour_departure_id);
+            $replacementRequest = DB::table('guide_replacement_requests')
+                ->where('id', $id)
+                ->lockForUpdate()
+                ->first();
 
-        if (Carbon::parse($departure->departure_date)->startOfDay()->lte(Carbon::today())) {
-            return response()->json([
-                'message' => 'Không thể duyệt đổi HDV từ ngày khởi hành trở đi.',
-                'code' => 'REPLACEMENT_REQUEST_TOO_LATE',
-            ], 422);
-        }
+            if (! $replacementRequest) {
+                return ['outcome' => 'not_found'];
+            }
 
-        $newGuide = $this->findReplacementGuide(
-            $departure,
-            (int) $replacementRequest->current_guide_id
-        );
+            if ($replacementRequest->status !== 'pending') {
+                return ['outcome' => 'processed'];
+            }
 
-        if (! $newGuide) {
-            return response()->json([
-                'message' => 'Chưa tìm được HDV thay thế phù hợp và trống lịch.',
-                'code' => 'NO_REPLACEMENT_GUIDE_AVAILABLE',
-            ], 422);
-        }
+            $newGuide = $this->findReplacementGuide(
+                $departure,
+                (int) $replacementRequest->current_guide_id
+            );
 
-        DB::transaction(function () use (
-            $request,
-            $validated,
-            $replacementRequest,
-            $departure,
-            $newGuide
-        ) {
+            if (! $newGuide) {
+                return ['outcome' => 'no_candidate'];
+            }
+
             DB::table('tour_guide_assignments')
                 ->where('tour_departure_id', $departure->id)
                 ->where('guide_id', $replacementRequest->current_guide_id)
@@ -122,6 +113,7 @@ class AdminGuideReplacementRequestController extends Controller
 
             DB::table('guide_replacement_requests')
                 ->where('id', $replacementRequest->id)
+                ->where('status', 'pending')
                 ->update([
                     'status' => 'approved',
                     'replacement_guide_id' => $newGuide->id,
@@ -133,12 +125,36 @@ class AdminGuideReplacementRequestController extends Controller
 
             $this->notifyResult($departure, $replacementRequest, $newGuide, true);
             $this->notifyAdmins($departure, $replacementRequest, $newGuide, true);
-        });
+
+            return [
+                'outcome' => 'approved',
+                'replacement_guide_id' => $newGuide->id,
+            ];
+        }, 3);
+
+        if ($result['outcome'] === 'not_found') {
+            return response()->json([
+                'message' => 'Không tìm thấy yêu cầu đổi HDV.',
+            ], 404);
+        }
+
+        if ($result['outcome'] === 'processed') {
+            return response()->json([
+                'message' => 'Yêu cầu này đã được xử lý.',
+            ], 409);
+        }
+
+        if ($result['outcome'] === 'no_candidate') {
+            return response()->json([
+                'message' => 'Chưa tìm được HDV thay thế phù hợp và trống lịch.',
+                'code' => 'NO_REPLACEMENT_GUIDE_AVAILABLE',
+            ], 422);
+        }
 
         return response()->json([
             'message' => 'Đã duyệt yêu cầu và phân công HDV thay thế.',
             'data' => [
-                'replacement_guide_id' => $newGuide->id,
+                'replacement_guide_id' => $result['replacement_guide_id'],
             ],
         ]);
     }
@@ -149,29 +165,37 @@ class AdminGuideReplacementRequestController extends Controller
             'admin_note' => ['nullable', 'string', 'max:2000'],
         ]);
 
-        $replacementRequest = DB::table('guide_replacement_requests')
-            ->where('id', $id)
-            ->first();
+        $result = DB::transaction(function () use ($request, $validated, $id) {
+            $requestSnapshot = DB::table('guide_replacement_requests')
+                ->where('id', $id)
+                ->first();
 
-        if (! $replacementRequest) {
-            return response()->json([
-                'message' => 'Không tìm thấy yêu cầu đổi HDV.',
-            ], 404);
-        }
+            if (! $requestSnapshot) {
+                return ['outcome' => 'not_found'];
+            }
 
-        if ($replacementRequest->status !== 'pending') {
-            return response()->json([
-                'message' => 'Yêu cầu này đã được xử lý.',
-            ], 409);
-        }
+            $departure = TourDeparture::query()
+                ->with('tour:id,title')
+                ->whereKey($requestSnapshot->tour_departure_id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        $departure = TourDeparture::query()
-            ->with('tour:id,title')
-            ->findOrFail($replacementRequest->tour_departure_id);
+            $replacementRequest = DB::table('guide_replacement_requests')
+                ->where('id', $id)
+                ->lockForUpdate()
+                ->first();
 
-        DB::transaction(function () use ($request, $validated, $replacementRequest, $departure) {
+            if (! $replacementRequest) {
+                return ['outcome' => 'not_found'];
+            }
+
+            if ($replacementRequest->status !== 'pending') {
+                return ['outcome' => 'processed'];
+            }
+
             DB::table('guide_replacement_requests')
                 ->where('id', $replacementRequest->id)
+                ->where('status', 'pending')
                 ->update([
                     'status' => 'rejected',
                     'reviewed_by' => $request->user()->id,
@@ -182,7 +206,21 @@ class AdminGuideReplacementRequestController extends Controller
 
             $this->notifyResult($departure, $replacementRequest, null, false, $validated['admin_note'] ?? null);
             $this->notifyAdmins($departure, $replacementRequest, null, false);
-        });
+
+            return ['outcome' => 'rejected'];
+        }, 3);
+
+        if ($result['outcome'] === 'not_found') {
+            return response()->json([
+                'message' => 'Không tìm thấy yêu cầu đổi HDV.',
+            ], 404);
+        }
+
+        if ($result['outcome'] === 'processed') {
+            return response()->json([
+                'message' => 'Yêu cầu này đã được xử lý.',
+            ], 409);
+        }
 
         return response()->json([
             'message' => 'Đã từ chối yêu cầu đổi HDV.',
@@ -223,6 +261,7 @@ class AdminGuideReplacementRequestController extends Controller
             }, 'active_assignments_count')
             ->orderBy('active_assignments_count')
             ->orderBy('id')
+            ->lockForUpdate()
             ->first();
     }
 

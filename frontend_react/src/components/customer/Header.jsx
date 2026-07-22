@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import BrandLogo from "../BrandLogo";
+import CustomerNotificationBell from "./CustomerNotificationBell";
 import Icon from "./Icon";
 import { useLocale } from "../../contexts/LocaleContext";
 import {
@@ -594,6 +595,7 @@ function Header({ user, onLogout, pendingCount = 0 }) {
 
         {/* Right side user actions */}
         <div className="vg-nav-actions z-30">
+          {user ? <CustomerNotificationBell /> : null}
           {user ? (
             <div className="vg-account-menu">
               <button

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\Admin\AdminGuideLeaveRequestController;
+use App\Http\Controllers\Api\Admin\AdminGuideActivityController;
 use App\Http\Controllers\Api\Admin\AdminGuideReplacementRequestController;
 use App\Http\Controllers\Api\Admin\AdminNotificationBellController;
 use App\Http\Controllers\Api\Admin\AdminNotificationController;
@@ -23,6 +24,7 @@ use App\Http\Controllers\Api\Admin\SupportStaffController;
 use App\Http\Controllers\Api\Admin\TourDepartureController;
 use App\Http\Controllers\Api\Admin\TourDepartureGuideAssignmentController;
 use App\Http\Controllers\Api\Admin\TourManagerController;
+use App\Http\Controllers\Api\Admin\TourReviewController as AdminTourReviewController;
 use App\Http\Controllers\Api\Admin\WidgetController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\Chat\ChatBotController;
@@ -33,6 +35,7 @@ use App\Http\Controllers\Api\Customer\CustomerSupportRequestController;
 use App\Http\Controllers\Api\Customer\GuideReviewController as CustomerGuideReviewController;
 use App\Http\Controllers\Api\Customer\NotificationCustomerController;
 use App\Http\Controllers\Api\Customer\TourController;
+use App\Http\Controllers\Api\Customer\TourReviewController as CustomerTourReviewController;
 use App\Http\Controllers\Api\Customer\VnpayPaymentController;
 use App\Http\Controllers\Api\Customer\WishlistController;
 use App\Http\Controllers\Api\Guide\GuideAttendanceController;
@@ -47,9 +50,11 @@ use App\Http\Controllers\Api\PublicWidgetController;
 use App\Http\Controllers\Api\Support\SupportNotificationController;
 use App\Http\Controllers\Api\Support\SupportProfileController;
 use App\Http\Controllers\Api\Support\SupportRequestController;
+use App\Http\Controllers\Api\TourReviewController as PublicTourReviewController;
 use App\Models\GuideSpecialization;
 use Illuminate\Support\Facades\Route;
-//Chat bot
+
+// Chat bot
 Route::middleware('throttle:20,1')->post('/chatbot', [ChatBotController::class, 'handleChat']);
 // ======Đăng ký và đăng nhập cho người dùng======
 Route::prefix('auth')->group(function () {
@@ -104,6 +109,10 @@ Route::middleware(['auth:sanctum', 'role:customer'])->group(function () {
     Route::get('customer/payments/vnpay/{payment}', [VnpayPaymentController::class, 'status'])->whereNumber('payment');
     Route::get('customer/guide-reviewable-bookings', [CustomerGuideReviewController::class, 'reviewableBookings']);
     Route::post('customer/guide-reviews', [CustomerGuideReviewController::class, 'store']);
+    Route::post('customer/tour-reviews', [CustomerTourReviewController::class, 'store'])->middleware('throttle:10,1');
+    Route::put('customer/tour-reviews/{tourReview}', [CustomerTourReviewController::class, 'update'])
+        ->whereNumber('tourReview')
+        ->middleware('throttle:10,1');
     Route::get('customer/guides/{guide}/reviews', [CustomerGuideReviewController::class, 'guideReviews'])->whereNumber('guide');
     Route::get('customer/guides/{guide}/tour-history', [CustomerGuideReviewController::class, 'guideTourHistory'])->whereNumber('guide');
 
@@ -118,12 +127,14 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // ======Thông báo khách hàng, hdv, nvht (dùng chung được hết)======
     // Hiển thị danh sách thông báo của khách hàng
     Route::get('/notifications/customers', [NotificationCustomerController::class, 'getMyNotifications']);
-    // Xem chi tiết thông báo
-    Route::get('/notifications/customers/{id}', [NotificationCustomerController::class, 'getNotificationDetail']);
-    // API đếm số lượng thông báo chưa đọc
+    // API đếm số lượng thông báo chưa đọc (phải đặt trước route có {id})
     Route::get('/notifications/customers/unread-count', [NotificationCustomerController::class, 'getUnreadCount']);
+    // Xem chi tiết thông báo
+    Route::get('/notifications/customers/{id}', [NotificationCustomerController::class, 'getNotificationDetail'])
+        ->whereNumber('id');
     // API đánh dấu đã đọc (sử dụng PATCH vì cập nhật một phần dữ liệu)
-    Route::patch('/notifications/customers/{id}/read', [NotificationCustomerController::class, 'markAsRead']);
+    Route::patch('/notifications/customers/{id}/read', [NotificationCustomerController::class, 'markAsRead'])
+        ->whereNumber('id');
 });
 
 Route::middleware(['auth:sanctum', 'role:support staff'])->group(function () {
@@ -153,6 +164,8 @@ Route::prefix('tours')->group(function () {
         Route::post('wishlist', [WishlistController::class, 'store']);
         Route::delete('wishlist/{tour_id}', [WishlistController::class, 'destroy']);
     });
+
+    Route::get('/{slug}/reviews', [PublicTourReviewController::class, 'index']);
 
     // Chi tiết tour theo slug
     Route::get('/{slug}', [TourController::class, 'show_gdkh']);
@@ -184,6 +197,12 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(functi
     // Chức năng báo cáo & thống kê
     Route::get('/reports/overview', [ReportController::class, 'getOverviewStatistics']);
     Route::get('/reports/charts', [ReportController::class, 'getChartStatistics']);
+
+    // Quản lý đánh giá tour
+    Route::get('/tour-reviews', [AdminTourReviewController::class, 'index']);
+    Route::get('/tour-reviews/{tourReview}', [AdminTourReviewController::class, 'show'])->whereNumber('tourReview');
+    Route::patch('/tour-reviews/{tourReview}/status', [AdminTourReviewController::class, 'updateStatus'])
+        ->whereNumber('tourReview');
 
     // Quản lý sao lưu database
     Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
@@ -465,6 +484,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(functi
     | thì chỉ copy 5 route bên trong vào group đó, không tạo group lồng nhau.
     */
     Route::get('guide-leave-requests', [AdminGuideLeaveRequestController::class, 'index']);
+    Route::get('guide-activities', [AdminGuideActivityController::class, 'index']);
     Route::get('guide-leave-requests/{leaveRequest}', [AdminGuideLeaveRequestController::class, 'show']);
     Route::post('guide-leave-requests/{leaveRequest}/approve', [AdminGuideLeaveRequestController::class, 'approve']);
     Route::post('guide-leave-requests/{leaveRequest}/reject', [AdminGuideLeaveRequestController::class, 'reject']);

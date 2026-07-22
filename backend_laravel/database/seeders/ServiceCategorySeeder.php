@@ -4,7 +4,6 @@ namespace Database\Seeders;
 
 use App\Models\ServiceCategory;
 use Illuminate\Database\Seeder;
-use Faker\Factory;
 
 class ServiceCategorySeeder extends Seeder
 {
@@ -22,13 +21,17 @@ class ServiceCategorySeeder extends Seeder
         ];
 
         foreach ($serviceCategories as $serviceCategory) {
-            ServiceCategory::withTrashed()->firstOrCreate(
+            $category = ServiceCategory::withTrashed()->updateOrCreate(
                 ['name' => $serviceCategory['name']],
                 [
                     'description' => $serviceCategory['description'],
-                    'status' => fake()->boolean(),
+                    'status' => true,
                 ]
             );
+
+            if ($category->trashed()) {
+                $category->restore();
+            }
         }
     }
 }
