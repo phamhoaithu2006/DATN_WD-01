@@ -14,57 +14,134 @@ class ChatBotController extends Controller
 {
     private const FALLBACK_MESSAGE = 'Xin lỗi bạn, hiện tại mình chưa có thông tin về vấn đề này. Bạn vui lòng liên hệ trực tiếp với nhân viên hỗ trợ của ViVuGo qua Zalo/Hotline để được tư vấn chi tiết nhất nhé!';
 
+    // Sau bao nhiêu lần AI trả lời fallback liên tiếp thì tự động gợi ý gặp nhân viên
+    private const AUTO_SUGGEST_THRESHOLD = 2;
 
     public function handleChat(Request $request)
     {
         $validated = $request->validate([
-            'message'    => 'required|string|max:1000',
-            'session_id' => 'nullable|string|max:100',
+            'message'        => 'required|string|max:1000',
+            'session_id'     => 'nullable|string|max:100',
+            'request_human'  => 'nullable|boolean', // true khi khách bấm nút "Gặp nhân viên"
         ]);
-        $userMessage = trim($validated['message']);
+
+        $userMessage   = trim($validated['message']);
+        $requestHuman  = $validated['request_human'] ?? false;
 
         $sessionId = $validated['session_id']
             ?? 'guest-' . md5($request->ip() . $request->userAgent());
 
         $conversation = ChatConversation::firstOrCreate(
-            ['session_id' => $sessionId],   // <-- dùng $sessionId, KHÔNG dùng $validated['session_id']
+            ['session_id' => $sessionId],
             ['user_id' => auth('sanctum')->id()]
         );
-        $history = $conversation->messages() //đây là phần lấy 10 tin nhắn gần nhất của cuộc trò chuyện để gửi cho Gemini, giúp nó hiểu ngữ cảnh.
+
+        // Luôn lưu tin nhắn của khách trước tiên, bất kể đang ở mode nào
+        ChatMessage::create([
+            'chat_conversation_id' => $conversation->id,
+            'role'    => 'user',
+            'content' => $userMessage,
+        ]);
+
+        // TRƯỜNG HỢP 1: Khách chủ động bấm nút "Gặp nhân viên hỗ trợ"
+        if ($requestHuman && $conversation->mode === 'ai') {
+            $conversation->update([
+                'mode' => 'pending_human',
+                'handoff_requested_at' => now(),
+            ]);
+
+            $reply = 'Mình đã chuyển yêu cầu của bạn cho nhân viên hỗ trợ. Vui lòng chờ trong giây lát, nhân viên sẽ phản hồi ngay tại đây nhé!';
+
+            ChatMessage::create([
+                'chat_conversation_id' => $conversation->id,
+                'role'    => 'assistant',
+                'content' => $reply,
+            ]);
+
+            return response()->json([
+                'reply'      => $reply,
+                'session_id' => $conversation->session_id,
+                'mode'       => $conversation->mode,
+            ]);
+        }
+
+        // TRƯỜNG HỢP 2: Cuộc hội thoại đang chờ hoặc đang được nhân viên xử lý
+        // -> AI KHÔNG được trả lời nữa, tránh chồng chéo với nhân viên
+        if (in_array($conversation->mode, ['pending_human', 'human'])) {
+            return response()->json([
+                'reply'      => null,
+                'session_id' => $conversation->session_id,
+                'mode'       => $conversation->mode,
+            ]);
+        }
+
+        // TRƯỜNG HỢP 3: Luồng bình thường - AI trả lời như cũ
+        $history = $conversation->messages()
             ->orderByDesc('id')
             ->limit(10)
             ->get()
             ->reverse()
             ->values();
 
-        $filters  = $this->extractFilters($userMessage); //Đọc tin nhắn của khách xem có yêu cầu gì đặc biệt không, ví dụ: giảm giá, biển, núi, dị ứng, số ngày/đêm. Lưu vào mảng $filters.
-        $tours    = $this->buildTourQuery($filters)->limit(10)->get(); //Dựa vào các tiêu chí trong $filters, truy vấn cơ sở dữ liệu để lấy danh sách tour phù hợp. Giới hạn 10 tour.
-        $tourText = $this->formatToursForPrompt($tours); //Chuyển danh sách tour thành chuỗi văn bản để đưa vào prompt cho Gemini. Mỗi tour sẽ được mô tả ngắn gọn với thông tin cơ bản.
-
-        // QUAN TRỌNG: truyền $filters vào đây để buildSystemPrompt biết
-        // khách có hỏi dị ứng hay không, xử lý riêng thay vì fallback toàn bộ
+        $filters  = $this->extractFilters($userMessage);
+        $tours    = $this->buildTourQuery($filters)->limit(10)->get();
+        $tourText = $this->formatToursForPrompt($tours);
         $systemPrompt = $this->buildSystemPrompt($tourText, $filters);
 
-        ChatMessage::create([ // đây là phần lưu tin nhắn của khách vào cơ sở dữ liệu, với vai trò là 'user' , và mặc định is_fallback là 0 ,
-            'chat_conversation_id' => $conversation->id,
-            'role'    => 'user',
-            'content' => $userMessage,
-        ]);
-
         $reply = $this->callGemini($systemPrompt, $history, $userMessage);
-
         $isFallback = str_contains($reply, 'chưa có thông tin về vấn đề này');
 
-        ChatMessage::create([ // đây là phần lưu tin nhắn trả lời của Gemini vào cơ sở dữ liệu, với vai trò là 'assistant' , và is_fallback sẽ được xác định dựa trên nội dung trả lời.
+        // Đếm số lần fallback liên tiếp để tự động gợi ý gặp nhân viên
+        if ($isFallback) {
+            $conversation->increment('consecutive_fallback_count');
+        } else {
+            $conversation->update(['consecutive_fallback_count' => 0]);
+        }
+
+        ChatMessage::create([
             'chat_conversation_id' => $conversation->id,
             'role'        => 'assistant',
             'content'     => $reply,
             'is_fallback' => $isFallback,
         ]);
 
+        $conversation->refresh();
+        $suggestHuman = $conversation->consecutive_fallback_count >= self::AUTO_SUGGEST_THRESHOLD;
+
         return response()->json([
-            'reply'      => $reply,
-            'session_id' => $conversation->session_id,
+            'reply'         => $reply,
+            'session_id'    => $conversation->session_id,
+            'mode'          => $conversation->mode,
+            'suggest_human' => $suggestHuman,
+        ]);
+    }
+
+    /**
+     * Endpoint polling - frontend gọi định kỳ (3-5 giây/lần) để lấy tin nhắn mới,
+     * đặc biệt là tin nhắn do nhân viên gõ trực tiếp.
+     */
+    public function getMessages(Request $request)
+    {
+        $sessionId = $request->query('session_id');
+
+        if (!$sessionId) {
+            return response()->json(['messages' => [], 'mode' => 'ai']);
+        }
+
+        $conversation = ChatConversation::where('session_id', $sessionId)->first();
+
+        if (!$conversation) {
+            return response()->json(['messages' => [], 'mode' => 'ai']);
+        }
+
+        $messages = $conversation->messages()
+            ->orderBy('id')
+            ->get(['id', 'role', 'content', 'created_at']);
+
+        return response()->json([
+            'messages'           => $messages,
+            'mode'               => $conversation->mode,
+            'assigned_staff_id'  => $conversation->assigned_staff_id,
         ]);
     }
 
@@ -128,7 +205,6 @@ class ChatBotController extends Controller
         return $query;
     }
 
-    // ĐÃ BỎ tham số $filters và đoạn ép fallback ở đây
     private function formatToursForPrompt($tours): string
     {
         if ($tours->isEmpty()) {
@@ -147,7 +223,6 @@ class ChatBotController extends Controller
         })->implode("\n");
     }
 
-    // ĐÃ THÊM tham số $filters, xử lý riêng ghi chú dị ứng thay vì fallback toàn bộ
     private function buildSystemPrompt(string $tourText, array $filters): string
     {
         $allergyNote = '';
