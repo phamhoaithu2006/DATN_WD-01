@@ -11,6 +11,7 @@ use App\Models\Tour;
 use App\Models\User;
 use App\Services\GuideReviewService;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class TourTestingDataSeeder extends Seeder
@@ -74,9 +75,10 @@ class TourTestingDataSeeder extends Seeder
                 $this->upsert('tour_images', ['tour_id' => $tour->id, 'image_url' => $url], ['alt_text' => $title, 'sort_order' => $order + 1, 'is_thumbnail' => $order === 0], $now);
             }
             foreach ([['departure', 'Tập trung và khởi hành'], ['sightseeing', 'Tham quan điểm nổi bật'], ['meal', 'Dùng bữa đặc sản'], ['return', 'Kết thúc hành trình']] as $order => [$type, $itineraryTitle]) {
-                $key = ['tour_id' => $tour->id, 'day_number' => min($order + 1, $days), 'sort_order' => $order + 1];
-                $item = DB::table('tour_itineraries')->where($key)->first();
-                $itineraryId = $item?->id ?? DB::table('tour_itineraries')->insertGetId(array_merge($key, ['type' => $type, 'title' => $itineraryTitle, 'start_time' => '08:00', 'end_time' => '10:00', 'duration' => '2 giờ', 'transport' => 'Xe du lịch', 'description' => 'Hoạt động mẫu.', 'created_at' => $now, 'updated_at' => $now]));
+                $dayNumber = min((int) floor($order * $days / 4) + 1, $days);
+                $key = ['tour_id' => $tour->id, 'sort_order' => $order + 1];
+                $this->upsert('tour_itineraries', $key, ['day_number' => $dayNumber, 'type' => $type, 'title' => $itineraryTitle, 'start_time' => $order % 2 === 0 ? '08:00' : '14:00', 'end_time' => $order % 2 === 0 ? '10:00' : '16:00', 'duration' => '2 giờ', 'transport' => 'Xe du lịch', 'description' => 'Hoạt động mẫu.'], $now);
+                $itineraryId = DB::table('tour_itineraries')->where($key)->value('id');
                 $this->upsert('tour_itinerary_images', ['tour_itinerary_id' => $itineraryId, 'image_url' => $image], ['alt_text' => $itineraryTitle, 'sort_order' => 1], $now);
             }
             foreach ([['Người lớn', 12, null, 'fixed', $discount ?? $price], ['Trẻ em', 5, 11, 'percentage', 70], ['Em bé', 0, 4, 'free', 0]] as $order => [$label, $minAge, $maxAge, $type, $value]) {
@@ -92,10 +94,39 @@ class TourTestingDataSeeder extends Seeder
     {
         $all = [];
         $guideId = Guide::query()->where('guide_code', 'HDV001')->value('id');
+        $tourIds = collect($tours)->pluck('id');
+
+        if ($guideId) {
+            $testDepartureIds = DB::table('tour_departures')
+                ->whereIn('tour_id', $tourIds)
+                ->pluck('id');
+            $currentOrFutureDepartureIds = DB::table('tour_departures')
+                ->whereDate('return_date', '>=', today())
+                ->pluck('id');
+
+            DB::table('tour_guide_assignments')
+                ->where('guide_id', $guideId)
+                ->whereIn('tour_departure_id', $testDepartureIds
+                    ->merge($currentOrFutureDepartureIds)
+                    ->unique()
+                    ->values())
+                ->update([
+                    'status' => 'cancelled',
+                    'updated_at' => $now,
+                ]);
+        }
+
+        $ongoingTourSlug = 'ha-long-du-thuyen-2-ngay-1-dem-test';
+        $upcomingTourOffsets = [
+            'ha-noi-ninh-binh-3-ngay-2-dem-test' => 3,
+            'da-nang-hoi-an-cuoi-tuan-test' => 8,
+        ];
+
         foreach ($tours as $slug => $tour) {
             $price = $tour->discount_price ?? $tour->base_price;
+            $openOffset = $upcomingTourOffsets[$slug] ?? 14;
             $dates = [
-                'open' => [now()->addDays(14), 'open', 5], 'ongoing' => [now()->subDay(), 'open', 12],
+                'open' => [now()->addDays($openOffset), 'open', 5], 'ongoing' => [now(), 'open', 12],
                 'completed' => [now()->subDays(12), 'completed', 20], 'closed' => [now()->addDays(35), 'closed', 30],
             ];
             foreach ($dates as $name => [$start, $status, $booked]) {
@@ -103,8 +134,15 @@ class TourTestingDataSeeder extends Seeder
                 $this->upsert('tour_departures', ['tour_id' => $tour->id, 'departure_date' => $start->toDateString()], ['return_date' => $end->toDateString(), 'price' => $price, 'base_price' => $tour->base_price, 'discount_price' => $tour->discount_price, 'total_slots' => 30, 'booked_slots' => $booked, 'status' => $status], $now);
                 $departure = DB::table('tour_departures')->where(['tour_id' => $tour->id, 'departure_date' => $start->toDateString()])->first();
                 $all[$slug][$name] = $departure;
-                if ($guideId && $name !== 'closed') {
-                    $this->upsert('tour_guide_assignments', ['guide_id' => $guideId, 'tour_departure_id' => $departure->id], ['role' => 'lead', 'status' => $name === 'completed' ? 'completed' : ($name === 'ongoing' ? 'confirmed' : 'assigned'), 'assigned_by' => $adminId, 'assigned_at' => $now, 'note' => 'Phân công mẫu.', 'notes' => 'Phân công mẫu.'], $now);
+                $isOngoingTarget = $slug === $ongoingTourSlug && $name === 'ongoing';
+                $isUpcomingTarget = isset($upcomingTourOffsets[$slug]) && $name === 'open';
+                $isCompletedTarget = $name === 'completed';
+
+                if ($guideId && ($isOngoingTarget || $isUpcomingTarget || $isCompletedTarget)) {
+                    $assignmentStatus = $isOngoingTarget
+                        ? 'confirmed'
+                        : ($isUpcomingTarget ? 'assigned' : 'completed');
+                    $this->upsert('tour_guide_assignments', ['guide_id' => $guideId, 'tour_departure_id' => $departure->id], ['role' => 'lead', 'status' => $assignmentStatus, 'assigned_by' => $adminId, 'assigned_at' => $now, 'note' => 'Phân công mẫu.', 'notes' => 'Phân công mẫu.'], $now);
                 }
             }
             foreach (['ongoing' => 'in_progress', 'completed' => 'completed'] as $name => $stageStatus) {
@@ -153,10 +191,32 @@ class TourTestingDataSeeder extends Seeder
             $this->upsert('wishlists', ['user_id' => $customer->id, 'tour_id' => $tours['ha-long-du-thuyen-2-ngay-1-dem-test']->id], [], $now);
         }
         $active = $bookings['BK-TST-CONFIRMED'];
-        $session = DB::table('attendance_sessions')->where(['tour_departure_id' => $active->tour_departure_id, 'name' => 'Điểm danh đoàn mẫu'])->first();
-        $sessionId = $session?->id ?? DB::table('attendance_sessions')->insertGetId(['tour_departure_id' => $active->tour_departure_id, 'name' => 'Điểm danh đoàn mẫu', 'note' => 'Dữ liệu mẫu.', 'status' => 'active', 'created_by' => $adminId ?? $active->user_id, 'created_at' => $now, 'updated_at' => $now]);
-        foreach (DB::table('booking_participants')->where('booking_id', $active->id)->get() as $participant) {
-            $this->upsert('attendances', ['attendance_session_id' => $sessionId, 'booking_participant_id' => $participant->id], ['checked_in_at' => $now, 'checked_in_by' => $adminId, 'status' => 'checked_in', 'note' => 'Đã có mặt.', 'note_updated_by' => $adminId], $now);
+        $guideUserId = DB::table('tour_guide_assignments')
+            ->join('guides', 'guides.id', '=', 'tour_guide_assignments.guide_id')
+            ->where('tour_guide_assignments.tour_departure_id', $active->tour_departure_id)
+            ->value('guides.user_id');
+        $activeDeparture = DB::table('tour_departures')->find($active->tour_departure_id);
+        $activeItineraries = DB::table('tour_itineraries')
+            ->where('tour_id', $active->tour_id)
+            ->orderBy('day_number')
+            ->orderBy('sort_order')
+            ->get();
+
+        foreach ($activeItineraries as $itinerary) {
+            $scheduledDate = Carbon::parse($activeDeparture->departure_date)
+                ->addDays(max((int) $itinerary->day_number - 1, 0))
+                ->toDateString();
+            $this->upsert('attendance_sessions', [
+                'tour_departure_id' => $active->tour_departure_id,
+                'tour_itinerary_id' => $itinerary->id,
+            ], [
+                'scheduled_date' => $scheduledDate,
+                'boundary' => null,
+                'name' => "Ngày {$itinerary->day_number} · ".mb_substr((string) $itinerary->start_time, 0, 5)." · {$itinerary->title}",
+                'note' => 'Phiên điểm danh tạo theo lịch trình tour.',
+                'status' => 'active',
+                'created_by' => $guideUserId ?? $adminId ?? $active->user_id,
+            ], $now);
         }
         $done = $bookings['BK-TST-COMPLETED'];
         $guideId = DB::table('tour_guide_assignments')->where('tour_departure_id', $done->tour_departure_id)->value('guide_id');

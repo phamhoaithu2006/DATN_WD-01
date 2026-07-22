@@ -120,7 +120,7 @@ class BookingSeeder extends Seeder
                 default => 'unpaid',
             };
 
-            $bookingCode = 'BK'.$createdAt->format('Ymd').str_pad($i, 4, '0', STR_PAD_LEFT);
+            $bookingCode = 'BK-SEED-'.str_pad($i, 4, '0', STR_PAD_LEFT);
             $contactName = $vietnameseNames[array_rand($vietnameseNames)];
             $contactPhone = $phonePrefixes[array_rand($phonePrefixes)].rand(1000000, 9999999);
 
@@ -149,7 +149,7 @@ class BookingSeeder extends Seeder
             ];
 
             $contacts[] = [
-                'booking_id' => $i,
+                'booking_id' => $bookingCode,
                 'contact_name' => $contactName,
                 'contact_email' => strtolower(preg_replace('/\s+/', '', $contactName)).rand(100, 999).'@gmail.com',
                 'contact_phone' => $contactPhone,
@@ -160,7 +160,7 @@ class BookingSeeder extends Seeder
             ];
 
             $payments[] = [
-                'booking_id' => $i,
+                'booking_id' => $bookingCode,
                 'payment_method' => 'cod',
                 'amount' => $total,
                 'transaction_code' => null,
@@ -181,7 +181,7 @@ class BookingSeeder extends Seeder
 
             for ($p = 0; $p < $numPeople; $p++) {
                 $participants[] = [
-                    'booking_id' => $i,
+                    'booking_id' => $bookingCode,
                     'full_name' => $vietnameseNames[array_rand($vietnameseNames)],
                     'phone' => $p === 0 ? $contactPhone : null,
                     'birth_date' => $now->copy()->subYears(rand(5, 60))->subDays(rand(0, 365))->toDateString(),
@@ -194,7 +194,7 @@ class BookingSeeder extends Seeder
             }
 
             $histories[] = [
-                'booking_id' => $i,
+                'booking_id' => $bookingCode,
                 'changed_by' => $userIds[0],
                 'old_status' => null,
                 'new_status' => 'pending',
@@ -204,7 +204,7 @@ class BookingSeeder extends Seeder
 
             if (in_array($status, ['confirmed', 'completed', 'cancelled'])) {
                 $histories[] = [
-                    'booking_id' => $i,
+                    'booking_id' => $bookingCode,
                     'changed_by' => $userIds[0],
                     'old_status' => 'pending',
                     'new_status' => $status,
@@ -218,11 +218,53 @@ class BookingSeeder extends Seeder
             }
         }
 
-        DB::table('bookings')->insert($bookings);
-        DB::table('booking_contacts')->insert($contacts);
-        DB::table('booking_participants')->insert($participants);
-        DB::table('booking_status_histories')->insert($histories);
-        DB::table('payments')->insert($payments);
+        DB::transaction(function () use ($bookings, $contacts, $participants, $histories, $payments): void {
+            DB::table('bookings')->upsert(
+                $bookings,
+                ['booking_code'],
+                [
+                    'user_id',
+                    'tour_id',
+                    'tour_departure_id',
+                    'promotion_id',
+                    'staff_id',
+                    'number_of_people',
+                    'unit_price',
+                    'discount_amount',
+                    'total_amount',
+                    'status',
+                    'payment_status',
+                    'note',
+                    'cancel_reason',
+                    'cancelled_at',
+                    'updated_at',
+                ]
+            );
+
+            $bookingIds = DB::table('bookings')
+                ->whereIn('booking_code', array_column($bookings, 'booking_code'))
+                ->pluck('id', 'booking_code');
+            $seededBookingIds = $bookingIds->values();
+
+            DB::table('booking_contacts')->whereIn('booking_id', $seededBookingIds)->delete();
+            DB::table('booking_participants')->whereIn('booking_id', $seededBookingIds)->delete();
+            DB::table('booking_status_histories')->whereIn('booking_id', $seededBookingIds)->delete();
+            DB::table('payments')->whereIn('booking_id', $seededBookingIds)->delete();
+
+            $resolveBookingIds = fn (array $rows): array => array_map(
+                function (array $row) use ($bookingIds): array {
+                    $row['booking_id'] = $bookingIds->get($row['booking_id']);
+
+                    return $row;
+                },
+                $rows
+            );
+
+            DB::table('booking_contacts')->insert($resolveBookingIds($contacts));
+            DB::table('booking_participants')->insert($resolveBookingIds($participants));
+            DB::table('booking_status_histories')->insert($resolveBookingIds($histories));
+            DB::table('payments')->insert($resolveBookingIds($payments));
+        });
 
         $this->command->info('✅ Seed 50 bookings thành công!');
     }

@@ -58,7 +58,7 @@ class AdminGuideReplacementRequestController extends Controller
             ->where('id', $id)
             ->first();
 
-        if (!$replacementRequest) {
+        if (! $replacementRequest) {
             return response()->json([
                 'message' => 'Không tìm thấy yêu cầu đổi HDV.',
             ], 404);
@@ -74,12 +74,19 @@ class AdminGuideReplacementRequestController extends Controller
             ->with('tour:id,title')
             ->findOrFail($replacementRequest->tour_departure_id);
 
+        if (Carbon::parse($departure->departure_date)->startOfDay()->lte(Carbon::today())) {
+            return response()->json([
+                'message' => 'Không thể duyệt đổi HDV từ ngày khởi hành trở đi.',
+                'code' => 'REPLACEMENT_REQUEST_TOO_LATE',
+            ], 422);
+        }
+
         $newGuide = $this->findReplacementGuide(
             $departure,
             (int) $replacementRequest->current_guide_id
         );
 
-        if (!$newGuide) {
+        if (! $newGuide) {
             return response()->json([
                 'message' => 'Chưa tìm được HDV thay thế phù hợp và trống lịch.',
                 'code' => 'NO_REPLACEMENT_GUIDE_AVAILABLE',
@@ -146,7 +153,7 @@ class AdminGuideReplacementRequestController extends Controller
             ->where('id', $id)
             ->first();
 
-        if (!$replacementRequest) {
+        if (! $replacementRequest) {
             return response()->json([
                 'message' => 'Không tìm thấy yêu cầu đổi HDV.',
             ], 404);
@@ -314,7 +321,7 @@ class AdminGuideReplacementRequestController extends Controller
 
     private function notifyUser(?int $userId, string $title, string $message, array $data = []): void
     {
-        if (!$userId) {
+        if (! $userId) {
             return;
         }
 
@@ -327,7 +334,7 @@ class AdminGuideReplacementRequestController extends Controller
             'status' => 'unread',
         ];
 
-        if (!empty($data) && Schema::hasColumn('notifications', 'data')) {
+        if (! empty($data) && Schema::hasColumn('notifications', 'data')) {
             $payload['data'] = json_encode($data);
         }
 

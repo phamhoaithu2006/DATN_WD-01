@@ -7,8 +7,8 @@ use App\Models\Guide;
 use App\Models\Notification;
 use App\Models\TourDeparture;
 use App\Models\TourGuideAssignment;
-use App\Services\GuideAssignmentService;
 use App\Services\AdminNotificationService;
+use App\Services\GuideAssignmentService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -51,7 +51,7 @@ class TourDepartureGuideAssignmentController extends Controller
                 },
             ])
             ->when(
-                !empty($validated['tour_id']),
+                ! empty($validated['tour_id']),
                 function ($query) use ($validated) {
                     $query->where('tour_id', $validated['tour_id']);
                 }
@@ -63,7 +63,7 @@ class TourDepartureGuideAssignmentController extends Controller
 
         $departures->setCollection(
             $departures->getCollection()->map(
-                fn(TourDeparture $departure) => $this->formatPlanningItem(
+                fn (TourDeparture $departure) => $this->formatPlanningItem(
                     $departure,
                     $service
                 )
@@ -178,8 +178,7 @@ class TourDepartureGuideAssignmentController extends Controller
             ->values();
 
         $leadAssignment = $assignedGuides->first(
-            fn($assignment) =>
-            $assignment->status === 'assigned' &&
+            fn ($assignment) => $assignment->status === 'assigned' &&
                 $assignment->role === 'lead'
         );
 
@@ -237,7 +236,7 @@ class TourDepartureGuideAssignmentController extends Controller
     ): Collection {
         $tour = $departure->tour;
 
-        if (!$tour) {
+        if (! $tour) {
             return collect();
         }
 
@@ -274,18 +273,18 @@ class TourDepartureGuideAssignmentController extends Controller
                 $assignment->guide?->user_id
                 ?? $assignment->guide?->user?->id;
 
-            if (!$guideUserId) {
+            if (! $guideUserId) {
                 return;
             }
 
             $tourTitle = $departure->tour?->title ?? 'tour';
 
             $departureDate = $departure->departure_date
-                ? \Carbon\Carbon::parse($departure->departure_date)->format('d/m/Y')
+                ? Carbon::parse($departure->departure_date)->format('d/m/Y')
                 : 'chưa xác định';
 
             $returnDate = $departure->return_date
-                ? \Carbon\Carbon::parse($departure->return_date)->format('d/m/Y')
+                ? Carbon::parse($departure->return_date)->format('d/m/Y')
                 : $departureDate;
 
             Notification::insert([
@@ -303,7 +302,7 @@ class TourDepartureGuideAssignmentController extends Controller
         }
     }
 
-    //gửi thông báo khi hoàn tác lại phân công 
+    // gửi thông báo khi hoàn tác lại phân công
     private function notifyGuideAssignmentCancelled(
         TourGuideAssignment $assignment,
         TourDeparture $departure
@@ -313,18 +312,18 @@ class TourDepartureGuideAssignmentController extends Controller
                 $assignment->guide?->user_id
                 ?? $assignment->guide?->user?->id;
 
-            if (!$guideUserId) {
+            if (! $guideUserId) {
                 return;
             }
 
             $tourTitle = $departure->tour?->title ?? 'tour';
 
             $departureDate = $departure->departure_date
-                ? \Carbon\Carbon::parse($departure->departure_date)->format('d/m/Y')
+                ? Carbon::parse($departure->departure_date)->format('d/m/Y')
                 : 'chưa xác định';
 
             $returnDate = $departure->return_date
-                ? \Carbon\Carbon::parse($departure->return_date)->format('d/m/Y')
+                ? Carbon::parse($departure->return_date)->format('d/m/Y')
                 : $departureDate;
 
             Notification::insert([
@@ -351,18 +350,18 @@ class TourDepartureGuideAssignmentController extends Controller
                 $assignment->guide?->user_id
                 ?? $assignment->guide?->user?->id;
 
-            if (!$guideUserId) {
+            if (! $guideUserId) {
                 return;
             }
 
             $tourTitle = $departure->tour?->title ?? 'tour';
 
             $departureDate = $departure->departure_date
-                ? \Carbon\Carbon::parse($departure->departure_date)->format('d/m/Y')
+                ? Carbon::parse($departure->departure_date)->format('d/m/Y')
                 : 'chưa xác định';
 
             $returnDate = $departure->return_date
-                ? \Carbon\Carbon::parse($departure->return_date)->format('d/m/Y')
+                ? Carbon::parse($departure->return_date)->format('d/m/Y')
                 : $departureDate;
 
             Notification::insert([
@@ -409,8 +408,8 @@ class TourDepartureGuideAssignmentController extends Controller
             ?? ($departure->return_date ?: $departure->departure_date)
             ?? $fromRaw;
 
-        $from = \Carbon\Carbon::parse($fromRaw)->toDateString();
-        $to = \Carbon\Carbon::parse($toRaw)->toDateString();
+        $from = Carbon::parse($fromRaw)->toDateString();
+        $to = Carbon::parse($toRaw)->toDateString();
 
         if ($to < $from) {
             $to = $from;
@@ -425,8 +424,8 @@ class TourDepartureGuideAssignmentController extends Controller
             && Schema::hasColumn('guide_leave_requests', 'deleted_at');
 
         $languageIds = collect($validated['language_ids'] ?? [])
-            ->filter(fn($id) => $id !== null && $id !== '')
-            ->map(fn($id) => (int) $id)
+            ->filter(fn ($id) => $id !== null && $id !== '')
+            ->map(fn ($id) => (int) $id)
             ->unique()
             ->values();
 
@@ -439,7 +438,7 @@ class TourDepartureGuideAssignmentController extends Controller
         }
 
         $tourDestinationIds = $tourDestinations
-            ->map(fn($id) => (int) $id)
+            ->map(fn ($id) => (int) $id)
             ->values();
 
         $query = Guide::query()
@@ -469,7 +468,7 @@ class TourDepartureGuideAssignmentController extends Controller
             $query->where('guides.status', 'active');
         }
 
-        if (!empty($validated['keyword'])) {
+        if (! empty($validated['keyword'])) {
             $keyword = trim($validated['keyword']);
 
             $query->where(function ($q) use ($keyword) {
@@ -483,7 +482,7 @@ class TourDepartureGuideAssignmentController extends Controller
             });
         }
 
-        if (!empty($validated['destination_id'])) {
+        if (! empty($validated['destination_id'])) {
             $destinationId = (int) $validated['destination_id'];
 
             $query->whereHas('destinations', function ($q) use ($destinationId) {
@@ -581,13 +580,13 @@ class TourDepartureGuideAssignmentController extends Controller
             ) {
                 $guideDestinationIds = $guide->destinations
                     ?->pluck('id')
-                    ->map(fn($id) => (int) $id)
+                    ->map(fn ($id) => (int) $id)
                     ->values() ?? collect();
 
                 $isAreaMatch = $tourDestinationIds->isNotEmpty()
                     && $guideDestinationIds
-                    ->intersect($tourDestinationIds)
-                    ->isNotEmpty();
+                        ->intersect($tourDestinationIds)
+                        ->isNotEmpty();
 
                 $conflictingAssignmentsQuery = TourGuideAssignment::query()
                     ->where('guide_id', $guide->id)
@@ -663,7 +662,7 @@ class TourDepartureGuideAssignmentController extends Controller
 
                 $hasLeaveConflict = $leaveRequests->isNotEmpty();
                 $hasTourConflict = $conflictingAssignments->isNotEmpty();
-                $isAvailable = !$hasTourConflict && !$hasLeaveConflict;
+                $isAvailable = ! $hasTourConflict && ! $hasLeaveConflict;
 
                 $blockingReasons = [];
 
@@ -675,7 +674,7 @@ class TourDepartureGuideAssignmentController extends Controller
                     $blockingReasons[] = 'HDV có đơn xin nghỉ đang chờ duyệt hoặc đã duyệt trong khoảng thời gian này.';
                 }
 
-                if (!$isAreaMatch) {
+                if (! $isAreaMatch) {
                     $blockingReasons[] = 'HDV không phụ trách khu vực của tour.';
                 }
 
@@ -730,6 +729,23 @@ class TourDepartureGuideAssignmentController extends Controller
             ])
             ->findOrFail($validated['guide_id']);
 
+        $currentLeadAssignment = TourGuideAssignment::query()
+            ->where('tour_departure_id', $departure->id)
+            ->where('role', 'lead')
+            ->whereIn('status', ['assigned', 'confirmed'])
+            ->first();
+
+        if (
+            $currentLeadAssignment
+            && (int) $currentLeadAssignment->guide_id !== (int) $guide->id
+            && Carbon::parse($departure->departure_date)->startOfDay()->lt(Carbon::today()->addDays(6))
+        ) {
+            return response()->json([
+                'message' => 'Chỉ có thể đổi HDV trước ngày khởi hành ít nhất 5 ngày.',
+                'code' => 'GUIDE_REPLACEMENT_TOO_LATE',
+            ], 422);
+        }
+
         $from = $departure->departure_date;
         $to = $departure->return_date ?: $departure->departure_date;
 
@@ -783,20 +799,20 @@ class TourDepartureGuideAssignmentController extends Controller
 
         $guideDestinationIds = $guide->destinations
             ?->pluck('id')
-            ->map(fn($id) => (int) $id)
+            ->map(fn ($id) => (int) $id)
             ->values() ?? collect();
 
         $isAreaMatch = $tourDestinations->isNotEmpty() &&
             $guideDestinationIds
-            ->intersect($tourDestinations->map(fn($id) => (int) $id))
-            ->isNotEmpty();
+                ->intersect($tourDestinations->map(fn ($id) => (int) $id))
+                ->isNotEmpty();
 
         $forceAreaMismatch = filter_var(
             $validated['force_area_mismatch'] ?? false,
             FILTER_VALIDATE_BOOLEAN
         );
 
-        if (!$isAreaMatch && !$forceAreaMismatch) {
+        if (! $isAreaMatch && ! $forceAreaMismatch) {
             return response()->json([
                 'message' => 'HDV này không phụ trách khu vực của tour. Bạn có chắc muốn phân công không?',
                 'code' => 'AREA_MISMATCH_CONFIRM_REQUIRED',
@@ -830,6 +846,7 @@ class TourDepartureGuideAssignmentController extends Controller
          */
             if ($oldAssignment && (int) $oldAssignment->guide_id === (int) $guide->id) {
                 $assignment = $oldAssignment;
+
                 return;
             }
 
@@ -917,18 +934,18 @@ class TourDepartureGuideAssignmentController extends Controller
                 $assignment->guide?->user_id
                 ?? $assignment->guide?->user?->id;
 
-            if (!$guideUserId) {
+            if (! $guideUserId) {
                 return;
             }
 
             $tourTitle = $departure->tour?->title ?? 'tour';
 
             $departureDate = $departure->departure_date
-                ? \Carbon\Carbon::parse($departure->departure_date)->format('d/m/Y')
+                ? Carbon::parse($departure->departure_date)->format('d/m/Y')
                 : 'chưa xác định';
 
             $returnDate = $departure->return_date
-                ? \Carbon\Carbon::parse($departure->return_date)->format('d/m/Y')
+                ? Carbon::parse($departure->return_date)->format('d/m/Y')
                 : $departureDate;
 
             Notification::insert([
@@ -956,7 +973,7 @@ class TourDepartureGuideAssignmentController extends Controller
                 $oldAssignment->guide?->user_id
                 ?? $oldAssignment->guide?->user?->id;
 
-            if (!$oldUserId) {
+            if (! $oldUserId) {
                 return;
             }
 
@@ -971,11 +988,11 @@ class TourDepartureGuideAssignmentController extends Controller
             $tourTitle = $departure->tour?->title ?? 'tour';
 
             $departureDate = $departure->departure_date
-                ? \Carbon\Carbon::parse($departure->departure_date)->format('d/m/Y')
+                ? Carbon::parse($departure->departure_date)->format('d/m/Y')
                 : 'chưa xác định';
 
             $returnDate = $departure->return_date
-                ? \Carbon\Carbon::parse($departure->return_date)->format('d/m/Y')
+                ? Carbon::parse($departure->return_date)->format('d/m/Y')
                 : $departureDate;
 
             $newGuideName =
@@ -1095,5 +1112,4 @@ class TourDepartureGuideAssignmentController extends Controller
 
         return Carbon::parse($value)->toDateString();
     }
-
 }

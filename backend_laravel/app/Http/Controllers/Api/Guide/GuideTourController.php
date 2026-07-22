@@ -261,7 +261,7 @@ class GuideTourController extends Controller
     {
         $guide = $this->getGuide($request);
 
-        if (!$guide) {
+        if (! $guide) {
             return response()->json([
                 'message' => 'Tài khoản chưa có hồ sơ hướng dẫn viên hoặc chưa được phân công tour.',
                 'data' => $this->emptyPaginator($request),
@@ -383,7 +383,7 @@ class GuideTourController extends Controller
     {
         $guide = $this->getGuide($request);
 
-        if (!$guide) {
+        if (! $guide) {
             return response()->json([
                 'message' => 'Tài khoản chưa có hồ sơ hướng dẫn viên hoặc chưa được phân công tour.',
                 'data' => $this->emptyPaginator($request),
@@ -408,7 +408,7 @@ class GuideTourController extends Controller
     {
         $guide = $this->getGuide($request);
 
-        if (!$guide) {
+        if (! $guide) {
             return response()->json([
                 'message' => 'Tài khoản chưa có hồ sơ hướng dẫn viên hoặc chưa được phân công tour.',
                 'data' => $this->emptyPaginator($request),
@@ -438,7 +438,7 @@ class GuideTourController extends Controller
     {
         $guide = $this->getGuide($request);
 
-        if (!$guide) {
+        if (! $guide) {
             return response()->json([
                 'message' => 'Tài khoản chưa có hồ sơ hướng dẫn viên hoặc chưa được phân công tour.',
                 'data' => $this->emptyPaginator($request),
@@ -469,7 +469,7 @@ class GuideTourController extends Controller
     {
         $guide = $this->getGuide($request);
 
-        if (!$guide) {
+        if (! $guide) {
             return response()->json([
                 'message' => 'Tài khoản chưa có hồ sơ hướng dẫn viên hoặc chưa được phân công tour.',
                 'data' => null,
@@ -533,7 +533,7 @@ class GuideTourController extends Controller
     {
         $guide = $this->getGuide($request);
 
-        if (!$guide) {
+        if (! $guide) {
             return response()->json([
                 'message' => 'Tài khoản chưa có hồ sơ hướng dẫn viên.',
             ], 404);
@@ -547,14 +547,14 @@ class GuideTourController extends Controller
             ->where('status', '!=', 'cancelled')
             ->first();
 
-        if (!$assignment) {
+        if (! $assignment) {
             return response()->json([
                 'message' => 'Bạn không được phân công cho lịch khởi hành này.',
             ], 403);
         }
 
         $departureDate = Carbon::parse($tourDeparture->departure_date)->startOfDay();
-        $minDate = Carbon::today()->addDays(5)->startOfDay();
+        $minDate = Carbon::today()->addDays(6)->startOfDay();
 
         if ($departureDate->lt($minDate)) {
             return response()->json([
@@ -620,7 +620,7 @@ class GuideTourController extends Controller
     {
         $guide = $this->getGuide($request);
 
-        if (!$guide) {
+        if (! $guide) {
             return response()->json([
                 'message' => 'Tài khoản chưa có hồ sơ hướng dẫn viên.',
                 'data' => null,

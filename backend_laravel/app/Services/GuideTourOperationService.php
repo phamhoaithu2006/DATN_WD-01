@@ -99,19 +99,37 @@ class GuideTourOperationService
     public function getAttendanceSessions(User $user, TourDeparture $tourDeparture): Collection
     {
         $departure = $this->assignedDepartureForUser($user, $tourDeparture);
+        $this->ensureAttendanceSessionsFromItinerary($departure, $user);
 
-        return AttendanceSession::query()
+        $sessions = AttendanceSession::query()
             ->where('tour_departure_id', $departure->id)
-            ->with('creator:id,full_name,email')
+            ->with([
+                'creator:id,full_name,email',
+                'itinerary:id,day_number,sort_order,type,title,start_time,end_time',
+            ])
             ->withCount([
                 'attendances',
                 'attendances as checked_in_count' => fn (Builder $query) => $query->where('status', 'checked_in'),
                 'attendances as checked_out_count' => fn (Builder $query) => $query->where('status', 'checked_out'),
                 'attendances as absent_count' => fn (Builder $query) => $query->where('status', 'absent'),
             ])
-            ->latest('created_at')
-            ->latest('id')
+            ->orderBy('scheduled_date')
+            ->orderBy(
+                TourItinerary::query()
+                    ->select('sort_order')
+                    ->whereColumn('tour_itineraries.id', 'attendance_sessions.tour_itinerary_id')
+                    ->limit(1)
+            )
+            ->orderBy('id')
             ->get();
+
+        return $sessions->each(function (AttendanceSession $session) use ($departure): void {
+            $session->setAttribute(
+                'can_take_attendance',
+                $session->status === 'active'
+                    && $this->itineraryWindowContainsNow($departure, $session->itinerary)
+            );
+        });
     }
 
     /**
@@ -177,22 +195,36 @@ class GuideTourOperationService
     {
         $departure = $this->assignedDepartureForUser($user, $tourDeparture);
         $this->assertDepartureCanTakeAttendance($departure);
-        $boundary = $data['boundary'];
-        $this->assertBoundaryMatchesToday($departure, $boundary);
+        $itinerary = TourItinerary::query()
+            ->where('tour_id', $departure->tour_id)
+            ->find($data['tour_itinerary_id']);
 
-        return DB::transaction(function () use ($departure, $user, $boundary): AttendanceSession {
+        if (! $itinerary) {
+            throw ValidationException::withMessages([
+                'tour_itinerary_id' => 'Lịch trình không thuộc tour đang dẫn.',
+            ]);
+        }
+
+        $scheduledDate = $this->itineraryDate($departure, $itinerary);
+        $this->assertItineraryWindowIsOpen($departure, $itinerary);
+
+        return DB::transaction(function () use ($departure, $user, $itinerary, $scheduledDate): AttendanceSession {
             TourDeparture::query()->whereKey($departure->id)->lockForUpdate()->firstOrFail();
 
             return AttendanceSession::query()->firstOrCreate(
                 [
                     'tour_departure_id' => $departure->id,
-                    'boundary' => $boundary,
+                    'tour_itinerary_id' => $itinerary->id,
                 ],
                 [
-                    'name' => $this->attendanceBoundaryLabel($boundary),
+                    'scheduled_date' => $scheduledDate,
+                    'name' => $this->attendanceItineraryLabel($itinerary),
                     'created_by' => $user->id,
                 ]
-            )->load('creator:id,full_name,email');
+            )->load([
+                'creator:id,full_name,email',
+                'itinerary:id,day_number,sort_order,type,title,start_time,end_time',
+            ]);
         });
     }
 
@@ -625,6 +657,12 @@ class GuideTourOperationService
             ]);
         }
 
+        if ($session->tour_itinerary_id !== null) {
+            $this->assertItineraryWindowIsOpen($departure, $session->itinerary()->firstOrFail());
+
+            return;
+        }
+
         if ($session->boundary === null) {
             throw ValidationException::withMessages([
                 'attendance_session_id' => 'Attendance session does not have a valid boundary.',
@@ -632,7 +670,87 @@ class GuideTourOperationService
         }
 
         $this->assertBoundaryMatchesToday($departure, $session->boundary);
+    }
 
+    private function ensureAttendanceSessionsFromItinerary(TourDeparture $departure, User $user): void
+    {
+        $itineraries = TourItinerary::query()
+            ->where('tour_id', $departure->tour_id)
+            ->orderBy('day_number')
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+
+        foreach ($itineraries as $itinerary) {
+            AttendanceSession::query()->updateOrCreate(
+                [
+                    'tour_departure_id' => $departure->id,
+                    'tour_itinerary_id' => $itinerary->id,
+                ],
+                [
+                    'scheduled_date' => $this->itineraryDate($departure, $itinerary),
+                    'name' => $this->attendanceItineraryLabel($itinerary),
+                    'created_by' => $user->id,
+                ]
+            );
+        }
+    }
+
+    private function itineraryDate(TourDeparture $departure, TourItinerary $itinerary): Carbon
+    {
+        return Carbon::parse($departure->departure_date)
+            ->startOfDay()
+            ->addDays(max((int) $itinerary->day_number - 1, 0));
+    }
+
+    /**
+     * @throws ValidationException
+     */
+    private function assertItineraryWindowIsOpen(TourDeparture $departure, TourItinerary $itinerary): void
+    {
+        if ($this->itineraryWindowContainsNow($departure, $itinerary)) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'tour_itinerary_id' => 'Chỉ có thể điểm danh hoạt động được lên lịch trong hôm nay.',
+        ]);
+    }
+
+    private function itineraryWindowContainsNow(TourDeparture $departure, ?TourItinerary $itinerary): bool
+    {
+        if (! $itinerary || ! $itinerary->start_time) {
+            return false;
+        }
+
+        $sameDayItineraries = TourItinerary::query()
+            ->where('tour_id', $departure->tour_id)
+            ->where('day_number', $itinerary->day_number)
+            ->orderBy('start_time')
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+        $index = $sameDayItineraries->search(fn (TourItinerary $item) => $item->is($itinerary));
+
+        if ($index === false) {
+            return false;
+        }
+
+        $windowStart = $this->itineraryDate($departure, $itinerary)
+            ->setTimeFromTimeString((string) $itinerary->start_time);
+        $next = $sameDayItineraries->get($index + 1);
+        $windowEnd = $next?->start_time
+            ? $this->itineraryDate($departure, $next)->setTimeFromTimeString((string) $next->start_time)
+            : $this->itineraryDate($departure, $itinerary)->setTime(23, 30);
+
+        return now()->greaterThanOrEqualTo($windowStart) && now()->lessThan($windowEnd);
+    }
+
+    private function attendanceItineraryLabel(TourItinerary $itinerary): string
+    {
+        $time = $itinerary->start_time ? ' · '.mb_substr((string) $itinerary->start_time, 0, 5) : '';
+
+        return "Ngày {$itinerary->day_number}{$time} · {$itinerary->title}";
     }
 
     /**

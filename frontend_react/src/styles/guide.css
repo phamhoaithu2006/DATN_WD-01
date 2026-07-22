@@ -9586,7 +9586,18 @@
   font-weight: 850;
 }
 .guide-attendance-tour-copy button {
-  display: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  margin-top: 14px;
+  border: 1px solid #bfdbfe;
+  border-radius: 9px;
+  background: #eff6ff;
+  padding: 0 16px;
+  color: #0b7af3;
+  font-weight: 900;
+  cursor: pointer;
 }
 .guide-unchecked-panel {
   border: 1px solid #fbbf24;
@@ -9659,6 +9670,42 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
   padding: 24px;
+}
+.guide-attendance-readonly-notice {
+  margin: 0 24px 18px;
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  background: #eff6ff;
+  padding: 12px 14px;
+  color: #1e40af;
+  font-size: 14px;
+  font-weight: 800;
+}
+.guide-attendance-single-boundary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 24px;
+  border-bottom: 1px solid #e6edf7;
+  background: #f8fafc;
+}
+.guide-attendance-single-boundary strong {
+  color: #0f172a;
+  font-size: 15px;
+}
+.guide-attendance-single-boundary span {
+  color: #475569;
+  font-weight: 800;
+}
+.guide-attendance-single-boundary em {
+  margin-left: auto;
+  border-radius: 999px;
+  background: #dbeafe;
+  padding: 6px 10px;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 900;
 }
 .guide-attendance-tabs button {
   height: 58px;
@@ -10259,18 +10306,39 @@
 }
 .guide-attendance-boundaries {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 12px;
   padding: 20px 24px 0;
 }
 .guide-attendance-boundaries button {
-  min-height: 46px;
+  display: grid;
+  gap: 4px;
+  min-height: 72px;
   border: 1px solid #dbe4f0;
   border-radius: 8px;
   background: #f8fafc;
   color: #475569;
   font-weight: 900;
   cursor: pointer;
+}
+.guide-attendance-boundaries button strong,
+.guide-attendance-boundaries button span,
+.guide-attendance-boundaries button em {
+  display: block;
+}
+.guide-attendance-boundaries button strong {
+  color: inherit;
+  font-size: 14px;
+}
+.guide-attendance-boundaries button span {
+  color: #64748b;
+  font-size: 12px;
+}
+.guide-attendance-boundaries button em {
+  color: #16a34a;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 900;
 }
 .guide-attendance-boundaries button.is-active {
   border-color: #0b7af3;
