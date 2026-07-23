@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
-import { askTravelAssistant } from "../../services/customerApi";
+import { useEffect, useRef, useState } from "react";
+import { askTravelAssistant, fetchChatMessages } from "../../services/customerApi";
 import Icon from "./Icon";
 
 const CHAT_HISTORY_KEY = "vivugo_chat_history";
+const POLL_INTERVAL = 4000;
 
 const defaultGreeting = {
   from: "ai",
@@ -28,18 +29,15 @@ function loadStoredMessages() {
   }
 }
 
-// Xuất ra để CustomerPage.jsx gọi khi logout
 export function clearChatHistory() {
   sessionStorage.removeItem(CHAT_HISTORY_KEY);
 }
 
-// Chuẩn hóa: nếu AI lỡ dùng " * " làm gạch đầu dòng thay vì xuống dòng thật, tự thêm xuống dòng
 function normalizeReplyText(raw) {
   if (!raw) return "";
   return raw.replace(/\s\*\s(?=\*\*)/g, "\n").trim();
 }
 
-// Render text có markdown đơn giản: xuống dòng thật + **in đậm**
 function renderMessageText(rawText) {
   const text = normalizeReplyText(rawText);
   const lines = text.split("\n").filter((line) => line.trim() !== "");
@@ -61,35 +59,98 @@ function renderMessageText(rawText) {
   });
 }
 
+// Chuyển messages từ backend (role: user/assistant/staff) sang định dạng UI (from: user/ai)
+function mapServerMessage(message) {
+  return {
+    id: message.id,
+    from: message.role === "user" ? "user" : "ai",
+    text: message.content,
+    isStaff: message.role === "staff",
+  };
+}
+
 function ChatBox() {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [text, setText] = useState("");
   const [messages, setMessages] = useState(loadStoredMessages);
+  const [mode, setMode] = useState("ai"); // 'ai' | 'pending_human' | 'human'
 
-  // Mỗi khi messages đổi, tự lưu lại vào sessionStorage
+  const lastMessageIdRef = useRef(0);
+  const pollRef = useRef(null);
+
   useEffect(() => {
     try {
       sessionStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(messages));
     } catch {
-      // sessionStorage đầy hoặc bị chặn -> bỏ qua, không crash app
+      // bỏ qua nếu sessionStorage lỗi
     }
   }, [messages]);
 
-  async function sendMessage(event, quickText = "") {
+  // Polling: chỉ chạy khi đang chờ hoặc đang được nhân viên xử lý,
+  // để nhận tin nhắn mới của nhân viên mà không cần khách tự gõ gì thêm
+  useEffect(() => {
+    if (mode === "ai") {
+      if (pollRef.current) window.clearInterval(pollRef.current);
+      return undefined;
+    }
+
+    async function poll() {
+      try {
+        const sessionId = getOrCreateSessionId();
+        const response = await fetchChatMessages(sessionId);
+        const serverMessages = (response?.messages || []).map(mapServerMessage);
+
+        if (serverMessages.length > 0) {
+          const lastId = serverMessages[serverMessages.length - 1].id;
+          if (lastId !== lastMessageIdRef.current) {
+            lastMessageIdRef.current = lastId;
+            setMessages(serverMessages);
+          }
+        }
+
+        if (response?.mode) {
+          setMode(response.mode);
+        }
+      } catch {
+        // im lặng bỏ qua lỗi polling, không làm phiền khách
+      }
+    }
+
+    void poll();
+    pollRef.current = window.setInterval(poll, POLL_INTERVAL);
+
+    return () => {
+      if (pollRef.current) window.clearInterval(pollRef.current);
+    };
+  }, [mode]);
+
+  async function sendMessage(event, quickText = "", requestHuman = false) {
     event?.preventDefault();
-    const message = (quickText || text).trim();
-    if (!message || loading) return;
+    const message = requestHuman
+      ? "Tôi muốn gặp nhân viên hỗ trợ"
+      : (quickText || text).trim();
+
+    if ((!message || loading) && !requestHuman) return;
+
     setMessages((current) => [...current, { from: "user", text: message }]);
     setText("");
     setLoading(true);
+
     try {
       const sessionId = getOrCreateSessionId();
-      const response = await askTravelAssistant(message, sessionId);
-      setMessages((current) => [
-        ...current,
-        { from: "ai", text: response.reply },
-      ]);
+      const response = await askTravelAssistant(message, sessionId, requestHuman);
+
+      if (response?.mode) {
+        setMode(response.mode);
+      }
+
+      if (response?.reply) {
+        setMessages((current) => [
+          ...current,
+          { from: "ai", text: response.reply },
+        ]);
+      }
     } catch {
       setMessages((current) => [
         ...current,
@@ -103,6 +164,10 @@ function ChatBox() {
     }
   }
 
+  function handleRequestHuman() {
+    sendMessage(null, "", true);
+  }
+
   return (
     <div className="vg-chat">
       {open ? (
@@ -114,7 +179,12 @@ function ChatBox() {
             <div>
               <strong>Trợ lý ViVuGo AI</strong>
               <span>
-                <i /> Đang trực tuyến
+                <i />
+                {mode === "human"
+                  ? " Đang chat với nhân viên"
+                  : mode === "pending_human"
+                    ? " Đang chờ nhân viên..."
+                    : " Đang trực tuyến"}
               </span>
             </div>
             <button
@@ -129,8 +199,8 @@ function ChatBox() {
             <p className="vg-chat-date">Hôm nay</p>
             {messages.map((message, index) => (
               <div
-                key={`${message.from}-${index}`}
-                className={`vg-message ${message.from}`}
+                key={message.id || `${message.from}-${index}`}
+                className={`vg-message ${message.from}${message.isStaff ? " staff" : ""}`}
               >
                 {message.from === "ai"
                   ? renderMessageText(message.text)
@@ -145,7 +215,21 @@ function ChatBox() {
               </div>
             ) : null}
           </div>
-          {messages.length === 1 ? (
+
+          {mode === "ai" ? (
+            <div className="vg-human-request-bar">
+              <button
+                type="button"
+                className="vg-request-human-btn"
+                onClick={handleRequestHuman}
+                disabled={loading}
+              >
+                Gặp nhân viên hỗ trợ
+              </button>
+            </div>
+          ) : null}
+
+          {messages.length === 1 && mode === "ai" ? (
             <div className="vg-quick-prompts">
               {[
                 "Gợi ý tour biển",
@@ -162,11 +246,16 @@ function ChatBox() {
               ))}
             </div>
           ) : null}
+
           <form onSubmit={sendMessage}>
             <input
               value={text}
               onChange={(event) => setText(event.target.value)}
-              placeholder="Nhập câu hỏi của bạn..."
+              placeholder={
+                mode === "pending_human"
+                  ? "Đang chờ nhân viên phản hồi..."
+                  : "Nhập câu hỏi của bạn..."
+              }
             />
             <button type="submit" aria-label="Gửi tin nhắn">
               <Icon name="send" />
