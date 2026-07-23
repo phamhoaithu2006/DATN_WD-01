@@ -8628,3 +8628,28 @@ textarea.vg-checkout-input {
     min-height: 50px;
   }
 }
+.vg-human-request-bar {
+  padding: 8px 16px;
+  border-top: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.vg-request-human-btn {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #2563eb;
+  background: #fff;
+  color: #2563eb;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.vg-request-human-btn:hover {
+  background: #eff6ff;
+}
+
+.vg-message.staff {
+  background: #2563eb;
+  color: #fff;
+}
