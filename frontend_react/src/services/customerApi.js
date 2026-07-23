@@ -110,8 +110,19 @@ export async function fetchVnpayReturnStatus(params) {
   return response.data?.data || response.data
 }
 
-export async function askTravelAssistant(message) {
-  const response = await api.post('/travel-assistant', { message })
+export async function askTravelAssistant(message, sessionId, requestHuman = false) {
+  const response = await api.post('/travel-assistant', {
+    message,
+    session_id: sessionId,
+    request_human: requestHuman,
+  })
+
+  return response.data?.data || response.data
+}
+export async function fetchChatMessages(sessionId) {
+  const response = await api.get('/travel-assistant/messages', {
+    params: { session_id: sessionId },
+  })
 
   return response.data?.data || response.data
 }
