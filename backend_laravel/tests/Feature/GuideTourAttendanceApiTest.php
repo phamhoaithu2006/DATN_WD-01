@@ -205,7 +205,28 @@ test('guide replacement request follows the inclusive five calendar day deadline
         ->assertJsonPath('code', 'REPLACEMENT_REQUEST_TOO_LATE');
 
     Carbon::setTestNow('2026-04-20 10:00:00');
+    $this->postJson($endpoint, $payload)
+        ->assertUnprocessable()
+        ->assertJsonPath('code', 'REPLACEMENT_REQUEST_TOO_LATE');
+
+    Carbon::setTestNow('2026-04-19 10:00:00');
     $this->postJson($endpoint, $payload)->assertCreated();
+
+    Carbon::setTestNow();
+});
+
+test('guide can request replacement eight calendar days before departure', function () {
+    Carbon::setTestNow('2026-07-23 10:00:00');
+    $scenario = guideAttendanceScenario();
+    Sanctum::actingAs($scenario['guideUser']);
+    $scenario['ongoing']->update([
+        'departure_date' => '2026-07-31',
+        'return_date' => '2026-08-02',
+    ]);
+
+    $this->postJson("/api/guide/tours/{$scenario['ongoing']->id}/replacement-requests", [
+        'reason' => 'Can doi huong dan vien truoc ngay khoi hanh.',
+    ])->assertCreated();
 
     Carbon::setTestNow();
 });
@@ -361,6 +382,31 @@ test('guide can check in every customer with one request', function () {
     $this->getJson("/api/guide/tours/{$scenario['ongoing']->id}/customers?attendance_session_id={$departureSessionId}")
         ->assertOk()
         ->assertJsonPath('data.0.attendance_status', 'checked_in');
+
+    Carbon::setTestNow();
+});
+
+test('guide can undo an accidental customer check in', function () {
+    Carbon::setTestNow('2026-07-19 09:00:00');
+    $scenario = guideAttendanceScenario();
+    Sanctum::actingAs($scenario['guideUser']);
+    $sessionId = $this->postJson("/api/guide/tours/{$scenario['ongoing']->id}/attendance-sessions")
+        ->assertCreated()
+        ->json('data.id');
+
+    $endpoint = "/api/guide/tours/{$scenario['ongoing']->id}/attendance-sessions/{$sessionId}/check-in";
+    $payload = ['participant_id' => $scenario['participant']->id];
+
+    $this->postJson($endpoint, $payload)->assertOk();
+    $this->deleteJson($endpoint, $payload)
+        ->assertOk()
+        ->assertJsonPath('data.status', 'not_checked_in')
+        ->assertJsonPath('data.checked_in_at', null);
+
+    $this->getJson("/api/guide/tours/{$scenario['ongoing']->id}/customers?attendance_session_id={$sessionId}")
+        ->assertOk()
+        ->assertJsonPath('data.0.attendance_status', 'not_checked_in')
+        ->assertJsonPath('data.0.attendance.note', null);
 
     Carbon::setTestNow();
 });

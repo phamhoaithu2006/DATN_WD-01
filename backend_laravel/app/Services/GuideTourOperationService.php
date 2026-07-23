@@ -298,6 +298,50 @@ class GuideTourOperationService
     /**
      * @throws AuthorizationException|ValidationException
      */
+    public function undoCheckIn(User $user, TourDeparture $tourDeparture, AttendanceSession $session, int $participantId): Attendance
+    {
+        $departure = $this->assignedDepartureForUser($user, $tourDeparture);
+        $this->assertDepartureCanTakeAttendance($departure);
+        $this->assertSessionBelongsToDeparture($session, $departure);
+        $this->assertSessionCanTakeAttendance($session, $departure);
+        $participant = $this->assertParticipantBelongsToDeparture($participantId, $departure);
+
+        return DB::transaction(function () use ($session, $participant): Attendance {
+            AttendanceSession::query()->whereKey($session->id)->lockForUpdate()->firstOrFail();
+
+            $attendance = Attendance::query()
+                ->where('attendance_session_id', $session->id)
+                ->where('booking_participant_id', $participant->id)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $attendance || $attendance->checked_in_at === null) {
+                throw ValidationException::withMessages([
+                    'participant_id' => 'Customer has not checked in for this session.',
+                ]);
+            }
+
+            $attendance->fill([
+                'checked_in_at' => null,
+                'checked_in_by' => null,
+                'checked_out_at' => null,
+                'checked_out_by' => null,
+                'status' => 'not_checked_in',
+            ]);
+            $attendance->save();
+
+            return $attendance->load([
+                'bookingParticipant',
+                'checkedInBy:id,full_name,email',
+                'checkedOutBy:id,full_name,email',
+                'noteUpdatedBy:id,full_name,email',
+            ]);
+        });
+    }
+
+    /**
+     * @throws AuthorizationException|ValidationException
+     */
     public function checkOut(User $user, TourDeparture $tourDeparture, AttendanceSession $session, int $participantId): Attendance
     {
         $departure = $this->assignedDepartureForUser($user, $tourDeparture);
