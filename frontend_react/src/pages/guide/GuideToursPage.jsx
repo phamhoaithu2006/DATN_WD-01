@@ -68,11 +68,12 @@ function getReplacementEligibility(item) {
     };
   }
 
-  const departureDate = new Date(`${item?.departure_date || ""}T00:00:00`);
+  const departureDateValue = String(item?.departure_date || "").slice(0, 10);
+  const departureDate = new Date(`${departureDateValue}T00:00:00`);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const minimumDepartureDate = new Date(today);
-  minimumDepartureDate.setDate(minimumDepartureDate.getDate() + 4);
+  minimumDepartureDate.setDate(minimumDepartureDate.getDate() + 5);
 
   if (
     Number.isNaN(departureDate.getTime()) ||
@@ -81,14 +82,14 @@ function getReplacementEligibility(item) {
     return {
       allowed: false,
       buttonLabel: "Đã quá hạn đổi HDV",
-      message: "Chỉ có thể yêu cầu đổi HDV khi còn ít nhất 4 ngày trước khởi hành.",
+      message: "Không thể yêu cầu đổi HDV khi còn 5 ngày trở xuống, tính cả ngày yêu cầu và ngày khởi hành.",
     };
   }
 
   return {
     allowed: true,
     buttonLabel: "Yêu cầu đổi HDV",
-    message: "Bạn có thể gửi yêu cầu đổi HDV; hạn cuối là 4 ngày trước khởi hành.",
+    message: "Bạn có thể gửi yêu cầu đổi HDV vì còn hơn 5 ngày tính cả ngày yêu cầu và ngày khởi hành.",
   };
 }
 

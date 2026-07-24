@@ -555,7 +555,7 @@ class GuideTourController extends Controller
         }
 
         $departureDate = Carbon::parse($tourDeparture->departure_date)->startOfDay();
-        $minDate = Carbon::today()->addDays(4)->startOfDay();
+        $minDate = Carbon::today()->addDays(5)->startOfDay();
 
         if ($departureDate->lte(Carbon::today()) || $departureDate->lt($minDate)) {
             return response()->json([
@@ -611,7 +611,7 @@ class GuideTourController extends Controller
 
                 if (
                     $lockedDepartureDate->lte(Carbon::today())
-                    || $lockedDepartureDate->lt(Carbon::today()->addDays(4)->startOfDay())
+                    || $lockedDepartureDate->lt(Carbon::today()->addDays(5)->startOfDay())
                 ) {
                     return ['outcome' => 'too_late'];
                 }
