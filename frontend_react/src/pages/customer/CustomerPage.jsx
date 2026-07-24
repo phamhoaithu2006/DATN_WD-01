@@ -16,6 +16,7 @@ import {
   fetchWishlist,
   removeWishlist,
 } from "../../services/customerApi";
+import { getPublicWidgets } from "../../services/publicWidgetApi";
 import { logout as logoutApi } from "../../services/authApi";
 import {
   clearSession,
@@ -311,6 +312,8 @@ function CustomerPage() {
   const [bookings, setBookings] = useState([]);
   const [reviewNotifications, setReviewNotifications] = useState([]);
   const [homeContent, setHomeContent] = useState({});
+  const [homeBanners, setHomeBanners] = useState([]);
+  const [homeLoading, setHomeLoading] = useState(true);
   const [homeLoadError, setHomeLoadError] = useState("");
   const [tourLoadError, setTourLoadError] = useState("");
   const [currentTime, setCurrentTime] = useState(() => Date.now());
@@ -345,6 +348,34 @@ function CustomerPage() {
     return international;
   }, [normalizedTours]);
 
+  const discountedTours = useMemo(() => {
+    return normalizedTours
+      .filter((tour) => {
+        const base = tour.price?.base || 0;
+        const discount = tour.price?.discount;
+        return discount !== null && discount !== undefined && discount > 0 && discount < base;
+      })
+      .slice(0, 6);
+  }, [normalizedTours]);
+
+  const upcomingTours = useMemo(() => {
+    const now = Date.now();
+    const fourteenDaysMs = 14 * 24 * 60 * 60 * 1000;
+    return normalizedTours
+      .filter((tour) => {
+        const depDate = tour.nextDepartureDate || tour.nextDeparture?.departure_date;
+        if (!depDate) return false;
+        const depTime = new Date(depDate).getTime();
+        return depTime >= now && (depTime - now) <= fourteenDaysMs;
+      })
+      .sort((a, b) => {
+        const dateA = new Date(a.nextDepartureDate || a.nextDeparture?.departure_date).getTime();
+        const dateB = new Date(b.nextDepartureDate || b.nextDeparture?.departure_date).getTime();
+        return dateA - dateB;
+      })
+      .slice(0, 4);
+  }, [normalizedTours]);
+
   const pendingPaymentCount = useMemo(() => bookings.filter((booking) => (
     booking.status === "pending"
     && booking.payment_status === "unpaid"
@@ -364,16 +395,31 @@ function CustomerPage() {
 
     async function loadHomeContent() {
       try {
-        const content = await fetchHomeContent();
+        setHomeLoading(true);
+        const [content, widgetRes] = await Promise.all([
+          fetchHomeContent().catch(() => ({})),
+          getPublicWidgets({ page: "home" }).catch(() => ({ data: [] })),
+        ]);
 
         if (active) {
-          setHomeContent(content);
+          setHomeContent(content || {});
+          const bannerList = Array.isArray(widgetRes?.data)
+            ? widgetRes.data
+            : Array.isArray(widgetRes)
+            ? widgetRes
+            : [];
+          setHomeBanners(bannerList);
           setHomeLoadError("");
         }
       } catch {
         if (active) {
           setHomeContent({});
+          setHomeBanners([]);
           setHomeLoadError("Không thể tải nội dung trang chủ.");
+        }
+      } finally {
+        if (active) {
+          setHomeLoading(false);
         }
       }
     }
@@ -618,8 +664,12 @@ function CustomerPage() {
     <HomePage
       tours={normalizedTours}
       internationalTours={homeInternationalTours}
+      discountedTours={discountedTours}
+      upcomingTours={upcomingTours}
+      banners={homeBanners}
       favorites={favorites}
       homeContent={normalizedHomeContent}
+      loading={homeLoading}
       tourLoadError={homeLoadError || tourLoadError}
       onFavorite={toggleFavorite}
     />

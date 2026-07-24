@@ -87,6 +87,16 @@ function ChatBox() {
     }
   }, [messages]);
 
+  useEffect(() => {
+    function handleCustomOpen() {
+      setOpen(true);
+    }
+    window.addEventListener("open-vivugo-chatbox", handleCustomOpen);
+    return () => {
+      window.removeEventListener("open-vivugo-chatbox", handleCustomOpen);
+    };
+  }, []);
+
   // Polling: chỉ chạy khi đang chờ hoặc đang được nhân viên xử lý,
   // để nhận tin nhắn mới của nhân viên mà không cần khách tự gõ gì thêm
   useEffect(() => {
