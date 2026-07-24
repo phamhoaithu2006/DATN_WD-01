@@ -4,6 +4,7 @@ import Icon from "../../components/customer/Icon";
 import TourCard from "../../components/customer/TourCard";
 import BookingCountdown from "../../components/customer/BookingCountdown";
 import GuideReviewModal from "../../components/customer/GuideReviewModal";
+import TourReviewModal from "../../components/customer/TourReviewModal";
 import { useLocale } from "../../contexts/LocaleContext";
 import {
   cancelCustomerBooking,
@@ -222,6 +223,7 @@ function ProfileDashboard({
   const [reviewableBookingsLoading, setReviewableBookingsLoading] = useState(false);
   const [reviewableBookingsError, setReviewableBookingsError] = useState("");
   const [activeGuideReview, setActiveGuideReview] = useState(null);
+  const [activeTourReview, setActiveTourReview] = useState(null);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
@@ -661,6 +663,15 @@ function ProfileDashboard({
                   const durationText = booking.tour?.duration || (booking.tour?.duration_days ? `${booking.tour.duration_days}N${booking.tour.duration_nights || 0}Đ` : "Chuyến đi");
                   const reviewableBooking = reviewableBookingById.get(Number(booking.id));
                   const reviewableGuides = (reviewableBooking?.guides || []).filter((guide) => guide?.id);
+                  const returnDateValue = booking.tour_departure?.return_date;
+                  const hasTourEnded = Boolean(returnDateValue)
+                    && new Date(returnDateValue).getTime() <= now;
+                  const canReviewBooking = booking.payment_status === "paid"
+                    && booking.status !== "cancelled"
+                    && hasTourEnded;
+                  const guideForReview = reviewableGuides.find((guide) => !guide.reviewed)
+                    || reviewableGuides[0]
+                    || null;
 
                   return (
                     <article key={booking.id} className={`vg-booking-card ${isPendingPayment ? "is-pending-payment-card" : ""}`}>
@@ -747,57 +758,36 @@ function ProfileDashboard({
                           ) : null}
                         </div>
 
+                        {canReviewBooking ? (
+                          <div className="mt-3 flex flex-wrap items-center gap-2">
+                            {guideForReview ? (
+                              <button
+                                type="button"
+                                onClick={() => setActiveGuideReview({
+                                  booking: reviewableBooking || booking,
+                                  guide: guideForReview,
+                                })}
+                                className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-blue-600 bg-white px-4 text-xs font-extrabold text-blue-600 transition hover:bg-blue-50"
+                              >
+                                <Icon name={guideForReview.reviewed ? "edit" : "star"} size={14} />
+                                {guideForReview.reviewed ? "Sửa đánh giá HDV" : "Đánh giá HDV"}
+                              </button>
+                            ) : null}
 
-                        {reviewableGuides.length ? (
-                          <div className="vg-guide-review-panel">
-                            <div className="vg-guide-review-panel-heading">
-                              <span><Icon name="star" size={15} /> Đánh giá hướng dẫn viên</span>
-                              <small>Tour đã kết thúc</small>
-                            </div>
-                            <div className="vg-guide-review-list">
-                              {reviewableGuides.map((guide) => {
-                                const guideAvatar = mediaUrl(guide.avatar_url);
-                                const guideRating = Number(guide.review?.rating) || 0;
-
-                                return (
-                                  <div key={guide.id} className="vg-guide-review-row">
-                                    <div className="vg-guide-review-row-person">
-                                      <div className={`vg-guide-review-row-avatar ${guideAvatar ? "has-image" : ""}`}>
-                                        {guideAvatar ? (
-                                          <img src={guideAvatar} alt={guide.full_name || "Hướng dẫn viên"} />
-                                        ) : (
-                                          <span>{guide.full_name?.charAt(0)?.toUpperCase() || "H"}</span>
-                                        )}
-                                      </div>
-                                      <div>
-                                        <strong>{guide.full_name || guide.guide_code || "Hướng dẫn viên"}</strong>
-                                        {guide.reviewed ? (
-                                          <span className="vg-guide-review-saved-rating">
-                                            {[1, 2, 3, 4, 5].map((star) => (
-                                              <Icon key={star} name="star" size={13} />
-                                            )).filter((_, index) => index < guideRating)}
-                                            {guideRating}/5 sao
-                                          </span>
-                                        ) : (
-                                          <span>Chia sẻ trải nghiệm của bạn với hướng dẫn viên.</span>
-                                        )}
-                                      </div>
-                                    </div>
-                                    <button
-                                      type="button"
-                                      className={guide.reviewed ? "is-reviewed" : ""}
-                                      onClick={() => setActiveGuideReview({
-                                        booking: reviewableBooking,
-                                        guide,
-                                      })}
-                                    >
-                                      <Icon name={guide.reviewed ? "edit" : "star"} size={15} />
-                                      {guide.reviewed ? "Sửa đánh giá" : "Đánh giá ngay"}
-                                    </button>
-                                  </div>
-                                );
+                            <button
+                              type="button"
+                              onClick={() => setActiveTourReview({
+                                booking,
+                                bookingId: booking.id,
+                                tourId: booking.tour?.id,
+                                tourDepartureId: booking.tour_departure?.id,
+                                tourTitle: booking.tour?.title || "Tour đã hoàn thành",
                               })}
-                            </div>
+                              className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-amber-500 bg-white px-4 text-xs font-extrabold text-amber-600 transition hover:bg-amber-50"
+                            >
+                              <Icon name="star" size={14} />
+                              Đánh giá tour
+                            </button>
                           </div>
                         ) : null}
 
@@ -951,14 +941,22 @@ function ProfileDashboard({
       ) : null}
 
 
-      {activeGuideReview ? (
-        <GuideReviewModal
-          booking={activeGuideReview.booking}
-          guide={activeGuideReview.guide}
-          onClose={() => setActiveGuideReview(null)}
-          onSaved={handleGuideReviewSaved}
-        />
-      ) : null}
+      <GuideReviewModal
+        key={activeGuideReview ? `${activeGuideReview.booking.id}-${activeGuideReview.guide.id}` : "guide-review-closed"}
+        target={activeGuideReview}
+        onClose={() => setActiveGuideReview(null)}
+        onSubmitted={(savedReview) => {
+          handleGuideReviewSaved(savedReview);
+          setActiveGuideReview(null);
+        }}
+      />
+
+      <TourReviewModal
+        key={activeTourReview ? `tour-${activeTourReview.bookingId}` : "tour-review-closed"}
+        target={activeTourReview}
+        onClose={() => setActiveTourReview(null)}
+        onSubmitted={() => setActiveTourReview(null)}
+      />
     </main>
   );
 }
