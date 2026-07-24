@@ -221,8 +221,7 @@
 
 .vg-tour-menu:hover .vg-tour-dropdown,
 .vg-tour-menu:focus-within .vg-tour-dropdown,
-.vg-account-menu:hover .vg-account-dropdown,
-.vg-account-menu:focus-within .vg-account-dropdown {
+.vg-account-menu.is-open .vg-account-dropdown {
   display: grid;
 }
 

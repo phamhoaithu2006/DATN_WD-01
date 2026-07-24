@@ -446,10 +446,10 @@
 }
 
 .notif-btn {
-  background: none;
+  background: #ffffff;
   border: 1px solid #e2e8f0;
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -457,6 +457,7 @@
   color: #475569;
   cursor: pointer;
   position: relative;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
   transition: all 0.15s ease;
 }
 
@@ -472,19 +473,21 @@
 
 .notif-badge {
   position: absolute;
-  top: -5px;
-  right: -4px;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
+  top: -8px;
+  right: 0;
+  z-index: 10;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 4px;
   background: #ef4444;
   color: #ffffff;
-  font-size: 0.68rem;
+  font-size: 0.625rem;
   font-weight: 800;
-  line-height: 18px;
+  line-height: 20px;
   text-align: center;
   border-radius: 50%;
   border: 2px solid #ffffff;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.32);
 }
 
 .guide-topbar-user {
@@ -9496,7 +9499,7 @@
 }
 .guide-shot-tour-thumb {
   width: 190px;
-  height: 96px;
+  height: 120px;
   border-radius: 10px;
   overflow: hidden;
   background: #dbeafe;
@@ -9508,7 +9511,8 @@
 .guide-shot-tour-thumb img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  background: #f8fafc;
 }
 .guide-shot-tour-main h3 {
   margin: 0 0 10px;

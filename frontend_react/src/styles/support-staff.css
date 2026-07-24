@@ -2740,6 +2740,22 @@
   background: #ffffff;
 }
 
+.support-required-mark {
+  color: #dc2626;
+}
+
+.support-compose-panel .guide-field input.is-error,
+.support-compose-panel .guide-field textarea.is-error {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+}
+
+.support-compose-field-error {
+  color: #dc2626;
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
 .support-compose-foot {
   display: flex;
   align-items: flex-end;

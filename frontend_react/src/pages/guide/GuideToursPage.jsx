@@ -388,7 +388,6 @@ function GuideToursPage() {
   const [sort, setSort] = useState("priority");
   const [page, setPage] = useState(1);
   const [items, setItems] = useState([]);
-  const [heroIndex, setHeroIndex] = useState(0);
   const [meta, setMeta] = useState({
     current_page: 1,
     last_page: 1,
@@ -423,7 +422,7 @@ function GuideToursPage() {
       try {
         const params = {
           page,
-          per_page: 4,
+          per_page: 5,
           keyword: keyword.trim() || undefined,
           from_date: fromDate || undefined,
           to_date: toDate || undefined,
@@ -456,19 +455,6 @@ function GuideToursPage() {
     };
   }, [activeTab, fromDate, keyword, page, sort, toDate]);
 
-  const heroItem = items[0];
-  const heroImages = items.map(getTourImage).filter(Boolean);
-  const heroImage = heroImages[heroIndex % Math.max(heroImages.length, 1)];
-
-  useEffect(() => {
-    if (heroImages.length < 2) return undefined;
-
-    const timer = window.setInterval(() => {
-      setHeroIndex((current) => (current + 1) % heroImages.length);
-    }, 5000);
-
-    return () => window.clearInterval(timer);
-  }, [heroImages.length]);
   async function openDetail(item) {
     setDetailItem(item);
     setDetailCustomers([]);
@@ -563,14 +549,11 @@ function GuideToursPage() {
           </p>
         </div>
       </header>
-      <section
-        className="guide-shot-hero"
-        style={heroImage ? { backgroundImage: `url(${heroImage})` } : undefined}
-      >
+      <section className="guide-shot-hero">
         <div>
           <span>Hôm nay</span>
           <h2>
-            {heroItem ? getTourTitle(heroItem) : "Xin chào, Hướng dẫn viên"}
+            Xin chào, Hướng dẫn viên
           </h2>
           <p>
             Hành trình hôm nay sẽ là nơi mọi khoảnh khắc du lịch đáng nhớ chờ

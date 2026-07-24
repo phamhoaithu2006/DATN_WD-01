@@ -35,6 +35,7 @@ function SupportNotificationsPage() {
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
+  const [fieldErrors, setFieldErrors] = useState({})
 
   const unreadCount = useMemo(
     () => notifications.filter((item) => item.status === 'unread').length,
@@ -127,10 +128,27 @@ function SupportNotificationsPage() {
   function handleFormChange(event) {
     const { name, value } = event.target
     setForm((current) => ({ ...current, [name]: value }))
+    setFieldErrors((current) => {
+      if (!current[name]) return current
+
+      const next = { ...current }
+      delete next[name]
+      return next
+    })
   }
 
   async function handleSendSubmit(event) {
     event.preventDefault()
+
+    const nextFieldErrors = {}
+    if (!form.title.trim()) nextFieldErrors.title = 'Vui lòng nhập tiêu đề thông báo.'
+    if (!form.message.trim()) nextFieldErrors.message = 'Vui lòng nhập nội dung thông báo.'
+
+    if (Object.keys(nextFieldErrors).length > 0) {
+      setFieldErrors(nextFieldErrors)
+      return
+    }
+
     setSending(true)
     setError('')
     setMessage('')
@@ -138,6 +156,7 @@ function SupportNotificationsPage() {
     try {
       const response = await sendSupportNotification(form)
       setForm(EMPTY_FORM)
+      setFieldErrors({})
       setMessage(response?.message || 'Đã gửi thông báo tới admin.')
     } catch (sendError) {
       setError(sendError?.response?.data?.message || 'Không gửi được thông báo.')
@@ -188,7 +207,7 @@ function SupportNotificationsPage() {
 
       {section === 'compose' ? (
         <section className="support-compose-layout">
-          <form className="support-compose-panel" onSubmit={handleSendSubmit}>
+          <form className="support-compose-panel" onSubmit={handleSendSubmit} noValidate>
             <div className="support-compose-head">
               <div>
                 <span>Gửi mới</span>
@@ -197,17 +216,22 @@ function SupportNotificationsPage() {
             </div>
 
             <label className="guide-field guide-field-wide">
-              <span>Tiêu đề</span>
+              <span>Tiêu đề <b className="support-required-mark">*</b></span>
               <input
                 name="title"
                 value={form.title}
                 onChange={handleFormChange}
                 placeholder="Nhập tiêu đề thông báo"
+                required
+                aria-required="true"
+                aria-invalid={Boolean(fieldErrors.title)}
+                className={fieldErrors.title ? 'is-error' : ''}
               />
+              {fieldErrors.title ? <small className="support-compose-field-error">{fieldErrors.title}</small> : null}
             </label>
 
             <label className="guide-field guide-field-wide">
-              <span>Nội dung</span>
+              <span>Nội dung <b className="support-required-mark">*</b></span>
               <textarea
                 name="message"
                 rows="9"
@@ -215,7 +239,12 @@ function SupportNotificationsPage() {
                 onChange={handleFormChange}
                 placeholder="Nhập nội dung thông báo"
                 style={{ resize: 'vertical' }}
+                required
+                aria-required="true"
+                aria-invalid={Boolean(fieldErrors.message)}
+                className={fieldErrors.message ? 'is-error' : ''}
               />
+              {fieldErrors.message ? <small className="support-compose-field-error">{fieldErrors.message}</small> : null}
             </label>
 
             <div className="support-compose-foot">

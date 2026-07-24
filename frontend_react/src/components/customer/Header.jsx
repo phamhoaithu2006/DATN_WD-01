@@ -292,6 +292,7 @@ function Header({ user, onLogout, pendingCount = 0 }) {
   const [activeTab, setActiveTab] = useState(null);
   const [mobileAccordion, setMobileAccordion] = useState(null);
   const [menuOpenedByClick, setMenuOpenedByClick] = useState(false);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [menuData, setMenuData] = useState(megaMenuData);
 
   const headerRef = useRef(null);
@@ -597,11 +598,14 @@ function Header({ user, onLogout, pendingCount = 0 }) {
         <div className="vg-nav-actions z-30">
           {user ? <CustomerNotificationBell /> : null}
           {user ? (
-            <div className="vg-account-menu">
+            <div className={`vg-account-menu${accountMenuOpen ? " is-open" : ""}`}>
               <button
                 className="vg-account-trigger"
                 type="button"
                 aria-label="Tài khoản"
+                aria-expanded={accountMenuOpen}
+                aria-controls="customer-account-dropdown"
+                onClick={() => setAccountMenuOpen((open) => !open)}
               >
                 <Icon name="user" />
                 <span>{user.full_name || "Tài khoản"}</span>
@@ -611,7 +615,7 @@ function Header({ user, onLogout, pendingCount = 0 }) {
                   </span>
                 ) : null}
               </button>
-              <div className="vg-dropdown vg-account-dropdown">
+              <div id="customer-account-dropdown" className="vg-dropdown vg-account-dropdown">
                 <Link to="/customer/profile">
                   <Icon name="user" /> Hồ sơ của tôi
                 </Link>
