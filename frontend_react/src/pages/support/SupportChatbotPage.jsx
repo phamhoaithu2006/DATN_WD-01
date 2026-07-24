@@ -17,6 +17,31 @@ function formatTime(value) {
 }
 
 const POLL_INTERVAL = 4000
+const QUICK_REPLY_STORAGE_KEY = 'vivugo_support_quick_replies'
+
+const DEFAULT_QUICK_REPLIES = [
+  { id: 'default-1', label: 'Chào hỏi', content: 'Chào bạn, mình là nhân viên hỗ trợ của ViVuGo. Mình có thể giúp gì cho bạn?' },
+  { id: 'default-2', label: 'Xin đợi', content: 'Bạn vui lòng chờ mình một chút để kiểm tra thông tin nhé.' },
+  { id: 'default-3', label: 'Xin thông tin đơn', content: 'Bạn cho mình xin mã đơn hàng hoặc số điện thoại đặt tour để mình tra cứu nhanh hơn nhé.' },
+  { id: 'default-4', label: 'Xác nhận đã xử lý', content: 'Mình đã xử lý xong yêu cầu này rồi ạ. Bạn kiểm tra lại giúp mình nhé.' },
+  { id: 'default-5', label: 'Hướng dẫn thanh toán', content: 'Bạn có thể thanh toán qua VNPay hoặc chuyển khoản trực tiếp. Mình gửi hướng dẫn chi tiết cho bạn nhé.' },
+  { id: 'default-6', label: 'Xin lỗi vì chậm trễ', content: 'Mình xin lỗi vì đã để bạn chờ lâu. Mình sẽ hỗ trợ bạn ngay bây giờ.' },
+  { id: 'default-7', label: 'Cảm ơn & kết thúc', content: 'Cảm ơn bạn đã liên hệ ViVuGo. Nếu cần hỗ trợ thêm, bạn cứ nhắn cho mình nhé!' },
+]
+
+function loadQuickReplies() {
+  try {
+    const raw = localStorage.getItem(QUICK_REPLY_STORAGE_KEY)
+    const parsed = raw ? JSON.parse(raw) : null
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_QUICK_REPLIES
+  } catch {
+    return DEFAULT_QUICK_REPLIES
+  }
+}
+
+function saveQuickReplies(list) {
+  localStorage.setItem(QUICK_REPLY_STORAGE_KEY, JSON.stringify(list))
+}
 
 function SupportChatbotPage() {
   const [tab, setTab] = useState('pending')
@@ -33,8 +58,19 @@ function SupportChatbotPage() {
   const [sending, setSending] = useState(false)
   const [chatError, setChatError] = useState('')
 
+  const [imageFile, setImageFile] = useState(null)
+  const [imagePreview, setImagePreview] = useState('')
+
+  const [quickReplies, setQuickReplies] = useState(loadQuickReplies)
+  const [quickPanelOpen, setQuickPanelOpen] = useState(false)
+  const [editingReply, setEditingReply] = useState(null) // {id, label, content} hoặc null khi thêm mới
+  const [draftLabel, setDraftLabel] = useState('')
+  const [draftContent, setDraftContent] = useState('')
+
   const messagesEndRef = useRef(null)
   const pollRef = useRef(null)
+  const replyInputRef = useRef(null)
+  const fileInputRef = useRef(null)
 
   const loadLists = useCallback(async () => {
     try {
@@ -46,9 +82,7 @@ function SupportChatbotPage() {
       setMineList(mine)
       setListError('')
     } catch (error) {
-      setListError(
-        error?.response?.data?.message || 'Không tải được danh sách chat.',
-      )
+      setListError(error?.response?.data?.message || 'Không tải được danh sách chat.')
     } finally {
       setLoadingList(false)
     }
@@ -56,9 +90,7 @@ function SupportChatbotPage() {
 
   useEffect(() => {
     void loadLists()
-    const intervalId = window.setInterval(() => {
-      void loadLists()
-    }, 8000)
+    const intervalId = window.setInterval(() => void loadLists(), 8000)
     return () => window.clearInterval(intervalId)
   }, [loadLists])
 
@@ -67,10 +99,7 @@ function SupportChatbotPage() {
       const response = await supportChatApi.show(conversationId)
       setMessages(response?.messages || [])
     } catch (error) {
-      setChatError(
-        error?.response?.data?.message ||
-          'Không tải được nội dung hội thoại.',
-      )
+      setChatError(error?.response?.data?.message || 'Không tải được nội dung hội thoại.')
     }
   }, [])
 
@@ -79,13 +108,8 @@ function SupportChatbotPage() {
       if (pollRef.current) window.clearInterval(pollRef.current)
       return undefined
     }
-
     void loadConversation(activeConversation.id)
-
-    pollRef.current = window.setInterval(() => {
-      void loadConversation(activeConversation.id)
-    }, POLL_INTERVAL)
-
+    pollRef.current = window.setInterval(() => void loadConversation(activeConversation.id), POLL_INTERVAL)
     return () => {
       if (pollRef.current) window.clearInterval(pollRef.current)
     }
@@ -95,9 +119,69 @@ function SupportChatbotPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  async function handleAccept(conversation) {
-    if (acceptingId) return // đang có 1 request tiếp nhận khác chạy, chặn bấm thêm
+  // Ctrl+1..Ctrl+9 điền nhanh theo đúng thứ tự đang hiển thị trong danh sách hiện tại (kể cả mẫu tự thêm)
+  useEffect(() => {
+    function handleKeyDown(event) {
+      if (!event.ctrlKey || !activeConversation) return
+      const index = Number(event.key) - 1
+      if (index >= 0 && index < quickReplies.length) {
+        event.preventDefault()
+        setReplyText(quickReplies[index].content)
+        replyInputRef.current?.focus()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [activeConversation, quickReplies])
 
+  function insertQuickReply(template) {
+    setReplyText(template.content)
+    setQuickPanelOpen(false)
+    replyInputRef.current?.focus()
+  }
+
+  function openAddReplyForm() {
+    setEditingReply(null)
+    setDraftLabel('')
+    setDraftContent('')
+  }
+
+  function openEditReplyForm(template) {
+    setEditingReply(template)
+    setDraftLabel(template.label)
+    setDraftContent(template.content)
+  }
+
+  function saveReplyDraft() {
+    const label = draftLabel.trim()
+    const content = draftContent.trim()
+    if (!label || !content) return
+
+    let next
+    if (editingReply) {
+      next = quickReplies.map((item) =>
+        item.id === editingReply.id ? { ...item, label, content } : item,
+      )
+    } else {
+      next = [...quickReplies, { id: `custom-${Date.now()}`, label, content }]
+    }
+
+    setQuickReplies(next)
+    saveQuickReplies(next)
+    setEditingReply(null)
+    setDraftLabel('')
+    setDraftContent('')
+  }
+
+  function deleteReply(id) {
+    if (!window.confirm('Xóa mẫu tin nhắn này?')) return
+    const next = quickReplies.filter((item) => item.id !== id)
+    setQuickReplies(next)
+    saveQuickReplies(next)
+  }
+
+  async function handleAccept(conversation) {
+    if (acceptingId) return
     setAcceptingId(conversation.id)
     setListError('')
     try {
@@ -109,11 +193,8 @@ function SupportChatbotPage() {
       await loadConversation(conversation.id)
       setChatLoading(false)
     } catch (error) {
-      setListError(
-        error?.response?.data?.message ||
-          'Không tiếp nhận được (có thể nhân viên khác đã nhận trước).',
-      )
-      await loadLists() // đồng bộ lại danh sách với server ngay khi lỗi
+      setListError(error?.response?.data?.message || 'Không tiếp nhận được.')
+      await loadLists()
     } finally {
       setAcceptingId(null)
     }
@@ -126,16 +207,42 @@ function SupportChatbotPage() {
     loadConversation(conversation.id).finally(() => setChatLoading(false))
   }
 
+  function handleImageSelect(event) {
+    const file = event.target.files?.[0] || null
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      setChatError('Chỉ được chọn file ảnh.')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setChatError('Ảnh không được vượt quá 5MB.')
+      return
+    }
+
+    setChatError('')
+    setImageFile(file)
+    setImagePreview(URL.createObjectURL(file))
+  }
+
+  function clearSelectedImage() {
+    if (imagePreview) URL.revokeObjectURL(imagePreview)
+    setImageFile(null)
+    setImagePreview('')
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
   async function handleSendReply(event) {
     event.preventDefault()
     const content = replyText.trim()
-    if (!content || !activeConversation || sending) return
+    if ((!content && !imageFile) || !activeConversation || sending) return
 
     setSending(true)
     setChatError('')
     try {
-      await supportChatApi.reply(activeConversation.id, content)
+      await supportChatApi.reply(activeConversation.id, { content, imageFile })
       setReplyText('')
+      clearSelectedImage()
       await loadConversation(activeConversation.id)
     } catch (error) {
       setChatError(error?.response?.data?.message || 'Không gửi được tin nhắn.')
@@ -158,16 +265,13 @@ function SupportChatbotPage() {
   async function handleClose() {
     if (!activeConversation) return
     if (!window.confirm('Đóng phiên hỗ trợ này và trả lại cho AI xử lý?')) return
-
     try {
       await supportChatApi.close(activeConversation.id)
       setActiveConversation(null)
       setMessages([])
       await loadLists()
     } catch (error) {
-      setChatError(
-        error?.response?.data?.message || 'Không đóng được phiên hỗ trợ.',
-      )
+      setChatError(error?.response?.data?.message || 'Không đóng được phiên hỗ trợ.')
     }
   }
 
