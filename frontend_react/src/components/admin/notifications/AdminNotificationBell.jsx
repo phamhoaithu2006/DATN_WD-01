@@ -47,6 +47,8 @@ function getNotificationTypeLabel(type) {
     booking: 'Booking',
     tour: 'Tour',
     guide: 'HDV',
+    support_request: 'Yêu cầu hỗ trợ',
+    support_message: 'Yêu cầu hỗ trợ',
   }
 
   return map[type] || type || 'Thông báo'
@@ -126,10 +128,40 @@ function getLeaveRequestId(notification) {
   )
 }
 
+function isSupportRequestNotification(notification) {
+  const data = parseNotificationData(notification)
+  const title = String(notification?.title || '').toLowerCase()
+  const message = String(notification?.message || '').toLowerCase()
+
+  return (
+    notification?.kind === 'support_request_admin_action' ||
+    notification?.support_request_id != null ||
+    data?.kind === 'support_request_admin_action' ||
+    data?.support_request_id != null ||
+    data?.source === 'support_request' ||
+    data?.source === 'support_to_admin' ||
+    notification?.type === 'support_message' ||
+    title.includes('yêu cầu hỗ trợ') ||
+    message.includes('mã yêu cầu')
+  )
+}
+
+function getSupportRequestId(notification) {
+  const data = parseNotificationData(notification)
+
+  return (
+    notification?.support_request_id ||
+    data?.support_request_id ||
+    data?.request_id ||
+    null
+  )
+}
+
 function isActionableNotification(notification) {
   return (
     isGuideReplacementNotification(notification) ||
-    isGuideLeaveRequestNotification(notification)
+    isGuideLeaveRequestNotification(notification) ||
+    isSupportRequestNotification(notification)
   )
 }
 
@@ -310,6 +342,35 @@ async function goToGuideLeaveRequest(notification) {
   navigate(`/admin/guides?${params.toString()}`)
 }
 
+async function goToSupportRequest(notification) {
+  try {
+    await markOneAsRead(notification)
+  } catch (error) {
+    console.error(error)
+  }
+
+  const supportRequestId = getSupportRequestId(notification)
+  const params = new URLSearchParams()
+
+  if (notification?.id) {
+    params.set('notification', notification.id)
+  }
+
+  if (supportRequestId) {
+    params.set('supportRequestId', supportRequestId)
+  }
+
+  setOpen(false)
+
+  const query = params.toString()
+
+  navigate(
+    query
+      ? `/admin/notifications/received?${query}`
+      : '/admin/notifications/received'
+  )
+}
+
 function goToActionableNotification(notification) {
   if (isGuideReplacementNotification(notification)) {
     void goToGuideReplacementRequest(notification)
@@ -318,6 +379,11 @@ function goToActionableNotification(notification) {
 
   if (isGuideLeaveRequestNotification(notification)) {
     void goToGuideLeaveRequest(notification)
+    return
+  }
+
+  if (isSupportRequestNotification(notification)) {
+    void goToSupportRequest(notification)
   }
 }
 
@@ -529,7 +595,9 @@ async function openDetail(notification) {
                     <div className="mt-4 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm font-bold text-orange-800">
                       {isGuideLeaveRequestNotification(selectedNotification)
                         ? 'Bấm vào thẻ chi tiết này để mở đúng đơn xin nghỉ HDV.'
-                        : 'Bấm vào thẻ chi tiết này để đi tới danh sách yêu cầu đổi HDV đang chờ xử lý.'}
+                        : isGuideReplacementNotification(selectedNotification)
+                          ? 'Bấm vào thẻ chi tiết này để đi tới danh sách yêu cầu đổi HDV đang chờ xử lý.'
+                          : 'Bấm vào thẻ chi tiết này để mở thông báo yêu cầu hỗ trợ cần Admin xử lý.'}
                     </div>
                   ) : null}
                 </div>

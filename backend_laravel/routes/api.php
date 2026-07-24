@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\Admin\AdminGuideReplacementRequestController;
 use App\Http\Controllers\Api\Admin\AdminNotificationBellController;
 use App\Http\Controllers\Api\Admin\AdminNotificationController;
 use App\Http\Controllers\Api\Admin\AdminProfileController;
+use App\Http\Controllers\Api\Admin\AdminReceivedNotificationController;
 use App\Http\Controllers\Api\Admin\AdminTourDepartureBookingController;
 use App\Http\Controllers\Api\Admin\BookingController;
 use App\Http\Controllers\Api\Admin\CategoryController;
@@ -31,6 +32,8 @@ use App\Http\Controllers\Api\Chat\ChatBotController;
 use App\Http\Controllers\Api\Customer\CustomerBookingController;
 use App\Http\Controllers\Api\Customer\CustomerController;
 use App\Http\Controllers\Api\Customer\CustomerDashboardController;
+use App\Http\Controllers\Api\Customer\CustomerSupportConversationController;
+use App\Http\Controllers\Api\Customer\CustomerSupportRequestCenterController;
 use App\Http\Controllers\Api\Customer\CustomerSupportRequestController;
 use App\Http\Controllers\Api\Customer\GuideReviewController as CustomerGuideReviewController;
 use App\Http\Controllers\Api\Customer\NotificationCustomerController;
@@ -51,7 +54,7 @@ use App\Http\Controllers\Api\Support\SupportChatController;
 use App\Http\Controllers\Api\Support\SupportNotificationController;
 use App\Http\Controllers\Api\Support\SupportProfileController;
 use App\Http\Controllers\Api\Support\SupportRequestController;
-use App\Http\Controllers\Api\TourReviewController as PublicTourReviewController;
+use App\Http\Controllers\Api\Support\SupportWorkflowController;
 use App\Models\GuideSpecialization;
 use Illuminate\Support\Facades\Route;
 
@@ -87,50 +90,143 @@ Route::prefix('auth')->group(function () {
     });
 });
 
-Route::post('/forgot-password', [CustomerController::class, 'forgotPassword'])->middleware('throttle:5,1');
-Route::post('/reset-password', [CustomerController::class, 'resetPassword']);
+// =============================== NHÂN VIÊN HỖ TRỢ ===============================
 
-/*
-|--------------------------------------------------------------------------
-| DỮ LIỆU CÔNG KHAI (không cần đăng nhập)
-|--------------------------------------------------------------------------
-*/
-Route::get('/roles', [CustomerManagerController::class, 'index_role']);
-Route::get('/home', [PublicCatalogController::class, 'home']);
-Route::get('/catalog/categories', [PublicCatalogController::class, 'categories']);
-Route::get('/catalog/destinations', [PublicCatalogController::class, 'destinations']);
-Route::get('/settings/public', [PublicSettingController::class, 'show']);
-Route::get('/widgets', [PublicWidgetController::class, 'index']);
+Route::middleware([
+    'auth:sanctum',
+    'role:support staff',
+])->group(function () {
 
-Route::prefix('tours')->group(function () {
-    Route::get('/search', [TourController::class, 'search_gdkh']);
-    Route::get('/filter', [TourController::class, 'filter_gdkh']);
-    Route::get('/', [TourController::class, 'index_gdkh']);
+    // ================= HỒ SƠ =================
 
-    // Wishlist - chỉ khách hàng đã đăng nhập
-    Route::middleware(['auth:sanctum', 'role:customer'])->group(function () {
-        Route::get('wishlist', [WishlistController::class, 'index']);
-        Route::post('wishlist', [WishlistController::class, 'store']);
-        Route::delete('wishlist/{tour_id}', [WishlistController::class, 'destroy']);
-    });
+    Route::get(
+        '/support/profile',
+        [SupportProfileController::class, 'show']
+    );
 
-    Route::get('/{slug}/reviews', [PublicTourReviewController::class, 'index']);
-    Route::get('/{slug}', [TourController::class, 'show_gdkh']);
+    Route::put(
+        '/support/profile',
+        [SupportProfileController::class, 'update']
+    );
+
+    Route::put(
+        '/support/change-password',
+        [SupportProfileController::class, 'changePassword']
+    );
+
+
+    // ================= THÔNG BÁO =================
+
+    Route::get(
+        '/notifications/support',
+        [SupportNotificationController::class, 'getMyNotifications']
+    );
+
+    Route::get(
+        '/notifications/support/unread-count',
+        [SupportNotificationController::class, 'getUnreadCount']
+    );
+
+    Route::get(
+        '/notifications/support/{id}',
+        [SupportNotificationController::class, 'getNotificationDetail']
+    )->whereNumber('id');
+
+    Route::patch(
+        '/notifications/support/{id}/read',
+        [SupportNotificationController::class, 'markAsRead']
+    )->whereNumber('id');
+
+
+    // ================= YÊU CẦU HỖ TRỢ =================
+
+    // Route cụ thể phải đặt trước {supportRequest}
+
+    Route::get(
+        '/support/requests/badge-count',
+        [SupportRequestController::class, 'badgeCount']
+    );
+
+    Route::get(
+        '/support/requests/assignees',
+        [SupportRequestController::class, 'assignees']
+    );
+
+    Route::get(
+        '/support/requests/staff-options',
+        [SupportRequestController::class, 'staffOptions']
+    );
+
+
+    // ================= DANH SÁCH =================
+
+    Route::get(
+        '/support/requests',
+        [SupportRequestController::class, 'index']
+    );
+
+    Route::get(
+        '/support/requests/{supportRequest}',
+        [SupportRequestController::class, 'show']
+    )->whereNumber('supportRequest');
+
+
+    // ================= WORKFLOW MỚI =================
+
+    // NVHT tiếp nhận
+    Route::post(
+        '/support/requests/{supportRequest}/claim',
+        [SupportWorkflowController::class, 'claim']
+    )->whereNumber('supportRequest');
+
+    // Yêu cầu khách bổ sung thông tin
+    Route::post(
+        '/support/requests/{supportRequest}/request-more-info',
+        [SupportWorkflowController::class, 'requestMoreInfo']
+    )->whereNumber('supportRequest');
+
+    // NVHT tự nhập nội dung rồi gửi Admin
+    Route::post(
+        '/support/requests/{supportRequest}/send-to-admin',
+        [SupportWorkflowController::class, 'sendToAdmin']
+    )->whereNumber('supportRequest');
+
+
+    // ================= CHUYỂN / TRẢ TICKET =================
+
+    Route::post(
+        '/support/requests/{supportRequest}/release',
+        [SupportRequestController::class, 'release']
+    )->whereNumber('supportRequest');
+
+    Route::post(
+        '/support/requests/{supportRequest}/transfer',
+        [SupportRequestController::class, 'transfer']
+    )->whereNumber('supportRequest');
+
+
+    // ================= TRAO ĐỔI =================
+
+    Route::get(
+        '/support/requests/{supportRequest}/messages',
+        [SupportRequestController::class, 'messages']
+    )->whereNumber('supportRequest');
+
+    Route::post(
+        '/support/requests/{supportRequest}/messages',
+        [SupportRequestController::class, 'sendMessage']
+    )->whereNumber('supportRequest');
+
+
+    // ================= LỊCH SỬ =================
+
+    Route::get(
+        '/support/requests/{supportRequest}/history',
+        [SupportRequestController::class, 'history']
+    )->whereNumber('supportRequest');
 });
 
-/*
-|--------------------------------------------------------------------------
-| VNPAY (webhook + trạng thái thanh toán - không cần đăng nhập)
-|--------------------------------------------------------------------------
-*/
-Route::get('webhooks/vnpay', [VnpayPaymentController::class, 'ipn'])->middleware('throttle:60,1');
-Route::get('vnpay/return-status', [VnpayPaymentController::class, 'returnStatus'])->middleware('throttle:60,1');
-
-/*
-|--------------------------------------------------------------------------
-| KHÁCH HÀNG ĐÃ ĐĂNG NHẬP
-|--------------------------------------------------------------------------
-*/
+// Khách hàng đã đăng nhập
 Route::middleware(['auth:sanctum', 'role:customer'])->group(function () {
     Route::get('/user', [AuthController::class, 'me']);
     Route::get('/profile/summary', [CustomerDashboardController::class, 'summary']);
@@ -159,6 +255,35 @@ Route::middleware(['auth:sanctum', 'role:customer'])->group(function () {
 
     // Yêu cầu hỗ trợ
     Route::post('/customer/support-requests', [CustomerSupportRequestController::class, 'store']);
+    Route::get(
+        '/customer/support-requests/{supportRequest}/messages',
+        [CustomerSupportConversationController::class, 'messages']
+    )->whereNumber('supportRequest');
+
+    Route::post(
+        '/customer/support-requests/{supportRequest}/messages',
+        [CustomerSupportConversationController::class, 'sendMessage']
+    )->whereNumber('supportRequest');
+
+        Route::get(
+        '/customer/support-requests',
+        [CustomerSupportRequestCenterController::class, 'index']
+    );
+
+    Route::get(
+        '/customer/support-requests/unread-count',
+        [CustomerSupportRequestCenterController::class, 'unreadCount']
+    );
+
+    Route::get(
+        '/customer/support-requests/{supportRequest}',
+        [CustomerSupportRequestCenterController::class, 'show']
+    )->whereNumber('supportRequest');
+
+    Route::post(
+        '/customer/support-requests/{supportRequest}/supplement',
+        [CustomerSupportRequestCenterController::class, 'supplement']
+    )->whereNumber('supportRequest');
 });
 
 /*
@@ -205,7 +330,193 @@ Route::middleware(['auth:sanctum', 'role:support staff'])->group(function () {
     Route::get('/notifications/support/{id}', [SupportNotificationController::class, 'getNotificationDetail'])->whereNumber('id');
     Route::patch('/notifications/support/{id}/read', [SupportNotificationController::class, 'markAsRead'])->whereNumber('id');
     Route::post('/notifications/support/send', [SupportNotificationController::class, 'sendNotification']);
+<<<<<<< Updated upstream
+
+    // Route cụ thể phải đứng trước /{supportRequest}
+    Route::get( '/support/requests/badge-count', [SupportRequestController::class, 'badgeCount'] );
+    Route::get( '/support/requests/assignees', [SupportRequestController::class, 'assignees'] );
+    Route::get( '/support/requests', [SupportRequestController::class, 'index']);
+    Route::get( '/support/requests/{supportRequest}', [SupportRequestController::class, 'show'] )->whereNumber('supportRequest');
+    Route::post( '/support/requests/{supportRequest}/claim',[SupportRequestController::class, 'claim'])->whereNumber('supportRequest');
+    Route::post( '/support/requests/{supportRequest}/release', [SupportRequestController::class, 'release'] )->whereNumber('supportRequest');
+    Route::post( '/support/requests/{supportRequest}/resolve', [SupportRequestController::class, 'resolve'] )->whereNumber('supportRequest');
+=======
+
+    // Route cụ thể phải đứng trước /{supportRequest}
+    Route::get( '/support/requests/badge-count', [SupportRequestController::class, 'badgeCount'] );
+    Route::get( '/support/requests/assignees', [SupportRequestController::class, 'assignees'] );
+    Route::get( '/support/requests', [SupportRequestController::class, 'index']);
+    Route::get( '/support/requests/{supportRequest}', [SupportRequestController::class, 'show'] )->whereNumber('supportRequest');
+    Route::post( '/support/requests/{supportRequest}/claim',[SupportRequestController::class, 'claim'])->whereNumber('supportRequest');
+    Route::post( '/support/requests/{supportRequest}/release', [SupportRequestController::class, 'release'] )->whereNumber('supportRequest');
+    Route::post( '/support/requests/{supportRequest}/resolve', [SupportRequestController::class, 'resolve'] )->whereNumber('supportRequest');
+
+        /*
+     * Route cụ thể phải đứng trước /{supportRequest}.
+     */
+    Route::get(
+        '/support/requests/badge-count',
+        [SupportRequestController::class, 'badgeCount']
+    );
+
+    Route::get(
+        '/support/requests/assignees',
+        [SupportRequestController::class, 'assignees']
+    );
+
+    Route::get(
+        '/support/requests/staff-options',
+        [SupportRequestController::class, 'staffOptions']
+    );
+
+    Route::get(
+        '/support/requests',
+        [SupportRequestController::class, 'index']
+    );
+
+    Route::get(
+        '/support/requests/{supportRequest}',
+        [SupportRequestController::class, 'show']
+    )->whereNumber('supportRequest');
+
+    /*
+     * Workflow
+     */
+    Route::post(
+        '/support/requests/{supportRequest}/claim',
+        [SupportRequestController::class, 'claim']
+    )->whereNumber('supportRequest');
+
+    Route::post(
+        '/support/requests/{supportRequest}/release',
+        [SupportRequestController::class, 'release']
+    )->whereNumber('supportRequest');
+
+    // Route::post(
+    //     '/support/requests/{supportRequest}/resolve',
+    //     [SupportRequestController::class, 'resolve']
+    // )->whereNumber('supportRequest');
+
+    Route::post(
+        '/support/requests/{supportRequest}/transfer',
+        [SupportRequestController::class, 'transfer']
+    )->whereNumber('supportRequest');
+
+    /*
+     * Trao đổi
+     */
+    Route::get(
+        '/support/requests/{supportRequest}/messages',
+        [SupportRequestController::class, 'messages']
+    )->whereNumber('supportRequest');
+
+    Route::post(
+        '/support/requests/{supportRequest}/messages',
+        [SupportRequestController::class, 'sendMessage']
+    )->whereNumber('supportRequest');
+
+    /*
+     * Lịch sử trạng thái
+     */
+    Route::get(
+        '/support/requests/{supportRequest}/history',
+        [SupportRequestController::class, 'history']
+    )->whereNumber('supportRequest');
 });
+
+
+// ===================== Đặt lại mật khẩu user=============
+// xác nhận email or sdt, gửi otp
+Route::post('/forgot-password', [CustomerController::class, 'forgotPassword'])->middleware('throttle:5,1');
+// Xác nhận otp và sửa lại mk
+Route::post('/reset-password', [CustomerController::class, 'resetPassword']);
+Route::post('/travel-assistant', [ChatBotController::class, 'handleChat']);
+// Quản lý tour cho khách hàng
+Route::prefix('tours')->group(function () {
+    Route::get('/search', [TourController::class, 'search_gdkh']);
+    Route::get('/filter', [TourController::class, 'filter_gdkh']);
+    Route::get('/', [TourController::class, 'index_gdkh']);
+    // Quản lý danh sách yêu thích (wishlist) cho khách hàng
+    Route::middleware(['auth:sanctum', 'role:customer'])->group(function () {
+        Route::get('wishlist', [WishlistController::class, 'index']);
+        Route::post('wishlist', [WishlistController::class, 'store']);
+        Route::delete('wishlist/{tour_id}', [WishlistController::class, 'destroy']);
+    });
+>>>>>>> Stashed changes
+
+        /*
+     * Route cụ thể phải đứng trước /{supportRequest}.
+     */
+    Route::get(
+        '/support/requests/badge-count',
+        [SupportRequestController::class, 'badgeCount']
+    );
+
+    Route::get(
+        '/support/requests/assignees',
+        [SupportRequestController::class, 'assignees']
+    );
+
+    Route::get(
+        '/support/requests/staff-options',
+        [SupportRequestController::class, 'staffOptions']
+    );
+
+    Route::get(
+        '/support/requests',
+        [SupportRequestController::class, 'index']
+    );
+
+    Route::get(
+        '/support/requests/{supportRequest}',
+        [SupportRequestController::class, 'show']
+    )->whereNumber('supportRequest');
+
+    /*
+     * Workflow
+     */
+    Route::post(
+        '/support/requests/{supportRequest}/claim',
+        [SupportRequestController::class, 'claim']
+    )->whereNumber('supportRequest');
+
+    Route::post(
+        '/support/requests/{supportRequest}/release',
+        [SupportRequestController::class, 'release']
+    )->whereNumber('supportRequest');
+
+    // Route::post(
+    //     '/support/requests/{supportRequest}/resolve',
+    //     [SupportRequestController::class, 'resolve']
+    // )->whereNumber('supportRequest');
+
+    Route::post(
+        '/support/requests/{supportRequest}/transfer',
+        [SupportRequestController::class, 'transfer']
+    )->whereNumber('supportRequest');
+
+    /*
+     * Trao đổi
+     */
+    Route::get(
+        '/support/requests/{supportRequest}/messages',
+        [SupportRequestController::class, 'messages']
+    )->whereNumber('supportRequest');
+
+    Route::post(
+        '/support/requests/{supportRequest}/messages',
+        [SupportRequestController::class, 'sendMessage']
+    )->whereNumber('supportRequest');
+
+    /*
+     * Lịch sử trạng thái
+     */
+    Route::get(
+        '/support/requests/{supportRequest}/history',
+        [SupportRequestController::class, 'history']
+    )->whereNumber('supportRequest');
+});
+
 
 /*
 |--------------------------------------------------------------------------
@@ -419,6 +730,28 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(functi
     Route::post('guide-leave-requests/{leaveRequest}/approve', [AdminGuideLeaveRequestController::class, 'approve']);
     Route::post('guide-leave-requests/{leaveRequest}/reject', [AdminGuideLeaveRequestController::class, 'reject']);
     Route::patch('guide-leave-requests/{leaveRequest}/decision', [AdminGuideLeaveRequestController::class, 'updateDecision']);
+
+    // ================= THÔNG BÁO ADMIN NHẬN =================
+
+    Route::get(
+        'received-notifications',
+        [AdminReceivedNotificationController::class, 'index']
+    );
+
+    Route::get(
+        'received-notifications/unread-count',
+        [AdminReceivedNotificationController::class, 'unreadCount']
+    );
+
+    Route::get(
+        'received-notifications/{notification}',
+        [AdminReceivedNotificationController::class, 'show']
+    )->whereNumber('notification');
+
+    Route::post(
+        'support-requests/{supportRequest}/processed',
+        [AdminReceivedNotificationController::class, 'processSupportRequest']
+    )->whereNumber('supportRequest');
 });
 
 /*

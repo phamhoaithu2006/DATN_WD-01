@@ -9,6 +9,7 @@ import {
   fetchCatalogDestinations,
   fetchTours,
 } from "../../services/customerApi";
+import CustomerSupportMenuBadge from './CustomerSupportMenuBadge'
 
 // Detailed mock data structured for the Mega Menu categories, tabs, and content items
 const megaMenuData = {
@@ -586,11 +587,19 @@ function Header({ user, onLogout, pendingCount = 0 }) {
             to="/customer/profile?view=support"
             className={({ isActive }) =>
               `relative py-6 font-semibold text-[0.98rem] transition-colors duration-200 ${
-                isActive ? "text-blue-600" : "text-[#111820] hover:text-blue-600"
+                isActive
+                  ? 'text-blue-600'
+                  : 'text-[#111820] hover:text-blue-600'
               }`
             }
           >
-            {language === "vi" ? "Hỗ trợ" : "Support"}
+            {language === 'vi'
+              ? 'Hỗ trợ'
+              : 'Support'}
+
+            {user ? (
+              <CustomerSupportMenuBadge />
+            ) : null}
           </NavLink>
         </nav>
 

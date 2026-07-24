@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom'
 import { tourDepartureApi } from '../../services/tourDepartureApi'
 import adminGuideReplacementRequestApi from '../../services/adminGuideReplacementRequestApi'
 import adminGuideLeaveRequestApi from '../../services/adminGuideLeaveRequestApi'
+import { getAdminReceivedUnreadCount } from '../../services/supportWorkflowApi'
 
 const menuItems = [
   {
@@ -105,8 +106,19 @@ const menuItems = [
     ),
   },
   {
-    label: 'Thông Báo',
+    label: 'Gửi Thông Báo',
     path: '/admin/notifications',
+    icon: (
+      <>
+        <path d="M22 2 11 13" />
+        <path d="m22 2-7 20-4-9-9-4Z" />
+      </>
+    ),
+  },
+  {
+    label: 'Thông Báo Đã Nhận',
+    path: '/admin/notifications/received',
+    showReceivedNotificationBadge: true,
     icon: (
       <>
         <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
@@ -241,6 +253,7 @@ function AdminSidebar({
 }) {
   const [internalWarningCount, setInternalWarningCount] = useState(0)
   const [guideLeavePendingCount, setGuideLeavePendingCount] = useState(0)
+  const [receivedNotificationUnreadCount, setReceivedNotificationUnreadCount] = useState(0)
 
   const visibleMenuItems = useMemo(() => {
     return role === 'admin' ? menuItems : []
@@ -316,19 +329,40 @@ function AdminSidebar({
     }
   }, [role])
 
+  const loadReceivedNotificationUnreadCount = useCallback(async () => {
+    if (role !== 'admin') {
+      setReceivedNotificationUnreadCount(0)
+      return
+    }
+
+    try {
+      const count = await getAdminReceivedUnreadCount()
+      setReceivedNotificationUnreadCount(Number(count || 0))
+    } catch (error) {
+      console.error(error)
+      setReceivedNotificationUnreadCount(0)
+    }
+  }, [role])
+
   useEffect(() => {
     const loadTimeout = window.setTimeout(() => {
       void loadTourDepartureWarningCount()
       void loadGuideLeavePendingCount()
+      void loadReceivedNotificationUnreadCount()
     }, 0)
 
     return () => window.clearTimeout(loadTimeout)
-  }, [loadTourDepartureWarningCount, loadGuideLeavePendingCount])
+  }, [
+    loadTourDepartureWarningCount,
+    loadGuideLeavePendingCount,
+    loadReceivedNotificationUnreadCount,
+  ])
 
   useEffect(() => {
     const handleRefresh = () => {
       void loadTourDepartureWarningCount()
       void loadGuideLeavePendingCount()
+      void loadReceivedNotificationUnreadCount()
     }
 
     window.addEventListener('focus', handleRefresh)
@@ -336,6 +370,7 @@ function AdminSidebar({
     window.addEventListener('tour-departure-assignment:changed', handleRefresh)
     window.addEventListener('admin-guide-replacement:changed', handleRefresh)
     window.addEventListener('admin-guide-leave-request:changed', handleRefresh)
+    window.addEventListener('admin-notification:changed', handleRefresh)
 
     return () => {
       window.removeEventListener('focus', handleRefresh)
@@ -343,8 +378,13 @@ function AdminSidebar({
       window.removeEventListener('tour-departure-assignment:changed', handleRefresh)
       window.removeEventListener('admin-guide-replacement:changed', handleRefresh)
       window.removeEventListener('admin-guide-leave-request:changed', handleRefresh)
+      window.removeEventListener('admin-notification:changed', handleRefresh)
     }
-  }, [loadTourDepartureWarningCount, loadGuideLeavePendingCount])
+  }, [
+    loadTourDepartureWarningCount,
+    loadGuideLeavePendingCount,
+    loadReceivedNotificationUnreadCount,
+  ])
 
   const assignmentWarningCount = Number(
     tourDepartureWarningCount ?? internalWarningCount ?? 0
@@ -388,14 +428,16 @@ function AdminSidebar({
             ? assignmentWarningCount
             : item.showGuideLeaveBadge
               ? guideLeavePendingCount
-              : 0
+              : item.showReceivedNotificationBadge
+                ? receivedNotificationUnreadCount
+                : 0
 
           return (
             <NavLink
               className={({ isActive }) =>
                 isActive ? 'admin-nav-link active' : 'admin-nav-link'
               }
-              end={item.path === '/admin'}
+              end={item.path === '/admin' || item.path === '/admin/notifications'}
               key={item.path}
               to={item.path}
               title={collapsed ? item.label : undefined}
