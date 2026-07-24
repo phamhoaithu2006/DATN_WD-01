@@ -110,7 +110,20 @@ export async function fetchVnpayReturnStatus(params) {
   return response.data?.data || response.data
 }
 
-export async function askTravelAssistant(message, sessionId, requestHuman = false) {
+export async function askTravelAssistant(message, sessionId, requestHuman = false, imageFile = null) {
+  if (imageFile) {
+    const formData = new FormData()
+    if (message) formData.append('message', message)
+    formData.append('session_id', sessionId)
+    formData.append('request_human', requestHuman ? '1' : '0')
+    formData.append('image', imageFile)
+
+    const response = await api.post('/travel-assistant', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return response.data?.data || response.data
+  }
+
   const response = await api.post('/travel-assistant', {
     message,
     session_id: sessionId,

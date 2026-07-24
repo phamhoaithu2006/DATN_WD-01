@@ -17,6 +17,31 @@ function formatTime(value) {
 }
 
 const POLL_INTERVAL = 4000
+const QUICK_REPLY_STORAGE_KEY = 'vivugo_support_quick_replies'
+
+const DEFAULT_QUICK_REPLIES = [
+  { id: 'default-1', label: 'Chào hỏi', content: 'Chào bạn, mình là nhân viên hỗ trợ của ViVuGo. Mình có thể giúp gì cho bạn?' },
+  { id: 'default-2', label: 'Xin đợi', content: 'Bạn vui lòng chờ mình một chút để kiểm tra thông tin nhé.' },
+  { id: 'default-3', label: 'Xin thông tin đơn', content: 'Bạn cho mình xin mã đơn hàng hoặc số điện thoại đặt tour để mình tra cứu nhanh hơn nhé.' },
+  { id: 'default-4', label: 'Xác nhận đã xử lý', content: 'Mình đã xử lý xong yêu cầu này rồi ạ. Bạn kiểm tra lại giúp mình nhé.' },
+  { id: 'default-5', label: 'Hướng dẫn thanh toán', content: 'Bạn có thể thanh toán qua VNPay hoặc chuyển khoản trực tiếp. Mình gửi hướng dẫn chi tiết cho bạn nhé.' },
+  { id: 'default-6', label: 'Xin lỗi vì chậm trễ', content: 'Mình xin lỗi vì đã để bạn chờ lâu. Mình sẽ hỗ trợ bạn ngay bây giờ.' },
+  { id: 'default-7', label: 'Cảm ơn & kết thúc', content: 'Cảm ơn bạn đã liên hệ ViVuGo. Nếu cần hỗ trợ thêm, bạn cứ nhắn cho mình nhé!' },
+]
+
+function loadQuickReplies() {
+  try {
+    const raw = localStorage.getItem(QUICK_REPLY_STORAGE_KEY)
+    const parsed = raw ? JSON.parse(raw) : null
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_QUICK_REPLIES
+  } catch {
+    return DEFAULT_QUICK_REPLIES
+  }
+}
+
+function saveQuickReplies(list) {
+  localStorage.setItem(QUICK_REPLY_STORAGE_KEY, JSON.stringify(list))
+}
 
 function SupportChatbotPage() {
   const [tab, setTab] = useState('pending')
@@ -33,8 +58,19 @@ function SupportChatbotPage() {
   const [sending, setSending] = useState(false)
   const [chatError, setChatError] = useState('')
 
+  const [imageFile, setImageFile] = useState(null)
+  const [imagePreview, setImagePreview] = useState('')
+
+  const [quickReplies, setQuickReplies] = useState(loadQuickReplies)
+  const [quickPanelOpen, setQuickPanelOpen] = useState(false)
+  const [editingReply, setEditingReply] = useState(null) // {id, label, content} hoặc null khi thêm mới
+  const [draftLabel, setDraftLabel] = useState('')
+  const [draftContent, setDraftContent] = useState('')
+
   const messagesEndRef = useRef(null)
   const pollRef = useRef(null)
+  const replyInputRef = useRef(null)
+  const fileInputRef = useRef(null)
 
   const loadLists = useCallback(async () => {
     try {
@@ -46,9 +82,7 @@ function SupportChatbotPage() {
       setMineList(mine)
       setListError('')
     } catch (error) {
-      setListError(
-        error?.response?.data?.message || 'Không tải được danh sách chat.',
-      )
+      setListError(error?.response?.data?.message || 'Không tải được danh sách chat.')
     } finally {
       setLoadingList(false)
     }
@@ -56,9 +90,7 @@ function SupportChatbotPage() {
 
   useEffect(() => {
     void loadLists()
-    const intervalId = window.setInterval(() => {
-      void loadLists()
-    }, 8000)
+    const intervalId = window.setInterval(() => void loadLists(), 8000)
     return () => window.clearInterval(intervalId)
   }, [loadLists])
 
@@ -67,10 +99,7 @@ function SupportChatbotPage() {
       const response = await supportChatApi.show(conversationId)
       setMessages(response?.messages || [])
     } catch (error) {
-      setChatError(
-        error?.response?.data?.message ||
-          'Không tải được nội dung hội thoại.',
-      )
+      setChatError(error?.response?.data?.message || 'Không tải được nội dung hội thoại.')
     }
   }, [])
 
@@ -79,13 +108,8 @@ function SupportChatbotPage() {
       if (pollRef.current) window.clearInterval(pollRef.current)
       return undefined
     }
-
     void loadConversation(activeConversation.id)
-
-    pollRef.current = window.setInterval(() => {
-      void loadConversation(activeConversation.id)
-    }, POLL_INTERVAL)
-
+    pollRef.current = window.setInterval(() => void loadConversation(activeConversation.id), POLL_INTERVAL)
     return () => {
       if (pollRef.current) window.clearInterval(pollRef.current)
     }
@@ -95,9 +119,69 @@ function SupportChatbotPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  async function handleAccept(conversation) {
-    if (acceptingId) return // đang có 1 request tiếp nhận khác chạy, chặn bấm thêm
+  // Ctrl+1..Ctrl+9 điền nhanh theo đúng thứ tự đang hiển thị trong danh sách hiện tại (kể cả mẫu tự thêm)
+  useEffect(() => {
+    function handleKeyDown(event) {
+      if (!event.ctrlKey || !activeConversation) return
+      const index = Number(event.key) - 1
+      if (index >= 0 && index < quickReplies.length) {
+        event.preventDefault()
+        setReplyText(quickReplies[index].content)
+        replyInputRef.current?.focus()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [activeConversation, quickReplies])
 
+  function insertQuickReply(template) {
+    setReplyText(template.content)
+    setQuickPanelOpen(false)
+    replyInputRef.current?.focus()
+  }
+
+  function openAddReplyForm() {
+    setEditingReply(null)
+    setDraftLabel('')
+    setDraftContent('')
+  }
+
+  function openEditReplyForm(template) {
+    setEditingReply(template)
+    setDraftLabel(template.label)
+    setDraftContent(template.content)
+  }
+
+  function saveReplyDraft() {
+    const label = draftLabel.trim()
+    const content = draftContent.trim()
+    if (!label || !content) return
+
+    let next
+    if (editingReply) {
+      next = quickReplies.map((item) =>
+        item.id === editingReply.id ? { ...item, label, content } : item,
+      )
+    } else {
+      next = [...quickReplies, { id: `custom-${Date.now()}`, label, content }]
+    }
+
+    setQuickReplies(next)
+    saveQuickReplies(next)
+    setEditingReply(null)
+    setDraftLabel('')
+    setDraftContent('')
+  }
+
+  function deleteReply(id) {
+    if (!window.confirm('Xóa mẫu tin nhắn này?')) return
+    const next = quickReplies.filter((item) => item.id !== id)
+    setQuickReplies(next)
+    saveQuickReplies(next)
+  }
+
+  async function handleAccept(conversation) {
+    if (acceptingId) return
     setAcceptingId(conversation.id)
     setListError('')
     try {
@@ -109,11 +193,8 @@ function SupportChatbotPage() {
       await loadConversation(conversation.id)
       setChatLoading(false)
     } catch (error) {
-      setListError(
-        error?.response?.data?.message ||
-          'Không tiếp nhận được (có thể nhân viên khác đã nhận trước).',
-      )
-      await loadLists() // đồng bộ lại danh sách với server ngay khi lỗi
+      setListError(error?.response?.data?.message || 'Không tiếp nhận được.')
+      await loadLists()
     } finally {
       setAcceptingId(null)
     }
@@ -126,16 +207,42 @@ function SupportChatbotPage() {
     loadConversation(conversation.id).finally(() => setChatLoading(false))
   }
 
+  function handleImageSelect(event) {
+    const file = event.target.files?.[0] || null
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      setChatError('Chỉ được chọn file ảnh.')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setChatError('Ảnh không được vượt quá 5MB.')
+      return
+    }
+
+    setChatError('')
+    setImageFile(file)
+    setImagePreview(URL.createObjectURL(file))
+  }
+
+  function clearSelectedImage() {
+    if (imagePreview) URL.revokeObjectURL(imagePreview)
+    setImageFile(null)
+    setImagePreview('')
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
   async function handleSendReply(event) {
     event.preventDefault()
     const content = replyText.trim()
-    if (!content || !activeConversation || sending) return
+    if ((!content && !imageFile) || !activeConversation || sending) return
 
     setSending(true)
     setChatError('')
     try {
-      await supportChatApi.reply(activeConversation.id, content)
+      await supportChatApi.reply(activeConversation.id, { content, imageFile })
       setReplyText('')
+      clearSelectedImage()
       await loadConversation(activeConversation.id)
     } catch (error) {
       setChatError(error?.response?.data?.message || 'Không gửi được tin nhắn.')
@@ -147,16 +254,13 @@ function SupportChatbotPage() {
   async function handleClose() {
     if (!activeConversation) return
     if (!window.confirm('Đóng phiên hỗ trợ này và trả lại cho AI xử lý?')) return
-
     try {
       await supportChatApi.close(activeConversation.id)
       setActiveConversation(null)
       setMessages([])
       await loadLists()
     } catch (error) {
-      setChatError(
-        error?.response?.data?.message || 'Không đóng được phiên hỗ trợ.',
-      )
+      setChatError(error?.response?.data?.message || 'Không đóng được phiên hỗ trợ.')
     }
   }
 
@@ -170,84 +274,40 @@ function SupportChatbotPage() {
         description="Tiếp nhận và trả lời các yêu cầu khách hàng chuyển giao từ AI."
       />
 
-      <div
-        className="support-chat-layout"
-        style={{ display: 'flex', gap: 16, marginTop: 16 }}
-      >
-        <div className="support-chat-list-pane" style={{ width: 320, flexShrink: 0 }}>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-            <button
-              type="button"
-              onClick={() => setTab('pending')}
-              className={tab === 'pending' ? 'is-active' : ''}
-            >
+      <div className="support-chat-layout">
+        <div className="support-chat-list-pane">
+          <div className="support-chat-tabs">
+            <button type="button" onClick={() => setTab('pending')} className={tab === 'pending' ? 'is-active' : ''}>
               Đang chờ ({pendingList.length})
             </button>
-            <button
-              type="button"
-              onClick={() => setTab('mine')}
-              className={tab === 'mine' ? 'is-active' : ''}
-            >
+            <button type="button" onClick={() => setTab('mine')} className={tab === 'mine' ? 'is-active' : ''}>
               Đang xử lý ({mineList.length})
             </button>
           </div>
 
-          {listError ? (
-            <div className="support-toast error">
-              <p>{listError}</p>
-            </div>
-          ) : null}
+          {listError ? <div className="support-toast error"><p>{listError}</p></div> : null}
 
           {loadingList ? (
             <p>Đang tải danh sách...</p>
           ) : displayList.length === 0 ? (
-            <p>
-              {tab === 'pending'
-                ? 'Không có yêu cầu nào đang chờ.'
-                : 'Bạn chưa xử lý cuộc trò chuyện nào.'}
-            </p>
+            <p>{tab === 'pending' ? 'Không có yêu cầu nào đang chờ.' : 'Bạn chưa xử lý cuộc trò chuyện nào.'}</p>
           ) : (
             <div className="support-chat-list">
               {displayList.map((conversation) => (
                 <div
                   key={conversation.id}
-                  style={{
-                    border: '1px solid #e2e8f0',
-                    borderRadius: 8,
-                    padding: 12,
-                    marginBottom: 8,
-                    background:
-                      activeConversation?.id === conversation.id
-                        ? '#eff6ff'
-                        : '#fff',
-                  }}
+                  className={`support-chat-list-item ${activeConversation?.id === conversation.id ? 'is-active' : ''}`}
                 >
                   <strong>{conversation.session_id}</strong>
-                  <p style={{ fontSize: 13, color: '#64748b', margin: '4px 0' }}>
-                    {conversation.last_message || 'Chưa có tin nhắn'}
-                  </p>
+                  <p>{conversation.last_message || 'Chưa có tin nhắn'}</p>
                   <small>{formatTime(conversation.handoff_requested_at)}</small>
                   <br />
-
                   {tab === 'pending' ? (
-                    <button
-                      type="button"
-                      onClick={() => handleAccept(conversation)}
-                      disabled={acceptingId === conversation.id}
-                      style={{ marginTop: 8 }}
-                    >
-                      {acceptingId === conversation.id
-                        ? 'Đang tiếp nhận...'
-                        : 'Tiếp nhận'}
+                    <button type="button" onClick={() => handleAccept(conversation)} disabled={acceptingId === conversation.id}>
+                      {acceptingId === conversation.id ? 'Đang tiếp nhận...' : 'Tiếp nhận'}
                     </button>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => openConversation(conversation)}
-                      style={{ marginTop: 8 }}
-                    >
-                      Mở hội thoại
-                    </button>
+                    <button type="button" onClick={() => openConversation(conversation)}>Mở hội thoại</button>
                   )}
                 </div>
               ))}
@@ -255,73 +315,34 @@ function SupportChatbotPage() {
           )}
         </div>
 
-        <div
-          className="support-chat-panel"
-          style={{
-            flex: 1,
-            border: '1px solid #e2e8f0',
-            borderRadius: 8,
-            display: 'flex',
-            flexDirection: 'column',
-            minHeight: 480,
-          }}
-        >
+        <div className="support-chat-panel">
           {!activeConversation ? (
-            <div style={{ margin: 'auto', color: '#94a3b8' }}>
-              Chọn một cuộc trò chuyện để bắt đầu hỗ trợ.
-            </div>
+            <div className="support-chat-empty-state">Chọn một cuộc trò chuyện để bắt đầu hỗ trợ.</div>
           ) : (
             <>
-              <div
-                style={{
-                  padding: 12,
-                  borderBottom: '1px solid #e2e8f0',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                }}
-              >
+              <div className="support-chat-panel-header">
                 <strong>{activeConversation.session_id}</strong>
-                <button type="button" onClick={handleClose}>
-                  Đóng phiên
-                </button>
+                <button type="button" onClick={handleClose}>Đóng phiên</button>
               </div>
 
-              <div style={{ flex: 1, overflowY: 'auto', padding: 12 }}>
+              <div className="support-chat-messages">
                 {chatLoading ? (
                   <p>Đang tải hội thoại...</p>
                 ) : (
                   messages.map((message) => (
-                    <div
-                      key={message.id}
-                      style={{
-                        marginBottom: 10,
-                        textAlign: message.role === 'staff' ? 'right' : 'left',
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: 'inline-block',
-                          padding: '8px 12px',
-                          borderRadius: 10,
-                          maxWidth: '75%',
-                          background:
-                            message.role === 'user'
-                              ? '#f1f5f9'
-                              : message.role === 'staff'
-                                ? '#2563eb'
-                                : '#e0f2fe',
-                          color: message.role === 'staff' ? '#fff' : '#0f172a',
-                        }}
-                      >
-                        {message.content}
+                    <div key={message.id} className={`support-chat-msg-row role-${message.role}`}>
+                      <div className="support-chat-bubble">
+                        {message.attachment_url ? (
+                          <img
+                            src={message.attachment_url}
+                            alt="Ảnh đính kèm"
+                            className="support-chat-image"
+                          />
+                        ) : null}
+                        {message.content ? <span>{message.content}</span> : null}
                       </div>
-                      <div style={{ fontSize: 11, color: '#94a3b8' }}>
-                        {message.role === 'user'
-                          ? 'Khách'
-                          : message.role === 'staff'
-                            ? 'Bạn'
-                            : 'AI'}{' '}
-                        · {formatTime(message.created_at)}
+                      <div className="support-chat-msg-meta">
+                        {message.role === 'user' ? 'Khách' : message.role === 'staff' ? 'Bạn' : 'AI'} · {formatTime(message.created_at)}
                       </div>
                     </div>
                   ))
@@ -329,29 +350,96 @@ function SupportChatbotPage() {
                 <div ref={messagesEndRef} />
               </div>
 
-              {chatError ? (
-                <div className="support-toast error">
-                  <p>{chatError}</p>
+              {chatError ? <div className="support-toast error"><p>{chatError}</p></div> : null}
+
+              {/* Nút bật/tắt bảng tin nhắn mẫu */}
+              <div className="support-quick-reply-bar">
+                <button
+                  type="button"
+                  className="support-quick-reply-toggle"
+                  onClick={() => setQuickPanelOpen((current) => !current)}
+                >
+                  ⚡ Tin nhắn mẫu {quickPanelOpen ? '▲' : '▼'}
+                </button>
+
+                {quickPanelOpen ? (
+                  <div className="support-quick-reply-panel">
+                    {quickReplies.map((template, index) => (
+                      <div key={template.id} className="support-quick-reply-row">
+                        <button
+                          type="button"
+                          className="support-quick-reply-item"
+                          onClick={() => insertQuickReply(template)}
+                        >
+                          <span className="support-quick-reply-shortcut">
+                            {index < 9 ? `Ctrl+${index + 1}` : ''}
+                          </span>
+                          <span className="support-quick-reply-label">{template.label}</span>
+                          <span className="support-quick-reply-preview">{template.content}</span>
+                        </button>
+                        <div className="support-quick-reply-actions">
+                          <button type="button" onClick={() => openEditReplyForm(template)}>Sửa</button>
+                          <button type="button" onClick={() => deleteReply(template.id)}>Xóa</button>
+                        </div>
+                      </div>
+                    ))}
+
+                    <div className="support-quick-reply-form">
+                      <input
+                        placeholder="Tên gợi nhớ (VD: Chào hỏi)"
+                        value={draftLabel}
+                        onChange={(event) => setDraftLabel(event.target.value)}
+                      />
+                      <textarea
+                        placeholder="Nội dung tin nhắn mẫu..."
+                        value={draftContent}
+                        onChange={(event) => setDraftContent(event.target.value)}
+                        rows={2}
+                      />
+                      <div className="support-quick-reply-form-actions">
+                        {editingReply ? (
+                          <button type="button" onClick={openAddReplyForm}>Hủy sửa</button>
+                        ) : null}
+                        <button type="button" onClick={saveReplyDraft} disabled={!draftLabel.trim() || !draftContent.trim()}>
+                          {editingReply ? 'Lưu thay đổi' : '+ Thêm mẫu mới'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
+              {imagePreview ? (
+                <div className="support-chat-image-preview">
+                  <img src={imagePreview} alt="Xem trước" />
+                  <button type="button" onClick={clearSelectedImage}>Bỏ ảnh</button>
                 </div>
               ) : null}
 
-              <form
-                onSubmit={handleSendReply}
-                style={{
-                  display: 'flex',
-                  gap: 8,
-                  padding: 12,
-                  borderTop: '1px solid #e2e8f0',
-                }}
-              >
+              <form className="support-chat-reply-form" onSubmit={handleSendReply}>
                 <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageSelect}
+                  style={{ display: 'none' }}
+                />
+                <button
+                  type="button"
+                  className="support-chat-attach-btn"
+                  onClick={() => fileInputRef.current?.click()}
+                  title="Gửi ảnh"
+                >
+                  📎
+                </button>
+                <input
+                  ref={replyInputRef}
                   value={replyText}
                   onChange={(event) => setReplyText(event.target.value)}
                   placeholder="Nhập câu trả lời cho khách..."
-                  style={{ flex: 1 }}
                   disabled={sending}
                 />
-                <button type="submit" disabled={sending || !replyText.trim()}>
+                <button type="submit" disabled={sending || (!replyText.trim() && !imageFile)}>
                   {sending ? 'Đang gửi...' : 'Gửi'}
                 </button>
               </form>

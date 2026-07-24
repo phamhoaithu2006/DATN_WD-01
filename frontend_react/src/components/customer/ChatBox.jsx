@@ -59,14 +59,43 @@ function renderMessageText(rawText) {
   });
 }
 
-// Chuyển messages từ backend (role: user/assistant/staff) sang định dạng UI (from: user/ai)
 function mapServerMessage(message) {
   return {
     id: message.id,
     from: message.role === "user" ? "user" : "ai",
     text: message.content,
     isStaff: message.role === "staff",
+    attachmentUrl: message.attachment_url || null,
   };
+}
+
+function DefaultStaffAvatar() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
+      <circle cx="12" cy="8" r="4" fill="#fff" />
+      <path d="M4 20c0-4.4 3.6-8 8-8s8 3.6 8 8" fill="#fff" />
+    </svg>
+  );
+}
+
+function MessageAvatar({ isStaff, staffAvatarUrl }) {
+  if (isStaff) {
+    return (
+      <span className="vg-msg-avatar staff-avatar">
+        {staffAvatarUrl ? (
+          <img src={staffAvatarUrl} alt="Nhân viên hỗ trợ" />
+        ) : (
+          <DefaultStaffAvatar />
+        )}
+      </span>
+    );
+  }
+
+  return (
+    <span className="vg-msg-avatar ai-avatar">
+      <Icon name="sparkle" size={14} />
+    </span>
+  );
 }
 
 function ChatBox() {
@@ -74,7 +103,13 @@ function ChatBox() {
   const [loading, setLoading] = useState(false);
   const [text, setText] = useState("");
   const [messages, setMessages] = useState(loadStoredMessages);
-  const [mode, setMode] = useState("ai"); // 'ai' | 'pending_human' | 'human'
+  const [mode, setMode] = useState("ai");
+  const [queuePosition, setQueuePosition] = useState(null);
+  const [staffInfo, setStaffInfo] = useState({ name: "", avatar: "" });
+
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState("");
+  const fileInputRef = useRef(null);
 
   const lastMessageIdRef = useRef(0);
   const pollRef = useRef(null);
@@ -87,8 +122,6 @@ function ChatBox() {
     }
   }, [messages]);
 
-  // Polling: chỉ chạy khi đang chờ hoặc đang được nhân viên xử lý,
-  // để nhận tin nhắn mới của nhân viên mà không cần khách tự gõ gì thêm
   useEffect(() => {
     if (mode === "ai") {
       if (pollRef.current) window.clearInterval(pollRef.current);
@@ -109,11 +142,18 @@ function ChatBox() {
           }
         }
 
-        if (response?.mode) {
-          setMode(response.mode);
+        if (response?.mode) setMode(response.mode);
+        if (typeof response?.queue_position === "number") {
+          setQueuePosition(response.queue_position);
+        }
+        if (response?.assigned_staff_name || response?.assigned_staff_avatar) {
+          setStaffInfo({
+            name: response.assigned_staff_name || "",
+            avatar: response.assigned_staff_avatar || "",
+          });
         }
       } catch {
-        // im lặng bỏ qua lỗi polling, không làm phiền khách
+        // bỏ qua lỗi polling
       }
     }
 
@@ -125,24 +165,56 @@ function ChatBox() {
     };
   }, [mode]);
 
+  function handleImageSelect(event) {
+    const file = event.target.files?.[0] || null;
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) return;
+    if (file.size > 5 * 1024 * 1024) return;
+
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+  }
+
+  function clearSelectedImage() {
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    setImageFile(null);
+    setImagePreview("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
   async function sendMessage(event, quickText = "", requestHuman = false) {
     event?.preventDefault();
     const message = requestHuman
       ? "Tôi muốn gặp nhân viên hỗ trợ"
       : (quickText || text).trim();
 
-    if ((!message || loading) && !requestHuman) return;
+    if ((!message && !imageFile) || loading) {
+      if (!requestHuman) return;
+    }
 
-    setMessages((current) => [...current, { from: "user", text: message }]);
+    setMessages((current) => [
+      ...current,
+      { from: "user", text: message, attachmentUrl: imagePreview || null },
+    ]);
     setText("");
+
+    const sentImage = imageFile;
+    clearSelectedImage();
     setLoading(true);
 
     try {
       const sessionId = getOrCreateSessionId();
-      const response = await askTravelAssistant(message, sessionId, requestHuman);
+      const response = await askTravelAssistant(
+        message,
+        sessionId,
+        requestHuman,
+        sentImage,
+      );
 
-      if (response?.mode) {
-        setMode(response.mode);
+      if (response?.mode) setMode(response.mode);
+      if (typeof response?.queue_position === "number") {
+        setQueuePosition(response.queue_position);
       }
 
       if (response?.reply) {
@@ -177,11 +249,15 @@ function ChatBox() {
               <Icon name="sparkle" />
             </div>
             <div>
-              <strong>Trợ lý ViVuGo AI</strong>
+              <strong>
+                {mode === "human" && staffInfo.name
+                  ? staffInfo.name
+                  : "Trợ lý ViVuGo AI"}
+              </strong>
               <span>
                 <i />
                 {mode === "human"
-                  ? " Đang chat với nhân viên"
+                  ? " Nhân viên đang hỗ trợ"
                   : mode === "pending_human"
                     ? " Đang chờ nhân viên..."
                     : " Đang trực tuyến"}
@@ -195,23 +271,55 @@ function ChatBox() {
               <Icon name="close" />
             </button>
           </header>
+
           <div className="vg-chat-content">
             <p className="vg-chat-date">Hôm nay</p>
+
             {messages.map((message, index) => (
               <div
                 key={message.id || `${message.from}-${index}`}
-                className={`vg-message ${message.from}${message.isStaff ? " staff" : ""}`}
+                className={`vg-message-row ${message.from === "user" ? "is-user" : "is-ai"}`}
               >
-                {message.from === "ai"
-                  ? renderMessageText(message.text)
-                  : message.text}
+                {message.from !== "user" ? (
+                  <MessageAvatar
+                    isStaff={Boolean(message.isStaff)}
+                    staffAvatarUrl={staffInfo.avatar}
+                  />
+                ) : null}
+
+                <div
+                  className={`vg-message ${message.from}${message.isStaff ? " staff" : ""}`}
+                >
+                  {message.attachmentUrl ? (
+                    <img
+                      src={message.attachmentUrl}
+                      alt="Ảnh đính kèm"
+                      className="vg-message-image"
+                    />
+                  ) : null}
+                  {message.from === "ai"
+                    ? renderMessageText(message.text)
+                    : message.text}
+                </div>
               </div>
             ))}
+
+            {mode === "pending_human" && queuePosition ? (
+              <div className="vg-queue-banner">
+                <span className="vg-queue-dots">•••</span>
+                Hàng đợi của bạn là <strong>#{queuePosition}</strong>. Bạn vui
+                lòng chờ thêm xíu nhé.
+              </div>
+            ) : null}
+
             {loading ? (
-              <div className="vg-message ai vg-typing">
-                <i />
-                <i />
-                <i />
+              <div className="vg-message-row is-ai">
+                <MessageAvatar isStaff={false} />
+                <div className="vg-message ai vg-typing">
+                  <i />
+                  <i />
+                  <i />
+                </div>
               </div>
             ) : null}
           </div>
@@ -247,8 +355,34 @@ function ChatBox() {
             </div>
           ) : null}
 
+          {imagePreview ? (
+            <div className="vg-image-preview-bar">
+              <img src={imagePreview} alt="Xem trước" />
+              <button type="button" onClick={clearSelectedImage}>
+                Bỏ ảnh
+              </button>
+            </div>
+          ) : null}
+
           <form onSubmit={sendMessage}>
             <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImageSelect}
+              style={{ display: "none" }}
+            />
+            <button
+              type="button"
+              className="vg-attach-btn"
+              onClick={() => fileInputRef.current?.click()}
+              aria-label="Gửi ảnh"
+              title="Gửi ảnh"
+            >
+              📎
+            </button>
+            <input
+              type="text"
               value={text}
               onChange={(event) => setText(event.target.value)}
               placeholder={
@@ -275,9 +409,7 @@ function ChatBox() {
         {open ? (
           <Icon name="close" />
         ) : (
-          <>
-            <Icon name="sparkle" size={25} />
-          </>
+          <Icon name="sparkle" size={25} />
         )}
       </button>
     </div>
