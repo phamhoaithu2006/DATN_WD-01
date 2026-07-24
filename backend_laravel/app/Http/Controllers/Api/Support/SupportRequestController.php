@@ -7,6 +7,7 @@ use App\Models\SupportRequest;
 use App\Models\SupportRequestHistory;
 use App\Models\SupportRequestMessage;
 use App\Models\User;
+use App\Services\SupportWorkflowService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -16,6 +17,10 @@ use Throwable;
 
 class SupportRequestController extends Controller
 {
+    public function __construct(
+        private readonly SupportWorkflowService $workflow
+    ) {}
+
     public function index(Request $request): JsonResponse
     {
         $data = $request->validate([
@@ -907,6 +912,13 @@ class SupportRequestController extends Controller
      * Bắt buộc:
      * - assigned_to mới
      * - lý do chuyển
+     *
+     * Sau khi chuyển:
+     * - Ticket vẫn in_progress
+     * - assigned_to đổi sang NVHT mới
+     * - Người chuyển nhận thông báo xác nhận đã chuyển
+     * - Người được chuyển nhận thông báo được giao ticket mới
+     * - Ghi lịch sử chuyển NVHT
      */
     public function transfer(
         Request $request,
@@ -931,15 +943,135 @@ class SupportRequestController extends Controller
         $currentUser =
             $request->user();
 
-        $supportRequest->refresh();
+        /*
+         * Chỉ cho phép chuyển tới tài khoản NVHT.
+         * Không chỉ dựa vào exists:users,id.
+         */
+        $supportStaffUserIds =
+            $this->getSupportStaffUserIds();
 
         if (
-            $supportRequest->status !==
-                'in_progress'
-            ||
-            (int) $supportRequest
-                ->assigned_to !==
-                (int) $currentUser->id
+            ! $supportStaffUserIds->contains(
+                (int) $data['assigned_to']
+            )
+        ) {
+            return response()->json([
+                'success' => false,
+
+                'message' =>
+                    'Tài khoản được chọn không phải nhân viên hỗ trợ.',
+            ], 422);
+        }
+
+        $result = DB::transaction(
+            function () use (
+                $supportRequest,
+                $currentUser,
+                $data
+            ) {
+                $ticket =
+                    SupportRequest::query()
+                        ->lockForUpdate()
+                        ->findOrFail(
+                            $supportRequest->id
+                        );
+
+                if (
+                    $ticket->status !==
+                        'in_progress'
+                    ||
+                    (int) $ticket
+                        ->assigned_to !==
+                        (int) $currentUser->id
+                ) {
+                    return [
+                        'error' =>
+                            'forbidden',
+                    ];
+                }
+
+                if (
+                    $ticket
+                        ->admin_request_status ===
+                        'pending'
+                ) {
+                    return [
+                        'error' =>
+                            'admin_pending',
+                    ];
+                }
+
+                if (
+                    (int) $data['assigned_to'] ===
+                    (int) $currentUser->id
+                ) {
+                    return [
+                        'error' =>
+                            'same_staff',
+                    ];
+                }
+
+                $newStaff =
+                    User::query()
+                        ->findOrFail(
+                            $data['assigned_to']
+                        );
+
+                $oldAssigneeId =
+                    (int) $ticket
+                        ->assigned_to;
+
+                $ticket->forceFill([
+                    /*
+                     * Ticket vẫn đang được xử lý,
+                     * chỉ đổi người phụ trách.
+                     */
+                    'status' =>
+                        'in_progress',
+
+                    'assigned_to' =>
+                        $newStaff->id,
+                ])->save();
+
+                $this->addHistory(
+                    $ticket,
+                    (int) $currentUser->id,
+                    'transferred',
+                    'in_progress',
+                    'in_progress',
+                    "{$currentUser->full_name} đã chuyển yêu cầu cho {$newStaff->full_name}. Lý do: {$data['reason']}",
+                    [
+                        'from_assignee_id' =>
+                            $oldAssigneeId,
+
+                        'to_assignee_id' =>
+                            (int) $newStaff->id,
+
+                        'from_staff_name' =>
+                            $currentUser->full_name,
+
+                        'to_staff_name' =>
+                            $newStaff->full_name,
+
+                        'reason' =>
+                            $data['reason'],
+                    ]
+                );
+
+                return [
+                    'ticket' =>
+                        $ticket->fresh(),
+
+                    'new_staff' =>
+                        $newStaff,
+                ];
+            },
+            3
+        );
+
+        if (
+            ($result['error'] ?? null) ===
+            'forbidden'
         ) {
             return response()->json([
                 'success' => false,
@@ -950,8 +1082,20 @@ class SupportRequestController extends Controller
         }
 
         if (
-            (int) $data['assigned_to'] ===
-            (int) $currentUser->id
+            ($result['error'] ?? null) ===
+            'admin_pending'
+        ) {
+            return response()->json([
+                'success' => false,
+
+                'message' =>
+                    'Ticket đang chờ Admin xử lý nên không thể chuyển nhân viên hỗ trợ.',
+            ], 422);
+        }
+
+        if (
+            ($result['error'] ?? null) ===
+            'same_staff'
         ) {
             return response()->json([
                 'success' => false,
@@ -961,44 +1105,51 @@ class SupportRequestController extends Controller
             ], 422);
         }
 
+        /** @var SupportRequest $updatedTicket */
+        $updatedTicket =
+            $result['ticket'];
+
+        /** @var User $newStaff */
         $newStaff =
-            User::query()
-                ->findOrFail(
-                    $data['assigned_to']
-                );
+            $result['new_staff'];
 
-        $oldAssignee =
-            $supportRequest
-                ->assigned_to;
-
-        $supportRequest->update([
-            'assigned_to' =>
-                $newStaff->id,
-        ]);
-
-        $this->addHistory(
-            $supportRequest,
-            $currentUser->id,
-            'transferred',
-            'in_progress',
-            'in_progress',
-            "{$currentUser->full_name} đã chuyển yêu cầu cho {$newStaff->full_name}. Lý do: {$data['reason']}",
-            [
-                'from_assignee_id' =>
-                    $oldAssignee,
-
-                'to_assignee_id' =>
-                    $newStaff->id,
-
-                'reason' =>
-                    $data['reason'],
-            ]
+        /*
+         * Thông báo cho NGƯỜI CHUYỂN.
+         *
+         * Mục đích:
+         * - Xác nhận ticket đã được chuyển thành công.
+         * - Có thể bấm thông báo để mở lại ticket.
+         */
+        $this->workflow->notifyUser(
+            (int) $currentUser->id,
+            'Đã chuyển yêu cầu hỗ trợ',
+            "Bạn đã chuyển yêu cầu {$updatedTicket->ticket_code} cho {$newStaff->full_name}.",
+            'support_request_transferred_out',
+            (int) $updatedTicket->id
         );
 
+        /*
+         * Thông báo cho NGƯỜI ĐƯỢC CHUYỂN.
+         *
+         * Ticket sẽ xuất hiện trong:
+         * Đang hỗ trợ -> Của tôi
+         */
+        $this->workflow->notifyUser(
+            (int) $newStaff->id,
+            'Bạn được giao yêu cầu hỗ trợ mới',
+            "Bạn vừa được giao xử lý yêu cầu {$updatedTicket->ticket_code} từ {$currentUser->full_name}.",
+            'support_request_transferred_in',
+            (int) $updatedTicket->id
+        );
+
+        /*
+         * Yêu cầu sidebar / badge / notification bell cập nhật
+         * ở phía frontend sau khi API trả về thành công.
+         */
         return $this->freshResponse(
-            $supportRequest,
+            $updatedTicket,
             (int) $currentUser->id,
-            "Đã chuyển yêu cầu cho {$newStaff->full_name}."
+            "Đã chuyển yêu cầu cho {$newStaff->full_name}. Cả bạn và nhân viên được chuyển đã nhận thông báo."
         );
     }
 

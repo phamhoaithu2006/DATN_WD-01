@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import AdminPageHeader from '../../components/admin/AdminPageHeader'
+import SupportPresenceHeartbeat from '../../components/support/SupportPresenceHeartbeat'
 import {
   getSupportRequestAssignees,
   getSupportRequestDetail,
@@ -1074,7 +1075,10 @@ export default function SupportRequestsPage() {
   }
 
   return (
-    <section className="min-h-screen space-y-6 pb-10">
+    <>
+      <SupportPresenceHeartbeat />
+
+      <section className="min-h-screen space-y-6 pb-10">
       <AdminPageHeader
         breadcrumb={[
           'ViVuGo',
@@ -2534,5 +2538,6 @@ export default function SupportRequestsPage() {
         </div>
       ) : null}
     </section>
+    </>
   )
 }

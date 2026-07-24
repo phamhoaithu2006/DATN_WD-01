@@ -5,6 +5,9 @@ import adminGuideReplacementRequestApi from '../../services/adminGuideReplacemen
 import adminGuideLeaveRequestApi from '../../services/adminGuideLeaveRequestApi'
 import { getAdminReceivedUnreadCount } from '../../services/supportWorkflowApi'
 
+const ADMIN_RECEIVED_NOTIFICATIONS_PATH =
+  '/admin/notifications/received'
+
 const menuItems = [
   {
     label: 'Tổng Quan',
@@ -117,7 +120,7 @@ const menuItems = [
   },
   {
     label: 'Thông Báo Đã Nhận',
-    path: '/admin/notifications/received',
+    path: ADMIN_RECEIVED_NOTIFICATIONS_PATH,
     showReceivedNotificationBadge: true,
     icon: (
       <>

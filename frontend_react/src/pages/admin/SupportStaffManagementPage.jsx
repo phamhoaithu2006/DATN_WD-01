@@ -9,11 +9,14 @@ import {
   getSupportStaff,
   getSupportStaffStatistics,
   getSupportStaffs,
+  getSupportStaffPresence,
+  getSupportStaffActivityHistory,
   updateSupportStaff,
   uploadSupportStaffAvatar,
 } from '../../services/supportStaffApi'
 import { formatDateTimeDdMmYyyy } from '../../utils/dateFormat'
 import '../../styles/support-staff.css'
+import '../../styles/support-staff-monitoring.css'
 
 const STATUS_OPTIONS = [
   { value: 'active', label: 'Đang hoạt động' },
@@ -49,6 +52,74 @@ function initials(name = '') {
 
 function formatDateTime(value) {
   return formatDateTimeDdMmYyyy(value, '?')
+}
+
+function formatDurationSeconds(value) {
+  const totalSeconds = Math.max(Number(value || 0), 0)
+  const minutes = Math.floor(totalSeconds / 60)
+
+  if (minutes < 1) return 'Dưới 1 phút'
+  if (minutes < 60) return `${minutes} phút`
+
+  const hours = Math.floor(minutes / 60)
+  const remainMinutes = minutes % 60
+
+  if (hours < 24) {
+    return remainMinutes > 0
+      ? `${hours} giờ ${remainMinutes} phút`
+      : `${hours} giờ`
+  }
+
+  const days = Math.floor(hours / 24)
+  const remainHours = hours % 24
+
+  return remainHours > 0
+    ? `${days} ngày ${remainHours} giờ`
+    : `${days} ngày`
+}
+
+function getPresenceText(presence) {
+  if (!presence?.last_seen_at) {
+    return {
+      label: 'Chưa ghi nhận',
+      detail: 'Chưa có dữ liệu truy cập',
+    }
+  }
+
+  if (presence.is_online) {
+    return {
+      label: 'Online',
+      detail: `Đã online ${formatDurationSeconds(presence.online_seconds)}`,
+    }
+  }
+
+  return {
+    label: 'Offline',
+    detail: `Rời hệ thống ${formatDurationSeconds(presence.offline_seconds)} trước`,
+  }
+}
+
+const ACTIVITY_LABELS = {
+  claimed: 'Tiếp nhận yêu cầu',
+  released: 'Trả yêu cầu về danh sách chung',
+  transferred: 'Chuyển yêu cầu cho NVHT khác',
+  transfer: 'Chuyển yêu cầu cho NVHT khác',
+  requested_more_info: 'Yêu cầu khách bổ sung thông tin',
+  request_more_info: 'Yêu cầu khách bổ sung thông tin',
+  customer_supplemented: 'Khách hàng đã bổ sung thông tin',
+  message_sent: 'Gửi phản hồi cho khách hàng',
+  sent_to_admin: 'Gửi yêu cầu sang Admin',
+  send_to_admin: 'Gửi yêu cầu sang Admin',
+  resolved: 'Yêu cầu đã được xử lý',
+}
+
+function getActivityLabel(activity) {
+  return (
+    activity?.description ||
+    ACTIVITY_LABELS[activity?.action] ||
+    activity?.action ||
+    'Thao tác yêu cầu hỗ trợ'
+  )
 }
 
 function getServerMessage(error, fallback) {
@@ -192,6 +263,16 @@ function ActionIcon({ type }) {
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0 0-3L16.5 4a2.1 2.1 0 0 0-3 0L3 14.5V20Z" />
         <path d="M13.5 6.5 17.5 10.5" />
+      </svg>
+    )
+  }
+
+  if (type === 'history') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="8" />
+        <path d="M12 7v5l3 2" />
+        <path d="M7 4 4 7" />
       </svg>
     )
   }
@@ -466,6 +547,178 @@ function SupportStaffDetailModal({ staff, loading, deletingAvatar, onClose, onDe
   )
 }
 
+function SupportStaffActivityModal({
+  staff,
+  data,
+  loading,
+  activeTab,
+  onChangeTab,
+  onClose,
+}) {
+  const presence = data?.presence || {}
+  const ticketSummary = data?.ticket_summary || {}
+  const activities = Array.isArray(data?.activities) ? data.activities : []
+  const sessions = Array.isArray(data?.sessions) ? data.sessions : []
+  const presenceText = getPresenceText(presence)
+
+  return (
+    <div className="support-modal-backdrop" role="presentation" onMouseDown={onClose}>
+      <section
+        className="support-modal support-activity-modal"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="support-modal-heading">
+          <div>
+            <h2>Lịch sử hoạt động NVHT</h2>
+            <p>
+              {staff
+                ? `NV${String(staff.id).padStart(3, '0')} · ${staff.name || 'Nhân viên hỗ trợ'}`
+                : 'Đang tải...'}
+            </p>
+          </div>
+          <button type="button" onClick={onClose}>
+            ×
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="support-empty-state">Đang tải lịch sử hoạt động...</div>
+        ) : (
+          <>
+            <div className="support-activity-profile">
+              <SupportAvatar
+                avatarUrl={data?.staff?.avatar_url || staff?.avatar_url}
+                className="support-avatar-large"
+                name={data?.staff?.name || staff?.name}
+              />
+
+              <div className="support-activity-profile-main">
+                <h3>{data?.staff?.name || staff?.name || '—'}</h3>
+
+                <div className={`support-presence-badge ${presence.is_online ? 'online' : 'offline'}`}>
+                  <span />
+                  <strong>{presenceText.label}</strong>
+                </div>
+
+                <p>{presenceText.detail}</p>
+                <small>
+                  Tổng online hôm nay: {formatDurationSeconds(presence.today_online_seconds)}
+                </small>
+              </div>
+            </div>
+
+            <div className="support-activity-summary">
+              <div>
+                <strong>{ticketSummary.in_progress || 0}</strong>
+                <span>Đang xử lý</span>
+              </div>
+              <div>
+                <strong>{ticketSummary.needs_more_info || 0}</strong>
+                <span>Cần bổ sung</span>
+              </div>
+              <div>
+                <strong>{ticketSummary.resolved || 0}</strong>
+                <span>Đã xử lý</span>
+              </div>
+              <div>
+                <strong>{data?.activity_summary?.total_actions || 0}</strong>
+                <span>Tổng thao tác</span>
+              </div>
+            </div>
+
+            <div className="support-activity-tabs">
+              <button
+                type="button"
+                className={activeTab === 'activities' ? 'active' : ''}
+                onClick={() => onChangeTab('activities')}
+              >
+                Lịch sử thao tác
+              </button>
+              <button
+                type="button"
+                className={activeTab === 'sessions' ? 'active' : ''}
+                onClick={() => onChangeTab('sessions')}
+              >
+                Lịch sử online
+              </button>
+            </div>
+
+            {activeTab === 'activities' ? (
+              <div className="support-activity-scroll">
+                {activities.length === 0 ? (
+                  <div className="support-empty-state">
+                    Chưa ghi nhận thao tác nào trên yêu cầu hỗ trợ.
+                  </div>
+                ) : (
+                  <div className="support-activity-timeline">
+                    {activities.map((activity) => (
+                      <article key={activity.id} className="support-activity-item">
+                        <span className="support-activity-dot" />
+
+                        <div>
+                          <div className="support-activity-item-heading">
+                            <strong>{getActivityLabel(activity)}</strong>
+                            {activity.ticket_code ? (
+                              <em>{activity.ticket_code}</em>
+                            ) : null}
+                          </div>
+
+                          <p>
+                            {activity.from_status && activity.to_status
+                              ? `${activity.from_status} → ${activity.to_status}`
+                              : 'Thao tác trên form yêu cầu hỗ trợ'}
+                          </p>
+
+                          <time>{formatDateTime(activity.created_at)}</time>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="support-activity-scroll">
+                {sessions.length === 0 ? (
+                  <div className="support-empty-state">
+                    Chưa ghi nhận phiên online nào.
+                  </div>
+                ) : (
+                  <div className="support-session-list">
+                    {sessions.map((session) => (
+                      <article key={session.id} className="support-session-item">
+                        <div>
+                          <span className={`support-session-state ${session.is_current ? 'online' : 'offline'}`}>
+                            {session.is_current ? 'Online hiện tại' : 'Đã kết thúc'}
+                          </span>
+                          <strong>
+                            {formatDateTime(session.started_at)} –{' '}
+                            {session.is_current
+                              ? 'Hiện tại'
+                              : formatDateTime(session.ended_at || session.last_seen_at)}
+                          </strong>
+                          <small>IP: {session.ip_address || 'Không xác định'}</small>
+                        </div>
+
+                        <b>{formatDurationSeconds(session.duration_seconds)}</b>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="support-modal-actions">
+              <button className="primary" type="button" onClick={onClose}>
+                Đóng
+              </button>
+            </div>
+          </>
+        )}
+      </section>
+    </div>
+  )
+}
+
 function SupportStaffManagementPage() {
   const [staffList, setStaffList] = useState([])
   const [accountOptions, setAccountOptions] = useState([])
@@ -503,6 +756,11 @@ function SupportStaffManagementPage() {
   const [avatarCurrentUrl, setAvatarCurrentUrl] = useState('')
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState('')
   const [avatarRemoveRequested, setAvatarRemoveRequested] = useState(false)
+  const [presenceMap, setPresenceMap] = useState({})
+  const [activityStaff, setActivityStaff] = useState(null)
+  const [activityData, setActivityData] = useState(null)
+  const [activityLoading, setActivityLoading] = useState(false)
+  const [activityTab, setActivityTab] = useState('activities')
   const avatarInputRef = useRef(null)
 
   function handleStatCardClick(status) {
@@ -697,9 +955,44 @@ function SupportStaffManagementPage() {
     }
   }, [])
 
+  const loadPresence = useCallback(async () => {
+    try {
+      const response = await getSupportStaffPresence()
+      setPresenceMap(response?.data || {})
+    } catch {
+      /*
+       * Presence chỉ là dữ liệu bổ sung.
+       * Không chặn trang quản lý nếu endpoint tạm thời lỗi.
+       */
+    }
+  }, [])
+
+  async function openActivityHistory(staff) {
+    setActivityStaff(staff)
+    setActivityData(null)
+    setActivityTab('activities')
+    setActivityLoading(true)
+
+    try {
+      const response = await getSupportStaffActivityHistory(staff.id, {
+        activity_limit: 150,
+        session_limit: 80,
+      })
+
+      setActivityData(response?.data || {})
+    } catch (error) {
+      openToast(
+        'error',
+        getServerMessage(error, 'Không tải được lịch sử hoạt động của nhân viên hỗ trợ.'),
+      )
+    } finally {
+      setActivityLoading(false)
+    }
+  }
+
   const refreshAll = useCallback(async (pageNumber = page) => {
-    await Promise.all([loadStatistics(), loadList(pageNumber)])
-  }, [loadList, loadStatistics, page])
+    await Promise.all([loadStatistics(), loadList(pageNumber), loadPresence()])
+  }, [loadList, loadPresence, loadStatistics, page])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -724,6 +1017,16 @@ function SupportStaffManagementPage() {
 
     return () => window.clearTimeout(timer)
   }, [loadList, page])
+
+  useEffect(() => {
+    void loadPresence()
+
+    const timer = window.setInterval(() => {
+      void loadPresence()
+    }, 30000)
+
+    return () => window.clearInterval(timer)
+  }, [loadPresence])
 
   useEffect(() => {
     if (!notice) return undefined
@@ -972,6 +1275,7 @@ function SupportStaffManagementPage() {
                   <th>Chuyên môn</th>
                   <th>Kinh nghiệm</th>
                   <th>Trạng thái</th>
+                  <th>Trực tuyến</th>
                   <th>Hành động</th>
                 </tr>
               </thead>
@@ -979,7 +1283,7 @@ function SupportStaffManagementPage() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td className="support-empty-row" colSpan="7">
+                    <td className="support-empty-row" colSpan="8">
                       <div className="support-loading">
                         <span />
                         <p>Đang tải danh sách nhân viên hỗ trợ...</p>
@@ -988,7 +1292,7 @@ function SupportStaffManagementPage() {
                   </tr>
                 ) : staffList.length === 0 ? (
                   <tr>
-                    <td className="support-empty-row" colSpan="7">
+                    <td className="support-empty-row" colSpan="8">
                       <div className="support-empty-state">
                         <strong>Không tìm thấy nhân viên phù hợp</strong>
                         <span>Hãy thử đổi bộ lọc hoặc từ khóa tìm kiếm.</span>
@@ -1016,6 +1320,22 @@ function SupportStaffManagementPage() {
                         </span>
                       </td>
                       <td>
+                        {(() => {
+                          const presence = presenceMap[String(staff.id)] || {}
+                          const meta = getPresenceText(presence)
+
+                          return (
+                            <div className={`support-presence-cell ${presence.is_online ? 'online' : 'offline'}`}>
+                              <span className="support-presence-dot" />
+                              <div>
+                                <strong>{meta.label}</strong>
+                                <small>{meta.detail}</small>
+                              </div>
+                            </div>
+                          )
+                        })()}
+                      </td>
+                      <td>
                         <div className="support-actions">
                           <button
                             type="button"
@@ -1032,6 +1352,14 @@ function SupportStaffManagementPage() {
                             onClick={() => openEditForm(staff)}
                           >
                             <ActionIcon type="edit" />
+                          </button>
+                          <button
+                            type="button"
+                            title="Lịch sử hoạt động"
+                            aria-label={`Lịch sử hoạt động ${staff.name}`}
+                            onClick={() => openActivityHistory(staff)}
+                          >
+                            <ActionIcon type="history" />
                           </button>
                           <button
                             className="danger"
@@ -1074,6 +1402,20 @@ function SupportStaffManagementPage() {
           </div>
         </div>
       </div>
+
+      {activityStaff ? (
+        <SupportStaffActivityModal
+          staff={activityStaff}
+          data={activityData}
+          loading={activityLoading}
+          activeTab={activityTab}
+          onChangeTab={setActivityTab}
+          onClose={() => {
+            setActivityStaff(null)
+            setActivityData(null)
+          }}
+        />
+      ) : null}
 
       {formVisible ? (
         <SupportStaffFormModal
