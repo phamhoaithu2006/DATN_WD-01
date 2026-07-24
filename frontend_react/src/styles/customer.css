@@ -8891,6 +8891,10 @@ textarea.vg-checkout-input {
   border: 1px solid #2563eb;
   background: #fff;
   color: #2563eb;
+  font-size: 13px;
+  cursor: pointer;
+}
+
 .vg-request-human-btn:hover {
   background: #eff6ff;
 }
