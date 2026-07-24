@@ -49,6 +49,21 @@ export const checkInGuideCustomer = async (departureId, sessionId, participantId
     ),
   ).data
 
+export const checkInAllGuideCustomers = async (departureId, sessionId) =>
+  unwrap(
+    await apiClient.post(
+      `/guide/tours/${departureId}/attendance-sessions/${sessionId}/check-in-all`,
+    ),
+  ).data
+
+export const undoGuideCustomerCheckIn = async (departureId, sessionId, participantId) =>
+  unwrap(
+    await apiClient.delete(
+      `/guide/tours/${departureId}/attendance-sessions/${sessionId}/check-in`,
+      { data: { participant_id: participantId } },
+    ),
+  ).data
+
 export const checkOutGuideCustomer = async (departureId, sessionId, participantId) =>
   unwrap(
     await apiClient.post(

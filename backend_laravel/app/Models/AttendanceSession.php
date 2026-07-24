@@ -10,6 +10,8 @@ class AttendanceSession extends Model
 {
     protected $fillable = [
         'tour_departure_id',
+        'tour_itinerary_id',
+        'scheduled_date',
         'boundary',
         'name',
         'note',
@@ -27,8 +29,20 @@ class AttendanceSession extends Model
         return $this->hasMany(Attendance::class);
     }
 
+    public function itinerary(): BelongsTo
+    {
+        return $this->belongsTo(TourItinerary::class, 'tour_itinerary_id');
+    }
+
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    protected function casts(): array
+    {
+        return [
+            'scheduled_date' => 'date',
+        ];
     }
 }

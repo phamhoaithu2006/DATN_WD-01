@@ -280,7 +280,7 @@ export default function CustomerNotificationBell() {
       >
         <BellIcon />
         {unreadCount > 0 ? (
-          <span className="absolute -right-1 -top-1 grid min-h-5 min-w-5 place-items-center rounded-full border-2 border-white bg-red-500 px-1 text-[10px] font-black leading-none text-white">
+          <span className="absolute right-0 -top-2 z-10 grid min-h-5 min-w-5 place-items-center rounded-full border-2 border-white bg-red-500 px-1 text-[10px] font-black leading-none text-white">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         ) : null}

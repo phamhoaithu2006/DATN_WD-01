@@ -773,6 +773,23 @@ class TourDepartureGuideAssignmentController extends Controller
             ])
             ->findOrFail($validated['guide_id']);
 
+        $currentLeadAssignment = TourGuideAssignment::query()
+            ->where('tour_departure_id', $departure->id)
+            ->where('role', 'lead')
+            ->whereIn('status', ['assigned', 'confirmed'])
+            ->first();
+
+        if (
+            $currentLeadAssignment
+            && (int) $currentLeadAssignment->guide_id !== (int) $guide->id
+            && Carbon::parse($departure->departure_date)->startOfDay()->lt(Carbon::today()->addDays(4))
+        ) {
+            return response()->json([
+                'message' => 'Chỉ có thể đổi HDV khi còn ít nhất 5 ngày tính cả ngày đổi và ngày khởi hành.',
+                'code' => 'GUIDE_REPLACEMENT_TOO_LATE',
+            ], 422);
+        }
+
         $from = $departure->departure_date;
         $to = $departure->return_date ?: $departure->departure_date;
 

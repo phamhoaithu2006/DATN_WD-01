@@ -132,6 +132,43 @@ class GuideAttendanceController extends Controller
         ]);
     }
 
+    public function checkInAll(
+        Request $request,
+        TourDeparture $tourDeparture,
+        AttendanceSession $attendanceSession
+    ): JsonResponse {
+        $result = $this->service->checkInAll(
+            $request->user(),
+            $tourDeparture,
+            $attendanceSession
+        );
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Đã điểm danh tất cả khách hàng.',
+            'data' => $result,
+        ]);
+    }
+
+    public function undoCheckIn(
+        AttendanceActionRequest $request,
+        TourDeparture $tourDeparture,
+        AttendanceSession $attendanceSession
+    ): JsonResponse {
+        $attendance = $this->service->undoCheckIn(
+            $request->user(),
+            $tourDeparture,
+            $attendanceSession,
+            (int) $request->validated('participant_id')
+        );
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Customer check-in reverted successfully.',
+            'data' => $this->attendanceData($attendance),
+        ]);
+    }
+
     public function checkOut(
         AttendanceActionRequest $request,
         TourDeparture $tourDeparture,

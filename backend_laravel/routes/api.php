@@ -446,6 +446,8 @@ Route::middleware(['auth:sanctum', 'role:tour guide'])->group(function () {
     Route::get('/guide/tours/{tourDeparture}/attendance-sessions', [GuideAttendanceController::class, 'sessions']);
     Route::post('/guide/tours/{tourDeparture}/attendance-sessions', [GuideAttendanceController::class, 'storeSession']);
     Route::post('/guide/tours/{tourDeparture}/attendance-sessions/{attendanceSession}/check-in', [GuideAttendanceController::class, 'checkIn']);
+    Route::delete('/guide/tours/{tourDeparture}/attendance-sessions/{attendanceSession}/check-in', [GuideAttendanceController::class, 'undoCheckIn']);
+    Route::post('/guide/tours/{tourDeparture}/attendance-sessions/{attendanceSession}/check-in-all', [GuideAttendanceController::class, 'checkInAll']);
     Route::post('/guide/tours/{tourDeparture}/attendance-sessions/{attendanceSession}/check-out', [GuideAttendanceController::class, 'checkOut']);
     Route::patch('/guide/tours/{tourDeparture}/attendance-sessions/{attendanceSession}/notes', [GuideAttendanceController::class, 'updateNote']);
     Route::get('/guide/tours/{tourDeparture}/stages', [GuideAttendanceController::class, 'stages']);

@@ -68,7 +68,8 @@ function getReplacementEligibility(item) {
     };
   }
 
-  const departureDate = new Date(`${item?.departure_date || ""}T00:00:00`);
+  const departureDateValue = String(item?.departure_date || "").slice(0, 10);
+  const departureDate = new Date(`${departureDateValue}T00:00:00`);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const minimumDepartureDate = new Date(today);
@@ -81,14 +82,14 @@ function getReplacementEligibility(item) {
     return {
       allowed: false,
       buttonLabel: "Đã quá hạn đổi HDV",
-      message: "Chỉ có thể yêu cầu đổi HDV trước ngày khởi hành ít nhất 5 ngày.",
+      message: "Không thể yêu cầu đổi HDV khi còn 5 ngày trở xuống, tính cả ngày yêu cầu và ngày khởi hành.",
     };
   }
 
   return {
     allowed: true,
     buttonLabel: "Yêu cầu đổi HDV",
-    message: "Bạn có thể gửi yêu cầu đổi HDV trước ngày khởi hành ít nhất 5 ngày.",
+    message: "Bạn có thể gửi yêu cầu đổi HDV vì còn hơn 5 ngày tính cả ngày yêu cầu và ngày khởi hành.",
   };
 }
 
@@ -388,7 +389,6 @@ function GuideToursPage() {
   const [sort, setSort] = useState("priority");
   const [page, setPage] = useState(1);
   const [items, setItems] = useState([]);
-  const [heroIndex, setHeroIndex] = useState(0);
   const [meta, setMeta] = useState({
     current_page: 1,
     last_page: 1,
@@ -423,7 +423,7 @@ function GuideToursPage() {
       try {
         const params = {
           page,
-          per_page: 4,
+          per_page: 5,
           keyword: keyword.trim() || undefined,
           from_date: fromDate || undefined,
           to_date: toDate || undefined,
@@ -456,19 +456,6 @@ function GuideToursPage() {
     };
   }, [activeTab, fromDate, keyword, page, sort, toDate]);
 
-  const heroItem = items[0];
-  const heroImages = items.map(getTourImage).filter(Boolean);
-  const heroImage = heroImages[heroIndex % Math.max(heroImages.length, 1)];
-
-  useEffect(() => {
-    if (heroImages.length < 2) return undefined;
-
-    const timer = window.setInterval(() => {
-      setHeroIndex((current) => (current + 1) % heroImages.length);
-    }, 5000);
-
-    return () => window.clearInterval(timer);
-  }, [heroImages.length]);
   async function openDetail(item) {
     setDetailItem(item);
     setDetailCustomers([]);
@@ -563,14 +550,11 @@ function GuideToursPage() {
           </p>
         </div>
       </header>
-      <section
-        className="guide-shot-hero"
-        style={heroImage ? { backgroundImage: `url(${heroImage})` } : undefined}
-      >
+      <section className="guide-shot-hero">
         <div>
           <span>Hôm nay</span>
           <h2>
-            {heroItem ? getTourTitle(heroItem) : "Xin chào, Hướng dẫn viên"}
+            Xin chào, Hướng dẫn viên
           </h2>
           <p>
             Hành trình hôm nay sẽ là nơi mọi khoảnh khắc du lịch đáng nhớ chờ

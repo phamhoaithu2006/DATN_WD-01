@@ -82,6 +82,10 @@ class AdminGuideReplacementRequestController extends Controller
                 return ['outcome' => 'processed'];
             }
 
+            if (Carbon::parse($departure->departure_date)->startOfDay()->lte(Carbon::today())) {
+                return ['outcome' => 'too_late'];
+            }
+
             $newGuide = $this->findReplacementGuide(
                 $departure,
                 (int) $replacementRequest->current_guide_id
@@ -142,6 +146,13 @@ class AdminGuideReplacementRequestController extends Controller
             return response()->json([
                 'message' => 'Yêu cầu này đã được xử lý.',
             ], 409);
+        }
+
+        if ($result['outcome'] === 'too_late') {
+            return response()->json([
+                'message' => 'Tour đã khởi hành nên không thể đổi HDV.',
+                'code' => 'REPLACEMENT_REQUEST_TOO_LATE',
+            ], 422);
         }
 
         if ($result['outcome'] === 'no_candidate') {

@@ -936,7 +936,6 @@ function ProfileDashboard({
               </span>
               <input type="checkbox" defaultChecked />
             </label>
-            <Link to="/customer/password">Đổi mật khẩu →</Link>
           </div>
         ) : null}
       </section>

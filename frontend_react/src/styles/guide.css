@@ -446,10 +446,10 @@
 }
 
 .notif-btn {
-  background: none;
+  background: #ffffff;
   border: 1px solid #e2e8f0;
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -457,6 +457,7 @@
   color: #475569;
   cursor: pointer;
   position: relative;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
   transition: all 0.15s ease;
 }
 
@@ -472,19 +473,21 @@
 
 .notif-badge {
   position: absolute;
-  top: -5px;
-  right: -4px;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
+  top: -8px;
+  right: 0;
+  z-index: 10;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 4px;
   background: #ef4444;
   color: #ffffff;
-  font-size: 0.68rem;
+  font-size: 0.625rem;
   font-weight: 800;
-  line-height: 18px;
+  line-height: 20px;
   text-align: center;
   border-radius: 50%;
   border: 2px solid #ffffff;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.32);
 }
 
 .guide-topbar-user {
@@ -9496,7 +9499,7 @@
 }
 .guide-shot-tour-thumb {
   width: 190px;
-  height: 96px;
+  height: 120px;
   border-radius: 10px;
   overflow: hidden;
   background: #dbeafe;
@@ -9508,7 +9511,8 @@
 .guide-shot-tour-thumb img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  background: #f8fafc;
 }
 .guide-shot-tour-main h3 {
   margin: 0 0 10px;
@@ -9675,7 +9679,18 @@
   font-weight: 850;
 }
 .guide-attendance-tour-copy button {
-  display: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  margin-top: 14px;
+  border: 1px solid #bfdbfe;
+  border-radius: 9px;
+  background: #eff6ff;
+  padding: 0 16px;
+  color: #0b7af3;
+  font-weight: 900;
+  cursor: pointer;
 }
 .guide-unchecked-panel {
   border: 1px solid #fbbf24;
@@ -9749,6 +9764,42 @@
   gap: 16px;
   padding: 24px;
 }
+.guide-attendance-readonly-notice {
+  margin: 0 24px 18px;
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  background: #eff6ff;
+  padding: 12px 14px;
+  color: #1e40af;
+  font-size: 14px;
+  font-weight: 800;
+}
+.guide-attendance-single-boundary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 24px;
+  border-bottom: 1px solid #e6edf7;
+  background: #f8fafc;
+}
+.guide-attendance-single-boundary strong {
+  color: #0f172a;
+  font-size: 15px;
+}
+.guide-attendance-single-boundary span {
+  color: #475569;
+  font-weight: 800;
+}
+.guide-attendance-single-boundary em {
+  margin-left: auto;
+  border-radius: 999px;
+  background: #dbeafe;
+  padding: 6px 10px;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 900;
+}
 .guide-attendance-tabs button {
   height: 58px;
   border: 1px solid #e6edf7;
@@ -9796,7 +9847,7 @@
 .guide-attendance-table-head,
 .guide-attendance-row {
   display: grid;
-  grid-template-columns: 44px 56px minmax(220px, 1fr) 130px 150px 100px 80px;
+  grid-template-columns: 44px 56px minmax(220px, 1fr) 130px 150px 100px 70px 150px;
   align-items: center;
 }
 .guide-attendance-table-head {
@@ -9877,6 +9928,31 @@
   font-size: 18px;
   cursor: pointer;
 }
+.guide-attendance-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.guide-attendance-actions button,
+.guide-customer-detail-note button {
+  border: 1px solid #bfdbfe;
+  border-radius: 7px;
+  background: #eff6ff;
+  padding: 6px 9px;
+  color: #0b7af3;
+  font-size: 11px;
+  font-weight: 900;
+  cursor: pointer;
+}
+.guide-attendance-actions button.is-undo {
+  border-color: #fed7aa;
+  background: #fff7ed;
+  color: #c2410c;
+}
+.guide-attendance-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
 .guide-attendance-note-line {
   max-width: 620px;
   margin: 0 auto 22px;
@@ -9942,6 +10018,64 @@
   color: #fff;
   border-color: #0b7af3;
 }
+.guide-customer-detail-modal {
+  width: min(720px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+  border-radius: 14px;
+  background: #fff;
+  padding: 24px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.24);
+}
+.guide-customer-detail-modal header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.guide-customer-detail-modal header span,
+.guide-customer-detail-grid span,
+.guide-customer-detail-note > span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 850;
+}
+.guide-customer-detail-modal h2 {
+  margin: 4px 0 0;
+}
+.guide-customer-detail-modal header button {
+  border: 0;
+  background: transparent;
+  color: #64748b;
+  font-size: 28px;
+  cursor: pointer;
+}
+.guide-customer-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.guide-customer-detail-grid article,
+.guide-customer-detail-note {
+  display: grid;
+  gap: 6px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+  padding: 14px;
+}
+.guide-customer-detail-note {
+  margin-top: 12px;
+}
+.guide-customer-detail-note p {
+  margin: 0;
+  color: #334155;
+  white-space: pre-wrap;
+}
+.guide-customer-detail-note button {
+  justify-self: start;
+}
 @media (max-width: 980px) {
   .guide-shot-stats-grid,
   .guide-attendance-stats {
@@ -9963,7 +10097,7 @@
   }
   .guide-attendance-table-head,
   .guide-attendance-row {
-    min-width: 850px;
+    min-width: 1000px;
   }
 }
 @media (max-width: 680px) {
@@ -9977,6 +10111,9 @@
   .guide-attendance-tabs,
   .guide-attendance-toolbar,
   .guide-attendance-tour-card {
+    grid-template-columns: 1fr;
+  }
+  .guide-customer-detail-grid {
     grid-template-columns: 1fr;
   }
   .guide-shot-filterbar,
@@ -10382,18 +10519,39 @@
 }
 .guide-attendance-boundaries {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 12px;
   padding: 20px 24px 0;
 }
 .guide-attendance-boundaries button {
-  min-height: 46px;
+  display: grid;
+  gap: 4px;
+  min-height: 72px;
   border: 1px solid #dbe4f0;
   border-radius: 8px;
   background: #f8fafc;
   color: #475569;
   font-weight: 900;
   cursor: pointer;
+}
+.guide-attendance-boundaries button strong,
+.guide-attendance-boundaries button span,
+.guide-attendance-boundaries button em {
+  display: block;
+}
+.guide-attendance-boundaries button strong {
+  color: inherit;
+  font-size: 14px;
+}
+.guide-attendance-boundaries button span {
+  color: #64748b;
+  font-size: 12px;
+}
+.guide-attendance-boundaries button em {
+  color: #16a34a;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 900;
 }
 .guide-attendance-boundaries button.is-active {
   border-color: #0b7af3;

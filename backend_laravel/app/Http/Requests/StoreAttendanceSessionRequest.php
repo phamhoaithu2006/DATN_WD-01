@@ -4,7 +4,6 @@ namespace App\Http\Requests;
 
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class StoreAttendanceSessionRequest extends FormRequest
 {
@@ -23,8 +22,6 @@ class StoreAttendanceSessionRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [
-            'boundary' => ['required', Rule::in(['departure', 'return'])],
-        ];
+        return [];
     }
 }
