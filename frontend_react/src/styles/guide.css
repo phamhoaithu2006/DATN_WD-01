@@ -9843,7 +9843,7 @@
 .guide-attendance-table-head,
 .guide-attendance-row {
   display: grid;
-  grid-template-columns: 44px 56px minmax(220px, 1fr) 130px 150px 100px 70px 150px;
+  grid-template-columns: 44px 56px minmax(220px, 1fr) 130px 150px 100px 150px;
   align-items: center;
 }
 .guide-attendance-table-head {
@@ -9916,13 +9916,6 @@
 .guide-attendance-row mark.is-missing {
   background: #fee2e2;
   color: #ef4444;
-}
-.guide-note-btn {
-  border: 0;
-  background: transparent;
-  color: #0b7af3;
-  font-size: 18px;
-  cursor: pointer;
 }
 .guide-attendance-actions {
   display: flex;
