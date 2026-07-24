@@ -17,8 +17,16 @@ const supportChatApi = {
     const response = await apiClient.post(`/support/chat/${conversationId}/accept`)
     return response.data
   },
-  async reply(conversationId, content) {
-    const response = await apiClient.post(`/support/chat/${conversationId}/reply`, { content })
+  async reply(conversationId, { content, imageFile }) {
+    const formData = new FormData()
+    if (content) formData.append('content', content)
+    if (imageFile) formData.append('image', imageFile)
+
+    const response = await apiClient.post(
+      `/support/chat/${conversationId}/reply`,
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    )
     return response.data
   },
   async close(conversationId) {

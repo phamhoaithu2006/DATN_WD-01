@@ -129,7 +129,7 @@ class GuideTourOperationService
             $session->setAttribute(
                 'can_take_attendance',
                 $session->status === 'active'
-                    && Carbon::parse($departure->departure_date)->isToday()
+                    && $this->isDepartureOngoing($departure)
             );
         });
     }
@@ -197,7 +197,6 @@ class GuideTourOperationService
     {
         $departure = $this->assignedDepartureForUser($user, $tourDeparture);
         $this->assertDepartureCanTakeAttendance($departure);
-        $this->assertBoundaryMatchesToday($departure, 'departure');
         $this->ensureDepartureAttendanceSession($departure, $user);
 
         return AttendanceSession::query()
@@ -293,6 +292,50 @@ class GuideTourOperationService
             'checked_in' => $participantIds->count(),
             'total_customers' => $participantIds->count(),
         ];
+    }
+
+    /**
+     * @throws AuthorizationException|ValidationException
+     */
+    public function undoCheckIn(User $user, TourDeparture $tourDeparture, AttendanceSession $session, int $participantId): Attendance
+    {
+        $departure = $this->assignedDepartureForUser($user, $tourDeparture);
+        $this->assertDepartureCanTakeAttendance($departure);
+        $this->assertSessionBelongsToDeparture($session, $departure);
+        $this->assertSessionCanTakeAttendance($session, $departure);
+        $participant = $this->assertParticipantBelongsToDeparture($participantId, $departure);
+
+        return DB::transaction(function () use ($session, $participant): Attendance {
+            AttendanceSession::query()->whereKey($session->id)->lockForUpdate()->firstOrFail();
+
+            $attendance = Attendance::query()
+                ->where('attendance_session_id', $session->id)
+                ->where('booking_participant_id', $participant->id)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $attendance || $attendance->checked_in_at === null) {
+                throw ValidationException::withMessages([
+                    'participant_id' => 'Customer has not checked in for this session.',
+                ]);
+            }
+
+            $attendance->fill([
+                'checked_in_at' => null,
+                'checked_in_by' => null,
+                'checked_out_at' => null,
+                'checked_out_by' => null,
+                'status' => 'not_checked_in',
+            ]);
+            $attendance->save();
+
+            return $attendance->load([
+                'bookingParticipant',
+                'checkedInBy:id,full_name,email',
+                'checkedOutBy:id,full_name,email',
+                'noteUpdatedBy:id,full_name,email',
+            ]);
+        });
     }
 
     /**
@@ -677,20 +720,6 @@ class GuideTourOperationService
                 'attendance_session_id' => 'Attendance session is closed.',
             ]);
         }
-
-        if ($session->tour_itinerary_id !== null) {
-            $this->assertItineraryWindowIsOpen($departure, $session->itinerary()->firstOrFail());
-
-            return;
-        }
-
-        if ($session->boundary === null) {
-            throw ValidationException::withMessages([
-                'attendance_session_id' => 'Attendance session does not have a valid boundary.',
-            ]);
-        }
-
-        $this->assertBoundaryMatchesToday($departure, $session->boundary);
     }
 
     private function ensureDepartureAttendanceSession(TourDeparture $departure, User $user): AttendanceSession

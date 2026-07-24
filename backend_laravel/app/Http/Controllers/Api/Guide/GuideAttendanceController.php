@@ -150,6 +150,25 @@ class GuideAttendanceController extends Controller
         ]);
     }
 
+    public function undoCheckIn(
+        AttendanceActionRequest $request,
+        TourDeparture $tourDeparture,
+        AttendanceSession $attendanceSession
+    ): JsonResponse {
+        $attendance = $this->service->undoCheckIn(
+            $request->user(),
+            $tourDeparture,
+            $attendanceSession,
+            (int) $request->validated('participant_id')
+        );
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Customer check-in reverted successfully.',
+            'data' => $this->attendanceData($attendance),
+        ]);
+    }
+
     public function checkOut(
         AttendanceActionRequest $request,
         TourDeparture $tourDeparture,

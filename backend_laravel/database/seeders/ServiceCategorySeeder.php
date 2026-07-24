@@ -25,7 +25,7 @@ class ServiceCategorySeeder extends Seeder
                 ['name' => $serviceCategory['name']],
                 [
                     'description' => $serviceCategory['description'],
-                    'status' => true,
+                    'status' => random_int(0, 1) === 1,
                 ]
             );
 

@@ -20,13 +20,19 @@ class ChatBotController extends Controller
     public function handleChat(Request $request)
     {
         $validated = $request->validate([
-            'message'        => 'required|string|max:1000',
+            'message'        => 'nullable|string|max:1000',
             'session_id'     => 'nullable|string|max:100',
-            'request_human'  => 'nullable|boolean', // true khi khách bấm nút "Gặp nhân viên"
+            'request_human'  => 'nullable|boolean',
+            'image'          => 'nullable|image|max:5120',
         ]);
 
-        $userMessage   = trim($validated['message']);
-        $requestHuman  = $validated['request_human'] ?? false;
+        if (empty($validated['message']) && !$request->hasFile('image')) {
+            return response()->json(['message' => 'Vui lòng nhập nội dung hoặc chọn ảnh.'], 422);
+        }
+
+        $userMessage  = trim($validated['message'] ?? '');
+        $requestHuman = $validated['request_human'] ?? false;
+        $hasImage     = $request->hasFile('image');
 
         $sessionId = $validated['session_id']
             ?? 'guest-' . md5($request->ip() . $request->userAgent());
@@ -36,21 +42,57 @@ class ChatBotController extends Controller
             ['user_id' => auth('sanctum')->id()]
         );
 
-        // Luôn lưu tin nhắn của khách trước tiên, bất kể đang ở mode nào
+        $attachmentUrl = null;
+        if ($hasImage) {
+            $path = $request->file('image')->store('chat-attachments', 'public');
+            $attachmentUrl = $this->buildAttachmentUrl($request, $path); // thay cho Storage::url($path)
+        }
+
+        // Luôn lưu tin nhắn của khách trước tiên
         ChatMessage::create([
             'chat_conversation_id' => $conversation->id,
-            'role'    => 'user',
-            'content' => $userMessage,
+            'role'           => 'user',
+            'content'        => $userMessage,
+            'attachment_url' => $attachmentUrl,
         ]);
 
-        // TRƯỜNG HỢP 1: Khách chủ động bấm nút "Gặp nhân viên hỗ trợ"
+        // TRƯỜNG HỢP 1: Khách bấm nút gặp nhân viên
         if ($requestHuman && $conversation->mode === 'ai') {
             $conversation->update([
                 'mode' => 'pending_human',
                 'handoff_requested_at' => now(),
             ]);
 
-            $reply = 'Mình đã chuyển yêu cầu của bạn cho nhân viên hỗ trợ. Vui lòng chờ trong giây lát, nhân viên sẽ phản hồi ngay tại đây nhé!';
+            $queuePosition = ChatConversation::where('mode', 'pending_human')->count();
+            $reply = "Mình đã chuyển yêu cầu của bạn cho nhân viên hỗ trợ. Hàng đợi của bạn là #{$queuePosition}. Vui lòng chờ trong giây lát, nhân viên sẽ phản hồi ngay tại đây nhé!";
+
+            ChatMessage::create([
+                'chat_conversation_id' => $conversation->id,
+                'role'    => 'assistant',
+                'content' => $reply,
+            ]);
+
+            return response()->json([
+                'reply'          => $reply,
+                'session_id'     => $conversation->session_id,
+                'mode'           => $conversation->mode,
+                'queue_position' => $queuePosition,
+            ]);
+        }
+
+        // TRƯỜNG HỢP 2: Đang chờ/đang được nhân viên xử lý -> AI im lặng
+        if (in_array($conversation->mode, ['pending_human', 'human'])) {
+            return response()->json([
+                'reply'      => null,
+                'session_id' => $conversation->session_id,
+                'mode'       => $conversation->mode,
+            ]);
+        }
+
+        // Khách gửi ảnh trong lúc đang chat với AI -> AI không xem được ảnh,
+        // trả lời gợi ý gặp nhân viên thay vì gọi Gemini vô ích
+        if ($hasImage && $userMessage === '') {
+            $reply = 'Mình đã nhận được ảnh bạn gửi. Hiện mình chưa xem được nội dung ảnh, bạn có thể mô tả ngắn gọn hoặc bấm "Gặp nhân viên hỗ trợ" để được hỗ trợ trực tiếp nhé!';
 
             ChatMessage::create([
                 'chat_conversation_id' => $conversation->id,
@@ -65,20 +107,10 @@ class ChatBotController extends Controller
             ]);
         }
 
-        // TRƯỜNG HỢP 2: Cuộc hội thoại đang chờ hoặc đang được nhân viên xử lý
-        // -> AI KHÔNG được trả lời nữa, tránh chồng chéo với nhân viên
-        if (in_array($conversation->mode, ['pending_human', 'human'])) {
-            return response()->json([
-                'reply'      => null,
-                'session_id' => $conversation->session_id,
-                'mode'       => $conversation->mode,
-            ]);
-        }
-
         // TRƯỜNG HỢP 3: Luồng bình thường - AI trả lời như cũ
         $history = $conversation->messages()
             ->orderByDesc('id')
-            ->limit(10)
+            ->limit(6) // giảm từ 10 xuống 6 để prompt nhẹ hơn, trả lời nhanh hơn (xem mục 3)
             ->get()
             ->reverse()
             ->values();
@@ -91,7 +123,6 @@ class ChatBotController extends Controller
         $reply = $this->callGemini($systemPrompt, $history, $userMessage);
         $isFallback = str_contains($reply, 'chưa có thông tin về vấn đề này');
 
-        // Đếm số lần fallback liên tiếp để tự động gợi ý gặp nhân viên
         if ($isFallback) {
             $conversation->increment('consecutive_fallback_count');
         } else {
@@ -128,7 +159,9 @@ class ChatBotController extends Controller
             return response()->json(['messages' => [], 'mode' => 'ai']);
         }
 
-        $conversation = ChatConversation::where('session_id', $sessionId)->first();
+        $conversation = ChatConversation::with('assignedStaff:id,full_name,avatar_url')
+            ->where('session_id', $sessionId)
+            ->first();
 
         if (!$conversation) {
             return response()->json(['messages' => [], 'mode' => 'ai']);
@@ -136,12 +169,22 @@ class ChatBotController extends Controller
 
         $messages = $conversation->messages()
             ->orderBy('id')
-            ->get(['id', 'role', 'content', 'created_at']);
+            ->get(['id', 'role', 'content', 'attachment_url', 'created_at']);
+
+        $queuePosition = null;
+        if ($conversation->mode === 'pending_human') {
+            $queuePosition = ChatConversation::where('mode', 'pending_human')
+                ->where('handoff_requested_at', '<=', $conversation->handoff_requested_at)
+                ->count();
+        }
 
         return response()->json([
-            'messages'           => $messages,
-            'mode'               => $conversation->mode,
-            'assigned_staff_id'  => $conversation->assigned_staff_id,
+            'messages'             => $messages,
+            'mode'                 => $conversation->mode,
+            'assigned_staff_id'    => $conversation->assigned_staff_id,
+            'assigned_staff_name'  => $conversation->assignedStaff->full_name ?? null,
+            'assigned_staff_avatar' => $conversation->assignedStaff->avatar_url ?? null,
+            'queue_position'       => $queuePosition,
         ]);
     }
 
@@ -284,5 +327,9 @@ PROMPT;
         }
 
         return self::FALLBACK_MESSAGE;
+    }
+    private function buildAttachmentUrl(Request $request, string $path): string
+    {
+        return $request->getSchemeAndHttpHost() . '/storage/' . $path;
     }
 }

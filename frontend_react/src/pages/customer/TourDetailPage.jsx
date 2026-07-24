@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useLocale } from "../../contexts/LocaleContext";
 import { createCustomerBooking, fetchTourDetail, previewCustomerBooking } from "../../services/customerApi";
+import { getTourReviews } from "../../services/customerReviewApi";
 import { readSession, readToken } from "../../services/authStorage";
 import Icon from "../../components/customer/Icon";
 import { mediaUrl } from "../../utils/mediaUrl";
@@ -80,6 +81,48 @@ function getAgeFromBirthDate(birthDate, referenceDate) {
   return age;
 }
 
+
+function formatReviewDate(value) {
+  if (!value) return "";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  return date.toLocaleDateString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
+function getReviewUserName(review) {
+  return (
+    review?.user?.full_name ||
+    review?.user_name ||
+    review?.customer_name ||
+    "Khách hàng"
+  );
+}
+
+function getSummaryAverage(summary) {
+  return Number(
+    summary?.average_rating ??
+    summary?.average ??
+    summary?.rating_average ??
+    0
+  );
+}
+
+function getSummaryCount(summary) {
+  return Number(
+    summary?.review_count ??
+    summary?.total_reviews ??
+    summary?.count ??
+    summary?.total ??
+    0
+  );
+}
+
 function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = [], onFavorite }) {
   const { currency, formatCurrency } = useLocale();
   const navigate = useNavigate();
@@ -88,6 +131,11 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
   const [showItineraryModal, setShowItineraryModal] = useState(false);
   const [detailTour, setDetailTour] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [tourReviews, setTourReviews] = useState([]);
+  const [reviewSummary, setReviewSummary] = useState({});
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewsError, setReviewsError] = useState("");
+  const [reviewFeedback, setReviewFeedback] = useState({});
 
   // Find tour
   const listTour = tours.find((t) => String(t.id) === String(tourId) || String(t.slug) === String(tourId)) || null;
@@ -164,6 +212,57 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
     };
   }, [detailLookup, listTour]);
 
+  const reviewSlug =
+    detailTour?.slug ||
+    listTour?.slug ||
+    (Number.isNaN(Number(tourId)) ? String(tourId) : "");
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadTourReviews() {
+      if (!reviewSlug) {
+        setTourReviews([]);
+        setReviewSummary({});
+        setReviewsError("");
+        return;
+      }
+
+      try {
+        setReviewsLoading(true);
+        setReviewsError("");
+
+        const payload = await getTourReviews(reviewSlug, {
+          sort: "newest",
+          per_page: 10,
+        });
+
+        if (!active) return;
+
+        setTourReviews(Array.isArray(payload.reviews) ? payload.reviews : []);
+        setReviewSummary(payload.summary || {});
+      } catch (error) {
+        if (!active) return;
+
+        console.error("Không thể tải đánh giá tour:", error);
+        setTourReviews([]);
+        setReviewSummary({});
+        setReviewsError(
+          error?.response?.data?.message ||
+          "Không thể tải danh sách đánh giá tour."
+        );
+      } finally {
+        if (active) setReviewsLoading(false);
+      }
+    }
+
+    loadTourReviews();
+
+    return () => {
+      active = false;
+    };
+  }, [reviewSlug]);
+
   if (!tour && detailLoading) {
     return (
       <div className="vg-container" style={{ padding: "120px 20px", textAlign: "center" }}>
@@ -229,8 +328,14 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
   const finalTotal = Number(bookingPreview?.total_amount ?? localTotal);
   const availableSlots = Number(selectedDeparture?.available_slots || tour.slots?.available || 0);
 
-  const ratingAverage = Number(tour.rating?.average || tour.average_rating || 0);
-  const ratingCount = Number(tour.rating?.count || tour.review_count || 0);
+  const apiRatingAverage = getSummaryAverage(reviewSummary);
+  const apiRatingCount = getSummaryCount(reviewSummary);
+  const ratingAverage = apiRatingCount > 0
+    ? apiRatingAverage
+    : Number(tour.rating?.average || tour.average_rating || 0);
+  const ratingCount = apiRatingCount > 0
+    ? apiRatingCount
+    : Number(tour.rating?.count || tour.review_count || 0);
   const hasRating = ratingCount > 0 && ratingAverage > 0;
   const bookingsCount = Number(tour.bookings_count || 0);
 
@@ -1294,11 +1399,151 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
             </div>
 
             <div className="vg-reviews-list">
-              <div className="vg-review-item">
-                <div className="review-main">
-                  <p className="review-text">Danh sách nhận xét chi tiết chưa được kết nối với API đánh giá.</p>
+              {reviewsLoading ? (
+                <div className="vg-review-item">
+                  <div className="review-main">
+                    <p className="review-text">Đang tải đánh giá...</p>
+                  </div>
                 </div>
-              </div>
+              ) : reviewsError ? (
+                <div className="vg-review-item">
+                  <div className="review-main">
+                    <p className="review-text" style={{ color: "#dc2626" }}>
+                      {reviewsError}
+                    </p>
+                  </div>
+                </div>
+              ) : tourReviews.length === 0 ? (
+                <div className="vg-review-item">
+                  <div className="review-main">
+                    <p className="review-text">
+                      Chưa có nhận xét nào cho tour này.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                tourReviews.map((review) => {
+                  const reviewRating = Number(review?.rating || 0);
+
+                  const reviewTitle =
+                    reviewRating >= 5
+                      ? "Tuyệt hảo"
+                      : reviewRating >= 4
+                        ? "Rất tốt"
+                        : reviewRating >= 3
+                          ? "Khá tốt"
+                          : reviewRating >= 2
+                            ? "Chưa hài lòng"
+                            : "Cần cải thiện";
+
+                  return (
+                    <article
+                      key={review.id}
+                      className="mb-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                    >
+                      <div className="p-5 sm:p-6">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium text-slate-500">
+                              Ngày đánh giá: {formatReviewDate(review?.created_at) || "Chưa cập nhật"}
+                            </p>
+                            <h3 className="mt-1 text-xl font-extrabold text-slate-950">
+                              {reviewTitle}
+                            </h3>
+                          </div>
+
+                          <span className="grid h-11 min-w-12 shrink-0 place-items-center rounded-lg bg-blue-700 px-2 text-lg font-black text-white shadow-sm">
+                            {reviewRating.toFixed(1).replace(".0", ",0")}
+                          </span>
+                        </div>
+
+                        <div
+                          className="mt-4 flex items-center gap-1 text-amber-400"
+                          aria-label={`${reviewRating} trên 5 sao`}
+                        >
+                          {Array.from({ length: 5 }).map((_, index) => (
+                            <span
+                              key={index}
+                              className={index < reviewRating ? "text-amber-400" : "text-slate-200"}
+                            >
+                              ★
+                            </span>
+                          ))}
+                        </div>
+
+                        <div className="mt-5 flex items-start gap-3">
+                          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-emerald-50 text-lg text-emerald-600">
+                            ☺
+                          </span>
+                          <p className="min-w-0 text-sm leading-7 text-slate-700 sm:text-[15px]">
+                            {review?.comment || "Khách hàng không để lại nhận xét."}
+                          </p>
+                        </div>
+
+                        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
+                          <div className="flex items-center gap-3">
+                            <span className="grid h-9 w-9 place-items-center rounded-full bg-slate-100 text-sm font-extrabold text-slate-600">
+                              {getReviewUserName(review).charAt(0).toUpperCase()}
+                            </span>
+                            <div>
+                              <strong className="block text-sm text-slate-900">
+                                {getReviewUserName(review)}
+                              </strong>
+                              <span className="text-xs text-slate-400">Khách hàng đã trải nghiệm tour</span>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700">
+                              Đã xác thực đặt tour
+                            </span>
+
+                            <div className="flex items-center gap-1.5 border-l border-slate-200 pl-2 sm:pl-3">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setReviewFeedback((current) => ({
+                                    ...current,
+                                    [review.id]: current[review.id] === "helpful" ? null : "helpful",
+                                  }))
+                                }
+                                className={`inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-xs font-bold transition ${
+                                  reviewFeedback[review.id] === "helpful"
+                                    ? "border-blue-600 bg-blue-600 text-white shadow-sm"
+                                    : "border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+                                }`}
+                                aria-pressed={reviewFeedback[review.id] === "helpful"}
+                              >
+                                <span className="text-base leading-none">♡</span>
+                                Hữu ích
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setReviewFeedback((current) => ({
+                                    ...current,
+                                    [review.id]: current[review.id] === "not-helpful" ? null : "not-helpful",
+                                  }))
+                                }
+                                className={`inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-xs font-bold transition ${
+                                  reviewFeedback[review.id] === "not-helpful"
+                                    ? "border-slate-700 bg-slate-700 text-white shadow-sm"
+                                    : "border-slate-200 bg-white text-slate-600 hover:border-slate-400 hover:bg-slate-50 hover:text-slate-900"
+                                }`}
+                                aria-pressed={reviewFeedback[review.id] === "not-helpful"}
+                              >
+                                <span className="text-base leading-none">♡</span>
+                                Không hữu ích
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })
+              )}
             </div>
           </section>
 

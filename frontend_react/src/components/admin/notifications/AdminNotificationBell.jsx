@@ -47,6 +47,8 @@ function getNotificationTypeLabel(type) {
     booking: 'Booking',
     tour: 'Tour',
     guide: 'HDV',
+    support_request: 'Yêu cầu hỗ trợ',
+    support_message: 'Yêu cầu hỗ trợ',
   }
 
   return map[type] || type || 'Thông báo'
@@ -126,10 +128,40 @@ function getLeaveRequestId(notification) {
   )
 }
 
+function isSupportRequestNotification(notification) {
+  const data = parseNotificationData(notification)
+  const title = String(notification?.title || '').toLowerCase()
+  const message = String(notification?.message || '').toLowerCase()
+
+  return (
+    notification?.kind === 'support_request_admin_action' ||
+    notification?.support_request_id != null ||
+    data?.kind === 'support_request_admin_action' ||
+    data?.support_request_id != null ||
+    data?.source === 'support_request' ||
+    data?.source === 'support_to_admin' ||
+    notification?.type === 'support_message' ||
+    title.includes('yêu cầu hỗ trợ') ||
+    message.includes('mã yêu cầu')
+  )
+}
+
+function getSupportRequestId(notification) {
+  const data = parseNotificationData(notification)
+
+  return (
+    notification?.support_request_id ||
+    data?.support_request_id ||
+    data?.request_id ||
+    null
+  )
+}
+
 function isActionableNotification(notification) {
   return (
     isGuideReplacementNotification(notification) ||
-    isGuideLeaveRequestNotification(notification)
+    isGuideLeaveRequestNotification(notification) ||
+    isSupportRequestNotification(notification)
   )
 }
 
@@ -310,6 +342,35 @@ async function goToGuideLeaveRequest(notification) {
   navigate(`/admin/guides?${params.toString()}`)
 }
 
+async function goToSupportRequest(notification) {
+  try {
+    await markOneAsRead(notification)
+  } catch (error) {
+    console.error(error)
+  }
+
+  const supportRequestId = getSupportRequestId(notification)
+  const params = new URLSearchParams()
+
+  if (notification?.id) {
+    params.set('notification', notification.id)
+  }
+
+  if (supportRequestId) {
+    params.set('supportRequestId', supportRequestId)
+  }
+
+  setOpen(false)
+
+  const query = params.toString()
+
+  navigate(
+    query
+      ? `/admin/notifications/received?${query}`
+      : '/admin/notifications/received'
+  )
+}
+
 function goToActionableNotification(notification) {
   if (isGuideReplacementNotification(notification)) {
     void goToGuideReplacementRequest(notification)
@@ -318,6 +379,11 @@ function goToActionableNotification(notification) {
 
   if (isGuideLeaveRequestNotification(notification)) {
     void goToGuideLeaveRequest(notification)
+    return
+  }
+
+  if (isSupportRequestNotification(notification)) {
+    void goToSupportRequest(notification)
   }
 }
 
@@ -340,7 +406,7 @@ async function openDetail(notification) {
       <button
         type="button"
         onClick={toggleDropdown}
-        className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-blue-600"
+        className="relative inline-flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-blue-600"
         title="Thông báo admin"
       >
         <svg
@@ -358,14 +424,14 @@ async function openDetail(notification) {
         </svg>
 
         {unreadCount > 0 ? (
-          <span className="absolute -right-1 -top-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-rose-600 px-1.5 text-[11px] font-black leading-none text-white ring-2 ring-white">
+          <span className="absolute right-0 -top-2 z-10 grid min-h-5 min-w-5 place-items-center rounded-full border-2 border-white bg-red-500 px-1 text-[10px] font-black leading-none text-white">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         ) : null}
       </button>
 
       {open ? (
-        <div className="absolute right-0 z-50 mt-3 w-[760px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+        <div className="absolute right-0 z-50 mt-3 w-[min(720px,calc(100vw-32px))] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl xl:-right-40">
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
             <div>
               <h3 className="font-black text-slate-900">Thông báo admin</h3>
@@ -397,8 +463,8 @@ async function openDetail(notification) {
             </div>
           </div>
 
-          <div className="grid max-h-[520px] grid-cols-[320px_minmax(0,1fr)] overflow-hidden">
-            <div className="max-h-[520px] overflow-y-auto border-r border-slate-100">
+          <div className="grid max-h-[520px] grid-cols-1 overflow-hidden md:grid-cols-[320px_minmax(0,1fr)]">
+            <div className="max-h-[260px] overflow-y-auto border-b border-slate-100 md:max-h-[520px] md:border-b-0 md:border-r">
               {loading ? (
                 <div className="p-5 text-center text-sm text-slate-500">
                   Đang tải thông báo...
@@ -466,7 +532,7 @@ async function openDetail(notification) {
               )}
             </div>
 
-            <div className="max-h-[520px] overflow-y-auto bg-slate-50/70 p-4">
+            <div className="max-h-[260px] overflow-y-auto bg-slate-50/70 p-4 md:max-h-[520px]">
               {selectedNotification ? (
                 <div
                   role={isActionableNotification(selectedNotification) ? 'button' : undefined}
@@ -492,12 +558,12 @@ async function openDetail(notification) {
                   }`}
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <div>
+                    <div className="min-w-0 flex-1">
                       <span className="inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-blue-700 ring-1 ring-blue-100">
                         {getNotificationTypeLabel(selectedNotification.type)}
                       </span>
 
-                      <h4 className="mt-3 text-lg font-black text-slate-950">
+                      <h4 className="mt-3 truncate whitespace-nowrap text-base font-black text-slate-950">
                         {selectedNotification.title || 'Thông báo'}
                       </h4>
 
@@ -507,11 +573,11 @@ async function openDetail(notification) {
                     </div>
 
                     {selectedNotification.status === 'unread' ? (
-                      <span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-black text-rose-700 ring-1 ring-rose-100">
+                      <span className="shrink-0 whitespace-nowrap rounded-full bg-rose-50 px-3 py-1 text-xs font-black text-rose-700 ring-1 ring-rose-100">
                         Chưa đọc
                       </span>
                     ) : (
-                      <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700 ring-1 ring-emerald-100">
+                      <span className="shrink-0 whitespace-nowrap rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700 ring-1 ring-emerald-100">
                         Đã đọc
                       </span>
                     )}
@@ -529,7 +595,9 @@ async function openDetail(notification) {
                     <div className="mt-4 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm font-bold text-orange-800">
                       {isGuideLeaveRequestNotification(selectedNotification)
                         ? 'Bấm vào thẻ chi tiết này để mở đúng đơn xin nghỉ HDV.'
-                        : 'Bấm vào thẻ chi tiết này để đi tới danh sách yêu cầu đổi HDV đang chờ xử lý.'}
+                        : isGuideReplacementNotification(selectedNotification)
+                          ? 'Bấm vào thẻ chi tiết này để đi tới danh sách yêu cầu đổi HDV đang chờ xử lý.'
+                          : 'Bấm vào thẻ chi tiết này để mở thông báo yêu cầu hỗ trợ cần Admin xử lý.'}
                     </div>
                   ) : null}
                 </div>

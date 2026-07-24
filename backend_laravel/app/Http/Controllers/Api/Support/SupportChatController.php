@@ -89,7 +89,7 @@ class SupportChatController extends Controller
     {
         $messages = $conversation->messages()
             ->orderBy('id')
-            ->get(['id', 'role', 'content', 'created_at']);
+            ->get(['id', 'role', 'content', 'attachment_url', 'created_at']); // đã thêm attachment_url
 
         return response()->json([
             'conversation' => $conversation,
@@ -103,19 +103,29 @@ class SupportChatController extends Controller
     public function reply(Request $request, ChatConversation $conversation)
     {
         $validated = $request->validate([
-            'content' => 'required|string|max:1000',
+            'content' => 'nullable|string|max:1000',
+            'image'   => 'nullable|image|max:5120',
         ]);
 
+        if (empty($validated['content']) && !$request->hasFile('image')) {
+            return response()->json(['message' => 'Vui lòng nhập nội dung hoặc chọn ảnh.'], 422);
+        }
+
         if ($conversation->mode !== 'human' || $conversation->assigned_staff_id !== $request->user()->id) {
-            return response()->json([
-                'message' => 'Bạn không có quyền trả lời cuộc trò chuyện này.',
-            ], 403);
+            return response()->json(['message' => 'Bạn không có quyền trả lời cuộc trò chuyện này.'], 403);
+        }
+
+        $attachmentUrl = null;
+        if ($request->hasFile('image')) {
+            $path = $request->file('image')->store('chat-attachments', 'public');
+            $attachmentUrl = $this->buildAttachmentUrl($request, $path);
         }
 
         $message = ChatMessage::create([
             'chat_conversation_id' => $conversation->id,
-            'role'                 => 'staff',
-            'content'              => $validated['content'],
+            'role'            => 'staff',
+            'content'         => $validated['content'] ?? '',
+            'attachment_url'  => $attachmentUrl,
         ]);
 
         return response()->json(['data' => $message]);
@@ -146,5 +156,10 @@ class SupportChatController extends Controller
         ]);
 
         return response()->json(['message' => 'Đã đóng yêu cầu.']);
+    }
+
+    private function buildAttachmentUrl(Request $request, string $path): string
+    {
+        return $request->getSchemeAndHttpHost() . '/storage/' . $path;
     }
 }

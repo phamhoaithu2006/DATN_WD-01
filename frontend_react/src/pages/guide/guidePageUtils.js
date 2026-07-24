@@ -8,7 +8,7 @@ export function normalizePaginator(payload) {
     : Array.isArray(paginator)
       ? paginator
       : [];
-  const meta = body?.meta ?? paginator?.meta ?? paginator;
+  const meta = body?.meta ?? (Array.isArray(body?.data) ? body : paginator?.meta ?? paginator);
   return {
     items,
     meta: {

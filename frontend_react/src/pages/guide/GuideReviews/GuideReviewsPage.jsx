@@ -431,9 +431,7 @@ export default function GuideReviewsPage() {
   }
 
   return (
-    <section className="relative overflow-hidden rounded-[28px] border border-slate-100 bg-[#fbfdff] p-4 shadow-[0_24px_80px_rgba(15,23,42,0.08)] sm:p-6 lg:p-8">
-      <div className="pointer-events-none absolute -left-20 top-72 h-44 w-44 rounded-full bg-blue-100/50 blur-3xl" />
-      <div className="pointer-events-none absolute -right-20 top-20 h-56 w-56 rounded-full bg-cyan-100/40 blur-3xl" />
+    <section className="relative overflow-hidden rounded-[28px] border border-slate-200 bg-white p-4 shadow-[0_16px_45px_rgba(15,23,42,0.05)] sm:p-6 lg:p-8">
 
       <header className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
@@ -552,7 +550,7 @@ export default function GuideReviewsPage() {
         </div>
       )}
 
-      <div className="relative z-10 mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_16px_45px_rgba(15,23,42,0.05)]">
+      <div className="relative z-10 mt-6 border-t border-slate-200 pt-5">
         {error ? (
           <div className="flex min-h-[390px] flex-col items-center justify-center px-6 text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-red-50 text-red-500">
@@ -575,7 +573,7 @@ export default function GuideReviewsPage() {
           <EmptyState filtered onReset={() => setSelectedRating('all')} />
         ) : (
           <>
-            <div className="grid gap-4 bg-slate-50/60 p-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {paginatedReviews.map((review, index) => {
                 const userName = getCustomerName(review) || 'Khách hàng'
                 const avatarUrl = getCustomerAvatar(review)

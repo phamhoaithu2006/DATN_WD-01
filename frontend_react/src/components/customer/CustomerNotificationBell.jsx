@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import {
   getCustomerNotificationDetail,
@@ -35,6 +36,43 @@ function parseNotificationData(value) {
   } catch {
     return {}
   }
+}
+
+function isSupportRequestNotification(notification) {
+  const data = parseNotificationData(notification?.data)
+  const kind = String(notification?.kind || data?.kind || '').toLowerCase()
+  const searchableText = `${notification?.title || ''} ${notification?.message || ''}`.toLocaleLowerCase('vi-VN')
+
+  return Boolean(
+    notification?.support_request_id ||
+      data?.support_request_id ||
+      kind.startsWith('support_request') ||
+      searchableText.includes('yêu cầu hỗ trợ') ||
+      searchableText.includes('bổ sung thông tin')
+  )
+}
+
+function extractSupportRequestId(notification) {
+  const data = parseNotificationData(notification?.data)
+
+  return (
+    notification?.support_request_id ||
+    data?.support_request_id ||
+    null
+  )
+}
+
+function extractSupportTicketCode(notification) {
+  const data = parseNotificationData(notification?.data)
+
+  if (data?.ticket_code) {
+    return String(data.ticket_code).trim().toUpperCase()
+  }
+
+  const source = `${notification?.title || ''} ${notification?.message || ''}`
+  const match = source.match(/SUP-\d{8}-[A-Z0-9]+/i)
+
+  return match ? match[0].toUpperCase() : ''
 }
 
 
@@ -88,6 +126,7 @@ function extractReviewableBookings(payload) {
 }
 
 export default function CustomerNotificationBell() {
+  const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [notifications, setNotifications] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
@@ -236,8 +275,45 @@ export default function CustomerNotificationBell() {
         await markCustomerNotificationAsRead(notification.id).catch(() => null)
         setUnreadCount((current) => Math.max(0, current - 1))
         setNotifications((current) =>
-          current.filter((item) => item.id !== notification.id),
+          current.map((item) =>
+            item.id === notification.id
+              ? {
+                  ...item,
+                  status: 'read',
+                }
+              : item,
+          ),
         )
+      }
+
+      if (isSupportRequestNotification(normalizedNotification)) {
+        const supportRequestId =
+          extractSupportRequestId(normalizedNotification)
+        const ticketCode =
+          extractSupportTicketCode(normalizedNotification)
+
+        setOpen(false)
+
+        if (supportRequestId) {
+          navigate(
+            `/customer/profile?view=support&supportRequestId=${encodeURIComponent(
+              supportRequestId,
+            )}`,
+          )
+          return
+        }
+
+        if (ticketCode) {
+          navigate(
+            `/customer/profile?view=support&ticket=${encodeURIComponent(
+              ticketCode,
+            )}`,
+          )
+          return
+        }
+
+        navigate('/customer/profile?view=support')
+        return
       }
 
       toast.info(normalizedNotification.title || 'Thông báo', {
@@ -280,7 +356,7 @@ export default function CustomerNotificationBell() {
       >
         <BellIcon />
         {unreadCount > 0 ? (
-          <span className="absolute -right-1 -top-1 grid min-h-5 min-w-5 place-items-center rounded-full border-2 border-white bg-red-500 px-1 text-[10px] font-black leading-none text-white">
+          <span className="absolute right-0 -top-2 z-10 grid min-h-5 min-w-5 place-items-center rounded-full border-2 border-white bg-red-500 px-1 text-[10px] font-black leading-none text-white">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         ) : null}

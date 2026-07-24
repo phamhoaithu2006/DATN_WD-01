@@ -4,9 +4,11 @@ import {
   checkInAllGuideCustomers,
   getGuideAttendanceSessions,
   getGuideAttendanceStatistics,
+  getGuideTourCustomerDetail,
   getGuideTourCustomers,
   getGuideTourDetail,
   getGuideTourOngoing,
+  undoGuideCustomerCheckIn,
   updateGuideAttendanceNote,
 } from "../../services/guideTourApi";
 import {
@@ -161,6 +163,8 @@ function GuideAttendancePage() {
   const [message, setMessage] = useState("");
   const [noteTarget, setNoteTarget] = useState(null);
   const [noteText, setNoteText] = useState("");
+  const [customerDetail, setCustomerDetail] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   useEffect(() => {
     let mounted = true;
@@ -298,6 +302,48 @@ function GuideAttendancePage() {
       setBusy(false);
     }
   }
+  async function undoCustomer(customer) {
+    if (!isChecked(customer) || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      const activeSession = await ensureSession();
+      const updated = await undoGuideCustomerCheckIn(
+        selectedTour.id,
+        activeSession,
+        customer.id,
+      );
+      setCustomers((current) =>
+        current.map((item) =>
+          item.id === customer.id
+            ? { ...item, attendance: updated.attendance || updated }
+            : item,
+        ),
+      );
+      setAttendanceStats((current) => ({
+        ...current,
+        checked_in: Math.max(Number(current.checked_in || 0) - 1, 0),
+        not_checked_in: Number(current.not_checked_in || 0) + 1,
+      }));
+      setMessage(`Đã hoàn tác điểm danh ${getCustomerName(customer)}.`);
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Không thể hoàn tác điểm danh khách này."));
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function openCustomerDetail(customer) {
+    setDetailLoading(true);
+    setError("");
+    try {
+      const detail = await getGuideTourCustomerDetail(selectedTour.id, customer.id);
+      setCustomerDetail({ ...detail, listItem: customer });
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Không tải được chi tiết khách hàng."));
+    } finally {
+      setDetailLoading(false);
+    }
+  }
   async function markAll() {
     if (busy) return;
     setBusy(true);
@@ -375,7 +421,7 @@ function GuideAttendancePage() {
   const canOperateSession =
     canOperate &&
     Boolean(selectedSession) &&
-    selectedSession?.can_take_attendance === true;
+    selectedSession?.status !== "closed";
   const isReadOnlySession = Boolean(selectedSession) && !canOperateSession;
   const firstCustomer = customers.length ? (page - 1) * customerMeta.per_page + 1 : 0;
   const lastCustomer = Math.min(page * customerMeta.per_page, totalRows);
@@ -532,7 +578,7 @@ function GuideAttendancePage() {
                 <span>Loại khách</span>
                 <span>Trạng thái</span>
                 <span>Thời gian</span>
-                <span>Ghi chú</span>
+                <span>Thao tác</span>
               </div>
               {loading ? (
                 <div className="guide-shot-empty">Đang tải khách hàng...</div>
@@ -544,8 +590,12 @@ function GuideAttendancePage() {
                       <input
                         type="checkbox"
                         checked={isChecked(customer)}
-                        disabled={busy || !canOperateSession || isChecked(customer)}
-                        onChange={() => markCustomer(customer)}
+                        disabled={busy || !canOperateSession}
+                        onChange={() =>
+                          isChecked(customer)
+                            ? undoCustomer(customer)
+                            : markCustomer(customer)
+                        }
                       />
                     </span>
                     <span>{firstCustomer + index}</span>
@@ -579,18 +629,13 @@ function GuideAttendancePage() {
                       </mark>
                     </span>
                     <span>{getCheckTime(customer)}</span>
-                    <span>
+                    <span className="guide-attendance-actions">
                       <button
                         type="button"
-                        className="guide-note-btn"
-                        onClick={() => openNote(customer)}
-                        title={
-                          isReadOnlySession
-                            ? "Xem ghi chú khách hàng"
-                            : "Ghi chú khách hàng"
-                        }
+                        onClick={() => openCustomerDetail(customer)}
+                        disabled={detailLoading}
                       >
-                        ✎
+                        Chi tiết
                       </button>
                     </span>
                   </div>
@@ -655,6 +700,48 @@ function GuideAttendancePage() {
               ) : null}
             </div>
           </form>
+        </div>
+      ) : null}
+      {customerDetail ? (
+        <div
+          className="guide-note-modal-backdrop"
+          role="presentation"
+          onClick={() => setCustomerDetail(null)}
+        >
+          <section
+            className="guide-customer-detail-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Chi tiết khách hàng"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header>
+              <div>
+                <span>Khách hàng</span>
+                <h2>{customerDetail.personal_info?.full_name || getCustomerName(customerDetail.listItem)}</h2>
+              </div>
+              <button type="button" onClick={() => setCustomerDetail(null)} aria-label="Đóng">×</button>
+            </header>
+            <div className="guide-customer-detail-grid">
+              <article><span>Số điện thoại</span><strong>{customerDetail.personal_info?.phone || "Chưa có"}</strong></article>
+              <article><span>Loại khách</span><strong>{customerDetail.personal_info?.participant_type || "Chưa có"}</strong></article>
+              <article><span>Ngày sinh</span><strong>{customerDetail.personal_info?.birth_date ? formatDate(customerDetail.personal_info.birth_date) : "Chưa có"}</strong></article>
+              <article><span>Giới tính</span><strong>{customerDetail.personal_info?.gender || "Chưa có"}</strong></article>
+            </div>
+            <div className="guide-customer-detail-note">
+              <span>Ghi chú điểm danh</span>
+              <p>{getAttendance(customerDetail.listItem)?.note || "Chưa có ghi chú"}</p>
+              <button
+                type="button"
+                onClick={() => {
+                  openNote(customerDetail.listItem);
+                  setCustomerDetail(null);
+                }}
+              >
+                {getAttendance(customerDetail.listItem)?.note ? "Sửa ghi chú" : "Thêm ghi chú"}
+              </button>
+            </div>
+          </section>
         </div>
       ) : null}
       <AttendanceTourDetailModal item={detailOpen ? selectedTour : null} onClose={() => setDetailOpen(false)} />
