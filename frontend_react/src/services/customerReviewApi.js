@@ -49,3 +49,31 @@ export async function submitCustomerGuideReview(payload) {
 
   return response.data
 }
+
+// ===========================
+// TOUR REVIEW
+// ===========================
+
+export async function submitCustomerTourReview(payload) {
+  const response = await apiClient.post(
+    '/customer/tour-reviews',
+    payload,
+  )
+
+  return response.data
+}
+
+export async function getTourReviews(slug, params = {}) {
+  const response = await apiClient.get(
+    `/tours/${encodeURIComponent(slug)}/reviews`,
+    {
+      params,
+    },
+  )
+
+  return {
+    summary: response.data?.summary || {},
+    reviews: response.data?.data?.data || [],
+    pagination: response.data?.data || {},
+  }
+}
