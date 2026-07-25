@@ -28,6 +28,17 @@ class ChatConversation extends Model
 
     public function assignedStaff()
     {
-        return $this->belongsTo(\App\Models\User::class, 'assigned_staff_id');
+        return $this->belongsTo(User::class, 'assigned_staff_id');
+    }
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function isStale(int $minutes = 30): bool
+    {
+        return in_array($this->mode, ['pending_human', 'human'])
+            && $this->updated_at
+            && $this->updated_at->lt(now()->subMinutes($minutes));
     }
 }

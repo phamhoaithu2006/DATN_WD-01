@@ -118,7 +118,7 @@ function ChatBox() {
     try {
       sessionStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(messages));
     } catch {
-      // bỏ qua nếu sessionStorage lỗi
+      // ignore
     }
   }, [messages]);
 
@@ -153,7 +153,7 @@ function ChatBox() {
           });
         }
       } catch {
-        // bỏ qua lỗi polling
+        // ignore
       }
     }
 
@@ -209,7 +209,7 @@ function ChatBox() {
         message,
         sessionId,
         requestHuman,
-        sentImage,
+        sentImage
       );
 
       if (response?.mode) setMode(response.mode);
@@ -244,29 +244,28 @@ function ChatBox() {
     <div className="vg-chat">
       {open ? (
         <section className="vg-chat-panel" aria-label="Trợ lý du lịch ViVuGo">
-          <header>
+          <header className="vg-chat-header">
             <div className="vg-ai-avatar">
               <Icon name="sparkle" />
             </div>
-            <div>
+            <div className="vg-chat-header-info">
               <strong>
-                {mode === "human" && staffInfo.name
-                  ? staffInfo.name
-                  : "Trợ lý ViVuGo AI"}
+                {mode === "human" && staffInfo.name ? staffInfo.name : "Trợ lý ViVuGo AI"}
               </strong>
               <span>
                 <i />
                 {mode === "human"
                   ? " Nhân viên đang hỗ trợ"
                   : mode === "pending_human"
-                    ? " Đang chờ nhân viên..."
-                    : " Đang trực tuyến"}
+                  ? " Đang chờ nhân viên..."
+                  : " Đang trực tuyến"}
               </span>
             </div>
             <button
               type="button"
+              className="vg-chat-close-btn"
               onClick={() => setOpen(false)}
-              aria-label="Đóng trò chuyện"
+              aria-label="Đóng"
             >
               <Icon name="close" />
             </button>
@@ -281,25 +280,14 @@ function ChatBox() {
                 className={`vg-message-row ${message.from === "user" ? "is-user" : "is-ai"}`}
               >
                 {message.from !== "user" ? (
-                  <MessageAvatar
-                    isStaff={Boolean(message.isStaff)}
-                    staffAvatarUrl={staffInfo.avatar}
-                  />
+                  <MessageAvatar isStaff={Boolean(message.isStaff)} staffAvatarUrl={staffInfo.avatar} />
                 ) : null}
 
-                <div
-                  className={`vg-message ${message.from}${message.isStaff ? " staff" : ""}`}
-                >
+                <div className={`vg-message ${message.from}${message.isStaff ? " staff" : ""}`}>
                   {message.attachmentUrl ? (
-                    <img
-                      src={message.attachmentUrl}
-                      alt="Ảnh đính kèm"
-                      className="vg-message-image"
-                    />
+                    <img src={message.attachmentUrl} alt="Ảnh đính kèm" className="vg-message-image" />
                   ) : null}
-                  {message.from === "ai"
-                    ? renderMessageText(message.text)
-                    : message.text}
+                  {message.from === "ai" ? renderMessageText(message.text) : message.text}
                 </div>
               </div>
             ))}
@@ -307,8 +295,7 @@ function ChatBox() {
             {mode === "pending_human" && queuePosition ? (
               <div className="vg-queue-banner">
                 <span className="vg-queue-dots">•••</span>
-                Hàng đợi của bạn là <strong>#{queuePosition}</strong>. Bạn vui
-                lòng chờ thêm xíu nhé.
+                Hàng đợi của bạn là <strong>#{queuePosition}</strong>. Bạn vui lòng chờ thêm xíu nhé.
               </div>
             ) : null}
 
@@ -316,9 +303,7 @@ function ChatBox() {
               <div className="vg-message-row is-ai">
                 <MessageAvatar isStaff={false} />
                 <div className="vg-message ai vg-typing">
-                  <i />
-                  <i />
-                  <i />
+                  <i /><i /><i />
                 </div>
               </div>
             ) : null}
@@ -339,16 +324,8 @@ function ChatBox() {
 
           {messages.length === 1 && mode === "ai" ? (
             <div className="vg-quick-prompts">
-              {[
-                "Gợi ý tour biển",
-                "Tour dưới 10 triệu",
-                "Đi đâu tháng này?",
-              ].map((prompt) => (
-                <button
-                  key={prompt}
-                  type="button"
-                  onClick={(event) => sendMessage(event, prompt)}
-                >
+              {["Gợi ý tour biển", "Tour dưới 10 triệu", "Đi đâu tháng này?"].map((prompt) => (
+                <button key={prompt} type="button" onClick={(event) => sendMessage(event, prompt)}>
                   {prompt}
                 </button>
               ))}
@@ -358,13 +335,11 @@ function ChatBox() {
           {imagePreview ? (
             <div className="vg-image-preview-bar">
               <img src={imagePreview} alt="Xem trước" />
-              <button type="button" onClick={clearSelectedImage}>
-                Bỏ ảnh
-              </button>
+              <button type="button" onClick={clearSelectedImage}>Bỏ ảnh</button>
             </div>
           ) : null}
 
-          <form onSubmit={sendMessage}>
+          <form className="vg-chat-form" onSubmit={sendMessage}>
             <input
               ref={fileInputRef}
               type="file"
@@ -376,41 +351,28 @@ function ChatBox() {
               type="button"
               className="vg-attach-btn"
               onClick={() => fileInputRef.current?.click()}
-              aria-label="Gửi ảnh"
-              title="Gửi ảnh"
+              title="Đính kèm ảnh"
             >
               📎
             </button>
             <input
+              className="vg-chat-input"
               type="text"
               value={text}
               onChange={(event) => setText(event.target.value)}
-              placeholder={
-                mode === "pending_human"
-                  ? "Đang chờ nhân viên phản hồi..."
-                  : "Nhập câu hỏi của bạn..."
-              }
+              placeholder={mode === "pending_human" ? "Đang chờ phản hồi..." : "Nhập câu hỏi..."}
             />
-            <button type="submit" aria-label="Gửi tin nhắn">
+            <button type="submit" className="vg-send-btn" title="Gửi">
               <Icon name="send" />
             </button>
           </form>
-          <small className="vg-chat-note">
-            ViVuGo AI có thể mắc lỗi. Hãy kiểm tra thông tin quan trọng.
-          </small>
+          
+          <small className="vg-chat-note">ViVuGo AI có thể mắc lỗi. Hãy kiểm tra thông tin quan trọng.</small>
         </section>
       ) : null}
-      <button
-        className="vg-chat-fab"
-        type="button"
-        onClick={() => setOpen((value) => !value)}
-        aria-label="Mở trợ lý ViVuGo"
-      >
-        {open ? (
-          <Icon name="close" />
-        ) : (
-          <Icon name="sparkle" size={25} />
-        )}
+
+      <button className="vg-chat-fab" type="button" onClick={() => setOpen((value) => !value)}>
+        {open ? <Icon name="close" /> : <Icon name="sparkle" size={25} />}
       </button>
     </div>
   );

@@ -38,10 +38,12 @@ class ChatBotController extends Controller
             ?? 'guest-' . md5($request->ip() . $request->userAgent());
 
         $conversation = ChatConversation::firstOrCreate(
+
             ['session_id' => $sessionId],
             ['user_id' => auth('sanctum')->id()]
         );
-
+        $this->autoCloseIfStale($conversation);
+        $conversation->refresh();
         $attachmentUrl = null;
         if ($hasImage) {
             $path = $request->file('image')->store('chat-attachments', 'public');
@@ -55,6 +57,7 @@ class ChatBotController extends Controller
             'content'        => $userMessage,
             'attachment_url' => $attachmentUrl,
         ]);
+        $conversation->touch();
 
         // TRƯỜNG HỢP 1: Khách bấm nút gặp nhân viên
         if ($requestHuman && $conversation->mode === 'ai') {
@@ -162,7 +165,8 @@ class ChatBotController extends Controller
         $conversation = ChatConversation::with('assignedStaff:id,full_name,avatar_url')
             ->where('session_id', $sessionId)
             ->first();
-
+        $this->autoCloseIfStale($conversation);
+        $conversation->refresh();
         if (!$conversation) {
             return response()->json(['messages' => [], 'mode' => 'ai']);
         }
@@ -331,5 +335,24 @@ PROMPT;
     private function buildAttachmentUrl(Request $request, string $path): string
     {
         return $request->getSchemeAndHttpHost() . '/storage/' . $path;
+    }
+    private function autoCloseIfStale(ChatConversation $conversation): void
+    {
+        if (!$conversation->isStale(30)) {
+            return;
+        }
+
+        $conversation->update([
+            'mode' => 'ai',
+            'assigned_staff_id' => null,
+            'handoff_closed_at' => now(),
+            'consecutive_fallback_count' => 0,
+        ]);
+
+        ChatMessage::create([
+            'chat_conversation_id' => $conversation->id,
+            'role' => 'assistant',
+            'content' => 'Phiên hỗ trợ đã tự động kết thúc do không có hoạt động trong 30 phút. Nếu bạn cần thêm trợ giúp, mình (trợ lý AI) sẵn sàng hỗ trợ tiếp nhé!',
+        ]);
     }
 }
