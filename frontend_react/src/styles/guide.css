@@ -237,6 +237,24 @@
   margin-left: auto;
 }
 
+.guide-nav-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  margin-left: auto;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.18);
+}
+
 /* Promo upgrade card */
 .guide-promo-card {
   margin-top: auto;
@@ -2617,6 +2635,33 @@
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.guide-notifications-filter {
+  display: grid;
+  gap: 7px;
+  min-width: 220px;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.guide-notifications-filter select {
+  width: 100%;
+  height: 42px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #fff;
+  color: #0f172a;
+  padding: 0 40px 0 13px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.guide-notifications-filter select:focus {
+  outline: 0;
+  border-color: #168eea;
+  box-shadow: 0 0 0 3px rgba(22, 142, 234, 0.14);
 }
 
 .guide-notifications-toolbar button {

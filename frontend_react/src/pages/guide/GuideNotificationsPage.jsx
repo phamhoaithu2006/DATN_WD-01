@@ -111,6 +111,7 @@ function GuideNotificationsPage() {
         ),
       )
       setMessage('Đã đánh dấu thông báo là đã đọc.')
+      window.dispatchEvent(new Event('guide-notification:changed'))
     } catch {
       setError('Không đánh dấu đã đọc được.')
     }
@@ -138,20 +139,21 @@ function GuideNotificationsPage() {
       )}
 
       <section className="guide-notifications-toolbar">
-        {[
-          ['all', 'Tất cả'],
-          ['unread', 'Chưa đọc'],
-          ['read', 'Đã đọc'],
-        ].map(([value, label]) => (
-          <button
-            key={value}
-            type="button"
-            className={filter === value ? 'active' : ''}
-            onClick={() => setFilter(value)}
+        <label className="guide-notifications-filter">
+          <span>Hiển thị</span>
+          <select
+            value={filter}
+            onChange={(event) => {
+              setFilter(event.target.value)
+              setSelectedNotification(null)
+            }}
+            aria-label="Lọc thông báo theo trạng thái"
           >
-            {label}
-          </button>
-        ))}
+            <option value="all">Tất cả</option>
+            <option value="unread">Chưa đọc</option>
+            <option value="read">Đã đọc</option>
+          </select>
+        </label>
       </section>
 
       <section className="guide-notifications-grid">
