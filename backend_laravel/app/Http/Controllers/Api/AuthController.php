@@ -3,13 +3,17 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Mail\PasswordResetOtpMail;
 use App\Models\Role;
 use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rules\Password;
+use Throwable;
 
 class AuthController extends Controller
 {
@@ -59,19 +63,7 @@ class AuthController extends Controller
             'remember' => ['sometimes', 'boolean'],
         ]);
 
-        $identifier = trim($request->identifier);
-
-        if (filter_var($identifier, FILTER_VALIDATE_EMAIL)) {
-            $user = User::with('role')->where('email', strtolower($identifier))->first();
-        } else {
-            $normalizedPhone = preg_replace('/\D+/', '', $identifier);
-            $phoneCandidates = array_values(array_unique(array_filter([
-                $normalizedPhone,
-                str_starts_with($normalizedPhone, '84') ? '0' . substr($normalizedPhone, 2) : null,
-            ])));
-
-            $user = User::with('role')->whereIn('phone', $phoneCandidates)->first();
-        }
+        $user = $this->findUserByIdentifier(trim($request->identifier))?->load('role');
 
         if (! $user || ! Hash::check($request->password, $user->password)) {
             return response()->json([
@@ -100,6 +92,96 @@ class AuthController extends Controller
         ]);
     }
 
+    /**
+     * Gửi mã OTP đặt lại mật khẩu tới email của người dùng.
+     * Luôn trả về phản hồi trung lập để tránh lộ thông tin tài khoản tồn tại.
+     */
+    public function forgotPassword(Request $request): JsonResponse
+    {
+        $request->validate([
+            'identifier' => ['required', 'string', 'max:150'],
+        ]);
+
+        $neutral = [
+            'message' => 'Nếu thông tin khớp với tài khoản, mã xác nhận đã được gửi tới email của bạn.',
+        ];
+
+        $user = $this->findUserByIdentifier(trim($request->identifier));
+
+        if (! $user) {
+            return response()->json($neutral);
+        }
+
+        $otp = (string) random_int(100000, 999999);
+
+        $user->update([
+            'otp' => Hash::make($otp),
+            'otp_expires_at' => now()->addMinutes(10),
+        ]);
+
+        try {
+            Mail::to($user->email)->send(new PasswordResetOtpMail(
+                $otp,
+                $user->full_name,
+                (string) Setting::valueFor('site_name', 'ViVuGo'),
+            ));
+        } catch (Throwable $e) {
+            // Vẫn trả phản hồi trung lập: trả lỗi 500 sẽ vô tình tiết lộ tài khoản tồn tại.
+            try {
+                Log::error('Không gửi được email OTP đặt lại mật khẩu', [
+                    'user_id' => $user->id,
+                    'error' => $e->getMessage(),
+                ]);
+            } catch (Throwable) {
+                // Logging lỗi (ví dụ file log không ghi được) cũng không được phá phản hồi trung lập.
+            }
+        }
+
+        return response()->json($neutral);
+    }
+
+    /**
+     * Xác nhận mã OTP và đặt lại mật khẩu mới.
+     * Trả về cùng một thông báo lỗi cho mọi trường hợp không hợp lệ để tránh dò đoán.
+     */
+    public function resetPassword(Request $request): JsonResponse
+    {
+        $passwordMinLength = Setting::intValueFor('password_min_length', 8);
+
+        $request->validate([
+            'identifier' => ['required', 'string', 'max:150'],
+            'otp' => ['required', 'digits:6'],
+            'password' => ['required', 'string', Password::min($passwordMinLength), 'confirmed'],
+        ]);
+
+        $user = $this->findUserByIdentifier(trim($request->identifier));
+
+        if (
+            ! $user
+            || ! $user->otp
+            || ! $user->otp_expires_at
+            || $user->otp_expires_at->isPast()
+            || ! Hash::check($request->otp, $user->otp)
+        ) {
+            return response()->json([
+                'message' => 'Mã xác nhận không đúng hoặc đã hết hạn.',
+            ], 400);
+        }
+
+        $user->update([
+            'password' => Hash::make($request->password),
+            'otp' => null,
+            'otp_expires_at' => null,
+        ]);
+
+        // Thu hồi toàn bộ phiên đăng nhập cũ sau khi đổi mật khẩu.
+        $user->tokens()->delete();
+
+        return response()->json([
+            'message' => 'Đặt lại mật khẩu thành công. Vui lòng đăng nhập lại.',
+        ]);
+    }
+
     public function logout(Request $request): JsonResponse
     {
         $request->user()->currentAccessToken()->delete();
@@ -118,5 +200,27 @@ class AuthController extends Controller
             'user' => $user,
             'data' => $user,
         ]);
+    }
+
+    /**
+     * Tìm người dùng theo email hoặc số điện thoại (chuẩn hóa đầu số 84 về 0).
+     */
+    private function findUserByIdentifier(string $identifier): ?User
+    {
+        if (filter_var($identifier, FILTER_VALIDATE_EMAIL)) {
+            return User::where('email', strtolower($identifier))->first();
+        }
+
+        $normalizedPhone = preg_replace('/\D+/', '', $identifier);
+        $phoneCandidates = array_values(array_unique(array_filter([
+            $normalizedPhone,
+            str_starts_with($normalizedPhone, '84') ? '0' . substr($normalizedPhone, 2) : null,
+        ])));
+
+        if ($phoneCandidates === []) {
+            return null;
+        }
+
+        return User::whereIn('phone', $phoneCandidates)->first();
     }
 }

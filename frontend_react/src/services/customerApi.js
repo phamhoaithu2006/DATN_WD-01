@@ -26,6 +26,23 @@ export async function fetchTours(params = {}) {
   return response.data?.data || [];
 }
 
+// Danh sách tour kèm meta phân trang, hỗ trợ hủy request (AbortController).
+export async function fetchToursWithMeta(params = {}, signal) {
+  const response = await api.get("/tours", { params, signal });
+
+  return {
+    items: response.data?.data || [],
+    meta: response.data?.meta || null,
+  };
+}
+
+// Metadata dựng UI bộ lọc: khoảng giá, điểm đến, danh mục, bucket thời lượng.
+export async function fetchTourFilterOptions() {
+  const response = await api.get("/tours/filter-options");
+
+  return response.data?.data || null;
+}
+
 export async function fetchHomeContent() {
   const response = await api.get('/home')
 

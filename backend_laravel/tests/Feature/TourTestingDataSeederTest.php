@@ -2,6 +2,7 @@
 
 use App\Models\Booking;
 use App\Models\Tour;
+use Database\Seeders\BannerSeeder;
 use Database\Seeders\BookingSeeder;
 use Database\Seeders\CategorySeeder;
 use Database\Seeders\CertificateSeeder;
@@ -11,8 +12,13 @@ use Database\Seeders\GuideReviewSeeder;
 use Database\Seeders\GuideSeeder;
 use Database\Seeders\GuideSpecializationSeeder;
 use Database\Seeders\LanguageSeeder;
+use Database\Seeders\PromotionSeeder;
 use Database\Seeders\RoleSeeder;
+use Database\Seeders\ServiceCategorySeeder;
+use Database\Seeders\SettingSeeder;
+use Database\Seeders\SupportStaffSeeder;
 use Database\Seeders\TourGuideAssignmentSeeder;
+use Database\Seeders\TourReviewSeeder;
 use Database\Seeders\TourSeeder;
 use Database\Seeders\TourTestingDataSeeder;
 use Database\Seeders\UserSeeder;
@@ -34,30 +40,52 @@ test('database seeder can run twice without duplicate key failures', function ()
     ])->count())->toBe(5);
 });
 
+// BookingSeeder hiện là shim tương thích gọi DemoWorkflowSeeder (booking BK-DEMO-%),
+// nên cần đủ dữ liệu nền theo thứ tự của DatabaseSeeder, gồm cả TourTestingDataSeeder.
 test('booking seeder can run repeatedly without duplicate contacts', function () {
     $this->seed([
         RoleSeeder::class,
         CategorySeeder::class,
+        ServiceCategorySeeder::class,
         DestinationSeeder::class,
+        BannerSeeder::class,
+        SettingSeeder::class,
         UserSeeder::class,
+        SupportStaffSeeder::class,
         GuideSpecializationSeeder::class,
         LanguageSeeder::class,
         CertificateSeeder::class,
         GuideSeeder::class,
         TourSeeder::class,
+        PromotionSeeder::class,
         TourGuideAssignmentSeeder::class,
+        GuideReviewSeeder::class,
+        TourReviewSeeder::class,
+        TourTestingDataSeeder::class,
     ]);
 
     $this->seed(BookingSeeder::class);
+
+    $countsAfterFirstRun = [
+        'bookings' => DB::table('bookings')->count(),
+        'booking_contacts' => DB::table('booking_contacts')->count(),
+        'payments' => DB::table('payments')->count(),
+    ];
+
     $this->seed(BookingSeeder::class);
 
     $bookingIds = Booking::query()
-        ->where('booking_code', 'like', 'BK-SEED-%')
+        ->where('booking_code', 'like', 'BK-DEMO-%')
         ->pluck('id');
 
-    expect($bookingIds)->toHaveCount(50)
-        ->and(DB::table('booking_contacts')->whereIn('booking_id', $bookingIds)->count())->toBe(50)
-        ->and(DB::table('payments')->whereIn('booking_id', $bookingIds)->count())->toBe(50);
+    expect($bookingIds)->toHaveCount(6)
+        ->and(DB::table('booking_contacts')->whereIn('booking_id', $bookingIds)->count())->toBe(6)
+        ->and(DB::table('payments')->whereIn('booking_id', $bookingIds)->count())->toBe(6)
+        ->and([
+            'bookings' => DB::table('bookings')->count(),
+            'booking_contacts' => DB::table('booking_contacts')->count(),
+            'payments' => DB::table('payments')->count(),
+        ])->toBe($countsAfterFirstRun);
 });
 
 test('tour testing data seeder creates a complete and repeatable tour lifecycle', function () {

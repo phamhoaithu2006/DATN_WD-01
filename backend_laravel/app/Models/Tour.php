@@ -8,12 +8,18 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Cache;
 
 class Tour extends Model
 {
     use HasFactory, SoftDeletes;
 
     protected $table = 'tours';
+
+    /**
+     * Cache key của endpoint GET /api/tours/filter-options.
+     */
+    public const FILTER_OPTIONS_CACHE_KEY = 'tours.filter_options';
 
     protected $fillable = [
         'category_id',
@@ -34,6 +40,18 @@ class Tour extends Model
         'average_rating',
         'review_count',
     ];
+
+    /**
+     * Tour thay đổi (tạo/sửa/ẩn/xóa) thì metadata bộ lọc phải tính lại.
+     */
+    protected static function booted(): void
+    {
+        $clearFilterOptionsCache = static fn () => Cache::forget(self::FILTER_OPTIONS_CACHE_KEY);
+
+        static::saved($clearFilterOptionsCache);
+        static::deleted($clearFilterOptionsCache);
+        static::restored($clearFilterOptionsCache);
+    }
 
     protected $casts = [
         'base_price' => 'decimal:2',
