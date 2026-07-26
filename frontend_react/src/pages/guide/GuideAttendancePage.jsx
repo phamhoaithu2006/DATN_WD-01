@@ -421,7 +421,7 @@ function GuideAttendancePage() {
   const canOperateSession =
     canOperate &&
     Boolean(selectedSession) &&
-    selectedSession?.can_take_attendance === true;
+    selectedSession?.status !== "closed";
   const isReadOnlySession = Boolean(selectedSession) && !canOperateSession;
   const firstCustomer = customers.length ? (page - 1) * customerMeta.per_page + 1 : 0;
   const lastCustomer = Math.min(page * customerMeta.per_page, totalRows);
@@ -578,7 +578,6 @@ function GuideAttendancePage() {
                 <span>Loại khách</span>
                 <span>Trạng thái</span>
                 <span>Thời gian</span>
-                <span>Ghi chú</span>
                 <span>Thao tác</span>
               </div>
               {loading ? (
@@ -591,8 +590,12 @@ function GuideAttendancePage() {
                       <input
                         type="checkbox"
                         checked={isChecked(customer)}
-                        disabled={busy || !canOperateSession || isChecked(customer)}
-                        onChange={() => markCustomer(customer)}
+                        disabled={busy || !canOperateSession}
+                        onChange={() =>
+                          isChecked(customer)
+                            ? undoCustomer(customer)
+                            : markCustomer(customer)
+                        }
                       />
                     </span>
                     <span>{firstCustomer + index}</span>
@@ -626,20 +629,6 @@ function GuideAttendancePage() {
                       </mark>
                     </span>
                     <span>{getCheckTime(customer)}</span>
-                    <span>
-                      <button
-                        type="button"
-                        className="guide-note-btn"
-                        onClick={() => openNote(customer)}
-                        title={
-                          isReadOnlySession
-                            ? "Xem ghi chú khách hàng"
-                            : "Ghi chú khách hàng"
-                        }
-                      >
-                        ✎
-                      </button>
-                    </span>
                     <span className="guide-attendance-actions">
                       <button
                         type="button"
@@ -648,16 +637,6 @@ function GuideAttendancePage() {
                       >
                         Chi tiết
                       </button>
-                      {isChecked(customer) ? (
-                        <button
-                          type="button"
-                          className="is-undo"
-                          onClick={() => undoCustomer(customer)}
-                          disabled={busy || !canOperateSession}
-                        >
-                          Hoàn tác
-                        </button>
-                      ) : null}
                     </span>
                   </div>
                 ))}
@@ -745,15 +724,9 @@ function GuideAttendancePage() {
             </header>
             <div className="guide-customer-detail-grid">
               <article><span>Số điện thoại</span><strong>{customerDetail.personal_info?.phone || "Chưa có"}</strong></article>
-              <article><span>Email</span><strong>{customerDetail.personal_info?.email || "Chưa có"}</strong></article>
               <article><span>Loại khách</span><strong>{customerDetail.personal_info?.participant_type || "Chưa có"}</strong></article>
               <article><span>Ngày sinh</span><strong>{customerDetail.personal_info?.birth_date ? formatDate(customerDetail.personal_info.birth_date) : "Chưa có"}</strong></article>
               <article><span>Giới tính</span><strong>{customerDetail.personal_info?.gender || "Chưa có"}</strong></article>
-              <article><span>Mã đặt tour</span><strong>{customerDetail.booking_info?.booking_code || "Chưa có"}</strong></article>
-            </div>
-            <div className="guide-customer-detail-note">
-              <span>Lưu ý sức khỏe / yêu cầu đặc biệt</span>
-              <p>{customerDetail.personal_info?.health_note || customerDetail.contact_info?.special_request || "Không có"}</p>
             </div>
             <div className="guide-customer-detail-note">
               <span>Ghi chú điểm danh</span>

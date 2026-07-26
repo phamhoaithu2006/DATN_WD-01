@@ -341,7 +341,7 @@ test('departure attendance remains available throughout the departure date', fun
     Carbon::setTestNow();
 });
 
-test('attendance actions are only allowed on the departure date', function () {
+test('attendance actions are allowed at any time while the tour is ongoing', function () {
     Carbon::setTestNow('2026-07-19 09:00:00');
     $scenario = guideAttendanceScenario();
     Sanctum::actingAs($scenario['guideUser']);
@@ -355,12 +355,12 @@ test('attendance actions are only allowed on the departure date', function () {
     $this->postJson("/api/guide/tours/{$scenario['ongoing']->id}/attendance-sessions/{$departureSessionId}/check-in", [
         'participant_id' => $scenario['participant']->id,
     ])
-        ->assertUnprocessable()
-        ->assertJsonValidationErrors('boundary');
+        ->assertOk()
+        ->assertJsonPath('data.status', 'checked_in');
 
     $this->postJson("/api/guide/tours/{$scenario['ongoing']->id}/attendance-sessions")
-        ->assertUnprocessable()
-        ->assertJsonValidationErrors('boundary');
+        ->assertCreated()
+        ->assertJsonPath('data.id', $departureSessionId);
 
     Carbon::setTestNow();
 });

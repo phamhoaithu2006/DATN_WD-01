@@ -107,7 +107,7 @@ function GuideTrashPage() {
     const timer = window.setTimeout(() => {
       setMessage('')
       setError('')
-    }, 3500)
+    }, 5000)
 
     return () => window.clearTimeout(timer)
   }, [message, error])

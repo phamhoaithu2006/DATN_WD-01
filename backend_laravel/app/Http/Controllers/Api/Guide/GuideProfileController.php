@@ -102,7 +102,6 @@ class GuideProfileController extends Controller
 
             'certificate_type' => 'sometimes|string|max:100',
             'experience_years' => 'sometimes|integer|min:0|max:40',
-            'status' => 'sometimes|in:active,inactive',
 
             'languages' => 'sometimes|array',
             'languages.*.language_id' => 'required_with:languages|exists:languages,id',
@@ -138,10 +137,6 @@ class GuideProfileController extends Controller
 
         if (array_key_exists('experience_years', $validated)) {
             $guideUpdateData['experience_years'] = $validated['experience_years'];
-        }
-
-        if (array_key_exists('status', $validated)) {
-            $guideUpdateData['status'] = $validated['status'];
         }
 
         // Biến lưu đường dẫn avatar mới và avatar cũ

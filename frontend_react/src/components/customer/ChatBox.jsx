@@ -3,7 +3,7 @@ import { askTravelAssistant, fetchChatMessages } from "../../services/customerAp
 import Icon from "./Icon";
 
 const CHAT_HISTORY_KEY = "vivugo_chat_history";
-const POLL_INTERVAL = 4000;
+const POLL_INTERVAL = 5000;
 
 const defaultGreeting = {
   from: "ai",
@@ -153,6 +153,15 @@ useEffect(() => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    function handleCustomOpen() {
+      setOpen(true);
+    }
+    window.addEventListener("open-vivugo-chatbox", handleCustomOpen);
+    return () => {
+      window.removeEventListener("open-vivugo-chatbox", handleCustomOpen);
+    };
+  }, []);
   useEffect(() => {
     if (mode === "ai") {
       if (pollRef.current) window.clearInterval(pollRef.current);

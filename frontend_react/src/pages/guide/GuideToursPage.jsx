@@ -37,6 +37,15 @@ function getTourDescription(item) {
   );
 }
 
+function getRequestErrorMessage(error, fallback) {
+  const validationErrors = error?.response?.data?.errors;
+  const firstValidationError = validationErrors
+    ? Object.values(validationErrors).flat().find(Boolean)
+    : null;
+
+  return firstValidationError || error?.response?.data?.message || fallback;
+}
+
 function getReplacementEligibility(item) {
   const status = String(item?.guide_status || item?.status || "").toLowerCase();
   const hasPendingRequest = Boolean(
@@ -347,6 +356,7 @@ function ReplacementRequestModal({
       <form
         className="guide-replacement-modal"
         onSubmit={onSubmit}
+        noValidate
         onClick={(event) => event.stopPropagation()}
       >
         <button type="button" className="guide-tour-detail-close" onClick={onClose} aria-label="Đóng">×</button>
@@ -373,7 +383,13 @@ function ReplacementRequestModal({
         {replacement.error ? <p className="guide-replacement-error">{replacement.error}</p> : null}
         <div className="guide-replacement-actions">
           <button type="button" onClick={onClose} disabled={replacement.submitting}>Hủy</button>
-          <button type="submit" disabled={replacement.submitting}>{replacement.submitting ? "Đang gửi..." : "Gửi yêu cầu"}</button>
+          <button
+            type="button"
+            disabled={replacement.submitting}
+            onClick={onSubmit}
+          >
+            {replacement.submitting ? "Đang gửi..." : "Gửi yêu cầu"}
+          </button>
         </div>
       </form>
     </div>
@@ -485,8 +501,8 @@ function GuideToursPage() {
   }
 
   async function submitReplacementRequest(event) {
-    event.preventDefault();
-    if (!replacementTour) return;
+    event?.preventDefault();
+    if (!replacementTour || replacementSubmitting) return;
     const reason = replacementReason.trim();
 
     if (reason.length < 10) {
@@ -509,7 +525,7 @@ function GuideToursPage() {
       setItems((current) => current.map((item) => item.id === replacementTour.id ? { ...item, replacement_request_pending: true } : item));
     } catch (err) {
       setReplacementError(
-        err?.response?.data?.message || "Không gửi được yêu cầu đổi HDV.",
+        getRequestErrorMessage(err, "Không gửi được yêu cầu đổi HDV."),
       );
     } finally {
       setReplacementSubmitting(false);

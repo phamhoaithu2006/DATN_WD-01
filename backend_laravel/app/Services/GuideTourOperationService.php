@@ -129,7 +129,7 @@ class GuideTourOperationService
             $session->setAttribute(
                 'can_take_attendance',
                 $session->status === 'active'
-                    && Carbon::parse($departure->departure_date)->isToday()
+                    && $this->isDepartureOngoing($departure)
             );
         });
     }
@@ -197,7 +197,6 @@ class GuideTourOperationService
     {
         $departure = $this->assignedDepartureForUser($user, $tourDeparture);
         $this->assertDepartureCanTakeAttendance($departure);
-        $this->assertBoundaryMatchesToday($departure, 'departure');
         $this->ensureDepartureAttendanceSession($departure, $user);
 
         return AttendanceSession::query()
@@ -721,20 +720,6 @@ class GuideTourOperationService
                 'attendance_session_id' => 'Attendance session is closed.',
             ]);
         }
-
-        if ($session->tour_itinerary_id !== null) {
-            $this->assertItineraryWindowIsOpen($departure, $session->itinerary()->firstOrFail());
-
-            return;
-        }
-
-        if ($session->boundary === null) {
-            throw ValidationException::withMessages([
-                'attendance_session_id' => 'Attendance session does not have a valid boundary.',
-            ]);
-        }
-
-        $this->assertBoundaryMatchesToday($departure, $session->boundary);
     }
 
     private function ensureDepartureAttendanceSession(TourDeparture $departure, User $user): AttendanceSession

@@ -27,8 +27,12 @@ export const getGuideNotifications = async (page = 1) => {
 }
 
 export const getGuideUnreadNotificationCount = async () => {
-  const payload = await getGuideNotifications(1)
-  return payload.items.filter((item) => item.status === 'unread').length
+  const response = await apiClient.get(`${ENDPOINT}/unread-count`)
+  return Number(
+    response.data?.unread_count ??
+      response.data?.data?.unread_count ??
+      0,
+  )
 }
 
 export const getGuideNotificationDetail = async (id) => {

@@ -123,7 +123,11 @@ function GuideProfilePage() {
     setError('')
 
     try {
-      const response = await updateGuideProfile(profileForm)
+      const response = await updateGuideProfile({
+        full_name: profileForm.full_name,
+        email: profileForm.email,
+        phone: profileForm.phone,
+      })
       const refreshed = normalizeGuidePayload(await getGuideProfile())
 
       setGuide(refreshed)
@@ -237,10 +241,15 @@ function GuideProfilePage() {
 
             <label className="guide-field">
               <span>Trạng thái</span>
-              <select name="status" value={profileForm.status} onChange={handleProfileChange}>
-                <option value="active">Đang hoạt động</option>
-                <option value="inactive">Ngừng hoạt động</option>
-              </select>
+              <input
+                value={
+                  profileForm.status === 'active'
+                    ? 'Đang hoạt động'
+                    : 'Ngừng hoạt động'
+                }
+                readOnly
+                aria-readonly="true"
+              />
             </label>
           </div>
 
