@@ -189,7 +189,7 @@ function UserManagementPage({ roleName = "customer" }) {
 
     const timer = setTimeout(() => {
       setNotice(null);
-    }, 10000);
+    }, 5000);
 
     return () => clearTimeout(timer);
   }, [notice]);

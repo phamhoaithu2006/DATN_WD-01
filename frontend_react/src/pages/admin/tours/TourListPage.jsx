@@ -288,7 +288,7 @@ function TourListPage() {
 
     const timer = setTimeout(() => {
       setToast(null)
-    }, 10000)
+    }, 5000)
 
     return () => clearTimeout(timer)
   }, [toast])

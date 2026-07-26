@@ -717,6 +717,29 @@
   text-align: center;
 }
 
+/* Bảng quản lý NVHT có cột online và bốn nút thao tác: giữ đủ khoảng
+   cách, màn hình hẹp sẽ cuộn ngang thay vì ép/chồng nội dung. */
+.support-page .support-table {
+  min-width: 1420px;
+}
+
+.support-page .support-table th:nth-child(1),
+.support-page .support-table td:nth-child(1) { width: 7%; }
+.support-page .support-table th:nth-child(2),
+.support-page .support-table td:nth-child(2) { width: 10%; }
+.support-page .support-table th:nth-child(3),
+.support-page .support-table td:nth-child(3) { width: 16%; }
+.support-page .support-table th:nth-child(4),
+.support-page .support-table td:nth-child(4) { width: 10%; white-space: nowrap; }
+.support-page .support-table th:nth-child(5),
+.support-page .support-table td:nth-child(5) { width: 10%; }
+.support-page .support-table th:nth-child(6),
+.support-page .support-table td:nth-child(6) { width: 12%; }
+.support-page .support-table th:nth-child(7),
+.support-page .support-table td:nth-child(7) { width: 14%; text-align: left; }
+.support-page .support-table th:nth-child(8),
+.support-page .support-table td:nth-child(8) { width: 21%; text-align: center; }
+
 .support-trash-page .support-table th:nth-child(1),
 .support-trash-page .support-table td:nth-child(1) {
   width: 56px;
@@ -3513,7 +3536,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  width: 100%;
+  width: fit-content;
 }
 
 .guide-page .guide-header-actions-button-stack {
@@ -3526,8 +3549,10 @@
 }
 
 .admin-guide-header-secondary-actions .admin-guide-leave-menu-button {
-  flex: 1 1 0;
-  min-width: 0;
+  flex: 0 0 auto;
+  min-width: 178px;
+  min-height: 36px;
+  padding: 0 12px;
   white-space: nowrap;
 }
 

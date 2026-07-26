@@ -36,7 +36,7 @@ function CustomerSupportMenuBadge() {
         () => {
           void loadCount()
         },
-        30000,
+        5000,
       )
 
     function handleChanged() {

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import GuideLeaveRequestWidget from "../components/guide/GuideLeaveRequestWidget";
 import GuideNotificationBell from "../components/guide/GuideNotificationBell";
+import GuidePresenceHeartbeat from "../components/guide/GuidePresenceHeartbeat";
 import GuideSidebar from "../components/guide/GuideSidebar";
 import { logout as logoutApi } from "../services/authApi";
 import { clearSession, readSession } from "../services/authStorage";
@@ -55,6 +56,7 @@ function GuideLayout({ children }) {
 
   return (
     <div className={collapsed ? "guide-shell sidebar-collapsed" : "guide-shell"}>
+      <GuidePresenceHeartbeat />
       <GuideSidebar
         collapsed={collapsed}
         guide={guide}
