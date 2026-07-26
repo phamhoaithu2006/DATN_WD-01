@@ -4,16 +4,19 @@ import UserDetailModal from "../../components/admin/users/UserDetailModal";
 import UserFilters from "../../components/admin/users/UserFilters";
 import UserFormModal from "../../components/admin/users/UserFormModal";
 import UserTable from "../../components/admin/users/UserTable";
+import CustomerActivityModal from "../../components/admin/users/CustomerActivityModal";
 import AdminPageHeader from "../../components/admin/AdminPageHeader";
 import {
   createAccount,
   getAccount,
   getAccounts,
   getAccountRoles,
+  getCustomerActivityHistory,
   setAccountStatus,
   updateAccount,
 } from "../../services/adminAccountApi";
 import "../../styles/user-management.css";
+import { getCustomerPresence } from "../../services/customerPresenceApi";
 
 const USER_ROLE_PAGES = [
   {
@@ -142,6 +145,10 @@ function UserManagementPage({ roleName = "customer" }) {
   const [detail, setDetail] = useState(null);
   const [notice, setNotice] = useState(null);
   const [currentRoleId, setCurrentRoleId] = useState(rolePage.fallbackId);
+  const [activityCustomer, setActivityCustomer] = useState(null);
+  const [activityData, setActivityData] = useState(null);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [presenceMap, setPresenceMap] = useState({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -159,6 +166,9 @@ function UserManagementPage({ roleName = "customer" }) {
         status: status || undefined,
         role_id: selectedRole.id,
       });
+      const customerPresence = rolePage.name === "customer"
+        ? await getCustomerPresence().catch(() => ({}))
+        : {};
 
       const resolvedRoles = roleList?.length
         ? roleList
@@ -172,6 +182,7 @@ function UserManagementPage({ roleName = "customer" }) {
       setCurrentRoleId(selectedRole.id);
       setCustomers(withResolvedRoles(list, rolesWithCurrent));
       setRoles(rolesWithCurrent);
+      setPresenceMap(customerPresence);
     } catch (error) {
       setNotice({ type: "error", text: messageFrom(error) });
     } finally {
@@ -255,6 +266,24 @@ function UserManagementPage({ roleName = "customer" }) {
     }
   }
 
+  async function openActivityHistory(account) {
+    setActivityCustomer(account);
+    setActivityData(null);
+    setActivityLoading(true);
+
+    try {
+      const result = await getCustomerActivityHistory(account.id, {
+        activity_limit: 100,
+      });
+      setActivityData(result);
+    } catch (error) {
+      setNotice({ type: "error", text: messageFrom(error) });
+      setActivityCustomer(null);
+    } finally {
+      setActivityLoading(false);
+    }
+  }
+
   return (
     <section className="user-management-page">
       <AdminPageHeader
@@ -309,7 +338,21 @@ function UserManagementPage({ roleName = "customer" }) {
         onView={view}
         onEdit={setEditing}
         onToggleLock={toggleLock}
+        onHistory={rolePage.name === "customer" ? openActivityHistory : undefined}
+        presenceMap={rolePage.name === "customer" ? presenceMap : null}
       />
+
+      {activityCustomer ? (
+        <CustomerActivityModal
+          customer={activityCustomer}
+          data={activityData}
+          loading={activityLoading}
+          onClose={() => {
+            setActivityCustomer(null);
+            setActivityData(null);
+          }}
+        />
+      ) : null}
 
       {editing !== undefined ? (
         <UserFormModal

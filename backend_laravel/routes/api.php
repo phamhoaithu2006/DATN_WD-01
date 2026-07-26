@@ -1,13 +1,12 @@
 <?php
 
 use App\Http\Controllers\Api\Admin\AdminGuideLeaveRequestController;
-use App\Http\Controllers\Api\Admin\AdminGuideActivityController;
 use App\Http\Controllers\Api\Admin\AdminGuideMonitoringController;
 use App\Http\Controllers\Api\Admin\AdminGuideReplacementRequestController;
 use App\Http\Controllers\Api\Admin\AdminNotificationBellController;
-use App\Http\Controllers\Api\Admin\AdminNotificationController;
 use App\Http\Controllers\Api\Admin\AdminProfileController;
 use App\Http\Controllers\Api\Admin\AdminReceivedNotificationController;
+use App\Http\Controllers\Api\Admin\AdminSupportStaffMonitoringController;
 use App\Http\Controllers\Api\Admin\AdminTourDepartureBookingController;
 use App\Http\Controllers\Api\Admin\BookingController;
 use App\Http\Controllers\Api\Admin\CategoryController;
@@ -23,7 +22,6 @@ use App\Http\Controllers\Api\Admin\ReportController;
 use App\Http\Controllers\Api\Admin\ServiceCategoryController;
 use App\Http\Controllers\Api\Admin\SettingController;
 use App\Http\Controllers\Api\Admin\SupportStaffController;
-use App\Http\Controllers\Api\Admin\AdminSupportStaffMonitoringController;
 use App\Http\Controllers\Api\Admin\TourDepartureController;
 use App\Http\Controllers\Api\Admin\TourDepartureGuideAssignmentController;
 use App\Http\Controllers\Api\Admin\TourManagerController;
@@ -34,6 +32,7 @@ use App\Http\Controllers\Api\Chat\ChatBotController;
 use App\Http\Controllers\Api\Customer\CustomerBookingController;
 use App\Http\Controllers\Api\Customer\CustomerController;
 use App\Http\Controllers\Api\Customer\CustomerDashboardController;
+use App\Http\Controllers\Api\Customer\CustomerPresenceController;
 use App\Http\Controllers\Api\Customer\CustomerSupportConversationController;
 use App\Http\Controllers\Api\Customer\CustomerSupportRequestCenterController;
 use App\Http\Controllers\Api\Customer\CustomerSupportRequestController;
@@ -55,10 +54,10 @@ use App\Http\Controllers\Api\PublicSettingController;
 use App\Http\Controllers\Api\PublicWidgetController;
 use App\Http\Controllers\Api\Support\SupportChatController;
 use App\Http\Controllers\Api\Support\SupportNotificationController;
+use App\Http\Controllers\Api\Support\SupportPresenceController;
 use App\Http\Controllers\Api\Support\SupportProfileController;
 use App\Http\Controllers\Api\Support\SupportRequestController;
 use App\Http\Controllers\Api\Support\SupportWorkflowController;
-use App\Http\Controllers\Api\Support\SupportPresenceController;
 use App\Models\GuideSpecialization;
 use Illuminate\Support\Facades\Route;
 
@@ -124,7 +123,6 @@ Route::middleware([
         [SupportPresenceController::class, 'heartbeat']
     );
 
-
     // ================= THÔNG BÁO =================
 
     Route::get(
@@ -161,7 +159,6 @@ Route::middleware([
     Route::post('/support/chat/{conversation}/reply', [SupportChatController::class, 'reply'])->whereNumber('conversation');
     Route::post('/support/chat/{conversation}/close', [SupportChatController::class, 'close'])->whereNumber('conversation');
 
-
     // ================= YÊU CẦU HỖ TRỢ =================
 
     // Route cụ thể phải đặt trước {supportRequest}
@@ -181,7 +178,6 @@ Route::middleware([
         [SupportRequestController::class, 'staffOptions']
     );
 
-
     // ================= DANH SÁCH =================
 
     Route::get(
@@ -193,7 +189,6 @@ Route::middleware([
         '/support/requests/{supportRequest}',
         [SupportRequestController::class, 'show']
     )->whereNumber('supportRequest');
-
 
     // ================= WORKFLOW MỚI =================
 
@@ -215,7 +210,6 @@ Route::middleware([
         [SupportWorkflowController::class, 'sendToAdmin']
     )->whereNumber('supportRequest');
 
-
     // ================= CHUYỂN / TRẢ TICKET =================
 
     Route::post(
@@ -227,7 +221,6 @@ Route::middleware([
         '/support/requests/{supportRequest}/transfer',
         [SupportRequestController::class, 'transfer']
     )->whereNumber('supportRequest');
-
 
     // ================= TRAO ĐỔI =================
 
@@ -241,7 +234,6 @@ Route::middleware([
         [SupportRequestController::class, 'sendMessage']
     )->whereNumber('supportRequest');
 
-
     // ================= LỊCH SỬ =================
 
     Route::get(
@@ -252,6 +244,7 @@ Route::middleware([
 
 // Khách hàng đã đăng nhập
 Route::middleware(['auth:sanctum', 'role:customer'])->group(function () {
+    Route::post('/customer/presence/heartbeat', [CustomerPresenceController::class, 'heartbeat']);
     Route::get('/user', [AuthController::class, 'me']);
     Route::get('/profile/summary', [CustomerDashboardController::class, 'summary']);
     Route::get('/profile/bookings', [CustomerDashboardController::class, 'bookings']);
@@ -289,7 +282,7 @@ Route::middleware(['auth:sanctum', 'role:customer'])->group(function () {
         [CustomerSupportConversationController::class, 'sendMessage']
     )->whereNumber('supportRequest');
 
-        Route::get(
+    Route::get(
         '/customer/support-requests',
         [CustomerSupportRequestCenterController::class, 'index']
     );
@@ -323,8 +316,6 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::patch('/notifications/customers/{id}/read', [NotificationCustomerController::class, 'markAsRead'])
         ->whereNumber('id');
 });
-
-
 
 // ===================== Đặt lại mật khẩu user=============
 // xác nhận email or sdt, gửi otp
@@ -366,7 +357,6 @@ Route::get('/catalog/destinations', [PublicCatalogController::class, 'destinatio
 Route::get('/settings/public', [PublicSettingController::class, 'show']);
 Route::get('/widgets', [PublicWidgetController::class, 'index']);
 
-
 /*
 |--------------------------------------------------------------------------
 | ADMIN
@@ -399,6 +389,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(functi
 
     // Quản lý người dùng
     Route::get('/customers/statistics', [CustomerManagerController::class, 'statistics']);
+    Route::get('/customers/presence', [CustomerManagerController::class, 'presenceIndex']);
     Route::get('/customers/count', [CustomerManagerController::class, 'count']);
     Route::get('/customers', [CustomerManagerController::class, 'index']);
     Route::get('/customers/search', [CustomerManagerController::class, 'search']);
@@ -407,6 +398,8 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(functi
     Route::put('/customers/{id}', [CustomerManagerController::class, 'update']);
     Route::patch('/customers/{id}/lock', [CustomerManagerController::class, 'lock']);
     Route::patch('/customers/{id}/unlock', [CustomerManagerController::class, 'unlock']);
+    Route::get('/customers/{id}/activity-history', [CustomerManagerController::class, 'activityHistory'])
+        ->whereNumber('id');
 
     // Quản lý hướng dẫn viên
     Route::get('guides/trashed', [GuideController::class, 'trashed']);

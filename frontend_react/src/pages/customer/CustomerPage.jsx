@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import ChatBox, { clearChatHistory } from "../../components/customer/ChatBox";
+import CustomerPresenceHeartbeat from "../../components/customer/CustomerPresenceHeartbeat";
 import Footer from "../../components/customer/Footer";
 import Header from "../../components/customer/Header";
 
@@ -699,6 +700,7 @@ function CustomerPage() {
       className={`vg-app ${location.pathname === "/" ? "is-home-page" : ""
         }`}
     >
+      {token ? <CustomerPresenceHeartbeat /> : null}
       <Header
         user={user}
         onLogout={logout}
