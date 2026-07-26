@@ -12,6 +12,11 @@ class VnpayService
 {
     private const VERSION = '2.1.0';
 
+    // Giới hạn của cổng VNPAY: từ 5.000đ đến dưới 1 tỷ đồng (mã lỗi 32 nếu vượt)
+    public const MIN_AMOUNT = 5000;
+
+    public const MAX_AMOUNT = 1_000_000_000;
+
     public function isConfigured(): bool
     {
         return $this->merchantCode() !== ''
@@ -26,6 +31,12 @@ class VnpayService
 
         if ($payment->payment_method !== 'vnpay' || ! $payment->expires_at) {
             throw new RuntimeException('Dữ liệu thanh toán VNPAY không hợp lệ.');
+        }
+
+        $amount = (float) $payment->amount;
+
+        if ($amount < self::MIN_AMOUNT || $amount >= self::MAX_AMOUNT) {
+            throw new RuntimeException('Số tiền thanh toán VNPAY phải từ 5.000đ đến dưới 1 tỷ đồng.');
         }
 
         $params = [

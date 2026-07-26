@@ -108,15 +108,17 @@ function CustomerPage() {
       .slice(0, 6);
   }, [normalizedTours]);
 
+  // Tour sắp khởi hành: lấy các tour có ngày khởi hành gần hiện tại nhất
+  // (không giới hạn cửa sổ ngày để section luôn có dữ liệu).
   const upcomingTours = useMemo(() => {
-    const now = Date.now();
-    const fourteenDaysMs = 14 * 24 * 60 * 60 * 1000;
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
     return normalizedTours
       .filter((tour) => {
         const depDate = tour.nextDepartureDate || tour.nextDeparture?.departure_date;
         if (!depDate) return false;
-        const depTime = new Date(depDate).getTime();
-        return depTime >= now && (depTime - now) <= fourteenDaysMs;
+        return new Date(depDate).getTime() >= startOfToday.getTime();
       })
       .sort((a, b) => {
         const dateA = new Date(a.nextDepartureDate || a.nextDeparture?.departure_date).getTime();

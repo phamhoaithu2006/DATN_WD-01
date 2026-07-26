@@ -1,46 +1,42 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLocale } from "../../contexts/LocaleContext";
 import Icon from "./Icon";
 
-// Live Countdown Chip góc phải theo đúng mockup ảnh chụp
-function LiveCountdownChip({ targetDate }) {
-  const [timeLeft, setTimeLeft] = useState(() => calculateTimeLeft(targetDate));
+/**
+ * Badge ngày khởi hành (tĩnh, không dùng timer):
+ * - Còn ≤ 7 ngày: "Còn X ngày" màu nổi để giữ cảm giác gấp.
+ * - Xa hơn: "Khởi hành DD/MM" trung tính.
+ */
+function DepartureChip({ targetDate }) {
+  if (!targetDate) return null;
 
-  function calculateTimeLeft(target) {
-    if (!target) return null;
-    const diff = new Date(target).getTime() - Date.now();
-    if (diff <= 0) return null;
+  const target = new Date(targetDate);
+  if (Number.isNaN(target.getTime())) return null;
 
-    const seconds = Math.floor((diff / 1000) % 60);
-    const minutes = Math.floor((diff / (1000 * 60)) % 60);
-    const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
 
-    return { diff, days, hours, minutes, seconds };
-  }
+  const targetDay = new Date(target);
+  targetDay.setHours(0, 0, 0, 0);
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      const remaining = calculateTimeLeft(targetDate);
-      setTimeLeft(remaining);
-      if (!remaining) clearInterval(timer);
-    }, 1000);
+  const daysLeft = Math.round((targetDay.getTime() - startOfToday.getTime()) / 86400000);
+  if (daysLeft < 0) return null;
 
-    return () => clearInterval(timer);
-  }, [targetDate]);
-
-  if (!timeLeft) return null;
-
-  const pad = (n) => String(n).padStart(2, "0");
-  const timeFormatted =
-    timeLeft.days > 0
-      ? `${timeLeft.days}d ${pad(timeLeft.hours)}:${pad(timeLeft.minutes)}:${pad(timeLeft.seconds)}`
-      : `${pad(timeLeft.hours)}:${pad(timeLeft.minutes)}:${pad(timeLeft.seconds)}`;
+  const isSoon = daysLeft <= 7;
+  const label =
+    daysLeft === 0
+      ? "Khởi hành hôm nay"
+      : isSoon
+        ? `Còn ${daysLeft} ngày`
+        : `Khởi hành ${targetDay.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })}`;
 
   return (
-    <div className="vg-live-countdown-pill" title={`Khởi hành sau ${timeFormatted}`}>
-      <span>{timeFormatted}</span>
+    <div
+      className={isSoon ? "vg-departure-pill is-soon" : "vg-departure-pill"}
+      title={`Ngày khởi hành gần nhất: ${targetDay.toLocaleDateString("vi-VN")}`}
+    >
+      <span>{label}</span>
     </div>
   );
 }
@@ -105,7 +101,7 @@ function TourCard({ tour, favorite, onFavorite, departureDate }) {
 
         <div className="vg-tour-top-right">
           {activeDepartureDate ? (
-            <LiveCountdownChip targetDate={activeDepartureDate} />
+            <DepartureChip targetDate={activeDepartureDate} />
           ) : null}
           <button
             className={favorite ? "vg-heart is-active" : "vg-heart"}
