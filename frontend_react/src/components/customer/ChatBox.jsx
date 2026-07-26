@@ -3,7 +3,7 @@ import { askTravelAssistant, fetchChatMessages } from "../../services/customerAp
 import Icon from "./Icon";
 
 const CHAT_HISTORY_KEY = "vivugo_chat_history";
-const POLL_INTERVAL = 4000;
+const POLL_INTERVAL = 5000;
 
 const defaultGreeting = {
   from: "ai",

@@ -875,7 +875,9 @@
 
 .guide-table {
   width: 100%;
-  min-width: 0;
+  /* Bảng HDV có trạng thái online và bốn nút thao tác: ưu tiên đủ chỗ,
+     khi màn hình hẹp sẽ cuộn ngang thay vì chồng nội dung. */
+  min-width: 1460px;
   table-layout: fixed;
   border-collapse: collapse;
 }
@@ -892,7 +894,7 @@
 
 .guide-table th:nth-child(3),
 .guide-table td:nth-child(3) {
-  width: 150px;
+  width: 180px;
 }
 
 .guide-table th:nth-child(4),
@@ -912,17 +914,19 @@
 
 .guide-table th:nth-child(7),
 .guide-table td:nth-child(7) {
-  width: 94px;
+  width: 150px;
+  text-align: center;
 }
 
 .guide-table th:nth-child(8),
 .guide-table td:nth-child(8) {
-  width: 112px;
+  width: 175px;
 }
 
 .guide-table th:nth-child(9),
 .guide-table td:nth-child(9) {
-  width: 96px;
+  width: 160px;
+  text-align: center;
 }
 
 .guide-table th {
@@ -938,7 +942,7 @@
 
 .guide-table th,
 .guide-table td {
-  padding: 12px 10px;
+  padding: 14px 12px;
   border-bottom: 1px solid #eef2f7;
   vertical-align: middle;
 }
@@ -949,9 +953,10 @@
   word-break: break-word;
 }
 
+/* Tiêu đề và nội dung cột Trực tuyến cùng căn trái. */
 .guide-table th:nth-child(8),
 .guide-table td:nth-child(8) {
-  text-align: center;
+  text-align: left;
 }
 
 .guide-table td strong {
@@ -1082,6 +1087,11 @@
   font-weight: 750;
 }
 
+/* Không để rule span chung biến badge trạng thái thành block. */
+.guide-table td .guide-status {
+  display: inline-flex;
+}
+
 .guide-status.active,
 .guide-status.sẵn-sàng {
   background: #dcfce7;
@@ -1103,7 +1113,7 @@
 .guide-actions {
   display: flex;
   flex-wrap: nowrap;
-  justify-content: flex-end;
+  justify-content: center;
   gap: 6px;
   white-space: nowrap;
   width: 100%;

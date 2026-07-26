@@ -137,7 +137,7 @@ function GuideSidebar({ collapsed, onLogout }) {
 
     void checkNewAssignedTours()
 
-    const timer = window.setInterval(checkNewAssignedTours, 30000)
+    const timer = window.setInterval(checkNewAssignedTours, 5000)
 
     const clearBadge = () => setNewTourCount(0)
     window.addEventListener('guide-tour:new-assignment-cleared', clearBadge)

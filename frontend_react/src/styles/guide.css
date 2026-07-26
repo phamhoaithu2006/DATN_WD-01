@@ -825,6 +825,38 @@
   gap: 18px;
 }
 
+.guide-dashboard-loading > p {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.guide-dashboard-loading-simple {
+  min-height: 360px;
+  place-items: center;
+  align-content: center;
+  gap: 14px;
+}
+
+.guide-dashboard-loading-simple > span {
+  width: 34px;
+  height: 34px;
+  border: 3px solid #dbeafe;
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: guideDashboardSpin .8s linear infinite;
+}
+
+.guide-dashboard-loading-simple > p {
+  color: #475569;
+  font-size: 15px;
+}
+
+@keyframes guideDashboardSpin {
+  to { transform: rotate(360deg); }
+}
+
 .guide-dashboard-skeleton {
   border-radius: 24px;
   background: linear-gradient(90deg, #e2e8f0 25%, #f8fafc 37%, #e2e8f0 63%);
@@ -10571,3 +10603,80 @@
   font-size: 12px;
   font-weight: 700;
 }
+
+/* Dashboard HDV rút gọn: ưu tiên việc cần làm thay vì bảng biểu dài. */
+.guide-dashboard-compact {
+  display: grid;
+  gap: 20px;
+}
+.guide-compact-welcome {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  border: 1px solid #bfdbfe;
+  border-radius: 22px;
+  background: linear-gradient(125deg, #dbeafe 0%, #eff6ff 55%, #f8fbff 100%);
+  padding: 26px 30px;
+}
+.guide-dashboard-compact .guide-compact-welcome .guide-dashboard-kicker {
+  display: inline-flex;
+  border-radius: 999px;
+  background: #1d4ed8;
+  padding: 6px 11px;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .08em;
+}
+.guide-compact-welcome h1 { margin: 5px 0 7px; color: #0f3b86; font-size: clamp(24px, 3vw, 32px); line-height: 1.15; }
+.guide-compact-welcome p { margin: 0; color: #42658f; font-size: 14px; font-weight: 600; }
+.guide-compact-welcome-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.guide-compact-outline-action { display: inline-flex; align-items: center; justify-content: center; min-height: 42px; border: 1px solid #bfdbfe; border-radius: 11px; padding: 0 15px; color: #2563eb; font-size: 14px; font-weight: 800; }
+.guide-compact-outline-action:hover { background: #eff6ff; }
+.guide-compact-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.guide-dashboard-compact .guide-stat-card { min-height: 155px; padding: 17px; border-radius: 18px; }
+.guide-dashboard-compact .guide-stat-value { font-size: 25px; }
+.guide-compact-grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(300px, .85fr); gap: 20px; align-items: start; }
+.guide-compact-tour-card { min-height: 300px; }
+.guide-compact-side { display: grid; gap: 14px; }
+.guide-compact-status-card .guide-card-body { display: grid; gap: 6px; }
+.guide-compact-status-row { display: flex; align-items: center; gap: 11px; padding: 11px 0; }
+.guide-compact-status-row + .guide-compact-status-row { border-top: 1px solid #eef2f7; }
+.guide-compact-status-row > div { min-width: 0; flex: 1; }
+.guide-compact-status-row strong, .guide-compact-status-row small { display: block; }
+.guide-compact-status-row strong { color: #1e293b; font-size: 13px; }
+.guide-compact-status-row small { margin-top: 3px; color: #94a3b8; font-size: 12px; line-height: 1.35; }
+.guide-compact-status-row a { color: #2563eb; font-size: 12px; font-weight: 800; }
+.guide-compact-status-icon { display: grid; width: 32px; height: 32px; flex: 0 0 32px; place-items: center; border-radius: 10px; font-weight: 900; }
+.guide-compact-status-icon.blue { background: #dbeafe; color: #2563eb; }
+.guide-compact-status-icon.green { background: #dcfce7; color: #16a34a; }
+.guide-compact-shortcuts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.guide-compact-shortcuts a { min-height: 126px; border: 1px solid #e5e7eb; border-radius: 16px; background: #fff; padding: 14px; transition: .18s ease; }
+.guide-compact-shortcuts a:hover { border-color: #bfdbfe; box-shadow: 0 8px 22px rgba(37, 99, 235, .1); transform: translateY(-1px); }
+.guide-compact-shortcuts span, .guide-compact-shortcuts strong, .guide-compact-shortcuts small { display: block; }
+.guide-compact-shortcuts span { margin-bottom: 10px; font-size: 20px; }
+.guide-compact-shortcuts strong { color: #1e293b; font-size: 13px; }
+.guide-compact-shortcuts small { margin-top: 5px; color: #94a3b8; font-size: 11px; line-height: 1.35; }
+.guide-dashboard-compact .guide-tour-row-main {
+  display: block;
+  width: auto;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: default;
+}
+.guide-dashboard-compact .guide-tour-row-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+}
+.guide-dashboard-compact .guide-tour-row-head > div { min-width: 0; }
+.guide-dashboard-compact .guide-tour-row h3 { font-size: 15px; line-height: 1.4; }
+.guide-dashboard-compact .guide-tour-row p { line-height: 1.45; }
+.guide-dashboard-compact .guide-tour-row-meta.compact { margin-top: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.guide-dashboard-compact .guide-tour-row-meta.compact span { min-height: 58px; }
+@media (max-width: 1060px) { .guide-compact-grid { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { .guide-compact-welcome { align-items: flex-start; flex-direction: column; padding: 22px; } .guide-compact-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .guide-compact-shortcuts { grid-template-columns: 1fr; } }

@@ -43,7 +43,7 @@ const adminNotificationApi = {
   },
 
   getRoles() {
-    return apiClient.get('/roles').then(unwrap)
+    return apiClient.get('/admin/roles').then(unwrap)
   },
 
   previewRecipients(payload) {
