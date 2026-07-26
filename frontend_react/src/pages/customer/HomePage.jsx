@@ -4,13 +4,6 @@ import Icon from "../../components/customer/Icon";
 import TourCard from "../../components/customer/TourCard";
 import { mediaUrl } from "../../utils/mediaUrl";
 
-function getDaysUntilDeparture(targetDate) {
-  if (!targetDate) return null;
-  const diffMs = new Date(targetDate).getTime() - Date.now();
-  if (diffMs <= 0) return 0;
-  return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-}
-
 // Skeleton Loading khi đang tải dữ liệu
 function HomeSkeleton() {
   return (
@@ -417,7 +410,7 @@ function HomePage({
         </section>
       ) : null}
 
-      {/* Section 3: Tour Sắp Khởi Hành (Upcoming Tours with Countdown) */}
+      {/* Section 3: Tour Sắp Khởi Hành (ngày khởi hành gần nhất, badge tĩnh trên card) */}
       {!loading && safeUpcomingTours.length > 0 ? (
         <section className="vg-home-section vg-home-section-alt" id="tour-sap-khoi-hanh">
           <div className="vg-container">
@@ -425,31 +418,19 @@ function HomePage({
               <div>
                 <span className="vg-kicker">Chuyến đi sắp tới</span>
                 <h2>Tour sắp khởi hành</h2>
-                <p>Giữ chỗ nhanh cho những chuyến đi khởi hành trong ít ngày tới.</p>
+                <p>Những hành trình có ngày khởi hành gần nhất — giữ chỗ ngay kẻo lỡ.</p>
               </div>
-              <Link to="/tours?sort=upcoming">Xem danh sách →</Link>
+              <Link to="/tours?sort=departure_soon">Xem danh sách →</Link>
             </div>
             <div className="vg-tour-grid vg-tour-grid-wide">
-              {safeUpcomingTours.map((tour) => {
-                const daysLeft = getDaysUntilDeparture(
-                  tour.nextDepartureDate || tour.nextDeparture?.departure_date
-                );
-                const upcomingLabel =
-                  daysLeft !== null
-                    ? daysLeft > 0
-                      ? `Còn ${daysLeft} ngày`
-                      : "Khởi hành hôm nay"
-                    : null;
-                return (
-                  <TourCard
-                    key={tour.id}
-                    tour={tour}
-                    upcomingLabel={upcomingLabel}
-                    favorite={safeFavorites.includes(tour.id)}
-                    onFavorite={onFavorite}
-                  />
-                );
-              })}
+              {safeUpcomingTours.map((tour) => (
+                <TourCard
+                  key={tour.id}
+                  tour={tour}
+                  favorite={safeFavorites.includes(tour.id)}
+                  onFavorite={onFavorite}
+                />
+              ))}
             </div>
           </div>
         </section>
