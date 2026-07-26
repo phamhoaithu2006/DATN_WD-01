@@ -1,10 +1,51 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLocale } from "../../contexts/LocaleContext";
 import Icon from "./Icon";
 
+// Live Countdown Chip góc phải theo đúng mockup ảnh chụp
+function LiveCountdownChip({ targetDate }) {
+  const [timeLeft, setTimeLeft] = useState(() => calculateTimeLeft(targetDate));
 
-function TourCard({ tour, favorite, onFavorite }) {
+  function calculateTimeLeft(target) {
+    if (!target) return null;
+    const diff = new Date(target).getTime() - Date.now();
+    if (diff <= 0) return null;
+
+    const seconds = Math.floor((diff / 1000) % 60);
+    const minutes = Math.floor((diff / (1000 * 60)) % 60);
+    const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+
+    return { diff, days, hours, minutes, seconds };
+  }
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const remaining = calculateTimeLeft(targetDate);
+      setTimeLeft(remaining);
+      if (!remaining) clearInterval(timer);
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [targetDate]);
+
+  if (!timeLeft) return null;
+
+  const pad = (n) => String(n).padStart(2, "0");
+  const timeFormatted =
+    timeLeft.days > 0
+      ? `${timeLeft.days}d ${pad(timeLeft.hours)}:${pad(timeLeft.minutes)}:${pad(timeLeft.seconds)}`
+      : `${pad(timeLeft.hours)}:${pad(timeLeft.minutes)}:${pad(timeLeft.seconds)}`;
+
+  return (
+    <div className="vg-live-countdown-pill" title={`Khởi hành sau ${timeFormatted}`}>
+      <span>{timeFormatted}</span>
+    </div>
+  );
+}
+
+function TourCard({ tour, favorite, onFavorite, departureDate }) {
   const { currency, formatCurrency } = useLocale();
   const navigate = useNavigate();
   const [imgError, setImgError] = useState(false);
@@ -32,6 +73,7 @@ function TourCard({ tour, favorite, onFavorite }) {
     ? `-${Math.round((1 - salePrice / originalPrice) * 100)}%`
     : null;
   const discountLabelToShow = tour.discountLabel || computedDiscountLabel;
+  const activeDepartureDate = departureDate || tour.nextDepartureDate || tour.nextDeparture?.departure_date;
 
   const handleCardClick = (e) => {
     // If the user clicks on the heart button, do not navigate.
@@ -60,17 +102,24 @@ function TourCard({ tour, favorite, onFavorite }) {
           {isFeatured ? <span className="badge-featured">Nổi bật</span> : null}
           {discountLabelToShow ? <strong className="badge-discount">{discountLabelToShow}</strong> : null}
         </div>
-        <button
-          className={favorite ? "vg-heart is-active" : "vg-heart"}
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onFavorite(tour);
-          }}
-          aria-label="Thêm tour yêu thích"
-        >
-          <Icon name="heart" size={19} />
-        </button>
+
+        <div className="vg-tour-top-right">
+          {activeDepartureDate ? (
+            <LiveCountdownChip targetDate={activeDepartureDate} />
+          ) : null}
+          <button
+            className={favorite ? "vg-heart is-active" : "vg-heart"}
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onFavorite(tour);
+            }}
+            aria-label="Thêm tour yêu thích"
+          >
+            <Icon name="heart" size={19} />
+          </button>
+        </div>
+
         <span className="vg-place">
           <Icon name="mapPin" size={14} /> {tour.destination}
         </span>
@@ -118,7 +167,7 @@ function TourCard({ tour, favorite, onFavorite }) {
             )}
           </div>
         </div>
-        
+
       </div>
     </article>
   );

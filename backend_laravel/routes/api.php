@@ -42,6 +42,7 @@ use App\Http\Controllers\Api\Customer\NotificationCustomerController;
 use App\Http\Controllers\Api\Customer\TourController;
 use App\Http\Controllers\Api\Customer\TourReviewController as CustomerTourReviewController;
 use App\Http\Controllers\Api\Customer\VnpayPaymentController;
+use App\Http\Controllers\Api\TourReviewController as PublicTourReviewController;
 use App\Http\Controllers\Api\Customer\WishlistController;
 use App\Http\Controllers\Api\Guide\GuideAttendanceController;
 use App\Http\Controllers\Api\Guide\GuideDashboardController;
@@ -80,6 +81,10 @@ Route::get('/travel-assistant/messages', [ChatBotController::class, 'getMessages
 Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:5,1');
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:6,1');
+
+    // Quên mật khẩu: gửi OTP qua email và đặt lại mật khẩu bằng OTP
+    Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:5,1');
+    Route::post('/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:10,1');
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
@@ -326,15 +331,11 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
 
 
-// ===================== Đặt lại mật khẩu user=============
-// xác nhận email or sdt, gửi otp
-Route::post('/forgot-password', [CustomerController::class, 'forgotPassword'])->middleware('throttle:5,1');
-// Xác nhận otp và sửa lại mk
-Route::post('/reset-password', [CustomerController::class, 'resetPassword']);
 // Quản lý tour cho khách hàng
 Route::prefix('tours')->group(function () {
     Route::get('/search', [TourController::class, 'search_gdkh']);
     Route::get('/filter', [TourController::class, 'filter_gdkh']);
+    Route::get('/filter-options', [TourController::class, 'filterOptions']);
     Route::get('/', [TourController::class, 'index_gdkh']);
 
     Route::middleware(['auth:sanctum', 'role:customer'])->group(function () {
@@ -343,9 +344,16 @@ Route::prefix('tours')->group(function () {
         Route::delete('/wishlist/{tour_id}', [WishlistController::class, 'destroy']);
     });
 
+    // Đánh giá công khai của tour (đặt trước route động /{slug})
+    Route::get('/{slug}/reviews', [PublicTourReviewController::class, 'index']);
+
     // Route động phải đặt cuối group tours.
     Route::get('/{slug}', [TourController::class, 'show_gdkh']);
 });
+
+// VNPAY: IPN từ cổng thanh toán và tra cứu trạng thái cho trang kết quả thanh toán
+Route::get('webhooks/vnpay', [VnpayPaymentController::class, 'ipn'])->middleware('throttle:60,1');
+Route::get('vnpay/return-status', [VnpayPaymentController::class, 'returnStatus'])->middleware('throttle:60,1');
 
 /*
 |--------------------------------------------------------------------------

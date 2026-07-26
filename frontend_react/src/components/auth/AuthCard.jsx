@@ -4,6 +4,7 @@ import RegisterForm from './RegisterForm'
 function AuthCard({
   mode,
   notice,
+  noticeVariant = '',
   loginData,
   loginErrors,
   registerData,
@@ -40,7 +41,11 @@ function AuthCard({
         </button>
       </div>
 
-      {notice ? <p className="notice">{notice}</p> : null}
+      {notice ? (
+        <p className={noticeVariant ? `notice ${noticeVariant}` : 'notice'}>
+          {notice}
+        </p>
+      ) : null}
 
       {mode === 'login' ? (
         <LoginForm
