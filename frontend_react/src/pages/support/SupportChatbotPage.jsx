@@ -61,9 +61,11 @@ function SupportChatbotPage() {
   const [imageFile, setImageFile] = useState(null)
   const [imagePreview, setImagePreview] = useState('')
 
+  // State quản lý Tin nhắn nhanh (Zalo Style)
   const [quickReplies, setQuickReplies] = useState(loadQuickReplies)
   const [quickPanelOpen, setQuickPanelOpen] = useState(false)
-  const [editingReply, setEditingReply] = useState(null) // {id, label, content} hoặc null khi thêm mới
+  const [isManageMode, setIsManageMode] = useState(false) // State mới: Chuyển đổi giữa Danh sách và Form thêm
+  const [editingReply, setEditingReply] = useState(null)
   const [draftLabel, setDraftLabel] = useState('')
   const [draftContent, setDraftContent] = useState('')
 
@@ -94,12 +96,21 @@ function SupportChatbotPage() {
     return () => window.clearInterval(intervalId)
   }, [loadLists])
 
-  const loadConversation = useCallback(async (conversationId) => {
+  const loadConversation = useCallback(async (conversationId, { silent = false } = {}) => {
     try {
       const response = await supportChatApi.show(conversationId)
-      setMessages(response?.messages || [])
+      const serverMessages = response?.messages || []
+      if (silent) {
+        setMessages((current) =>
+          serverMessages.length !== current.length ? serverMessages : current,
+        )
+      } else {
+        setMessages(serverMessages)
+      }
     } catch (error) {
-      setChatError(error?.response?.data?.message || 'Không tải được nội dung hội thoại.')
+      if (!silent) {
+        setChatError(error?.response?.data?.message || 'Không tải được nội dung hội thoại.')
+      }
     }
   }, [])
 
@@ -109,7 +120,10 @@ function SupportChatbotPage() {
       return undefined
     }
     void loadConversation(activeConversation.id)
-    pollRef.current = window.setInterval(() => void loadConversation(activeConversation.id), POLL_INTERVAL)
+    pollRef.current = window.setInterval(
+      () => void loadConversation(activeConversation.id, { silent: true }),
+      POLL_INTERVAL,
+    )
     return () => {
       if (pollRef.current) window.clearInterval(pollRef.current)
     }
@@ -119,10 +133,9 @@ function SupportChatbotPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // Ctrl+1..Ctrl+9 điền nhanh theo đúng thứ tự đang hiển thị trong danh sách hiện tại (kể cả mẫu tự thêm)
   useEffect(() => {
     function handleKeyDown(event) {
-      if (!event.ctrlKey || !activeConversation) return
+      if (!event.ctrlKey || !activeConversation || quickPanelOpen) return
       const index = Number(event.key) - 1
       if (index >= 0 && index < quickReplies.length) {
         event.preventDefault()
@@ -132,7 +145,13 @@ function SupportChatbotPage() {
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [activeConversation, quickReplies])
+  }, [activeConversation, quickReplies, quickPanelOpen])
+
+  // --- Chức năng Tin nhắn nhanh ---
+  function toggleQuickPanel() {
+    setQuickPanelOpen(!quickPanelOpen);
+    setIsManageMode(false); // Reset về màn hình danh sách mỗi khi mở/đóng
+  }
 
   function insertQuickReply(template) {
     setReplyText(template.content)
@@ -144,12 +163,14 @@ function SupportChatbotPage() {
     setEditingReply(null)
     setDraftLabel('')
     setDraftContent('')
+    setIsManageMode(true) // Mở màn hình Form
   }
 
   function openEditReplyForm(template) {
     setEditingReply(template)
     setDraftLabel(template.label)
     setDraftContent(template.content)
+    setIsManageMode(true) // Mở màn hình Form
   }
 
   function saveReplyDraft() {
@@ -171,14 +192,16 @@ function SupportChatbotPage() {
     setEditingReply(null)
     setDraftLabel('')
     setDraftContent('')
+    setIsManageMode(false) // Lưu xong quay về màn hình Danh sách
   }
 
   function deleteReply(id) {
-    if (!window.confirm('Xóa mẫu tin nhắn này?')) return
+    if (!window.confirm('Bạn có chắc chắn muốn xóa mẫu tin nhắn này?')) return
     const next = quickReplies.filter((item) => item.id !== id)
     setQuickReplies(next)
     saveQuickReplies(next)
   }
+  // --------------------------------
 
   async function handleAccept(conversation) {
     if (acceptingId) return
@@ -232,25 +255,36 @@ function SupportChatbotPage() {
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
-  async function handleSendReply(event) {
-    event.preventDefault()
-    const content = replyText.trim()
-    if ((!content && !imageFile) || !activeConversation || sending) return
+async function handleSendReply(event) {
+  event.preventDefault()
+  const content = replyText.trim()
+  if ((!content && !imageFile) || !activeConversation || sending) return
 
-    setSending(true)
-    setChatError('')
-    try {
-      await supportChatApi.reply(activeConversation.id, { content, imageFile })
-      setReplyText('')
-      clearSelectedImage()
-      await loadConversation(activeConversation.id)
-    } catch (error) {
-      setChatError(error?.response?.data?.message || 'Không gửi được tin nhắn.')
-    } finally {
-      setSending(false)
+  setSending(true)
+  setChatError('')
+  try {
+    const response = await supportChatApi.reply(activeConversation.id, { content, imageFile })
+    const newMessage = response?.data
+    if (newMessage) {
+      setMessages((current) => [...current, newMessage])
     }
+    setReplyText('')
+    clearSelectedImage()
+  } catch (error) {
+    const status = error?.response?.status
+    if (status === 403 || status === 409) {
+      // Phiên đã bị đóng/chuyển cho người khác -> dọn UI về sạch thay vì kẹt mãi
+      setChatError('Cuộc trò chuyện này đã kết thúc hoặc được người khác xử lý.')
+      setActiveConversation(null)
+      setMessages([])
+      await loadLists()
+    } else {
+      setChatError(error?.response?.data?.message || 'Không gửi được tin nhắn.')
+    }
+  } finally {
+    setSending(false)
   }
-
+}
   function handleReplyKeyDown(event) {
     if (
       event.key === 'Enter' &&
@@ -458,7 +492,7 @@ function SupportChatbotPage() {
                               className="truncate text-sm font-extrabold text-slate-900"
                               title={conversation.session_id}
                             >
-                              {conversation.session_id}
+                              <small>{conversation.session_id}</small>
                             </strong>
                             <time className="shrink-0 text-[10px] font-semibold text-slate-400">
                               {formatTime(conversation.handoff_requested_at)}
@@ -598,7 +632,7 @@ function SupportChatbotPage() {
             </div>
           ) : (
             <>
-              <header className="flex min-h-20 items-center justify-between gap-4 border-b border-slate-200/80 bg-white/90 px-4 py-3 backdrop-blur-sm sm:px-5">
+              <header className="flex min-h-20 shrink-0 items-center justify-between gap-4 border-b border-slate-200/80 bg-white/90 px-4 py-3 backdrop-blur-sm sm:px-5">
                 <div className="flex min-w-0 items-center gap-3">
                   <div className="relative shrink-0">
                     <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-xs font-black text-white shadow-sm">
@@ -738,6 +772,13 @@ function SupportChatbotPage() {
                                     : 'rounded-2xl rounded-bl-md border border-indigo-100 bg-indigo-50/90 text-slate-700'
                               }`}
                             >
+                              {message.attachment_url ? (
+                                <img
+                                  src={message.attachment_url}
+                                  alt="Ảnh đính kèm"
+                                  className="mb-2 max-w-[220px] rounded-xl object-cover"
+                                />
+                              ) : null}
                               {message.content}
                             </div>
                             <div
@@ -786,7 +827,7 @@ function SupportChatbotPage() {
                         <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-blue-500" />
                       </div>
                       <span className="mt-1.5 px-1 text-[10px] font-semibold text-slate-400">
-                        Đang gửi phản hồi...
+                        Đang gửi...
                       </span>
                     </div>
                   </div>
@@ -814,67 +855,176 @@ function SupportChatbotPage() {
                 </div>
               ) : null}
 
-              <form
-                onSubmit={handleSendReply}
-                className="border-t border-slate-200/80 bg-white p-3 sm:p-4"
-              >
-                <div className="flex items-end gap-2 rounded-2xl border border-slate-200 bg-slate-50/80 p-2 shadow-inner transition-colors duration-200 focus-within:border-blue-300 focus-within:bg-white focus-within:ring-4 focus-within:ring-blue-100/70">
+              {/* ==============================================================
+                  KHU VỰC NHẬP TIN NHẮN (TOOL BAR + POPOVER ZALO STYLE)
+                  ============================================================== */}
+              <div className="relative shrink-0 border-t border-slate-200 bg-white px-4 py-3 sm:px-5">
+                
+                {/* Ảnh đính kèm (Xem trước) */}
+                {imagePreview ? (
+                  <div className="mb-3 flex w-max items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-2 shadow-sm">
+                    <img src={imagePreview} alt="Xem trước" className="h-14 w-14 rounded-xl object-cover shadow-sm ring-1 ring-slate-200" />
+                    <button
+                      type="button"
+                      onClick={clearSelectedImage}
+                      className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 shadow-sm transition-colors hover:border-rose-200 hover:text-rose-600"
+                    >
+                      Bỏ ảnh
+                    </button>
+                  </div>
+                ) : null}
+
+                {/* Popover Nổi - Menu Tin Nhắn Mẫu (Chuẩn Zalo) */}
+                {quickPanelOpen && (
+                  <div className="absolute bottom-full left-4 z-50 mb-3 w-[360px] max-w-[calc(100%-32px)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_12px_40px_-10px_rgba(0,0,0,0.15)] sm:left-5">
+                    
+                    {/* Header Popover */}
+                    <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-4 py-3 backdrop-blur-sm">
+                      <div className="flex items-center gap-2">
+                        {isManageMode && (
+                          <button onClick={() => setIsManageMode(false)} className="rounded-full p-1 text-slate-500 hover:bg-slate-200 hover:text-slate-800">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M15 19l-7-7 7-7"/></svg>
+                          </button>
+                        )}
+                        <span className="text-[13px] font-extrabold text-slate-800">
+                          {isManageMode ? (editingReply ? 'Sửa tin nhắn nhanh' : 'Tạo tin nhắn nhanh') : `Tin nhắn nhanh (${quickReplies.length})`}
+                        </span>
+                      </div>
+                      
+                      {!isManageMode ? (
+                        <button onClick={openAddReplyForm} className="text-xs font-bold text-blue-600 hover:text-blue-700">Tạo mới</button>
+                      ) : (
+                        <button onClick={() => setQuickPanelOpen(false)} className="text-slate-400 hover:text-rose-500">✕</button>
+                      )}
+                    </div>
+
+                    {/* Nội dung Popover */}
+                    <div className="max-h-[320px] overflow-y-auto bg-white">
+                      {!isManageMode ? (
+                        /* CHẾ ĐỘ 1: DANH SÁCH TIN NHẮN (LIST MODE) */
+                        quickReplies.length > 0 ? (
+                          <div className="p-2">
+                            {quickReplies.map((template, index) => (
+                              <div key={template.id} className="group relative mb-1 flex flex-col gap-1 rounded-xl border border-transparent p-2.5 transition-colors hover:bg-slate-50">
+                                <div className="cursor-pointer" onClick={() => insertQuickReply(template)}>
+                                  <div className="flex items-center gap-2">
+                                    {index < 9 && (
+                                      <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">Ctrl+{index + 1}</span>
+                                    )}
+                                    <strong className="text-xs font-bold text-slate-800">{template.label}</strong>
+                                  </div>
+                                  <p className="mt-1 line-clamp-2 text-xs font-medium leading-5 text-slate-500">{template.content}</p>
+                                </div>
+                                <div className="absolute right-2 top-2 hidden gap-1 group-hover:flex">
+                                  <button onClick={() => openEditReplyForm(template)} className="rounded bg-white px-2 py-1 text-[10px] font-bold text-slate-500 shadow-sm ring-1 ring-slate-200 hover:text-blue-600">Sửa</button>
+                                  <button onClick={() => deleteReply(template.id)} className="rounded bg-white px-2 py-1 text-[10px] font-bold text-slate-500 shadow-sm ring-1 ring-slate-200 hover:text-rose-600">Xóa</button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="px-6 py-10 text-center text-xs font-medium text-slate-500">Chưa có tin nhắn nhanh nào.<br/>Nhấn Tạo mới để thêm.</div>
+                        )
+                      ) : (
+                        /* CHẾ ĐỘ 2: FORM THÊM/SỬA TIN NHẮN (MANAGE MODE) */
+                        <div className="p-4">
+                          <input
+                            placeholder="Tên gợi nhớ (VD: Chào hỏi)"
+                            value={draftLabel}
+                            onChange={(e) => setDraftLabel(e.target.value)}
+                            className="mb-3 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-semibold text-slate-800 outline-none focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-50"
+                          />
+                          <textarea
+                            placeholder="Nội dung tin nhắn..."
+                            value={draftContent}
+                            onChange={(e) => setDraftContent(e.target.value)}
+                            rows={4}
+                            className="mb-3 w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-medium leading-5 text-slate-800 outline-none focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-50"
+                          />
+                          <button
+                            type="button"
+                            onClick={saveReplyDraft}
+                            disabled={!draftLabel.trim() || !draftContent.trim()}
+                            className="w-full rounded-xl bg-blue-600 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400"
+                          >
+                            {editingReply ? 'Lưu thay đổi' : 'Tạo tin nhắn nhanh'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Thanh Công Cụ (Toolbar nhỏ phía trên ô input) */}
+                <div className="mb-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={toggleQuickPanel}
+                    className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-bold transition-colors ${quickPanelOpen ? 'bg-blue-50 text-blue-600' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'}`}
+                  >
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                      <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-5.3 11h-2v3.7c0 .4-.5.6-.8.3l-4.5-4.5c-.2-.2-.2-.5 0-.7.2-.2.5-.2.7 0l2.6 2.6V6.3c0-.4.5-.6.8-.3l4.5 4.5c.2.2.2.5 0 .7-.2.2-.5.2-.7 0l-2.6-2.6v4.4z"/>
+                    </svg>
+                    Tin nhắn nhanh
+                  </button>
+
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageSelect}
+                    style={{ display: 'none' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-bold text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                  >
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                      <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+                    </svg>
+                    Đính kèm ảnh
+                  </button>
+                </div>
+
+                {/* Form Input Gửi Tin Nhắn */}
+                <form
+                  onSubmit={handleSendReply}
+                  className="flex items-end gap-2 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm transition-all duration-200 focus-within:border-blue-400 focus-within:ring-4 focus-within:ring-blue-100/50"
+                >
                   <textarea
+                    ref={replyInputRef}
                     rows="1"
                     maxLength={1000}
                     value={replyText}
                     onChange={(event) => setReplyText(event.target.value)}
                     onKeyDown={handleReplyKeyDown}
-                    placeholder="Nhập câu trả lời cho khách..."
-                    className="max-h-32 min-h-10 min-w-0 flex-1 resize-none bg-transparent px-2 py-2 text-sm font-medium leading-6 text-slate-800 outline-none placeholder:text-slate-400 disabled:cursor-not-allowed disabled:opacity-60"
+                    placeholder="Nhập @, tin nhắn tới khách hàng..."
+                    className="max-h-32 min-h-10 min-w-0 flex-1 resize-none bg-transparent px-3 py-2 text-sm font-medium leading-6 text-slate-800 outline-none placeholder:text-slate-400 disabled:cursor-not-allowed disabled:opacity-60"
                     disabled={sending}
-                    aria-label="Nội dung trả lời"
                   />
                   <button
                     type="submit"
-                    disabled={sending || !replyText.trim()}
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm shadow-blue-600/20 transition hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-md focus:outline-none focus:ring-4 focus:ring-blue-100 disabled:translate-y-0 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
-                    aria-label={sending ? 'Đang gửi tin nhắn' : 'Gửi tin nhắn'}
-                    title="Gửi tin nhắn"
+                    disabled={sending || (!replyText.trim() && !imageFile)}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm shadow-blue-600/20 transition hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-md focus:outline-none focus:ring-4 focus:ring-blue-100 disabled:translate-y-0 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none"
+                    title="Gửi tin nhắn (Enter)"
                   >
-                    {sending ? (
-                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                    ) : (
-                      <svg
-                        viewBox="0 0 24 24"
-                        className="h-4.5 w-4.5"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden="true"
-                      >
-                        <path d="m22 2-7 20-4-9-9-4Z" />
-                        <path d="M22 2 11 13" />
-                      </svg>
-                    )}
+                    <svg viewBox="0 0 24 24" className="h-4.5 w-4.5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="m22 2-7 20-4-9-9-4Z" />
+                      <path d="M22 2 11 13" />
+                    </svg>
                   </button>
-                </div>
-
-                <div className="mt-2 flex items-center justify-between gap-3 px-1">
+                </form>
+                
+                <div className="mt-2 flex items-center justify-between px-1">
                   <p className="text-[10px] font-medium text-slate-400">
-                    <kbd className="font-sans font-bold text-slate-500">Enter</kbd>{' '}
-                    để gửi ·{' '}
-                    <kbd className="font-sans font-bold text-slate-500">
-                      Shift + Enter
-                    </kbd>{' '}
-                    để xuống dòng
+                    <kbd className="font-sans font-bold text-slate-500">Enter</kbd> gửi · <kbd className="font-sans font-bold text-slate-500">Shift + Enter</kbd> xuống dòng
                   </p>
-                  <span
-                    className={`text-[10px] font-semibold ${
-                      replyText.length > 900 ? 'text-amber-600' : 'text-slate-400'
-                    }`}
-                  >
+                  <span className={`text-[10px] font-semibold ${replyText.length > 900 ? 'text-amber-600' : 'text-slate-400'}`}>
                     {replyText.length}/1000
                   </span>
                 </div>
-              </form>
+              </div>
             </>
           )}
         </div>
