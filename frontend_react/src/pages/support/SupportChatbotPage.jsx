@@ -57,14 +57,14 @@ function SupportChatbotPage() {
   const [replyText, setReplyText] = useState('')
   const [sending, setSending] = useState(false)
   const [chatError, setChatError] = useState('')
+  const [closing, setClosing] = useState(false)
 
   const [imageFile, setImageFile] = useState(null)
   const [imagePreview, setImagePreview] = useState('')
 
-  // State quản lý Tin nhắn nhanh (Zalo Style)
   const [quickReplies, setQuickReplies] = useState(loadQuickReplies)
   const [quickPanelOpen, setQuickPanelOpen] = useState(false)
-  const [isManageMode, setIsManageMode] = useState(false) // State mới: Chuyển đổi giữa Danh sách và Form thêm
+  const [isManageMode, setIsManageMode] = useState(false)
   const [editingReply, setEditingReply] = useState(null)
   const [draftLabel, setDraftLabel] = useState('')
   const [draftContent, setDraftContent] = useState('')
@@ -107,10 +107,12 @@ function SupportChatbotPage() {
       } else {
         setMessages(serverMessages)
       }
+      return response?.conversation || null
     } catch (error) {
       if (!silent) {
         setChatError(error?.response?.data?.message || 'Không tải được nội dung hội thoại.')
       }
+      return null
     }
   }, [])
 
@@ -147,10 +149,9 @@ function SupportChatbotPage() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [activeConversation, quickReplies, quickPanelOpen])
 
-  // --- Chức năng Tin nhắn nhanh ---
   function toggleQuickPanel() {
-    setQuickPanelOpen(!quickPanelOpen);
-    setIsManageMode(false); // Reset về màn hình danh sách mỗi khi mở/đóng
+    setQuickPanelOpen(!quickPanelOpen)
+    setIsManageMode(false)
   }
 
   function insertQuickReply(template) {
@@ -163,14 +164,14 @@ function SupportChatbotPage() {
     setEditingReply(null)
     setDraftLabel('')
     setDraftContent('')
-    setIsManageMode(true) // Mở màn hình Form
+    setIsManageMode(true)
   }
 
   function openEditReplyForm(template) {
     setEditingReply(template)
     setDraftLabel(template.label)
     setDraftContent(template.content)
-    setIsManageMode(true) // Mở màn hình Form
+    setIsManageMode(true)
   }
 
   function saveReplyDraft() {
@@ -192,7 +193,7 @@ function SupportChatbotPage() {
     setEditingReply(null)
     setDraftLabel('')
     setDraftContent('')
-    setIsManageMode(false) // Lưu xong quay về màn hình Danh sách
+    setIsManageMode(false)
   }
 
   function deleteReply(id) {
@@ -201,7 +202,6 @@ function SupportChatbotPage() {
     setQuickReplies(next)
     saveQuickReplies(next)
   }
-  // --------------------------------
 
   async function handleAccept(conversation) {
     if (acceptingId) return
@@ -255,36 +255,36 @@ function SupportChatbotPage() {
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
-async function handleSendReply(event) {
-  event.preventDefault()
-  const content = replyText.trim()
-  if ((!content && !imageFile) || !activeConversation || sending) return
+  async function handleSendReply(event) {
+    event.preventDefault()
+    const content = replyText.trim()
+    if ((!content && !imageFile) || !activeConversation || sending) return
 
-  setSending(true)
-  setChatError('')
-  try {
-    const response = await supportChatApi.reply(activeConversation.id, { content, imageFile })
-    const newMessage = response?.data
-    if (newMessage) {
-      setMessages((current) => [...current, newMessage])
+    setSending(true)
+    setChatError('')
+    try {
+      const response = await supportChatApi.reply(activeConversation.id, { content, imageFile })
+      const newMessage = response?.data
+      if (newMessage) {
+        setMessages((current) => [...current, newMessage])
+      }
+      setReplyText('')
+      clearSelectedImage()
+    } catch (error) {
+      const status = error?.response?.status
+      if (status === 403 || status === 409) {
+        setChatError('Cuộc trò chuyện này đã kết thúc hoặc được người khác xử lý.')
+        setActiveConversation(null)
+        setMessages([])
+        await loadLists()
+      } else {
+        setChatError(error?.response?.data?.message || 'Không gửi được tin nhắn.')
+      }
+    } finally {
+      setSending(false)
     }
-    setReplyText('')
-    clearSelectedImage()
-  } catch (error) {
-    const status = error?.response?.status
-    if (status === 403 || status === 409) {
-      // Phiên đã bị đóng/chuyển cho người khác -> dọn UI về sạch thay vì kẹt mãi
-      setChatError('Cuộc trò chuyện này đã kết thúc hoặc được người khác xử lý.')
-      setActiveConversation(null)
-      setMessages([])
-      await loadLists()
-    } else {
-      setChatError(error?.response?.data?.message || 'Không gửi được tin nhắn.')
-    }
-  } finally {
-    setSending(false)
   }
-}
+
   function handleReplyKeyDown(event) {
     if (
       event.key === 'Enter' &&
@@ -297,19 +297,27 @@ async function handleSendReply(event) {
   }
 
   async function handleClose() {
-    if (!activeConversation) return
+    if (!activeConversation || closing) return
     if (!window.confirm('Đóng phiên hỗ trợ này và trả lại cho AI xử lý?')) return
+
+    setClosing(true)
     try {
       await supportChatApi.close(activeConversation.id)
       setActiveConversation(null)
       setMessages([])
       await loadLists()
     } catch (error) {
-      setChatError(error?.response?.data?.message || 'Không đóng được phiên hỗ trợ.')
+      // Dù lỗi (VD: phiên đã đóng từ trước) vẫn dọn UI sạch, tránh kẹt mãi
+      setActiveConversation(null)
+      setMessages([])
+      await loadLists()
+    } finally {
+      setClosing(false)
     }
   }
 
   const displayList = tab === 'pending' ? pendingList : mineList
+  const activeCustomerName = activeConversation?.customer_name || 'Khách vãng lai'
 
   return (
     <section className="support-chat-page space-y-5">
@@ -458,6 +466,7 @@ async function handleSendReply(event) {
                 {displayList.map((conversation) => {
                   const isActive =
                     activeConversation?.id === conversation.id
+                  const displayName = conversation.customer_name || 'Khách vãng lai'
 
                   return (
                     <article
@@ -492,12 +501,15 @@ async function handleSendReply(event) {
                               className="truncate text-sm font-extrabold text-slate-900"
                               title={conversation.session_id}
                             >
-                              <small>{conversation.session_id}</small>
+                              {displayName}
                             </strong>
                             <time className="shrink-0 text-[10px] font-semibold text-slate-400">
                               {formatTime(conversation.handoff_requested_at)}
                             </time>
                           </div>
+                          <small className="block truncate text-[10px] font-medium text-slate-400" title={conversation.session_id}>
+                            {conversation.session_id}
+                          </small>
 
                           <p className="mt-1 line-clamp-2 text-xs font-medium leading-5 text-slate-500">
                             {conversation.last_message || 'Chưa có tin nhắn'}
@@ -646,7 +658,7 @@ async function handleSendReply(event) {
                         className="truncate text-sm font-extrabold text-slate-900 sm:text-[15px]"
                         title={activeConversation.session_id}
                       >
-                        {activeConversation.session_id}
+                        {activeCustomerName}
                       </strong>
                       <span className="hidden rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 sm:inline-flex">
                         Đang hoạt động
@@ -654,7 +666,7 @@ async function handleSendReply(event) {
                     </div>
                     <p className="mt-0.5 flex items-center gap-1.5 text-xs font-medium text-slate-500">
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                      Khách hàng đang kết nối
+                      {activeConversation.session_id}
                     </p>
                   </div>
                 </div>
@@ -662,21 +674,26 @@ async function handleSendReply(event) {
                 <button
                   type="button"
                   onClick={handleClose}
-                  className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 shadow-sm transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 focus:outline-none focus:ring-4 focus:ring-rose-100 sm:px-4"
+                  disabled={closing}
+                  className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 shadow-sm transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 focus:outline-none focus:ring-4 focus:ring-rose-100 disabled:cursor-not-allowed disabled:opacity-60 sm:px-4"
                 >
-                  <svg
-                    viewBox="0 0 24 24"
-                    className="h-4 w-4"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                  >
-                    <path d="M5 5l14 14M19 5 5 19" />
-                  </svg>
-                  <span className="hidden sm:inline">Đóng phiên</span>
+                  {closing ? (
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600" />
+                  ) : (
+                    <svg
+                      viewBox="0 0 24 24"
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M5 5l14 14M19 5 5 19" />
+                    </svg>
+                  )}
+                  <span className="hidden sm:inline">{closing ? 'Đang đóng...' : 'Đóng phiên'}</span>
                 </button>
               </header>
 
@@ -855,12 +872,7 @@ async function handleSendReply(event) {
                 </div>
               ) : null}
 
-              {/* ==============================================================
-                  KHU VỰC NHẬP TIN NHẮN (TOOL BAR + POPOVER ZALO STYLE)
-                  ============================================================== */}
               <div className="relative shrink-0 border-t border-slate-200 bg-white px-4 py-3 sm:px-5">
-                
-                {/* Ảnh đính kèm (Xem trước) */}
                 {imagePreview ? (
                   <div className="mb-3 flex w-max items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-2 shadow-sm">
                     <img src={imagePreview} alt="Xem trước" className="h-14 w-14 rounded-xl object-cover shadow-sm ring-1 ring-slate-200" />
@@ -874,11 +886,8 @@ async function handleSendReply(event) {
                   </div>
                 ) : null}
 
-                {/* Popover Nổi - Menu Tin Nhắn Mẫu (Chuẩn Zalo) */}
                 {quickPanelOpen && (
                   <div className="absolute bottom-full left-4 z-50 mb-3 w-[360px] max-w-[calc(100%-32px)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_12px_40px_-10px_rgba(0,0,0,0.15)] sm:left-5">
-                    
-                    {/* Header Popover */}
                     <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-4 py-3 backdrop-blur-sm">
                       <div className="flex items-center gap-2">
                         {isManageMode && (
@@ -890,7 +899,7 @@ async function handleSendReply(event) {
                           {isManageMode ? (editingReply ? 'Sửa tin nhắn nhanh' : 'Tạo tin nhắn nhanh') : `Tin nhắn nhanh (${quickReplies.length})`}
                         </span>
                       </div>
-                      
+
                       {!isManageMode ? (
                         <button onClick={openAddReplyForm} className="text-xs font-bold text-blue-600 hover:text-blue-700">Tạo mới</button>
                       ) : (
@@ -898,10 +907,8 @@ async function handleSendReply(event) {
                       )}
                     </div>
 
-                    {/* Nội dung Popover */}
                     <div className="max-h-[320px] overflow-y-auto bg-white">
                       {!isManageMode ? (
-                        /* CHẾ ĐỘ 1: DANH SÁCH TIN NHẮN (LIST MODE) */
                         quickReplies.length > 0 ? (
                           <div className="p-2">
                             {quickReplies.map((template, index) => (
@@ -926,7 +933,6 @@ async function handleSendReply(event) {
                           <div className="px-6 py-10 text-center text-xs font-medium text-slate-500">Chưa có tin nhắn nhanh nào.<br/>Nhấn Tạo mới để thêm.</div>
                         )
                       ) : (
-                        /* CHẾ ĐỘ 2: FORM THÊM/SỬA TIN NHẮN (MANAGE MODE) */
                         <div className="p-4">
                           <input
                             placeholder="Tên gợi nhớ (VD: Chào hỏi)"
@@ -955,7 +961,6 @@ async function handleSendReply(event) {
                   </div>
                 )}
 
-                {/* Thanh Công Cụ (Toolbar nhỏ phía trên ô input) */}
                 <div className="mb-2 flex items-center gap-2">
                   <button
                     type="button"
@@ -987,7 +992,6 @@ async function handleSendReply(event) {
                   </button>
                 </div>
 
-                {/* Form Input Gửi Tin Nhắn */}
                 <form
                   onSubmit={handleSendReply}
                   className="flex items-end gap-2 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm transition-all duration-200 focus-within:border-blue-400 focus-within:ring-4 focus-within:ring-blue-100/50"
@@ -1015,7 +1019,7 @@ async function handleSendReply(event) {
                     </svg>
                   </button>
                 </form>
-                
+
                 <div className="mt-2 flex items-center justify-between px-1">
                   <p className="text-[10px] font-medium text-slate-400">
                     <kbd className="font-sans font-bold text-slate-500">Enter</kbd> gửi · <kbd className="font-sans font-bold text-slate-500">Shift + Enter</kbd> xuống dòng

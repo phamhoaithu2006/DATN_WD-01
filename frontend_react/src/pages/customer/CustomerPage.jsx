@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import ChatBox, { clearChatHistory } from "../../components/customer/ChatBox";
+import ChatBox, { resetChatSession } from "../../components/customer/ChatBox";
 import Footer from "../../components/customer/Footer";
 import Header from "../../components/customer/Header";
 
@@ -580,17 +580,17 @@ function CustomerPage() {
     }
   }
   async function logout() {
-    try {
-      await logoutApi();
-    } catch {
-      // Token có thể đã hết hạn.
-    }
-
-    clearSession();
-    clearChatHistory(); // <-- thêm dòng này
-    setUser(null);
-    setFavorites(readStoredFavorites());
+  try {
+    await logoutApi();
+  } catch {
+    // Token có thể đã hết hạn.
   }
+
+  clearSession();
+  resetChatSession(); // <-- đổi dòng này
+  setUser(null);
+  setFavorites(readStoredFavorites());
+}
 
   const favoriteTours = normalizedTours.filter((tour) =>
     favorites.includes(tour.id),

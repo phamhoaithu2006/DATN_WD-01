@@ -9,10 +9,6 @@ use Illuminate\Http\Request;
 
 class SupportChatController extends Controller
 {
-    /**
-     * Danh sách các cuộc chat đang chờ nhân viên tiếp nhận
-     * (mode = pending_human, chưa ai nhận)
-     */
     public function pendingList()
     {
         $conversations = ChatConversation::where('mode', 'pending_human')
@@ -35,16 +31,13 @@ class SupportChatController extends Controller
         return response()->json(['data' => $conversations]);
     }
 
-    /**
-     * Danh sách các cuộc chat nhân viên đang hiện đang xử lý (của chính mình)
-     */
     public function myActiveList(Request $request)
     {
         $staffId = $request->user()->id;
 
         $conversations = ChatConversation::where('mode', 'human')
             ->where('assigned_staff_id', $staffId)
-            ->with(['messages' => function ($q) {
+            ->with(['user', 'messages' => function ($q) {
                 $q->orderByDesc('id')->limit(1);
             }])
             ->orderByDesc('handoff_requested_at')
@@ -53,6 +46,7 @@ class SupportChatController extends Controller
                 return [
                     'id'                   => $conv->id,
                     'session_id'           => $conv->session_id,
+                    'customer_name'        => $conv->user->full_name ?? null,
                     'handoff_requested_at' => $conv->handoff_requested_at,
                     'last_message'         => $conv->messages->first()->content ?? '',
                 ];
@@ -61,9 +55,6 @@ class SupportChatController extends Controller
         return response()->json(['data' => $conversations]);
     }
 
-    /**
-     * Nhân viên bấm "Tiếp nhận" - gán bản thân vào cuộc chat này
-     */
     public function accept(Request $request, ChatConversation $conversation)
     {
         if ($conversation->mode !== 'pending_human') {
@@ -83,28 +74,27 @@ class SupportChatController extends Controller
         ]);
     }
 
-    /**
-     * Xem toàn bộ lịch sử tin nhắn của 1 cuộc chat (để nhân viên đọc trước khi trả lời)
-     */
     public function show(ChatConversation $conversation)
     {
         $this->autoCloseIfStale($conversation);
         $conversation->refresh();
+        $conversation->load('user');
 
         $messages = $conversation->messages()
             ->orderBy('id')
             ->get(['id', 'role', 'content', 'attachment_url', 'created_at']);
 
         return response()->json([
-            'conversation' => array_merge($conversation->toArray(), [
+            'conversation' => [
+                'id'            => $conversation->id,
+                'session_id'    => $conversation->session_id,
+                'mode'          => $conversation->mode,
                 'customer_name' => $conversation->user->full_name ?? null,
-            ]),
+            ],
             'messages' => $messages,
         ]);
     }
-    /**
-     * Nhân viên gửi tin nhắn trả lời trực tiếp cho khách
-     */
+
     public function reply(Request $request, ChatConversation $conversation)
     {
         $validated = $request->validate([
@@ -133,12 +123,11 @@ class SupportChatController extends Controller
             'attachment_url'  => $attachmentUrl,
         ]);
 
+        $conversation->touch();
+
         return response()->json(['data' => $message]);
     }
 
-    /**
-     * Nhân viên đóng yêu cầu - trả lại quyền trả lời cho AI
-     */
     public function close(Request $request, ChatConversation $conversation)
     {
         if ($conversation->assigned_staff_id !== $request->user()->id) {
@@ -167,6 +156,7 @@ class SupportChatController extends Controller
     {
         return $request->getSchemeAndHttpHost() . '/storage/' . $path;
     }
+
     private function autoCloseIfStale(ChatConversation $conversation): void
     {
         if (!$conversation->isStale(30)) {
