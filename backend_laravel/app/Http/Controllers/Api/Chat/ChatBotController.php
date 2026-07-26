@@ -14,7 +14,6 @@ class ChatBotController extends Controller
 {
     private const FALLBACK_MESSAGE = 'Xin lỗi bạn, hiện tại mình chưa có thông tin về vấn đề này. Bạn vui lòng liên hệ trực tiếp với nhân viên hỗ trợ của ViVuGo qua Zalo/Hotline để được tư vấn chi tiết nhất nhé!';
 
-    // Sau bao nhiêu lần AI trả lời fallback liên tiếp thì tự động gợi ý gặp nhân viên
     private const AUTO_SUGGEST_THRESHOLD = 2;
 
     public function handleChat(Request $request)
@@ -38,19 +37,19 @@ class ChatBotController extends Controller
             ?? 'guest-' . md5($request->ip() . $request->userAgent());
 
         $conversation = ChatConversation::firstOrCreate(
-
             ['session_id' => $sessionId],
             ['user_id' => auth('sanctum')->id()]
         );
+
         $this->autoCloseIfStale($conversation);
         $conversation->refresh();
+
         $attachmentUrl = null;
         if ($hasImage) {
             $path = $request->file('image')->store('chat-attachments', 'public');
-            $attachmentUrl = $this->buildAttachmentUrl($request, $path); // thay cho Storage::url($path)
+            $attachmentUrl = $this->buildAttachmentUrl($request, $path);
         }
 
-        // Luôn lưu tin nhắn của khách trước tiên
         ChatMessage::create([
             'chat_conversation_id' => $conversation->id,
             'role'           => 'user',
@@ -74,6 +73,7 @@ class ChatBotController extends Controller
                 'role'    => 'assistant',
                 'content' => $reply,
             ]);
+            $conversation->touch();
 
             return response()->json([
                 'reply'          => $reply,
@@ -92,8 +92,7 @@ class ChatBotController extends Controller
             ]);
         }
 
-        // Khách gửi ảnh trong lúc đang chat với AI -> AI không xem được ảnh,
-        // trả lời gợi ý gặp nhân viên thay vì gọi Gemini vô ích
+        // Khách gửi ảnh trong lúc đang chat với AI, không kèm chữ
         if ($hasImage && $userMessage === '') {
             $reply = 'Mình đã nhận được ảnh bạn gửi. Hiện mình chưa xem được nội dung ảnh, bạn có thể mô tả ngắn gọn hoặc bấm "Gặp nhân viên hỗ trợ" để được hỗ trợ trực tiếp nhé!';
 
@@ -102,6 +101,7 @@ class ChatBotController extends Controller
                 'role'    => 'assistant',
                 'content' => $reply,
             ]);
+            $conversation->touch();
 
             return response()->json([
                 'reply'      => $reply,
@@ -113,7 +113,7 @@ class ChatBotController extends Controller
         // TRƯỜNG HỢP 3: Luồng bình thường - AI trả lời như cũ
         $history = $conversation->messages()
             ->orderByDesc('id')
-            ->limit(6) // giảm từ 10 xuống 6 để prompt nhẹ hơn, trả lời nhanh hơn (xem mục 3)
+            ->limit(6)
             ->get()
             ->reverse()
             ->values();
@@ -138,6 +138,7 @@ class ChatBotController extends Controller
             'content'     => $reply,
             'is_fallback' => $isFallback,
         ]);
+        $conversation->touch();
 
         $conversation->refresh();
         $suggestHuman = $conversation->consecutive_fallback_count >= self::AUTO_SUGGEST_THRESHOLD;
@@ -151,8 +152,7 @@ class ChatBotController extends Controller
     }
 
     /**
-     * Endpoint polling - frontend gọi định kỳ (3-5 giây/lần) để lấy tin nhắn mới,
-     * đặc biệt là tin nhắn do nhân viên gõ trực tiếp.
+     * Endpoint polling - frontend gọi định kỳ để lấy tin nhắn mới.
      */
     public function getMessages(Request $request)
     {
@@ -165,11 +165,14 @@ class ChatBotController extends Controller
         $conversation = ChatConversation::with('assignedStaff:id,full_name,avatar_url')
             ->where('session_id', $sessionId)
             ->first();
-        $this->autoCloseIfStale($conversation);
-        $conversation->refresh();
+
+        // QUAN TRỌNG: kiểm tra null TRƯỚC khi gọi autoCloseIfStale, tránh crash khi khách chưa từng chat
         if (!$conversation) {
             return response()->json(['messages' => [], 'mode' => 'ai']);
         }
+
+        $this->autoCloseIfStale($conversation);
+        $conversation->refresh();
 
         $messages = $conversation->messages()
             ->orderBy('id')
@@ -183,12 +186,12 @@ class ChatBotController extends Controller
         }
 
         return response()->json([
-            'messages'             => $messages,
-            'mode'                 => $conversation->mode,
-            'assigned_staff_id'    => $conversation->assigned_staff_id,
-            'assigned_staff_name'  => $conversation->assignedStaff->full_name ?? null,
+            'messages'              => $messages,
+            'mode'                  => $conversation->mode,
+            'assigned_staff_id'     => $conversation->assigned_staff_id,
+            'assigned_staff_name'   => $conversation->assignedStaff->full_name ?? null,
             'assigned_staff_avatar' => $conversation->assignedStaff->avatar_url ?? null,
-            'queue_position'       => $queuePosition,
+            'queue_position'        => $queuePosition,
         ]);
     }
 
@@ -317,7 +320,10 @@ PROMPT;
             $response = Http::timeout(15)->post($url, [
                 'systemInstruction' => ['parts' => [['text' => $systemPrompt]]],
                 'contents' => $contents,
-                'generationConfig' => ['temperature' => 0.2],
+                'generationConfig' => [
+                    'temperature'     => 0.2,
+                    'maxOutputTokens' => 350,
+                ],
             ]);
 
             if ($response->successful()) {
@@ -332,10 +338,12 @@ PROMPT;
 
         return self::FALLBACK_MESSAGE;
     }
+
     private function buildAttachmentUrl(Request $request, string $path): string
     {
         return $request->getSchemeAndHttpHost() . '/storage/' . $path;
     }
+
     private function autoCloseIfStale(ChatConversation $conversation): void
     {
         if (!$conversation->isStale(30)) {

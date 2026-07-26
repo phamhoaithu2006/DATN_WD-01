@@ -28,10 +28,12 @@ function loadStoredMessages() {
     return [defaultGreeting];
   }
 }
-
-export function clearChatHistory() {
+export function resetChatSession() {
+  localStorage.removeItem("vivugo_chat_session_id");
   sessionStorage.removeItem(CHAT_HISTORY_KEY);
+  window.dispatchEvent(new Event("vivugo-chat-reset"));
 }
+
 
 function normalizeReplyText(raw) {
   if (!raw) return "";
@@ -121,6 +123,35 @@ function ChatBox() {
       // ignore
     }
   }, [messages]);
+useEffect(() => {
+  function handleReset() {
+    setMessages([defaultGreeting]);
+    setMode("ai");
+    setQueuePosition(null);
+    setStaffInfo({ name: "", avatar: "" });
+    lastMessageIdRef.current = 0;
+  }
+  window.addEventListener("vivugo-chat-reset", handleReset);
+  return () => window.removeEventListener("vivugo-chat-reset", handleReset);
+}, []);
+  // Luôn đồng bộ lịch sử THẬT từ server khi mở trang (không chỉ dựa vào sessionStorage,
+  // vì sessionStorage bị xóa khi đóng tab/trình duyệt dù dữ liệu thật vẫn còn trên server)
+  useEffect(() => {
+    const sessionId = getOrCreateSessionId();
+    fetchChatMessages(sessionId)
+      .then((response) => {
+        const serverMessages = (response?.messages || []).map(mapServerMessage);
+        if (serverMessages.length > 0) {
+          setMessages(serverMessages);
+          lastMessageIdRef.current = serverMessages[serverMessages.length - 1].id;
+        }
+        if (response?.mode) setMode(response.mode);
+      })
+      .catch(() => {
+        // im lặng bỏ qua lỗi mạng, giữ nguyên lịch sử tạm đang có
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     function handleCustomOpen() {
@@ -375,7 +406,7 @@ function ChatBox() {
               <Icon name="send" />
             </button>
           </form>
-          
+
           <small className="vg-chat-note">ViVuGo AI có thể mắc lỗi. Hãy kiểm tra thông tin quan trọng.</small>
         </section>
       ) : null}
