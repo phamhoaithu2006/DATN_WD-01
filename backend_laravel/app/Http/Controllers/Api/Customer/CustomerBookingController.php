@@ -174,17 +174,31 @@ class CustomerBookingController extends Controller
                         'pricing_type' => $rule?->pricing_type ?? 'percentage',
                         'pricing_value' => $rule?->price_value ?? 100,
                         '_pricing_rule_id' => $rule?->id,
+                        '_derived_type' => $this->participantTypeFromPricingRule($rule),
                     ];
                 });
 
+            // Loại khách suy ra từ quy tắc giá (không tin participant_type do client gửi)
+            if (! $pricedParticipants->contains(fn (array $participant) => $participant['_derived_type'] === 'adult')) {
+                throw ValidationException::withMessages([
+                    'participants' => ['Đơn đặt tour phải có ít nhất 1 người lớn đi kèm.'],
+                ]);
+            }
+
             $participantsForInsert = $pricedParticipants
                 ->map(function (array $participant) {
-                    unset($participant['_pricing_rule_id']);
+                    unset($participant['_pricing_rule_id'], $participant['_derived_type']);
 
                     return $participant;
                 });
             $participantsSubtotal = (float) $pricedParticipants->sum('unit_price');
             $totalAmount = round(max(0, $participantsSubtotal - $discountAmount), 2);
+
+            if ($totalAmount < VnpayService::MIN_AMOUNT || $totalAmount >= VnpayService::MAX_AMOUNT) {
+                throw ValidationException::withMessages([
+                    'payment' => ['Tổng tiền thanh toán qua VNPAY phải từ 5.000đ đến dưới 1 tỷ đồng.'],
+                ]);
+            }
 
             $booking = Booking::create([
                 'booking_code' => 'BK-'.Str::upper((string) Str::ulid()),

@@ -3,8 +3,45 @@ import { useNavigate } from "react-router-dom";
 import { useLocale } from "../../contexts/LocaleContext";
 import Icon from "./Icon";
 
+/**
+ * Badge ngày khởi hành (tĩnh, không dùng timer):
+ * - Còn ≤ 7 ngày: "Còn X ngày" màu nổi để giữ cảm giác gấp.
+ * - Xa hơn: "Khởi hành DD/MM" trung tính.
+ */
+function DepartureChip({ targetDate }) {
+  if (!targetDate) return null;
 
-function TourCard({ tour, favorite, onFavorite }) {
+  const target = new Date(targetDate);
+  if (Number.isNaN(target.getTime())) return null;
+
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+
+  const targetDay = new Date(target);
+  targetDay.setHours(0, 0, 0, 0);
+
+  const daysLeft = Math.round((targetDay.getTime() - startOfToday.getTime()) / 86400000);
+  if (daysLeft < 0) return null;
+
+  const isSoon = daysLeft <= 7;
+  const label =
+    daysLeft === 0
+      ? "Khởi hành hôm nay"
+      : isSoon
+        ? `Còn ${daysLeft} ngày`
+        : `Khởi hành ${targetDay.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })}`;
+
+  return (
+    <div
+      className={isSoon ? "vg-departure-pill is-soon" : "vg-departure-pill"}
+      title={`Ngày khởi hành gần nhất: ${targetDay.toLocaleDateString("vi-VN")}`}
+    >
+      <span>{label}</span>
+    </div>
+  );
+}
+
+function TourCard({ tour, favorite, onFavorite, departureDate }) {
   const { currency, formatCurrency } = useLocale();
   const navigate = useNavigate();
   const [imgError, setImgError] = useState(false);
@@ -32,6 +69,7 @@ function TourCard({ tour, favorite, onFavorite }) {
     ? `-${Math.round((1 - salePrice / originalPrice) * 100)}%`
     : null;
   const discountLabelToShow = tour.discountLabel || computedDiscountLabel;
+  const activeDepartureDate = departureDate || tour.nextDepartureDate || tour.nextDeparture?.departure_date;
 
   const handleCardClick = (e) => {
     // If the user clicks on the heart button, do not navigate.
@@ -60,17 +98,24 @@ function TourCard({ tour, favorite, onFavorite }) {
           {isFeatured ? <span className="badge-featured">Nổi bật</span> : null}
           {discountLabelToShow ? <strong className="badge-discount">{discountLabelToShow}</strong> : null}
         </div>
-        <button
-          className={favorite ? "vg-heart is-active" : "vg-heart"}
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onFavorite(tour);
-          }}
-          aria-label="Thêm tour yêu thích"
-        >
-          <Icon name="heart" size={19} />
-        </button>
+
+        <div className="vg-tour-top-right">
+          {activeDepartureDate ? (
+            <DepartureChip targetDate={activeDepartureDate} />
+          ) : null}
+          <button
+            className={favorite ? "vg-heart is-active" : "vg-heart"}
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onFavorite(tour);
+            }}
+            aria-label="Thêm tour yêu thích"
+          >
+            <Icon name="heart" size={19} />
+          </button>
+        </div>
+
         <span className="vg-place">
           <Icon name="mapPin" size={14} /> {tour.destination}
         </span>
@@ -118,7 +163,7 @@ function TourCard({ tour, favorite, onFavorite }) {
             )}
           </div>
         </div>
-        
+
       </div>
     </article>
   );

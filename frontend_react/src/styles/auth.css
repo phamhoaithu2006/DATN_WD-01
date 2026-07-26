@@ -207,6 +207,42 @@ button {
   font-weight: 700;
 }
 
+.notice.success {
+  color: #166534;
+  background: #f0fdf4;
+  border-color: rgba(34, 197, 94, 0.32);
+}
+
+.otp-input {
+  letter-spacing: 8px;
+  text-align: center;
+  font-weight: 700;
+}
+
+.link-button {
+  border: 0;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: #0ea5e9;
+  transition: color 160ms ease;
+  white-space: nowrap;
+}
+
+.link-button:hover {
+  color: #0369a1;
+  text-decoration: underline;
+}
+
+.link-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  text-decoration: none;
+}
+
 .auth-form {
   margin-top: 24px;
   display: grid;

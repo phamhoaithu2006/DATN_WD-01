@@ -29,10 +29,13 @@ return new class extends Migration
             $table->unsignedTinyInteger('consecutive_fallback_count')->default(0)->after('handoff_closed_at');
         });
 
-        Schema::table('chat_messages', function (Blueprint $table) {
-            // Mở rộng role để có thêm 'staff' (nhân viên gõ trực tiếp)
-            DB::statement("ALTER TABLE chat_messages MODIFY role ENUM('user', 'assistant', 'staff') NOT NULL");
-        });
+        // MODIFY ENUM là cú pháp riêng của MySQL; sqlite (test) không hỗ trợ và không ràng buộc enum
+        if (DB::getDriverName() === 'mysql') {
+            Schema::table('chat_messages', function (Blueprint $table) {
+                // Mở rộng role để có thêm 'staff' (nhân viên gõ trực tiếp)
+                DB::statement("ALTER TABLE chat_messages MODIFY role ENUM('user', 'assistant', 'staff') NOT NULL");
+            });
+        }
     }
 
     public function down(): void
@@ -42,6 +45,8 @@ return new class extends Migration
             $table->dropColumn(['mode', 'handoff_requested_at', 'handoff_closed_at', 'consecutive_fallback_count']);
         });
 
-        DB::statement("ALTER TABLE chat_messages MODIFY role ENUM('user', 'assistant') NOT NULL");
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE chat_messages MODIFY role ENUM('user', 'assistant') NOT NULL");
+        }
     }
 };

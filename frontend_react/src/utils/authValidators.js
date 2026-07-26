@@ -65,3 +65,41 @@ export function validateRegister(values) {
 
   return errors
 }
+
+export function validateForgotRequest(values) {
+  const errors = {}
+  const rawValue = values.identifier.trim()
+  const normalizedPhone = rawValue.replace(/\s+/g, '')
+
+  if (!rawValue) {
+    errors.identifier = "Vui lòng nhập email hoặc SĐT."
+  } else if (!emailPattern.test(rawValue) && !phonePattern.test(normalizedPhone)) {
+    errors.identifier = "Email hoặc SĐT chưa đúng định dạng."
+  }
+
+  return errors
+}
+
+export function validateResetPassword(values) {
+  const errors = {}
+
+  if (!values.otp) {
+    errors.otp = "Vui lòng nhập mã xác nhận."
+  } else if (!/^\d{6}$/.test(values.otp)) {
+    errors.otp = "Mã xác nhận gồm 6 chữ số."
+  }
+
+  if (!values.password) {
+    errors.password = "Vui lòng nhập mật khẩu."
+  } else if (values.password.length < 8) {
+    errors.password = "Mật khẩu cần ít nhất 8 ký tự."
+  }
+
+  if (!values.confirmPassword) {
+    errors.confirmPassword = "Vui lòng xác nhận mật khẩu."
+  } else if (values.confirmPassword !== values.password) {
+    errors.confirmPassword = "Mật khẩu xác nhận không khớp."
+  }
+
+  return errors
+}

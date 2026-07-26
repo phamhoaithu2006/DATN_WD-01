@@ -123,6 +123,15 @@ function ChatBox() {
   }, [messages]);
 
   useEffect(() => {
+    function handleCustomOpen() {
+      setOpen(true);
+    }
+    window.addEventListener("open-vivugo-chatbox", handleCustomOpen);
+    return () => {
+      window.removeEventListener("open-vivugo-chatbox", handleCustomOpen);
+    };
+  }, []);
+  useEffect(() => {
     if (mode === "ai") {
       if (pollRef.current) window.clearInterval(pollRef.current);
       return undefined;

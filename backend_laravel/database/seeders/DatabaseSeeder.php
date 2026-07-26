@@ -29,6 +29,9 @@ class DatabaseSeeder extends Seeder
             TourReviewSeeder::class,
             TourTestingDataSeeder::class,
             DemoWorkflowSeeder::class,
+
+            // Dữ liệu vận hành số lượng lớn (chạy cuối để tự đồng bộ slot/rating).
+            RichDemoDataSeeder::class,
         ]);
     }
 }
