@@ -94,7 +94,7 @@ function SupportSidebar({
     const intervalId =
       window.setInterval(() => {
         void loadRequestBadge()
-      }, 30000)
+      }, 5000)
 
     function handleRequestCountChanged() {
       void loadRequestBadge()

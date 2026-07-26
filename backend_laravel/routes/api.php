@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\Admin\AdminGuideLeaveRequestController;
 use App\Http\Controllers\Api\Admin\AdminGuideActivityController;
+use App\Http\Controllers\Api\Admin\AdminGuideMonitoringController;
 use App\Http\Controllers\Api\Admin\AdminGuideReplacementRequestController;
 use App\Http\Controllers\Api\Admin\AdminNotificationBellController;
 use App\Http\Controllers\Api\Admin\AdminNotificationController;
@@ -45,6 +46,7 @@ use App\Http\Controllers\Api\Customer\WishlistController;
 use App\Http\Controllers\Api\Guide\GuideAttendanceController;
 use App\Http\Controllers\Api\Guide\GuideDashboardController;
 use App\Http\Controllers\Api\Guide\GuideLeaveRequestController;
+use App\Http\Controllers\Api\Guide\GuidePresenceController;
 use App\Http\Controllers\Api\Guide\GuideProfileController;
 use App\Http\Controllers\Api\Guide\GuideReviewController as GuideGuideReviewController;
 use App\Http\Controllers\Api\Guide\GuideTourController;
@@ -584,7 +586,8 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(functi
 
     // Đơn xin nghỉ HDV
     Route::get('guide-leave-requests', [AdminGuideLeaveRequestController::class, 'index']);
-    Route::get('guide-activities', [AdminGuideActivityController::class, 'index']);
+    Route::get('guides/presence', [AdminGuideMonitoringController::class, 'presenceIndex']);
+    Route::get('guides/{id}/activity-history', [AdminGuideMonitoringController::class, 'activityHistory'])->whereNumber('id');
     Route::get('guide-leave-requests/{leaveRequest}', [AdminGuideLeaveRequestController::class, 'show']);
     Route::post('guide-leave-requests/{leaveRequest}/approve', [AdminGuideLeaveRequestController::class, 'approve']);
     Route::post('guide-leave-requests/{leaveRequest}/reject', [AdminGuideLeaveRequestController::class, 'reject']);
@@ -625,6 +628,7 @@ Route::middleware(['auth:sanctum', 'role:tour guide'])->group(function () {
     Route::get('/guide/tour-history', [GuideGuideReviewController::class, 'tourHistory']);
     Route::put('/guide/profile', [GuideProfileController::class, 'update']);
     Route::put('/guide/change-password', [GuideProfileController::class, 'changePassword']);
+    Route::post('/guide/presence/heartbeat', [GuidePresenceController::class, 'heartbeat']);
 
     // Tour được phân công (⚠️ route cụ thể PHẢI đứng trước {departureId})
     Route::get('/guide/tours/upcoming', [GuideTourController::class, 'upcoming']);

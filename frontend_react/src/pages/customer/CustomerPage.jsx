@@ -385,7 +385,7 @@ function CustomerPage() {
   )).length, [bookings, currentTime]);
 
   useEffect(() => {
-    const timer = window.setInterval(() => setCurrentTime(Date.now()), 30000);
+    const timer = window.setInterval(() => setCurrentTime(Date.now()), 5000);
 
     return () => window.clearInterval(timer);
   }, []);
@@ -582,7 +582,7 @@ function CustomerPage() {
 
     loadReviewNotifications();
 
-    const timer = window.setInterval(loadReviewNotifications, 60000);
+    const timer = window.setInterval(loadReviewNotifications, 5000);
 
     return () => {
       active = false;

@@ -4,7 +4,8 @@ import apiClient from '../../services/apiClient'
 import adminGuideLeaveRequestApi from '../../services/adminGuideLeaveRequestApi.js'
 import AdminPageHeader from '../../components/admin/AdminPageHeader'
 import AdminGuideLeaveRequestsPanel from '../../components/admin/guides/AdminGuideLeaveRequestsPanel.jsx'
-import AdminGuideActivityPanel from '../../components/admin/guides/AdminGuideActivityPanel.jsx'
+import AdminGuideActivityModal from '../../components/admin/guides/AdminGuideActivityModal.jsx'
+import { getGuideActivityHistory, getGuidePresence } from '../../services/adminGuideMonitoringApi.js'
 import Icon from '../../components/customer/Icon'
 import '../../styles/support-staff.css'
 
@@ -205,6 +206,20 @@ function makePayload(form) {
   }
 }
 
+function formatPresenceDuration(value) {
+  const seconds = Math.max(0, Number(value || 0))
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 1) return 'Vừa xong'
+  if (minutes < 60) return `${minutes} phút`
+  return `${Math.floor(minutes / 60)} giờ ${minutes % 60} phút`
+}
+
+function getGuidePresenceText(presence) {
+  if (!presence?.last_seen_at) return { label: 'Chưa truy cập', detail: 'Chưa có dữ liệu online' }
+  if (presence.is_online) return { label: 'Trực tuyến', detail: `Đã online ${formatPresenceDuration(presence.online_seconds)}` }
+  return { label: 'Ngoại tuyến', detail: `Rời hệ thống ${formatPresenceDuration(presence.offline_seconds)} trước` }
+}
+
 function getExperienceYearsError(value) {
   const experienceYears = Number(value)
 
@@ -329,7 +344,11 @@ function GuideManagementPage() {
   const [leavePanelOpen, setLeavePanelOpen] = useState(
     searchParams.get('openLeaveRequests') === '1',
   )
-  const [activityPanelOpen, setActivityPanelOpen] = useState(false)
+  const [presenceMap, setPresenceMap] = useState({})
+  const [activityGuide, setActivityGuide] = useState(null)
+  const [activityData, setActivityData] = useState(null)
+  const [activityLoading, setActivityLoading] = useState(false)
+  const [activityTab, setActivityTab] = useState('activities')
   const [leaveSummary, setLeaveSummary] = useState({
     pending_count: 0,
     processed_count: 0,
@@ -540,6 +559,15 @@ function GuideManagementPage() {
     [destinationFilter, hasFilter, keyword, leaveStatusFilter, statusFilter],
   )
 
+  const loadGuidePresence = useCallback(async () => {
+    try {
+      const response = await getGuidePresence()
+      setPresenceMap(response?.data || {})
+    } catch {
+      // Không chặn màn hình quản lý HDV khi trạng thái online chưa tải được.
+    }
+  }, [])
+
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       void loadCatalogs()
@@ -590,12 +618,21 @@ function GuideManagementPage() {
   }, [loadGuides])
 
   useEffect(() => {
+    const initialLoadId = window.setTimeout(() => void loadGuidePresence(), 0)
+    const intervalId = window.setInterval(() => void loadGuidePresence(), 5000)
+    return () => {
+      window.clearTimeout(initialLoadId)
+      window.clearInterval(intervalId)
+    }
+  }, [loadGuidePresence])
+
+  useEffect(() => {
     if (!notice && !error) return undefined
 
     const timer = window.setTimeout(() => {
       setNotice('')
       setError('')
-    }, 10000)
+    }, 5000)
 
     return () => window.clearTimeout(timer)
   }, [error, notice])
@@ -887,6 +924,21 @@ function GuideManagementPage() {
     }
   }
 
+  async function openActivityHistory(guide) {
+    setActivityGuide(guide)
+    setActivityData(null)
+    setActivityTab('activities')
+    setActivityLoading(true)
+    try {
+      const response = await getGuideActivityHistory(guide.id, { activity_limit: 150 })
+      setActivityData(response?.data || null)
+    } catch (requestError) {
+      setError(getErrorMessage(requestError, 'Không tải được lịch sử hoạt động của HDV.'))
+    } finally {
+      setActivityLoading(false)
+    }
+  }
+
   async function saveGuide(event) {
     event.preventDefault()
 
@@ -1072,13 +1124,6 @@ function GuideManagementPage() {
                     ) : null}
                   </button>
 
-                  <button
-                    type="button"
-                    className={`admin-guide-leave-menu-button ${activityPanelOpen ? 'active' : ''}`}
-                    onClick={() => setActivityPanelOpen((current) => !current)}
-                  >
-                    Lịch sử thao tác
-                  </button>
                 </div>
               </div>
             </div>
@@ -1233,6 +1278,7 @@ function GuideManagementPage() {
                   <th>Ngoại ngữ</th>
                   <th>Tour phụ trách</th>
                   <th>Trạng thái</th>
+                  <th>Trực tuyến</th>
                   <th>Thao tác</th>
                 </tr>
               </thead>
@@ -1240,7 +1286,7 @@ function GuideManagementPage() {
               <tbody>
                 {isLoading ? (
                   <tr>
-                    <td className="support-empty-row" colSpan="8">
+                    <td className="support-empty-row" colSpan="9">
                       <div className="support-loading">
                         <span />
                         <p>Đang tải danh sách HDV...</p>
@@ -1251,7 +1297,7 @@ function GuideManagementPage() {
 
                 {!isLoading && guides.length === 0 ? (
                   <tr>
-                    <td colSpan="8">Chưa có hướng dẫn viên.</td>
+                    <td colSpan="9">Chưa có hướng dẫn viên.</td>
                   </tr>
                 ) : null}
 
@@ -1316,6 +1362,19 @@ function GuideManagementPage() {
                         </td>
 
                         <td>
+                          {(() => {
+                            const presence = presenceMap[String(guide.id)] || {}
+                            const meta = getGuidePresenceText(presence)
+                            return (
+                              <div className={`support-presence-cell ${presence.is_online ? 'online' : 'offline'}`}>
+                                <span className="support-presence-dot" />
+                                <div><strong>{meta.label}</strong><small>{meta.detail}</small></div>
+                              </div>
+                            )
+                          })()}
+                        </td>
+
+                        <td>
                           <div className="guide-actions">
                             <button
                               className="guide-action-icon"
@@ -1335,6 +1394,16 @@ function GuideManagementPage() {
                               onClick={() => openEditForm(guide)}
                             >
                               <Icon name="edit" size={16} />
+                            </button>
+
+                            <button
+                              className="guide-action-icon"
+                              type="button"
+                              title="Lịch sử hoạt động"
+                              aria-label="Lịch sử hoạt động"
+                              onClick={() => void openActivityHistory(guide)}
+                            >
+                              <Icon name="clock" size={16} />
                             </button>
 
                             <button
@@ -1919,12 +1988,15 @@ function GuideManagementPage() {
         </div>
       ) : null}
 
-      {activityPanelOpen ? (
-        <div className="admin-guide-leave-card-backdrop" role="presentation" onMouseDown={() => setActivityPanelOpen(false)}>
-          <div className="admin-guide-leave-card-modal" role="dialog" aria-modal="true" aria-label="Lịch sử thao tác HDV" onMouseDown={(event) => event.stopPropagation()}>
-            <AdminGuideActivityPanel onClose={() => setActivityPanelOpen(false)} />
-          </div>
-        </div>
+      {activityGuide ? (
+        <AdminGuideActivityModal
+          guide={activityGuide}
+          data={activityData}
+          loading={activityLoading}
+          activeTab={activityTab}
+          onChangeTab={setActivityTab}
+          onClose={() => { setActivityGuide(null); setActivityData(null) }}
+        />
       ) : null}
 
       {deleteTarget ? (

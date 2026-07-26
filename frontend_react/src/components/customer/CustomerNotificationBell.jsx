@@ -235,7 +235,7 @@ export default function CustomerNotificationBell() {
 
     const intervalId = window.setInterval(() => {
       void loadNotifications()
-    }, 60000)
+    }, 5000)
 
     return () => {
       window.clearTimeout(initialLoadId)

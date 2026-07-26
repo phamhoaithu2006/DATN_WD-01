@@ -17,8 +17,8 @@ class SupportChatController extends Controller
     {
         $conversations = ChatConversation::where('mode', 'pending_human')
             ->whereNull('assigned_staff_id')
-            ->with(['messages' => function ($q) {
-                $q->orderByDesc('id')->limit(1); // chỉ lấy tin nhắn cuối để hiển thị preview
+            ->with(['user', 'messages' => function ($q) {
+                $q->orderByDesc('id')->limit(1);
             }])
             ->orderBy('handoff_requested_at')
             ->get()
@@ -26,6 +26,7 @@ class SupportChatController extends Controller
                 return [
                     'id'                    => $conv->id,
                     'session_id'            => $conv->session_id,
+                    'customer_name'         => $conv->user->full_name ?? null,
                     'handoff_requested_at'  => $conv->handoff_requested_at,
                     'last_message'          => $conv->messages->first()->content ?? '',
                 ];
@@ -87,16 +88,20 @@ class SupportChatController extends Controller
      */
     public function show(ChatConversation $conversation)
     {
+        $this->autoCloseIfStale($conversation);
+        $conversation->refresh();
+
         $messages = $conversation->messages()
             ->orderBy('id')
-            ->get(['id', 'role', 'content', 'attachment_url', 'created_at']); // đã thêm attachment_url
+            ->get(['id', 'role', 'content', 'attachment_url', 'created_at']);
 
         return response()->json([
-            'conversation' => $conversation,
-            'messages'     => $messages,
+            'conversation' => array_merge($conversation->toArray(), [
+                'customer_name' => $conversation->user->full_name ?? null,
+            ]),
+            'messages' => $messages,
         ]);
     }
-
     /**
      * Nhân viên gửi tin nhắn trả lời trực tiếp cho khách
      */
@@ -161,5 +166,24 @@ class SupportChatController extends Controller
     private function buildAttachmentUrl(Request $request, string $path): string
     {
         return $request->getSchemeAndHttpHost() . '/storage/' . $path;
+    }
+    private function autoCloseIfStale(ChatConversation $conversation): void
+    {
+        if (!$conversation->isStale(30)) {
+            return;
+        }
+
+        $conversation->update([
+            'mode' => 'ai',
+            'assigned_staff_id' => null,
+            'handoff_closed_at' => now(),
+            'consecutive_fallback_count' => 0,
+        ]);
+
+        ChatMessage::create([
+            'chat_conversation_id' => $conversation->id,
+            'role' => 'assistant',
+            'content' => 'Phiên hỗ trợ đã tự động kết thúc do không có hoạt động trong 30 phút.',
+        ]);
     }
 }
