@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { askTravelAssistant, fetchChatMessages } from "../../services/customerApi";
+import {
+  askTravelAssistant,
+  fetchChatMessages,
+  normalizeRecommendedTours,
+} from "../../services/customerApi";
 import "../../styles/chatbot.css";
 import Icon from "./Icon";
 import ChatInput from "./chatbot/ChatInput";
@@ -22,6 +26,7 @@ function mapServerMessage(message) {
     text: message.content,
     isStaff: message.role === "staff",
     attachmentUrl: message.attachment_url || null,
+    recommendedTours: normalizeRecommendedTours(message.recommended_tours),
   };
 }
 
@@ -251,7 +256,11 @@ function ChatBox() {
       if (response?.reply) {
         setMessages((current) => [
           ...current,
-          { from: "ai", text: response.reply },
+          {
+            from: "ai",
+            text: response.reply,
+            recommendedTours: response.recommended_tours,
+          },
         ]);
       }
     } catch {

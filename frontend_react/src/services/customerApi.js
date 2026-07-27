@@ -127,6 +127,29 @@ export async function fetchVnpayReturnStatus(params) {
   return response.data?.data || response.data
 }
 
+export function normalizeRecommendedTours(value) {
+  if (!Array.isArray(value)) return []
+
+  return value.flatMap((tour) => {
+    const id = Number(tour?.id)
+    const slug = typeof tour?.slug === 'string' ? tour.slug.trim() : ''
+    const title = typeof tour?.title === 'string' ? tour.title.trim() : ''
+
+    if (!Number.isInteger(id) || id <= 0 || !slug || !title) return []
+
+    return [{ id, slug, title }]
+  })
+}
+
+function normalizeTravelAssistantResponse(response) {
+  const payload = response.data?.data || response.data || {}
+
+  return {
+    ...payload,
+    recommended_tours: normalizeRecommendedTours(payload.recommended_tours),
+  }
+}
+
 export async function askTravelAssistant(message, sessionId, requestHuman = false, imageFile = null) {
   if (imageFile) {
     const formData = new FormData()
@@ -138,7 +161,7 @@ export async function askTravelAssistant(message, sessionId, requestHuman = fals
     const response = await api.post('/travel-assistant', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
-    return response.data?.data || response.data
+    return normalizeTravelAssistantResponse(response)
   }
 
   const response = await api.post('/travel-assistant', {
@@ -147,7 +170,7 @@ export async function askTravelAssistant(message, sessionId, requestHuman = fals
     request_human: requestHuman,
   })
 
-  return response.data?.data || response.data
+  return normalizeTravelAssistantResponse(response)
 }
 export async function fetchChatMessages(sessionId) {
   const response = await api.get('/travel-assistant/messages', {
