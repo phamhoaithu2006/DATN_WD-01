@@ -328,6 +328,7 @@ function ChatBox() {
           <ChatInput
             fileInputRef={fileInputRef}
             imagePreview={imagePreview}
+            loading={loading}
             mode={mode}
             text={text}
             onClearImage={clearSelectedImage}

@@ -1,14 +1,16 @@
 import Icon from "../Icon";
 
-function ChatSendButton() {
+function ChatSendButton({ disabled, loading }) {
   return (
     <button
       type="submit"
       className="vg-send-btn"
-      aria-label="Gửi tin nhắn"
-      title="Gửi"
+      disabled={disabled}
+      aria-label={loading ? "Đang gửi tin nhắn" : "Gửi tin nhắn"}
+      aria-busy={loading}
+      title={loading ? "Đang gửi..." : "Gửi"}
     >
-      <Icon name="send" />
+      <Icon name="send" size={18} />
     </button>
   );
 }
