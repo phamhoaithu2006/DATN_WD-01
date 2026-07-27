@@ -1,10 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  askTravelAssistant,
-  fetchChatMessages,
-  normalizeRecommendedTours,
-} from "../../services/customerApi";
-import "../../styles/chatbot.css";
+import { askTravelAssistant, closeChatSession, fetchChatMessages } from "../../services/customerApi";
 import Icon from "./Icon";
 import ChatInput from "./chatbot/ChatInput";
 import ChatMessage, {
@@ -20,6 +15,83 @@ import {
 } from "./chatbot/chatStorage";
 
 const POLL_INTERVAL = 5000;
+
+const defaultGreeting = {
+  from: "ai",
+  text: "Xin chào! Mình là trợ lý du lịch ViVuGo. Bạn muốn đi đâu, ngân sách bao nhiêu và dự định đi mấy ngày?",
+};
+
+// Kho câu hỏi gợi ý - giống dạng Shopee, hiện random 3 câu, có nút "Đổi câu hỏi"
+const SUGGESTED_QUESTION_POOL = [
+  "Tour nào đang giảm giá nhiều nhất?",
+  "Có tour nào phù hợp gia đình có trẻ nhỏ không?",
+  "Làm sao để hủy đơn đặt tour đã thanh toán?",
+  "Chính sách hoàn tiền khi hủy tour như thế nào?",
+  "Tour dưới 5 triệu hiện có những gì?",
+  "Thanh toán tour bằng cách nào?",
+  "Tour đi biển 3 ngày 2 đêm giá bao nhiêu?",
+  "Tôi cần mang theo giấy tờ gì khi đi tour?",
+  "Có thể đổi ngày khởi hành sau khi đặt không?",
+  "Tour nào đang có nhiều chỗ trống nhất?",
+];
+
+function pickRandomQuestions(count = 3) {
+  const shuffled = [...SUGGESTED_QUESTION_POOL].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count);
+}
+
+function getOrCreateSessionId() {
+  let sessionId = localStorage.getItem("vivugo_chat_session_id");
+  if (!sessionId) {
+    sessionId = "session-" + crypto.randomUUID();
+    localStorage.setItem("vivugo_chat_session_id", sessionId);
+  }
+  return sessionId;
+}
+
+function loadStoredMessages() {
+  try {
+    const raw = sessionStorage.getItem(CHAT_HISTORY_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : [defaultGreeting];
+  } catch {
+    return [defaultGreeting];
+  }
+}
+
+// Gọi hàm này ở nơi xử lý đăng nhập/đăng xuất thành công để bắt đầu 1 phiên chat hoàn toàn mới
+export function resetChatSession() {
+  localStorage.removeItem("vivugo_chat_session_id");
+  sessionStorage.removeItem(CHAT_HISTORY_KEY);
+  window.dispatchEvent(new Event("vivugo-chat-reset"));
+}
+
+function normalizeReplyText(raw) {
+  if (!raw) return "";
+  return raw.replace(/\s\*\s(?=\*\*)/g, "\n").trim();
+}
+
+function renderMessageText(rawText) {
+  const text = normalizeReplyText(rawText);
+  const lines = text.split("\n").filter((line) => line.trim() !== "");
+
+  return lines.map((line, lineIndex) => {
+    const parts = line.split(/(\*\*[^*]+\*\*)/g).filter(Boolean);
+
+    return (
+      <p key={lineIndex} className="vg-message-line">
+        {parts.map((part, partIndex) =>
+          part.startsWith("**") && part.endsWith("**") ? (
+            <strong key={partIndex}>{part.slice(2, -2)}</strong>
+          ) : (
+            <span key={partIndex}>{part}</span>
+          ),
+        )}
+      </p>
+    );
+  });
+}
+
 function mapServerMessage(message) {
   return {
     id: message.id,
@@ -40,6 +112,8 @@ function ChatBox() {
   const [mode, setMode] = useState("ai");
   const [queuePosition, setQueuePosition] = useState(null);
   const [staffInfo, setStaffInfo] = useState({ name: "", avatar: "" });
+  const [suggestedQuestions, setSuggestedQuestions] = useState(() => pickRandomQuestions());
+  const [ending, setEnding] = useState(false);
 
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState("");
@@ -59,21 +133,21 @@ function ChatBox() {
     }
   }, [messages]);
 
+  // Lắng nghe sự kiện reset (gọi khi đăng nhập/đăng xuất) để làm sạch khung chat ngay lập tức
   useEffect(() => {
-    const chatContent = chatContentRef.current;
-    if (!open || !chatContent || !shouldStickToBottomRef.current) return undefined;
+    function handleReset() {
+      setMessages([defaultGreeting]);
+      setMode("ai");
+      setQueuePosition(null);
+      setStaffInfo({ name: "", avatar: "" });
+      setSuggestedQuestions(pickRandomQuestions());
+      lastMessageIdRef.current = 0;
+    }
+    window.addEventListener("vivugo-chat-reset", handleReset);
+    return () => window.removeEventListener("vivugo-chat-reset", handleReset);
+  }, []);
 
-    const frameId = window.requestAnimationFrame(() => {
-      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      chatContent.scrollTo({
-        top: chatContent.scrollHeight,
-        behavior: reduceMotion ? "auto" : "smooth",
-      });
-    });
-
-    return () => window.cancelAnimationFrame(frameId);
-  }, [loading, messages, open]);
-
+  // Tự đồng bộ lịch sử THẬT từ server khi mở trang
   useEffect(() => {
     const visualViewport = window.visualViewport;
 
@@ -148,6 +222,7 @@ function ChatBox() {
       });
   }, []);
 
+  // Cho phép mở khung chat từ bất kỳ đâu trong trang bằng cách phát sự kiện "open-vivugo-chatbox"
   useEffect(() => {
     function handleCustomOpen() {
       setOpen(true);
@@ -281,10 +356,29 @@ function ChatBox() {
     sendMessage(null, "", true);
   }
 
-  function handleChatScroll(event) {
-    const { scrollHeight, scrollTop, clientHeight } = event.currentTarget;
-    shouldStickToBottomRef.current =
-      scrollHeight - scrollTop - clientHeight < 80;
+  function handleShuffleQuestions() {
+    setSuggestedQuestions(pickRandomQuestions());
+  }
+
+  // Khách tự kết thúc phiên đang chờ/đang chat với nhân viên (giống nút "Hủy lượt chờ" của Shopee)
+  async function handleEndSession() {
+    if (ending) return;
+    setEnding(true);
+    try {
+      const sessionId = getOrCreateSessionId();
+      const response = await closeChatSession(sessionId);
+      if (response?.mode) setMode(response.mode);
+      if (response?.reply) {
+        setMessages((current) => [...current, { from: "ai", text: response.reply }]);
+      }
+      setQueuePosition(null);
+      setStaffInfo({ name: "", avatar: "" });
+      setSuggestedQuestions(pickRandomQuestions());
+    } catch {
+      // im lặng bỏ qua lỗi mạng
+    } finally {
+      setEnding(false);
+    }
   }
 
   return (
@@ -366,6 +460,25 @@ function ChatBox() {
                 <ChatTourRecommendations loading />
               </>
             ) : null}
+
+            {/* Bảng câu hỏi gợi ý kiểu Shopee - chỉ hiện khi đang chat với AI */}
+            {mode === "ai" ? (
+              <div className="vg-suggested-card">
+                {suggestedQuestions.map((question) => (
+                  <button
+                    key={question}
+                    type="button"
+                    className="vg-suggested-question"
+                    onClick={(event) => sendMessage(event, question)}
+                  >
+                    {question}
+                  </button>
+                ))}
+                <button type="button" className="vg-suggested-shuffle" onClick={handleShuffleQuestions}>
+                  ⟳ Đổi câu hỏi
+                </button>
+              </div>
+            ) : null}
           </div>
 
           {mode === "ai" ? (
@@ -379,11 +492,18 @@ function ChatBox() {
                 Gặp nhân viên hỗ trợ
               </button>
             </div>
-          ) : null}
-
-          {messages.length === 1 && mode === "ai" ? (
-            <QuickTourPrompts onSelect={sendMessage} />
-          ) : null}
+          ) : (
+            <div className="vg-human-request-bar">
+              <button
+                type="button"
+                className="vg-end-session-btn"
+                onClick={handleEndSession}
+                disabled={ending}
+              >
+                {ending ? "Đang kết thúc..." : "Kết thúc trò chuyện"}
+              </button>
+            </div>
+          )}
 
           <ChatInput
             fileInputRef={fileInputRef}

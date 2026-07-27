@@ -16,6 +16,7 @@ import {
 } from "../../services/authStorage";
 import { validateLogin, validateRegister } from "../../utils/authValidators";
 import "../../styles/auth.css";
+import { resetChatSession } from "../../components/customer/ChatBox";
 
 const emptyRegisterForm = {
   full_name: "",
@@ -343,8 +344,9 @@ function AuthPage() {
         return;
       }
 
-      saveToken(data.token, loginData.remember);
+     saveToken(data.token, loginData.remember);
       saveSession(sessionUser, loginData.remember);
+      resetChatSession(); // bắt đầu phiên chat sạch, không dính lịch sử tài khoản trước đó
 
       if (roleName === "admin") {
         navigate("/admin", { replace: true });
@@ -431,7 +433,7 @@ function AuthPage() {
     }
   }
 
-  async function handleLogout() {
+ async function handleLogout() {
     try {
       await logoutApi();
     } catch {
@@ -439,6 +441,7 @@ function AuthPage() {
     }
 
     clearSession();
+    resetChatSession();
     setNotice("");
     setMode("login");
   }
