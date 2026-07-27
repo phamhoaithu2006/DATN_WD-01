@@ -222,32 +222,38 @@ function ChatBox() {
         aria-hidden={!open}
         inert={!open}
       >
-          <header className="vg-chat-header">
-            <div className="vg-ai-avatar">
-              <Icon name="sparkle" />
-            </div>
-            <div className="vg-chat-header-info">
-              <strong>
-                {mode === "human" && staffInfo.name ? staffInfo.name : "Trợ lý ViVuGo AI"}
-              </strong>
-              <span>
-                <i />
-                {mode === "human"
-                  ? " Nhân viên đang hỗ trợ"
-                  : mode === "pending_human"
-                  ? " Đang chờ nhân viên..."
-                  : " Đang trực tuyến"}
-              </span>
-            </div>
-            <button
-              type="button"
-              className="vg-chat-close-btn"
-              onClick={() => setOpen(false)}
-              aria-label="Đóng"
+        <header className="vg-chat-header">
+          <div className="vg-ai-avatar" aria-hidden="true">
+            <Icon name="sparkle" size={22} />
+            <span className="vg-ai-badge">AI</span>
+          </div>
+          <div className="vg-chat-header-info">
+            <strong className="vg-chat-assistant-name">
+              {mode === "human" && staffInfo.name ? staffInfo.name : "Trợ lý ViVuGo AI"}
+            </strong>
+            <span
+              className={`vg-chat-status is-${mode}`}
+              role="status"
+              aria-live="polite"
             >
-              <Icon name="close" />
-            </button>
-          </header>
+              <i className="vg-chat-status-dot" aria-hidden="true" />
+              {mode === "human"
+                ? "Nhân viên đang hỗ trợ"
+                : mode === "pending_human"
+                ? "Đang chờ nhân viên..."
+                : "Đang hoạt động"}
+            </span>
+          </div>
+          <button
+            type="button"
+            className="vg-chat-close-btn"
+            onClick={() => setOpen(false)}
+            aria-label="Đóng cửa sổ trò chuyện"
+            title="Đóng"
+          >
+            <Icon name="close" size={18} />
+          </button>
+        </header>
 
           <div className="vg-chat-content">
             <p className="vg-chat-date">Hôm nay</p>

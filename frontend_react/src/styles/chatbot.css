@@ -79,60 +79,135 @@
   }
 }
 
-.vg-chat-panel > header {
+.vg-chat-header {
+  position: relative;
+  isolation: isolate;
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 11px;
-  padding: 14px 18px;
+  gap: 13px;
+  min-height: 72px;
+  padding: 13px 16px 13px 18px;
+  overflow: hidden;
   background: linear-gradient(135deg, #0878e3, #075eb8);
   color: white;
   flex-shrink: 0;
 }
 
+.vg-chat-header::before {
+  position: absolute;
+  z-index: -1;
+  top: -55px;
+  right: 28px;
+  width: 180px;
+  height: 130px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  content: "";
+}
+
 .vg-ai-avatar {
-  width: 40px;
-  height: 40px;
+  position: relative;
+  width: 44px;
+  height: 44px;
   display: grid;
   place-items: center;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.17);
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 7px 18px rgba(0, 49, 105, 0.2);
 }
 
-.vg-chat-panel header > div:nth-child(2) {
+.vg-ai-badge {
+  position: absolute;
+  right: -6px;
+  bottom: -4px;
+  min-width: 22px;
+  padding: 2px 4px;
+  border: 2px solid #0873d8;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #0768c7;
+  font-size: 0.52rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.03em;
+  text-align: center;
+}
+
+.vg-chat-header-info {
+  min-width: 0;
   display: grid;
-  gap: 3px;
+  gap: 4px;
 }
 
-.vg-chat-panel header strong {
-  font-size: 0.95rem;
+.vg-chat-assistant-name {
+  overflow: hidden;
+  font-size: 0.98rem;
+  line-height: 1.25;
+  letter-spacing: 0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.vg-chat-panel header span {
+.vg-chat-status {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 7px;
   color: #dceeff;
-  font-size: 0.72rem;
+  font-size: 0.73rem;
+  line-height: 1.25;
 }
 
-.vg-chat-panel header span i {
-  width: 7px;
-  height: 7px;
+.vg-chat-status-dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
   border-radius: 50%;
   background: #45eca4;
+  box-shadow: 0 0 0 3px rgba(69, 236, 164, 0.17);
+  animation: vg-chat-status-pulse 1.8s ease-out infinite;
 }
 
-.vg-chat-panel header > button {
-  width: 32px;
-  height: 32px;
+.vg-chat-status.is-pending_human .vg-chat-status-dot {
+  background: #ffd166;
+  box-shadow: 0 0 0 3px rgba(255, 209, 102, 0.2);
+}
+
+@keyframes vg-chat-status-pulse {
+  50% {
+    opacity: 0.72;
+    transform: scale(0.88);
+  }
+}
+
+.vg-chat-close-btn {
+  width: 36px;
+  height: 36px;
   display: grid;
   place-items: center;
-  border: 0;
-  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 11px;
   background: rgba(255, 255, 255, 0.12);
   color: white;
   cursor: pointer;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.vg-chat-close-btn:hover {
+  border-color: rgba(255, 255, 255, 0.32);
+  background: rgba(255, 255, 255, 0.22);
+  transform: rotate(4deg);
+}
+
+.vg-chat-close-btn:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
 }
 
 .vg-chat-content {
@@ -459,5 +534,9 @@
 @media (prefers-reduced-motion: reduce) {
   .vg-chat-panel {
     transition-duration: 0.01ms;
+  }
+
+  .vg-chat-status-dot {
+    animation: none;
   }
 }
