@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+﻿﻿import { useEffect, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import AuthCard from "../../components/auth/AuthCard";
 import AuthLayout from "../../layouts/AuthLayout";
