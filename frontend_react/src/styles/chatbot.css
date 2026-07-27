@@ -36,8 +36,8 @@
   position: absolute;
   right: 0;
   bottom: 70px;
-  width: 380px;
-  height: 520px;
+  width: 420px;
+  height: 580px;
   min-width: 300px;
   min-height: 400px;
   max-width: calc(100vw - 32px);
@@ -51,6 +51,15 @@
   background: white;
   box-shadow: 0 24px 70px rgba(14, 35, 60, 0.26);
   animation: vg-chat-in 0.22s ease-out;
+}
+
+@media (min-width: 1024px) {
+  .vg-chat-panel {
+    width: clamp(440px, 32vw, 480px);
+    height: min(640px, calc(100vh - 118px));
+    max-width: min(480px, calc(100vw - 64px));
+    max-height: calc(100vh - 118px);
+  }
 }
 
 @keyframes vg-chat-in {
