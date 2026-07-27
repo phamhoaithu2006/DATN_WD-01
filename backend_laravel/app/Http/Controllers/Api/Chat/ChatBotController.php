@@ -7,6 +7,7 @@ use App\Http\Resources\ChatTourRecommendationResource;
 use App\Models\ChatConversation;
 use App\Models\ChatMessage;
 use App\Models\Tour;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -17,12 +18,17 @@ class ChatBotController extends Controller
 
     private const AUTO_SUGGEST_THRESHOLD = 2;
 
+    private const DEFAULT_RECOMMENDATION_LIMIT = 6;
+
+    private const MAX_RECOMMENDATION_LIMIT = 10;
+
     public function handleChat(Request $request)
     {
         $validated = $request->validate([
             'message' => 'nullable|string|max:1000',
             'session_id' => 'nullable|string|max:100',
             'request_human' => 'nullable|boolean',
+            'recommendation_limit' => 'nullable|integer|min:1|max:'.self::MAX_RECOMMENDATION_LIMIT,
             'image' => 'nullable|image|max:5120',
         ]);
 
@@ -32,6 +38,8 @@ class ChatBotController extends Controller
 
         $userMessage = trim($validated['message'] ?? '');
         $requestHuman = $validated['request_human'] ?? false;
+        $recommendationLimit = $validated['recommendation_limit']
+            ?? self::DEFAULT_RECOMMENDATION_LIMIT;
         $hasImage = $request->hasFile('image');
 
         $sessionId = $validated['session_id']
@@ -123,7 +131,9 @@ class ChatBotController extends Controller
             ->values();
 
         $filters = $this->extractFilters($userMessage);
-        $tours = $this->buildTourQuery($filters)->limit(10)->get();
+        $tours = $this->buildTourQuery($filters)
+            ->limit($recommendationLimit)
+            ->get();
         $recommendedTours = ChatTourRecommendationResource::collection($tours)
             ->resolve($request);
         $tourText = $this->formatToursForPrompt($tours);
@@ -235,7 +245,14 @@ class ChatBotController extends Controller
     {
         $query = Tour::query()
             ->with(['category', 'destination'])
-            ->where('status', 'published');
+            ->where('tours.status', 'published')
+            ->whereHas('departures', function (Builder $query): void {
+                $query
+                    ->where('status', 'open')
+                    ->whereDate('departure_date', '>=', today())
+                    ->whereRaw('(COALESCE(total_slots, 0) - COALESCE(booked_slots, 0)) > 0');
+            })
+            ->distinct();
 
         if (! empty($filters['discount'])) {
             $query->whereNotNull('discount_price');

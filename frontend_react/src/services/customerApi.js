@@ -130,15 +130,22 @@ export async function fetchVnpayReturnStatus(params) {
 export function normalizeRecommendedTours(value) {
   if (!Array.isArray(value)) return []
 
+  const seenIds = new Set()
+  const seenSlugs = new Set()
+
   return value.flatMap((tour) => {
     const id = Number(tour?.id)
     const slug = typeof tour?.slug === 'string' ? tour.slug.trim() : ''
     const title = typeof tour?.title === 'string' ? tour.title.trim() : ''
 
     if (!Number.isInteger(id) || id <= 0 || !slug || !title) return []
+    if (seenIds.has(id) || seenSlugs.has(slug)) return []
+
+    seenIds.add(id)
+    seenSlugs.add(slug)
 
     return [{ id, slug, title }]
-  })
+  }).slice(0, 10)
 }
 
 function normalizeTravelAssistantResponse(response) {
