@@ -6,6 +6,10 @@ const defaultGreeting = {
   text: "Xin chào! Mình là trợ lý du lịch ViVuGo. Bạn muốn đi đâu, ngân sách bao nhiêu và dự định đi mấy ngày?",
 };
 
+export function getDefaultChatMessages() {
+  return [{ ...defaultGreeting }];
+}
+
 export function getOrCreateChatSessionId() {
   let sessionId = localStorage.getItem(CHAT_SESSION_KEY);
 
@@ -24,9 +28,9 @@ export function loadStoredChatMessages() {
 
     return Array.isArray(parsed) && parsed.length > 0
       ? parsed
-      : [defaultGreeting];
+      : getDefaultChatMessages();
   } catch {
-    return [defaultGreeting];
+    return getDefaultChatMessages();
   }
 }
 
@@ -34,6 +38,8 @@ export function storeChatMessages(messages) {
   sessionStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(messages));
 }
 
-export function clearChatHistory() {
+export function resetChatSession() {
+  localStorage.removeItem(CHAT_SESSION_KEY);
   sessionStorage.removeItem(CHAT_HISTORY_KEY);
+  window.dispatchEvent(new Event("vivugo-chat-reset"));
 }

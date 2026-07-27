@@ -21,7 +21,7 @@ function ChatInput({
         </div>
       ) : null}
 
-      <form onSubmit={onSubmit}>
+      <form className="vg-chat-form" onSubmit={onSubmit}>
         <input
           ref={fileInputRef}
           className="vg-file-input"
@@ -39,6 +39,7 @@ function ChatInput({
           📎
         </button>
         <input
+          className="vg-chat-input"
           type="text"
           value={text}
           onChange={onTextChange}
