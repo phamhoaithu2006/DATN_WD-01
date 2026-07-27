@@ -37,6 +37,8 @@ function ChatBox() {
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState("");
   const fileInputRef = useRef(null);
+  const chatContentRef = useRef(null);
+  const shouldStickToBottomRef = useRef(true);
 
   const lastMessageIdRef = useRef(0);
   const pollRef = useRef(null);
@@ -50,11 +52,27 @@ function ChatBox() {
   }, [messages]);
 
   useEffect(() => {
+    const chatContent = chatContentRef.current;
+    if (!open || !chatContent || !shouldStickToBottomRef.current) return undefined;
+
+    const frameId = window.requestAnimationFrame(() => {
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      chatContent.scrollTo({
+        top: chatContent.scrollHeight,
+        behavior: reduceMotion ? "auto" : "smooth",
+      });
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [loading, messages, open]);
+
+  useEffect(() => {
     function handleReset() {
       setMessages(getDefaultChatMessages());
       setMode("ai");
       setQueuePosition(null);
       setStaffInfo({ name: "", avatar: "" });
+      shouldStickToBottomRef.current = true;
       lastMessageIdRef.current = 0;
     }
 
@@ -166,6 +184,7 @@ function ChatBox() {
       if (!requestHuman) return;
     }
 
+    shouldStickToBottomRef.current = true;
     setMessages((current) => [
       ...current,
       { from: "user", text: message, attachmentUrl: imagePreview || null },
@@ -213,6 +232,12 @@ function ChatBox() {
     sendMessage(null, "", true);
   }
 
+  function handleChatScroll(event) {
+    const { scrollHeight, scrollTop, clientHeight } = event.currentTarget;
+    shouldStickToBottomRef.current =
+      scrollHeight - scrollTop - clientHeight < 80;
+  }
+
   return (
     <div className="vg-chat">
       <section
@@ -255,7 +280,14 @@ function ChatBox() {
           </button>
         </header>
 
-          <div className="vg-chat-content">
+          <div
+            ref={chatContentRef}
+            className="vg-chat-content"
+            role="log"
+            aria-live="polite"
+            aria-relevant="additions"
+            onScroll={handleChatScroll}
+          >
             <p className="vg-chat-date">Hôm nay</p>
 
             {messages.map((message, index) => (

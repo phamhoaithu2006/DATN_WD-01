@@ -214,12 +214,25 @@
   flex: 1;
   height: auto;
   overflow-y: auto;
-  padding: 15px;
+  overscroll-behavior: contain;
+  padding: 17px 16px 20px;
   background: #f4f8fb;
+  scrollbar-color: #bfd0dc transparent;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+
+.vg-chat-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.vg-chat-content::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #bfd0dc;
 }
 
 .vg-chat-date {
-  margin: 0 0 13px;
+  margin: 0 0 16px;
   color: #8995a1;
   font-size: 0.65rem;
   text-align: center;
@@ -228,8 +241,8 @@
 .vg-message-row {
   display: flex;
   align-items: flex-end;
-  gap: 8px;
-  margin-bottom: 8px;
+  gap: 9px;
+  margin: 0 0 12px;
 }
 
 .vg-message-row.is-user {
@@ -238,17 +251,20 @@
 
 .vg-msg-avatar {
   flex-shrink: 0;
-  width: 26px;
-  height: 26px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  border: 2px solid #ffffff;
+  box-shadow: 0 3px 9px rgba(28, 57, 80, 0.14);
 }
 
 .vg-msg-avatar.ai-avatar {
-  background: #1a73e8;
+  background: linear-gradient(135deg, #168cf0, #096bd2);
+  color: #ffffff;
 }
 
 .vg-msg-avatar.staff-avatar {
@@ -263,32 +279,43 @@
 
 .vg-message {
   width: fit-content;
-  max-width: 82%;
-  padding: 10px 14px;
-  border-radius: 14px 14px 14px 4px;
+  min-width: 0;
+  max-width: min(82%, 620px);
+  padding: 11px 14px;
+  border: 1px solid #e3ebf1;
+  border-radius: 16px 16px 16px 5px;
   background: white;
-  color: #314151;
-  box-shadow: 0 2px 8px rgba(25, 50, 70, 0.06);
-  font-size: 0.8rem;
-  line-height: 1.55;
-  word-break: break-word;
+  color: #2f4050;
+  box-shadow: 0 3px 12px rgba(25, 50, 70, 0.07);
+  font-size: 0.82rem;
+  line-height: 1.58;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  word-break: normal;
 }
 
 .vg-message.user {
   margin-left: auto;
-  border-radius: 14px 14px 4px 14px;
-  background: var(--vg-blue);
+  border-color: transparent;
+  border-radius: 16px 16px 5px 16px;
+  background: linear-gradient(135deg, var(--vg-blue), #0870d5);
   color: white;
+  box-shadow: 0 5px 14px rgba(8, 113, 211, 0.2);
 }
 
 .vg-message.staff {
-  background: #2563eb;
-  color: #fff;
+  border-color: #cfe1f6;
+  background: #edf6ff;
+  color: #27465f;
+}
+
+.vg-message-text {
+  display: block;
 }
 
 .vg-message-line {
-  margin: 0 0 4px;
-  line-height: 1.5;
+  margin: 0 0 7px;
+  line-height: inherit;
 }
 
 .vg-message-line:last-child {
@@ -296,14 +323,14 @@
 }
 
 .vg-message-image {
-  max-width: 220px;
+  max-width: 100%;
   max-height: 200px;
   width: auto;
   height: auto;
-  border-radius: 10px;
+  border-radius: 11px;
   object-fit: cover;
   display: block;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   border: 1px solid rgba(0, 0, 0, 0.08);
 }
 

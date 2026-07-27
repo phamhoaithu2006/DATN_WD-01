@@ -32,9 +32,17 @@ function MessageAvatar({ isStaff, staffAvatarUrl }) {
 
 function ChatMessage({ message, staffAvatarUrl }) {
   const isUser = message.from === "user";
+  const senderLabel = isUser
+    ? "Tin nhắn của bạn"
+    : message.isStaff
+    ? "Tin nhắn của nhân viên hỗ trợ"
+    : "Tin nhắn của Trợ lý ViVuGo AI";
 
   return (
-    <div className={`vg-message-row ${isUser ? "is-user" : "is-ai"}`}>
+    <article
+      className={`vg-message-row ${isUser ? "is-user" : "is-ai"}`}
+      aria-label={senderLabel}
+    >
       {!isUser ? (
         <MessageAvatar
           isStaff={Boolean(message.isStaff)}
@@ -52,9 +60,13 @@ function ChatMessage({ message, staffAvatarUrl }) {
             className="vg-message-image"
           />
         ) : null}
-        {isUser ? message.text : <ChatReplyContent text={message.text} />}
+        {isUser ? (
+          <span className="vg-message-text">{message.text}</span>
+        ) : (
+          <ChatReplyContent text={message.text} />
+        )}
       </div>
-    </div>
+    </article>
   );
 }
 
