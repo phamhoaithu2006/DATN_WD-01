@@ -6,7 +6,6 @@ import {
   defaultSettings,
   settingSections,
 } from "../../../config/adminSettings";
-import AdminLayout from "../../../layouts/AdminLayout";
 import {
   getAdminSettings,
   updateAdminSettings,
@@ -69,8 +68,7 @@ function SettingsDetailPage({ sectionId }) {
     setSettings((current) => ({ ...current, [field]: value }));
 
   return (
-    <AdminLayout>
-      <section className="setting-page">
+    <section className="setting-page">
         <AdminPageHeader
           breadcrumb={[
             "ViVuGo",
@@ -103,8 +101,7 @@ function SettingsDetailPage({ sectionId }) {
           onSave={saveSettings}
           updateField={updateField}
         />
-      </section>
-    </AdminLayout>
+    </section>
   );
 }
 

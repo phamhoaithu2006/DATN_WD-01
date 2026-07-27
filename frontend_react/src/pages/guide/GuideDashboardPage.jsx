@@ -552,17 +552,73 @@ function GuideDashboardPage() {
         ? 'Đơn nghỉ đã được tạo'
         : 'Sẵn sàng nhận tour'
 
+  if (!loading && !error) {
+    const focusTours = ongoingTours.length ? ongoingTours : (todaySchedule.length ? todaySchedule : upcomingTours)
+    const focusTitle = ongoingTours.length
+      ? 'Tour đang dẫn'
+      : todaySchedule.length
+        ? 'Lịch hôm nay'
+        : 'Tour sắp tới'
+
+    return (
+      <section className="guide-dashboard-overview guide-dashboard-compact">
+        <header className="guide-compact-welcome">
+          <div>
+            <span className="guide-dashboard-kicker">Bảng điều hành HDV</span>
+            <h1>Chào {fullName} 👋</h1>
+            <p>{heroDate} · {ongoingTours.length ? 'Bạn đang có tour cần theo dõi.' : 'Chúc bạn có một ngày làm việc hiệu quả.'}</p>
+          </div>
+          <div className="guide-compact-welcome-actions">
+            <Link to="/guide/tours" className="guide-primary-action">Tour của tôi</Link>
+            <Link to="/guide/attendance" className="guide-compact-outline-action">Điểm danh</Link>
+          </div>
+        </header>
+
+        <div className="guide-compact-stats">
+          <StatCard title="Đang dẫn" value={formatNumber(ongoingTours.length)} subtitle="Tour đang diễn ra" tone="blue" icon={<><path d="M4 19.5V5.5" /><path d="M4 19.5C7.5 16 12.5 16 16 19.5" /><path d="M4 5.5C7.5 9 12.5 9 16 5.5" /><path d="M16 5.5V19.5" /></>} />
+          <StatCard title="Sắp khởi hành" value={formatNumber(upcomingTours.length)} subtitle="Tour đã được phân công" tone="green" icon={<><rect x="4" y="5" width="16" height="16" rx="3" /><path d="M4 10h16M8 3v4M16 3v4" /></>} />
+          <StatCard title="Khách tháng này" value={formatNumber(monthStats.customer_count)} subtitle={monthStats.label || 'Thống kê tháng'} tone="amber" icon={<><circle cx="9" cy="8" r="3" /><path d="M3.5 19c1.5-3 4-4.5 5.5-4.5S12.5 16 14 19" /><path d="M15 11h5M15 15h5" /></>} />
+          <StatCard title="Đánh giá" value={`${Number(summary.rating?.average || guide.average_rating || 0).toFixed(1)}/5`} subtitle={`${formatNumber(summary.rating?.review_count || guide.review_count)} phản hồi`} tone="red" icon={<polygon points="12 2.5 15.3 9.1 22.5 10.1 17.2 15.1 18.5 22.3 12 18.7 5.5 22.3 6.8 15.1 1.5 10.1 8.7 9.1 12 2.5" />} />
+        </div>
+
+        <div className="guide-compact-grid">
+          <section className="guide-card guide-compact-tour-card">
+            <div className="guide-card-header">
+              <SectionHeader title={focusTitle} description={focusTours.length ? `${focusTours.length} lịch cần theo dõi` : 'Chưa có lịch cần xử lý'} action={<Link to="/guide/tours" className="guide-card-link">Xem tất cả →</Link>} />
+            </div>
+            <div className="guide-card-body">
+              <div className="guide-tour-list">
+                {focusTours.slice(0, 3).map((item) => <TourRow key={item.id} item={item} />)}
+                {!focusTours.length ? <div className="guide-empty-card"><strong>Chưa có tour được phân công</strong><span>Tour mới sẽ xuất hiện tại đây.</span></div> : null}
+              </div>
+            </div>
+          </section>
+
+          <aside className="guide-compact-side">
+            <section className="guide-card guide-compact-status-card">
+              <div className="guide-card-header"><SectionHeader title="Trạng thái công việc" description="Tóm tắt nhanh hôm nay" /></div>
+              <div className="guide-card-body">
+                <div className="guide-compact-status-row"><span className="guide-compact-status-icon blue">◷</span><div><strong>{leaveStatus}</strong><small>{leaveSubtitle}</small></div><Link to="/guide/profile">Quản lý</Link></div>
+                <div className="guide-compact-status-row"><span className="guide-compact-status-icon green">✓</span><div><strong>{formatNumber(summary.tour_count_total || 0)} tour được phân công</strong><small>Kiểm tra lịch và chuẩn bị trước giờ đi.</small></div></div>
+              </div>
+            </section>
+            <section className="guide-compact-shortcuts">
+              <Link to="/guide/tours"><span>🧭</span><strong>Lịch dẫn tour</strong><small>Xem lịch và thông tin đoàn</small></Link>
+              <Link to="/guide/notifications"><span>🔔</span><strong>Thông báo</strong><small>Cập nhật mới nhất</small></Link>
+              <Link to="/guide/reviews"><span>★</span><strong>Đánh giá</strong><small>Phản hồi từ khách</small></Link>
+            </section>
+          </aside>
+        </div>
+      </section>
+    )
+  }
+
   return (
     <section className="guide-dashboard-overview">
       {loading ? (
-        <div className="guide-dashboard-loading">
-          <div className="guide-dashboard-skeleton hero" />
-          <div className="guide-dashboard-skeleton-grid">
-            <div className="guide-dashboard-skeleton card" />
-            <div className="guide-dashboard-skeleton card" />
-            <div className="guide-dashboard-skeleton card" />
-            <div className="guide-dashboard-skeleton card" />
-          </div>
+        <div className="guide-dashboard-loading guide-dashboard-loading-simple">
+          <span aria-hidden="true" />
+          <p>Đang tải trang chủ...</p>
         </div>
       ) : null}
 

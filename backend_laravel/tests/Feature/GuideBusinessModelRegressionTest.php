@@ -147,6 +147,29 @@ test('guide cập nhật và đọc lại loại thẻ hướng dẫn viên tố
     expect($guide->fresh()->certificate_type)->toBe($certificateType);
 });
 
+test('guide cập nhật thông tin cá nhân nhưng không thể tự thay đổi trạng thái', function () {
+    $guideUser = guideAuditUser('tour guide');
+    $guide = guideAuditProfile($guideUser, ['status' => 'active']);
+
+    Sanctum::actingAs($guideUser);
+
+    $this->putJson('/api/guide/profile', [
+        'full_name' => 'Nguyễn Văn Hướng Dẫn',
+        'email' => 'huongdan@example.com',
+        'phone' => '0912345678',
+        'status' => 'inactive',
+    ])->assertOk();
+
+    $this->assertDatabaseHas('users', [
+        'id' => $guideUser->id,
+        'full_name' => 'Nguyễn Văn Hướng Dẫn',
+        'email' => 'huongdan@example.com',
+        'phone' => '0912345678',
+    ]);
+
+    expect($guide->fresh()->status)->toBe('active');
+});
+
 test('mọi API phân công đều chặn lịch khởi hành bắt đầu hôm nay', function () {
     $admin = guideAuditUser('admin');
     $guideUser = guideAuditUser('tour guide');

@@ -243,6 +243,50 @@ test('customer booking creates a pending VNPAY payment with checkout url', funct
         ->toBe($payment->expires_at->copy()->setTimezone('Asia/Ho_Chi_Minh')->format('YmdHis'));
 });
 
+test('customer booking with only free participants is rejected before reaching VNPAY', function () {
+    configureVnpayForTest();
+    $customer = paymentSafetyUser('customer');
+    $tour = paymentSafetyTour();
+    $departure = paymentSafetyDeparture($tour);
+
+    $infantRule = $tour->agePricingRules()->create([
+        'label' => 'Em bé',
+        'min_age' => 0,
+        'max_age' => 4,
+        'pricing_type' => 'free',
+        'price_value' => 0,
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    Sanctum::actingAs($customer);
+
+    $response = $this->postJson('/api/customer/bookings', [
+        'tour_departure_id' => $departure->id,
+        'number_of_people' => 1,
+        'quantity_summary' => [
+            ['rule_id' => $infantRule->id, 'quantity' => 1],
+        ],
+        'contact' => [
+            'contact_name' => 'Nguyễn Văn An',
+            'contact_phone' => '0900000000',
+        ],
+        'participants' => [
+            [
+                'full_name' => 'Bé An',
+                'birth_date' => now()->toDateString(),
+                'gender' => 'male',
+            ],
+        ],
+    ]);
+
+    $response->assertUnprocessable()
+        ->assertJsonValidationErrors(['participants']);
+
+    $this->assertDatabaseCount('bookings', 0);
+    $this->assertDatabaseCount('payments', 0);
+});
+
 test('customer booking list includes payment and departure needed for pending actions', function () {
     $customer = paymentSafetyUser('customer');
     $booking = paymentSafetyBooking(['user_id' => $customer->id]);

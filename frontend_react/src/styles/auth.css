@@ -207,6 +207,42 @@ button {
   font-weight: 700;
 }
 
+.notice.success {
+  color: #166534;
+  background: #f0fdf4;
+  border-color: rgba(34, 197, 94, 0.32);
+}
+
+.otp-input {
+  letter-spacing: 8px;
+  text-align: center;
+  font-weight: 700;
+}
+
+.link-button {
+  border: 0;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: #0ea5e9;
+  transition: color 160ms ease;
+  white-space: nowrap;
+}
+
+.link-button:hover {
+  color: #0369a1;
+  text-decoration: underline;
+}
+
+.link-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  text-decoration: none;
+}
+
 .auth-form {
   margin-top: 24px;
   display: grid;
@@ -341,6 +377,16 @@ button {
   border: 1px solid rgba(14, 165, 233, 0.24);
 }
 
+.auth-login-return {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 16px;
+  text-decoration: none;
+}
+
 .helper-text {
   margin: -2px 0 0;
   color: #64748b;
@@ -409,6 +455,26 @@ button {
   background: rgba(14, 165, 233, 0.1);
   font-size: 0.78rem;
   font-weight: 850;
+}
+
+.forgot-password-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.forgot-password-title {
+  margin: 0;
+}
+
+.auth-login-return-pill {
+  text-decoration: none;
+}
+
+.forgot-password-description {
+  margin: 8px 0 0;
+  text-align: left;
 }
 
 .profile-grid {

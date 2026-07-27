@@ -54,7 +54,7 @@ function SupportPresenceHeartbeat() {
         ) {
           void sendHeartbeat()
         }
-      }, 45000)
+      }, 5000)
 
     document.addEventListener(
       'visibilitychange',

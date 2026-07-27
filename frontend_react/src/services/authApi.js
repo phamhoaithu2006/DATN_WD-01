@@ -32,3 +32,14 @@ export async function logout() {
   await apiClient.post('/auth/logout')
   clearSession()
 }
+
+export async function forgotPassword(identifier) {
+  const response = await apiClient.post('/auth/forgot-password', { identifier })
+  return response.data
+}
+
+export async function resetPassword(payload) {
+  // payload: { identifier, otp, password, password_confirmation }
+  const response = await apiClient.post('/auth/reset-password', payload)
+  return response.data
+}

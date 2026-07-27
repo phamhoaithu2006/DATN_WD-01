@@ -13,8 +13,70 @@ import {
   storeChatMessages,
 } from "./chatbot/chatStorage";
 
+<<<<<<< HEAD
 const POLL_INTERVAL = 4000;
 
+=======
+const CHAT_HISTORY_KEY = "vivugo_chat_history";
+const POLL_INTERVAL = 5000;
+
+const defaultGreeting = {
+  from: "ai",
+  text: "Xin chào! Mình là trợ lý du lịch ViVuGo. Bạn muốn đi đâu, ngân sách bao nhiêu và dự định đi mấy ngày?",
+};
+
+function getOrCreateSessionId() {
+  let sessionId = localStorage.getItem("vivugo_chat_session_id");
+  if (!sessionId) {
+    sessionId = "session-" + crypto.randomUUID();
+    localStorage.setItem("vivugo_chat_session_id", sessionId);
+  }
+  return sessionId;
+}
+
+function loadStoredMessages() {
+  try {
+    const raw = sessionStorage.getItem(CHAT_HISTORY_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : [defaultGreeting];
+  } catch {
+    return [defaultGreeting];
+  }
+}
+export function resetChatSession() {
+  localStorage.removeItem("vivugo_chat_session_id");
+  sessionStorage.removeItem(CHAT_HISTORY_KEY);
+  window.dispatchEvent(new Event("vivugo-chat-reset"));
+}
+
+
+function normalizeReplyText(raw) {
+  if (!raw) return "";
+  return raw.replace(/\s\*\s(?=\*\*)/g, "\n").trim();
+}
+
+function renderMessageText(rawText) {
+  const text = normalizeReplyText(rawText);
+  const lines = text.split("\n").filter((line) => line.trim() !== "");
+
+  return lines.map((line, lineIndex) => {
+    const parts = line.split(/(\*\*[^*]+\*\*)/g).filter(Boolean);
+
+    return (
+      <p key={lineIndex} className="vg-message-line">
+        {parts.map((part, partIndex) =>
+          part.startsWith("**") && part.endsWith("**") ? (
+            <strong key={partIndex}>{part.slice(2, -2)}</strong>
+          ) : (
+            <span key={partIndex}>{part}</span>
+          ),
+        )}
+      </p>
+    );
+  });
+}
+
+>>>>>>> origin/main
 function mapServerMessage(message) {
   return {
     id: message.id,
@@ -45,10 +107,48 @@ function ChatBox() {
     try {
       storeChatMessages(messages);
     } catch {
-      // bỏ qua nếu sessionStorage lỗi
+      // ignore
     }
   }, [messages]);
+useEffect(() => {
+  function handleReset() {
+    setMessages([defaultGreeting]);
+    setMode("ai");
+    setQueuePosition(null);
+    setStaffInfo({ name: "", avatar: "" });
+    lastMessageIdRef.current = 0;
+  }
+  window.addEventListener("vivugo-chat-reset", handleReset);
+  return () => window.removeEventListener("vivugo-chat-reset", handleReset);
+}, []);
+  // Luôn đồng bộ lịch sử THẬT từ server khi mở trang (không chỉ dựa vào sessionStorage,
+  // vì sessionStorage bị xóa khi đóng tab/trình duyệt dù dữ liệu thật vẫn còn trên server)
+  useEffect(() => {
+    const sessionId = getOrCreateSessionId();
+    fetchChatMessages(sessionId)
+      .then((response) => {
+        const serverMessages = (response?.messages || []).map(mapServerMessage);
+        if (serverMessages.length > 0) {
+          setMessages(serverMessages);
+          lastMessageIdRef.current = serverMessages[serverMessages.length - 1].id;
+        }
+        if (response?.mode) setMode(response.mode);
+      })
+      .catch(() => {
+        // im lặng bỏ qua lỗi mạng, giữ nguyên lịch sử tạm đang có
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
+  useEffect(() => {
+    function handleCustomOpen() {
+      setOpen(true);
+    }
+    window.addEventListener("open-vivugo-chatbox", handleCustomOpen);
+    return () => {
+      window.removeEventListener("open-vivugo-chatbox", handleCustomOpen);
+    };
+  }, []);
   useEffect(() => {
     if (mode === "ai") {
       if (pollRef.current) window.clearInterval(pollRef.current);
@@ -80,7 +180,7 @@ function ChatBox() {
           });
         }
       } catch {
-        // bỏ qua lỗi polling
+        // ignore
       }
     }
 
@@ -136,7 +236,7 @@ function ChatBox() {
         message,
         sessionId,
         requestHuman,
-        sentImage,
+        sentImage
       );
 
       if (response?.mode) setMode(response.mode);
@@ -171,29 +271,28 @@ function ChatBox() {
     <div className="vg-chat">
       {open ? (
         <section className="vg-chat-panel" aria-label="Trợ lý du lịch ViVuGo">
-          <header>
+          <header className="vg-chat-header">
             <div className="vg-ai-avatar">
               <Icon name="sparkle" />
             </div>
-            <div>
+            <div className="vg-chat-header-info">
               <strong>
-                {mode === "human" && staffInfo.name
-                  ? staffInfo.name
-                  : "Trợ lý ViVuGo AI"}
+                {mode === "human" && staffInfo.name ? staffInfo.name : "Trợ lý ViVuGo AI"}
               </strong>
               <span>
                 <i />
                 {mode === "human"
                   ? " Nhân viên đang hỗ trợ"
                   : mode === "pending_human"
-                    ? " Đang chờ nhân viên..."
-                    : " Đang trực tuyến"}
+                  ? " Đang chờ nhân viên..."
+                  : " Đang trực tuyến"}
               </span>
             </div>
             <button
               type="button"
+              className="vg-chat-close-btn"
               onClick={() => setOpen(false)}
-              aria-label="Đóng trò chuyện"
+              aria-label="Đóng"
             >
               <Icon name="close" />
             </button>
@@ -205,20 +304,46 @@ function ChatBox() {
             {messages.map((message, index) => (
               <ChatMessage
                 key={message.id || `${message.from}-${index}`}
+<<<<<<< HEAD
                 message={message}
                 staffAvatarUrl={staffInfo.avatar}
               />
+=======
+                className={`vg-message-row ${message.from === "user" ? "is-user" : "is-ai"}`}
+              >
+                {message.from !== "user" ? (
+                  <MessageAvatar isStaff={Boolean(message.isStaff)} staffAvatarUrl={staffInfo.avatar} />
+                ) : null}
+
+                <div className={`vg-message ${message.from}${message.isStaff ? " staff" : ""}`}>
+                  {message.attachmentUrl ? (
+                    <img src={message.attachmentUrl} alt="Ảnh đính kèm" className="vg-message-image" />
+                  ) : null}
+                  {message.from === "ai" ? renderMessageText(message.text) : message.text}
+                </div>
+              </div>
+>>>>>>> origin/main
             ))}
 
             {mode === "pending_human" && queuePosition ? (
               <div className="vg-queue-banner">
                 <span className="vg-queue-dots">•••</span>
-                Hàng đợi của bạn là <strong>#{queuePosition}</strong>. Bạn vui
-                lòng chờ thêm xíu nhé.
+                Hàng đợi của bạn là <strong>#{queuePosition}</strong>. Bạn vui lòng chờ thêm xíu nhé.
               </div>
             ) : null}
 
+<<<<<<< HEAD
             {loading ? <ChatTypingIndicator /> : null}
+=======
+            {loading ? (
+              <div className="vg-message-row is-ai">
+                <MessageAvatar isStaff={false} />
+                <div className="vg-message ai vg-typing">
+                  <i /><i /><i />
+                </div>
+              </div>
+            ) : null}
+>>>>>>> origin/main
           </div>
 
           {mode === "ai" ? (
@@ -235,6 +360,7 @@ function ChatBox() {
           ) : null}
 
           {messages.length === 1 && mode === "ai" ? (
+<<<<<<< HEAD
             <QuickTourPrompts onSelect={sendMessage} />
           ) : null}
 
@@ -251,19 +377,58 @@ function ChatBox() {
           <small className="vg-chat-note">
             ViVuGo AI có thể mắc lỗi. Hãy kiểm tra thông tin quan trọng.
           </small>
+=======
+            <div className="vg-quick-prompts">
+              {["Gợi ý tour biển", "Tour dưới 10 triệu", "Đi đâu tháng này?"].map((prompt) => (
+                <button key={prompt} type="button" onClick={(event) => sendMessage(event, prompt)}>
+                  {prompt}
+                </button>
+              ))}
+            </div>
+          ) : null}
+
+          {imagePreview ? (
+            <div className="vg-image-preview-bar">
+              <img src={imagePreview} alt="Xem trước" />
+              <button type="button" onClick={clearSelectedImage}>Bỏ ảnh</button>
+            </div>
+          ) : null}
+
+          <form className="vg-chat-form" onSubmit={sendMessage}>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImageSelect}
+              style={{ display: "none" }}
+            />
+            <button
+              type="button"
+              className="vg-attach-btn"
+              onClick={() => fileInputRef.current?.click()}
+              title="Đính kèm ảnh"
+            >
+              📎
+            </button>
+            <input
+              className="vg-chat-input"
+              type="text"
+              value={text}
+              onChange={(event) => setText(event.target.value)}
+              placeholder={mode === "pending_human" ? "Đang chờ phản hồi..." : "Nhập câu hỏi..."}
+            />
+            <button type="submit" className="vg-send-btn" title="Gửi">
+              <Icon name="send" />
+            </button>
+          </form>
+
+          <small className="vg-chat-note">ViVuGo AI có thể mắc lỗi. Hãy kiểm tra thông tin quan trọng.</small>
+>>>>>>> origin/main
         </section>
       ) : null}
-      <button
-        className="vg-chat-fab"
-        type="button"
-        onClick={() => setOpen((value) => !value)}
-        aria-label="Mở trợ lý ViVuGo"
-      >
-        {open ? (
-          <Icon name="close" />
-        ) : (
-          <Icon name="sparkle" size={25} />
-        )}
+
+      <button className="vg-chat-fab" type="button" onClick={() => setOpen((value) => !value)}>
+        {open ? <Icon name="close" /> : <Icon name="sparkle" size={25} />}
       </button>
     </div>
   );

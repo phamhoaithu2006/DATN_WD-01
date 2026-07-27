@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import ChatBox from "../../components/customer/ChatBox";
-import { clearChatHistory } from "../../components/customer/chatbot/chatStorage";
+import ChatBox, { clearChatHistory } from "../../components/customer/ChatBox";
 import Footer from "../../components/customer/Footer";
 import Header from "../../components/customer/Header";
 
@@ -17,6 +16,7 @@ import {
   fetchWishlist,
   removeWishlist,
 } from "../../services/customerApi";
+import { getPublicWidgets } from "../../services/publicWidgetApi";
 import { logout as logoutApi } from "../../services/authApi";
 import {
   clearSession,
@@ -31,7 +31,10 @@ import ProfileForm from "./ProfileForm";
 import ToursPage from "./ToursPage";
 import CustomerTourDetailPage from "./TourDetailPage";
 import CustomerSupportPage from "./CustomerSupportPage";
-import { mediaUrl } from "../../utils/mediaUrl";
+import {
+  isDomesticTour,
+  normalizeTour,
+} from "../../utils/tourNormalizer";
 
 const fallbackProfile = {
   full_name: "Khách hàng ViVuGo",
@@ -39,259 +42,6 @@ const fallbackProfile = {
   phone: "Chưa cập nhật",
   avatar_url: "",
 };
-
-const domesticDestinationTerms = [
-  "đà nẵng",
-  "hội an",
-  "phú quốc",
-  "sa pa",
-  "sapa",
-  "hà nội",
-  "hạ long",
-  "nha trang",
-  "đà lạt",
-  "mũi né",
-  "huế",
-  "quảng ninh",
-  "việt nam",
-];
-
-function toNumber(value, fallback = 0) {
-  const parsed = Number(value);
-
-  return Number.isFinite(parsed) ? parsed : fallback;
-}
-
-function getAvailableSlots(departure) {
-  if (!departure) return 0;
-
-  if (
-    departure.available_slots !== undefined &&
-    departure.available_slots !== null
-  ) {
-    return Math.max(0, toNumber(departure.available_slots));
-  }
-
-  return Math.max(
-    0,
-    toNumber(departure.total_slots) - toNumber(departure.booked_slots),
-  );
-}
-
-function getNextDeparture(tour) {
-  const departures = Array.isArray(tour.departures) ? tour.departures : [];
-
-  const availableDepartures = departures
-    .filter((departure) => {
-      const isOpen = !departure.status || departure.status === "open";
-
-      return isOpen && getAvailableSlots(departure) > 0;
-    })
-    .sort((a, b) => {
-      const dateA = new Date(a.departure_date || 0).getTime();
-      const dateB = new Date(b.departure_date || 0).getTime();
-
-      return dateA - dateB;
-    });
-
-  return availableDepartures[0] || departures[0] || null;
-}
-
-function getTourImage(tour, fallbackImage = "") {
-  const itineraryImage = Array.isArray(tour.itineraries)
-    ? tour.itineraries
-      .flatMap((itinerary) =>
-        Array.isArray(itinerary.images) ? itinerary.images : [],
-      )
-      .find(Boolean)
-    : null;
-
-  const imagePath =
-    tour.thumbnail_url ||
-    tour.image ||
-    tour.thumbnail?.image_url ||
-    tour.thumbnail?.url ||
-    itineraryImage?.image_url ||
-    itineraryImage?.url ||
-    fallbackImage;
-
-  return mediaUrl(imagePath);
-}
-
-function isDomesticTour(tour) {
-  const destinations = Array.isArray(tour.destinations)
-    ? tour.destinations
-    : [];
-
-  const countries = [
-    tour.destinationInfo?.country,
-    tour.destination_info?.country,
-    ...destinations.map((destination) => destination?.country),
-  ]
-    .filter(Boolean)
-    .map((country) => String(country).trim().toLowerCase());
-
-  const destinationText = [
-    typeof tour.destination === "string" ? tour.destination : "",
-    tour.destinationInfo?.name,
-    tour.destination_info?.name,
-    ...destinations.map((destination) => destination?.name),
-    tour.title,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-
-  const matchesLegacyTerms = domesticDestinationTerms.some((term) =>
-    destinationText.includes(term),
-  );
-
-  return (
-    countries.includes("việt nam") ||
-    countries.includes("viet nam") ||
-    matchesLegacyTerms
-  );
-}
-
-function normalizeTour(tour) {
-  const nextDeparture = getNextDeparture(tour);
-
-  const destinations = Array.isArray(tour.destinations)
-    ? tour.destinations
-    : [];
-
-  const rawDestination =
-    tour.destination_info ||
-    tour.destinationInfo ||
-    (typeof tour.destination === "object" ? tour.destination : null) ||
-    destinations[0] ||
-    null;
-
-  const destinationNames = destinations
-    .map((destination) => destination?.name)
-    .filter(Boolean);
-
-  const categoryName =
-    tour.category_name ||
-    (typeof tour.category === "string" ? tour.category : null) ||
-    tour.category_info?.name ||
-    tour.category?.name ||
-    "Chưa phân loại";
-
-  const destinationName =
-    tour.destination_name ||
-    (typeof tour.destination === "string" ? tour.destination : null) ||
-    (destinationNames.length ? destinationNames.join(" - ") : null) ||
-    rawDestination?.name ||
-    "Chưa cập nhật";
-
-  const basePrice = toNumber(
-    nextDeparture?.base_price ??
-    tour.base_price ??
-    tour.price?.base,
-    0,
-  );
-
-  const discountValue =
-    nextDeparture?.discount_price ?? tour.discount_price ?? tour.price?.discount ?? null;
-
-  const discountPrice =
-    discountValue !== null && discountValue !== undefined
-      ? toNumber(discountValue)
-      : null;
-
-  const maxSlots = nextDeparture
-    ? toNumber(nextDeparture.total_slots)
-    : toNumber(tour.max_slots ?? tour.slots?.max);
-
-  const availableSlots = nextDeparture
-    ? getAvailableSlots(nextDeparture)
-    : toNumber(tour.available_slots ?? tour.slots?.available);
-
-  const duration =
-    tour.duration ||
-    (tour.duration_days
-      ? `${tour.duration_days} ngày ${tour.duration_nights ?? 0} đêm`
-      : "Đang cập nhật");
-
-  return {
-    ...tour,
-
-    id: tour.id,
-    title: tour.title || "Tour chưa có tên",
-    slug: tour.slug || String(tour.id),
-    summary: tour.summary || tour.description || "",
-    image: getTourImage(tour),
-
-    category: categoryName,
-    travelStyle: tour.travel_style || tour.travelStyle,
-    destination: destinationName,
-    duration,
-
-    price: {
-      base: basePrice,
-      discount: discountPrice,
-    },
-
-    slots: {
-      max: maxSlots,
-      available: availableSlots,
-    },
-
-    rating: {
-      average: toNumber(
-        tour.average_rating ?? tour.rating?.average,
-        0,
-      ),
-      count: toNumber(
-        tour.review_count ?? tour.rating?.count,
-        0,
-      ),
-    },
-
-    nextDeparture: nextDeparture
-      ? {
-        id: nextDeparture.id,
-        departure_date: nextDeparture.departure_date,
-        return_date: nextDeparture.return_date,
-        price: toNumber(nextDeparture.price),
-        base_price: toNumber(nextDeparture.base_price),
-        discount_price:
-          nextDeparture.discount_price !== null && nextDeparture.discount_price !== undefined
-            ? toNumber(nextDeparture.discount_price)
-            : null,
-        total_slots: toNumber(nextDeparture.total_slots),
-        booked_slots: toNumber(nextDeparture.booked_slots),
-        available_slots: getAvailableSlots(nextDeparture),
-        status: nextDeparture.status,
-      }
-      : null,
-
-    nextDepartureDate:
-      tour.next_departure_date ??
-      nextDeparture?.departure_date ??
-      null,
-
-    minDeparturePrice:
-      tour.min_departure_price !== undefined &&
-        tour.min_departure_price !== null
-        ? toNumber(tour.min_departure_price)
-        : null,
-
-    destinations,
-
-    destinationInfo: {
-      id: rawDestination?.id ?? null,
-      name: destinationName,
-      slug: rawDestination?.slug ?? "",
-      province_city: rawDestination?.province_city ?? "",
-      country: rawDestination?.country ?? "",
-      description: rawDestination?.description ?? "",
-      thumbnail_url: rawDestination?.thumbnail_url ?? "",
-      status: rawDestination?.status ?? "",
-    },
-  };
-}
 
 function readStoredFavorites() {
   try {
@@ -312,6 +62,8 @@ function CustomerPage() {
   const [bookings, setBookings] = useState([]);
   const [reviewNotifications, setReviewNotifications] = useState([]);
   const [homeContent, setHomeContent] = useState({});
+  const [homeBanners, setHomeBanners] = useState([]);
+  const [homeLoading, setHomeLoading] = useState(true);
   const [homeLoadError, setHomeLoadError] = useState("");
   const [tourLoadError, setTourLoadError] = useState("");
   const [currentTime, setCurrentTime] = useState(() => Date.now());
@@ -346,6 +98,36 @@ function CustomerPage() {
     return international;
   }, [normalizedTours]);
 
+  const discountedTours = useMemo(() => {
+    return normalizedTours
+      .filter((tour) => {
+        const base = tour.price?.base || 0;
+        const discount = tour.price?.discount;
+        return discount !== null && discount !== undefined && discount > 0 && discount < base;
+      })
+      .slice(0, 6);
+  }, [normalizedTours]);
+
+  // Tour sắp khởi hành: lấy các tour có ngày khởi hành gần hiện tại nhất
+  // (không giới hạn cửa sổ ngày để section luôn có dữ liệu).
+  const upcomingTours = useMemo(() => {
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    return normalizedTours
+      .filter((tour) => {
+        const depDate = tour.nextDepartureDate || tour.nextDeparture?.departure_date;
+        if (!depDate) return false;
+        return new Date(depDate).getTime() >= startOfToday.getTime();
+      })
+      .sort((a, b) => {
+        const dateA = new Date(a.nextDepartureDate || a.nextDeparture?.departure_date).getTime();
+        const dateB = new Date(b.nextDepartureDate || b.nextDeparture?.departure_date).getTime();
+        return dateA - dateB;
+      })
+      .slice(0, 4);
+  }, [normalizedTours]);
+
   const pendingPaymentCount = useMemo(() => bookings.filter((booking) => (
     booking.status === "pending"
     && booking.payment_status === "unpaid"
@@ -355,7 +137,7 @@ function CustomerPage() {
   )).length, [bookings, currentTime]);
 
   useEffect(() => {
-    const timer = window.setInterval(() => setCurrentTime(Date.now()), 30000);
+    const timer = window.setInterval(() => setCurrentTime(Date.now()), 5000);
 
     return () => window.clearInterval(timer);
   }, []);
@@ -365,16 +147,31 @@ function CustomerPage() {
 
     async function loadHomeContent() {
       try {
-        const content = await fetchHomeContent();
+        setHomeLoading(true);
+        const [content, widgetRes] = await Promise.all([
+          fetchHomeContent().catch(() => ({})),
+          getPublicWidgets({ page: "home" }).catch(() => ({ data: [] })),
+        ]);
 
         if (active) {
-          setHomeContent(content);
+          setHomeContent(content || {});
+          const bannerList = Array.isArray(widgetRes?.data)
+            ? widgetRes.data
+            : Array.isArray(widgetRes)
+            ? widgetRes
+            : [];
+          setHomeBanners(bannerList);
           setHomeLoadError("");
         }
       } catch {
         if (active) {
           setHomeContent({});
+          setHomeBanners([]);
           setHomeLoadError("Không thể tải nội dung trang chủ.");
+        }
+      } finally {
+        if (active) {
+          setHomeLoading(false);
         }
       }
     }
@@ -388,6 +185,14 @@ function CustomerPage() {
 
   useEffect(() => {
     let active = true;
+
+    // Các trang danh sách tour tự fetch với bộ lọc nâng cao (ToursPage);
+    // tránh gọi API trùng lặp ở đây.
+    const selfFetchingRoutes = ["/tours", "/deals", "/customer/search"];
+
+    if (selfFetchingRoutes.includes(location.pathname)) {
+      return undefined;
+    }
 
     async function loadTours() {
       const query = new URLSearchParams(location.search);
@@ -454,7 +259,7 @@ function CustomerPage() {
     return () => {
       active = false;
     };
-  }, [location.search]);
+  }, [location.pathname, location.search]);
 
   useEffect(() => {
     if (!token) return undefined;
@@ -537,7 +342,7 @@ function CustomerPage() {
 
     loadReviewNotifications();
 
-    const timer = window.setInterval(loadReviewNotifications, 60000);
+    const timer = window.setInterval(loadReviewNotifications, 5000);
 
     return () => {
       active = false;
@@ -581,14 +386,14 @@ function CustomerPage() {
     }
   }
   async function logout() {
-    try {
-      await logoutApi();
-    } catch {
-      // Token có thể đã hết hạn.
-    }
+  try {
+    await logoutApi();
+  } catch {
+    // Token có thể đã hết hạn.
+  }
 
     clearSession();
-    clearChatHistory();
+    clearChatHistory(); // <-- thêm dòng này
     setUser(null);
     setFavorites(readStoredFavorites());
   }
@@ -619,8 +424,12 @@ function CustomerPage() {
     <HomePage
       tours={normalizedTours}
       internationalTours={homeInternationalTours}
+      discountedTours={discountedTours}
+      upcomingTours={upcomingTours}
+      banners={homeBanners}
       favorites={favorites}
       homeContent={normalizedHomeContent}
+      loading={homeLoading}
       tourLoadError={homeLoadError || tourLoadError}
       onFavorite={toggleFavorite}
     />
@@ -649,9 +458,7 @@ function CustomerPage() {
   ) {
     content = (
       <ToursPage
-        tours={normalizedTours}
         favorites={favorites}
-        loadError={tourLoadError}
         onFavorite={toggleFavorite}
       />
     );
@@ -700,6 +507,7 @@ function CustomerPage() {
       className={`vg-app ${location.pathname === "/" ? "is-home-page" : ""
         }`}
     >
+      {token ? <CustomerPresenceHeartbeat /> : null}
       <Header
         user={user}
         onLogout={logout}

@@ -20,6 +20,25 @@ function formatDate(value) {
   return value ? new Intl.DateTimeFormat("vi-VN").format(new Date(value)) : "-";
 }
 
+function formatPresence(presence) {
+  if (presence?.is_online) return { label: "Online", detail: "Đang hoạt động" };
+  if (!presence?.last_seen_at) return { label: "Offline", detail: "Chưa ghi nhận truy cập" };
+
+  const elapsedSeconds = Math.max(
+    0,
+    Math.floor((Date.now() - new Date(presence.last_seen_at).getTime()) / 1000),
+  );
+  const minutes = Math.floor(elapsedSeconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+  let detail = `Rời hệ thống ${minutes} phút trước`;
+
+  if (hours > 0) detail = `Rời hệ thống ${hours} giờ ${minutes % 60} phút trước`;
+  if (days > 0) detail = `Rời hệ thống ${days} ngày trước`;
+
+  return { label: "Offline", detail };
+}
+
 function Icon({ name }) {
   const paths = {
     view: (
@@ -46,6 +65,13 @@ function Icon({ name }) {
         <path d="M16 10V7a4 4 0 0 0-7.7-1.5" />
       </>
     ),
+    history: (
+      <>
+        <path d="M3 12a9 9 0 1 0 3-6.7" />
+        <path d="M3 4v5h5" />
+        <path d="M12 7v5l3 2" />
+      </>
+    ),
   };
 
   return (
@@ -62,8 +88,11 @@ function UserTable({
   onView,
   onEdit,
   onToggleLock,
+  onHistory,
+  presenceMap = null,
 }) {
-  const emptyColSpan = showBookings ? 9 : 8;
+  const showPresence = presenceMap !== null;
+  const emptyColSpan = (showBookings ? 9 : 8) + (showPresence ? 1 : 0);
 
   return (
     <div className="user-table-wrap">
@@ -77,6 +106,7 @@ function UserTable({
             <th>Ngày đăng ký</th>
             <th>Vai trò</th>
             {showBookings ? <th>Booking</th> : null}
+            {showPresence ? <th>Trực tuyến</th> : null}
             <th>Trạng thái</th>
             <th>Hành động</th>
           </tr>
@@ -111,6 +141,24 @@ function UserTable({
                   {customer.status === "active" ? "Hoạt động" : "Bị khóa"}
                 </span>
               </td>
+              {showPresence ? (
+                <td>
+                  {(() => {
+                    const presence = presenceMap[String(customer.id)] || {};
+                    const state = formatPresence(presence);
+
+                    return (
+                      <div className={`user-presence ${presence.is_online ? "online" : "offline"}`}>
+                        <span />
+                        <div>
+                          <strong>{state.label}</strong>
+                          <small>{state.detail}</small>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </td>
+              ) : null}
               <td>
                 <div className="user-actions">
                   <button title="Xem chi tiết" onClick={() => onView(customer)}>
@@ -119,6 +167,15 @@ function UserTable({
                   <button title="Chỉnh sửa" onClick={() => onEdit(customer)}>
                     <Icon name="edit" />
                   </button>
+                  {onHistory ? (
+                    <button
+                      title="Lịch sử thao tác"
+                      aria-label={`Lịch sử thao tác ${customer.full_name}`}
+                      onClick={() => onHistory(customer)}
+                    >
+                      <Icon name="history" />
+                    </button>
+                  ) : null}
                   <button
                     className={
                       customer.status === "active" ? "danger" : "success"

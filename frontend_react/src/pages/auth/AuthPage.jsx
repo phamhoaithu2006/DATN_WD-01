@@ -157,6 +157,7 @@ function AuthPage() {
   const location = useLocation();
   const [mode, setMode] = useState("login");
   const [notice, setNotice] = useState("");
+  const [noticeVariant, setNoticeVariant] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loginData, setLoginData] = useState({
     identifier: "",
@@ -195,10 +196,20 @@ function AuthPage() {
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       setMode(isRegisterPath ? "register" : "login");
-      setNotice("");
+
+      // Thông báo mang theo từ trang khác (ví dụ: đặt lại mật khẩu thành công)
+      const arrivalNotice = location.state?.notice || "";
+      setNotice(arrivalNotice);
+      setNoticeVariant(arrivalNotice ? location.state?.noticeVariant || "success" : "");
+
+      if (arrivalNotice) {
+        // Xóa state khỏi history để refresh không hiện lại thông báo
+        window.history.replaceState({}, "");
+      }
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRegisterPath]);
 
   if (token && currentUser) {
@@ -216,6 +227,7 @@ function AuthPage() {
   function handleModeChange(nextMode) {
     setMode(nextMode);
     setNotice("");
+    setNoticeVariant("");
     navigate(nextMode === "register" ? "/auth/register" : "/auth/login", {
       replace: true,
     });
@@ -299,6 +311,7 @@ function AuthPage() {
 
   async function handleLogin(event) {
     event.preventDefault();
+    setNoticeVariant("");
     const errors = validateLogin(loginData);
     setLoginErrors(errors);
 
@@ -367,6 +380,7 @@ function AuthPage() {
 
   async function handleRegister(event) {
     event.preventDefault();
+    setNoticeVariant("");
     const errors = validateRegister(registerData);
     setRegisterErrors(errors);
 
@@ -434,6 +448,7 @@ function AuthPage() {
       <AuthCard
         mode={mode}
         notice={notice}
+        noticeVariant={noticeVariant}
         loginData={loginData}
         loginErrors={loginErrors}
         registerData={registerData}

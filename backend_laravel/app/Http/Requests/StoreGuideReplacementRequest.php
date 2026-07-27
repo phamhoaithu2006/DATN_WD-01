@@ -18,8 +18,8 @@ class StoreGuideReplacementRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'reason' => ['required', 'string', 'min:10', 'max:2000'],
-            'evidence' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:5120'],
+            'reason' => ['required', 'string', 'min:10', 'max:100'],
+            'evidence' => ['nullable', 'file', 'max:5120'],
         ];
     }
 
@@ -31,8 +31,7 @@ class StoreGuideReplacementRequest extends FormRequest
         return [
             'reason.required' => 'Vui lòng nhập lý do xin đổi HDV.',
             'reason.min' => 'Lý do cần ít nhất 10 ký tự.',
-            'reason.max' => 'Lý do không được vượt quá 2000 ký tự.',
-            'evidence.mimes' => 'Bằng chứng chỉ chấp nhận ảnh JPG, PNG, WEBP hoặc PDF.',
+            'reason.max' => 'Lý do không được vượt quá 100 ký tự.',
             'evidence.max' => 'Bằng chứng không được vượt quá 5MB.',
         ];
     }

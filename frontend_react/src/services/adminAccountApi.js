@@ -250,3 +250,16 @@ export const setAccountStatus = async (
 
   return response.data;
 };
+
+export const getCustomerActivityHistory = async (id, params = {}) => {
+  if (!id) {
+    throw new Error("Thiếu ID khách hàng.");
+  }
+
+  const response = await apiClient.get(
+    `${USER_MANAGEMENT_ENDPOINT}/${id}/activity-history`,
+    { params },
+  );
+
+  return response.data?.data || response.data || {};
+};

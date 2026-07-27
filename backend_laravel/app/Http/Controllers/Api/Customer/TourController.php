@@ -2,11 +2,16 @@
 
 namespace App\Http\Controllers\Api\Customer;
 
+use App\Filters\TourFilter;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\TourFilterRequest;
 use App\Http\Resources\TourResource;
+use App\Models\Category;
+use App\Models\Destination;
 use App\Models\Tour;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class TourController extends Controller
 {
@@ -14,7 +19,7 @@ class TourController extends Controller
      * Danh sách tour cho giao diện khách hàng.
      * Có thể dùng trực tiếp endpoint này để search/filter luôn.
      */
-    public function index_gdkh(Request $request)
+    public function index_gdkh(TourFilterRequest $request)
     {
         return $this->getCustomerTourList($request);
     }
@@ -22,7 +27,7 @@ class TourController extends Controller
     /**
      * Giữ lại endpoint search cũ để Frontend không bị lỗi.
      */
-    public function search_gdkh(Request $request)
+    public function search_gdkh(TourFilterRequest $request)
     {
         return $this->getCustomerTourList($request);
     }
@@ -30,9 +35,89 @@ class TourController extends Controller
     /**
      * Giữ lại endpoint filter cũ để Frontend không bị lỗi.
      */
-    public function filter_gdkh(Request $request)
+    public function filter_gdkh(TourFilterRequest $request)
     {
         return $this->getCustomerTourList($request);
+    }
+
+    /**
+     * Metadata cho UI bộ lọc: khoảng giá, điểm đến, danh mục, bucket thời lượng
+     * kèm số tour đang mở bán cho từng lựa chọn. Cache 10 phút; admin thay đổi
+     * tour sẽ xóa cache (TourManagerController).
+     */
+    public function filterOptions()
+    {
+        $options = Cache::remember(Tour::FILTER_OPTIONS_CACHE_KEY, 600, function () {
+            $published = Tour::query()->where('status', 'published');
+
+            $priceRange = (clone $published)
+                ->selectRaw('MIN(COALESCE(discount_price, base_price)) as min_price')
+                ->selectRaw('MAX(COALESCE(discount_price, base_price)) as max_price')
+                ->first();
+
+            $categories = Category::query()
+                ->withCount(['tours as tours_count' => fn ($q) => $q->where('status', 'published')])
+                ->orderBy('name')
+                ->get(['id', 'name'])
+                ->filter(fn ($category) => $category->tours_count > 0)
+                ->map(fn ($category) => [
+                    'id' => $category->id,
+                    'name' => $category->name,
+                    'tours_count' => (int) $category->tours_count,
+                ])
+                ->values()
+                ->all();
+
+            // Đếm tour theo điểm đến: gộp cả cột destination_id cũ và pivot tour_destinations.
+            $directCounts = (clone $published)
+                ->select('destination_id', DB::raw('COUNT(*) as total'))
+                ->groupBy('destination_id')
+                ->pluck('total', 'destination_id');
+
+            $pivotCounts = DB::table('tour_destinations')
+                ->join('tours', 'tours.id', '=', 'tour_destinations.tour_id')
+                ->where('tours.status', 'published')
+                ->whereNull('tours.deleted_at')
+                ->whereRaw('tour_destinations.destination_id != tours.destination_id')
+                ->select('tour_destinations.destination_id', DB::raw('COUNT(DISTINCT tour_destinations.tour_id) as total'))
+                ->groupBy('tour_destinations.destination_id')
+                ->pluck('total', 'destination_id');
+
+            $destinations = Destination::query()
+                ->orderBy('name')
+                ->get(['id', 'name'])
+                ->map(fn ($destination) => [
+                    'id' => $destination->id,
+                    'name' => $destination->name,
+                    'tours_count' => (int) ($directCounts[$destination->id] ?? 0)
+                        + (int) ($pivotCounts[$destination->id] ?? 0),
+                ])
+                ->filter(fn ($destination) => $destination['tours_count'] > 0)
+                ->values()
+                ->all();
+
+            $durationCounts = (clone $published)
+                ->selectRaw("SUM(CASE WHEN duration_days BETWEEN 1 AND 3 THEN 1 ELSE 0 END) as bucket_1_3")
+                ->selectRaw("SUM(CASE WHEN duration_days BETWEEN 4 AND 7 THEN 1 ELSE 0 END) as bucket_4_7")
+                ->selectRaw("SUM(CASE WHEN duration_days >= 8 THEN 1 ELSE 0 END) as bucket_8_plus")
+                ->first();
+
+            return [
+                'price' => [
+                    'min' => (float) ($priceRange?->min_price ?? 0),
+                    'max' => (float) ($priceRange?->max_price ?? 0),
+                ],
+                'categories' => $categories,
+                'destinations' => $destinations,
+                'durations' => [
+                    ['value' => '1-3', 'label' => '1–3 ngày', 'tours_count' => (int) ($durationCounts?->bucket_1_3 ?? 0)],
+                    ['value' => '4-7', 'label' => '4–7 ngày', 'tours_count' => (int) ($durationCounts?->bucket_4_7 ?? 0)],
+                    ['value' => '8+', 'label' => '8+ ngày', 'tours_count' => (int) ($durationCounts?->bucket_8_plus ?? 0)],
+                ],
+            ];
+        });
+
+        return response()->json(['data' => $options]);
     }
 
     /**
@@ -55,13 +140,13 @@ class TourController extends Controller
     /**
      * Hàm dùng chung cho index, search và filter.
      */
-    private function getCustomerTourList(Request $request)
+    private function getCustomerTourList(TourFilterRequest $request)
     {
-        $filters = $this->validateFilters($request);
+        $filters = $request->filters();
 
         $query = $this->customerTourQuery($filters);
 
-        $this->applyTourFilters($query, $filters);
+        (new TourFilter($filters))->apply($query);
 
         /*
          * Khi có lọc ngày, số khách hoặc giá:
@@ -172,6 +257,14 @@ class TourController extends Controller
             $query->whereDate('departure_date', $filters['departure_date']);
         }
 
+        if (!empty($filters['date_from'])) {
+            $query->whereDate('departure_date', '>=', $filters['date_from']);
+        }
+
+        if (!empty($filters['date_to'])) {
+            $query->whereDate('departure_date', '<=', $filters['date_to']);
+        }
+
         if (!empty($filters['guests'])) {
             $query->whereRaw(
                 '(COALESCE(total_slots, 0) - COALESCE(booked_slots, 0)) >= ?',
@@ -201,59 +294,11 @@ class TourController extends Controller
         END';
     }
 
-    /**
-     * Lọc các thông tin nằm trong bảng tours.
-     */
-    private function applyTourFilters(Builder $query, array $filters): void
-    {
-        if (!empty($filters['keyword'])) {
-            $keyword = '%' . $filters['keyword'] . '%';
-
-            $query->where(function (Builder $subQuery) use ($keyword) {
-                $subQuery
-                    ->where('tours.title', 'like', $keyword)
-                    ->orWhere('tours.summary', 'like', $keyword)
-                    ->orWhere('tours.description', 'like', $keyword)
-                    ->orWhereHas('category', function (Builder $categoryQuery) use ($keyword) {
-                        $categoryQuery->where('name', 'like', $keyword);
-                    })
-                    ->orWhereHas('destination', function (Builder $destinationQuery) use ($keyword) {
-                        $destinationQuery->where('name', 'like', $keyword);
-                    })
-                    ->orWhereHas('destinations', function (Builder $destinationQuery) use ($keyword) {
-                        $destinationQuery->where('name', 'like', $keyword);
-                    });
-            });
-        }
-
-        if (!empty($filters['category_id'])) {
-            $query->where('tours.category_id', $filters['category_id']);
-        }
-
-        /*
-         * Hỗ trợ cả destination_id cũ trong bảng tours
-         * và bảng tour_destinations mới.
-         */
-        if (!empty($filters['destination_id'])) {
-            $destinationId = $filters['destination_id'];
-
-            $query->where(function (Builder $subQuery) use ($destinationId) {
-                $subQuery
-                    ->where('tours.destination_id', $destinationId)
-                    ->orWhereHas('destinations', function (Builder $destinationQuery) use ($destinationId) {
-                        $destinationQuery->whereKey($destinationId);
-                    });
-            });
-        }
-
-        if (!empty($filters['duration_days'])) {
-            $query->where('tours.duration_days', $filters['duration_days']);
-        }
-    }
-
     private function hasDepartureFilters(array $filters): bool
     {
         return !empty($filters['departure_date'])
+            || !empty($filters['date_from'])
+            || !empty($filters['date_to'])
             || !empty($filters['guests'])
             || $filters['min_price'] !== null
             || $filters['max_price'] !== null;
@@ -287,53 +332,15 @@ class TourController extends Controller
                 $query->orderByDesc('tours.duration_days');
                 break;
 
+            case 'popular':
+                $query->orderByDesc('tours.review_count')
+                    ->orderByDesc('tours.average_rating');
+                break;
+
             default:
                 $query->orderByDesc('tours.id');
                 break;
         }
     }
 
-    private function validateFilters(Request $request): array
-    {
-        $data = $request->validate([
-            'keyword' => ['nullable', 'string', 'max:255'],
-            'category_id' => ['nullable', 'integer', 'min:1'],
-            'destination_id' => ['nullable', 'integer', 'min:1'],
-
-            // API mới nên dùng departure_date.
-            // start_date giữ lại để Frontend cũ vẫn chạy.
-            'departure_date' => ['nullable', 'date'],
-            'start_date' => ['nullable', 'date'],
-
-            'guests' => ['nullable', 'integer', 'min:1'],
-            'min_slots' => ['nullable', 'integer', 'min:1'],
-
-            'min_price' => ['nullable', 'numeric', 'min:0'],
-            'max_price' => ['nullable', 'numeric', 'min:0'],
-
-            'duration_days' => ['nullable', 'integer', 'min:1'],
-            'per_page' => ['nullable', 'integer', 'min:1', 'max:50'],
-
-            'sort' => [
-                'nullable',
-                'in:latest,price_asc,price_desc,departure_soon,rating_desc,duration_asc,duration_desc',
-            ],
-        ]);
-
-        return [
-            'keyword' => isset($data['keyword']) ? trim($data['keyword']) : null,
-            'category_id' => $data['category_id'] ?? null,
-            'destination_id' => $data['destination_id'] ?? null,
-
-            'departure_date' => $data['departure_date'] ?? $data['start_date'] ?? null,
-            'guests' => $data['guests'] ?? $data['min_slots'] ?? null,
-
-            'min_price' => $data['min_price'] ?? null,
-            'max_price' => $data['max_price'] ?? null,
-
-            'duration_days' => $data['duration_days'] ?? null,
-            'per_page' => (int) ($data['per_page'] ?? 12),
-            'sort' => $data['sort'] ?? 'latest',
-        ];
-    }
 }

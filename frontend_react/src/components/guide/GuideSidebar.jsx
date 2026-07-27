@@ -1,6 +1,7 @@
 ﻿import { useEffect, useRef, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { getGuideTours } from '../../services/guideTourApi'
+import { getGuideUnreadNotificationCount } from '../../services/guideNotificationApi'
 
 const guideMenuItems = [
   {
@@ -37,7 +38,7 @@ const guideMenuItems = [
     ),
   },
   {
-    label: 'Lịch sử Tour',
+    label: 'Lịch sử tour',
     path: '/guide/history',
     icon: (
       <>
@@ -58,6 +59,7 @@ const guideMenuItems = [
   {
     label: 'Thông báo',
     path: '/guide/notifications',
+    showNotificationBadge: true,
     icon: (
       <>
         <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
@@ -89,6 +91,7 @@ function getAssignmentKey(item) {
 
 function GuideSidebar({ collapsed, onLogout }) {
   const [newTourCount, setNewTourCount] = useState(0)
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0)
   const knownAssignmentIdsRef = useRef(new Set())
   const initializedRef = useRef(false)
 
@@ -137,7 +140,7 @@ function GuideSidebar({ collapsed, onLogout }) {
 
     void checkNewAssignedTours()
 
-    const timer = window.setInterval(checkNewAssignedTours, 30000)
+    const timer = window.setInterval(checkNewAssignedTours, 5000)
 
     const clearBadge = () => setNewTourCount(0)
     window.addEventListener('guide-tour:new-assignment-cleared', clearBadge)
@@ -146,6 +149,35 @@ function GuideSidebar({ collapsed, onLogout }) {
       active = false
       window.clearInterval(timer)
       window.removeEventListener('guide-tour:new-assignment-cleared', clearBadge)
+    }
+  }, [])
+
+  useEffect(() => {
+    let active = true
+
+    async function refreshUnreadNotificationCount() {
+      try {
+        const count = await getGuideUnreadNotificationCount()
+        if (active) setUnreadNotificationCount(count)
+      } catch (error) {
+        console.error(error)
+      }
+    }
+
+    void refreshUnreadNotificationCount()
+    const timer = window.setInterval(refreshUnreadNotificationCount, 30000)
+    window.addEventListener(
+      'guide-notification:changed',
+      refreshUnreadNotificationCount,
+    )
+
+    return () => {
+      active = false
+      window.clearInterval(timer)
+      window.removeEventListener(
+        'guide-notification:changed',
+        refreshUnreadNotificationCount,
+      )
     }
   }, [])
 
@@ -212,9 +244,27 @@ function GuideSidebar({ collapsed, onLogout }) {
                   {newTourCount > 99 ? '99+' : newTourCount}
                 </span>
               ) : null}
+              {collapsed &&
+              item.showNotificationBadge &&
+              unreadNotificationCount > 0 ? (
+                <span className="guide-nav-badge">
+                  {unreadNotificationCount > 99
+                    ? '99+'
+                    : unreadNotificationCount}
+                </span>
+              ) : null}
             </span>
 
             {!collapsed && <span className="guide-nav-label">{item.label}</span>}
+            {!collapsed &&
+            item.showNotificationBadge &&
+            unreadNotificationCount > 0 ? (
+              <span className="guide-nav-count">
+                {unreadNotificationCount > 99
+                  ? '99+'
+                  : unreadNotificationCount}
+              </span>
+            ) : null}
           </NavLink>
         ))}
       </nav>

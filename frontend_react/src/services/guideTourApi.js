@@ -94,11 +94,6 @@ export const requestGuideReplacement = async (departureId, payload = {}) => {
   const response = await apiClient.post(
     `/guide/tours/${departureId}/replacement-requests`,
     formData,
-    {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    },
   )
 
   return response.data

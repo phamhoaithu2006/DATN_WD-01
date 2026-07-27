@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   getGuideNotificationDetail,
   getGuideNotifications,
+  getGuideUnreadNotificationCount,
 } from '../../services/guideNotificationApi'
 
 function formatNotificationTime(value) {
@@ -47,8 +48,10 @@ function GuideNotificationBell() {
     setError('')
 
     try {
-      const notificationPayload = await getGuideNotifications(1)
-      const unreadTotal = notificationPayload.items.filter((item) => item.status === 'unread').length
+      const [notificationPayload, unreadTotal] = await Promise.all([
+        getGuideNotifications(1),
+        getGuideUnreadNotificationCount(),
+      ])
 
       setNotifications(notificationPayload.items)
       setUnreadCount(unreadTotal)
@@ -61,6 +64,14 @@ function GuideNotificationBell() {
 
   useEffect(() => {
     void Promise.resolve().then(loadNotifications)
+
+    const timer = window.setInterval(loadNotifications, 30000)
+    window.addEventListener('guide-notification:changed', loadNotifications)
+
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener('guide-notification:changed', loadNotifications)
+    }
   }, [])
 
   useEffect(() => {
@@ -94,6 +105,7 @@ function GuideNotificationBell() {
       setUnreadCount((current) =>
         notification.status === 'unread' ? Math.max(current - 1, 0) : current,
       )
+      window.dispatchEvent(new Event('guide-notification:changed'))
     } catch {
       setError('Không mở được nội dung thông báo.')
     } finally {

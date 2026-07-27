@@ -607,7 +607,7 @@ export default function SupportRequestsPage() {
   useEffect(() => {
     const intervalId = window.setInterval(() => {
       void loadRequests()
-    }, 30000)
+    }, 5000)
 
     function handleSupportNotificationChanged() {
       void loadRequests()
