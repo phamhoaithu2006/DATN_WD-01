@@ -150,7 +150,51 @@ class ChatBotController extends Controller
             'suggest_human' => $suggestHuman,
         ]);
     }
+    /**
+     * Khách hàng tự kết thúc phiên chat với nhân viên (giống nút "Hủy lượt chờ" của Shopee)
+     */
+    public function closeByCustomer(Request $request)
+    {
+        $validated = $request->validate([
+            'session_id' => 'required|string|max:100',
+        ]);
 
+        $conversation = ChatConversation::where('session_id', $validated['session_id'])->first();
+
+        if (!$conversation) {
+            return response()->json(['message' => 'Không tìm thấy phiên chat.'], 404);
+        }
+
+        if (!in_array($conversation->mode, ['pending_human', 'human'])) {
+            return response()->json([
+                'reply'      => null,
+                'mode'       => $conversation->mode,
+                'session_id' => $conversation->session_id,
+            ]);
+        }
+
+        $conversation->update([
+            'mode'                       => 'ai',
+            'assigned_staff_id'          => null,
+            'handoff_closed_at'          => now(),
+            'consecutive_fallback_count' => 0,
+        ]);
+
+        $reply = 'Bạn đã kết thúc phiên hỗ trợ. Nếu cần thêm trợ giúp, mình (trợ lý AI) sẵn sàng hỗ trợ tiếp nhé!';
+
+        ChatMessage::create([
+            'chat_conversation_id' => $conversation->id,
+            'role'    => 'assistant',
+            'content' => $reply,
+        ]);
+        $conversation->touch();
+
+        return response()->json([
+            'reply'      => $reply,
+            'mode'       => $conversation->mode,
+            'session_id' => $conversation->session_id,
+        ]);
+    }
     /**
      * Endpoint polling - frontend gọi định kỳ để lấy tin nhắn mới.
      */

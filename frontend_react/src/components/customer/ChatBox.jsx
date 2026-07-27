@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { askTravelAssistant, fetchChatMessages } from "../../services/customerApi";
+import { askTravelAssistant, closeChatSession, fetchChatMessages } from "../../services/customerApi";
 import Icon from "./Icon";
 
 const CHAT_HISTORY_KEY = "vivugo_chat_history";
@@ -9,6 +9,25 @@ const defaultGreeting = {
   from: "ai",
   text: "Xin chào! Mình là trợ lý du lịch ViVuGo. Bạn muốn đi đâu, ngân sách bao nhiêu và dự định đi mấy ngày?",
 };
+
+// Kho câu hỏi gợi ý - giống dạng Shopee, hiện random 3 câu, có nút "Đổi câu hỏi"
+const SUGGESTED_QUESTION_POOL = [
+  "Tour nào đang giảm giá nhiều nhất?",
+  "Có tour nào phù hợp gia đình có trẻ nhỏ không?",
+  "Làm sao để hủy đơn đặt tour đã thanh toán?",
+  "Chính sách hoàn tiền khi hủy tour như thế nào?",
+  "Tour dưới 5 triệu hiện có những gì?",
+  "Thanh toán tour bằng cách nào?",
+  "Tour đi biển 3 ngày 2 đêm giá bao nhiêu?",
+  "Tôi cần mang theo giấy tờ gì khi đi tour?",
+  "Có thể đổi ngày khởi hành sau khi đặt không?",
+  "Tour nào đang có nhiều chỗ trống nhất?",
+];
+
+function pickRandomQuestions(count = 3) {
+  const shuffled = [...SUGGESTED_QUESTION_POOL].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count);
+}
 
 function getOrCreateSessionId() {
   let sessionId = localStorage.getItem("vivugo_chat_session_id");
@@ -28,12 +47,13 @@ function loadStoredMessages() {
     return [defaultGreeting];
   }
 }
+
+// Gọi hàm này ở nơi xử lý đăng nhập/đăng xuất thành công để bắt đầu 1 phiên chat hoàn toàn mới
 export function resetChatSession() {
   localStorage.removeItem("vivugo_chat_session_id");
   sessionStorage.removeItem(CHAT_HISTORY_KEY);
   window.dispatchEvent(new Event("vivugo-chat-reset"));
 }
-
 
 function normalizeReplyText(raw) {
   if (!raw) return "";
@@ -108,6 +128,8 @@ function ChatBox() {
   const [mode, setMode] = useState("ai");
   const [queuePosition, setQueuePosition] = useState(null);
   const [staffInfo, setStaffInfo] = useState({ name: "", avatar: "" });
+  const [suggestedQuestions, setSuggestedQuestions] = useState(() => pickRandomQuestions());
+  const [ending, setEnding] = useState(false);
 
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState("");
@@ -123,19 +145,22 @@ function ChatBox() {
       // ignore
     }
   }, [messages]);
-useEffect(() => {
-  function handleReset() {
-    setMessages([defaultGreeting]);
-    setMode("ai");
-    setQueuePosition(null);
-    setStaffInfo({ name: "", avatar: "" });
-    lastMessageIdRef.current = 0;
-  }
-  window.addEventListener("vivugo-chat-reset", handleReset);
-  return () => window.removeEventListener("vivugo-chat-reset", handleReset);
-}, []);
-  // Luôn đồng bộ lịch sử THẬT từ server khi mở trang (không chỉ dựa vào sessionStorage,
-  // vì sessionStorage bị xóa khi đóng tab/trình duyệt dù dữ liệu thật vẫn còn trên server)
+
+  // Lắng nghe sự kiện reset (gọi khi đăng nhập/đăng xuất) để làm sạch khung chat ngay lập tức
+  useEffect(() => {
+    function handleReset() {
+      setMessages([defaultGreeting]);
+      setMode("ai");
+      setQueuePosition(null);
+      setStaffInfo({ name: "", avatar: "" });
+      setSuggestedQuestions(pickRandomQuestions());
+      lastMessageIdRef.current = 0;
+    }
+    window.addEventListener("vivugo-chat-reset", handleReset);
+    return () => window.removeEventListener("vivugo-chat-reset", handleReset);
+  }, []);
+
+  // Tự đồng bộ lịch sử THẬT từ server khi mở trang
   useEffect(() => {
     const sessionId = getOrCreateSessionId();
     fetchChatMessages(sessionId)
@@ -153,6 +178,7 @@ useEffect(() => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Cho phép mở khung chat từ bất kỳ đâu trong trang bằng cách phát sự kiện "open-vivugo-chatbox"
   useEffect(() => {
     function handleCustomOpen() {
       setOpen(true);
@@ -162,6 +188,7 @@ useEffect(() => {
       window.removeEventListener("open-vivugo-chatbox", handleCustomOpen);
     };
   }, []);
+
   useEffect(() => {
     if (mode === "ai") {
       if (pollRef.current) window.clearInterval(pollRef.current);
@@ -280,6 +307,31 @@ useEffect(() => {
     sendMessage(null, "", true);
   }
 
+  function handleShuffleQuestions() {
+    setSuggestedQuestions(pickRandomQuestions());
+  }
+
+  // Khách tự kết thúc phiên đang chờ/đang chat với nhân viên (giống nút "Hủy lượt chờ" của Shopee)
+  async function handleEndSession() {
+    if (ending) return;
+    setEnding(true);
+    try {
+      const sessionId = getOrCreateSessionId();
+      const response = await closeChatSession(sessionId);
+      if (response?.mode) setMode(response.mode);
+      if (response?.reply) {
+        setMessages((current) => [...current, { from: "ai", text: response.reply }]);
+      }
+      setQueuePosition(null);
+      setStaffInfo({ name: "", avatar: "" });
+      setSuggestedQuestions(pickRandomQuestions());
+    } catch {
+      // im lặng bỏ qua lỗi mạng
+    } finally {
+      setEnding(false);
+    }
+  }
+
   return (
     <div className="vg-chat">
       {open ? (
@@ -347,6 +399,25 @@ useEffect(() => {
                 </div>
               </div>
             ) : null}
+
+            {/* Bảng câu hỏi gợi ý kiểu Shopee - chỉ hiện khi đang chat với AI */}
+            {mode === "ai" ? (
+              <div className="vg-suggested-card">
+                {suggestedQuestions.map((question) => (
+                  <button
+                    key={question}
+                    type="button"
+                    className="vg-suggested-question"
+                    onClick={(event) => sendMessage(event, question)}
+                  >
+                    {question}
+                  </button>
+                ))}
+                <button type="button" className="vg-suggested-shuffle" onClick={handleShuffleQuestions}>
+                  ⟳ Đổi câu hỏi
+                </button>
+              </div>
+            ) : null}
           </div>
 
           {mode === "ai" ? (
@@ -360,17 +431,18 @@ useEffect(() => {
                 Gặp nhân viên hỗ trợ
               </button>
             </div>
-          ) : null}
-
-          {messages.length === 1 && mode === "ai" ? (
-            <div className="vg-quick-prompts">
-              {["Gợi ý tour biển", "Tour dưới 10 triệu", "Đi đâu tháng này?"].map((prompt) => (
-                <button key={prompt} type="button" onClick={(event) => sendMessage(event, prompt)}>
-                  {prompt}
-                </button>
-              ))}
+          ) : (
+            <div className="vg-human-request-bar">
+              <button
+                type="button"
+                className="vg-end-session-btn"
+                onClick={handleEndSession}
+                disabled={ending}
+              >
+                {ending ? "Đang kết thúc..." : "Kết thúc trò chuyện"}
+              </button>
             </div>
-          ) : null}
+          )}
 
           {imagePreview ? (
             <div className="vg-image-preview-bar">

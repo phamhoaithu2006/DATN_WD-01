@@ -71,7 +71,7 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('throttle:20,1')->post('/chatbot', [ChatBotController::class, 'handleChat']);
 Route::post('/travel-assistant', [ChatBotController::class, 'handleChat']);
 Route::get('/travel-assistant/messages', [ChatBotController::class, 'getMessages']);
-
+Route::post('/travel-assistant/close', [ChatBotController::class, 'closeByCustomer']);
 /*
 |--------------------------------------------------------------------------
 | XÁC THỰC (ĐĂNG KÝ / ĐĂNG NHẬP / ĐĂNG XUẤT / QUÊN MẬT KHẨU)
