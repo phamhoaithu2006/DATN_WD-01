@@ -127,6 +127,67 @@ export async function fetchVnpayReturnStatus(params) {
   return response.data?.data || response.data
 }
 
+function toOptionalNumber(value) {
+  if (value === null || value === undefined || value === '') return null
+
+  const number = Number(value)
+  return Number.isFinite(number) ? number : null
+}
+
+export function normalizeRecommendedTours(value) {
+  if (!Array.isArray(value)) return []
+
+  const seenIds = new Set()
+  const seenSlugs = new Set()
+
+  return value.flatMap((tour) => {
+    const id = Number(tour?.id)
+    const slug = typeof tour?.slug === 'string' ? tour.slug.trim() : ''
+    const title = typeof tour?.title === 'string' ? tour.title.trim() : ''
+
+    if (!Number.isInteger(id) || id <= 0 || !slug || !title) return []
+    if (seenIds.has(id) || seenSlugs.has(slug)) return []
+
+    seenIds.add(id)
+    seenSlugs.add(slug)
+
+    const durationDays = toOptionalNumber(tour.duration_days)
+    const durationNights = toOptionalNumber(tour.duration_nights)
+
+    return [{
+      id,
+      slug,
+      title,
+      thumbnailUrl:
+        typeof tour.thumbnail_url === 'string' ? tour.thumbnail_url.trim() : '',
+      thumbnailAlt:
+        typeof tour.thumbnail_alt === 'string' ? tour.thumbnail_alt.trim() : '',
+      destination:
+        typeof tour.destination === 'string' ? tour.destination.trim() : '',
+      durationDays,
+      durationNights,
+      duration:
+        typeof tour.duration === 'string' ? tour.duration.trim() : '',
+      basePrice: toOptionalNumber(tour.base_price),
+      discountPrice: toOptionalNumber(tour.discount_price),
+      price: toOptionalNumber(tour.price),
+      departureDate:
+        typeof tour.departure_date === 'string' ? tour.departure_date : null,
+      averageRating: toOptionalNumber(tour.average_rating),
+      reviewCount: toOptionalNumber(tour.review_count),
+    }]
+  }).slice(0, 10)
+}
+
+function normalizeTravelAssistantResponse(response) {
+  const payload = response.data?.data || response.data || {}
+
+  return {
+    ...payload,
+    recommended_tours: normalizeRecommendedTours(payload.recommended_tours),
+  }
+}
+
 export async function askTravelAssistant(message, sessionId, requestHuman = false, imageFile = null) {
   if (imageFile) {
     const formData = new FormData()
@@ -138,7 +199,7 @@ export async function askTravelAssistant(message, sessionId, requestHuman = fals
     const response = await api.post('/travel-assistant', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
-    return response.data?.data || response.data
+    return normalizeTravelAssistantResponse(response)
   }
 
   const response = await api.post('/travel-assistant', {
@@ -147,7 +208,7 @@ export async function askTravelAssistant(message, sessionId, requestHuman = fals
     request_human: requestHuman,
   })
 
-  return response.data?.data || response.data
+  return normalizeTravelAssistantResponse(response)
 }
 export async function fetchChatMessages(sessionId) {
   const response = await api.get('/travel-assistant/messages', {
