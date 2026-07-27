@@ -1,63 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import { askTravelAssistant, fetchChatMessages } from "../../services/customerApi";
+import "../../styles/chatbot.css";
 import Icon from "./Icon";
+import ChatInput from "./chatbot/ChatInput";
+import ChatMessage, {
+  ChatTypingIndicator,
+} from "./chatbot/ChatMessage";
+import QuickTourPrompts from "./chatbot/QuickTourPrompts";
+import {
+  getOrCreateChatSessionId,
+  loadStoredChatMessages,
+  storeChatMessages,
+} from "./chatbot/chatStorage";
 
-const CHAT_HISTORY_KEY = "vivugo_chat_history";
 const POLL_INTERVAL = 4000;
-
-const defaultGreeting = {
-  from: "ai",
-  text: "Xin chào! Mình là trợ lý du lịch ViVuGo. Bạn muốn đi đâu, ngân sách bao nhiêu và dự định đi mấy ngày?",
-};
-
-function getOrCreateSessionId() {
-  let sessionId = localStorage.getItem("vivugo_chat_session_id");
-  if (!sessionId) {
-    sessionId = "session-" + crypto.randomUUID();
-    localStorage.setItem("vivugo_chat_session_id", sessionId);
-  }
-  return sessionId;
-}
-
-function loadStoredMessages() {
-  try {
-    const raw = sessionStorage.getItem(CHAT_HISTORY_KEY);
-    const parsed = raw ? JSON.parse(raw) : null;
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : [defaultGreeting];
-  } catch {
-    return [defaultGreeting];
-  }
-}
-
-export function clearChatHistory() {
-  sessionStorage.removeItem(CHAT_HISTORY_KEY);
-}
-
-function normalizeReplyText(raw) {
-  if (!raw) return "";
-  return raw.replace(/\s\*\s(?=\*\*)/g, "\n").trim();
-}
-
-function renderMessageText(rawText) {
-  const text = normalizeReplyText(rawText);
-  const lines = text.split("\n").filter((line) => line.trim() !== "");
-
-  return lines.map((line, lineIndex) => {
-    const parts = line.split(/(\*\*[^*]+\*\*)/g).filter(Boolean);
-
-    return (
-      <p key={lineIndex} className="vg-message-line">
-        {parts.map((part, partIndex) =>
-          part.startsWith("**") && part.endsWith("**") ? (
-            <strong key={partIndex}>{part.slice(2, -2)}</strong>
-          ) : (
-            <span key={partIndex}>{part}</span>
-          ),
-        )}
-      </p>
-    );
-  });
-}
 
 function mapServerMessage(message) {
   return {
@@ -69,40 +25,11 @@ function mapServerMessage(message) {
   };
 }
 
-function DefaultStaffAvatar() {
-  return (
-    <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
-      <circle cx="12" cy="8" r="4" fill="#fff" />
-      <path d="M4 20c0-4.4 3.6-8 8-8s8 3.6 8 8" fill="#fff" />
-    </svg>
-  );
-}
-
-function MessageAvatar({ isStaff, staffAvatarUrl }) {
-  if (isStaff) {
-    return (
-      <span className="vg-msg-avatar staff-avatar">
-        {staffAvatarUrl ? (
-          <img src={staffAvatarUrl} alt="Nhân viên hỗ trợ" />
-        ) : (
-          <DefaultStaffAvatar />
-        )}
-      </span>
-    );
-  }
-
-  return (
-    <span className="vg-msg-avatar ai-avatar">
-      <Icon name="sparkle" size={14} />
-    </span>
-  );
-}
-
 function ChatBox() {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [text, setText] = useState("");
-  const [messages, setMessages] = useState(loadStoredMessages);
+  const [messages, setMessages] = useState(loadStoredChatMessages);
   const [mode, setMode] = useState("ai");
   const [queuePosition, setQueuePosition] = useState(null);
   const [staffInfo, setStaffInfo] = useState({ name: "", avatar: "" });
@@ -116,7 +43,7 @@ function ChatBox() {
 
   useEffect(() => {
     try {
-      sessionStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(messages));
+      storeChatMessages(messages);
     } catch {
       // bỏ qua nếu sessionStorage lỗi
     }
@@ -130,7 +57,7 @@ function ChatBox() {
 
     async function poll() {
       try {
-        const sessionId = getOrCreateSessionId();
+        const sessionId = getOrCreateChatSessionId();
         const response = await fetchChatMessages(sessionId);
         const serverMessages = (response?.messages || []).map(mapServerMessage);
 
@@ -204,7 +131,7 @@ function ChatBox() {
     setLoading(true);
 
     try {
-      const sessionId = getOrCreateSessionId();
+      const sessionId = getOrCreateChatSessionId();
       const response = await askTravelAssistant(
         message,
         sessionId,
@@ -276,32 +203,11 @@ function ChatBox() {
             <p className="vg-chat-date">Hôm nay</p>
 
             {messages.map((message, index) => (
-              <div
+              <ChatMessage
                 key={message.id || `${message.from}-${index}`}
-                className={`vg-message-row ${message.from === "user" ? "is-user" : "is-ai"}`}
-              >
-                {message.from !== "user" ? (
-                  <MessageAvatar
-                    isStaff={Boolean(message.isStaff)}
-                    staffAvatarUrl={staffInfo.avatar}
-                  />
-                ) : null}
-
-                <div
-                  className={`vg-message ${message.from}${message.isStaff ? " staff" : ""}`}
-                >
-                  {message.attachmentUrl ? (
-                    <img
-                      src={message.attachmentUrl}
-                      alt="Ảnh đính kèm"
-                      className="vg-message-image"
-                    />
-                  ) : null}
-                  {message.from === "ai"
-                    ? renderMessageText(message.text)
-                    : message.text}
-                </div>
-              </div>
+                message={message}
+                staffAvatarUrl={staffInfo.avatar}
+              />
             ))}
 
             {mode === "pending_human" && queuePosition ? (
@@ -312,16 +218,7 @@ function ChatBox() {
               </div>
             ) : null}
 
-            {loading ? (
-              <div className="vg-message-row is-ai">
-                <MessageAvatar isStaff={false} />
-                <div className="vg-message ai vg-typing">
-                  <i />
-                  <i />
-                  <i />
-                </div>
-              </div>
-            ) : null}
+            {loading ? <ChatTypingIndicator /> : null}
           </div>
 
           {mode === "ai" ? (
@@ -338,63 +235,19 @@ function ChatBox() {
           ) : null}
 
           {messages.length === 1 && mode === "ai" ? (
-            <div className="vg-quick-prompts">
-              {[
-                "Gợi ý tour biển",
-                "Tour dưới 10 triệu",
-                "Đi đâu tháng này?",
-              ].map((prompt) => (
-                <button
-                  key={prompt}
-                  type="button"
-                  onClick={(event) => sendMessage(event, prompt)}
-                >
-                  {prompt}
-                </button>
-              ))}
-            </div>
+            <QuickTourPrompts onSelect={sendMessage} />
           ) : null}
 
-          {imagePreview ? (
-            <div className="vg-image-preview-bar">
-              <img src={imagePreview} alt="Xem trước" />
-              <button type="button" onClick={clearSelectedImage}>
-                Bỏ ảnh
-              </button>
-            </div>
-          ) : null}
-
-          <form onSubmit={sendMessage}>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleImageSelect}
-              style={{ display: "none" }}
-            />
-            <button
-              type="button"
-              className="vg-attach-btn"
-              onClick={() => fileInputRef.current?.click()}
-              aria-label="Gửi ảnh"
-              title="Gửi ảnh"
-            >
-              📎
-            </button>
-            <input
-              type="text"
-              value={text}
-              onChange={(event) => setText(event.target.value)}
-              placeholder={
-                mode === "pending_human"
-                  ? "Đang chờ nhân viên phản hồi..."
-                  : "Nhập câu hỏi của bạn..."
-              }
-            />
-            <button type="submit" aria-label="Gửi tin nhắn">
-              <Icon name="send" />
-            </button>
-          </form>
+          <ChatInput
+            fileInputRef={fileInputRef}
+            imagePreview={imagePreview}
+            mode={mode}
+            text={text}
+            onClearImage={clearSelectedImage}
+            onImageSelect={handleImageSelect}
+            onSubmit={sendMessage}
+            onTextChange={(event) => setText(event.target.value)}
+          />
           <small className="vg-chat-note">
             ViVuGo AI có thể mắc lỗi. Hãy kiểm tra thông tin quan trọng.
           </small>
