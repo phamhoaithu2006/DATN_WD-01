@@ -28,6 +28,7 @@ function mapServerMessage(message) {
 function ChatBox() {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [compactViewport, setCompactViewport] = useState(false);
   const [text, setText] = useState("");
   const [messages, setMessages] = useState(loadStoredChatMessages);
   const [mode, setMode] = useState("ai");
@@ -36,6 +37,7 @@ function ChatBox() {
 
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState("");
+  const chatRootRef = useRef(null);
   const fileInputRef = useRef(null);
   const chatContentRef = useRef(null);
   const shouldStickToBottomRef = useRef(true);
@@ -65,6 +67,43 @@ function ChatBox() {
 
     return () => window.cancelAnimationFrame(frameId);
   }, [loading, messages, open]);
+
+  useEffect(() => {
+    const visualViewport = window.visualViewport;
+
+    function updateViewportBounds() {
+      const chatRoot = chatRootRef.current;
+      if (!chatRoot) return;
+
+      const viewportHeight = visualViewport?.height || window.innerHeight;
+      const viewportTop = visualViewport?.offsetTop || 0;
+      const coveredBottom = Math.max(
+        0,
+        window.innerHeight - viewportHeight - viewportTop,
+      );
+
+      chatRoot.style.setProperty(
+        "--vg-chat-viewport-height",
+        `${Math.round(viewportHeight)}px`,
+      );
+      chatRoot.style.setProperty(
+        "--vg-chat-keyboard-offset",
+        `${Math.round(coveredBottom)}px`,
+      );
+      setCompactViewport(viewportHeight < 500);
+    }
+
+    updateViewportBounds();
+    window.addEventListener("resize", updateViewportBounds);
+    visualViewport?.addEventListener("resize", updateViewportBounds);
+    visualViewport?.addEventListener("scroll", updateViewportBounds);
+
+    return () => {
+      window.removeEventListener("resize", updateViewportBounds);
+      visualViewport?.removeEventListener("resize", updateViewportBounds);
+      visualViewport?.removeEventListener("scroll", updateViewportBounds);
+    };
+  }, []);
 
   useEffect(() => {
     function handleReset() {
@@ -239,7 +278,12 @@ function ChatBox() {
   }
 
   return (
-    <div className="vg-chat">
+    <div
+      ref={chatRootRef}
+      className={`vg-chat${open ? " is-open" : ""}${
+        compactViewport ? " is-compact-height" : ""
+      }`}
+    >
       <section
         id="vivugo-chat-panel"
         className={`vg-chat-panel${open ? " is-open" : ""}`}

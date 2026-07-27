@@ -3,6 +3,8 @@
    ========================================================================== */
 
 .vg-chat {
+  --vg-chat-keyboard-offset: 0px;
+  --vg-chat-viewport-height: 100vh;
   position: fixed;
   z-index: 120;
   right: 25px;
@@ -41,7 +43,7 @@
   min-width: 300px;
   min-height: 400px;
   max-width: calc(100vw - 32px);
-  max-height: calc(100vh - 90px);
+  max-height: calc(var(--vg-chat-viewport-height) - 90px);
   resize: both;
   overflow: hidden;
   display: flex;
@@ -73,9 +75,9 @@
 @media (min-width: 1024px) {
   .vg-chat-panel {
     width: clamp(440px, 32vw, 480px);
-    height: min(640px, calc(100vh - 118px));
+    height: min(640px, calc(var(--vg-chat-viewport-height) - 118px));
     max-width: min(480px, calc(100vw - 64px));
-    max-height: calc(100vh - 118px);
+    max-height: calc(var(--vg-chat-viewport-height) - 118px);
   }
 }
 
@@ -212,6 +214,7 @@
 
 .vg-chat-content {
   flex: 1;
+  min-height: 0;
   height: auto;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -587,6 +590,10 @@
 }
 
 @media (max-width: 768px) {
+  .vg-message {
+    max-width: calc(100% - 40px);
+  }
+
   .vg-message-line {
     margin-bottom: 6px;
   }
@@ -596,10 +603,77 @@
   }
 }
 
+@media (min-width: 621px) and (max-width: 1023px) {
+  .vg-chat {
+    right: calc(18px + env(safe-area-inset-right, 0px));
+    bottom: calc(
+      18px + env(safe-area-inset-bottom, 0px) +
+        var(--vg-chat-keyboard-offset)
+    );
+  }
+
+  .vg-chat-panel {
+    width: min(
+      440px,
+      calc(
+        100vw - 40px - env(safe-area-inset-left, 0px) -
+          env(safe-area-inset-right, 0px)
+      )
+    );
+    height: min(
+      620px,
+      calc(
+        var(--vg-chat-viewport-height) - 112px -
+          env(safe-area-inset-top, 0px) -
+          env(safe-area-inset-bottom, 0px)
+      )
+    );
+    min-width: 0;
+    min-height: 0;
+    max-width: none;
+    max-height: calc(
+      var(--vg-chat-viewport-height) - 112px -
+        env(safe-area-inset-top, 0px) -
+        env(safe-area-inset-bottom, 0px)
+    );
+    resize: none;
+  }
+}
+
 @media (max-width: 620px) {
   .vg-chat {
-    right: 14px;
-    bottom: 14px;
+    right: calc(8px + env(safe-area-inset-right, 0px));
+    bottom: calc(
+      8px + env(safe-area-inset-bottom, 0px) +
+        var(--vg-chat-keyboard-offset)
+    );
+  }
+
+  .vg-chat-panel {
+    right: 0;
+    bottom: 0;
+    width: calc(
+      100vw - 16px - env(safe-area-inset-left, 0px) -
+        env(safe-area-inset-right, 0px)
+    );
+    height: min(
+      680px,
+      calc(
+        var(--vg-chat-viewport-height) - 16px -
+          env(safe-area-inset-top, 0px) -
+          env(safe-area-inset-bottom, 0px)
+      )
+    );
+    min-width: 0;
+    min-height: 0;
+    max-width: none;
+    max-height: calc(
+      var(--vg-chat-viewport-height) - 16px -
+        env(safe-area-inset-top, 0px) -
+        env(safe-area-inset-bottom, 0px)
+    );
+    border-radius: 18px;
+    resize: none;
   }
 
   .vg-chat-fab span {
@@ -609,6 +683,74 @@
   .vg-chat-fab {
     min-width: 56px;
     padding: 0;
+  }
+
+  .vg-chat.is-open .vg-chat-fab {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .vg-chat-header {
+    min-height: 66px;
+    padding: 10px 13px;
+  }
+
+  .vg-chat-content {
+    padding: 14px 12px 16px;
+  }
+
+  .vg-message {
+    font-size: 0.8rem;
+  }
+
+  .vg-chat-form {
+    gap: 7px;
+    padding-inline: 10px;
+  }
+
+  .vg-chat-input-hint,
+  .vg-chat-note {
+    padding-inline: 10px;
+  }
+}
+
+.vg-chat.is-compact-height .vg-chat-panel {
+  border-radius: 14px;
+}
+
+.vg-chat.is-compact-height .vg-chat-header {
+  min-height: 56px;
+  padding-block: 7px;
+}
+
+.vg-chat.is-compact-height .vg-ai-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+}
+
+.vg-chat.is-compact-height .vg-chat-content {
+  padding-block: 9px;
+}
+
+.vg-chat.is-compact-height .vg-human-request-bar,
+.vg-chat.is-compact-height .vg-quick-prompts {
+  padding-block: 5px;
+}
+
+.vg-chat.is-compact-height .vg-chat-form {
+  padding-block: 6px 4px;
+}
+
+.vg-chat.is-compact-height .vg-chat-input-hint,
+.vg-chat.is-compact-height .vg-chat-note {
+  display: none;
+}
+
+@supports (height: 100dvh) {
+  .vg-chat {
+    --vg-chat-viewport-height: 100dvh;
   }
 }
 
