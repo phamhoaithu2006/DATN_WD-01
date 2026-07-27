@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { askTravelAssistant, closeChatSession, fetchChatMessages } from "../../services/customerApi";
+import { readToken } from "../../services/authStorage";
 import Icon from "./Icon";
 import ChatInput from "./chatbot/ChatInput";
 import ChatMessage, {
@@ -23,16 +24,16 @@ const defaultGreeting = {
 
 // Kho câu hỏi gợi ý - giống dạng Shopee, hiện random 3 câu, có nút "Đổi câu hỏi"
 const SUGGESTED_QUESTION_POOL = [
-  "Tour nào đang giảm giá nhiều nhất?",
-  "Có tour nào phù hợp gia đình có trẻ nhỏ không?",
-  "Làm sao để hủy đơn đặt tour đã thanh toán?",
-  "Chính sách hoàn tiền khi hủy tour như thế nào?",
-  "Tour dưới 5 triệu hiện có những gì?",
-  "Thanh toán tour bằng cách nào?",
-  "Tour đi biển 3 ngày 2 đêm giá bao nhiêu?",
-  "Tôi cần mang theo giấy tờ gì khi đi tour?",
-  "Có thể đổi ngày khởi hành sau khi đặt không?",
-  "Tour nào đang có nhiều chỗ trống nhất?",
+  "Tour nào đang giảm giá?",
+  "Tour phù hợp gia đình có trẻ nhỏ?",
+  "Cách hủy tour đã thanh toán?",
+  "Chính sách hoàn tiền ra sao?",
+  "Tour dưới 5 triệu có gì?",
+  "Thanh toán bằng cách nào?",
+  "Tour biển 3 ngày 2 đêm giá bao nhiêu?",
+  "Cần mang giấy tờ gì khi đi tour?",
+  "Đổi ngày khởi hành được không?",
+  "Tour nào còn nhiều chỗ trống?",
 ];
 
 function pickRandomQuestions(count = 3) {
@@ -41,10 +42,11 @@ function pickRandomQuestions(count = 3) {
 }
 
 function getOrCreateSessionId() {
-  let sessionId = localStorage.getItem("vivugo_chat_session_id");
+  const storage = readToken() ? localStorage : sessionStorage;
+  let sessionId = storage.getItem("vivugo_chat_session_id");
   if (!sessionId) {
     sessionId = "session-" + crypto.randomUUID();
-    localStorage.setItem("vivugo_chat_session_id", sessionId);
+    storage.setItem("vivugo_chat_session_id", sessionId);
   }
   return sessionId;
 }
@@ -62,6 +64,7 @@ function loadStoredMessages() {
 // Gọi hàm này ở nơi xử lý đăng nhập/đăng xuất thành công để bắt đầu 1 phiên chat hoàn toàn mới
 export function resetChatSession() {
   localStorage.removeItem("vivugo_chat_session_id");
+  sessionStorage.removeItem("vivugo_chat_session_id");
   sessionStorage.removeItem(CHAT_HISTORY_KEY);
   window.dispatchEvent(new Event("vivugo-chat-reset"));
 }
@@ -463,22 +466,23 @@ function ChatBox() {
 
             {/* Bảng câu hỏi gợi ý kiểu Shopee - chỉ hiện khi đang chat với AI */}
             {mode === "ai" ? (
-              <div className="vg-suggested-card">
-                {suggestedQuestions.map((question) => (
-                  <button
-                    key={question}
-                    type="button"
-                    className="vg-suggested-question"
-                    onClick={(event) => sendMessage(event, question)}
-                  >
-                    {question}
-                  </button>
-                ))}
-                <button type="button" className="vg-suggested-shuffle" onClick={handleShuffleQuestions}>
-                  ⟳ Đổi câu hỏi
-                </button>
-              </div>
-            ) : null}
+  <div className="vg-suggested-card">
+    <p className="vg-suggested-title">Bạn muốn hỏi về:</p>
+    {suggestedQuestions.map((question) => (
+      <button
+        key={question}
+        type="button"
+        className="vg-suggested-question"
+        onClick={(event) => sendMessage(event, question)}
+      >
+        {question}
+      </button>
+    ))}
+    <button type="button" className="vg-suggested-shuffle" onClick={handleShuffleQuestions}>
+      <span className="vg-shuffle-icon">⟳</span> Đổi câu hỏi
+    </button>
+  </div>
+) : null}
           </div>
 
           {mode === "ai" ? (
