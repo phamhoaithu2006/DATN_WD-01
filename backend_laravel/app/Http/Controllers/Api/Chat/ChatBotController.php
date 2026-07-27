@@ -8,6 +8,7 @@ use App\Models\ChatConversation;
 use App\Models\ChatMessage;
 use App\Models\Tour;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -244,14 +245,32 @@ class ChatBotController extends Controller
     private function buildTourQuery(array $filters)
     {
         $query = Tour::query()
-            ->with(['category', 'destination'])
+            ->with([
+                'category:id,name,slug',
+                'destination:id,name,slug',
+                'thumbnail:id,tour_id,image_url,alt_text,is_thumbnail,sort_order',
+                'departures' => fn (Builder|HasMany $query): Builder|HasMany => $this
+                    ->applyActiveDepartureConstraints($query)
+                    ->select([
+                        'id',
+                        'tour_id',
+                        'departure_date',
+                        'return_date',
+                        'price',
+                        'base_price',
+                        'discount_price',
+                        'total_slots',
+                        'booked_slots',
+                        'status',
+                    ])
+                    ->orderBy('departure_date')
+                    ->limit(1),
+            ])
             ->where('tours.status', 'published')
-            ->whereHas('departures', function (Builder $query): void {
-                $query
-                    ->where('status', 'open')
-                    ->whereDate('departure_date', '>=', today())
-                    ->whereRaw('(COALESCE(total_slots, 0) - COALESCE(booked_slots, 0)) > 0');
-            })
+            ->whereHas(
+                'departures',
+                fn (Builder $query): Builder => $this->applyActiveDepartureConstraints($query)
+            )
             ->distinct();
 
         if (! empty($filters['discount'])) {
@@ -277,6 +296,14 @@ class ChatBotController extends Controller
         }
 
         return $query;
+    }
+
+    private function applyActiveDepartureConstraints(Builder|HasMany $query): Builder|HasMany
+    {
+        return $query
+            ->where('status', 'open')
+            ->whereDate('departure_date', '>=', today())
+            ->whereRaw('(COALESCE(total_slots, 0) - COALESCE(booked_slots, 0)) > 0');
     }
 
     private function formatToursForPrompt($tours): string

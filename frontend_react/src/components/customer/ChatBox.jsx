@@ -10,6 +10,7 @@ import ChatInput from "./chatbot/ChatInput";
 import ChatMessage, {
   ChatTypingIndicator,
 } from "./chatbot/ChatMessage";
+import { ChatTourRecommendations } from "./chatbot/ChatTourRecommendations";
 import QuickTourPrompts from "./chatbot/QuickTourPrompts";
 import {
   getDefaultChatMessages,
@@ -359,7 +360,12 @@ function ChatBox() {
               </div>
             ) : null}
 
-            {loading ? <ChatTypingIndicator /> : null}
+            {loading ? (
+              <>
+                <ChatTypingIndicator />
+                <ChatTourRecommendations loading />
+              </>
+            ) : null}
           </div>
 
           {mode === "ai" ? (

@@ -127,6 +127,13 @@ export async function fetchVnpayReturnStatus(params) {
   return response.data?.data || response.data
 }
 
+function toOptionalNumber(value) {
+  if (value === null || value === undefined || value === '') return null
+
+  const number = Number(value)
+  return Number.isFinite(number) ? number : null
+}
+
 export function normalizeRecommendedTours(value) {
   if (!Array.isArray(value)) return []
 
@@ -144,7 +151,31 @@ export function normalizeRecommendedTours(value) {
     seenIds.add(id)
     seenSlugs.add(slug)
 
-    return [{ id, slug, title }]
+    const durationDays = toOptionalNumber(tour.duration_days)
+    const durationNights = toOptionalNumber(tour.duration_nights)
+
+    return [{
+      id,
+      slug,
+      title,
+      thumbnailUrl:
+        typeof tour.thumbnail_url === 'string' ? tour.thumbnail_url.trim() : '',
+      thumbnailAlt:
+        typeof tour.thumbnail_alt === 'string' ? tour.thumbnail_alt.trim() : '',
+      destination:
+        typeof tour.destination === 'string' ? tour.destination.trim() : '',
+      durationDays,
+      durationNights,
+      duration:
+        typeof tour.duration === 'string' ? tour.duration.trim() : '',
+      basePrice: toOptionalNumber(tour.base_price),
+      discountPrice: toOptionalNumber(tour.discount_price),
+      price: toOptionalNumber(tour.price),
+      departureDate:
+        typeof tour.departure_date === 'string' ? tour.departure_date : null,
+      averageRating: toOptionalNumber(tour.average_rating),
+      reviewCount: toOptionalNumber(tour.review_count),
+    }]
   }).slice(0, 10)
 }
 

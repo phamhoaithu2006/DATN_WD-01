@@ -44,14 +44,28 @@ test('travel assistant returns real tour identifiers in a normalized recommendat
         'max_slots' => 20,
         'available_slots' => 20,
         'status' => 'published',
+        'average_rating' => 4.7,
+        'review_count' => 12,
     ]);
 
     DB::table('tour_departures')->insert([
         'tour_id' => $tour->id,
         'departure_date' => now()->addWeek()->toDateString(),
+        'base_price' => 4500000,
+        'discount_price' => 4200000,
         'total_slots' => 20,
         'booked_slots' => 0,
         'status' => 'open',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    DB::table('tour_images')->insert([
+        'tour_id' => $tour->id,
+        'image_url' => '/storage/tours/phu-quoc.jpg',
+        'alt_text' => 'Biển Phú Quốc',
+        'is_thumbnail' => true,
+        'sort_order' => 0,
         'created_at' => now(),
         'updated_at' => now(),
     ]);
@@ -64,7 +78,19 @@ test('travel assistant returns real tour identifiers in a normalized recommendat
         ->assertJsonCount(1, 'recommended_tours')
         ->assertJsonPath('recommended_tours.0.id', $tour->id)
         ->assertJsonPath('recommended_tours.0.slug', $tour->slug)
-        ->assertJsonPath('recommended_tours.0.title', $tour->title);
+        ->assertJsonPath('recommended_tours.0.title', $tour->title)
+        ->assertJsonPath('recommended_tours.0.thumbnail_url', '/storage/tours/phu-quoc.jpg')
+        ->assertJsonPath('recommended_tours.0.destination', $destination->name)
+        ->assertJsonPath('recommended_tours.0.duration', '3 ngày 2 đêm')
+        ->assertJsonPath('recommended_tours.0.base_price', 4500000)
+        ->assertJsonPath('recommended_tours.0.discount_price', 4200000)
+        ->assertJsonPath('recommended_tours.0.price', 4200000)
+        ->assertJsonPath(
+            'recommended_tours.0.departure_date',
+            now()->addWeek()->toDateString(),
+        )
+        ->assertJsonPath('recommended_tours.0.average_rating', 4.7)
+        ->assertJsonPath('recommended_tours.0.review_count', 12);
 });
 
 test('travel assistant defaults to six unique active tours and caps requests at ten', function () {
