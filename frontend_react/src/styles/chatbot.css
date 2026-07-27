@@ -325,6 +325,63 @@
   margin-bottom: 0;
 }
 
+.vg-chat-tour-links {
+  display: grid;
+  gap: 7px;
+  margin-top: 11px;
+  padding-top: 10px;
+  border-top: 1px solid #e2ebf2;
+  white-space: normal;
+}
+
+.vg-chat-tour-link-item {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 9px;
+  border: 1px solid #dceaf5;
+  border-radius: 11px;
+  background: #f6faff;
+}
+
+.vg-chat-tour-link-item > span {
+  min-width: 0;
+  flex: 1;
+  color: #33485a;
+  font-size: 0.76rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.vg-chat-tour-link-item a {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 7px;
+  border-radius: 8px;
+  background: #e7f3ff;
+  color: #0871d3;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1;
+  text-decoration: none;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
+}
+
+.vg-chat-tour-link-item a:hover {
+  background: #d5eaff;
+  color: #075eae;
+}
+
+.vg-chat-tour-link-item a:focus-visible {
+  outline: 2px solid rgba(17, 142, 243, 0.35);
+  outline-offset: 2px;
+}
+
 .vg-message-image {
   max-width: 100%;
   max-height: 200px;

@@ -348,6 +348,7 @@ function ChatBox() {
                 key={message.id || `${message.from}-${index}`}
                 message={message}
                 staffAvatarUrl={staffInfo.avatar}
+                onTourNavigate={() => setOpen(false)}
               />
             ))}
 

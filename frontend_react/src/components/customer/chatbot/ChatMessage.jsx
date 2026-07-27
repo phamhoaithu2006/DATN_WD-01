@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import Icon from "../Icon";
 import ChatReplyContent from "./ChatReplyContent";
 
@@ -30,8 +31,9 @@ function MessageAvatar({ isStaff, staffAvatarUrl }) {
   );
 }
 
-function ChatMessage({ message, staffAvatarUrl }) {
+function ChatMessage({ message, staffAvatarUrl, onTourNavigate }) {
   const isUser = message.from === "user";
+  const recommendedTours = isUser ? [] : message.recommendedTours || [];
   const senderLabel = isUser
     ? "Tin nhắn của bạn"
     : message.isStaff
@@ -65,6 +67,26 @@ function ChatMessage({ message, staffAvatarUrl }) {
         ) : (
           <ChatReplyContent text={message.text} />
         )}
+
+        {recommendedTours.length > 0 ? (
+          <div
+            className="vg-chat-tour-links"
+            aria-label="Tour được đề xuất"
+          >
+            {recommendedTours.map((tour) => (
+              <div className="vg-chat-tour-link-item" key={tour.id}>
+                <span>{tour.title}</span>
+                <Link
+                  to={`/tours/${encodeURIComponent(tour.slug)}`}
+                  onClick={onTourNavigate}
+                >
+                  Xem chi tiết
+                  <Icon name="arrowRight" size={14} />
+                </Link>
+              </div>
+            ))}
+          </div>
+        ) : null}
       </div>
     </article>
   );
