@@ -215,8 +215,13 @@ function ChatBox() {
 
   return (
     <div className="vg-chat">
-      {open ? (
-        <section className="vg-chat-panel" aria-label="Trợ lý du lịch ViVuGo">
+      <section
+        id="vivugo-chat-panel"
+        className={`vg-chat-panel${open ? " is-open" : ""}`}
+        aria-label="Trợ lý du lịch ViVuGo"
+        aria-hidden={!open}
+        inert={!open}
+      >
           <header className="vg-chat-header">
             <div className="vg-ai-avatar">
               <Icon name="sparkle" />
@@ -295,10 +300,15 @@ function ChatBox() {
           <small className="vg-chat-note">
             ViVuGo AI có thể mắc lỗi. Hãy kiểm tra thông tin quan trọng.
           </small>
-        </section>
-      ) : null}
+      </section>
 
-      <button className="vg-chat-fab" type="button" onClick={() => setOpen((value) => !value)}>
+      <button
+        className="vg-chat-fab"
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-controls="vivugo-chat-panel"
+        aria-expanded={open}
+      >
         {open ? <Icon name="close" /> : <Icon name="sparkle" size={25} />}
       </button>
     </div>
