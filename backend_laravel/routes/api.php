@@ -54,6 +54,7 @@ use App\Http\Controllers\Api\PublicCatalogController;
 use App\Http\Controllers\Api\PublicSettingController;
 use App\Http\Controllers\Api\PublicWidgetController;
 use App\Http\Controllers\Api\Support\SupportChatController;
+use App\Http\Controllers\Api\Support\SupportDashboardController;
 use App\Http\Controllers\Api\Support\SupportNotificationController;
 use App\Http\Controllers\Api\Support\SupportPresenceController;
 use App\Http\Controllers\Api\Support\SupportProfileController;
@@ -104,6 +105,8 @@ Route::middleware([
     'auth:sanctum',
     'role:support staff',
 ])->group(function () {
+
+    Route::get('/support/dashboard', [SupportDashboardController::class, 'overview']);
 
     // ================= HỒ SƠ =================
 
@@ -225,6 +228,11 @@ Route::middleware([
     Route::post(
         '/support/requests/{supportRequest}/transfer',
         [SupportRequestController::class, 'transfer']
+    )->whereNumber('supportRequest');
+
+    Route::post(
+        '/support/requests/{supportRequest}/resolve',
+        [SupportRequestController::class, 'resolve']
     )->whereNumber('supportRequest');
 
     // ================= TRAO ĐỔI =================

@@ -431,9 +431,9 @@ function AuthPage() {
     }
   }
 
-  async function handleLogout() {
+  function handleLogout() {
     try {
-      await logoutApi();
+      void logoutApi().catch(() => {});
     } catch {
       // Token có thể đã hết hạn.
     }

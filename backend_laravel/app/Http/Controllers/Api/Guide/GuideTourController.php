@@ -195,6 +195,79 @@ class GuideTourController extends Controller
         return $data;
     }
 
+    private function historyCustomers(TourDeparture $departure): array
+    {
+        $bookings = DB::table('bookings as booking')
+            ->leftJoin('booking_contacts as contact', 'contact.booking_id', '=', 'booking.id')
+            ->leftJoin('booking_participants as participant', 'participant.booking_id', '=', 'booking.id')
+            ->leftJoin('attendances as attendance', function ($join) {
+                $join->on('attendance.booking_participant_id', '=', 'participant.id')
+                    ->whereRaw('attendance.id = (SELECT MAX(a2.id) FROM attendances a2 WHERE a2.booking_participant_id = participant.id)');
+            })
+            ->where('booking.tour_departure_id', $departure->id)
+            ->where('booking.status', '!=', 'cancelled')
+            ->where('booking.payment_status', 'paid')
+            ->orderBy('booking.id')
+            ->orderBy('participant.id')
+            ->get([
+                'booking.id as booking_id',
+                'booking.booking_code',
+                'booking.number_of_people',
+                'booking.note as customer_note',
+                'contact.contact_name',
+                'contact.contact_phone',
+                'contact.contact_email',
+                'contact.special_request',
+                'participant.id as participant_id',
+                'participant.full_name',
+                'participant.phone',
+                'attendance.status as attendance_status',
+                'attendance.checked_in_at',
+                'attendance.checked_out_at',
+                'attendance.note as attendance_note',
+            ]);
+
+        return $bookings
+            ->groupBy('booking_id')
+            ->flatMap(function ($rows) {
+                $participants = $rows->filter(fn ($row) => $row->participant_id);
+
+                if ($participants->isNotEmpty()) {
+                    return $participants->map(fn ($row) => [
+                        'id' => 'participant-' . $row->participant_id,
+                        'full_name' => $row->full_name,
+                        'phone' => $row->phone ?: $row->contact_phone,
+                        'email' => $row->contact_email,
+                        'customer_note' => $row->customer_note,
+                        'special_request' => $row->special_request,
+                        'attendance_status' => $row->attendance_status ?: 'not_checked_in',
+                        'attendance' => [
+                            'checked_in_at' => $row->checked_in_at,
+                            'checked_out_at' => $row->checked_out_at,
+                            'note' => $row->attendance_note,
+                        ],
+                    ]);
+                }
+
+                $booking = $rows->first();
+
+                return [[
+                    'id' => 'booking-' . $booking->booking_id,
+                    'full_name' => $booking->contact_name ?: 'Khách đặt tour',
+                    'phone' => $booking->contact_phone,
+                    'email' => $booking->contact_email,
+                    'customer_note' => $booking->customer_note,
+                    'special_request' => $booking->special_request,
+                    'attendance_status' => 'not_checked_in',
+                    'attendance' => null,
+                    'guest_count' => (int) $booking->number_of_people,
+                    'is_booking_contact' => true,
+                ]];
+            })
+            ->values()
+            ->all();
+    }
+
     private function actionPolicy(TourDeparture $departure, string $guideStatus): array
     {
         $basePath = "/api/guide/tours/{$departure->id}";
@@ -524,9 +597,12 @@ class GuideTourController extends Controller
             })
             ->firstOrFail();
 
+        $data = $this->decorateDeparture($departure);
+        $data['history_customers'] = $this->historyCustomers($departure);
+
         return response()->json([
             'message' => 'Chi tiết tour được phân công',
-            'data' => $this->decorateDeparture($departure),
+            'data' => $data,
         ]);
     }
 

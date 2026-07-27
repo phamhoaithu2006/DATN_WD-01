@@ -10848,3 +10848,204 @@
 .guide-dashboard-compact .guide-tour-row-meta.compact span { min-height: 58px; }
 @media (max-width: 1060px) { .guide-compact-grid { grid-template-columns: 1fr; } }
 @media (max-width: 760px) { .guide-compact-welcome { align-items: flex-start; flex-direction: column; padding: 22px; } .guide-compact-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .guide-compact-shortcuts { grid-template-columns: 1fr; } }
+
+/* Tour history customer and attendance details */
+.guide-tour-modal-section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.guide-tour-modal-section-head h4 {
+  margin-bottom: 4px;
+}
+
+.guide-tour-modal-section-head p {
+  color: #64748b;
+  font-size: 0.84rem;
+}
+
+.guide-tour-modal-count {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1454f0;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.guide-tour-history-customers {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid #dbe7f5;
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.guide-tour-history-customer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 16px;
+  padding: 13px 14px;
+  border-bottom: 1px solid #edf2f7;
+}
+
+.guide-tour-history-detail-btn {
+  align-self: center;
+  min-height: 32px;
+  padding: 0 11px;
+  border: 1px solid #bfdbfe;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #1454f0;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.guide-tour-history-detail-btn:hover {
+  background: #eff6ff;
+}
+
+.guide-tour-history-customer-detail {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 10px;
+  background: #f8fbff;
+}
+
+.guide-tour-history-customer:last-child {
+  border-bottom: 0;
+}
+
+.guide-tour-history-customer-main {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.guide-tour-history-customer-main strong {
+  color: #0f172a;
+  font-size: 0.94rem;
+}
+
+.guide-tour-history-customer-main span,
+.guide-tour-history-attendance small {
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.guide-tour-history-attendance {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+}
+
+.guide-tour-history-attendance-status {
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.guide-tour-history-attendance-status.is-checked_in,
+.guide-tour-history-attendance-status.is-checked_out {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.guide-tour-history-attendance-status.is-absent {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.guide-tour-history-customer-note {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 9px;
+  background: #fffbeb;
+  color: #92400e !important;
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.guide-tour-history-customer-note.is-empty {
+  background: #f1f5f9;
+  color: #64748b !important;
+}
+
+.guide-tour-history-sessions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.guide-tour-history-sessions span {
+  padding: 6px 9px;
+  border: 1px solid #dbe7f5;
+  border-radius: 999px;
+  background: #f8fbff;
+  color: #475569;
+  font-size: 0.76rem;
+  font-weight: 750;
+}
+
+@media (max-width: 640px) {
+  .guide-tour-history-customer { grid-template-columns: 1fr; }
+  .guide-tour-history-attendance { justify-items: start; }
+  .guide-tour-history-customer-detail { grid-template-columns: 1fr; }
+  .guide-tour-modal-section-head { align-items: flex-start; flex-direction: column; }
+}
+
+/* Guide notification center */
+.guide-notifications-header {
+  background: linear-gradient(135deg, #eaf4ff 0%, #dff1ff 100%);
+  border-color: #b9d7fb;
+}
+
+.guide-notifications-header > div:first-child > span {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 12px;
+  border: 1px solid #b9d7fb;
+  border-radius: 999px;
+  background: #ffffff;
+}
+
+.guide-notifications-list-toolbar {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  margin: -16px -16px 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid #e8eef7;
+  border-radius: 18px 18px 0 0;
+  background: #f8fbff;
+}
+
+.guide-notifications-list-toolbar .guide-notifications-filter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.guide-notifications-list-toolbar .guide-notifications-filter select {
+  width: 150px;
+  height: 36px;
+}
+
+.guide-notifications-list-panel.is-empty {
+  justify-content: flex-start;
+}

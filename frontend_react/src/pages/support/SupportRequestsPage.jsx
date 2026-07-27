@@ -10,6 +10,7 @@ import {
   getSupportRequests,
   getSupportStaffOptions,
   releaseSupportRequest,
+  resolveSupportRequest,
   sendSupportRequestMessage,
   transferSupportRequest,
 } from '../../services/supportRequestApi'
@@ -208,7 +209,7 @@ export default function SupportRequestsPage() {
   const [historyOpen, setHistoryOpen] = useState(false)
 
   const [search, setSearch] = useState('')
-  const [status, setStatus] = useState('pending')
+  const [status, setStatus] = useState('')
   const [category, setCategory] = useState('')
   const [assignedTo, setAssignedTo] = useState('')
   const [ownershipScope, setOwnershipScope] = useState('all')
@@ -605,10 +606,6 @@ export default function SupportRequestsPage() {
   ])
 
   useEffect(() => {
-    const intervalId = window.setInterval(() => {
-      void loadRequests()
-    }, 5000)
-
     function handleSupportNotificationChanged() {
       void loadRequests()
     }
@@ -619,8 +616,6 @@ export default function SupportRequestsPage() {
     )
 
     return () => {
-      window.clearInterval(intervalId)
-
       window.removeEventListener(
         'support-notification-changed',
         handleSupportNotificationChanged,
@@ -786,6 +781,24 @@ export default function SupportRequestsPage() {
       )
 
       await loadRequests()
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  async function handleResolve() {
+    if (!selected?.id || actionLoading) return
+
+    setActionLoading(true)
+    setError('')
+    setNotice('')
+
+    try {
+      const response = await resolveSupportRequest(selected.id)
+      setNotice(response?.message || 'Đã hoàn tất hỗ trợ yêu cầu.')
+      await refreshEverything(selected.id)
+    } catch (requestError) {
+      setError(requestError?.response?.data?.message || 'Không thể hoàn tất yêu cầu hỗ trợ.')
     } finally {
       setActionLoading(false)
     }
@@ -1068,8 +1081,7 @@ export default function SupportRequestsPage() {
     nextStatus,
   ) {
     /*
-     * Luôn giữ một trạng thái đang chọn.
-     * Khi vào trang mặc định là "Chưa hỗ trợ".
+     * Cho phép chọn "Tất cả trạng thái" khi vào trang hoặc khi lọc lại.
      */
     setStatus(nextStatus)
   }
@@ -2217,6 +2229,16 @@ export default function SupportRequestsPage() {
                         >
                           Trả về kho chưa hỗ trợ
                         </button>
+
+                        <button
+                          type="button"
+                          disabled={actionLoading}
+                          onClick={() => void handleResolve()}
+                          className="w-full rounded-2xl bg-emerald-600 py-3 text-sm font-black text-white disabled:opacity-50"
+                        >
+                          {actionLoading ? 'Đang xử lý...' : 'Hoàn tất hỗ trợ'}
+                        </button>
+
                       </>
                     )
                   ) : null}
@@ -2237,7 +2259,7 @@ export default function SupportRequestsPage() {
                   {selected.status ===
                   'resolved' ? (
                     <div className="rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-700">
-                      Yêu cầu đã được Admin xác nhận xử lý xong.
+                      Yêu cầu đã được hỗ trợ xong.
                     </div>
                   ) : null}
                 </section>

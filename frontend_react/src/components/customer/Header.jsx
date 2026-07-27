@@ -297,6 +297,7 @@ function Header({ user, onLogout, pendingCount = 0 }) {
   const [menuData, setMenuData] = useState(megaMenuData);
 
   const headerRef = useRef(null);
+  const accountMenuRef = useRef(null);
   const closeTimeoutRef = useRef(null);
 
   // Load live category, destination, and tour data for the Mega Menu
@@ -460,6 +461,10 @@ function Header({ user, onLogout, pendingCount = 0 }) {
         setActiveMenu(null);
         setMenuOpenedByClick(false);
       }
+
+      if (accountMenuRef.current && !accountMenuRef.current.contains(e.target)) {
+        setAccountMenuOpen(false);
+      }
     };
     document.addEventListener("mousedown", handleOutsideClick);
     return () => {
@@ -607,7 +612,7 @@ function Header({ user, onLogout, pendingCount = 0 }) {
         <div className="vg-nav-actions z-30">
           {user ? <CustomerNotificationBell /> : null}
           {user ? (
-            <div className={`vg-account-menu${accountMenuOpen ? " is-open" : ""}`}>
+            <div ref={accountMenuRef} className={`vg-account-menu${accountMenuOpen ? " is-open" : ""}`}>
               <button
                 className="vg-account-trigger"
                 type="button"
@@ -645,7 +650,7 @@ function Header({ user, onLogout, pendingCount = 0 }) {
                     <Icon name="settings" /> Trang quản trị
                   </Link>
                 ) : null}
-                <button type="button" onClick={onLogout}>
+                <button type="button" className="vg-customer-logout" onClick={onLogout}>
                   Đăng xuất
                 </button>
               </div>

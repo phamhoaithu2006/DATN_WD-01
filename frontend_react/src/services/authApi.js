@@ -28,9 +28,10 @@ export async function register(payload) {
   return response.data
 }
 
-export async function logout() {
-  await apiClient.post('/auth/logout')
+export function logout() {
+  const request = apiClient.post('/auth/logout')
   clearSession()
+  return request
 }
 
 export async function forgotPassword(identifier) {

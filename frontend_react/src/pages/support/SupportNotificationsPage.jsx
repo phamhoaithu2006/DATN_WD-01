@@ -367,9 +367,17 @@ function SupportNotificationsPage() {
                   )}
                 </div>
 
-                <p className="guide-notification-reader-message">
-                  {detailLoading ? 'Đang mở nội dung...' : selectedNotification.message}
-                </p>
+                <section className="support-reader-content">
+                  <span className="support-reader-content-label">Nội dung thông báo</span>
+                  <p className="guide-notification-reader-message">
+                    {detailLoading ? 'Đang mở nội dung...' : selectedNotification.message}
+                  </p>
+                </section>
+
+                <footer className="support-reader-footer">
+                  <span>Trung tâm hỗ trợ</span>
+                  <span>{selectedNotification.status === 'unread' ? 'Cần phản hồi' : 'Đã xem'}</span>
+                </footer>
               </>
             ) : (
               <div className="guide-notification-empty large">Chọn một thông báo để xem nội dung.</div>

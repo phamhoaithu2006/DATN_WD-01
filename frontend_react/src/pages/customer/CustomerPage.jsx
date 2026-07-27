@@ -386,9 +386,9 @@ function CustomerPage() {
       // Giữ trạng thái local nếu API chưa phản hồi được.
     }
   }
-  async function logout() {
+  function logout() {
   try {
-    await logoutApi();
+    void logoutApi().catch(() => {});
   } catch {
     // Token có thể đã hết hạn.
   }

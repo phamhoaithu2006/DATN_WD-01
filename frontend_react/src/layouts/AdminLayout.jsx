@@ -12,9 +12,9 @@ function AdminLayout({ children }) {
   const [collapsed, setCollapsed] = useState(false)
   const admin = readSession()
 
-  async function handleLogout() {
+  function handleLogout() {
     try {
-      await logoutApi()
+      void logoutApi().catch(() => {})
     } catch {
       // Token có thể đã hết hạn; vẫn cần xóa phiên đăng nhập ở trình duyệt.
     }
