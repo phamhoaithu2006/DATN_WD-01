@@ -90,15 +90,15 @@ export function validateResetPassword(values) {
   }
 
   if (!values.password) {
-    errors.password = "Vui lòng nhập mật khẩu."
+    errors.password = "Vui lòng nhập mật khẩu mới."
   } else if (values.password.length < 8) {
     errors.password = "Mật khẩu cần ít nhất 8 ký tự."
   }
 
   if (!values.confirmPassword) {
-    errors.confirmPassword = "Vui lòng xác nhận mật khẩu."
+    errors.confirmPassword = "Vui lòng xác nhận mật khẩu mới."
   } else if (values.confirmPassword !== values.password) {
-    errors.confirmPassword = "Mật khẩu xác nhận không khớp."
+    errors.confirmPassword = "Mật khẩu mới xác nhận không khớp."
   }
 
   return errors

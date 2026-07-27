@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { readSession } from "../../services/authStorage";
 import {
   getGuideTourCompleted,
@@ -105,7 +105,7 @@ function getReplacementEligibility(item) {
 const tabs = [
   { key: "all", label: "Tất cả" },
   { key: "upcoming", label: "Sắp diễn ra" },
-  { key: "ongoing", label: "Đang dẫn Tour" },
+  { key: "ongoing", label: "Đang dẫn tour" },
   { key: "completed", label: "Hoàn thành" },
 ];
 const fetchers = {
@@ -347,6 +347,7 @@ function ReplacementRequestModal({
   onClose,
   onReasonChange,
   onFileChange,
+  onFileRemove,
   onSubmit,
 }) {
   if (!item) return null;
@@ -360,26 +361,41 @@ function ReplacementRequestModal({
         onClick={(event) => event.stopPropagation()}
       >
         <button type="button" className="guide-tour-detail-close" onClick={onClose} aria-label="Đóng">×</button>
-        <h2>Yêu cầu đổi hướng dẫn viên</h2>
+        <h2 className="guide-replacement-title">Yêu cầu đổi HDV</h2>
         <p className="guide-replacement-tour-name">{getTourTitle(item)}</p>
-        <p>Yêu cầu này được gửi riêng đến quản trị viên để xem xét phân công lại tour.</p>
+        <p>Yêu cầu này được gửi riêng đến quản trị viên để xem xét phân công lại HDV.</p>
         <label>
           <span>Lý do đổi HDV <b className="guide-required-mark" aria-hidden="true">*</b></span>
           <textarea
             rows={5}
             value={replacement.reason}
             onChange={(event) => onReasonChange(event.target.value)}
-            placeholder="Nêu rõ lý do cần đổi hướng dẫn viên phụ trách tour..."
+            placeholder="Nêu rõ lý do cần đổi hướng dẫn viên phụ trách tour này..."
             disabled={replacement.submitting}
-            maxLength={2000}
+            maxLength={100}
             required
           />
-          <small>{replacement.reason.trim().length}/2000 ký tự</small>
+          <small>{replacement.reason.length}/100 ký tự</small>
         </label>
-        <label>
-          <span>File/ảnh minh chứng (không bắt buộc)</span>
-          <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(event) => onFileChange(event.target.files?.[0] || null)} disabled={replacement.submitting} />
-        </label>
+        <div className="guide-replacement-file-field">
+          <span>File/Ảnh minh chứng (nếu có)</span>
+          <input
+            key={replacement.file ? `${replacement.file.name}-${replacement.file.lastModified}` : "empty-evidence"}
+            className="guide-replacement-file-input"
+            id="replacement-evidence"
+            type="file"
+            onChange={(event) => onFileChange(event.target.files?.[0] || null)}
+            disabled={replacement.submitting}
+          />
+          <label className="guide-replacement-file-trigger" htmlFor="replacement-evidence">
+            Chọn file/ảnh
+          </label>
+        </div>
+        <ReplacementEvidencePreview
+          file={replacement.file}
+          disabled={replacement.submitting}
+          onRemove={onFileRemove}
+        />
         {replacement.error ? <p className="guide-replacement-error">{replacement.error}</p> : null}
         <div className="guide-replacement-actions">
           <button type="button" onClick={onClose} disabled={replacement.submitting}>Hủy</button>
@@ -392,6 +408,40 @@ function ReplacementRequestModal({
           </button>
         </div>
       </form>
+    </div>
+  );
+}
+
+function ReplacementEvidencePreview({ file, disabled, onRemove }) {
+  const isImage = file?.type?.startsWith("image/");
+  const previewUrl = useMemo(
+    () => (file && isImage ? URL.createObjectURL(file) : ""),
+    [file, isImage],
+  );
+
+  useEffect(() => {
+    if (!previewUrl) return undefined;
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
+
+  if (!file) return null;
+
+  return (
+    <div className="guide-replacement-evidence-preview">
+      {isImage && previewUrl ? (
+        <img src={previewUrl} alt={`Ảnh minh chứng: ${file.name}`} />
+      ) : (
+        <span className="guide-replacement-evidence-file">
+          {file.name.split(".").pop()?.toUpperCase() || "Tệp"}
+        </span>
+      )}
+      <div>
+        <strong>{file.name}</strong>
+        <small>{Math.ceil(file.size / 1024)} KB</small>
+      </div>
+      <button type="button" onClick={onRemove} disabled={disabled} aria-label="Xóa ảnh đã chọn">
+        Xóa ảnh
+      </button>
     </div>
   );
 }
@@ -535,12 +585,7 @@ function GuideToursPage() {
   function handleReplacementFileChange(file) {
     if (!file) {
       setReplacementFile(null);
-      return;
-    }
-
-    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
-    if (!allowedTypes.includes(file.type)) {
-      setReplacementError("Chỉ chấp nhận ảnh JPG, PNG, WEBP hoặc PDF.");
+      setReplacementError("");
       return;
     }
 
@@ -741,7 +786,7 @@ function GuideToursPage() {
       />
       <ReplacementRequestModal
         item={replacementTour}
-        replacement={{ error: replacementError, reason: replacementReason, submitting: replacementSubmitting }}
+        replacement={{ error: replacementError, file: replacementFile, reason: replacementReason, submitting: replacementSubmitting }}
         onClose={() => {
           if (!replacementSubmitting) setReplacementTour(null);
         }}
@@ -750,6 +795,7 @@ function GuideToursPage() {
           setReplacementError("");
         }}
         onFileChange={handleReplacementFileChange}
+        onFileRemove={() => handleReplacementFileChange(null)}
         onSubmit={submitReplacementRequest}
       />
     </div>

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import ChatBox, { clearChatHistory } from "../../components/customer/ChatBox";
+import ChatBox, { resetChatSession } from "../../components/customer/ChatBox";
 import CustomerPresenceHeartbeat from "../../components/customer/CustomerPresenceHeartbeat";
 import Footer from "../../components/customer/Footer";
 import Header from "../../components/customer/Header";

@@ -93,7 +93,27 @@ function ForgotPasswordPage() {
   };
 
   const handleChange = (field, value) => {
-    setForm((current) => ({ ...current, [field]: value }));
+    const nextForm = { ...form, [field]: value };
+    setForm(nextForm);
+
+    if (step === 1 && field === "identifier") {
+      const nextFieldError = validateForgotRequest(nextForm).identifier;
+
+      setNotice("");
+      setNoticeVariant("");
+
+      setErrors((current) => {
+        const next = { ...current };
+        if (value.trim() && nextFieldError) {
+          next.identifier = nextFieldError;
+        } else {
+          delete next.identifier;
+        }
+        return next;
+      });
+      return;
+    }
+
     setErrors((current) => {
       if (!current[field]) return current;
       const next = { ...current };
@@ -118,11 +138,8 @@ function ForgotPasswordPage() {
   };
 
   const requestOtp = async () => {
-    const data = await forgotPassword(form.identifier.trim());
-    return (
-      data?.message ||
-      "Nếu thông tin khớp với tài khoản, mã xác nhận đã được gửi tới email của bạn."
-    );
+    await forgotPassword(form.identifier.trim());
+    return "Nếu thông tin khớp với tài khoản, mã xác nhận sẽ được gửi tới email/SĐT của bạn.";
   };
 
   const handleSendCode = async (event) => {
@@ -162,7 +179,9 @@ function ForgotPasswordPage() {
     try {
       await requestOtp();
       setCooldown(60);
-      setSuccessNotice("Đã gửi lại mã xác nhận.");
+      setSuccessNotice(
+        "Đã gửi lại mã xác nhận. Nếu thông tin khớp với tài khoản, mã xác nhận sẽ được gửi tới email/SĐT của bạn.",
+      );
     } catch (error) {
       if (error.response?.status === 429) {
         setAmberNotice(THROTTLE_MESSAGE);
@@ -247,13 +266,19 @@ function ForgotPasswordPage() {
 
   return (
     <AuthLayout>
-      <div className="form-card">
-        <div className="status-pill">Quên mật khẩu</div>
-        <h2>Khôi phục mật khẩu</h2>
-        <p className="helper-text">
+        <div className="form-card">
+        {step === 1 ? (
+          <div className="forgot-password-heading">
+            <Link className="status-pill auth-login-return-pill" to="/auth/login">
+              ← Quay lại Đăng nhập
+            </Link>
+            <h2 className="status-pill forgot-password-title">Khôi phục mật khẩu</h2>
+          </div>
+        ) : null}
+        <p className="helper-text forgot-password-description">
           {step === 1
-            ? "Nhập email hoặc số điện thoại đã đăng ký, chúng tôi sẽ gửi mã xác nhận tới email của bạn."
-            : "Mã xác nhận gồm 6 chữ số, có hiệu lực trong 10 phút. Vui lòng kiểm tra hộp thư (kể cả mục Spam)."}
+            ? "Nhập email hoặc số điện thoại đã đăng ký, chúng tôi sẽ gửi mã xác nhận tới bạn."
+            : "Mã xác nhận gồm 6 chữ số, có hiệu lực trong vòng 1 phút. Vui lòng kiểm tra hộp thư email/SĐT."}
         </p>
 
         {notice ? (
@@ -281,9 +306,6 @@ function ForgotPasswordPage() {
               {isSubmitting ? "Đang gửi mã..." : "Gửi mã xác nhận"}
             </button>
 
-            <p className="helper-text">
-              Đã nhớ mật khẩu? <Link to="/auth/login">Quay lại đăng nhập</Link>
-            </p>
           </form>
         ) : (
           <form className="auth-form" onSubmit={handleResetSubmit} noValidate>
@@ -332,7 +354,7 @@ function ForgotPasswordPage() {
             </label>
 
             <label>
-              Xác nhận mật khẩu
+              Xác nhận mật khẩu mới
               <div className="password-field">
                 <input
                   type={showConfirm ? "text" : "password"}
@@ -381,9 +403,6 @@ function ForgotPasswordPage() {
               {isSubmitting ? "Đang xử lý..." : "Đặt lại mật khẩu"}
             </button>
 
-            <p className="helper-text">
-              Đã nhớ mật khẩu? <Link to="/auth/login">Quay lại đăng nhập</Link>
-            </p>
           </form>
         )}
       </div>

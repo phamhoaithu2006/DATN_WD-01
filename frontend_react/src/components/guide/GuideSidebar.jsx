@@ -38,7 +38,7 @@ const guideMenuItems = [
     ),
   },
   {
-    label: 'Lịch sử Tour',
+    label: 'Lịch sử tour',
     path: '/guide/history',
     icon: (
       <>

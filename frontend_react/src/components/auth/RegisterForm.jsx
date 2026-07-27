@@ -1,5 +1,7 @@
 ﻿import { useMemo, useState } from "react";
 
+import { Link } from "react-router-dom";
+
 function EyeIcon({ className = "" }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className={className}>
@@ -177,6 +179,9 @@ function RegisterForm({ values, errors, isSubmitting, onChange, onBlur, onSubmit
       <button className="primary-button" type="submit" disabled={isSubmitting}>
         {isSubmitting ? "Đang tạo tài khoản..." : "Tạo tài khoản"}
       </button>
+      <p className="helper-text">
+        Đã có tài khoản? <Link to="/auth/login">Đăng nhập ngay</Link>
+      </p>
     </form>
   );
 }

@@ -472,18 +472,17 @@ function GuideAttendancePage() {
                   </svg>
                   {formatNumber(stats.total)} khách
                 </p>
-                <button type="button" onClick={() => setDetailOpen(true)}>Xem chi tiết &gt;</button>
               </div>
             </article>
           </section>
           <section className="guide-attendance-stats">
             <article className="tone-blue">
-              <span>tổng khách</span>
+              <span>Tổng khách</span>
               <strong>{formatNumber(stats.total)}</strong>
               <small>100%</small>
             </article>
             <article className="tone-green">
-              <span>đã điểm danh</span>
+              <span>Đã điểm danh</span>
               <strong>{formatNumber(stats.checked)}</strong>
               <small>
                 {stats.total
@@ -493,7 +492,7 @@ function GuideAttendancePage() {
               </small>
             </article>
             <article className="tone-red">
-              <span>chưa điểm danh</span>
+              <span>Chưa điểm danh</span>
               <strong>{formatNumber(stats.unchecked)}</strong>
               <small>
                 {stats.total
@@ -547,7 +546,7 @@ function GuideAttendancePage() {
                     setKeyword(event.target.value);
                     setPage(1);
                   }}
-                  placeholder="Tìm kiếm tên khách, SĐT..."
+                  placeholder="Tìm kiếm khách theo tên, SĐT..."
                 />
               </label>
               <select
@@ -653,13 +652,9 @@ function GuideAttendancePage() {
                 <button type="button" disabled={page >= (customerMeta.last_page || 1)} onClick={() => setPage((current) => current + 1)}>›</button>
               </div>
               <span>
-                Hiển thị <b>{customerMeta.per_page || 10} / trang</b>
+                Hiển thị <b>{customerMeta.per_page || 10} khách / trang</b>
               </span>
             </footer>
-            <p className="guide-attendance-note-line">
-              Mẹo: Bạn có thể thêm ghi chú khách hàng bằng tên, số điện thoại
-              hoặc loại khách để điểm danh dễ dàng hơn.
-            </p>
           </section>
         </>
       ) : (

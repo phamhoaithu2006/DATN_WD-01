@@ -377,6 +377,16 @@ button {
   border: 1px solid rgba(14, 165, 233, 0.24);
 }
 
+.auth-login-return {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 16px;
+  text-decoration: none;
+}
+
 .helper-text {
   margin: -2px 0 0;
   color: #64748b;
@@ -445,6 +455,26 @@ button {
   background: rgba(14, 165, 233, 0.1);
   font-size: 0.78rem;
   font-weight: 850;
+}
+
+.forgot-password-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.forgot-password-title {
+  margin: 0;
+}
+
+.auth-login-return-pill {
+  text-decoration: none;
+}
+
+.forgot-password-description {
+  margin: 8px 0 0;
+  text-align: left;
 }
 
 .profile-grid {
