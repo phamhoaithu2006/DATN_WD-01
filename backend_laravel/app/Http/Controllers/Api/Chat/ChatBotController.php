@@ -3,9 +3,12 @@
 namespace App\Http\Controllers\Api\Chat;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\ChatTourRecommendationResource;
 use App\Models\ChatConversation;
 use App\Models\ChatMessage;
 use App\Models\Tour;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -16,25 +19,32 @@ class ChatBotController extends Controller
 
     private const AUTO_SUGGEST_THRESHOLD = 2;
 
+    private const DEFAULT_RECOMMENDATION_LIMIT = 6;
+
+    private const MAX_RECOMMENDATION_LIMIT = 10;
+
     public function handleChat(Request $request)
     {
         $validated = $request->validate([
-            'message'        => 'nullable|string|max:1000',
-            'session_id'     => 'nullable|string|max:100',
-            'request_human'  => 'nullable|boolean',
-            'image'          => 'nullable|image|max:5120',
+            'message' => 'nullable|string|max:1000',
+            'session_id' => 'nullable|string|max:100',
+            'request_human' => 'nullable|boolean',
+            'recommendation_limit' => 'nullable|integer|min:1|max:'.self::MAX_RECOMMENDATION_LIMIT,
+            'image' => 'nullable|image|max:5120',
         ]);
 
-        if (empty($validated['message']) && !$request->hasFile('image')) {
+        if (empty($validated['message']) && ! $request->hasFile('image')) {
             return response()->json(['message' => 'Vui lòng nhập nội dung hoặc chọn ảnh.'], 422);
         }
 
-        $userMessage  = trim($validated['message'] ?? '');
+        $userMessage = trim($validated['message'] ?? '');
         $requestHuman = $validated['request_human'] ?? false;
-        $hasImage     = $request->hasFile('image');
+        $recommendationLimit = $validated['recommendation_limit']
+            ?? self::DEFAULT_RECOMMENDATION_LIMIT;
+        $hasImage = $request->hasFile('image');
 
         $sessionId = $validated['session_id']
-            ?? 'guest-' . md5($request->ip() . $request->userAgent());
+            ?? 'guest-'.md5($request->ip().$request->userAgent());
 
         $conversation = ChatConversation::firstOrCreate(
             ['session_id' => $sessionId],
@@ -52,8 +62,8 @@ class ChatBotController extends Controller
 
         ChatMessage::create([
             'chat_conversation_id' => $conversation->id,
-            'role'           => 'user',
-            'content'        => $userMessage,
+            'role' => 'user',
+            'content' => $userMessage,
             'attachment_url' => $attachmentUrl,
         ]);
         $conversation->touch();
@@ -70,25 +80,27 @@ class ChatBotController extends Controller
 
             ChatMessage::create([
                 'chat_conversation_id' => $conversation->id,
-                'role'    => 'assistant',
+                'role' => 'assistant',
                 'content' => $reply,
             ]);
             $conversation->touch();
 
             return response()->json([
-                'reply'          => $reply,
-                'session_id'     => $conversation->session_id,
-                'mode'           => $conversation->mode,
+                'reply' => $reply,
+                'session_id' => $conversation->session_id,
+                'mode' => $conversation->mode,
                 'queue_position' => $queuePosition,
+                'recommended_tours' => [],
             ]);
         }
 
         // TRƯỜNG HỢP 2: Đang chờ/đang được nhân viên xử lý -> AI im lặng
         if (in_array($conversation->mode, ['pending_human', 'human'])) {
             return response()->json([
-                'reply'      => null,
+                'reply' => null,
                 'session_id' => $conversation->session_id,
-                'mode'       => $conversation->mode,
+                'mode' => $conversation->mode,
+                'recommended_tours' => [],
             ]);
         }
 
@@ -98,15 +110,16 @@ class ChatBotController extends Controller
 
             ChatMessage::create([
                 'chat_conversation_id' => $conversation->id,
-                'role'    => 'assistant',
+                'role' => 'assistant',
                 'content' => $reply,
             ]);
             $conversation->touch();
 
             return response()->json([
-                'reply'      => $reply,
+                'reply' => $reply,
                 'session_id' => $conversation->session_id,
-                'mode'       => $conversation->mode,
+                'mode' => $conversation->mode,
+                'recommended_tours' => [],
             ]);
         }
 
@@ -118,8 +131,12 @@ class ChatBotController extends Controller
             ->reverse()
             ->values();
 
-        $filters  = $this->extractFilters($userMessage);
-        $tours    = $this->buildTourQuery($filters)->limit(10)->get();
+        $filters = $this->extractFilters($userMessage);
+        $tours = $this->buildTourQuery($filters)
+            ->limit($recommendationLimit)
+            ->get();
+        $recommendedTours = ChatTourRecommendationResource::collection($tours)
+            ->resolve($request);
         $tourText = $this->formatToursForPrompt($tours);
         $systemPrompt = $this->buildSystemPrompt($tourText, $filters);
 
@@ -134,8 +151,8 @@ class ChatBotController extends Controller
 
         ChatMessage::create([
             'chat_conversation_id' => $conversation->id,
-            'role'        => 'assistant',
-            'content'     => $reply,
+            'role' => 'assistant',
+            'content' => $reply,
             'is_fallback' => $isFallback,
         ]);
         $conversation->touch();
@@ -144,10 +161,11 @@ class ChatBotController extends Controller
         $suggestHuman = $conversation->consecutive_fallback_count >= self::AUTO_SUGGEST_THRESHOLD;
 
         return response()->json([
-            'reply'         => $reply,
-            'session_id'    => $conversation->session_id,
-            'mode'          => $conversation->mode,
+            'reply' => $reply,
+            'session_id' => $conversation->session_id,
+            'mode' => $conversation->mode,
             'suggest_human' => $suggestHuman,
+            'recommended_tours' => $recommendedTours,
         ]);
     }
     /**
@@ -202,7 +220,7 @@ class ChatBotController extends Controller
     {
         $sessionId = $request->query('session_id');
 
-        if (!$sessionId) {
+        if (! $sessionId) {
             return response()->json(['messages' => [], 'mode' => 'ai']);
         }
 
@@ -211,7 +229,7 @@ class ChatBotController extends Controller
             ->first();
 
         // QUAN TRỌNG: kiểm tra null TRƯỚC khi gọi autoCloseIfStale, tránh crash khi khách chưa từng chat
-        if (!$conversation) {
+        if (! $conversation) {
             return response()->json(['messages' => [], 'mode' => 'ai']);
         }
 
@@ -230,12 +248,12 @@ class ChatBotController extends Controller
         }
 
         return response()->json([
-            'messages'              => $messages,
-            'mode'                  => $conversation->mode,
-            'assigned_staff_id'     => $conversation->assigned_staff_id,
-            'assigned_staff_name'   => $conversation->assignedStaff->full_name ?? null,
+            'messages' => $messages,
+            'mode' => $conversation->mode,
+            'assigned_staff_id' => $conversation->assigned_staff_id,
+            'assigned_staff_name' => $conversation->assignedStaff->full_name ?? null,
             'assigned_staff_avatar' => $conversation->assignedStaff->avatar_url ?? null,
-            'queue_position'        => $queuePosition,
+            'queue_position' => $queuePosition,
         ]);
     }
 
@@ -260,7 +278,7 @@ class ChatBotController extends Controller
 
         if (preg_match('/(\d+)\s*ngày\s*(\d+)?\s*đêm?/u', $msg, $m)) {
             $filters['days'] = (int) $m[1];
-            if (!empty($m[2])) {
+            if (! empty($m[2])) {
                 $filters['nights'] = (int) $m[2];
             }
         }
@@ -271,32 +289,65 @@ class ChatBotController extends Controller
     private function buildTourQuery(array $filters)
     {
         $query = Tour::query()
-            ->with(['category', 'destination'])
-            ->where('status', 'published');
+            ->with([
+                'category:id,name,slug',
+                'destination:id,name,slug',
+                'thumbnail:id,tour_id,image_url,alt_text,is_thumbnail,sort_order',
+                'departures' => fn (Builder|HasMany $query): Builder|HasMany => $this
+                    ->applyActiveDepartureConstraints($query)
+                    ->select([
+                        'id',
+                        'tour_id',
+                        'departure_date',
+                        'return_date',
+                        'price',
+                        'base_price',
+                        'discount_price',
+                        'total_slots',
+                        'booked_slots',
+                        'status',
+                    ])
+                    ->orderBy('departure_date')
+                    ->limit(1),
+            ])
+            ->where('tours.status', 'published')
+            ->whereHas(
+                'departures',
+                fn (Builder $query): Builder => $this->applyActiveDepartureConstraints($query)
+            )
+            ->distinct();
 
-        if (!empty($filters['discount'])) {
+        if (! empty($filters['discount'])) {
             $query->whereNotNull('discount_price');
         }
 
-        if (!empty($filters['terrain'])) {
+        if (! empty($filters['terrain'])) {
             $keyword = $filters['terrain'];
             $query->where(function ($q) use ($keyword) {
-                $q->whereHas('category', fn($c) => $c->where('name', 'like', "%{$keyword}%"))
-                    ->orWhereHas('destination', fn($d) => $d->where('description', 'like', "%{$keyword}%")
+                $q->whereHas('category', fn ($c) => $c->where('name', 'like', "%{$keyword}%"))
+                    ->orWhereHas('destination', fn ($d) => $d->where('description', 'like', "%{$keyword}%")
                         ->orWhere('name', 'like', "%{$keyword}%"))
                     ->orWhere('summary', 'like', "%{$keyword}%")
                     ->orWhere('description', 'like', "%{$keyword}%");
             });
         }
 
-        if (!empty($filters['days'])) {
+        if (! empty($filters['days'])) {
             $query->where('duration_days', $filters['days']);
         }
-        if (!empty($filters['nights'])) {
+        if (! empty($filters['nights'])) {
             $query->where('duration_nights', $filters['nights']);
         }
 
         return $query;
+    }
+
+    private function applyActiveDepartureConstraints(Builder|HasMany $query): Builder|HasMany
+    {
+        return $query
+            ->where('status', 'open')
+            ->whereDate('departure_date', '>=', today())
+            ->whereRaw('(COALESCE(total_slots, 0) - COALESCE(booked_slots, 0)) > 0');
     }
 
     private function formatToursForPrompt($tours): string
@@ -306,12 +357,12 @@ class ChatBotController extends Controller
         }
 
         return $tours->map(function ($t) {
-            $hasDiscount = !is_null($t->discount_price);
+            $hasDiscount = ! is_null($t->discount_price);
             $price = $hasDiscount
-                ? number_format($t->discount_price) . 'đ (giảm từ ' . number_format($t->base_price) . 'đ)'
-                : number_format($t->base_price) . 'đ';
+                ? number_format($t->discount_price).'đ (giảm từ '.number_format($t->base_price).'đ)'
+                : number_format($t->base_price).'đ';
             $destName = $t->destination->name ?? 'chưa rõ điểm đến';
-            $catName  = $t->category->name ?? '';
+            $catName = $t->category->name ?? '';
 
             return "- {$t->title} ({$catName}, {$destName}): {$t->duration_days} ngày {$t->duration_nights} đêm, giá {$price}. Mô tả: {$t->summary}";
         })->implode("\n");
@@ -320,7 +371,7 @@ class ChatBotController extends Controller
     private function buildSystemPrompt(string $tourText, array $filters): string
     {
         $allergyNote = '';
-        if (!empty($filters['asked_allergy'])) {
+        if (! empty($filters['asked_allergy'])) {
             $allergyNote = "\n5. Khách có hỏi về dị ứng/phấn hoa nhưng hệ thống CHƯA có dữ liệu chi tiết này cho từng tour. Vẫn trả lời bình thường các tour phù hợp với các tiêu chí khác (thời gian, địa điểm, giá), NHƯNG thêm một câu ghi chú cuối: 'Về vấn đề dị ứng/phấn hoa cụ thể, bạn vui lòng liên hệ nhân viên hỗ trợ để được xác nhận chi tiết nhé.' Không dùng câu fallback đầy đủ cho trường hợp này.";
         }
 
@@ -345,18 +396,18 @@ PROMPT;
     private function callGemini(string $systemPrompt, $history, string $userMessage): string
     {
         $apiKey = env('GEMINI_API_KEY');
-        $model  = 'gemini-2.5-flash';
-        $url    = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$apiKey}";
+        $model = 'gemini-2.5-flash';
+        $url = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$apiKey}";
 
         $contents = $history->map(function (ChatMessage $m) {
             return [
-                'role'  => $m->role === 'assistant' ? 'model' : 'user',
+                'role' => $m->role === 'assistant' ? 'model' : 'user',
                 'parts' => [['text' => $m->content]],
             ];
         })->toArray();
 
         $contents[] = [
-            'role'  => 'user',
+            'role' => 'user',
             'parts' => [['text' => $userMessage]],
         ];
 
@@ -365,13 +416,14 @@ PROMPT;
                 'systemInstruction' => ['parts' => [['text' => $systemPrompt]]],
                 'contents' => $contents,
                 'generationConfig' => [
-                    'temperature'     => 0.2,
+                    'temperature' => 0.2,
                     'maxOutputTokens' => 350,
                 ],
             ]);
 
             if ($response->successful()) {
                 $text = $response->json('candidates.0.content.parts.0.text');
+
                 return $text ?: self::FALLBACK_MESSAGE;
             }
 
@@ -385,12 +437,12 @@ PROMPT;
 
     private function buildAttachmentUrl(Request $request, string $path): string
     {
-        return $request->getSchemeAndHttpHost() . '/storage/' . $path;
+        return $request->getSchemeAndHttpHost().'/storage/'.$path;
     }
 
     private function autoCloseIfStale(ChatConversation $conversation): void
     {
-        if (!$conversation->isStale(30)) {
+        if (! $conversation->isStale(30)) {
             return;
         }
 

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import ChatBox, { resetChatSession } from "../../components/customer/ChatBox";
+import ChatBox from "../../components/customer/ChatBox";
 import CustomerPresenceHeartbeat from "../../components/customer/CustomerPresenceHeartbeat";
+import { resetChatSession } from "../../components/customer/chatbot/chatStorage";
 import Footer from "../../components/customer/Footer";
 import Header from "../../components/customer/Header";
 
@@ -393,11 +394,11 @@ function CustomerPage() {
     // Token có thể đã hết hạn.
   }
 
-  clearSession();
-  resetChatSession(); // <-- đổi dòng này
-  setUser(null);
-  setFavorites(readStoredFavorites());
-}
+    clearSession();
+    resetChatSession();
+    setUser(null);
+    setFavorites(readStoredFavorites());
+  }
 
   const favoriteTours = normalizedTours.filter((tour) =>
     favorites.includes(tour.id),
