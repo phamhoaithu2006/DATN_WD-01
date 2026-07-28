@@ -138,24 +138,6 @@ function GuideNotificationsPage() {
         </div>
       )}
 
-      <section className="guide-notifications-toolbar">
-        <label className="guide-notifications-filter">
-          <span>Hiển thị</span>
-          <select
-            value={filter}
-            onChange={(event) => {
-              setFilter(event.target.value)
-              setSelectedNotification(null)
-            }}
-            aria-label="Lọc thông báo theo trạng thái"
-          >
-            <option value="all">Tất cả</option>
-            <option value="unread">Chưa đọc</option>
-            <option value="read">Đã đọc</option>
-          </select>
-        </label>
-      </section>
-
       <section className="guide-notifications-grid">
         <div
           className={[
@@ -165,6 +147,23 @@ function GuideNotificationsPage() {
             .filter(Boolean)
             .join(' ')}
         >
+          <div className="guide-notifications-list-toolbar">
+            <label className="guide-notifications-filter">
+              <span>Hiển thị</span>
+              <select
+                value={filter}
+                onChange={(event) => {
+                  setFilter(event.target.value)
+                  setSelectedNotification(null)
+                }}
+                aria-label="Lọc thông báo theo trạng thái"
+              >
+                <option value="all">Tất cả</option>
+                <option value="unread">Chưa đọc</option>
+                <option value="read">Đã đọc</option>
+              </select>
+            </label>
+          </div>
           {loading ? (
             <div className="guide-notification-empty large">Đang tải thông báo...</div>
           ) : filteredNotifications.length > 0 ? (

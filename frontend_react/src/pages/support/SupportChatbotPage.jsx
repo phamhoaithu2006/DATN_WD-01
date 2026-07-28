@@ -16,7 +16,7 @@ function formatTime(value) {
   }
 }
 
-const POLL_INTERVAL = 5000
+const POLL_INTERVAL = 15000
 const QUICK_REPLY_STORAGE_KEY = 'vivugo_support_quick_replies'
 
 const DEFAULT_QUICK_REPLIES = [
@@ -92,7 +92,9 @@ function SupportChatbotPage() {
 
   useEffect(() => {
     void loadLists()
-    const intervalId = window.setInterval(() => void loadLists(), 5000)
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === 'visible') void loadLists()
+    }, 30000)
     return () => window.clearInterval(intervalId)
   }, [loadLists])
 
@@ -331,16 +333,16 @@ function SupportChatbotPage() {
         <aside className="support-chat-list-pane flex h-[420px] min-h-0 flex-col overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-[0_16px_40px_-28px_rgba(15,23,42,0.35)] sm:h-[460px] lg:h-auto">
           <div className="border-b border-slate-100 bg-white/90 px-4 pb-3 pt-4 backdrop-blur-sm">
             <div className="mb-4 flex items-center justify-between gap-3 px-1">
-              <div>
+              <div className="min-w-0">
                 <h2 className="text-sm font-extrabold text-slate-900">
                   Hộp thư hỗ trợ
                 </h2>
-                <p className="mt-0.5 text-xs font-medium text-slate-500">
+                <p className="mt-0.5 whitespace-nowrap text-[11px] font-medium text-slate-500">
                   Cập nhật tự động theo thời gian thực
                 </p>
               </div>
 
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700">
+              <span className="-mt-1 inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold whitespace-nowrap text-emerald-700">
                 <span className="relative flex h-2 w-2">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
                   <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
@@ -455,7 +457,7 @@ function SupportChatbotPage() {
                     ? 'Đã xử lý hết yêu cầu'
                     : 'Chưa có hội thoại đang xử lý'}
                 </h3>
-                <p className="mt-1.5 max-w-56 text-xs font-medium leading-5 text-slate-500">
+                <p className="mt-1.5 whitespace-nowrap text-[11px] font-medium leading-4 text-slate-500">
                   {tab === 'pending'
                     ? 'Các yêu cầu mới từ chatbot sẽ xuất hiện tại đây.'
                     : 'Tiếp nhận một yêu cầu đang chờ để bắt đầu hỗ trợ.'}
@@ -620,11 +622,10 @@ function SupportChatbotPage() {
                 <h2 className="mt-6 text-lg font-black tracking-tight text-slate-900">
                   Chọn một cuộc trò chuyện
                 </h2>
-                <p className="mt-2 text-sm font-medium leading-6 text-slate-500">
-                  Mở hội thoại ở danh sách bên trái để xem lịch sử và bắt đầu
-                  hỗ trợ khách hàng.
+                <p className="relative left-1/2 mt-2 w-max -translate-x-1/2 whitespace-nowrap text-sm font-medium leading-6 text-slate-500">
+                  Mở hội thoại ở danh sách bên trái để xem lịch sử và bắt đầu hỗ trợ khách hàng.
                 </p>
-                <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-3 py-1.5 text-[11px] font-semibold text-slate-500 shadow-sm backdrop-blur">
+                <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-3 py-1.5 text-[11px] font-semibold text-slate-500 backdrop-blur">
                   <svg
                     viewBox="0 0 24 24"
                     className="h-3.5 w-3.5 text-blue-500"

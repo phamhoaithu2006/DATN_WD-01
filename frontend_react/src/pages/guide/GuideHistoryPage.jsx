@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { getGuideTourCompleted, getGuideTourDetail } from '../../services/guideTourApi'
+import {
+  getGuideAttendanceSessions,
+  getGuideTourCompleted,
+  getGuideTourCustomers,
+  getGuideTourDetail,
+} from '../../services/guideTourApi'
 import { mediaUrl } from '../../utils/mediaUrl'
 import { formatDateDdMmYyyy, formatDateTimeDdMmYyyy } from '../../utils/dateFormat'
 
@@ -94,6 +99,14 @@ function getCompletedBadge(item) {
   return 'Lịch sử'
 }
 
+function getAttendanceLabel(status) {
+  const normalized = String(status || '').toLowerCase()
+  if (normalized === 'checked_out') return 'Đã check-out'
+  if (normalized === 'checked_in') return 'Đã check-in'
+  if (normalized === 'absent') return 'Vắng mặt'
+  return 'Chưa điểm danh'
+}
+
 function HistoryRow({ item, onDetail }) {
   const image = getTourImage(item)
   const title = item?.tour?.title || 'Tour đã hoàn thành'
@@ -142,7 +155,9 @@ function HistoryRow({ item, onDetail }) {
   )
 }
 
-function TourHistoryModal({ open, item, detailLoading, onClose }) {
+function TourHistoryModal({ open, item, detailLoading, extras, onClose }) {
+  const [expandedCustomerId, setExpandedCustomerId] = useState(null)
+
   if (!open || !item) return null
 
   return (
@@ -204,6 +219,72 @@ function TourHistoryModal({ open, item, detailLoading, onClose }) {
         </div>
 
         <div className="guide-tour-modal-section">
+          <div className="guide-tour-modal-section-head">
+            <div>
+              <h4>Khách hàng và điểm danh</h4>
+              <p>Danh sách khách, trạng thái check-in và lưu ý đã đăng ký.</p>
+            </div>
+            <span className="guide-tour-modal-count">
+              {formatNumber((extras?.customers || []).reduce((total, customer) => total + Number(customer.guest_count || 1), 0))} khách
+            </span>
+          </div>
+
+          {detailLoading ? (
+            <div className="guide-tour-modal-content-box guide-tour-modal-empty">Đang tải khách hàng...</div>
+          ) : extras?.customers?.length ? (
+            <div className="guide-tour-history-customers">
+              {extras.customers.map((customer) => {
+                const note = customer.special_request || customer.customer_note || customer.health_note
+                const attendance = customer.attendance || {}
+                const isExpanded = expandedCustomerId === customer.id
+
+                return (
+                  <article key={customer.id} className="guide-tour-history-customer">
+                    <div className="guide-tour-history-customer-main">
+                      <strong>
+                        {customer.full_name || 'Khách hàng'}
+                        {customer.is_booking_contact && customer.guest_count > 1 ? ` · ${customer.guest_count} khách` : ''}
+                      </strong>
+                      <span>{customer.phone || customer.email || 'Chưa có thông tin liên hệ'}</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="guide-tour-history-detail-btn"
+                      onClick={() => setExpandedCustomerId(isExpanded ? null : customer.id)}
+                    >
+                      {isExpanded ? 'Thu gọn' : 'Chi tiết'}
+                    </button>
+                    {isExpanded ? (
+                      <div className="guide-tour-history-customer-detail">
+                        <div className="guide-tour-history-attendance">
+                          <span className={`guide-tour-history-attendance-status is-${customer.attendance_status || 'not_checked_in'}`}>
+                            {getAttendanceLabel(customer.attendance_status)}
+                          </span>
+                          {attendance.checked_in_at ? <small>Check-in: {formatDateTime(attendance.checked_in_at)}</small> : <small>Chưa có thời gian check-in</small>}
+                        </div>
+                        {note ? <p className="guide-tour-history-customer-note">Lưu ý: {note}</p> : <p className="guide-tour-history-customer-note is-empty">Không có lưu ý từ khách hàng.</p>}
+                      </div>
+                    ) : null}
+                  </article>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="guide-tour-modal-content-box guide-tour-modal-empty">Chưa có dữ liệu khách hàng.</div>
+          )}
+
+          {!detailLoading && extras?.sessions?.length ? (
+            <div className="guide-tour-history-sessions">
+              {extras.sessions.map((session) => (
+                <span key={session.id}>
+                  {session.name || 'Điểm danh'}: {formatNumber(session.checked_in_count || 0)}/{formatNumber(session.attendance_count || 0)} đã check-in
+                </span>
+              ))}
+            </div>
+          ) : null}
+        </div>
+
+        <div className="guide-tour-modal-section">
           <h4>Lịch trình</h4>
           {detailLoading ? (
             <div className="guide-tour-modal-content-box guide-tour-modal-empty">Đang tải chi tiết...</div>
@@ -252,6 +333,7 @@ function GuideHistoryPage() {
   const [page, setPage] = useState(1)
   const [selectedTourId, setSelectedTourId] = useState(null)
   const [selectedTourDetail, setSelectedTourDetail] = useState(null)
+  const [selectedTourExtras, setSelectedTourExtras] = useState({ customers: [], sessions: [] })
   const [detailOpen, setDetailOpen] = useState(false)
   const [detailLoading, setDetailLoading] = useState(false)
 
@@ -300,12 +382,32 @@ function GuideHistoryPage() {
 
     async function loadDetail() {
       setDetailLoading(true)
+      setSelectedTourExtras({ customers: [], sessions: [] })
 
       try {
-        const detail = await getGuideTourDetail(selectedTourId)
+        const [detailResult, customerResult, sessionResult] = await Promise.allSettled([
+          getGuideTourDetail(selectedTourId),
+          getGuideTourCustomers(selectedTourId, { per_page: 100 }),
+          getGuideAttendanceSessions(selectedTourId),
+        ])
+
+        if (detailResult.status !== 'fulfilled') {
+          throw detailResult.reason
+        }
 
         if (mounted) {
-          setSelectedTourDetail(detail)
+          setSelectedTourDetail(detailResult.value)
+          const apiCustomers = customerResult.status === 'fulfilled' && Array.isArray(customerResult.value?.data)
+            ? customerResult.value.data
+            : []
+          setSelectedTourExtras({
+            customers: apiCustomers.length > 0
+              ? apiCustomers
+              : (Array.isArray(detailResult.value?.history_customers) ? detailResult.value.history_customers : []),
+            sessions: sessionResult.status === 'fulfilled' && Array.isArray(sessionResult.value?.data)
+              ? sessionResult.value.data
+              : [],
+          })
         }
       } catch {
         if (mounted) {
@@ -368,6 +470,7 @@ function GuideHistoryPage() {
     setDetailOpen(false)
     setSelectedTourId(null)
     setSelectedTourDetail(null)
+    setSelectedTourExtras({ customers: [], sessions: [] })
   }
 
   function handleSortChange(value) {
@@ -486,6 +589,7 @@ function GuideHistoryPage() {
         open={detailOpen}
         item={modalItem}
         detailLoading={detailLoading}
+        extras={selectedTourExtras}
         onClose={closeDetail}
       />
     </section>

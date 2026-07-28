@@ -32,9 +32,9 @@ function SupportLayout({ children }) {
     'Nhân viên hỗ trợ'
   const displayAvatar = currentUser?.avatar_url || supportProfile?.user?.avatar_url || ''
 
-  async function handleLogout() {
+  function handleLogout() {
     try {
-      await logoutApi()
+      void logoutApi().catch(() => {})
     } catch {
       // Token có thể đã hết hạn; vẫn cần xóa phiên local.
     }

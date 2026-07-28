@@ -231,11 +231,13 @@ export default function CustomerNotificationBell() {
   useEffect(() => {
     const initialLoadId = window.setTimeout(() => {
       void loadNotifications({ announce: true })
-    }, 0)
+    }, 200)
 
     const intervalId = window.setInterval(() => {
-      void loadNotifications()
-    }, 5000)
+      if (document.visibilityState === 'visible') {
+        void loadNotifications()
+      }
+    }, 30000)
 
     return () => {
       window.clearTimeout(initialLoadId)
@@ -349,7 +351,11 @@ export default function CustomerNotificationBell() {
     <div ref={containerRef} className="relative">
       <button
         type="button"
-        onClick={() => setOpen((current) => !current)}
+        onClick={() => {
+          const next=!open;
+          setOpen(next);
+          if(next){void loadNotifications();}
+        }}
         className="relative grid h-11 w-11 place-items-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600"
         aria-label="Thông báo"
         aria-expanded={open}

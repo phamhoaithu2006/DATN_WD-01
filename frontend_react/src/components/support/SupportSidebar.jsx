@@ -89,12 +89,14 @@ function SupportSidebar({
   |
   */
   useEffect(() => {
-    void loadRequestBadge()
+    if (document.visibilityState === 'visible') {
+        void loadRequestBadge()
+      }
 
     const intervalId =
       window.setInterval(() => {
         void loadRequestBadge()
-      }, 5000)
+      }, 30000)
 
     function handleRequestCountChanged() {
       void loadRequestBadge()

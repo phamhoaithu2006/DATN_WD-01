@@ -218,6 +218,14 @@ export async function fetchChatMessages(sessionId) {
   return response.data?.data || response.data
 }
 
+export async function closeChatSession(sessionId) {
+  const response = await api.post('/travel-assistant/close', {
+    session_id: sessionId,
+  })
+
+  return response.data?.data || response.data
+}
+
 export async function addWishlist(tourId) {
   return api.post('/tours/wishlist', { tour_id: tourId })
 }

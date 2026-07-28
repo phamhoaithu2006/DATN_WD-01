@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+﻿﻿import { useEffect, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import AuthCard from "../../components/auth/AuthCard";
 import AuthLayout from "../../layouts/AuthLayout";
@@ -431,9 +431,9 @@ function AuthPage() {
     }
   }
 
-  async function handleLogout() {
+  function handleLogout() {
     try {
-      await logoutApi();
+      void logoutApi().catch(() => {});
     } catch {
       // Token có thể đã hết hạn.
     }

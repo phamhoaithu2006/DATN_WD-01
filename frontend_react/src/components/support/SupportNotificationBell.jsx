@@ -115,8 +115,10 @@ function SupportNotificationBell() {
     void loadNotifications()
 
     const intervalId = window.setInterval(() => {
-      void loadNotifications({ silent: true })
-    }, 5000)
+      if (document.visibilityState === 'visible') {
+        void loadNotifications({ silent: true })
+      }
+    }, 30000)
 
     function handleNotificationChanged() {
       void loadNotifications({ silent: true })
