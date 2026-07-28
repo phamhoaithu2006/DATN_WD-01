@@ -47,6 +47,7 @@ function ChatBox() {
   const fileInputRef = useRef(null);
   const chatContentRef = useRef(null);
   const shouldStickToBottomRef = useRef(true);
+  const hasUserMessage = messages.some((message) => message.from === "user");
 
   const lastMessageIdRef = useRef(0);
   const pollRef = useRef(null);
@@ -353,6 +354,10 @@ function ChatBox() {
               />
             ))}
 
+            {!hasUserMessage && mode === "ai" ? (
+              <QuickTourPrompts onSelect={sendMessage} />
+            ) : null}
+
             {mode === "pending_human" && queuePosition ? (
               <div className="vg-queue-banner">
                 <span className="vg-queue-dots">•••</span>
@@ -379,10 +384,6 @@ function ChatBox() {
                 Gặp nhân viên hỗ trợ
               </button>
             </div>
-          ) : null}
-
-          {messages.length === 1 && mode === "ai" ? (
-            <QuickTourPrompts onSelect={sendMessage} />
           ) : null}
 
           <ChatInput
