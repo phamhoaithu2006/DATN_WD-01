@@ -139,7 +139,7 @@ function CustomerPage() {
   )).length, [bookings, currentTime]);
 
   useEffect(() => {
-    const timer = window.setInterval(() => setCurrentTime(Date.now()), 5000);
+    const timer = window.setInterval(() => setCurrentTime(Date.now()), 15000);
 
     return () => window.clearInterval(timer);
   }, []);
@@ -344,7 +344,9 @@ function CustomerPage() {
 
     loadReviewNotifications();
 
-    const timer = window.setInterval(loadReviewNotifications, 5000);
+    const timer = window.setInterval(() => {
+        if (document.visibilityState === 'visible') loadReviewNotifications();
+      }, 30000);
 
     return () => {
       active = false;
@@ -390,6 +392,11 @@ function CustomerPage() {
   function logout() {
     const currentUserId = user?.id ?? null;
     const tokenToRevoke = readToken();
+  try {
+    void logoutApi().catch(() => {});
+  } catch {
+    // Token có thể đã hết hạn.
+  }
 
     resetChatSession(currentUserId);
     clearSession();

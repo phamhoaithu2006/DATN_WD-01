@@ -321,6 +321,54 @@ function getRequestAttachments(
     : []
 }
 
+function getCustomerSupplementMessages(
+  supportRequest,
+) {
+  const candidates = [
+    supportRequest?.messages,
+    supportRequest?.supplements,
+    supportRequest?.supplement_messages,
+    supportRequest?.conversation,
+  ]
+
+  const messages =
+    candidates.find(Array.isArray) || []
+
+  return messages.filter((message) => {
+    const senderType = String(
+      message?.sender_type ||
+        message?.sender_role ||
+        message?.role ||
+        '',
+    )
+      .trim()
+      .toLowerCase()
+
+    const messageType = String(
+      message?.type ||
+        message?.message_type ||
+        message?.action ||
+        '',
+    )
+      .trim()
+      .toLowerCase()
+
+    return (
+      [
+        'customer',
+        'user',
+        'client',
+      ].includes(senderType) ||
+      [
+        'customer_supplemented',
+        'customer_supplement',
+        'supplement',
+        'supplemented',
+      ].includes(messageType)
+    )
+  })
+}
+
 function getBackendOrigin() {
   const configuredUrl =
     import.meta.env
@@ -594,10 +642,11 @@ function isPendingSupportAdminRequestNotification(
   }
 
   /*
-   * Dữ liệu notification cũ chưa lưu trạng thái ticket.
-   * Tạm xem là đang chờ cho tới khi backend trả flag chính xác.
+   * Không tự xem notification cũ là đang chờ xử lý.
+   * Danh sách chờ phải dựa trên bucket support_admin_request
+   * do backend trả về.
    */
-  return true
+  return false
 }
 
 function deduplicateNotifications(
@@ -701,6 +750,11 @@ function AdminReceivedNotificationsPage() {
     notificationFilter,
     setNotificationFilter,
   ] = useState('all')
+
+  const [
+    supplementHistoryOpen,
+    setSupplementHistoryOpen,
+  ] = useState(true)
 
   const pageSize = 15
 
@@ -1021,11 +1075,61 @@ function AdminReceivedNotificationsPage() {
           ),
         ])
 
+        /*
+         * API support_admin_request là nguồn sự thật cho danh sách
+         * yêu cầu còn chờ Admin xử lý.
+         *
+         * Trước đây frontend tự suy đoán trạng thái từ notification cũ.
+         * Vì notification cũ không có admin_request_status nên mỗi lần
+         * tải lại trang chúng lại bị xem nhầm là đang chờ xử lý. Chỉ sau
+         * khi mở chi tiết, trạng thái thật mới được cập nhật và item mới mất.
+         */
+        const pendingSupportIds = new Set(
+          supportBucket
+            .map((item) =>
+              getNotificationId(item),
+            )
+            .filter(Boolean)
+            .map(String),
+        )
+
         const merged =
           deduplicateNotifications([
             ...allBucket,
             ...supportBucket,
-          ])
+          ]).map((item) => {
+            const notificationId =
+              getNotificationId(item)
+
+            const isPending =
+              notificationId
+                ? pendingSupportIds.has(
+                    String(notificationId),
+                  )
+                : false
+
+            const currentData =
+              parseNotificationData(
+                item?.data,
+              )
+
+            return {
+              ...item,
+
+              /*
+               * Gắn cờ rõ ràng để hàm lọc không phải suy đoán
+               * từ nội dung notification cũ.
+               */
+              support_request_is_pending_admin:
+                isPending,
+
+              data: {
+                ...currentData,
+                support_request_is_pending_admin:
+                  isPending,
+              },
+            }
+          })
 
         setAllNotifications(
           merged,
@@ -1102,6 +1206,12 @@ function AdminReceivedNotificationsPage() {
       null,
     )
   }, [notificationFilter])
+
+  useEffect(() => {
+    setSupplementHistoryOpen(true)
+  }, [
+    selectedRequestId,
+  ])
 
   useEffect(() => {
     if (
@@ -1422,8 +1532,58 @@ function AdminReceivedNotificationsPage() {
       ) : null}
 
       {notice ? (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
-          {notice}
+        <div
+          className="fixed inset-0 z-[1500] flex items-center justify-center bg-slate-950/45 px-4 py-8 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setNotice('')
+            }
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-process-success-title"
+            className="w-full max-w-md overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_30px_100px_rgba(15,23,42,0.32)]"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="px-6 pb-5 pt-7 text-center">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-3xl font-black text-emerald-700 ring-8 ring-emerald-50">
+                ✓
+              </div>
+
+              <p className="mt-5 text-xs font-black uppercase tracking-[0.12em] text-emerald-600">
+                Xử lý thành công
+              </p>
+
+              <h2
+                id="admin-process-success-title"
+                className="mt-2 text-2xl font-black text-slate-950"
+              >
+                Đã hoàn tất yêu cầu hỗ trợ
+              </h2>
+
+              <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-600">
+                {notice}
+              </p>
+
+              <div className="mt-5 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-left">
+                <p className="text-sm font-semibold leading-6 text-emerald-800">
+                  Yêu cầu đã được chuyển khỏi danh sách chờ xử lý và vẫn được lưu trong mục Thông báo.
+                </p>
+              </div>
+            </div>
+
+            <div className="border-t border-slate-100 bg-slate-50 px-6 py-4">
+              <button
+                type="button"
+                onClick={() => setNotice('')}
+                className="w-full rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-black text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus:ring-4 focus:ring-emerald-100"
+              >
+                Đóng
+              </button>
+            </div>
+          </section>
         </div>
       ) : null}
 
@@ -1960,6 +2120,199 @@ function AdminReceivedNotificationsPage() {
                     ) : (
                       <p className="mt-4 rounded-xl border border-dashed border-slate-200 px-4 py-3 text-xs text-slate-400">
                         Khách hàng không gửi ảnh hoặc tệp đính kèm.
+                      </p>
+                    )}
+
+                    {getCustomerSupplementMessages(
+                      selectedRequest,
+                    ).length > 0 ? (
+                      <section className="mt-5 overflow-hidden rounded-2xl border border-blue-100 bg-white">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSupplementHistoryOpen(
+                              (current) =>
+                                !current,
+                            )
+                          }
+                          className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition hover:bg-blue-50/60"
+                        >
+                          <div>
+                            <span className="text-[10px] font-black uppercase tracking-wide text-blue-500">
+                              Nội dung khách hàng bổ sung
+                            </span>
+
+                            <p className="mt-1 text-xs text-slate-500">
+                              {
+                                getCustomerSupplementMessages(
+                                  selectedRequest,
+                                ).length
+                              } lần bổ sung
+                            </p>
+                          </div>
+
+                          <span
+                            className={[
+                              'grid h-8 w-8 shrink-0 place-items-center rounded-full border border-blue-100 bg-blue-50 text-sm font-black text-blue-700 transition-transform',
+                              supplementHistoryOpen
+                                ? 'rotate-180'
+                                : '',
+                            ].join(' ')}
+                          >
+                            ↓
+                          </span>
+                        </button>
+
+                        {supplementHistoryOpen ? (
+                          <div className="border-t border-blue-100 bg-slate-50/60 p-4">
+                            <div className="h-[320px] space-y-3 overflow-y-auto overscroll-contain pr-2">
+                              {getCustomerSupplementMessages(
+                                selectedRequest,
+                              ).map(
+                                (
+                                  message,
+                                  index,
+                                ) => {
+                                  const attachments =
+                                    Array.isArray(
+                                      message
+                                        ?.attachments,
+                                    )
+                                      ? message.attachments
+                                      : []
+
+                                  return (
+                                    <article
+                                      key={
+                                        message?.id ||
+                                        `${message?.created_at}-${index}`
+                                      }
+                                      className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+                                    >
+                                      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-blue-50/60 px-4 py-3">
+                                        <div className="flex items-center gap-3">
+                                          <span className="grid h-8 w-8 place-items-center rounded-lg bg-blue-600 text-[11px] font-black text-white">
+                                            {String(
+                                              index +
+                                                1,
+                                            ).padStart(
+                                              2,
+                                              '0',
+                                            )}
+                                          </span>
+
+                                          <div>
+                                            <strong className="block text-sm text-slate-900">
+                                              Bổ sung lần{' '}
+                                              {index +
+                                                1}
+                                            </strong>
+
+                                            <small className="text-[11px] text-slate-500">
+                                              Khách hàng gửi
+                                            </small>
+                                          </div>
+                                        </div>
+
+                                        <time className="rounded-full bg-white px-3 py-1 text-[11px] font-bold text-slate-500 ring-1 ring-slate-200">
+                                          {formatDateTime(
+                                            message
+                                              ?.created_at,
+                                          )}
+                                        </time>
+                                      </header>
+
+                                      <div className="p-4">
+                                        {message?.message ||
+                                        message?.content ||
+                                        message?.description ? (
+                                          <p className="whitespace-pre-wrap rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm leading-7 text-slate-700">
+                                            {message
+                                              ?.message ||
+                                              message
+                                                ?.content ||
+                                              message
+                                                ?.description}
+                                          </p>
+                                        ) : (
+                                          <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-xs text-slate-400">
+                                            Lần bổ sung này không có nội dung văn bản.
+                                          </p>
+                                        )}
+
+                                        {attachments.length >
+                                        0 ? (
+                                          <div className="mt-4">
+                                            <span className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+                                              Tệp đính kèm
+                                            </span>
+
+                                            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                                              {attachments.map(
+                                                (
+                                                  attachment,
+                                                ) => {
+                                                  const url =
+                                                    getAttachmentUrl(
+                                                      attachment,
+                                                    )
+
+                                                  const name =
+                                                    attachment
+                                                      ?.original_name ||
+                                                    attachment
+                                                      ?.name ||
+                                                    attachment
+                                                      ?.filename ||
+                                                    'Tệp đính kèm'
+
+                                                  return (
+                                                    <a
+                                                      key={
+                                                        attachment
+                                                          ?.id ||
+                                                        `${name}-${url}`
+                                                      }
+                                                      href={
+                                                        url ||
+                                                        undefined
+                                                      }
+                                                      target="_blank"
+                                                      rel="noreferrer"
+                                                      className="flex min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-3 text-xs font-bold text-blue-700 transition hover:border-blue-300 hover:bg-blue-50"
+                                                    >
+                                                      <span>
+                                                        📎
+                                                      </span>
+
+                                                      <span className="min-w-0 truncate">
+                                                        {
+                                                          name
+                                                        }
+                                                      </span>
+                                                    </a>
+                                                  )
+                                                },
+                                              )}
+                                            </div>
+                                          </div>
+                                        ) : null}
+                                      </div>
+                                    </article>
+                                  )
+                                },
+                              )}
+                            </div>
+
+                            <p className="mt-3 text-center text-[10px] font-semibold text-slate-400">
+                              Kéo trong khung để xem các lần bổ sung khác.
+                            </p>
+                          </div>
+                        ) : null}
+                      </section>
+                    ) : (
+                      <p className="mt-5 rounded-xl border border-dashed border-blue-100 bg-blue-50/40 px-4 py-3 text-xs text-blue-500">
+                        Khách hàng chưa gửi nội dung bổ sung.
                       </p>
                     )}
                   </section>

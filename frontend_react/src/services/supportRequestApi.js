@@ -201,6 +201,11 @@ export async function releaseSupportRequest(
   return response.data
 }
 
+export async function resolveSupportRequest(id) {
+  const response = await apiClient.post(`/support/requests/${id}/resolve`)
+  return response.data
+}
+
 /*
 |--------------------------------------------------------------------------
 | SUPPORT STAFF - CHUYỂN NHÂN VIÊN

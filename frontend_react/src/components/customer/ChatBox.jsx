@@ -18,7 +18,7 @@ import {
   storeChatSessionId,
 } from "./chatbot/chatStorage";
 
-const POLL_INTERVAL = 5000;
+const POLL_INTERVAL = 15000;
 function mapServerMessage(message) {
   return {
     id: message.id,
@@ -51,6 +51,9 @@ function ChatBox({ userId = null }) {
 
   const lastMessageIdRef = useRef(0);
   const pollRef = useRef(null);
+  const historyLoadedRef = useRef(false);
+  const historyRequestRef = useRef(null);
+  const pollRequestRef = useRef(false);
 
   useEffect(() => {
     const chatContent = chatContentRef.current;
@@ -118,6 +121,7 @@ function ChatBox({ userId = null }) {
       if (fileInputRef.current) fileInputRef.current.value = "";
       shouldStickToBottomRef.current = true;
       lastMessageIdRef.current = 0;
+      historyLoadedRef.current = false;
     }
 
     window.addEventListener("vivugo-chat-reset", handleReset);
@@ -132,8 +136,22 @@ function ChatBox({ userId = null }) {
   useEffect(() => {
     let active = true;
     const sessionId = getOrCreateChatSessionId(userId);
+  /*
+   * Chỉ đồng bộ lịch sử khi người dùng thực sự mở chatbot.
+   * Tránh gọi API ngay khi tải toàn bộ website dù chatbot chưa được sử dụng.
+   */
+  useEffect(() => {
+    if (!open || historyLoadedRef.current) {
+      return undefined;
+    }
 
-    fetchChatMessages(sessionId)
+    if (historyRequestRef.current) {
+      return undefined;
+    }
+
+    const sessionId = getOrCreateChatSessionId();
+
+    const request = fetchChatMessages(sessionId)
       .then((response) => {
         if (!active) return;
 
@@ -165,6 +183,41 @@ function ChatBox({ userId = null }) {
       active = false;
     };
   }, [userId]);
+          lastMessageIdRef.current =
+            serverMessages[serverMessages.length - 1].id;
+        }
+
+        if (response?.mode) {
+          setMode(response.mode);
+        }
+
+        if (typeof response?.queue_position === "number") {
+          setQueuePosition(response.queue_position);
+        }
+
+        if (
+          response?.assigned_staff_name ||
+          response?.assigned_staff_avatar
+        ) {
+          setStaffInfo({
+            name: response.assigned_staff_name || "",
+            avatar: response.assigned_staff_avatar || "",
+          });
+        }
+
+        historyLoadedRef.current = true;
+      })
+      .catch(() => {
+        // Giữ nguyên lịch sử tạm nếu không thể đồng bộ từ server.
+      })
+      .finally(() => {
+        historyRequestRef.current = null;
+      });
+
+    historyRequestRef.current = request;
+
+    return undefined;
+  }, [open]);
 
   useEffect(() => {
     function handleCustomOpen() {
@@ -177,14 +230,32 @@ function ChatBox({ userId = null }) {
   }, []);
 
   useEffect(() => {
-    if (mode === "ai") {
-      if (pollRef.current) window.clearInterval(pollRef.current);
+    const shouldPoll =
+      open &&
+      mode !== "ai" &&
+      document.visibilityState === "visible";
+
+    if (!shouldPoll) {
+      if (pollRef.current) {
+        window.clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+
       return undefined;
     }
 
     let active = true;
 
     async function poll() {
+      if (
+        pollRequestRef.current ||
+        document.visibilityState !== "visible"
+      ) {
+        return;
+      }
+
+      pollRequestRef.current = true;
+
       try {
         const sessionId = getOrCreateChatSessionId(userId);
         const response = await fetchChatMessages(sessionId);
@@ -193,7 +264,9 @@ function ChatBox({ userId = null }) {
         const serverMessages = (response?.messages || []).map(mapServerMessage);
 
         if (serverMessages.length > 0) {
-          const lastId = serverMessages[serverMessages.length - 1].id;
+          const lastId =
+            serverMessages[serverMessages.length - 1].id;
+
           if (lastId !== lastMessageIdRef.current) {
             lastMessageIdRef.current = lastId;
             setMessages(serverMessages);
@@ -202,28 +275,78 @@ function ChatBox({ userId = null }) {
 
         if (response?.mode) setMode(response.mode);
         storeChatSessionId(userId, response?.session_id);
+        if (response?.mode) {
+          setMode(response.mode);
+        }
+
         if (typeof response?.queue_position === "number") {
           setQueuePosition(response.queue_position);
         }
-        if (response?.assigned_staff_name || response?.assigned_staff_avatar) {
+
+        if (
+          response?.assigned_staff_name ||
+          response?.assigned_staff_avatar
+        ) {
           setStaffInfo({
             name: response.assigned_staff_name || "",
             avatar: response.assigned_staff_avatar || "",
           });
         }
       } catch {
-        // ignore
+        // Bỏ qua lỗi polling tạm thời.
+      } finally {
+        pollRequestRef.current = false;
       }
     }
 
     void poll();
-    pollRef.current = window.setInterval(poll, POLL_INTERVAL);
+
+    pollRef.current = window.setInterval(
+      poll,
+      POLL_INTERVAL,
+    );
+
+    return () => {
+      if (pollRef.current) {
+        window.clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+
+      pollRequestRef.current = false;
+    };
+  }, [mode, open]);
+
+  useEffect(() => {
+    function handleVisibilityChange() {
+      if (
+        document.visibilityState === "visible" &&
+        open &&
+        mode !== "ai"
+      ) {
+        /*
+         * Thay đổi nhẹ mode state để effect polling được khởi động lại
+         * sau khi tab trở lại trạng thái hiển thị.
+         */
+        setMode((current) => current);
+      }
+    }
+
+    document.addEventListener(
+      "visibilitychange",
+      handleVisibilityChange,
+    );
 
     return () => {
       active = false;
       if (pollRef.current) window.clearInterval(pollRef.current);
     };
   }, [mode, userId]);
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibilityChange,
+      );
+    };
+  }, [mode, open]);
 
   function handleImageSelect(event) {
     const file = event.target.files?.[0] || null;
@@ -235,6 +358,14 @@ function ChatBox({ userId = null }) {
     setImageFile(file);
     setImagePreview(URL.createObjectURL(file));
   }
+
+  useEffect(() => {
+    return () => {
+      if (imagePreview) {
+        URL.revokeObjectURL(imagePreview);
+      }
+    };
+  }, [imagePreview]);
 
   function clearSelectedImage() {
     if (imagePreview) URL.revokeObjectURL(imagePreview);

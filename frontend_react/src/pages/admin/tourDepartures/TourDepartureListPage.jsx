@@ -263,6 +263,21 @@ export default function TourDepartureListPage() {
   const [detailDepartureId, setDetailDepartureId] = useState(null)
   const [detailDeparture, setDetailDeparture] = useState(null)
 
+  // Modal không duyệt yêu cầu đổi HDV
+  const [rejectModalOpen, setRejectModalOpen] = useState(false)
+  const [rejectingRequest, setRejectingRequest] = useState(null)
+  const [rejectNote, setRejectNote] = useState('')
+  const [rejectNoteError, setRejectNoteError] = useState('')
+  const [rejectSubmitting, setRejectSubmitting] = useState(false)
+
+  // Card thông báo thay cho alert/prompt của trình duyệt
+  const [actionNotice, setActionNotice] = useState(null)
+
+  // Modal xác nhận xóa lịch khởi hành
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [deletingDeparture, setDeletingDeparture] = useState(null)
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false)
+
   const fetchTours = useCallback(async () => {
     try {
       const response = await tourDepartureApi.getTours()
@@ -492,7 +507,7 @@ useEffect(() => {
   void fetchReplacementRequests()
 }, [location.search, fetchReplacementRequests])
 
-  const handleDelete = async (departure) => {
+  const handleDelete = (departure) => {
     const item =
       typeof departure === 'object'
         ? departure
@@ -502,29 +517,60 @@ useEffect(() => {
 
     const departureId = item?.id || departure
 
-    if (!departureId) return
+    if (!departureId) {
+      setActionNotice({
+        type: 'error',
+        title: 'Không thể xóa',
+        message: 'Không xác định được lịch khởi hành cần xóa.',
+      })
+      return
+    }
 
     if (item && isLockedDeparture(item)) {
-      alert(
-        'Lịch khởi hành đã bắt đầu hoặc đã qua nên không thể xóa.'
-      )
+      setActionNotice({
+        type: 'error',
+        title: 'Không thể xóa lịch',
+        message: 'Lịch khởi hành đã bắt đầu hoặc đã qua nên không thể xóa.',
+      })
       return
     }
 
     if (item && hasActiveBookings(item)) {
-      alert(
-        'Lịch này đã có khách đặt tour nên không thể xóa trực tiếp.'
-      )
+      setActionNotice({
+        type: 'error',
+        title: 'Không thể xóa lịch',
+        message: 'Lịch này đã có khách đặt tour nên không thể xóa trực tiếp.',
+      })
       return
     }
 
-    const confirmed = window.confirm(
-      'Bạn có chắc muốn xóa lịch khởi hành này không?'
-    )
+    setDeletingDeparture(item || { id: departureId })
+    setDeleteModalOpen(true)
+  }
 
-    if (!confirmed) return
+  const closeDeleteModal = () => {
+    if (deleteSubmitting) return
+
+    setDeleteModalOpen(false)
+    setDeletingDeparture(null)
+  }
+
+  const submitDeleteDeparture = async () => {
+    const departureId = deletingDeparture?.id
+
+    if (!departureId) {
+      setDeleteModalOpen(false)
+      setActionNotice({
+        type: 'error',
+        title: 'Không thể xóa',
+        message: 'Không xác định được lịch khởi hành cần xóa.',
+      })
+      return
+    }
 
     try {
+      setDeleteSubmitting(true)
+
       await tourDepartureApi.remove(departureId)
 
       setNewDepartureIds((current) => {
@@ -539,14 +585,31 @@ useEffect(() => {
         return next
       })
 
-      alert('Xóa lịch khởi hành thành công')
+      setDeleteModalOpen(false)
+      setDeletingDeparture(null)
+
+      setActionNotice({
+        type: 'success',
+        title: 'Xóa lịch thành công',
+        message: 'Lịch khởi hành đã được xóa khỏi hệ thống.',
+      })
 
       await fetchDepartures(selectedTourId)
     } catch (error) {
       console.error(error)
-      alert(
-        getRequestErrorMessage(error, 'Xóa lịch khởi hành thất bại')
-      )
+
+      setDeleteModalOpen(false)
+      setDeletingDeparture(null)
+      setActionNotice({
+        type: 'error',
+        title: 'Xóa lịch thất bại',
+        message: getRequestErrorMessage(
+          error,
+          'Không thể xóa lịch khởi hành. Vui lòng thử lại.'
+        ),
+      })
+    } finally {
+      setDeleteSubmitting(false)
     }
   }
 
@@ -697,36 +760,89 @@ const approveReplacementRequest = async (request) => {
   }
 }
 
-const rejectReplacementRequest = async (request) => {
+const rejectReplacementRequest = (request) => {
   const requestId = request?.id || request?.request_id
 
-  if (!requestId) return
+  if (!requestId) {
+    setActionNotice({
+      type: 'error',
+      title: 'Không thể thực hiện',
+      message: 'Không xác định được yêu cầu đổi HDV cần xử lý.',
+    })
+    return
+  }
 
-  const note = window.prompt(
-    'Nhập ghi chú/lý do không duyệt gửi lại cho HDV:',
-    ''
-  )
+  setRejectingRequest(request)
+  setRejectNote('')
+  setRejectNoteError('')
+  setRejectModalOpen(true)
+}
 
-  if (note === null) return
+const closeRejectModal = () => {
+  if (rejectSubmitting) return
+
+  setRejectModalOpen(false)
+  setRejectingRequest(null)
+  setRejectNote('')
+  setRejectNoteError('')
+}
+
+const submitRejectReplacementRequest = async () => {
+  const requestId =
+    rejectingRequest?.id || rejectingRequest?.request_id
+  const normalizedNote = rejectNote.trim()
+
+  if (!requestId) {
+    setRejectNoteError('Không xác định được yêu cầu đổi HDV.')
+    return
+  }
+
+  if (!normalizedNote) {
+    setRejectNoteError('Vui lòng nhập lý do không duyệt.')
+    return
+  }
+
+  if (normalizedNote.length < 3) {
+    setRejectNoteError('Lý do không duyệt phải có ít nhất 3 ký tự.')
+    return
+  }
 
   try {
+    setRejectSubmitting(true)
+    setRejectNoteError('')
+
     await adminGuideReplacementRequestApi.reject(requestId, {
-      admin_note: note,
+      admin_note: normalizedNote,
     })
-    alert('Đã từ chối yêu cầu đổi HDV.')
+
+    setRejectModalOpen(false)
+    setRejectingRequest(null)
+    setRejectNote('')
+
+    setActionNotice({
+      type: 'success',
+      title: 'Đã không duyệt yêu cầu',
+      message:
+        'Yêu cầu đổi HDV đã bị từ chối và lý do đã được gửi lại cho hướng dẫn viên.',
+    })
+
     await fetchReplacementRequests()
     await fetchDepartures(selectedTourId)
+
     window.dispatchEvent(new Event('admin-notification:changed'))
     window.dispatchEvent(new Event('admin-guide-replacement:changed'))
     window.dispatchEvent(new Event('tourDepartureNeedAssignmentCountChanged'))
   } catch (error) {
     console.error(error)
-    alert(
+
+    setRejectNoteError(
       getRequestErrorMessage(
         error,
         'Từ chối yêu cầu đổi HDV thất bại.'
       )
     )
+  } finally {
+    setRejectSubmitting(false)
   }
 }
 
@@ -1069,6 +1185,269 @@ const rejectReplacementRequest = async (request) => {
                 onClearFocus={() => setFocusedDepartureId(null)}
                 onAssigned={handleAssigned}
               />
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {deleteModalOpen ? (
+        <div
+          className="fixed inset-0 z-[1250] flex items-center justify-center bg-slate-950/55 px-4 py-8 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              closeDeleteModal()
+            }
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-departure-title"
+            className="w-full max-w-lg overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="border-b border-slate-100 bg-rose-50 px-6 py-5">
+              <div className="flex items-start gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-rose-100 text-2xl font-black text-rose-700">
+                  !
+                </div>
+
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wide text-rose-600">
+                    Xác nhận xóa
+                  </p>
+                  <h3
+                    id="delete-departure-title"
+                    className="mt-1 text-xl font-black text-slate-950"
+                  >
+                    Xóa lịch khởi hành?
+                  </h3>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">
+                    Thao tác này không thể hoàn tác.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-6 py-5">
+              {deletingDeparture ? (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="font-black text-slate-900">
+                    {deletingDeparture?.tour?.title ||
+                      deletingDeparture?.tour_title ||
+                      `Lịch khởi hành #${deletingDeparture.id}`}
+                  </p>
+                  <p className="mt-2 text-sm text-slate-600">
+                    Ngày đi: {formatReplacementDate(deletingDeparture.departure_date)}
+                  </p>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Ngày về:{' '}
+                    {formatReplacementDate(
+                      deletingDeparture.return_date ||
+                        deletingDeparture.departure_date
+                    )}
+                  </p>
+                </div>
+              ) : null}
+
+              <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold leading-6 text-rose-700">
+                Bạn có chắc chắn muốn xóa lịch khởi hành này khỏi hệ thống không?
+              </div>
+            </div>
+
+            <div className="flex flex-col-reverse gap-3 border-t border-slate-100 bg-slate-50 px-6 py-4 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={closeDeleteModal}
+                disabled={deleteSubmitting}
+                className="rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-black text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Hủy
+              </button>
+
+              <button
+                type="button"
+                onClick={() => void submitDeleteDeparture()}
+                disabled={deleteSubmitting}
+                className="rounded-xl bg-rose-600 px-5 py-2.5 text-sm font-black text-white shadow-sm transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {deleteSubmitting ? 'Đang xóa...' : 'Xác nhận xóa'}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {rejectModalOpen ? (
+        <div
+          className="fixed inset-0 z-[1200] flex items-center justify-center bg-slate-950/55 px-4 py-8 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              closeRejectModal()
+            }
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="reject-replacement-title"
+            className="w-full max-w-xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="border-b border-slate-100 bg-rose-50 px-6 py-5">
+              <div className="flex items-start gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-rose-100 text-2xl text-rose-700">
+                  !
+                </div>
+
+                <div className="min-w-0">
+                  <p className="text-xs font-black uppercase tracking-wide text-rose-600">
+                    Xác nhận không duyệt
+                  </p>
+                  <h3
+                    id="reject-replacement-title"
+                    className="mt-1 text-xl font-black text-slate-950"
+                  >
+                    Không chấp nhận yêu cầu đổi HDV
+                  </h3>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">
+                    Hãy nhập lý do để gửi lại cho hướng dẫn viên.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4 px-6 py-5">
+              {rejectingRequest ? (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="font-black text-slate-900">
+                    {getReplacementTourTitle(rejectingRequest)}
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-slate-600">
+                    HDV yêu cầu: {getReplacementGuideName(rejectingRequest)}
+                  </p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Ngày đi {formatReplacementDate(rejectingRequest.departure_date)}
+                    {' · '}
+                    Ngày về{' '}
+                    {formatReplacementDate(
+                      rejectingRequest.return_date ||
+                        rejectingRequest.departure_date
+                    )}
+                  </p>
+                </div>
+              ) : null}
+
+              <div>
+                <label
+                  htmlFor="reject-replacement-note"
+                  className="mb-2 block text-sm font-black text-slate-800"
+                >
+                  Lý do không duyệt <span className="text-rose-600">*</span>
+                </label>
+
+                <textarea
+                  id="reject-replacement-note"
+                  value={rejectNote}
+                  onChange={(event) => {
+                    setRejectNote(event.target.value)
+                    if (rejectNoteError) setRejectNoteError('')
+                  }}
+                  disabled={rejectSubmitting}
+                  rows={5}
+                  maxLength={1000}
+                  autoFocus
+                  placeholder="Ví dụ: Thời gian tour sắp bắt đầu, hiện chưa có HDV phù hợp để thay thế..."
+                  className={`w-full resize-y rounded-2xl border bg-white px-4 py-3 text-sm leading-6 text-slate-800 outline-none transition placeholder:text-slate-400 disabled:cursor-not-allowed disabled:bg-slate-100 ${
+                    rejectNoteError
+                      ? 'border-rose-400 focus:border-rose-500 focus:ring-4 focus:ring-rose-100'
+                      : 'border-slate-300 focus:border-rose-500 focus:ring-4 focus:ring-rose-100'
+                  }`}
+                />
+
+                <div className="mt-2 flex items-start justify-between gap-3">
+                  <div>
+                    {rejectNoteError ? (
+                      <p className="text-sm font-bold text-rose-600">
+                        {rejectNoteError}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-slate-500">
+                        Lý do này sẽ được gửi lại cho HDV.
+                      </p>
+                    )}
+                  </div>
+
+                  <span className="shrink-0 text-xs font-semibold text-slate-400">
+                    {rejectNote.length}/1000
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col-reverse gap-3 border-t border-slate-100 bg-slate-50 px-6 py-4 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={closeRejectModal}
+                disabled={rejectSubmitting}
+                className="rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-black text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Hủy
+              </button>
+
+              <button
+                type="button"
+                onClick={() => void submitRejectReplacementRequest()}
+                disabled={rejectSubmitting}
+                className="rounded-xl bg-rose-600 px-5 py-2.5 text-sm font-black text-white shadow-sm transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {rejectSubmitting
+                  ? 'Đang xử lý...'
+                  : 'Xác nhận không duyệt'}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {actionNotice ? (
+        <div className="fixed inset-0 z-[1300] flex items-center justify-center bg-slate-950/45 px-4 py-8 backdrop-blur-sm">
+          <section
+            role="alertdialog"
+            aria-modal="true"
+            className="w-full max-w-md overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl"
+          >
+            <div className="px-6 pb-5 pt-6 text-center">
+              <div
+                className={`mx-auto flex h-16 w-16 items-center justify-center rounded-full text-3xl font-black ${
+                  actionNotice.type === 'success'
+                    ? 'bg-emerald-100 text-emerald-700'
+                    : 'bg-rose-100 text-rose-700'
+                }`}
+              >
+                {actionNotice.type === 'success' ? '✓' : '!'}
+              </div>
+
+              <h3 className="mt-4 text-xl font-black text-slate-950">
+                {actionNotice.title}
+              </h3>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                {actionNotice.message}
+              </p>
+            </div>
+
+            <div className="border-t border-slate-100 bg-slate-50 px-6 py-4">
+              <button
+                type="button"
+                onClick={() => setActionNotice(null)}
+                className={`w-full rounded-xl px-5 py-2.5 text-sm font-black text-white transition ${
+                  actionNotice.type === 'success'
+                    ? 'bg-emerald-600 hover:bg-emerald-700'
+                    : 'bg-rose-600 hover:bg-rose-700'
+                }`}
+              >
+                Đóng
+              </button>
             </div>
           </section>
         </div>

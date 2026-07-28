@@ -38,9 +38,9 @@ function GuideLayout({ children }) {
     return () => document.removeEventListener("mousedown", closeAccountMenu);
   }, []);
 
-  async function handleLogout() {
+  function handleLogout() {
     try {
-      await logoutApi();
+      void logoutApi().catch(() => {});
     } catch {
       // Token có thể đã hết hạn, vẫn cần xóa phiên local.
     }

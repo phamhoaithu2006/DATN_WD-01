@@ -37,6 +37,10 @@ export async function logout(token = readToken()) {
       timeout: 5000,
     })
   }
+export function logout() {
+  const request = apiClient.post('/auth/logout')
+  clearSession()
+  return request
 }
 
 export async function forgotPassword(identifier) {

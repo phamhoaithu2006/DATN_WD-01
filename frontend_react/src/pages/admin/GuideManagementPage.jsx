@@ -22,6 +22,8 @@ const EMPTY_LANGUAGE_ROW = { language_id: '', level_id: '' }
 const EMPTY_CERTIFICATE_ROW = { certificate_id: '', issued_year: '' }
 
 const GUIDE_STATUSES = ['active', 'inactive', 'locked']
+const PRESENCE_POLL_INTERVAL = 30000
+const PRESENCE_CACHE_DURATION = 15000
 
 const STATUS_LABELS = {
   active: 'Đang hoạt động',
@@ -381,6 +383,8 @@ function GuideManagementPage() {
   const [removeAvatarRequested, setRemoveAvatarRequested] = useState(false)
 
   const avatarInputRef = useRef(null)
+  const presenceRequestRef = useRef(null)
+  const lastPresenceLoadedAtRef = useRef(0)
 
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [detailGuide, setDetailGuide] = useState(null)
@@ -559,14 +563,44 @@ function GuideManagementPage() {
     [destinationFilter, hasFilter, keyword, leaveStatusFilter, statusFilter],
   )
 
-  const loadGuidePresence = useCallback(async () => {
-    try {
-      const response = await getGuidePresence()
-      setPresenceMap(response?.data || {})
-    } catch {
-      // Không chặn màn hình quản lý HDV khi trạng thái online chưa tải được.
-    }
-  }, [])
+  const loadGuidePresence = useCallback(
+    async ({ force = false } = {}) => {
+      if (document.visibilityState !== 'visible') {
+        return null
+      }
+
+      const now = Date.now()
+
+      if (
+        !force &&
+        now - lastPresenceLoadedAtRef.current < PRESENCE_CACHE_DURATION
+      ) {
+        return null
+      }
+
+      if (presenceRequestRef.current) {
+        return presenceRequestRef.current
+      }
+
+      const request = getGuidePresence()
+        .then((response) => {
+          setPresenceMap(response?.data || {})
+          lastPresenceLoadedAtRef.current = Date.now()
+          return response
+        })
+        .catch(() => {
+          // Không chặn màn hình khi trạng thái online chưa tải được.
+          return null
+        })
+        .finally(() => {
+          presenceRequestRef.current = null
+        })
+
+      presenceRequestRef.current = request
+      return request
+    },
+    [],
+  )
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -618,11 +652,32 @@ function GuideManagementPage() {
   }, [loadGuides])
 
   useEffect(() => {
-    const initialLoadId = window.setTimeout(() => void loadGuidePresence(), 0)
-    const intervalId = window.setInterval(() => void loadGuidePresence(), 5000)
+    const initialLoadId = window.setTimeout(() => {
+      void loadGuidePresence({ force: true })
+    }, 0)
+
+    const intervalId = window.setInterval(() => {
+      void loadGuidePresence()
+    }, PRESENCE_POLL_INTERVAL)
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'visible') {
+        void loadGuidePresence({ force: true })
+      }
+    }
+
+    function handleWindowFocus() {
+      void loadGuidePresence()
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleWindowFocus)
+
     return () => {
       window.clearTimeout(initialLoadId)
       window.clearInterval(intervalId)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleWindowFocus)
     }
   }, [loadGuidePresence])
 

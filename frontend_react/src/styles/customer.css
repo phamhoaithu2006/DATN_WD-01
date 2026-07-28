@@ -303,6 +303,14 @@
   color: #b42332;
   text-align: left;
   cursor: pointer;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+.vg-account-dropdown .vg-customer-logout:hover,
+.vg-account-dropdown .vg-customer-logout:focus-visible {
+  background: #fff1f2 !important;
+  color: #dc2626 !important;
+  outline: none;
 }
 
 .vg-mobile-menu {

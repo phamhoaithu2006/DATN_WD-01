@@ -1,87 +1,73 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { sendSupportPresenceHeartbeat } from '../../services/supportPresenceApi'
 
-function SupportPresenceHeartbeat() {
-  useEffect(() => {
-    let isUnmounted = false
+const HEARTBEAT_INTERVAL = 15000
+const MIN_HEARTBEAT_GAP = 5000
 
-    async function sendHeartbeat() {
-      if (isUnmounted) {
+function SupportPresenceHeartbeat() {
+  const requestRef = useRef(false)
+  const lastHeartbeatRef = useRef(0)
+
+  useEffect(() => {
+    let disposed = false
+
+    async function sendHeartbeat({ force = false } = {}) {
+      if (
+        disposed ||
+        document.visibilityState !== 'visible' ||
+        requestRef.current
+      ) {
         return
       }
 
+      const now = Date.now()
+
+      if (
+        !force &&
+        now - lastHeartbeatRef.current < MIN_HEARTBEAT_GAP
+      ) {
+        return
+      }
+
+      requestRef.current = true
+
       try {
         await sendSupportPresenceHeartbeat()
-      } catch (error) {
-        /*
-         * Không hiển thị lỗi ra giao diện vì heartbeat
-         * chỉ dùng để cập nhật trạng thái online.
-         */
-        console.warn(
-          'Không gửi được heartbeat NVHT:',
-          error?.response?.data?.message ||
-            error?.message,
-        )
+
+        if (!disposed) {
+          lastHeartbeatRef.current = Date.now()
+        }
+      } catch {
+        // Heartbeat chỉ dùng để cập nhật trạng thái online.
+      } finally {
+        requestRef.current = false
       }
     }
 
     function handleVisibilityChange() {
-      if (
-        document.visibilityState ===
-        'visible'
-      ) {
-        void sendHeartbeat()
+      if (document.visibilityState === 'visible') {
+        void sendHeartbeat({ force: true })
       }
     }
 
-    function handleWindowFocus() {
+    function handleFocus() {
       void sendHeartbeat()
     }
 
-    /*
-     * Gửi ngay khi NVHT mở trang.
-     */
-    void sendHeartbeat()
+    void sendHeartbeat({ force: true })
 
-    /*
-     * Gửi lại mỗi 45 giây.
-     */
-    const intervalId =
-      window.setInterval(() => {
-        if (
-          document.visibilityState ===
-          'visible'
-        ) {
-          void sendHeartbeat()
-        }
-      }, 5000)
+    const intervalId = window.setInterval(() => {
+      void sendHeartbeat()
+    }, HEARTBEAT_INTERVAL)
 
-    document.addEventListener(
-      'visibilitychange',
-      handleVisibilityChange,
-    )
-
-    window.addEventListener(
-      'focus',
-      handleWindowFocus,
-    )
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleFocus)
 
     return () => {
-      isUnmounted = true
-
-      window.clearInterval(
-        intervalId,
-      )
-
-      document.removeEventListener(
-        'visibilitychange',
-        handleVisibilityChange,
-      )
-
-      window.removeEventListener(
-        'focus',
-        handleWindowFocus,
-      )
+      disposed = true
+      window.clearInterval(intervalId)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleFocus)
     }
   }, [])
 
