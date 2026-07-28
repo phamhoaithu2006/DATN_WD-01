@@ -174,70 +174,172 @@ export default function AdminNotificationBell() {
   const [selectedNotification, setSelectedNotification] = useState(null)
   const [loading, setLoading] = useState(false)
   const dropdownRef = useRef(null)
+  const openRef = useRef(false)
+  const unreadRequestRef = useRef(null)
+  const notificationsRequestRef = useRef(null)
+  const lastUnreadFetchRef = useRef(0)
+  const lastNotificationsFetchRef = useRef(0)
 
-  const fetchUnreadCount = useCallback(async () => {
-    try {
-      const response = await adminNotificationApi.getUnreadCount()
-      setUnreadCount(getUnreadCount(response))
-    } catch (error) {
-      console.error(error)
+  const fetchUnreadCount = useCallback(async ({ force = false } = {}) => {
+    const now = Date.now()
+    const cacheTime = 30_000
+
+    if (
+      !force &&
+      now - lastUnreadFetchRef.current < cacheTime
+    ) {
+      return unreadCount
     }
-  }, [])
 
-  const fetchNotifications = useCallback(async () => {
-    try {
-      setLoading(true)
+    if (unreadRequestRef.current) {
+      return unreadRequestRef.current
+    }
 
-      const response = await adminNotificationApi.getList({
+    const request = adminNotificationApi
+      .getUnreadCount()
+      .then((response) => {
+        const count = getUnreadCount(response)
+
+        lastUnreadFetchRef.current = Date.now()
+        setUnreadCount(count)
+
+        return count
+      })
+      .catch((error) => {
+        console.error(error)
+        return null
+      })
+      .finally(() => {
+        unreadRequestRef.current = null
+      })
+
+    unreadRequestRef.current = request
+
+    return request
+  }, [unreadCount])
+
+  const fetchNotifications = useCallback(async ({ force = false } = {}) => {
+    const now = Date.now()
+    const cacheTime = 30_000
+
+    if (
+      !force &&
+      notifications.length > 0 &&
+      now - lastNotificationsFetchRef.current < cacheTime
+    ) {
+      return notifications
+    }
+
+    if (notificationsRequestRef.current) {
+      return notificationsRequestRef.current
+    }
+
+    setLoading(true)
+
+    const request = adminNotificationApi
+      .getList({
         per_page: 12,
       })
+      .then((response) => {
+        const list = getNotificationList(response)
 
-      const list = getNotificationList(response)
+        lastNotificationsFetchRef.current = Date.now()
+        setNotifications(list)
 
-      setNotifications(list)
+        setSelectedNotification((current) => {
+          if (!current) return list[0] || null
 
-      setSelectedNotification((current) => {
-        if (!current) return list[0] || null
+          return (
+            list.find(
+              (item) =>
+                String(item.id) === String(current.id),
+            ) ||
+            list[0] ||
+            null
+          )
+        })
 
-        return (
-          list.find((item) => String(item.id) === String(current.id)) ||
-          current
-        )
+        return list
       })
-    } catch (error) {
-      console.error(error)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+      .catch((error) => {
+        console.error(error)
+        return []
+      })
+      .finally(() => {
+        notificationsRequestRef.current = null
+        setLoading(false)
+      })
+
+    notificationsRequestRef.current = request
+
+    return request
+  }, [notifications])
 
   useEffect(() => {
-    const initialFetchTimeoutId = window.setTimeout(() => {
-      void fetchUnreadCount()
-    }, 0)
+    openRef.current = open
+  }, [open])
 
-    const intervalId = window.setInterval(() => {
-      void fetchUnreadCount()
-    }, 5000)
+  useEffect(() => {
+    const refreshWhenVisible = () => {
+      if (document.visibilityState !== 'visible') {
+        return
+      }
 
-    const handleChanged = () => {
       void fetchUnreadCount()
+    }
 
-      if (open) {
-        void fetchNotifications()
+    const handleChanged = (event) => {
+      if (
+        event instanceof CustomEvent &&
+        event.detail?.source === 'admin-notification-bell'
+      ) {
+        return
+      }
+
+      void fetchUnreadCount({ force: true })
+
+      if (openRef.current) {
+        void fetchNotifications({ force: true })
       }
     }
 
-    window.addEventListener('focus', fetchUnreadCount)
-    window.addEventListener('admin-notification:changed', handleChanged)
+    /*
+     * Chỉ gọi lần đầu và kiểm tra lại mỗi 60 giây.
+     * Khi tab bị ẩn sẽ không gọi API.
+     */
+    refreshWhenVisible()
+
+    const intervalId = window.setInterval(
+      refreshWhenVisible,
+      60_000,
+    )
+
+    window.addEventListener('focus', refreshWhenVisible)
+    document.addEventListener(
+      'visibilitychange',
+      refreshWhenVisible,
+    )
+    window.addEventListener(
+      'admin-notification:changed',
+      handleChanged,
+    )
 
     return () => {
-      window.clearTimeout(initialFetchTimeoutId)
       window.clearInterval(intervalId)
-      window.removeEventListener('focus', fetchUnreadCount)
-      window.removeEventListener('admin-notification:changed', handleChanged)
+      window.removeEventListener(
+        'focus',
+        refreshWhenVisible,
+      )
+      document.removeEventListener(
+        'visibilitychange',
+        refreshWhenVisible,
+      )
+      window.removeEventListener(
+        'admin-notification:changed',
+        handleChanged,
+      )
     }
-  }, [fetchUnreadCount, fetchNotifications, open])
+  }, [fetchNotifications, fetchUnreadCount])
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -262,22 +364,51 @@ export default function AdminNotificationBell() {
     setOpen(nextOpen)
 
     if (nextOpen) {
-      await fetchNotifications()
-      await fetchUnreadCount()
+      await Promise.all([
+        fetchNotifications(),
+        fetchUnreadCount(),
+      ])
     }
   }
 
-  async function closeDropdown() {
+  function closeDropdown() {
     setOpen(false)
-    await fetchUnreadCount()
   }
 
   async function markAllAsRead() {
     try {
       await adminNotificationApi.markAllAsRead()
+
       setUnreadCount(0)
-      await fetchNotifications()
-      window.dispatchEvent(new Event('admin-notification:changed'))
+      lastUnreadFetchRef.current = Date.now()
+
+      setNotifications((current) =>
+        current.map((item) => ({
+          ...item,
+          status: 'read',
+          read_at: item.read_at || new Date().toISOString(),
+        })),
+      )
+
+      setSelectedNotification((current) =>
+        current
+          ? {
+              ...current,
+              status: 'read',
+              read_at:
+                current.read_at ||
+                new Date().toISOString(),
+            }
+          : current,
+      )
+
+      window.dispatchEvent(
+        new CustomEvent('admin-notification:changed', {
+          detail: {
+            source: 'admin-notification-bell',
+          },
+        }),
+      )
     } catch (error) {
       console.error(error)
     }
@@ -289,22 +420,43 @@ async function markOneAsRead(notification) {
 
   await adminNotificationApi.markAsRead(notification.id)
 
+  const readAt = new Date().toISOString()
+
   setNotifications((current) =>
     current.map((item) =>
       String(item.id) === String(notification.id)
-        ? { ...item, status: 'read' }
-        : item
-    )
+        ? {
+            ...item,
+            status: 'read',
+            read_at: item.read_at || readAt,
+          }
+        : item,
+    ),
   )
 
   setSelectedNotification((current) =>
-    current && String(current.id) === String(notification.id)
-      ? { ...current, status: 'read' }
-      : current
+    current &&
+    String(current.id) === String(notification.id)
+      ? {
+          ...current,
+          status: 'read',
+          read_at: current.read_at || readAt,
+        }
+      : current,
   )
 
-  await fetchUnreadCount()
-  window.dispatchEvent(new Event('admin-notification:changed'))
+  setUnreadCount((current) =>
+    Math.max(0, current - 1),
+  )
+  lastUnreadFetchRef.current = Date.now()
+
+  window.dispatchEvent(
+    new CustomEvent('admin-notification:changed', {
+      detail: {
+        source: 'admin-notification-bell',
+      },
+    }),
+  )
 }
 
 async function goToGuideReplacementRequest(notification) {

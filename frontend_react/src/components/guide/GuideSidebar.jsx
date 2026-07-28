@@ -1,7 +1,20 @@
-﻿import { useEffect, useRef, useState } from 'react'
+﻿import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
 import { NavLink } from 'react-router-dom'
 import { getGuideTours } from '../../services/guideTourApi'
 import { getGuideUnreadNotificationCount } from '../../services/guideNotificationApi'
+
+const TOUR_POLL_INTERVAL = 30000
+const NOTIFICATION_POLL_INTERVAL = 60000
+const CACHE_DURATION = 30000
+const TOUR_EVENT_NAME = 'guide-tour:new-assignment-detected'
+const TOUR_CLEAR_EVENT_NAME = 'guide-tour:new-assignment-cleared'
+const NOTIFICATION_EVENT_NAME = 'guide-notification:changed'
+const EVENT_SOURCE = 'guide-sidebar'
 
 const guideMenuItems = [
   {
@@ -92,108 +105,270 @@ function getAssignmentKey(item) {
 function GuideSidebar({ collapsed, onLogout }) {
   const [newTourCount, setNewTourCount] = useState(0)
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0)
+
   const knownAssignmentIdsRef = useRef(new Set())
   const initializedRef = useRef(false)
 
-  useEffect(() => {
-    let active = true
+  const tourRequestRef = useRef(null)
+  const notificationRequestRef = useRef(null)
 
-    async function checkNewAssignedTours() {
-      try {
-        const response = await getGuideTours({
-          page: 1,
-          per_page: 50,
+  const lastTourLoadedAtRef = useRef(0)
+  const lastNotificationLoadedAtRef = useRef(0)
+
+  const checkNewAssignedTours = useCallback(
+    async ({ force = false } = {}) => {
+      if (document.visibilityState !== 'visible') {
+        return null
+      }
+
+      const now = Date.now()
+
+      if (
+        !force &&
+        now - lastTourLoadedAtRef.current < CACHE_DURATION
+      ) {
+        return null
+      }
+
+      if (tourRequestRef.current) {
+        return tourRequestRef.current
+      }
+
+      const request = getGuideTours({
+        page: 1,
+        per_page: 50,
+      })
+        .then((response) => {
+          const items = normalizeTourItems(response)
+          const currentIds = new Set(
+            items.map(getAssignmentKey).filter(Boolean),
+          )
+
+          lastTourLoadedAtRef.current = Date.now()
+
+          if (!initializedRef.current) {
+            knownAssignmentIdsRef.current = currentIds
+            initializedRef.current = true
+            return currentIds
+          }
+
+          const newIds = [...currentIds].filter(
+            (id) => !knownAssignmentIdsRef.current.has(id),
+          )
+
+          if (newIds.length > 0) {
+            setNewTourCount((current) => current + newIds.length)
+
+            window.dispatchEvent(
+              new CustomEvent(TOUR_EVENT_NAME, {
+                detail: {
+                  ids: newIds,
+                  source: EVENT_SOURCE,
+                },
+              }),
+            )
+          }
+
+          knownAssignmentIdsRef.current = currentIds
+          return currentIds
+        })
+        .catch((error) => {
+          console.error('Không thể kiểm tra tour mới:', error)
+          return null
+        })
+        .finally(() => {
+          tourRequestRef.current = null
         })
 
-        if (!active) return
+      tourRequestRef.current = request
+      return request
+    },
+    [],
+  )
 
-        const items = normalizeTourItems(response)
-        const currentIds = new Set(items.map(getAssignmentKey).filter(Boolean))
-
-        if (!initializedRef.current) {
-          knownAssignmentIdsRef.current = currentIds
-          initializedRef.current = true
-          return
-        }
-
-        const newIds = [...currentIds].filter(
-          (id) => !knownAssignmentIdsRef.current.has(id),
-        )
-
-        if (newIds.length > 0) {
-          setNewTourCount((current) => current + newIds.length)
-
-          window.dispatchEvent(
-            new CustomEvent('guide-tour:new-assignment-detected', {
-              detail: {
-                ids: newIds,
-              },
-            }),
-          )
-        }
-
-        knownAssignmentIdsRef.current = currentIds
-      } catch (error) {
-        console.error(error)
+  const refreshUnreadNotificationCount = useCallback(
+    async ({ force = false } = {}) => {
+      if (document.visibilityState !== 'visible') {
+        return null
       }
-    }
 
-    void checkNewAssignedTours()
+      const now = Date.now()
 
-    const timer = window.setInterval(checkNewAssignedTours, 5000)
+      if (
+        !force &&
+        now - lastNotificationLoadedAtRef.current < CACHE_DURATION
+      ) {
+        return null
+      }
 
-    const clearBadge = () => setNewTourCount(0)
-    window.addEventListener('guide-tour:new-assignment-cleared', clearBadge)
+      if (notificationRequestRef.current) {
+        return notificationRequestRef.current
+      }
 
-    return () => {
-      active = false
-      window.clearInterval(timer)
-      window.removeEventListener('guide-tour:new-assignment-cleared', clearBadge)
-    }
-  }, [])
+      const request = getGuideUnreadNotificationCount()
+        .then((count) => {
+          const nextCount = Number(count || 0)
+
+          setUnreadNotificationCount(
+            Number.isFinite(nextCount)
+              ? Math.max(0, nextCount)
+              : 0,
+          )
+
+          lastNotificationLoadedAtRef.current = Date.now()
+          return nextCount
+        })
+        .catch((error) => {
+          console.error(
+            'Không thể tải số thông báo chưa đọc:',
+            error,
+          )
+          return null
+        })
+        .finally(() => {
+          notificationRequestRef.current = null
+        })
+
+      notificationRequestRef.current = request
+      return request
+    },
+    [],
+  )
 
   useEffect(() => {
-    let active = true
+    void checkNewAssignedTours({ force: true })
 
-    async function refreshUnreadNotificationCount() {
-      try {
-        const count = await getGuideUnreadNotificationCount()
-        if (active) setUnreadNotificationCount(count)
-      } catch (error) {
-        console.error(error)
+    const timer = window.setInterval(() => {
+      void checkNewAssignedTours()
+    }, TOUR_POLL_INTERVAL)
+
+    function handleClearBadge() {
+      setNewTourCount(0)
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'visible') {
+        void checkNewAssignedTours({ force: true })
       }
     }
 
-    void refreshUnreadNotificationCount()
-    const timer = window.setInterval(refreshUnreadNotificationCount, 30000)
+    function handleFocus() {
+      void checkNewAssignedTours()
+    }
+
     window.addEventListener(
-      'guide-notification:changed',
-      refreshUnreadNotificationCount,
+      TOUR_CLEAR_EVENT_NAME,
+      handleClearBadge,
+    )
+    window.addEventListener('focus', handleFocus)
+    document.addEventListener(
+      'visibilitychange',
+      handleVisibilityChange,
     )
 
     return () => {
-      active = false
       window.clearInterval(timer)
       window.removeEventListener(
-        'guide-notification:changed',
-        refreshUnreadNotificationCount,
+        TOUR_CLEAR_EVENT_NAME,
+        handleClearBadge,
+      )
+      window.removeEventListener('focus', handleFocus)
+      document.removeEventListener(
+        'visibilitychange',
+        handleVisibilityChange,
       )
     }
-  }, [])
+  }, [checkNewAssignedTours])
+
+  useEffect(() => {
+    void refreshUnreadNotificationCount({ force: true })
+
+    const timer = window.setInterval(() => {
+      void refreshUnreadNotificationCount()
+    }, NOTIFICATION_POLL_INTERVAL)
+
+    function handleNotificationChanged(event) {
+      if (event?.detail?.source === EVENT_SOURCE) {
+        return
+      }
+
+      void refreshUnreadNotificationCount({ force: true })
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'visible') {
+        void refreshUnreadNotificationCount({ force: true })
+      }
+    }
+
+    function handleFocus() {
+      void refreshUnreadNotificationCount()
+    }
+
+    window.addEventListener(
+      NOTIFICATION_EVENT_NAME,
+      handleNotificationChanged,
+    )
+    window.addEventListener('focus', handleFocus)
+    document.addEventListener(
+      'visibilitychange',
+      handleVisibilityChange,
+    )
+
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener(
+        NOTIFICATION_EVENT_NAME,
+        handleNotificationChanged,
+      )
+      window.removeEventListener('focus', handleFocus)
+      document.removeEventListener(
+        'visibilitychange',
+        handleVisibilityChange,
+      )
+    }
+  }, [refreshUnreadNotificationCount])
 
   function handleNavClick(item) {
     if (item.showNewTourBadge) {
       setNewTourCount(0)
-      window.dispatchEvent(new Event('guide-tour:new-assignment-cleared'))
+
+      window.dispatchEvent(
+        new CustomEvent(TOUR_CLEAR_EVENT_NAME, {
+          detail: {
+            source: EVENT_SOURCE,
+          },
+        }),
+      )
+    }
+
+    if (item.showNotificationBadge) {
+      void refreshUnreadNotificationCount({ force: true })
     }
   }
 
   return (
-    <aside className={collapsed ? 'guide-sidebar collapsed' : 'guide-sidebar'}>
+    <aside
+      className={
+        collapsed
+          ? 'guide-sidebar collapsed'
+          : 'guide-sidebar'
+      }
+    >
       <div className="guide-brand">
-        <NavLink className="guide-brand-link" to="/guide">
-          <span className="guide-brand-logo-mark" aria-hidden="true">
-            <svg viewBox="0 0 48 48" role="img" aria-hidden="true">
+        <NavLink
+          className="guide-brand-link"
+          to="/guide"
+        >
+          <span
+            className="guide-brand-logo-mark"
+            aria-hidden="true"
+          >
+            <svg
+              viewBox="0 0 48 48"
+              role="img"
+              aria-hidden="true"
+            >
               <text
                 x="24"
                 y="31"
@@ -208,21 +383,36 @@ function GuideSidebar({ collapsed, onLogout }) {
               </text>
             </svg>
           </span>
+
           {!collapsed && (
             <div className="guide-brand-text-col">
               <span className="guide-brand-name">
-                <span className="brand-name-primary">ViVu</span>
-                <span className="brand-name-accent">Go</span>
+                <span className="brand-name-primary">
+                  ViVu
+                </span>
+                <span className="brand-name-accent">
+                  Go
+                </span>
               </span>
-              <span className="guide-brand-subtitle">TOURISM GUIDE</span>
+
+              <span className="guide-brand-subtitle">
+                TOURISM GUIDE
+              </span>
             </div>
           )}
         </NavLink>
       </div>
 
-      {!collapsed && <div className="guide-menu-header">MENU CHÍNH</div>}
+      {!collapsed && (
+        <div className="guide-menu-header">
+          MENU CHÍNH
+        </div>
+      )}
 
-      <nav className="guide-nav" aria-label="Điều hướng hướng dẫn viên">
+      <nav
+        className="guide-nav"
+        aria-label="Điều hướng hướng dẫn viên"
+      >
         {guideMenuItems.map((item) => (
           <NavLink
             key={item.path}
@@ -231,19 +421,29 @@ function GuideSidebar({ collapsed, onLogout }) {
             title={collapsed ? item.label : undefined}
             onClick={() => handleNavClick(item)}
             className={({ isActive }) =>
-              isActive ? 'guide-nav-link active' : 'guide-nav-link'
+              isActive
+                ? 'guide-nav-link active'
+                : 'guide-nav-link'
             }
           >
             <span className="guide-nav-icon-wrap">
-              <svg className="guide-nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <svg
+                className="guide-nav-icon"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
                 {item.icon}
               </svg>
 
-              {item.showNewTourBadge && newTourCount > 0 ? (
+              {item.showNewTourBadge &&
+              newTourCount > 0 ? (
                 <span className="guide-nav-badge">
-                  {newTourCount > 99 ? '99+' : newTourCount}
+                  {newTourCount > 99
+                    ? '99+'
+                    : newTourCount}
                 </span>
               ) : null}
+
               {collapsed &&
               item.showNotificationBadge &&
               unreadNotificationCount > 0 ? (
@@ -255,7 +455,12 @@ function GuideSidebar({ collapsed, onLogout }) {
               ) : null}
             </span>
 
-            {!collapsed && <span className="guide-nav-label">{item.label}</span>}
+            {!collapsed && (
+              <span className="guide-nav-label">
+                {item.label}
+              </span>
+            )}
+
             {!collapsed &&
             item.showNotificationBadge &&
             unreadNotificationCount > 0 ? (
@@ -269,13 +474,26 @@ function GuideSidebar({ collapsed, onLogout }) {
         ))}
       </nav>
 
-      <button className="guide-logout-button" type="button" onClick={onLogout}>
-        <svg className="guide-logout-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <button
+        className="guide-logout-button"
+        type="button"
+        onClick={onLogout}
+      >
+        <svg
+          className="guide-logout-icon"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
           <polyline points="16 17 21 12 16 7" />
           <line x1="21" y1="12" x2="9" y2="12" />
         </svg>
-        {!collapsed && <span className="guide-logout-label">Đăng xuất</span>}
+
+        {!collapsed && (
+          <span className="guide-logout-label">
+            Đăng xuất
+          </span>
+        )}
       </button>
     </aside>
   )

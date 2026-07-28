@@ -33,7 +33,7 @@ function HeroBannerBackground({ banners = [], activeIndex, setActiveIndex }) {
     if (safeBanners.length <= 1) return undefined;
     const timer = setInterval(() => {
       setActiveIndex((prev) => (prev + 1) % safeBanners.length);
-    }, 5000);
+    }, 7000);
 
     return () => clearInterval(timer);
   }, [safeBanners.length, activeIndex, setActiveIndex]);

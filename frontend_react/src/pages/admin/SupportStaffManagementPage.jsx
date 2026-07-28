@@ -1023,7 +1023,7 @@ function SupportStaffManagementPage() {
 
     const timer = window.setInterval(() => {
       void loadPresence()
-    }, 5000)
+    }, 30000)
 
     return () => window.clearInterval(timer)
   }, [loadPresence])
@@ -1033,7 +1033,7 @@ function SupportStaffManagementPage() {
 
     const timer = window.setTimeout(() => {
       closeToast()
-    }, 5000)
+    }, 30000)
 
     return () => window.clearTimeout(timer)
   }, [notice])
