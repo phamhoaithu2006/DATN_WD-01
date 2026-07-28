@@ -1,5 +1,7 @@
 import {
+  useCallback,
   useEffect,
+  useRef,
   useState,
 } from 'react'
 
@@ -7,40 +9,115 @@ import {
   getMySupportRequestUnreadCount,
 } from '../../services/supportWorkflowApi'
 
+const POLL_INTERVAL = 30000
+const MIN_REQUEST_GAP = 5000
+
 function CustomerSupportMenuBadge() {
   const [
     count,
     setCount,
   ] = useState(0)
 
-  async function loadCount() {
-    try {
-      const total =
-        await getMySupportRequestUnreadCount()
+  const requestRef = useRef(null)
+  const lastLoadedAtRef = useRef(0)
 
-      setCount(
-        Number(
-          total || 0,
-        ),
-      )
-    } catch {
-      setCount(0)
-    }
-  }
+  const loadCount = useCallback(
+    async ({
+      force = false,
+    } = {}) => {
+      if (
+        document.visibilityState !== 'visible'
+      ) {
+        return null
+      }
+
+      const now = Date.now()
+
+      if (
+        !force &&
+        now -
+          lastLoadedAtRef.current <
+          MIN_REQUEST_GAP
+      ) {
+        return count
+      }
+
+      if (
+        requestRef.current
+      ) {
+        return requestRef.current
+      }
+
+      const request =
+        getMySupportRequestUnreadCount()
+          .then((total) => {
+            const nextCount =
+              Math.max(
+                0,
+                Number(total || 0),
+              )
+
+            lastLoadedAtRef.current =
+              Date.now()
+
+            setCount(
+              Number.isFinite(
+                nextCount,
+              )
+                ? nextCount
+                : 0,
+            )
+
+            return nextCount
+          })
+          .catch(() => {
+            return null
+          })
+          .finally(() => {
+            requestRef.current =
+              null
+          })
+
+      requestRef.current =
+        request
+
+      return request
+    },
+    [count],
+  )
 
   useEffect(() => {
-    void loadCount()
+    void loadCount({
+      force: true,
+    })
 
     const intervalId =
       window.setInterval(
         () => {
           void loadCount()
         },
-        5000,
+        POLL_INTERVAL,
       )
 
     function handleChanged() {
+      void loadCount({
+        force: true,
+      })
+    }
+
+    function handleFocus() {
       void loadCount()
+    }
+
+    function handleVisibilityChange() {
+      if (
+        document.visibilityState ===
+        'visible'
+      ) {
+        void loadCount({
+          force: true,
+        })
+      }
     }
 
     window.addEventListener(
@@ -50,7 +127,12 @@ function CustomerSupportMenuBadge() {
 
     window.addEventListener(
       'focus',
-      handleChanged,
+      handleFocus,
+    )
+
+    document.addEventListener(
+      'visibilitychange',
+      handleVisibilityChange,
     )
 
     return () => {
@@ -65,10 +147,15 @@ function CustomerSupportMenuBadge() {
 
       window.removeEventListener(
         'focus',
-        handleChanged,
+        handleFocus,
+      )
+
+      document.removeEventListener(
+        'visibilitychange',
+        handleVisibilityChange,
       )
     }
-  }, [])
+  }, [loadCount])
 
   if (
     count <= 0

@@ -16,7 +16,7 @@ function formatTime(value) {
   }
 }
 
-const POLL_INTERVAL = 5000
+const POLL_INTERVAL = 15000
 const QUICK_REPLY_STORAGE_KEY = 'vivugo_support_quick_replies'
 
 const DEFAULT_QUICK_REPLIES = [
@@ -92,7 +92,9 @@ function SupportChatbotPage() {
 
   useEffect(() => {
     void loadLists()
-    const intervalId = window.setInterval(() => void loadLists(), 5000)
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === 'visible') void loadLists()
+    }, 30000)
     return () => window.clearInterval(intervalId)
   }, [loadLists])
 
