@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class ChatBotController extends Controller
 {
@@ -43,13 +44,10 @@ class ChatBotController extends Controller
             ?? self::DEFAULT_RECOMMENDATION_LIMIT;
         $hasImage = $request->hasFile('image');
 
-        $sessionId = $validated['session_id']
-            ?? 'guest-'.md5($request->ip().$request->userAgent());
-
-        $conversation = ChatConversation::firstOrCreate(
-            ['session_id' => $sessionId],
-            ['user_id' => auth('sanctum')->id()]
-        );
+        $sessionId = trim((string) ($validated['session_id'] ?? '')) ?: null;
+        $authenticatedUserId = auth('sanctum')->id();
+        $userId = $authenticatedUserId ? (int) $authenticatedUserId : null;
+        $conversation = $this->resolveConversationForMessage($userId, $sessionId);
 
         $this->autoCloseIfStale($conversation);
         $conversation->refresh();
@@ -218,15 +216,15 @@ class ChatBotController extends Controller
      */
     public function getMessages(Request $request)
     {
-        $sessionId = $request->query('session_id');
+        $sessionId = trim((string) $request->query('session_id', '')) ?: null;
+        $authenticatedUserId = auth('sanctum')->id();
+        $userId = $authenticatedUserId ? (int) $authenticatedUserId : null;
 
-        if (! $sessionId) {
+        if ($userId === null && $sessionId === null) {
             return response()->json(['messages' => [], 'mode' => 'ai']);
         }
 
-        $conversation = ChatConversation::with('assignedStaff:id,full_name,avatar_url')
-            ->where('session_id', $sessionId)
-            ->first();
+        $conversation = $this->findConversationForIdentity($userId, $sessionId);
 
         // QUAN TRỌNG: kiểm tra null TRƯỚC khi gọi autoCloseIfStale, tránh crash khi khách chưa từng chat
         if (! $conversation) {
@@ -235,6 +233,7 @@ class ChatBotController extends Controller
 
         $this->autoCloseIfStale($conversation);
         $conversation->refresh();
+        $conversation->load('assignedStaff:id,full_name,avatar_url');
 
         $messages = $conversation->messages()
             ->orderBy('id')
@@ -249,12 +248,82 @@ class ChatBotController extends Controller
 
         return response()->json([
             'messages' => $messages,
+            'session_id' => $conversation->session_id,
             'mode' => $conversation->mode,
             'assigned_staff_id' => $conversation->assigned_staff_id,
             'assigned_staff_name' => $conversation->assignedStaff->full_name ?? null,
             'assigned_staff_avatar' => $conversation->assignedStaff->avatar_url ?? null,
             'queue_position' => $queuePosition,
         ]);
+    }
+
+    private function resolveConversationForMessage(
+        ?int $userId,
+        ?string $sessionId
+    ): ChatConversation {
+        if ($userId !== null) {
+            $conversation = $this->findConversationForIdentity($userId, null);
+
+            if ($conversation) {
+                return $conversation;
+            }
+
+            return ChatConversation::create([
+                'session_id' => "user-{$userId}-".Str::uuid(),
+                'user_id' => $userId,
+            ]);
+        }
+
+        $guestSessionId = $this->isScopedGuestSessionId($sessionId)
+            ? $sessionId
+            : 'guest-'.Str::uuid();
+        $conversation = ChatConversation::firstOrCreate(
+            ['session_id' => $guestSessionId],
+            ['user_id' => null],
+        );
+
+        abort_if(
+            $conversation->user_id !== null,
+            403,
+            'Phiên trò chuyện không thuộc về khách hiện tại.',
+        );
+
+        return $conversation;
+    }
+
+    private function findConversationForIdentity(
+        ?int $userId,
+        ?string $sessionId
+    ): ?ChatConversation {
+        if ($userId !== null) {
+            return ChatConversation::query()
+                ->where('user_id', $userId)
+                ->where('session_id', 'like', "user-{$userId}-%")
+                ->latest('updated_at')
+                ->latest('id')
+                ->first();
+        }
+
+        if (! $this->isScopedGuestSessionId($sessionId)) {
+            return null;
+        }
+
+        return ChatConversation::query()
+            ->whereNull('user_id')
+            ->where('session_id', $sessionId)
+            ->first();
+    }
+
+    private function isScopedGuestSessionId(?string $sessionId): bool
+    {
+        if ($sessionId === null) {
+            return false;
+        }
+
+        return preg_match(
+            '/^guest-[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i',
+            $sessionId,
+        ) === 1;
     }
 
     private function extractFilters(string $message): array

@@ -1,45 +1,102 @@
-const CHAT_HISTORY_KEY = "vivugo_chat_history";
-const CHAT_SESSION_KEY = "vivugo_chat_session_id";
+const CHAT_SESSION_KEY_PREFIX = "vivugo_chat_session_id";
+const GUEST_SCOPE_KEY = "vivugo_chat_guest_scope";
+const LEGACY_CHAT_HISTORY_KEY = "vivugo_chat_history";
+const LEGACY_CHAT_SESSION_KEY = "vivugo_chat_session_id";
 
 const defaultGreeting = {
   from: "ai",
   text: "Xin chào! Mình là trợ lý du lịch ViVuGo. Bạn muốn đi đâu, ngân sách bao nhiêu và dự định đi mấy ngày?",
 };
 
+function normalizedUserId(userId) {
+  if (userId === null || userId === undefined || userId === "") return null;
+
+  return String(userId);
+}
+
+function clearLegacyChatStorage() {
+  localStorage.removeItem(LEGACY_CHAT_SESSION_KEY);
+  sessionStorage.removeItem(LEGACY_CHAT_HISTORY_KEY);
+}
+
+function getOrCreateGuestScope() {
+  let guestScope = sessionStorage.getItem(GUEST_SCOPE_KEY);
+
+  if (!guestScope) {
+    guestScope = crypto.randomUUID();
+    sessionStorage.setItem(GUEST_SCOPE_KEY, guestScope);
+  }
+
+  return guestScope;
+}
+
+function getSessionStorageDetails(userId) {
+  const scopedUserId = normalizedUserId(userId);
+
+  if (scopedUserId) {
+    return {
+      storage: localStorage,
+      key: `${CHAT_SESSION_KEY_PREFIX}:user:${encodeURIComponent(scopedUserId)}`,
+      sessionPrefix: `user-${scopedUserId}`,
+    };
+  }
+
+  const guestScope = getOrCreateGuestScope();
+
+  return {
+    storage: sessionStorage,
+    key: `${CHAT_SESSION_KEY_PREFIX}:guest:${guestScope}`,
+    sessionPrefix: "guest",
+  };
+}
+
 export function getDefaultChatMessages() {
   return [{ ...defaultGreeting }];
 }
 
-export function getOrCreateChatSessionId() {
-  let sessionId = localStorage.getItem(CHAT_SESSION_KEY);
+export function getOrCreateChatSessionId(userId = null) {
+  clearLegacyChatStorage();
+
+  const { storage, key, sessionPrefix } = getSessionStorageDetails(userId);
+  let sessionId = storage.getItem(key);
 
   if (!sessionId) {
-    sessionId = `session-${crypto.randomUUID()}`;
-    localStorage.setItem(CHAT_SESSION_KEY, sessionId);
+    sessionId = `${sessionPrefix}-${crypto.randomUUID()}`;
+    storage.setItem(key, sessionId);
   }
 
   return sessionId;
 }
 
-export function loadStoredChatMessages() {
-  try {
-    const raw = sessionStorage.getItem(CHAT_HISTORY_KEY);
-    const parsed = raw ? JSON.parse(raw) : null;
+export function storeChatSessionId(userId, sessionId) {
+  if (!sessionId) return;
 
-    return Array.isArray(parsed) && parsed.length > 0
-      ? parsed
-      : getDefaultChatMessages();
-  } catch {
-    return getDefaultChatMessages();
+  clearLegacyChatStorage();
+
+  const { storage, key } = getSessionStorageDetails(userId);
+  storage.setItem(key, sessionId);
+}
+
+export function resetChatSession(userId = null) {
+  clearLegacyChatStorage();
+
+  const scopedUserId = normalizedUserId(userId);
+
+  if (scopedUserId) {
+    localStorage.removeItem(
+      `${CHAT_SESSION_KEY_PREFIX}:user:${encodeURIComponent(scopedUserId)}`,
+    );
+  } else {
+    const guestScope = sessionStorage.getItem(GUEST_SCOPE_KEY);
+
+    if (guestScope) {
+      sessionStorage.removeItem(
+        `${CHAT_SESSION_KEY_PREFIX}:guest:${guestScope}`,
+      );
+    }
+
+    sessionStorage.removeItem(GUEST_SCOPE_KEY);
   }
-}
 
-export function storeChatMessages(messages) {
-  sessionStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(messages));
-}
-
-export function resetChatSession() {
-  localStorage.removeItem(CHAT_SESSION_KEY);
-  sessionStorage.removeItem(CHAT_HISTORY_KEY);
   window.dispatchEvent(new Event("vivugo-chat-reset"));
 }

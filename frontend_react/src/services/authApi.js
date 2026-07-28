@@ -1,5 +1,5 @@
 import apiClient from './apiClient'
-import { clearSession } from './authStorage'
+import { readToken } from './authStorage'
 
 export async function login(identifier, password, remember = false) {
   const response = await apiClient.post('/auth/login', {
@@ -28,10 +28,15 @@ export async function register(payload) {
   return response.data
 }
 
-export function logout() {
-  const request = apiClient.post('/auth/logout')
-  clearSession()
-  return request
+export async function logout(token = readToken()) {
+  if (token) {
+    await apiClient.post('/auth/logout', null, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      timeout: 5000,
+    })
+  }
 }
 
 export async function forgotPassword(identifier) {

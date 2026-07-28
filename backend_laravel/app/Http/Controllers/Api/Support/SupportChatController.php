@@ -20,11 +20,11 @@ class SupportChatController extends Controller
             ->get()
             ->map(function ($conv) {
                 return [
-                    'id'                    => $conv->id,
-                    'session_id'            => $conv->session_id,
-                    'customer_name'         => $conv->user->full_name ?? null,
-                    'handoff_requested_at'  => $conv->handoff_requested_at,
-                    'last_message'          => $conv->messages->first()->content ?? '',
+                    'id' => $conv->id,
+                    'session_id' => $conv->session_id,
+                    'customer_name' => $conv->user->full_name ?? null,
+                    'handoff_requested_at' => $conv->handoff_requested_at,
+                    'last_message' => $conv->messages->first()->content ?? '',
                 ];
             });
 
@@ -44,11 +44,11 @@ class SupportChatController extends Controller
             ->get()
             ->map(function ($conv) {
                 return [
-                    'id'                   => $conv->id,
-                    'session_id'           => $conv->session_id,
-                    'customer_name'        => $conv->user->full_name ?? null,
+                    'id' => $conv->id,
+                    'session_id' => $conv->session_id,
+                    'customer_name' => $conv->user->full_name ?? null,
                     'handoff_requested_at' => $conv->handoff_requested_at,
-                    'last_message'         => $conv->messages->first()->content ?? '',
+                    'last_message' => $conv->messages->first()->content ?? '',
                 ];
             });
 
@@ -57,25 +57,35 @@ class SupportChatController extends Controller
 
     public function accept(Request $request, ChatConversation $conversation)
     {
-        if ($conversation->mode !== 'pending_human') {
+        $accepted = ChatConversation::query()
+            ->whereKey($conversation->id)
+            ->where('mode', 'pending_human')
+            ->whereNull('assigned_staff_id')
+            ->update([
+                'mode' => 'human',
+                'assigned_staff_id' => $request->user()->id,
+            ]);
+
+        if ($accepted === 0) {
             return response()->json([
                 'message' => 'Cuộc trò chuyện này không còn ở trạng thái chờ tiếp nhận.',
             ], 409);
         }
 
-        $conversation->update([
-            'mode'               => 'human',
-            'assigned_staff_id'  => $request->user()->id,
-        ]);
-
         return response()->json([
             'message' => 'Đã tiếp nhận yêu cầu.',
-            'data'    => $conversation->fresh(),
+            'data' => $conversation->fresh(),
         ]);
     }
 
-    public function show(ChatConversation $conversation)
+    public function show(Request $request, ChatConversation $conversation)
     {
+        if (! $this->canViewConversation($request, $conversation)) {
+            return response()->json([
+                'message' => 'Bạn không có quyền xem cuộc trò chuyện này.',
+            ], 403);
+        }
+
         $this->autoCloseIfStale($conversation);
         $conversation->refresh();
         $conversation->load('user');
@@ -86,9 +96,9 @@ class SupportChatController extends Controller
 
         return response()->json([
             'conversation' => [
-                'id'            => $conversation->id,
-                'session_id'    => $conversation->session_id,
-                'mode'          => $conversation->mode,
+                'id' => $conversation->id,
+                'session_id' => $conversation->session_id,
+                'mode' => $conversation->mode,
                 'customer_name' => $conversation->user->full_name ?? null,
             ],
             'messages' => $messages,
@@ -99,10 +109,10 @@ class SupportChatController extends Controller
     {
         $validated = $request->validate([
             'content' => 'nullable|string|max:1000',
-            'image'   => 'nullable|image|max:5120',
+            'image' => 'nullable|image|max:5120',
         ]);
 
-        if (empty($validated['content']) && !$request->hasFile('image')) {
+        if (empty($validated['content']) && ! $request->hasFile('image')) {
             return response()->json(['message' => 'Vui lòng nhập nội dung hoặc chọn ảnh.'], 422);
         }
 
@@ -118,9 +128,9 @@ class SupportChatController extends Controller
 
         $message = ChatMessage::create([
             'chat_conversation_id' => $conversation->id,
-            'role'            => 'staff',
-            'content'         => $validated['content'] ?? '',
-            'attachment_url'  => $attachmentUrl,
+            'role' => 'staff',
+            'content' => $validated['content'] ?? '',
+            'attachment_url' => $attachmentUrl,
         ]);
 
         $conversation->touch();
@@ -137,29 +147,43 @@ class SupportChatController extends Controller
         }
 
         $conversation->update([
-            'mode'                       => 'ai',
-            'assigned_staff_id'          => null,
-            'handoff_closed_at'          => now(),
+            'mode' => 'ai',
+            'assigned_staff_id' => null,
+            'handoff_closed_at' => now(),
             'consecutive_fallback_count' => 0,
         ]);
 
         ChatMessage::create([
             'chat_conversation_id' => $conversation->id,
-            'role'    => 'staff',
+            'role' => 'staff',
             'content' => 'Nhân viên đã kết thúc phiên hỗ trợ. Nếu bạn cần thêm trợ giúp, mình (trợ lý AI) sẵn sàng hỗ trợ tiếp nhé!',
         ]);
 
         return response()->json(['message' => 'Đã đóng yêu cầu.']);
     }
 
+    private function canViewConversation(
+        Request $request,
+        ChatConversation $conversation
+    ): bool {
+        if (
+            $conversation->mode === 'pending_human'
+            && $conversation->assigned_staff_id === null
+        ) {
+            return true;
+        }
+
+        return (int) $conversation->assigned_staff_id === (int) $request->user()->id;
+    }
+
     private function buildAttachmentUrl(Request $request, string $path): string
     {
-        return $request->getSchemeAndHttpHost() . '/storage/' . $path;
+        return $request->getSchemeAndHttpHost().'/storage/'.$path;
     }
 
     private function autoCloseIfStale(ChatConversation $conversation): void
     {
-        if (!$conversation->isStale(30)) {
+        if (! $conversation->isStale(30)) {
             return;
         }
 
