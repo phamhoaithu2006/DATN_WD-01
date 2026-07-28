@@ -686,6 +686,17 @@
   background: #dcefff;
 }
 
+.vg-chat-faq-button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.vg-chat-faq-button:disabled:hover {
+  border-color: #bddbf3;
+  background: #f5fbff;
+  color: #0871d3;
+}
+
 .vg-image-preview-bar {
   display: flex;
   align-items: center;

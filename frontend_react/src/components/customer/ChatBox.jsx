@@ -15,8 +15,7 @@ import QuickTourPrompts from "./chatbot/QuickTourPrompts";
 import {
   getDefaultChatMessages,
   getOrCreateChatSessionId,
-  loadStoredChatMessages,
-  storeChatMessages,
+  storeChatSessionId,
 } from "./chatbot/chatStorage";
 
 const POLL_INTERVAL = 5000;
@@ -31,12 +30,13 @@ function mapServerMessage(message) {
   };
 }
 
-function ChatBox() {
+function ChatBox({ userId = null }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(true);
   const [compactViewport, setCompactViewport] = useState(false);
   const [text, setText] = useState("");
-  const [messages, setMessages] = useState(loadStoredChatMessages);
+  const [messages, setMessages] = useState(getDefaultChatMessages);
   const [mode, setMode] = useState("ai");
   const [queuePosition, setQueuePosition] = useState(null);
   const [staffInfo, setStaffInfo] = useState({ name: "", avatar: "" });
@@ -51,14 +51,6 @@ function ChatBox() {
 
   const lastMessageIdRef = useRef(0);
   const pollRef = useRef(null);
-
-  useEffect(() => {
-    try {
-      storeChatMessages(messages);
-    } catch {
-      // Bỏ qua nếu sessionStorage lỗi.
-    }
-  }, [messages]);
 
   useEffect(() => {
     const chatContent = chatContentRef.current;
@@ -115,9 +107,15 @@ function ChatBox() {
   useEffect(() => {
     function handleReset() {
       setMessages(getDefaultChatMessages());
+      setText("");
+      setLoading(false);
+      setHistoryLoading(false);
       setMode("ai");
       setQueuePosition(null);
       setStaffInfo({ name: "", avatar: "" });
+      setImageFile(null);
+      setImagePreview("");
+      if (fileInputRef.current) fileInputRef.current.value = "";
       shouldStickToBottomRef.current = true;
       lastMessageIdRef.current = 0;
     }
@@ -129,25 +127,44 @@ function ChatBox() {
     };
   }, []);
 
-  // Đồng bộ lịch sử thật từ server khi mở trang, kể cả khi sessionStorage đã bị xóa.
+  // Lịch sử luôn lấy từ server theo identity hiện tại. Không render cache của
+  // identity trước trong lúc đổi tài khoản.
   useEffect(() => {
-    const sessionId = getOrCreateChatSessionId();
+    let active = true;
+    const sessionId = getOrCreateChatSessionId(userId);
 
     fetchChatMessages(sessionId)
       .then((response) => {
+        if (!active) return;
+
         const serverMessages = (response?.messages || []).map(mapServerMessage);
 
         if (serverMessages.length > 0) {
           setMessages(serverMessages);
           lastMessageIdRef.current = serverMessages[serverMessages.length - 1].id;
+        } else {
+          setMessages(getDefaultChatMessages());
+          lastMessageIdRef.current = 0;
         }
 
+        storeChatSessionId(userId, response?.session_id);
         if (response?.mode) setMode(response.mode);
       })
       .catch(() => {
-        // Giữ nguyên lịch sử tạm nếu không thể đồng bộ từ server.
+        if (active) {
+          setMessages(getDefaultChatMessages());
+          setMode("ai");
+          lastMessageIdRef.current = 0;
+        }
+      })
+      .finally(() => {
+        if (active) setHistoryLoading(false);
       });
-  }, []);
+
+    return () => {
+      active = false;
+    };
+  }, [userId]);
 
   useEffect(() => {
     function handleCustomOpen() {
@@ -165,10 +182,14 @@ function ChatBox() {
       return undefined;
     }
 
+    let active = true;
+
     async function poll() {
       try {
-        const sessionId = getOrCreateChatSessionId();
+        const sessionId = getOrCreateChatSessionId(userId);
         const response = await fetchChatMessages(sessionId);
+        if (!active) return;
+
         const serverMessages = (response?.messages || []).map(mapServerMessage);
 
         if (serverMessages.length > 0) {
@@ -180,6 +201,7 @@ function ChatBox() {
         }
 
         if (response?.mode) setMode(response.mode);
+        storeChatSessionId(userId, response?.session_id);
         if (typeof response?.queue_position === "number") {
           setQueuePosition(response.queue_position);
         }
@@ -198,9 +220,10 @@ function ChatBox() {
     pollRef.current = window.setInterval(poll, POLL_INTERVAL);
 
     return () => {
+      active = false;
       if (pollRef.current) window.clearInterval(pollRef.current);
     };
-  }, [mode]);
+  }, [mode, userId]);
 
   function handleImageSelect(event) {
     const file = event.target.files?.[0] || null;
@@ -226,7 +249,7 @@ function ChatBox() {
       ? "Tôi muốn gặp nhân viên hỗ trợ"
       : (quickText || text).trim();
 
-    if ((!message && !imageFile) || loading) {
+    if ((!message && !imageFile) || loading || historyLoading) {
       if (!requestHuman) return;
     }
 
@@ -242,7 +265,7 @@ function ChatBox() {
     setLoading(true);
 
     try {
-      const sessionId = getOrCreateChatSessionId();
+      const sessionId = getOrCreateChatSessionId(userId);
       const response = await askTravelAssistant(
         message,
         sessionId,
@@ -250,6 +273,7 @@ function ChatBox() {
         sentImage
       );
 
+      storeChatSessionId(userId, response?.session_id);
       if (response?.mode) setMode(response.mode);
       if (typeof response?.queue_position === "number") {
         setQueuePosition(response.queue_position);
@@ -355,7 +379,10 @@ function ChatBox() {
             ))}
 
             {!hasUserMessage && mode === "ai" ? (
-              <QuickTourPrompts onSelect={sendMessage} />
+              <QuickTourPrompts
+                disabled={historyLoading}
+                onSelect={sendMessage}
+              />
             ) : null}
 
             {mode === "pending_human" && queuePosition ? (
@@ -379,7 +406,7 @@ function ChatBox() {
                 type="button"
                 className="vg-request-human-btn"
                 onClick={handleRequestHuman}
-                disabled={loading}
+                disabled={loading || historyLoading}
               >
                 Gặp nhân viên hỗ trợ
               </button>
@@ -389,7 +416,7 @@ function ChatBox() {
           <ChatInput
             fileInputRef={fileInputRef}
             imagePreview={imagePreview}
-            loading={loading}
+            loading={loading || historyLoading}
             mode={mode}
             text={text}
             onClearImage={clearSelectedImage}

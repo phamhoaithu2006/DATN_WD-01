@@ -387,17 +387,19 @@ function CustomerPage() {
       // Giữ trạng thái local nếu API chưa phản hồi được.
     }
   }
-  async function logout() {
-  try {
-    await logoutApi();
-  } catch {
-    // Token có thể đã hết hạn.
-  }
+  function logout() {
+    const currentUserId = user?.id ?? null;
+    const tokenToRevoke = readToken();
 
+    resetChatSession(currentUserId);
     clearSession();
-    resetChatSession();
+    resetChatSession(null);
     setUser(null);
     setFavorites(readStoredFavorites());
+
+    void logoutApi(tokenToRevoke).catch(() => {
+      // Token có thể đã hết hạn; client session đã được xóa an toàn.
+    });
   }
 
   const favoriteTours = normalizedTours.filter((tour) =>
@@ -405,6 +407,8 @@ function CustomerPage() {
   );
 
   const route = location.pathname;
+  const chatUserId = token && user?.id ? user.id : null;
+  const canRenderChat = !token || chatUserId;
   const pageParams = new URLSearchParams(location.search);
   const isSupportPage =
     route === "/customer/support" ||
@@ -519,7 +523,12 @@ function CustomerPage() {
       />
       {content}
       <Footer />
-      <ChatBox />
+      {canRenderChat ? (
+        <ChatBox
+          key={chatUserId ? `user-${chatUserId}` : "guest"}
+          userId={chatUserId}
+        />
+      ) : null}
     </div>
   );
 }

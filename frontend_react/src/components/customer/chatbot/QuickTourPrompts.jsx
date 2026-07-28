@@ -4,7 +4,7 @@ const TOUR_PROMPTS = [
   "Đi đâu tháng này?",
 ];
 
-function QuickTourPrompts({ onSelect }) {
+function QuickTourPrompts({ disabled = false, onSelect }) {
   return (
     <div
       className="vg-chat-faq"
@@ -16,6 +16,7 @@ function QuickTourPrompts({ onSelect }) {
           key={prompt}
           type="button"
           className="vg-chat-faq-button"
+          disabled={disabled}
           onClick={(event) => onSelect(event, prompt)}
         >
           {prompt}
