@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import Icon from "../../components/customer/Icon";
 import TourCard from "../../components/customer/TourCard";
@@ -92,14 +92,7 @@ function HomePage({
   tourLoadError = "",
   onFavorite,
 }) {
-  const navigate = useNavigate();
   const [heroBannerIndex, setHeroBannerIndex] = useState(0);
-
-  const [search, setSearch] = useState({
-    keyword: "",
-    departure_date: "",
-    guests: 2,
-  });
 
   const safeTours = Array.isArray(tours) ? tours : [];
   const safeInternationalTours = Array.isArray(internationalTours)
@@ -149,25 +142,6 @@ function HomePage({
     }))
     .filter((category) => category.tour_count > 0)
     .slice(0, 6);
-
-  function submitSearch(event) {
-    event.preventDefault();
-    const params = new URLSearchParams();
-    if (search.keyword.trim()) {
-      params.set("q", search.keyword.trim());
-    }
-    if (search.departure_date) {
-      params.set("departure_date", search.departure_date);
-    }
-    if (search.guests) {
-      params.set("guests", search.guests);
-    }
-    navigate(`/tours?${params.toString()}`);
-  }
-
-  function handleOpenAiChat() {
-    window.dispatchEvent(new CustomEvent("open-vivugo-chatbox"));
-  }
 
   const serviceHighlights = [
     {
@@ -281,12 +255,14 @@ function HomePage({
                       className={`vg-collage-card vg-collage-card-${index + 1}`}
                       key={destination.id || index}
                     >
-                      <img
-                        src={destination.image}
-                        alt={destination.name}
-                        width="1200"
-                        height="800"
-                      />
+                      {destination.image ? (
+                        <img
+                          src={destination.image}
+                          alt={destination.name}
+                          width="1200"
+                          height="800"
+                        />
+                      ) : null}
                       <div className="vg-collage-info">
                         <h4>{destination.name}</h4>
                         <span>
@@ -517,12 +493,14 @@ function HomePage({
                   className="vg-destination-card"
                   key={destination.id || destination.name}
                 >
-                  <img
-                    src={destination.image}
-                    alt={destination.name}
-                    width="1200"
-                    height="800"
-                  />
+                  {destination.image ? (
+                    <img
+                      src={destination.image}
+                      alt={destination.name}
+                      width="1200"
+                      height="800"
+                    />
+                  ) : null}
                   <div>
                     <h3>{destination.name}</h3>
                     <span>{destination.tours} tour đang mở</span>

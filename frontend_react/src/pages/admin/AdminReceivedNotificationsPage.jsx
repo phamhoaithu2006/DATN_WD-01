@@ -1014,7 +1014,7 @@ function AdminReceivedNotificationsPage() {
       async (filterValue) => {
         const collected = []
         let currentPage = 1
-        let lastPage = 1
+        let lastPage
 
         do {
           const payload =

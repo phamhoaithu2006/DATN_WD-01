@@ -423,8 +423,8 @@ function GuideAttendancePage() {
     Boolean(selectedSession) &&
     selectedSession?.status !== "closed";
   const isReadOnlySession = Boolean(selectedSession) && !canOperateSession;
-  const firstCustomer = customers.length ? (page - 1) * customerMeta.per_page + 1 : 0;
-  const lastCustomer = Math.min(page * customerMeta.per_page, totalRows);
+  const firstCustomer = customers.length ? (page - 1) * Number(customerMeta.per_page || 10) + 1 : 0;
+  const totalPages = Math.max(1, Number(customerMeta.last_page || Math.ceil(totalRows / 10) || 1));
 
   return (
     <div className="guide-attendance-shot-page">
@@ -642,17 +642,17 @@ function GuideAttendancePage() {
             </div>
             <footer className="guide-attendance-footer">
               <span>
-                Hiển thị {firstCustomer}-{lastCustomer} của {totalRows} khách
+                Trang {page}/{totalPages}
               </span>
               <div>
                 <button type="button" disabled={page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>‹</button>
-                {getPageNumbers(page, customerMeta.last_page || 1).map((pageNumber) => (
+                {getPageNumbers(page, totalPages).map((pageNumber) => (
                   <button key={pageNumber} type="button" className={pageNumber === page ? "is-active" : ""} onClick={() => setPage(pageNumber)}>{pageNumber}</button>
                 ))}
-                <button type="button" disabled={page >= (customerMeta.last_page || 1)} onClick={() => setPage((current) => current + 1)}>›</button>
+                <button type="button" disabled={page >= totalPages} onClick={() => setPage((current) => current + 1)}>›</button>
               </div>
               <span>
-                Hiển thị <b>{customerMeta.per_page || 10} khách / trang</b>
+                Hiển thị <b>{customers.length} khách / trang</b>
               </span>
             </footer>
           </section>

@@ -308,7 +308,7 @@ function SupportChatbotPage() {
       setActiveConversation(null)
       setMessages([])
       await loadLists()
-    } catch (error) {
+    } catch {
       // Dù lỗi (VD: phiên đã đóng từ trước) vẫn dọn UI sạch, tránh kẹt mãi
       setActiveConversation(null)
       setMessages([])

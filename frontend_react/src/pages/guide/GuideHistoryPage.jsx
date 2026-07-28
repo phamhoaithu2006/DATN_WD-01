@@ -157,6 +157,8 @@ function HistoryRow({ item, onDetail }) {
 
 function TourHistoryModal({ open, item, detailLoading, extras, onClose }) {
   const [expandedCustomerId, setExpandedCustomerId] = useState(null)
+  const customers = Array.isArray(extras?.customers) ? extras.customers : []
+  const sessions = Array.isArray(extras?.sessions) ? extras.sessions : []
 
   if (!open || !item) return null
 
@@ -225,15 +227,15 @@ function TourHistoryModal({ open, item, detailLoading, extras, onClose }) {
               <p>Danh sách khách, trạng thái check-in và lưu ý đã đăng ký.</p>
             </div>
             <span className="guide-tour-modal-count">
-              {formatNumber((extras?.customers || []).reduce((total, customer) => total + Number(customer.guest_count || 1), 0))} khách
+              {formatNumber(customers.reduce((total, customer) => total + Number(customer?.guest_count || 1), 0))} khách
             </span>
           </div>
 
           {detailLoading ? (
             <div className="guide-tour-modal-content-box guide-tour-modal-empty">Đang tải khách hàng...</div>
-          ) : extras?.customers?.length ? (
+          ) : customers.length ? (
             <div className="guide-tour-history-customers">
-              {extras.customers.map((customer) => {
+              {customers.map((customer) => {
                 const note = customer.special_request || customer.customer_note || customer.health_note
                 const attendance = customer.attendance || {}
                 const isExpanded = expandedCustomerId === customer.id
@@ -273,9 +275,9 @@ function TourHistoryModal({ open, item, detailLoading, extras, onClose }) {
             <div className="guide-tour-modal-content-box guide-tour-modal-empty">Chưa có dữ liệu khách hàng.</div>
           )}
 
-          {!detailLoading && extras?.sessions?.length ? (
+          {!detailLoading && sessions.length ? (
             <div className="guide-tour-history-sessions">
-              {extras.sessions.map((session) => (
+              {sessions.map((session) => (
                 <span key={session.id}>
                   {session.name || 'Điểm danh'}: {formatNumber(session.checked_in_count || 0)}/{formatNumber(session.attendance_count || 0)} đã check-in
                 </span>

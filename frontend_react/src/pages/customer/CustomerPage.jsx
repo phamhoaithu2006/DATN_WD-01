@@ -416,9 +416,6 @@ function CustomerPage() {
     route === "/customer/support" ||
     (route === "/customer/profile" && pageParams.get("view") === "support");
 
-  const matchGuideReview = route.match(
-    /^\/customer\/reviews\/(\d+)$/,
-  );
   const matchTourDetail = route.match(/^\/tours\/([^/]+)$/);
 
   const accountRoutes = [
@@ -443,13 +440,7 @@ function CustomerPage() {
     />
   );
 
-  if (matchGuideReview) {
-    content = user ? (
-      <GuideReviewPage bookingId={matchGuideReview[1]} />
-    ) : (
-      <Navigate to="/auth/login" replace />
-    );
-  } else if (matchTourDetail) {
+  if (matchTourDetail) {
     content = (
       <CustomerTourDetailPage
         tourId={matchTourDetail[1]}

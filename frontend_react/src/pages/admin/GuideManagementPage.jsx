@@ -111,33 +111,6 @@ function getCertificateIssuer(experience) {
   return experience?.certificate?.issued_by || experience?.issued_by || ''
 }
 
-function getDestinationLabel(destination) {
-  const name =
-    destination?.name ||
-    destination?.destination_name ||
-    destination?.title ||
-    ''
-
-  const provinceCity =
-    destination?.province_city ||
-    destination?.province ||
-    ''
-
-  return [name, provinceCity].filter(Boolean).join(' - ') || '-'
-}
-
-function getGuideDestinationLabel(guide, fallback = 'Chưa cập nhật khu vực') {
-  const destinations = Array.isArray(guide?.destinations)
-    ? guide.destinations
-    : []
-
-  if (destinations.length === 0) {
-    return fallback
-  }
-
-  return destinations.map(getDestinationLabel).join(', ')
-}
-
 function getLanguageLevels(languages, languageId) {
   if (!languageId) return []
 
@@ -368,7 +341,6 @@ function GuideManagementPage() {
 
   const [languages, setLanguages] = useState([])
   const [certificates, setCertificates] = useState([])
-  const [destinations, setDestinations] = useState([])
   const [availableUsers, setAvailableUsers] = useState([])
   const [availableUsersLoading, setAvailableUsersLoading] = useState(false)
 
@@ -475,16 +447,13 @@ function GuideManagementPage() {
       const [
         languageResponse,
         certificateResponse,
-        destinationResponse,
       ] = await Promise.all([
         apiClient.get('/admin/languages'),
         apiClient.get('/admin/certificates'),
-        apiClient.get('/admin/guides/destination-options'),
       ])
 
       setLanguages(unwrapList(languageResponse))
       setCertificates(unwrapList(certificateResponse))
-      setDestinations(unwrapList(destinationResponse))
     } catch (requestError) {
       setError(
         getErrorMessage(
@@ -722,41 +691,6 @@ function GuideManagementPage() {
       [field]: field === 'experience_years' && value !== ''
         ? getExperienceYearsError(value)
         : '',
-    }))
-  }
-
-  function updateDestination(index, value) {
-    setForm((current) => ({
-      ...current,
-      destination_ids: current.destination_ids.map((item, itemIndex) =>
-        itemIndex === index ? value : item,
-      ),
-    }))
-
-    setFormErrors((current) => ({
-      ...current,
-      destination_ids: '',
-    }))
-  }
-
-  function addDestination() {
-    setForm((current) => ({
-      ...current,
-      destination_ids: [...current.destination_ids, ''],
-    }))
-  }
-
-  function removeDestination(index) {
-    setForm((current) => ({
-      ...current,
-      destination_ids: current.destination_ids.filter(
-        (_, itemIndex) => itemIndex !== index,
-      ),
-    }))
-
-    setFormErrors((current) => ({
-      ...current,
-      destination_ids: '',
     }))
   }
 
@@ -1103,17 +1037,6 @@ function GuideManagementPage() {
     setStatusFilter(status)
     setDestinationFilter('all')
     setLeaveStatusFilter('all')
-
-    setPagination((current) => ({
-      ...current,
-      currentPage: 1,
-    }))
-  }
-
-  function selectLeaveStatistic(status) {
-    setStatusFilter('all')
-    setDestinationFilter('all')
-    setLeaveStatusFilter(status)
 
     setPagination((current) => ({
       ...current,

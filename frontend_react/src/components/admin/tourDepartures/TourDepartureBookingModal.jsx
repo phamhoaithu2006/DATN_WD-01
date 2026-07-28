@@ -1,11 +1,5 @@
 import { useMemo } from 'react'
 
-function toArray(value) {
-  if (Array.isArray(value)) return value
-
-  return []
-}
-
 function formatDate(value) {
   if (!value) return '—'
 

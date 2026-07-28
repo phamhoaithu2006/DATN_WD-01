@@ -289,18 +289,6 @@ function getAssignmentMeta(departure) {
   }
 }
 
-function getRemainSlotClass(remainSlots) {
-  if (remainSlots <= 0) {
-    return 'text-rose-600 bg-rose-50 ring-rose-100'
-  }
-
-  if (remainSlots <= 5) {
-    return 'text-amber-600 bg-amber-50 ring-amber-100'
-  }
-
-  return 'text-emerald-600 bg-emerald-50 ring-emerald-100'
-}
-
 function getDateKey(value) {
   if (!value) return ''
 
@@ -484,7 +472,7 @@ function parseNotificationData(value) {
 
   try {
     return JSON.parse(value)
-  } catch (error) {
+  } catch {
     return {}
   }
 }
@@ -733,7 +721,6 @@ export default function TourDepartureTable({
   onDelete,
   onOpenAssignment,
   onViewDetails,
-  assignmentWarningCount,
   onRequestEdit,
   activeTab = 'departures',
   scheduleFilter = 'upcoming',
@@ -772,16 +759,6 @@ export default function TourDepartureTable({
 
   const isDeparturesTab = activeTab === 'departures'
   const isGuidesTab = activeTab === 'guides'
-
-  const unassignedDepartureCount = useMemo(() => {
-    if (Number.isFinite(Number(assignmentWarningCount))) {
-      return Number(assignmentWarningCount)
-    }
-
-    return departures.filter(
-      (item) => isAssignmentWarningTarget(item) && !hasAssignedGuide(item)
-    ).length
-  }, [departures, assignmentWarningCount])
 
   const groupedRows = useMemo(() => {
     const upcomingRows = departures.filter(
@@ -1036,11 +1013,6 @@ export default function TourDepartureTable({
                     paginatedRows.map((item, index) => {
                       const totalSlots = Number(item.total_slots || 0)
                       const bookedSlots = Number(item.booked_slots || 0)
-                      const remainSlots = Math.max(
-                        totalSlots - bookedSlots,
-                        0
-                      )
-
                       const assignmentMeta = getAssignmentMeta(item)
                       const statusMeta = getStatusMeta(item.status)
                       const leadAssignment = getLeadAssignment(item)

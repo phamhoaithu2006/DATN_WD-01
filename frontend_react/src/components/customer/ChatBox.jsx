@@ -52,7 +52,6 @@ function ChatBox({ userId = null }) {
   const lastMessageIdRef = useRef(0);
   const pollRef = useRef(null);
   const historyLoadedRef = useRef(false);
-  const historyRequestRef = useRef(null);
   const pollRequestRef = useRef(false);
 
   useEffect(() => {
@@ -137,7 +136,7 @@ function ChatBox({ userId = null }) {
     let active = true;
     const sessionId = getOrCreateChatSessionId(userId);
 
-    const request = fetchChatMessages(sessionId)
+    void fetchChatMessages(sessionId)
       .then((response) => {
         if (!active) return;
 
@@ -195,8 +194,6 @@ function ChatBox({ userId = null }) {
       return undefined;
     }
 
-    let active = true;
-
     async function poll() {
       if (
         pollRequestRef.current ||
@@ -210,8 +207,6 @@ function ChatBox({ userId = null }) {
       try {
         const sessionId = getOrCreateChatSessionId(userId);
         const response = await fetchChatMessages(sessionId);
-        if (!active) return;
-
         const serverMessages = (response?.messages || []).map(mapServerMessage);
 
         if (serverMessages.length > 0) {
@@ -284,7 +279,6 @@ function ChatBox({ userId = null }) {
     );
 
     return () => {
-      active = false;
       if (pollRef.current) window.clearInterval(pollRef.current);
     };
   }, [mode, userId]);
