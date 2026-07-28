@@ -132,6 +132,7 @@ export default function CustomerSupportPage({ profile }) {
   const [supplementFiles, setSupplementFiles] = useState([]);
   const [supplementSubmitting, setSupplementSubmitting] =
     useState(false);
+  const [supplementError, setSupplementError] = useState("");
   const [notice, setNotice] = useState("");
 
   useEffect(() => {
@@ -384,15 +385,28 @@ export default function CustomerSupportPage({ profile }) {
   async function submitSupplement(event) {
     event.preventDefault();
 
-    if (
-      !selected?.id ||
-      supplementSubmitting ||
-      !supplementText.trim()
-    ) {
+    if (!selected?.id || supplementSubmitting) {
+      return;
+    }
+
+    const normalizedSupplementText = supplementText.trim();
+
+    if (!normalizedSupplementText) {
+      setSupplementError(
+        "Vui lòng nhập nội dung thông tin cần bổ sung.",
+      );
+      return;
+    }
+
+    if (normalizedSupplementText.length < 10) {
+      setSupplementError(
+        "Nội dung bổ sung phải có ít nhất 10 ký tự.",
+      );
       return;
     }
 
     setSupplementSubmitting(true);
+    setSupplementError("");
     setRequestError("");
     setNotice("");
 
@@ -402,7 +416,7 @@ export default function CustomerSupportPage({ profile }) {
           selected.id,
           {
             message:
-              supplementText.trim(),
+              normalizedSupplementText,
             attachments:
               supplementFiles,
           },
@@ -410,6 +424,7 @@ export default function CustomerSupportPage({ profile }) {
 
       setSupplementText("");
       setSupplementFiles([]);
+      setSupplementError("");
 
       setNotice(
         response?.message ||
@@ -439,10 +454,17 @@ export default function CustomerSupportPage({ profile }) {
         error,
       );
 
-      setRequestError(
+      const backendErrors =
+        error?.response?.data?.errors;
+
+      const supplementMessage =
+        backendErrors?.message?.[0] ||
+        backendErrors?.supplement_text?.[0] ||
+        backendErrors?.description?.[0] ||
         error?.response?.data?.message ||
-          "Không thể gửi thông tin bổ sung.",
-      );
+        "Không thể gửi thông tin bổ sung.";
+
+      setSupplementError(supplementMessage);
     } finally {
       setSupplementSubmitting(false);
     }
@@ -515,36 +537,76 @@ export default function CustomerSupportPage({ profile }) {
         {activeTab === "form" ? (
           <div className="mx-auto max-w-4xl">
             {success ? (
-              <div className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-emerald-700">
-                <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-                  <div>
-                    <strong className="text-base">
-                      Yêu cầu đã được gửi thành công!
-                    </strong>
+              <div
+                className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/45 px-4 py-8 backdrop-blur-sm"
+                onMouseDown={(event) => {
+                  if (event.target === event.currentTarget) {
+                    setSuccess(null);
+                  }
+                }}
+              >
+                <section
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="support-success-title"
+                  className="w-full max-w-md overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_30px_100px_rgba(15,23,42,0.32)]"
+                  onMouseDown={(event) => event.stopPropagation()}
+                >
+                  <div className="px-6 pb-5 pt-7 text-center">
+                    <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-3xl font-black text-emerald-700 ring-8 ring-emerald-50">
+                      ✓
+                    </div>
+
+                    <p className="mt-5 text-xs font-black uppercase tracking-[0.12em] text-emerald-600">
+                      Gửi yêu cầu thành công
+                    </p>
+
+                    <h2
+                      id="support-success-title"
+                      className="mt-2 text-2xl font-black text-slate-950"
+                    >
+                      Yêu cầu hỗ trợ đã được tiếp nhận
+                    </h2>
+
+                    <p className="mt-3 text-sm leading-6 text-slate-500">
+                      ViVuGo sẽ kiểm tra và phản hồi yêu cầu của bạn trong thời gian sớm nhất.
+                    </p>
 
                     {success?.ticket_code ? (
-                      <p className="mt-1 text-sm">
-                        Mã yêu cầu:{" "}
-                        <b>
+                      <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+                        <p className="text-xs font-bold uppercase tracking-wide text-emerald-600">
+                          Mã yêu cầu
+                        </p>
+
+                        <strong className="mt-1 block break-all text-lg font-black text-emerald-800">
                           {success.ticket_code}
-                        </b>
-                      </p>
+                        </strong>
+                      </div>
                     ) : null}
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActiveTab(
-                        "requests",
-                      );
-                      void loadRequests();
-                    }}
-                    className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white"
-                  >
-                    Xem yêu cầu
-                  </button>
-                </div>
+                  <div className="grid gap-3 border-t border-slate-100 bg-slate-50 px-6 py-4 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => setSuccess(null)}
+                      className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-black text-slate-700 transition hover:bg-slate-100"
+                    >
+                      Đóng
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSuccess(null);
+                        setActiveTab("requests");
+                        void loadRequests();
+                      }}
+                      className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-black text-white shadow-sm transition hover:bg-emerald-700"
+                    >
+                      Xem yêu cầu
+                    </button>
+                  </div>
+                </section>
               </div>
             ) : null}
 
@@ -779,8 +841,52 @@ export default function CustomerSupportPage({ profile }) {
             ) : null}
 
             {notice ? (
-              <div className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-700">
-                {notice}
+              <div
+                className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/45 px-4 py-8 backdrop-blur-sm"
+                onMouseDown={(event) => {
+                  if (event.target === event.currentTarget) {
+                    setNotice("");
+                  }
+                }}
+              >
+                <section
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="supplement-success-title"
+                  className="w-full max-w-md overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_30px_100px_rgba(15,23,42,0.32)]"
+                  onMouseDown={(event) => event.stopPropagation()}
+                >
+                  <div className="px-6 pb-5 pt-7 text-center">
+                    <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-3xl font-black text-emerald-700 ring-8 ring-emerald-50">
+                      ✓
+                    </div>
+
+                    <p className="mt-5 text-xs font-black uppercase tracking-[0.12em] text-emerald-600">
+                      Gửi bổ sung thành công
+                    </p>
+
+                    <h2
+                      id="supplement-success-title"
+                      className="mt-2 text-2xl font-black text-slate-950"
+                    >
+                      Đã cập nhật yêu cầu hỗ trợ
+                    </h2>
+
+                    <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-600">
+                      {notice}
+                    </p>
+                  </div>
+
+                  <div className="border-t border-slate-100 bg-slate-50 px-6 py-4">
+                    <button
+                      type="button"
+                      onClick={() => setNotice("")}
+                      className="w-full rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-black text-white shadow-sm transition hover:bg-emerald-700"
+                    >
+                      Đóng
+                    </button>
+                  </div>
+                </section>
               </div>
             ) : null}
 
@@ -1022,14 +1128,68 @@ export default function CustomerSupportPage({ profile }) {
 
                                 <textarea
                                   value={supplementText}
-                                  onChange={(event) =>
-                                    setSupplementText(event.target.value)
-                                  }
+                                  onChange={(event) => {
+                                    setSupplementText(event.target.value);
+
+                                    if (supplementError) {
+                                      setSupplementError("");
+                                    }
+                                  }}
+                                  onBlur={() => {
+                                    const value = supplementText.trim();
+
+                                    if (!value) {
+                                      setSupplementError(
+                                        "Vui lòng nhập nội dung thông tin cần bổ sung.",
+                                      );
+                                    } else if (value.length < 10) {
+                                      setSupplementError(
+                                        "Nội dung bổ sung phải có ít nhất 10 ký tự.",
+                                      );
+                                    }
+                                  }}
                                   rows="5"
-                                  className="mt-4 w-full rounded-xl border border-amber-200 bg-white p-4 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                                  maxLength={2000}
+                                  aria-invalid={Boolean(supplementError)}
+                                  aria-describedby={
+                                    supplementError
+                                      ? "supplement-text-error"
+                                      : undefined
+                                  }
+                                  className={`mt-4 w-full rounded-xl border bg-white p-4 text-sm outline-none transition ${
+                                    supplementError
+                                      ? "border-red-500 bg-red-50/40 text-red-900 focus:border-red-500 focus:ring-4 focus:ring-red-100"
+                                      : "border-amber-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                                  }`}
                                   placeholder="Mô tả chi tiết thông tin cần bổ sung..."
-                                  required
                                 />
+
+                                <div className="mt-2 flex items-start justify-between gap-3">
+                                  <div>
+                                    {supplementError ? (
+                                      <p
+                                        id="supplement-text-error"
+                                        className="text-sm font-bold text-red-600"
+                                      >
+                                        {supplementError}
+                                      </p>
+                                    ) : (
+                                      <p className="text-xs text-amber-700/70">
+                                        Nhập tối thiểu 10 ký tự để đội ngũ hỗ trợ có đủ thông tin xử lý.
+                                      </p>
+                                    )}
+                                  </div>
+
+                                  <span
+                                    className={`shrink-0 text-xs font-semibold ${
+                                      supplementError
+                                        ? "text-red-500"
+                                        : "text-slate-400"
+                                    }`}
+                                  >
+                                    {supplementText.length}/2000
+                                  </span>
+                                </div>
 
                                 <input
                                   type="file"
@@ -1056,84 +1216,129 @@ export default function CustomerSupportPage({ profile }) {
                             ) : null}
 
                             {Array.isArray(selected.messages) &&
-                            selected.messages.length > 0 ? (
+                            selected.messages.some(
+                              (message) =>
+                                ![
+                                  "support_staff",
+                                  "support",
+                                  "staff",
+                                  "admin",
+                                ].includes(message.sender_type),
+                            ) ? (
                               <section className="mt-7">
-                                <h3 className="text-sm font-black text-slate-900">
-                                  Lịch sử trao đổi
-                                </h3>
+                                <div className="flex flex-wrap items-end justify-between gap-3">
+                                  <div>
+                                    <h3 className="text-sm font-black text-slate-900">
+                                      Lịch sử bổ sung thông tin
+                                    </h3>
 
-                                <div className="mt-4 space-y-3">
-                                  {selected.messages.map((message) => {
-                                    const isStaff =
-                                      message.sender_type === "support_staff";
+                                    <p className="mt-1 text-xs text-slate-500">
+                                      Mỗi lần bổ sung được hiển thị thành một phiếu riêng để dễ theo dõi.
+                                    </p>
+                                  </div>
 
-                                    return (
-                                      <div
-                                        key={message.id}
-                                        className={`flex ${
-                                          isStaff
-                                            ? "justify-start"
-                                            : "justify-end"
-                                        }`}
-                                      >
-                                        <div
-                                          className={`max-w-[85%] rounded-2xl px-4 py-3 ${
-                                            isStaff
-                                              ? "border border-slate-200 bg-slate-50 text-slate-700"
-                                              : "bg-blue-600 text-white"
-                                          }`}
+                                  <span className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-black text-blue-700">
+                                    {
+                                      selected.messages.filter(
+                                        (message) =>
+                                          ![
+                                            "support_staff",
+                                            "support",
+                                            "staff",
+                                            "admin",
+                                          ].includes(message.sender_type),
+                                      ).length
+                                    } lần bổ sung
+                                  </span>
+                                </div>
+
+                                <div className="mt-4 space-y-4">
+                                  {selected.messages
+                                    .filter(
+                                      (message) =>
+                                        ![
+                                          "support_staff",
+                                          "support",
+                                          "staff",
+                                          "admin",
+                                        ].includes(message.sender_type),
+                                    )
+                                    .map((message, index) => {
+                                      const supplementNumber = index + 1;
+
+                                      return (
+                                        <article
+                                          key={message.id || `${message.created_at}-${index}`}
+                                          className="overflow-hidden rounded-2xl border border-blue-100 bg-white shadow-sm"
                                         >
-                                          <div className="mb-1 flex justify-between gap-4 text-[10px] opacity-80">
-                                            <strong>
-                                              {isStaff ? "ViVuGo" : "Bạn"}
-                                            </strong>
+                                          <header className="flex flex-wrap items-center justify-between gap-3 border-b border-blue-100 bg-blue-50/70 px-5 py-3">
+                                            <div className="flex items-center gap-3">
+                                              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-xs font-black text-white shadow-sm">
+                                                {String(supplementNumber).padStart(2, "0")}
+                                              </span>
 
-                                            <span>
-                                              {formatDateTime(
-                                                message.created_at,
-                                              )}
-                                            </span>
-                                          </div>
+                                              <div>
+                                                <h4 className="text-sm font-black text-slate-900">
+                                                  Bổ sung thông tin lần {supplementNumber}
+                                                </h4>
 
-                                          {message.message ? (
-                                            <p className="text-sm leading-6">
-                                              {message.message}
-                                            </p>
-                                          ) : null}
-
-                                          {Array.isArray(
-                                            message.attachments,
-                                          ) &&
-                                          message.attachments.length > 0 ? (
-                                            <div className="mt-2 space-y-1">
-                                              {message.attachments.map(
-                                                (file) => (
-                                                  <a
-                                                    key={
-                                                      file.id ||
-                                                      file.original_name ||
-                                                      file.filename
-                                                    }
-                                                    href={getAttachmentUrl(
-                                                      file,
-                                                    )}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                    className="block text-xs font-semibold underline"
-                                                  >
-                                                    📎{" "}
-                                                    {file.original_name ||
-                                                      file.filename ||
-                                                      "Tệp đính kèm"}
-                                                  </a>
-                                                ),
-                                              )}
+                                                <p className="mt-0.5 text-xs text-slate-500">
+                                                  Do khách hàng gửi
+                                                </p>
+                                              </div>
                                             </div>
-                                          ) : null}
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
+
+                                            <time className="rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-500 ring-1 ring-slate-200">
+                                              {formatDateTime(message.created_at)}
+                                            </time>
+                                          </header>
+
+                                          <div className="p-5">
+                                            {message.message ? (
+                                              <div className="whitespace-pre-wrap rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm leading-7 text-slate-700">
+                                                {message.message}
+                                              </div>
+                                            ) : (
+                                              <p className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500">
+                                                Lần bổ sung này không có nội dung văn bản.
+                                              </p>
+                                            )}
+
+                                            {Array.isArray(message.attachments) &&
+                                            message.attachments.length > 0 ? (
+                                              <div className="mt-4">
+                                                <p className="text-xs font-black uppercase tracking-wide text-slate-500">
+                                                  Tệp đính kèm
+                                                </p>
+
+                                                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                                                  {message.attachments.map((file) => (
+                                                    <a
+                                                      key={
+                                                        file.id ||
+                                                        file.original_name ||
+                                                        file.filename
+                                                      }
+                                                      href={getAttachmentUrl(file)}
+                                                      target="_blank"
+                                                      rel="noreferrer"
+                                                      className="flex min-w-0 items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-blue-700 transition hover:border-blue-300 hover:bg-blue-50"
+                                                    >
+                                                      <span className="text-lg">📎</span>
+                                                      <span className="min-w-0 truncate">
+                                                        {file.original_name ||
+                                                          file.filename ||
+                                                          "Tệp đính kèm"}
+                                                      </span>
+                                                    </a>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            ) : null}
+                                          </div>
+                                        </article>
+                                      );
+                                    })}
                                 </div>
                               </section>
                             ) : null}

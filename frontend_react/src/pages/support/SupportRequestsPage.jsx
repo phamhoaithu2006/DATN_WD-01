@@ -11,7 +11,6 @@ import {
   getSupportStaffOptions,
   releaseSupportRequest,
   resolveSupportRequest,
-  sendSupportRequestMessage,
   transferSupportRequest,
 } from '../../services/supportRequestApi'
 import {
@@ -200,6 +199,8 @@ export default function SupportRequestsPage() {
   const historyScrollRef = useRef(null)
 
   const [requests, setRequests] = useState([])
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(5)
   const [assignees, setAssignees] = useState([])
   const [staffOptions, setStaffOptions] = useState([])
 
@@ -207,6 +208,7 @@ export default function SupportRequestsPage() {
   const [messages, setMessages] = useState([])
   const [histories, setHistories] = useState([])
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [supplementHistoryOpen, setSupplementHistoryOpen] = useState(true)
 
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
@@ -224,15 +226,12 @@ export default function SupportRequestsPage() {
   const [loading, setLoading] = useState(true)
   const [detailLoading, setDetailLoading] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
-  const [sendingReply, setSendingReply] = useState(false)
   const [sendingAdminRequest, setSendingAdminRequest] =
     useState(false)
 
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
-
-  const [replyText, setReplyText] = useState('')
-  const [replyFiles, setReplyFiles] = useState([])
+  const [noticeTitle, setNoticeTitle] = useState('Đã cập nhật yêu cầu hỗ trợ')
 
   const [moreInfoOpen, setMoreInfoOpen] = useState(false)
   const [moreInfoMessage, setMoreInfoMessage] = useState(
@@ -246,6 +245,7 @@ export default function SupportRequestsPage() {
 
   const [adminRequestContent, setAdminRequestContent] =
     useState('')
+  const [adminRequestError, setAdminRequestError] = useState('')
 
   const showOwnershipTabs =
     status === 'in_progress' ||
@@ -319,12 +319,28 @@ export default function SupportRequestsPage() {
     )
   }, [selected])
 
-  const canReply = Boolean(
-    selected?.can_reply ||
-      (
-        selected?.status === 'in_progress' &&
-        selected?.is_mine
-      ),
+  const totalPages = Math.max(
+    1,
+    Math.ceil(requests.length / pageSize),
+  )
+
+  const paginatedRequests = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize
+
+    return requests.slice(
+      startIndex,
+      startIndex + pageSize,
+    )
+  }, [requests, currentPage, pageSize])
+
+  const firstVisibleItem =
+    requests.length === 0
+      ? 0
+      : (currentPage - 1) * pageSize + 1
+
+  const lastVisibleItem = Math.min(
+    currentPage * pageSize,
+    requests.length,
   )
 
   const adminPending =
@@ -503,6 +519,7 @@ export default function SupportRequestsPage() {
     setError('')
     setNotice('')
     setHistoryOpen(false)
+    setSupplementHistoryOpen(true)
 
     try {
       const detail =
@@ -604,6 +621,23 @@ export default function SupportRequestsPage() {
     assignedTo,
     ownershipScope,
   ])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [
+    search,
+    status,
+    category,
+    assignedTo,
+    ownershipScope,
+    pageSize,
+  ])
+
+  useEffect(() => {
+    setCurrentPage((current) =>
+      Math.min(current, totalPages),
+    )
+  }, [totalPages])
 
   useEffect(() => {
     function handleSupportNotificationChanged() {
@@ -762,6 +796,7 @@ export default function SupportRequestsPage() {
           item.id,
         )
 
+      setNoticeTitle('Đã cập nhật yêu cầu hỗ trợ')
       setNotice(
         response?.message ||
           'Đã tiếp nhận yêu cầu.',
@@ -795,6 +830,7 @@ export default function SupportRequestsPage() {
 
     try {
       const response = await resolveSupportRequest(selected.id)
+      setNoticeTitle('Đã cập nhật yêu cầu hỗ trợ')
       setNotice(response?.message || 'Đã hoàn tất hỗ trợ yêu cầu.')
       await refreshEverything(selected.id)
     } catch (requestError) {
@@ -836,6 +872,7 @@ export default function SupportRequestsPage() {
           moreInfoMessage.trim(),
         )
 
+      setNoticeTitle('Đã gửi yêu cầu bổ sung')
       setNotice(
         response?.message ||
           'Đã gửi yêu cầu bổ sung thông tin cho khách hàng.',
@@ -884,6 +921,7 @@ export default function SupportRequestsPage() {
           selected.id,
         )
 
+      setNoticeTitle('Đã cập nhật yêu cầu hỗ trợ')
       setNotice(
         response?.message ||
           'Đã trả yêu cầu về kho chưa hỗ trợ.',
@@ -950,6 +988,7 @@ export default function SupportRequestsPage() {
       setTransferSearch('')
       setTransferReason('')
 
+      setNoticeTitle('Đã cập nhật yêu cầu hỗ trợ')
       setNotice(
         response?.message ||
           'Đã chuyển nhân viên hỗ trợ.',
@@ -972,71 +1011,29 @@ export default function SupportRequestsPage() {
     }
   }
 
-  async function handleSendReply(
-    event,
-  ) {
-    event.preventDefault()
-
-    if (
-      !selected?.id ||
-      sendingReply
-    ) {
-      return
-    }
-
-    if (
-      !replyText.trim() &&
-      replyFiles.length === 0
-    ) {
-      return
-    }
-
-    setSendingReply(true)
-    setError('')
-    setNotice('')
-
-    try {
-      await sendSupportRequestMessage(
-        selected.id,
-        {
-          message:
-            replyText.trim(),
-
-          attachments:
-            replyFiles,
-        },
-      )
-
-      setReplyText('')
-      setReplyFiles([])
-
-      await loadConversation(
-        selected.id,
-      )
-    } catch (requestError) {
-      console.error(
-        requestError,
-      )
-
-      setError(
-        requestError?.response?.data?.message ||
-          'Không thể gửi phản hồi.',
-      )
-    } finally {
-      setSendingReply(false)
-    }
-  }
-
   async function handleSendToAdmin() {
-    if (
-      !selected?.id ||
-      sendingAdminRequest ||
-      !adminRequestContent.trim()
-    ) {
+    if (!selected?.id || sendingAdminRequest) {
+      return
+    }
+
+    const normalizedAdminRequestContent = adminRequestContent.trim()
+
+    if (!normalizedAdminRequestContent) {
+      setAdminRequestError(
+        'Vui lòng nhập nội dung cần Admin xử lý.',
+      )
+      return
+    }
+
+    if (normalizedAdminRequestContent.length < 5) {
+      setAdminRequestError(
+        'Nội dung gửi Admin phải có ít nhất 5 ký tự.',
+      )
       return
     }
 
     setSendingAdminRequest(true)
+    setAdminRequestError('')
     setError('')
     setNotice('')
 
@@ -1044,15 +1041,17 @@ export default function SupportRequestsPage() {
       const response =
         await sendSupportRequestToAdmin(
           selected.id,
-          adminRequestContent.trim(),
+          normalizedAdminRequestContent,
         )
 
+      setNoticeTitle('Đã gửi yêu cầu đến Admin')
       setNotice(
         response?.message ||
-          'Đã gửi yêu cầu xử lý đến Admin.',
+          'Yêu cầu đã được gửi đến Admin và đang chờ xử lý.',
       )
 
       setAdminRequestContent('')
+      setAdminRequestError('')
 
       await refreshEverything(
         selected.id,
@@ -1068,10 +1067,17 @@ export default function SupportRequestsPage() {
         requestError,
       )
 
-      setError(
+      const backendErrors =
+        requestError?.response?.data?.errors
+
+      const adminContentError =
+        backendErrors?.content?.[0] ||
+        backendErrors?.admin_request_content?.[0] ||
+        backendErrors?.message?.[0] ||
         requestError?.response?.data?.message ||
-          'Không thể gửi yêu cầu đến Admin.',
-      )
+        'Không thể gửi yêu cầu đến Admin.'
+
+      setAdminRequestError(adminContentError)
     } finally {
       setSendingAdminRequest(false)
     }
@@ -1090,7 +1096,7 @@ export default function SupportRequestsPage() {
     <>
       <SupportPresenceHeartbeat />
 
-      <section className="min-h-screen space-y-6 pb-10">
+      <section className="min-h-screen space-y-4 pb-8">
       <AdminPageHeader
         breadcrumb={[
           'ViVuGo',
@@ -1108,12 +1114,56 @@ export default function SupportRequestsPage() {
       ) : null}
 
       {notice ? (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-semibold text-emerald-700">
-          {notice}
+        <div
+          className="fixed inset-0 z-[1400] flex items-center justify-center bg-slate-950/45 px-4 py-8 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setNotice("");
+            }
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="support-action-notice-title"
+            className="w-full max-w-md overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_30px_100px_rgba(15,23,42,0.32)]"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="px-6 pb-5 pt-7 text-center">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-3xl font-black text-emerald-700 ring-8 ring-emerald-50">
+                ✓
+              </div>
+
+              <p className="mt-5 text-xs font-black uppercase tracking-[0.12em] text-emerald-600">
+                Thao tác thành công
+              </p>
+
+              <h2
+                id="support-action-notice-title"
+                className="mt-2 text-2xl font-black text-slate-950"
+              >
+                {noticeTitle}
+              </h2>
+
+              <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-600">
+                {notice}
+              </p>
+            </div>
+
+            <div className="border-t border-slate-100 bg-slate-50 px-6 py-4">
+              <button
+                type="button"
+                onClick={() => setNotice("")}
+                className="w-full rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-black text-white shadow-sm transition hover:bg-emerald-700"
+              >
+                Đóng
+              </button>
+            </div>
+          </section>
         </div>
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         {[
           [
             'pending',
@@ -1149,27 +1199,49 @@ export default function SupportRequestsPage() {
                   value,
                 )
               }
-              className={`rounded-3xl border p-5 text-left shadow-sm transition ${
+              className={`group flex min-h-[92px] items-center justify-between rounded-2xl border px-4 py-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${
                 status === value
-                  ? 'border-blue-300 bg-blue-50'
+                  ? 'border-blue-300 bg-blue-50 ring-2 ring-blue-100'
                   : 'border-slate-200 bg-white hover:border-blue-200'
               }`}
             >
-              <p className="text-sm font-bold text-slate-500">
-                {label}
-              </p>
+              <div>
+                <p className="text-xs font-black uppercase tracking-wide text-slate-500">
+                  {label}
+                </p>
 
-              <strong className="mt-2 block text-3xl font-black text-slate-900">
-                {Number(
-                  count || 0,
-                )}
-              </strong>
+                <strong className="mt-1 block text-2xl font-black text-slate-900">
+                  {Number(
+                    count || 0,
+                  )}
+                </strong>
+              </div>
+
+              <span
+                className={`flex h-10 w-10 items-center justify-center rounded-xl text-lg font-black ${
+                  value === 'pending'
+                    ? 'bg-amber-100 text-amber-700'
+                    : value === 'needs_more_info'
+                      ? 'bg-rose-100 text-rose-700'
+                      : value === 'in_progress'
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'bg-emerald-100 text-emerald-700'
+                }`}
+              >
+                {value === 'pending'
+                  ? '!'
+                  : value === 'needs_more_info'
+                    ? '?'
+                    : value === 'in_progress'
+                      ? '↻'
+                      : '✓'}
+              </span>
             </button>
           ),
         )}
       </div>
 
-      <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
         <div
           className={`grid gap-3 ${
             showAssigneeFilter
@@ -1188,7 +1260,7 @@ export default function SupportRequestsPage() {
               )
             }
             placeholder="Tìm tên, email, SĐT, mã ticket..."
-            className="h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none focus:border-blue-400"
+            className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none transition focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
           />
 
           <select
@@ -1201,7 +1273,7 @@ export default function SupportRequestsPage() {
                   .value,
               )
             }
-            className="h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none focus:border-blue-400"
+            className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none transition focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
           >
             <option value="">
               Tất cả danh mục
@@ -1235,7 +1307,7 @@ export default function SupportRequestsPage() {
                     .value,
                 )
               }
-              className="h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none focus:border-blue-400"
+              className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none transition focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
             >
               <option value="">
                 Tất cả NVHT
@@ -1270,7 +1342,7 @@ export default function SupportRequestsPage() {
                   .value,
               )
             }
-            className="h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none focus:border-blue-400"
+            className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none transition focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
           >
             <option value="">
               Tất cả trạng thái
@@ -1296,8 +1368,8 @@ export default function SupportRequestsPage() {
       </div>
 
       {showOwnershipTabs ? (
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="inline-flex rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="inline-flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
             <button
               type="button"
               onClick={() => setOwnershipScope('mine')}
@@ -1331,8 +1403,9 @@ export default function SupportRequestsPage() {
         </div>
       ) : null}
 
-      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_480px]">
-        <div className="space-y-3">
+      <div className="grid min-h-[520px] gap-5 overflow-hidden xl:h-[calc(100vh-365px)] xl:grid-cols-[minmax(320px,1fr)_minmax(0,2fr)]">
+        <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-slate-50/50">
+          <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto p-2 pr-2.5">
           {loading ? (
             <div className="rounded-3xl border border-slate-200 bg-white p-12 text-center text-slate-500">
               Đang tải...
@@ -1343,7 +1416,7 @@ export default function SupportRequestsPage() {
               Không có yêu cầu phù hợp.
             </div>
           ) : (
-            requests.map(
+            paginatedRequests.map(
               (item) => {
                 const staff =
                   getAssignedStaff(
@@ -1365,17 +1438,17 @@ export default function SupportRequestsPage() {
                         item,
                       )
                     }
-                    className={`cursor-pointer rounded-3xl border bg-white p-5 shadow-sm transition hover:border-blue-300 ${
+                    className={`cursor-pointer rounded-2xl border bg-white p-4 shadow-sm transition hover:border-blue-300 hover:shadow-md ${
                       selected?.id ===
                       item.id
-                        ? 'border-blue-400 ring-2 ring-blue-100'
+                        ? 'border-blue-400 bg-blue-50/30 ring-2 ring-blue-100'
                         : 'border-slate-200'
                     }`}
                   >
-                    <div className="flex justify-between gap-4">
+                    <div className="flex justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="font-black text-slate-900">
+                          <h3 className="line-clamp-1 font-black text-slate-900">
                             {
                               item.subject
                             }
@@ -1388,7 +1461,7 @@ export default function SupportRequestsPage() {
                           </span>
                         </div>
 
-                        <p className="mt-2 text-sm text-slate-500">
+                        <p className="mt-1.5 line-clamp-1 text-sm text-slate-500">
                           {
                             item.full_name
                           }{' '}
@@ -1417,7 +1490,7 @@ export default function SupportRequestsPage() {
                       </span>
                     </div>
 
-                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
                       <div className="flex flex-wrap gap-2 text-xs text-slate-500">
                         <span>
                           {CATEGORY_LABELS[
@@ -1556,9 +1629,82 @@ export default function SupportRequestsPage() {
               },
             )
           )}
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-white px-3 py-3">
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+              <span>
+                {firstVisibleItem}-{lastVisibleItem} / {requests.length}
+              </span>
+
+              <label className="flex items-center gap-1.5">
+                <span>Hiển thị</span>
+                <select
+                  value={pageSize}
+                  onChange={(event) =>
+                    setPageSize(Number(event.target.value))
+                  }
+                  className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700 outline-none focus:border-blue-400"
+                >
+                  <option value={5}>5</option>
+                  <option value={10}>10</option>
+                  <option value={15}>15</option>
+                </select>
+              </label>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setCurrentPage(1)}
+                disabled={currentPage === 1 || requests.length === 0}
+                className="h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-black text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                title="Trang đầu"
+              >
+                «
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setCurrentPage((current) => Math.max(1, current - 1))
+                }
+                disabled={currentPage === 1 || requests.length === 0}
+                className="h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-black text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Trước
+              </button>
+
+              <span className="inline-flex h-8 min-w-16 items-center justify-center rounded-lg bg-blue-600 px-2 text-xs font-black text-white">
+                {currentPage}/{totalPages}
+              </span>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setCurrentPage((current) => Math.min(totalPages, current + 1))
+                }
+                disabled={currentPage >= totalPages || requests.length === 0}
+                className="h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-black text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Sau
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={currentPage >= totalPages || requests.length === 0}
+                className="h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-black text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                title="Trang cuối"
+              >
+                »
+              </button>
+            </div>
+          </div>
         </div>
 
-        <aside className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm xl:sticky xl:top-24">
+        <div className="min-h-0 min-w-0 overflow-hidden xl:border-l xl:border-slate-200 xl:pl-5">
+          <aside className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           {!selected ? (
             <div className="p-12 text-center text-sm text-slate-500">
               Chọn một yêu cầu để xem chi tiết.
@@ -1569,7 +1715,7 @@ export default function SupportRequestsPage() {
             </div>
           ) : (
             <>
-              <header className="border-b border-slate-200 bg-slate-50 p-5">
+              <header className="border-b border-slate-200 bg-gradient-to-r from-slate-50 to-blue-50 p-4">
                 <div className="flex justify-between gap-3">
                   <div className="min-w-0">
                     <span className="text-xs font-black text-blue-600">
@@ -1578,7 +1724,7 @@ export default function SupportRequestsPage() {
                       }
                     </span>
 
-                    <h2 className="mt-2 text-xl font-black text-slate-900">
+                    <h2 className="mt-1 line-clamp-2 text-lg font-black text-slate-900">
                       {
                         selected.subject
                       }
@@ -1594,13 +1740,13 @@ export default function SupportRequestsPage() {
                 </div>
               </header>
 
-              <div className="max-h-[calc(100vh-180px)] space-y-6 overflow-y-auto p-5">
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 pr-3">
                 <section>
                   <p className="text-xs font-black uppercase text-slate-400">
                     Khách hàng
                   </p>
 
-                  <div className="mt-2 rounded-2xl bg-slate-50 p-4 text-sm">
+                  <div className="mt-2 rounded-xl border border-slate-100 bg-slate-50 p-3 text-sm">
                     <strong className="text-slate-900">
                       {
                         selected.full_name
@@ -1625,7 +1771,7 @@ export default function SupportRequestsPage() {
                     Thông tin yêu cầu
                   </p>
 
-                  <div className="mt-2 grid gap-2 rounded-2xl border border-slate-200 p-4 text-sm">
+                  <div className="mt-2 grid gap-2 rounded-xl border border-slate-200 bg-white p-3 text-sm">
                     <div className="flex justify-between gap-3">
                       <span className="text-slate-500">
                         Danh mục
@@ -1687,7 +1833,7 @@ export default function SupportRequestsPage() {
                         : 'Nhân viên đang hỗ trợ'}
                     </p>
 
-                    <div className="mt-2 flex items-center gap-3 rounded-2xl bg-blue-50 p-4">
+                    <div className="mt-2 flex items-center gap-3 rounded-xl border border-blue-100 bg-blue-50 p-3">
                       <StaffAvatar
                         staff={
                           selectedStaff
@@ -1717,7 +1863,7 @@ export default function SupportRequestsPage() {
                     Nội dung yêu cầu
                   </p>
 
-                  <div className="mt-2 whitespace-pre-wrap rounded-2xl border border-slate-200 p-4 text-sm leading-6 text-slate-600">
+                  <div className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap rounded-xl border border-slate-200 bg-slate-50/60 p-3 text-sm leading-6 text-slate-600">
                     {
                       selected.description
                     }
@@ -1797,203 +1943,210 @@ export default function SupportRequestsPage() {
                   </section>
                 ) : null}
 
-                <section>
-                  <p className="text-xs font-black uppercase text-slate-400">
-                    Lịch sử trao đổi
-                  </p>
-
-                  <div className="mt-3 max-h-80 space-y-3 overflow-y-auto rounded-2xl bg-slate-50 p-3">
-                    {messages.length ===
-                    0 ? (
-                      <p className="py-6 text-center text-xs text-slate-400">
-                        Chưa có trao đổi nào.
+                <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSupplementHistoryOpen(
+                        (current) => !current,
+                      )
+                    }
+                    className="flex w-full items-center justify-between gap-3 px-4 py-4 text-left transition hover:bg-slate-50"
+                  >
+                    <div>
+                      <p className="text-xs font-black uppercase text-slate-500">
+                        Nội dung khách hàng bổ sung
                       </p>
-                    ) : (
-                      messages.map(
-                        (
-                          message,
-                        ) => {
-                          const isStaff =
-                            [
+
+                      <p className="mt-1 text-[11px] text-slate-400">
+                        {
+                          messages.filter(
+                            (message) =>
+                              ![
+                                'support_staff',
+                                'support',
+                                'staff',
+                                'admin',
+                              ].includes(
+                                message.sender_type,
+                              ),
+                          ).length > 0
+                            ? `${
+                                messages.filter(
+                                  (message) =>
+                                    ![
+                                      'support_staff',
+                                      'support',
+                                      'staff',
+                                      'admin',
+                                    ].includes(
+                                      message.sender_type,
+                                    ),
+                                ).length
+                              } lần bổ sung`
+                            : 'Chưa có nội dung bổ sung'
+                        }
+                      </p>
+                    </div>
+
+                    <span
+                      className={`inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-sm font-black text-slate-500 transition-transform ${
+                        supplementHistoryOpen
+                          ? 'rotate-180'
+                          : ''
+                      }`}
+                    >
+                      ↓
+                    </span>
+                  </button>
+
+                  {supplementHistoryOpen ? (
+                    <div className="border-t border-slate-200 bg-slate-50/60 p-3">
+                      <div className="h-[300px] overflow-y-auto overscroll-contain rounded-xl bg-white p-4 pr-3">
+                        {messages.filter(
+                          (message) =>
+                            ![
                               'support_staff',
                               'support',
                               'staff',
+                              'admin',
                             ].includes(
                               message.sender_type,
-                            )
-
-                          return (
-                            <div
-                              key={
-                                message.id
-                              }
-                              className={`flex ${
-                                isStaff
-                                  ? 'justify-end'
-                                  : 'justify-start'
-                              }`}
-                            >
-                              <div
-                                className={`max-w-[85%] rounded-2xl px-4 py-3 ${
-                                  isStaff
-                                    ? 'bg-blue-600 text-white'
-                                    : 'border border-slate-200 bg-white text-slate-700'
-                                }`}
-                              >
-                                <div className="mb-1 flex justify-between gap-4 text-[10px] opacity-80">
-                                  <strong>
-                                    {isStaff
-                                      ? message.sender?.full_name ||
-                                        'NVHT'
-                                      : 'Khách hàng'}
-                                  </strong>
-
-                                  <span>
-                                    {formatDateTime(
-                                      message.created_at,
-                                    )}
-                                  </span>
-                                </div>
-
-                                {message.message ? (
-                                  <p className="whitespace-pre-wrap text-sm">
-                                    {
-                                      message.message
-                                    }
-                                  </p>
-                                ) : null}
-
-                                {normalizeArray(
-                                  message.attachments,
-                                ).length >
-                                0 ? (
-                                  <div className="mt-2 space-y-1">
-                                    {normalizeArray(
-                                      message.attachments,
-                                    ).map(
-                                      (
-                                        file,
-                                      ) => (
-                                        <a
-                                          key={
-                                            file.id ||
-                                            file.original_name
-                                          }
-                                          href={getAttachmentUrl(
-                                            file,
-                                          )}
-                                          target="_blank"
-                                          rel="noreferrer"
-                                          className="block text-xs underline"
-                                        >
-                                          📎{' '}
-                                          {file.original_name ||
-                                            file.filename ||
-                                            'Tệp đính kèm'}
-                                        </a>
-                                      ),
-                                    )}
-                                  </div>
-                                ) : null}
-                              </div>
-                            </div>
-                          )
-                        },
-                      )
-                    )}
-
-                    <div ref={chatBottomRef} />
-                  </div>
-
-                  {canReply ? (
-                    <form
-                      onSubmit={
-                        handleSendReply
-                      }
-                      className="mt-3 space-y-2"
-                    >
-                      <textarea
-                        value={replyText}
-                        onChange={(
-                          event,
-                        ) =>
-                          setReplyText(
-                            event
-                              .target
-                              .value,
-                          )
-                        }
-                        rows="3"
-                        placeholder="Nhập nội dung phản hồi..."
-                        className="w-full resize-none rounded-2xl border border-slate-200 p-3 text-sm outline-none focus:border-blue-400"
-                      />
-
-                      {replyFiles.length >
-                      0 ? (
-                        <div className="space-y-1 text-xs text-slate-500">
-                          {replyFiles.map(
-                            (
-                              file,
-                            ) => (
-                              <p
-                                key={`${file.name}-${file.size}`}
-                              >
-                                📎{' '}
-                                {
-                                  file.name
-                                }
-                              </p>
                             ),
-                          )}
-                        </div>
-                      ) : null}
-
-                      <div className="flex justify-between gap-3">
-                        <label className="cursor-pointer rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600">
-                          📎 Đính kèm
-
-                          <input
-                            type="file"
-                            multiple
-                            hidden
-                            accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx"
-                            onChange={(
-                              event,
-                            ) =>
-                              setReplyFiles(
-                                Array.from(
-                                  event
-                                    .target
-                                    .files ||
-                                    [],
-                                ),
+                        ).length === 0 ? (
+                          <div className="flex h-full items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50">
+                            <p className="text-center text-xs font-semibold text-slate-400">
+                              Khách hàng chưa bổ sung thêm thông tin.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            {messages
+                              .filter(
+                                (message) =>
+                                  ![
+                                    'support_staff',
+                                    'support',
+                                    'staff',
+                                    'admin',
+                                  ].includes(
+                                    message.sender_type,
+                                  ),
                               )
-                            }
-                          />
-                        </label>
+                              .map(
+                                (
+                                  message,
+                                  index,
+                                ) => (
+                                  <article
+                                    key={
+                                      message.id ||
+                                      `${message.created_at}-${index}`
+                                    }
+                                    className="overflow-hidden rounded-xl border border-blue-100 bg-white shadow-sm"
+                                  >
+                                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-blue-100 bg-blue-50/70 px-4 py-3">
+                                      <div className="flex items-center gap-3">
+                                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-[11px] font-black text-white">
+                                          {String(
+                                            index + 1,
+                                          ).padStart(
+                                            2,
+                                            '0',
+                                          )}
+                                        </span>
 
-                        <button
-                          type="submit"
-                          disabled={
-                            sendingReply ||
-                            (
-                              !replyText.trim() &&
-                              replyFiles.length ===
-                                0
-                            )
-                          }
-                          className="rounded-xl bg-blue-600 px-5 py-2 text-xs font-black text-white disabled:opacity-50"
-                        >
-                          {sendingReply
-                            ? 'Đang gửi...'
-                            : 'Gửi'}
-                        </button>
+                                        <div>
+                                          <p className="text-sm font-black text-slate-900">
+                                            Bổ sung lần{' '}
+                                            {index + 1}
+                                          </p>
+
+                                          <p className="text-[11px] text-slate-500">
+                                            Khách hàng gửi
+                                          </p>
+                                        </div>
+                                      </div>
+
+                                      <span className="rounded-full bg-white px-3 py-1 text-[11px] font-bold text-slate-500 ring-1 ring-slate-200">
+                                        {formatDateTime(
+                                          message.created_at,
+                                        )}
+                                      </span>
+                                    </div>
+
+                                    <div className="p-4">
+                                      {message.message ? (
+                                        <p className="whitespace-pre-wrap rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm leading-6 text-slate-700">
+                                          {
+                                            message.message
+                                          }
+                                        </p>
+                                      ) : (
+                                        <p className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-3 text-sm text-slate-400">
+                                          Không có nội dung văn bản.
+                                        </p>
+                                      )}
+
+                                      {normalizeArray(
+                                        message.attachments,
+                                      ).length > 0 ? (
+                                        <div className="mt-3">
+                                          <p className="mb-2 text-[11px] font-black uppercase tracking-wide text-slate-400">
+                                            Tệp đính kèm
+                                          </p>
+
+                                          <div className="grid gap-2 sm:grid-cols-2">
+                                            {normalizeArray(
+                                              message.attachments,
+                                            ).map(
+                                              (
+                                                file,
+                                              ) => (
+                                                <a
+                                                  key={
+                                                    file.id ||
+                                                    file.original_name ||
+                                                    file.filename
+                                                  }
+                                                  href={getAttachmentUrl(
+                                                    file,
+                                                  )}
+                                                  target="_blank"
+                                                  rel="noreferrer"
+                                                  className="flex min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-blue-600 transition hover:border-blue-300 hover:bg-blue-50"
+                                                >
+                                                  <span>
+                                                    📎
+                                                  </span>
+
+                                                  <span className="min-w-0 truncate">
+                                                    {file.original_name ||
+                                                      file.filename ||
+                                                      'Tệp đính kèm'}
+                                                  </span>
+                                                </a>
+                                              ),
+                                            )}
+                                          </div>
+                                        </div>
+                                      ) : null}
+                                    </div>
+                                  </article>
+                                ),
+                              )}
+                          </div>
+                        )}
                       </div>
-                    </form>
+
+                      <p className="mt-2 text-center text-[10px] font-semibold text-slate-400">
+                        Kéo trong khung để xem các lần bổ sung khác.
+                      </p>
+                    </div>
                   ) : null}
                 </section>
 
-                <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
                   <button
                     type="button"
                     onClick={() =>
@@ -2084,7 +2237,7 @@ export default function SupportRequestsPage() {
                 {selected.status ===
                   'in_progress' &&
                 selected.is_mine ? (
-                  <section className="rounded-3xl border border-violet-200 bg-violet-50 p-5">
+                  <section className="rounded-2xl border border-violet-200 bg-violet-50 p-4">
                     <p className="text-xs font-black uppercase tracking-wider text-violet-500">
                       Yêu cầu Admin xử lý
                     </p>
@@ -2116,29 +2269,76 @@ export default function SupportRequestsPage() {
                     ) : (
                       <>
                         <textarea
-                          value={
-                            adminRequestContent
-                          }
-                          onChange={(
-                            event,
-                          ) =>
+                          value={adminRequestContent}
+                          onChange={(event) => {
                             setAdminRequestContent(
-                              event
-                                .target
-                                .value,
+                              event.target.value,
                             )
-                          }
+
+                            if (adminRequestError) {
+                              setAdminRequestError('')
+                            }
+                          }}
+                          onBlur={() => {
+                            const value =
+                              adminRequestContent.trim()
+
+                            if (!value) {
+                              setAdminRequestError(
+                                'Vui lòng nhập nội dung cần Admin xử lý.',
+                              )
+                            } else if (value.length < 5) {
+                              setAdminRequestError(
+                                'Nội dung gửi Admin phải có ít nhất 5 ký tự.',
+                              )
+                            }
+                          }}
                           rows="5"
-                          placeholder="Mô tả vấn đề cần Admin xử lý..."
-                          className="mt-4 w-full resize-none rounded-2xl border border-violet-200 bg-white p-4 text-sm outline-none focus:border-violet-500"
+                          maxLength={2000}
+                          aria-invalid={Boolean(adminRequestError)}
+                          aria-describedby={
+                            adminRequestError
+                              ? 'admin-request-content-error'
+                              : undefined
+                          }
+                          placeholder="Mô tả rõ vấn đề cần Admin xử lý..."
+                          className={`mt-4 w-full resize-none rounded-2xl border bg-white p-4 text-sm outline-none transition ${
+                            adminRequestError
+                              ? 'border-red-500 bg-red-50/40 text-red-900 focus:border-red-500 focus:ring-4 focus:ring-red-100'
+                              : 'border-violet-200 focus:border-violet-500 focus:ring-4 focus:ring-violet-100'
+                          }`}
                         />
+
+                        <div className="mt-2 flex items-start justify-between gap-3">
+                          <div>
+                            {adminRequestError ? (
+                              <p
+                                id="admin-request-content-error"
+                                className="text-sm font-bold text-red-600"
+                              >
+                                {adminRequestError}
+                              </p>
+                            ) : (
+                              <p className="text-xs text-violet-600/70">
+                                Nhập tối thiểu 5 ký tự và mô tả rõ nội dung cần Admin can thiệp.
+                              </p>
+                            )}
+                          </div>
+
+                          <span
+                            className={`shrink-0 text-xs font-semibold ${
+                              adminRequestError
+                                ? 'text-red-500'
+                                : 'text-slate-400'
+                            }`}
+                          >
+                            {adminRequestContent.length}/2000
+                          </span>
+                        </div>
 
                         <button
                           type="button"
-                          disabled={
-                            sendingAdminRequest ||
-                            !adminRequestContent.trim()
-                          }
+                          disabled={sendingAdminRequest}
                           onClick={() =>
                             void handleSendToAdmin()
                           }
@@ -2266,7 +2466,8 @@ export default function SupportRequestsPage() {
               </div>
             </>
           )}
-        </aside>
+          </aside>
+        </div>
       </div>
 
       {moreInfoOpen ? (

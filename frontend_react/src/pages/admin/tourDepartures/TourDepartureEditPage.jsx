@@ -204,6 +204,20 @@ export default function TourDepartureEditPage() {
   const [changeReason, setChangeReason] = useState('')
   const [fieldErrors, setFieldErrors] = useState({})
   const [formError, setFormError] = useState('')
+  const [notification, setNotification] = useState(null)
+
+  const showNotification = (type, title, message, redirectTo = null) => {
+    setNotification({ type, title, message, redirectTo })
+  }
+
+  const closeNotification = () => {
+    const redirectTo = notification?.redirectTo
+    setNotification(null)
+
+    if (redirectTo) {
+      navigate(redirectTo)
+    }
+  }
 
   const fetchDeparture = useCallback(async () => {
     try {
@@ -217,14 +231,22 @@ export default function TourDepartureEditPage() {
       )
 
       if (!departure) {
-        alert('Không tìm thấy lịch khởi hành.')
-        navigate('/admin/tour-departures')
+        showNotification(
+          'error',
+          'Không tìm thấy lịch khởi hành',
+          'Lịch khởi hành này có thể đã bị xóa hoặc không còn tồn tại.',
+          '/admin/tour-departures'
+        )
         return
       }
 
       if (isLockedDeparture(departure)) {
-        alert('Lịch khởi hành đã qua nên không thể chỉnh sửa.')
-        navigate('/admin/tour-departures')
+        showNotification(
+          'warning',
+          'Không thể chỉnh sửa',
+          'Lịch khởi hành đã qua nên không thể cập nhật thông tin.',
+          '/admin/tour-departures'
+        )
         return
       }
 
@@ -275,14 +297,15 @@ export default function TourDepartureEditPage() {
     } catch (error) {
       console.error(error)
 
-      alert(
+      showNotification(
+        'error',
+        'Tải dữ liệu thất bại',
         getErrorMessage(
           error,
           'Không tải được thông tin lịch khởi hành.'
-        )
+        ),
+        '/admin/tour-departures'
       )
-
-      navigate('/admin/tour-departures')
     } finally {
       setLoading(false)
     }
@@ -398,13 +421,14 @@ export default function TourDepartureEditPage() {
 
       await updateDeparture(confirmBookedChange)
 
-      alert(
+      showNotification(
+        'success',
+        'Cập nhật thành công',
         hasBookings
-          ? 'Cập nhật thành công. Thông báo đã được gửi cho khách hàng và HDV.'
-          : 'Cập nhật lịch khởi hành thành công.'
+          ? 'Thông tin lịch khởi hành đã được cập nhật. Thông báo cũng đã được gửi cho khách hàng và hướng dẫn viên phụ trách.'
+          : 'Thông tin lịch khởi hành đã được cập nhật thành công.',
+        '/admin/tour-departures'
       )
-
-      navigate('/admin/tour-departures')
     } catch (error) {
       console.error(error)
 
@@ -422,11 +446,12 @@ export default function TourDepartureEditPage() {
         try {
           await updateDeparture(true)
 
-          alert(
-            'Cập nhật thành công. Thông báo đã được gửi cho khách hàng và HDV.'
+          showNotification(
+            'success',
+            'Cập nhật thành công',
+            'Thông tin lịch khởi hành đã được cập nhật. Thông báo cũng đã được gửi cho khách hàng và hướng dẫn viên phụ trách.',
+            '/admin/tour-departures'
           )
-
-          navigate('/admin/tour-departures')
           return
         } catch (retryError) {
           console.error(retryError)
@@ -479,6 +504,65 @@ export default function TourDepartureEditPage() {
 
   return (
     <div className="p-6">
+      {notification ? (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/45 px-4 backdrop-blur-[1px]">
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="notification-title"
+            className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-200"
+          >
+            <div className="p-6 text-center">
+              <div
+                className={`mx-auto flex h-16 w-16 items-center justify-center rounded-full ${
+                  notification.type === 'success'
+                    ? 'bg-emerald-100 text-emerald-600'
+                    : notification.type === 'warning'
+                      ? 'bg-amber-100 text-amber-600'
+                      : 'bg-red-100 text-red-600'
+                }`}
+              >
+                {notification.type === 'success' ? (
+                  <svg viewBox="0 0 24 24" className="h-9 w-9" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m5 12 4 4L19 6" />
+                  </svg>
+                ) : notification.type === 'warning' ? (
+                  <svg viewBox="0 0 24 24" className="h-9 w-9" fill="none" stroke="currentColor" strokeWidth="2.2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.3 3.9 2.6 17.2A2 2 0 0 0 4.3 20h15.4a2 2 0 0 0 1.7-2.8L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" className="h-9 w-9" fill="none" stroke="currentColor" strokeWidth="2.3">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6 6 18" />
+                  </svg>
+                )}
+              </div>
+
+              <h2 id="notification-title" className="mt-4 text-xl font-bold text-slate-900">
+                {notification.title}
+              </h2>
+
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                {notification.message}
+              </p>
+
+              <button
+                type="button"
+                onClick={closeNotification}
+                className={`mt-6 inline-flex min-w-32 items-center justify-center rounded-xl px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:opacity-90 focus:outline-none focus:ring-4 ${
+                  notification.type === 'success'
+                    ? 'bg-emerald-600 focus:ring-emerald-100'
+                    : notification.type === 'warning'
+                      ? 'bg-amber-500 focus:ring-amber-100'
+                      : 'bg-red-600 focus:ring-red-100'
+                }`}
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-slate-900">
           Sửa lịch khởi hành
