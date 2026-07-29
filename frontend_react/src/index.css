@@ -35,3 +35,20 @@ body {
 a {
   color: inherit;
 }
+
+/* Shared invalid-field state for Admin, HDV and NVHT forms. */
+input.is-invalid,
+select.is-invalid,
+textarea.is-invalid,
+input.is-error,
+select.is-error,
+textarea.is-error,
+input.error,
+select.error,
+textarea.error,
+input[aria-invalid='true'],
+select[aria-invalid='true'],
+textarea[aria-invalid='true'] {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 3px rgb(239 68 68 / 12%) !important;
+}

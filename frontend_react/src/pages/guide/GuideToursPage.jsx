@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { toast } from 'sonner'
 import { readSession } from "../../services/authStorage";
 import {
   getGuideTourCompleted,
@@ -470,6 +471,14 @@ function GuideToursPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    if (error) toast.error(error, { id: 'guide-tour-feedback' })
+  }, [error])
+
+  useEffect(() => {
+    if (message) toast.success(message, { id: 'guide-tour-feedback' })
+  }, [message])
   const [detailItem, setDetailItem] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailCustomers, setDetailCustomers] = useState([]);
@@ -712,15 +721,6 @@ function GuideToursPage() {
             />
           </label>
         </div>
-        {error || message ? (
-          <div
-            className={
-              error ? "guide-profile-alert is-error" : "guide-profile-alert"
-            }
-          >
-            {error || message}
-          </div>
-        ) : null}
         {loading ? (
           <div className="guide-shot-empty">Đang tải danh sách tour...</div>
         ) : null}

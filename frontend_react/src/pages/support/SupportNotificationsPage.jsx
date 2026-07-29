@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { toast } from 'sonner'
 import {
   getSupportNotificationDetail,
   getSupportNotifications,
@@ -35,6 +36,14 @@ function SupportNotificationsPage() {
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
+
+  useEffect(() => {
+    if (error) toast.error(error, { id: 'support-notification-feedback' })
+  }, [error])
+
+  useEffect(() => {
+    if (message) toast.success(message, { id: 'support-notification-feedback' })
+  }, [message])
   const [fieldErrors, setFieldErrors] = useState({})
 
   const unreadCount = useMemo(
@@ -146,6 +155,7 @@ function SupportNotificationsPage() {
 
     if (Object.keys(nextFieldErrors).length > 0) {
       setFieldErrors(nextFieldErrors)
+      toast.error(Object.values(nextFieldErrors)[0], { id: 'support-notification-feedback' })
       return
     }
 
@@ -198,12 +208,6 @@ function SupportNotificationsPage() {
           </div>
         ) : null}
       </section>
-
-      {(error || message) && (
-        <div className={error ? 'guide-profile-alert is-error' : 'guide-profile-alert'}>
-          {error || message}
-        </div>
-      )}
 
       {section === 'compose' ? (
         <section className="support-compose-layout">
