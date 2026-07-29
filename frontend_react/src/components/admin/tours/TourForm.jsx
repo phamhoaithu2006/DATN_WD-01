@@ -512,6 +512,54 @@ const parseAgeRange = (value) => {
   return { minAge, maxAge }
 }
 
+const parseFlexibleAgeRange = (value) => {
+  const raw = String(value ?? '').trim()
+  if (!raw) return null
+
+  const explicitRange = parseAgeRange(raw)
+  if (explicitRange) return explicitRange
+
+  const normalized = normalizeTextForOptionMatch(raw)
+
+  const underMatch = normalized.match(/(?:duoi|nho hon)\s*(\d+)/)
+  if (underMatch) {
+    const maxAge = Number(underMatch[1]) - 1
+    return maxAge >= 0 ? { minAge: 0, maxAge } : null
+  }
+
+  const fromMatch = normalized.match(/(?:tu|tren|lon hon)\s*(\d+)/)
+  if (fromMatch) {
+    const statedAge = Number(fromMatch[1])
+    const minAge = normalized.includes('tren') || normalized.includes('lon hon')
+      ? statedAge + 1
+      : statedAge
+
+    return minAge <= 120 ? { minAge, maxAge: 120 } : null
+  }
+
+  if (/(so sinh|em be|infant)/.test(normalized)) {
+    return { minAge: 0, maxAge: 1 }
+  }
+
+  if (/(tre em|child)/.test(normalized)) {
+    return { minAge: 2, maxAge: 11 }
+  }
+
+  if (/(thieu nien|teen)/.test(normalized)) {
+    return { minAge: 12, maxAge: 17 }
+  }
+
+  if (/(nguoi lon|adult)/.test(normalized)) {
+    return { minAge: 18, maxAge: 59 }
+  }
+
+  if (/(cao tuoi|nguoi gia|senior)/.test(normalized)) {
+    return { minAge: 60, maxAge: 120 }
+  }
+
+  return null
+}
+
 const normalizeAgePricingRulesForForm = (initialData = {}) => {
   const source = resolveTourInitialData(initialData)
   const rules = findNestedCollection(source, [
@@ -625,7 +673,7 @@ const normalizeAgePricingRulesForSubmit = (rules = []) => {
         return null
       }
 
-      const parsedRange = parseAgeRange(ageLabelText)
+      const parsedRange = parseFlexibleAgeRange(ageLabelText)
       const priceValue = Number(priceText)
 
       if (!parsedRange || !Number.isFinite(priceValue) || priceValue < 0) {
@@ -650,6 +698,7 @@ const MAX_TITLE_LENGTH = 180
 const MAX_ALT_TEXT_LENGTH = 150
 const MAX_IMAGE_SIZE_MB = 5
 const MAX_GALLERY_IMAGES = 10
+const MAX_BASE_PRICE = 99999999
 const DOMESTIC_MAX_TOUR_DURATION_DAYS = 7
 const INTERNATIONAL_MAX_TOUR_DURATION_DAYS = 15
 const ALLOWED_STATUSES = ['draft', 'published', 'hidden']
@@ -772,57 +821,92 @@ const validateImageFile = (file, label) => {
 }
 
 const validateAgePricingRules = (rules = []) => {
-  if (!Array.isArray(rules)) return ''
+  const errors = {}
 
-  const usedRanges = []
-
-  for (let index = 0; index < rules.length; index += 1) {
-    const rule = rules[index] || {}
-    const ageLabelText = String(rule.age_label ?? '').trim()
-    const priceText = String(rule.price_value ?? '').trim()
-
-    if (ageLabelText === '' && priceText === '') {
-      continue
-    }
-
-    if (ageLabelText === '') {
-      return `Vui lòng nhập đối tượng và độ tuổi ở dòng #${index + 1}.`
-    }
-
-    const parsedRange = parseAgeRange(ageLabelText)
-
-    if (!parsedRange) {
-      return `Dòng #${index + 1} cần chứa khoảng tuổi, ví dụ: Trẻ em (độ tuổi: 1-5).`
-    }
-
-    if (parsedRange.maxAge > 120) {
-      return `Tuổi kết thúc ở dòng #${index + 1} không được vượt quá 120.`
-    }
-
-    const overlappingRange = usedRanges.find(
-      (range) =>
-        parsedRange.minAge <= range.maxAge &&
-        parsedRange.maxAge >= range.minAge,
-    )
-
-    if (overlappingRange) {
-      return `Khoảng tuổi ${parsedRange.minAge}-${parsedRange.maxAge} bị trùng với khoảng ${overlappingRange.minAge}-${overlappingRange.maxAge}.`
-    }
-
-    usedRanges.push(parsedRange)
-
-    if (priceText === '') {
-      return `Vui lòng nhập giá tiền ở dòng #${index + 1}.`
-    }
-
-    const priceValue = Number(priceText)
-
-    if (!Number.isFinite(priceValue) || priceValue < 0) {
-      return `Giá tiền ở dòng #${index + 1} không hợp lệ.`
-    }
+  if (!Array.isArray(rules)) {
+    errors.age_pricing_rules = 'Danh sách giá vé theo độ tuổi không hợp lệ.'
+    return errors
   }
 
-  return ''
+  const usedRanges = []
+  const usedLabels = new Map()
+
+  rules.forEach((rule, index) => {
+    const rowNumber = index + 1
+    const labelKey = `age_pricing_rules.${index}.age_label`
+    const priceKey = `age_pricing_rules.${index}.price_value`
+    const ruleData = rule || {}
+    const ageLabelText = String(ruleData.age_label ?? '').trim()
+    const priceText = String(ruleData.price_value ?? '').trim()
+
+    // Dòng trống hoàn toàn được bỏ qua.
+    if (ageLabelText === '' && priceText === '') return
+
+    if (ageLabelText === '') {
+      errors[labelKey] = `Vui lòng nhập đối tượng hoặc độ tuổi ở dòng #${rowNumber}.`
+    }
+
+    const normalizedLabel = normalizeTextForOptionMatch(ageLabelText)
+    if (normalizedLabel) {
+      if (usedLabels.has(normalizedLabel)) {
+        errors[labelKey] = `Đối tượng “${ageLabelText}” bị trùng với dòng #${usedLabels.get(normalizedLabel)}.`
+      } else {
+        usedLabels.set(normalizedLabel, rowNumber)
+      }
+    }
+
+    const parsedRange = ageLabelText
+      ? parseFlexibleAgeRange(ageLabelText)
+      : null
+
+    if (ageLabelText && !parsedRange) {
+      errors[labelKey] =
+        'Nhập khoảng tuổi như “1-5”, “từ 18 tuổi”, hoặc tên nhóm như “Người lớn”.'
+    }
+
+    if (parsedRange) {
+      if (
+        parsedRange.minAge < 0 ||
+        parsedRange.maxAge > 120 ||
+        parsedRange.maxAge < parsedRange.minAge
+      ) {
+        errors[labelKey] = 'Độ tuổi phải nằm trong khoảng từ 0 đến 120.'
+      } else {
+        const overlapping = usedRanges.find(
+          (item) =>
+            parsedRange.minAge <= item.maxAge &&
+            parsedRange.maxAge >= item.minAge,
+        )
+
+        if (overlapping) {
+          errors[labelKey] =
+            `Khoảng tuổi ${parsedRange.minAge}-${parsedRange.maxAge} bị trùng với dòng #${overlapping.rowNumber}.`
+        } else {
+          usedRanges.push({
+            ...parsedRange,
+            rowNumber,
+          })
+        }
+      }
+    }
+
+    if (priceText === '') {
+      errors[priceKey] = `Vui lòng nhập giá tiền ở dòng #${rowNumber}.`
+    } else {
+      const priceValue = Number(priceText)
+
+      if (!Number.isFinite(priceValue) || priceValue < 0) {
+        errors[priceKey] = 'Giá tiền phải là số lớn hơn hoặc bằng 0.'
+      } else if (!Number.isInteger(priceValue)) {
+        errors[priceKey] = 'Giá tiền phải là số nguyên.'
+      } else if (priceValue > MAX_BASE_PRICE) {
+        errors[priceKey] =
+          `Giá tiền không được vượt quá ${MAX_BASE_PRICE.toLocaleString('vi-VN')} đ.`
+      }
+    }
+  })
+
+  return errors
 }
 
 const validateItinerary = (itinerary = [], durationDays = 1, strict = false) => {
@@ -866,6 +950,7 @@ const validateTourForm = ({
   status,
   selectedCategory,
 }) => {
+  const errors = {}
   const submitStatus = status || formData.status || 'published'
   const isStrictSubmit = submitStatus !== 'draft'
   const title = String(formData.title || '').trim()
@@ -879,77 +964,65 @@ const validateTourForm = ({
   const availableSlots = Number(formData.available_slots ?? maxSlots ?? 1)
 
   if (!ALLOWED_STATUSES.includes(submitStatus)) {
-    return 'Trạng thái tour không hợp lệ.'
+    errors.status = 'Trạng thái tour không hợp lệ.'
   }
 
   if (!formData.category_id) {
-    return 'Vui lòng chọn danh mục.'
+    errors.category_id = 'Vui lòng chọn danh mục.'
   }
 
   if (!formData.destination_id) {
-    return 'Vui lòng chọn điểm đến.'
+    errors.destination_id = 'Vui lòng chọn điểm đến.'
   }
 
   if (!title) {
-    return 'Vui lòng nhập tên tour.'
-  }
-
-  if (title.length < 5) {
-    return 'Tên tour cần có ít nhất 5 ký tự.'
-  }
-
-  if (title.length > MAX_TITLE_LENGTH) {
-    return `Tên tour không được vượt quá ${MAX_TITLE_LENGTH} ký tự.`
+    errors.title = 'Vui lòng nhập tên tour.'
+  } else if (title.length < 5) {
+    errors.title = 'Tên tour cần có ít nhất 5 ký tự.'
+  } else if (title.length > MAX_TITLE_LENGTH) {
+    errors.title = `Tên tour không được vượt quá ${MAX_TITLE_LENGTH} ký tự.`
   }
 
   if (summary.length > MAX_SUMMARY_LENGTH) {
-    return `Tóm tắt không được vượt quá ${MAX_SUMMARY_LENGTH} ký tự.`
+    errors.summary = `Tóm tắt không được vượt quá ${MAX_SUMMARY_LENGTH} ký tự.`
   }
 
   if (isStrictSubmit && !description) {
-    return 'Vui lòng nhập mô tả chi tiết trước khi hiển thị tour.'
-  }
-
-  if (isStrictSubmit && description.length < 20) {
-    return 'Mô tả chi tiết cần có ít nhất 20 ký tự.'
+    errors.description = 'Vui lòng nhập mô tả chi tiết trước khi hiển thị tour.'
+  } else if (isStrictSubmit && description.length < 20) {
+    errors.description = 'Mô tả chi tiết cần có ít nhất 20 ký tự.'
   }
 
   if (!isIntegerGreaterOrEqual(formData.duration_days, 1)) {
-    return 'Số ngày phải là số nguyên lớn hơn hoặc bằng 1.'
-  }
-
-  if (durationDays > durationLimit.maxDays) {
-    return `Số ngày không được vượt quá ${durationLimit.maxDays} ngày đối với tour ${durationLimit.label}.`
+    errors.duration_days = 'Số ngày phải là số nguyên lớn hơn hoặc bằng 1.'
+  } else if (durationDays > durationLimit.maxDays) {
+    errors.duration_days = `Số ngày không được vượt quá ${durationLimit.maxDays} ngày đối với tour ${durationLimit.label}.`
   }
 
   if (durationNights === '' || durationNights !== Math.max(durationDays - 1, 0)) {
-    return 'Số đêm phải bằng số ngày - 1.'
+    errors.duration_nights = 'Số đêm phải bằng số ngày - 1.'
   }
 
   if (!Number.isFinite(basePrice) || basePrice < 0) {
-    return 'Giá gốc tour không hợp lệ.'
-  }
-
-  if (isStrictSubmit && basePrice <= 0) {
-    return 'Giá gốc tour phải lớn hơn 0 trước khi hiển thị tour.'
+    errors.base_price = 'Giá gốc tour không hợp lệ.'
+  } else if (isStrictSubmit && basePrice <= 0) {
+    errors.base_price = 'Giá gốc tour phải lớn hơn 0 trước khi hiển thị tour.'
+  } else if (basePrice > MAX_BASE_PRICE) {
+    errors.base_price = `Giá gốc tour không được vượt quá ${MAX_BASE_PRICE.toLocaleString('vi-VN')} đ.`
   }
 
   if (!Number.isInteger(maxSlots) || maxSlots < 1) {
-    return 'Số slot tối đa phải là số nguyên lớn hơn hoặc bằng 1.'
+    errors.max_slots = 'Số slot tối đa phải là số nguyên lớn hơn hoặc bằng 1.'
   }
 
   if (!Number.isInteger(availableSlots) || availableSlots < 0) {
-    return 'Số slot còn lại phải là số nguyên lớn hơn hoặc bằng 0.'
+    errors.available_slots = 'Số slot còn lại phải là số nguyên lớn hơn hoặc bằng 0.'
+  } else if (availableSlots > maxSlots) {
+    errors.available_slots = 'Số slot còn lại không được lớn hơn số slot tối đa.'
   }
 
-  if (availableSlots > maxSlots) {
-    return 'Số slot còn lại không được lớn hơn số slot tối đa.'
-  }
-
-  const agePricingError = validateAgePricingRules(formData.age_pricing_rules)
-  if (agePricingError) {
-    return agePricingError
-  }
+  const agePricingErrors = validateAgePricingRules(formData.age_pricing_rules)
+  Object.assign(errors, agePricingErrors)
 
   const itineraryError = validateItinerary(
     formData.itinerary,
@@ -957,38 +1030,39 @@ const validateTourForm = ({
     isStrictSubmit,
   )
   if (itineraryError) {
-    return itineraryError
+    errors.itinerary = itineraryError
   }
 
   if (isStrictSubmit && !thumbnailImage && !thumbnailPreview) {
-    return 'Vui lòng chọn ảnh đại diện trước khi hiển thị tour.'
-  }
-
-  const thumbnailError = validateImageFile(thumbnailImage, 'Ảnh đại diện')
-  if (thumbnailError) {
-    return thumbnailError
+    errors.thumbnail_image = 'Vui lòng chọn ảnh đại diện trước khi hiển thị tour.'
+  } else {
+    const thumbnailError = validateImageFile(thumbnailImage, 'Ảnh đại diện')
+    if (thumbnailError) {
+      errors.thumbnail_image = thumbnailError
+    }
   }
 
   if ((galleryImages || []).length > MAX_GALLERY_IMAGES) {
-    return `Thư viện ảnh không được vượt quá ${MAX_GALLERY_IMAGES} ảnh.`
-  }
+    errors.gallery_images = `Thư viện ảnh không được vượt quá ${MAX_GALLERY_IMAGES} ảnh.`
+  } else {
+    for (let index = 0; index < (galleryImages || []).length; index += 1) {
+      const galleryError = validateImageFile(
+        galleryImages[index],
+        `Ảnh thư viện #${index + 1}`,
+      )
 
-  for (let index = 0; index < (galleryImages || []).length; index += 1) {
-    const galleryError = validateImageFile(
-      galleryImages[index],
-      `Ảnh thư viện #${index + 1}`,
-    )
-
-    if (galleryError) {
-      return galleryError
+      if (galleryError) {
+        errors.gallery_images = galleryError
+        break
+      }
     }
   }
 
   if (String(formData.thumbnail_alt_text || '').length > MAX_ALT_TEXT_LENGTH) {
-    return `Alt text không được vượt quá ${MAX_ALT_TEXT_LENGTH} ký tự.`
+    errors.thumbnail_alt_text = `Alt text không được vượt quá ${MAX_ALT_TEXT_LENGTH} ký tự.`
   }
 
-  return ''
+  return errors
 }
 
 const getInitialFormData = (initialData = {}) => {
@@ -1206,6 +1280,8 @@ function TourForm({
   onSubmit,
   submitting = false,
   submitText = 'Lưu tour',
+  errors: serverErrors = {},
+  onClearError,
 }) {
   // Form thêm và form sửa dùng chung component này.
   // Tính key trực tiếp ở mỗi lần render để vẫn phát hiện trường hợp object
@@ -1230,6 +1306,35 @@ function TourForm({
   const [galleryPreviews, setGalleryPreviews] = useState(() =>
     getInitialImagePreviews(resolvedInitialData),
   )
+  const [clientErrors, setClientErrors] = useState({})
+
+  const allErrors = { ...serverErrors, ...clientErrors }
+
+  const getErrorMessage = (field) => {
+    const error = allErrors[field]
+    if (Array.isArray(error)) return error[0] || ''
+    return error || ''
+  }
+
+  const hasError = (field) => Boolean(getErrorMessage(field))
+
+  const clearFieldError = (field) => {
+    setClientErrors((current) => {
+      if (!current[field]) return current
+      const next = { ...current }
+      delete next[field]
+      return next
+    })
+    onClearError?.(field)
+  }
+
+  const errorText = (field) => (
+    hasError(field) ? (
+      <p className="mt-1.5 text-[11px] font-semibold leading-4 text-rose-600">
+        {getErrorMessage(field)}
+      </p>
+    ) : null
+  )
 
   useEffect(() => {
     if (lastAppliedInitialDataKeyRef.current === initialDataKey) {
@@ -1245,6 +1350,7 @@ function TourForm({
     setThumbnailPreview(getInitialThumbnailPreview(resolvedInitialData))
     setGalleryImages([])
     setGalleryPreviews(getInitialImagePreviews(resolvedInitialData))
+    setClientErrors({})
   }, [initialDataKey])
 
   useEffect(() => {
@@ -1356,8 +1462,19 @@ function TourForm({
   const widgetClass =
     'rounded-2xl border border-slate-200/70 bg-white p-5 shadow-[0_12px_36px_rgba(15,23,42,0.04)]'
 
+
+  const fieldClass = (baseClass, field) =>
+    `${baseClass} ${
+      hasError(field)
+        ? 'border-rose-500 bg-rose-50/40 focus:border-rose-500 focus:ring-rose-100 hover:border-rose-500'
+        : ''
+    }`
+
   const handleChange = (e) => {
     const { name, value } = e.target
+
+    clearFieldError(name)
+    if (name === 'duration_days') clearFieldError('duration_nights')
 
     if (name === 'duration_days') {
       setFormData((prev) => ({
@@ -1375,6 +1492,8 @@ function TourForm({
   }
 
   const handleAgePricingRuleChange = (ruleIndex, field, value) => {
+    clearFieldError('age_pricing_rules')
+    clearFieldError(`age_pricing_rules.${ruleIndex}.${field}`)
     setFormData((prev) => ({
       ...prev,
       age_pricing_rules: (prev.age_pricing_rules || []).map((rule, index) =>
@@ -1509,6 +1628,9 @@ function TourForm({
   const handleThumbnailChange = (e) => {
     const selectedFiles = Array.from(e.target.files || [])
 
+    clearFieldError('thumbnail_image')
+    clearFieldError('gallery_images')
+
     if (selectedFiles.length === 0) {
       return
     }
@@ -1536,6 +1658,7 @@ function TourForm({
   }
 
   const updateItinerary = (newItinerary) => {
+    clearFieldError('itinerary')
     setFormData((prev) => ({
       ...prev,
       itinerary: newItinerary,
@@ -1656,7 +1779,7 @@ function TourForm({
   const submitForm = (statusOverride) => {
     const submitStatus = statusOverride || formData.status || 'published'
 
-    const validationError = validateTourForm({
+    const validationErrors = validateTourForm({
       formData,
       thumbnailImage,
       thumbnailPreview,
@@ -1665,8 +1788,14 @@ function TourForm({
       selectedCategory,
     })
 
-    if (validationError) {
-      toast.error(validationError)
+    setClientErrors(validationErrors)
+
+    if (Object.keys(validationErrors).length > 0) {
+      window.requestAnimationFrame(() => {
+        const firstInvalidField = document.querySelector('[data-invalid="true"]')
+        firstInvalidField?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        firstInvalidField?.focus?.()
+      })
       return
     }
 
@@ -1752,7 +1881,7 @@ function TourForm({
     Number(formData.duration_days) > durationLimit.maxDays
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} noValidate className="space-y-6">
       {optionError && (
         <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-xs font-semibold text-red-600">
           {optionError}
@@ -1791,8 +1920,11 @@ function TourForm({
                   onChange={handleChange}
                   maxLength={MAX_TITLE_LENGTH}
                   placeholder="Nhập tên tour..."
-                  className={inputClass}
+                  className={fieldClass(inputClass, 'title')}
+                  data-invalid={hasError('title')}
+                  aria-invalid={hasError('title')}
                 />
+                {errorText('title')}
               </div>
 
               <div>
@@ -1810,14 +1942,17 @@ function TourForm({
                   maxLength={MAX_SUMMARY_LENGTH}
                   placeholder="Nhập tóm tắt ngắn gọn về tour..."
                   rows="3"
-                  className={textareaClass}
+                  className={fieldClass(textareaClass, 'summary')}
+                  data-invalid={hasError('summary')}
+                  aria-invalid={hasError('summary')}
                 />
+                {errorText('summary')}
               </div>
 
               <div>
                 <FieldLabel required>Mô tả chi tiết</FieldLabel>
 
-                <div className="mt-1.5 overflow-hidden rounded-xl border border-slate-200 bg-white transition hover:border-slate-300 focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-100">
+                <div className={`mt-1.5 overflow-hidden rounded-xl border bg-white transition ${hasError('description') ? 'border-rose-500 bg-rose-50/30 focus-within:border-rose-500 focus-within:ring-4 focus-within:ring-rose-100' : 'border-slate-200 hover:border-slate-300 focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-100'}`} data-invalid={hasError('description')}>
                   <div className="flex h-11 items-center gap-1 border-b border-slate-100 bg-slate-50/60 px-2.5 text-slate-600">
                     <button
                       type="button"
@@ -1860,6 +1995,7 @@ function TourForm({
                     <span>Được hỗ trợ bởi trình soạn thảo</span>
                   </div>
                 </div>
+                {errorText('description')}
               </div>
             </div>
           </div>
@@ -1886,6 +2022,8 @@ function TourForm({
             />
 
             <div className="space-y-5">
+              {errorText('itinerary')}
+
               {isDurationDaysOverLimit ? (
                 <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-xs font-semibold leading-5 text-amber-700">
                   Số ngày tối đa cho tour {durationLimit.label} là {durationLimit.maxDays}. Lịch trình chỉ hiển thị tối đa {durationLimit.maxDays} ngày để tránh form bị quá tải; dữ liệu đã nhập không bị xóa.
@@ -2225,7 +2363,7 @@ function TourForm({
 
                 <label
                   htmlFor="thumbnail_image"
-                  className="mt-1.5 flex min-h-[140px] cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-blue-200 bg-blue-50/30 px-4 py-6 text-center transition hover:border-blue-400 hover:bg-blue-50"
+                  className={`mt-1.5 flex min-h-[140px] cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed px-4 py-6 text-center transition ${hasError('thumbnail_image') ? 'border-rose-500 bg-rose-50/40 hover:border-rose-500' : 'border-blue-200 bg-blue-50/30 hover:border-blue-400 hover:bg-blue-50'}`} data-invalid={hasError('thumbnail_image')}
                 >
                   <svg
                     className="mb-2 h-8 w-8 text-blue-600"
@@ -2261,6 +2399,8 @@ function TourForm({
                   onChange={handleThumbnailChange}
                   className="sr-only"
                 />
+                {errorText('thumbnail_image')}
+                {errorText('gallery_images')}
               </div>
 
               <div>
@@ -2305,8 +2445,11 @@ function TourForm({
                   onChange={handleChange}
                   maxLength={MAX_ALT_TEXT_LENGTH}
                   placeholder="Mô tả ảnh (tùy chọn)..."
-                  className={inputClass}
+                  className={fieldClass(inputClass, 'thumbnail_alt_text')}
+                  data-invalid={hasError('thumbnail_alt_text')}
+                  aria-invalid={hasError('thumbnail_alt_text')}
                 />
+                {errorText('thumbnail_alt_text')}
               </div>
             </div>
           </div>
@@ -2345,7 +2488,9 @@ function TourForm({
                     value={formData.category_id}
                     onChange={handleChange}
                     disabled={loadingOptions}
-                    className={selectClass}
+                    className={fieldClass(selectClass, 'category_id')}
+                    data-invalid={hasError('category_id')}
+                    aria-invalid={hasError('category_id')}
                   >
                     <option value="">
                       {loadingOptions ? 'Đang tải...' : 'Chọn danh mục'}
@@ -2379,6 +2524,7 @@ function TourForm({
                     </svg>
                   </div>
                 </div>
+                {errorText('category_id')}
               </div>
 
               <div>
@@ -2389,7 +2535,9 @@ function TourForm({
                     value={formData.destination_id}
                     onChange={handleChange}
                     disabled={loadingOptions}
-                    className={selectClass}
+                    className={fieldClass(selectClass, 'destination_id')}
+                    data-invalid={hasError('destination_id')}
+                    aria-invalid={hasError('destination_id')}
                   >
                     <option value="">
                       {loadingOptions ? 'Đang tải...' : 'Chọn điểm đến'}
@@ -2423,6 +2571,7 @@ function TourForm({
                     </svg>
                   </div>
                 </div>
+                {errorText('destination_id')}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -2436,8 +2585,11 @@ function TourForm({
                     step="1"
                     value={formData.duration_days}
                     onChange={handleChange}
-                    className={inputClass}
+                    className={fieldClass(inputClass, 'duration_days')}
+                    data-invalid={hasError('duration_days')}
+                    aria-invalid={hasError('duration_days')}
                   />
+                  {errorText('duration_days')}
                   <p className="mt-1 whitespace-nowrap text-[10px] font-semibold leading-4 text-slate-400">
                     Tối đa {durationLimit.maxDays} ngày với tour {durationLimit.label}.
                   </p>
@@ -2450,8 +2602,11 @@ function TourForm({
                     name="duration_nights"
                     value={getDurationNightsFromDays(formData.duration_days)}
                     readOnly
-                    className={`${inputClass} cursor-not-allowed bg-slate-50 text-slate-500`}
+                    className={`${fieldClass(inputClass, 'duration_nights')} cursor-not-allowed bg-slate-50 text-slate-500`}
+                    data-invalid={hasError('duration_nights')}
+                    aria-invalid={hasError('duration_nights')}
                   />
+                  {errorText('duration_nights')}
                   <p className="mt-1 whitespace-nowrap text-[10px] font-semibold leading-4 text-slate-400">
                     Tự động tính bằng số ngày - 1.
                   </p>
@@ -2462,13 +2617,18 @@ function TourForm({
                 <FieldLabel required>Giá gốc tour</FieldLabel>
                 <input
                   type="number"
+                  inputMode="numeric"
                   name="base_price"
                   min="0"
-                  step="1000"
+                  max={MAX_BASE_PRICE}
+                  step="1"
                   value={formData.base_price}
                   onChange={handleChange}
-                  className={inputClass}
+                  className={fieldClass(inputClass, 'base_price')}
+                  data-invalid={hasError('base_price')}
+                  aria-invalid={hasError('base_price')}
                 />
+                {errorText('base_price')}
                 <p className="mt-1.5 text-[12px] font-semibold text-slate-500">
                   Giá hiển thị: <span className="font-black text-[#0575f9]">{formatVnd(formData.base_price)}</span>
                 </p>
@@ -2479,7 +2639,7 @@ function TourForm({
                   <div>
                     <FieldLabel>Giá vé theo độ tuổi</FieldLabel>
                     <p className="mt-1 text-[11px] font-medium leading-5 text-slate-400">
-                      Nhập tự do đối tượng kèm khoảng tuổi, ví dụ: Trẻ em (độ tuổi: 1-5), rồi nhập giá tiền.
+                      Có thể nhập khoảng tuổi như “1-5”, “từ 18 tuổi”, hoặc tên nhóm như “Người lớn”.
                     </p>
                   </div>
 
@@ -2492,6 +2652,8 @@ function TourForm({
                     mức giá
                   </span>
                 </div>
+
+                {errorText('age_pricing_rules')}
 
                 <div className="space-y-3">
                   {(formData.age_pricing_rules || []).map((rule, ruleIndex) => (
@@ -2512,9 +2674,14 @@ function TourForm({
                                 e.target.value,
                               )
                             }
-                            placeholder="Trẻ em (độ tuổi: 1-5)"
-                            className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                            placeholder="Ví dụ: 1-5 hoặc Người lớn"
+                            className={fieldClass(
+                              'mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100',
+                              `age_pricing_rules.${ruleIndex}.age_label`,
+                            )}
+                            aria-invalid={hasError(`age_pricing_rules.${ruleIndex}.age_label`)}
                           />
+                          {errorText(`age_pricing_rules.${ruleIndex}.age_label`)}
                         </div>
 
                         <div>
@@ -2522,8 +2689,10 @@ function TourForm({
                           <div className="relative mt-1.5">
                             <input
                               type="number"
+                              inputMode="numeric"
                               min="0"
-                              step="1000"
+                              max={MAX_BASE_PRICE}
+                              step="1"
                               value={rule.price_value ?? ''}
                               onChange={(e) =>
                                 handleAgePricingRuleChange(
@@ -2533,12 +2702,17 @@ function TourForm({
                                 )
                               }
                               placeholder="500000"
-                              className="h-10 w-full rounded-lg border border-slate-200 bg-white px-2.5 pr-7 text-xs font-semibold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                              className={fieldClass(
+                                'h-10 w-full rounded-lg border border-slate-200 bg-white px-2.5 pr-7 text-xs font-semibold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100',
+                                `age_pricing_rules.${ruleIndex}.price_value`,
+                              )}
+                              aria-invalid={hasError(`age_pricing_rules.${ruleIndex}.price_value`)}
                             />
                             <span className="pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-xs font-black text-slate-400">
                               đ
                             </span>
                           </div>
+                          {errorText(`age_pricing_rules.${ruleIndex}.price_value`)}
                         </div>
 
                         <button
@@ -2604,7 +2778,9 @@ function TourForm({
                     name="status"
                     value={formData.status}
                     onChange={handleChange}
-                    className={selectClass}
+                    className={fieldClass(selectClass, 'status')}
+                    data-invalid={hasError('status')}
+                    aria-invalid={hasError('status')}
                   >
                     <option value="draft">Bản nháp</option>
                     <option value="published">Hiển thị</option>
@@ -2626,6 +2802,7 @@ function TourForm({
                     </svg>
                   </div>
                 </div>
+                {errorText('status')}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
