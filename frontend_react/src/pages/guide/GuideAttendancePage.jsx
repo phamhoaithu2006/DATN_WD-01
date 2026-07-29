@@ -30,6 +30,20 @@ const filters = [
   { key: "unchecked", label: "Chưa điểm danh" },
   { key: "absent", label: "Vắng mặt" },
 ];
+const participantTypeLabels = {
+  adult: "Người lớn",
+  child: "Trẻ em",
+  infant: "Em bé",
+};
+const genderLabels = {
+  male: "Nam",
+  female: "Nữ",
+  other: "Khác",
+};
+function getVietnameseLabel(value, labels) {
+  if (!value) return "Chưa có";
+  return labels[String(value).trim().toLowerCase()] || value;
+}
 function getAttendance(customer) {
   return customer?.attendance || customer?.current_attendance || {};
 }
@@ -719,9 +733,9 @@ function GuideAttendancePage() {
             </header>
             <div className="guide-customer-detail-grid">
               <article><span>Số điện thoại</span><strong>{customerDetail.personal_info?.phone || "Chưa có"}</strong></article>
-              <article><span>Loại khách</span><strong>{customerDetail.personal_info?.participant_type || "Chưa có"}</strong></article>
+              <article><span>Loại khách</span><strong>{getVietnameseLabel(customerDetail.personal_info?.participant_type, participantTypeLabels)}</strong></article>
               <article><span>Ngày sinh</span><strong>{customerDetail.personal_info?.birth_date ? formatDate(customerDetail.personal_info.birth_date) : "Chưa có"}</strong></article>
-              <article><span>Giới tính</span><strong>{customerDetail.personal_info?.gender || "Chưa có"}</strong></article>
+              <article><span>Giới tính</span><strong>{getVietnameseLabel(customerDetail.personal_info?.gender, genderLabels)}</strong></article>
             </div>
             <div className="guide-customer-detail-note">
               <span>Ghi chú điểm danh</span>
