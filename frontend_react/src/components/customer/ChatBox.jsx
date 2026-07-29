@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   askTravelAssistant,
+  closeChatSession,
   fetchChatMessages,
   normalizeRecommendedTours,
 } from "../../services/customerApi";
@@ -32,6 +33,7 @@ function mapServerMessage(message) {
 
 function ChatBox({ userId = null }) {
   const [open, setOpen] = useState(false);
+  const [endingSupport, setEndingSupport] = useState(false);
   const [loading, setLoading] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [compactViewport, setCompactViewport] = useState(false);
@@ -371,7 +373,30 @@ function ChatBox({ userId = null }) {
   function handleRequestHuman() {
     sendMessage(null, "", true);
   }
+async function handleEndSupport() {
+  if (endingSupport) return;
+  setEndingSupport(true);
 
+  try {
+    const sessionId = getOrCreateChatSessionId(userId);
+    const response = await closeChatSession(sessionId);
+
+    if (response?.mode) setMode(response.mode);
+    setQueuePosition(null);
+    setStaffInfo({ name: "", avatar: "" });
+
+    if (response?.reply) {
+      setMessages((current) => [
+        ...current,
+        { from: "ai", text: response.reply },
+      ]);
+    }
+  } catch {
+    // im lặng, lần poll tiếp theo sẽ tự đồng bộ lại mode
+  } finally {
+    setEndingSupport(false);
+  }
+}
   function handleChatScroll(event) {
     const { scrollHeight, scrollTop, clientHeight } = event.currentTarget;
     shouldStickToBottomRef.current =
@@ -444,12 +469,13 @@ function ChatBox({ userId = null }) {
               />
             ))}
 
-            {!hasUserMessage && mode === "ai" ? (
-              <QuickTourPrompts
-                disabled={historyLoading}
-                onSelect={sendMessage}
-              />
-            ) : null}
+           {mode === "ai" ? (
+  <QuickTourPrompts
+    key={messages.length}   // ép remount để random lại mỗi khi có tin nhắn mới
+    disabled={historyLoading || loading}
+    onSelect={sendMessage}
+  />
+) : null}
 
             {mode === "pending_human" && queuePosition ? (
               <div className="vg-queue-banner">
@@ -466,18 +492,29 @@ function ChatBox({ userId = null }) {
             ) : null}
           </div>
 
-          {mode === "ai" ? (
-            <div className="vg-human-request-bar">
-              <button
-                type="button"
-                className="vg-request-human-btn"
-                onClick={handleRequestHuman}
-                disabled={loading || historyLoading}
-              >
-                Gặp nhân viên hỗ trợ
-              </button>
-            </div>
-          ) : null}
+         {mode === "ai" ? (
+  <div className="vg-human-request-bar">
+    <button
+      type="button"
+      className="vg-request-human-btn"
+      onClick={handleRequestHuman}
+      disabled={loading || historyLoading}
+    >
+      Gặp nhân viên hỗ trợ
+    </button>
+  </div>
+) : (
+  <div className="vg-human-request-bar">
+    <button
+      type="button"
+      className="vg-request-human-btn is-cancel"
+      onClick={handleEndSupport}
+      disabled={endingSupport}
+    >
+      {endingSupport ? "Đang kết thúc..." : "Kết thúc hỗ trợ"}
+    </button>
+  </div>
+)}
 
           <ChatInput
             fileInputRef={fileInputRef}

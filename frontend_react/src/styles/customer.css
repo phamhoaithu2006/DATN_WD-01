@@ -1222,7 +1222,11 @@
   gap: 20px;
   margin-bottom: 20px;
 }
-
+.vg-request-human-btn.is-cancel {
+  background: #ffffff;
+  color: #dc2626;
+  border: 1px solid #dc2626;
+}
 .vg-results h2 {
   margin: 0;
   font-size: 1.15rem;
