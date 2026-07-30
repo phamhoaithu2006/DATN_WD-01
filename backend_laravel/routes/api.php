@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\Admin\CustomerManagerController;
 use App\Http\Controllers\Api\Admin\DatabaseBackupController;
 use App\Http\Controllers\Api\Admin\DestinationController;
 use App\Http\Controllers\Api\Admin\GuideController;
+use App\Http\Controllers\Api\Admin\GuideReviewController as AdminGuideReviewController;
 use App\Http\Controllers\Api\Admin\LanguageController;
 use App\Http\Controllers\Api\Admin\NotificationController;
 use App\Http\Controllers\Api\Admin\PaymentController;
@@ -398,6 +399,11 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(functi
     Route::get('/tour-reviews', [AdminTourReviewController::class, 'index']);
     Route::get('/tour-reviews/{tourReview}', [AdminTourReviewController::class, 'show'])->whereNumber('tourReview');
     Route::patch('/tour-reviews/{tourReview}/status', [AdminTourReviewController::class, 'updateStatus'])->whereNumber('tourReview');
+
+    // Quản lý đánh giá HDV
+    Route::get('/guide-reviews', [AdminGuideReviewController::class, 'index']);
+    Route::get('/guide-reviews/{review}', [AdminGuideReviewController::class, 'show'])->whereNumber('review');
+    Route::patch('/guide-reviews/{review}/status', [AdminGuideReviewController::class, 'updateStatus'])->whereNumber('review');
 
     // Sao lưu database
     Route::get('/backups', [DatabaseBackupController::class, 'index']);

@@ -3,6 +3,7 @@
 use App\Models\Booking;
 use App\Models\Guide;
 use App\Models\Role;
+use App\Models\Review;
 use App\Models\Tour;
 use App\Models\TourDeparture;
 use App\Models\TourGuideAssignment;
@@ -204,6 +205,58 @@ test('guide can view own reviews and completed tour history', function () {
         ->assertOk()
         ->assertJsonPath('guide.id', $scenario['guide']->id)
         ->assertJsonPath('data.data.0.tour_departure.id', $scenario['departure']->id);
+});
+
+test('admin quản lý đánh giá HDV và điểm HDV được tính lại', function () {
+    $scenario = guideReviewScenario();
+    $review = Review::query()->create([
+        'user_id' => $scenario['customer']->id,
+        'tour_id' => $scenario['tour']->id,
+        'booking_id' => $scenario['booking']->id,
+        'guide_id' => $scenario['guide']->id,
+        'tour_departure_id' => $scenario['departure']->id,
+        'rating' => 5,
+        'comment' => 'Đánh giá HDV cần kiểm duyệt.',
+        'status' => 'visible',
+    ]);
+    $scenario['guide']->update(['average_rating' => 5, 'review_count' => 1]);
+
+    $admin = guideReviewUser('admin');
+    Sanctum::actingAs($admin);
+
+    $this->getJson("/api/admin/guide-reviews?status=visible&rating=5&guide_id={$scenario['guide']->id}")
+        ->assertOk()
+        ->assertJsonPath('data.data.0.id', $review->id)
+        ->assertJsonPath('data.data.0.guide.id', $scenario['guide']->id)
+        ->assertJsonPath('summary.visible', 1)
+        ->assertJsonPath('summary.average_rating', 5);
+
+    $this->getJson("/api/admin/guide-reviews/{$review->id}")
+        ->assertOk()
+        ->assertJsonPath('data.id', $review->id)
+        ->assertJsonPath('data.reviewer.id', $scenario['customer']->id)
+        ->assertJsonPath('data.guide.id', $scenario['guide']->id);
+
+    $this->patchJson("/api/admin/guide-reviews/{$review->id}/status", [
+        'status' => 'hidden',
+    ])
+        ->assertOk()
+        ->assertJsonPath('data.status', 'hidden');
+
+    expect((float) $scenario['guide']->refresh()->average_rating)->toBe(0.0)
+        ->and((int) $scenario['guide']->review_count)->toBe(0);
+
+    $this->patchJson("/api/admin/guide-reviews/{$review->id}/status", [
+        'status' => 'visible',
+    ])
+        ->assertOk()
+        ->assertJsonPath('data.status', 'visible');
+
+    expect((float) $scenario['guide']->refresh()->average_rating)->toBe(5.0)
+        ->and((int) $scenario['guide']->review_count)->toBe(1);
+
+    Sanctum::actingAs($scenario['customer']);
+    $this->getJson('/api/admin/guide-reviews')->assertForbidden();
 });
 
 test('customer cannot review a guide before the tour is completed', function () {
