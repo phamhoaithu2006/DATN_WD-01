@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { toast } from 'sonner'
 import {
   changeSupportPassword,
   getSupportProfile,
@@ -51,6 +52,14 @@ function SupportProfilePage() {
   const [savingPassword, setSavingPassword] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (error) toast.error(error, { id: 'support-profile-feedback' })
+  }, [error])
+
+  useEffect(() => {
+    if (message) toast.success(message, { id: 'support-profile-feedback' })
+  }, [message])
 
   const user = supportProfile?.support_staff?.user || supportProfile || {}
   const supportStaff = supportProfile?.support_staff || null
@@ -183,12 +192,6 @@ function SupportProfilePage() {
           <strong>{statusLabel}</strong>
         </div>
       </section>
-
-      {(message || error) && (
-        <div className={error ? 'guide-profile-alert is-error' : 'guide-profile-alert'}>
-          {error || message}
-        </div>
-      )}
 
       <section className="guide-profile-grid">
         <form className="guide-profile-panel" onSubmit={handleProfileSubmit}>

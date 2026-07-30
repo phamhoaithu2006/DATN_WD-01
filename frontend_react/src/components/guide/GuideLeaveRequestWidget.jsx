@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { toast } from 'sonner'
 import {
   cancelGuideLeaveRequest,
   createGuideLeaveRequest,
@@ -182,6 +183,14 @@ function GuideLeaveRequestWidget() {
   const [filter, setFilter] = useState('all')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (error) toast.error(error, { id: 'guide-leave-feedback' })
+  }, [error])
+
+  useEffect(() => {
+    if (message) toast.success(message, { id: 'guide-leave-feedback' })
+  }, [message])
   const [fieldErrors, setFieldErrors] = useState({})
 
   useEffect(() => {
@@ -410,12 +419,6 @@ function GuideLeaveRequestWidget() {
               Đóng
             </button>
           </div>
-
-          {(message || error) ? (
-            <div className={error ? 'guide-leave-alert error' : 'guide-leave-alert success'}>
-              {error || message}
-            </div>
-          ) : null}
 
           <div className="guide-leave-summary-grid">
             <div>

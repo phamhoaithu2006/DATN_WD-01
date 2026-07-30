@@ -1107,6 +1107,9 @@
 }
 
 .vg-data-alert {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   margin-top: 20px;
   padding: 14px 16px;
   border: 1px solid #e8b65f;
@@ -8825,7 +8828,7 @@ textarea.vg-checkout-input {
 }
 
 .vg-alert-retry-btn {
-  margin-left: 12px;
+  margin-left: 0;
   padding: 4px 10px;
   border-radius: 6px;
   background: #ffffff;

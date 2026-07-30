@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { toast } from 'sonner'
 import {
   changeGuidePassword,
   getGuideProfile,
@@ -52,6 +53,14 @@ function GuideProfilePage() {
   const [savingPassword, setSavingPassword] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (error) toast.error(error, { id: 'guide-profile-feedback' })
+  }, [error])
+
+  useEffect(() => {
+    if (message) toast.success(message, { id: 'guide-profile-feedback' })
+  }, [message])
 
   const user = guide?.user || {}
   const displayName = user.full_name || profileForm.full_name || 'Hướng dẫn viên'
@@ -188,12 +197,6 @@ function GuideProfilePage() {
           <small>{guide?.review_count || 0} lượt đánh giá</small>
         </div>
       </section>
-
-      {(message || error) && (
-        <div className={error ? 'guide-profile-alert is-error' : 'guide-profile-alert'}>
-          {error || message}
-        </div>
-      )}
 
       <section className="guide-profile-grid">
         <form className="guide-profile-panel" onSubmit={handleProfileSubmit}>
