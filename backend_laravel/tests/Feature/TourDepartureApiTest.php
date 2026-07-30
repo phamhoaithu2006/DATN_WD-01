@@ -5,6 +5,7 @@ use App\Models\Role;
 use App\Models\Tour;
 use App\Models\TourDeparture;
 use App\Models\User;
+use App\Services\TourPricingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
@@ -487,6 +488,74 @@ test('admin can update tour and resync itinerary records', function () {
         'title' => 'Trở về Hà Nội',
         'transport' => 'Máy bay',
     ]);
+});
+
+test('admin stores percentage age pricing rules from base price', function () {
+    $admin = createAdminUser();
+    Sanctum::actingAs($admin);
+
+    $response = $this->postJson('/api/admin/tours', [
+        'category_id' => 1,
+        'destination_id' => 1,
+        'title' => 'Tour tự tính giá theo phần trăm',
+        'summary' => 'Tour kiểm tra quy tắc giá theo phần trăm.',
+        'description' => 'Nội dung dùng để kiểm tra giá tự tính cho người lớn và trẻ em.',
+        'duration_days' => 2,
+        'base_price' => 1000000,
+        'discount_price' => 0,
+        'max_slots' => 20,
+        'status' => 'draft',
+        'age_pricing_rules' => [
+            [
+                'label' => 'Em bé dưới 2 tuổi',
+                'min_age' => 0,
+                'max_age' => 1,
+                'pricing_type' => 'percentage',
+                'price_value' => 0,
+                'sort_order' => 0,
+                'is_active' => true,
+            ],
+            [
+                'label' => 'Trẻ em 2-11',
+                'min_age' => 2,
+                'max_age' => 11,
+                'pricing_type' => 'percentage',
+                'price_value' => 70,
+                'sort_order' => 1,
+                'is_active' => true,
+            ],
+            [
+                'label' => 'Người lớn từ 12 tuổi',
+                'min_age' => 12,
+                'max_age' => 120,
+                'pricing_type' => 'percentage',
+                'price_value' => 100,
+                'sort_order' => 2,
+                'is_active' => true,
+            ],
+        ],
+    ]);
+
+    $response->assertCreated()
+        ->assertJsonPath('data.discount_price', null)
+        ->assertJsonPath('data.age_pricing_rules.1.pricing_type', 'percentage')
+        ->assertJsonPath('data.age_pricing_rules.1.price_value', 70.0);
+
+    $tour = Tour::query()
+        ->with('agePricingRules')
+        ->where('title', 'Tour tự tính giá theo phần trăm')
+        ->firstOrFail();
+
+    expect($tour->discount_price)->toBeNull();
+
+    $pricing = (new TourPricingService())->calculateParticipantPrice(
+        $tour,
+        null,
+        now()->subYears(8),
+        now(),
+    );
+
+    expect($pricing['unit_price'])->toBe(700000.0);
 });
 
 test('store tour validates detailed itinerary structure', function () {

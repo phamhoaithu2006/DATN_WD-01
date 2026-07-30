@@ -45,10 +45,10 @@ function isSupportRequestNotification(notification) {
 
   return Boolean(
     notification?.support_request_id ||
-      data?.support_request_id ||
-      kind.startsWith('support_request') ||
-      searchableText.includes('yêu cầu hỗ trợ') ||
-      searchableText.includes('bổ sung thông tin')
+    data?.support_request_id ||
+    kind.startsWith('support_request') ||
+    searchableText.includes('yêu cầu hỗ trợ') ||
+    searchableText.includes('bổ sung thông tin')
   )
 }
 
@@ -280,9 +280,9 @@ export default function CustomerNotificationBell() {
           current.map((item) =>
             item.id === notification.id
               ? {
-                  ...item,
-                  status: 'read',
-                }
+                ...item,
+                status: 'read',
+              }
               : item,
           ),
         )
@@ -352,9 +352,9 @@ export default function CustomerNotificationBell() {
       <button
         type="button"
         onClick={() => {
-          const next=!open;
+          const next = !open;
           setOpen(next);
-          if(next){void loadNotifications();}
+          if (next) { void loadNotifications(); }
         }}
         className="relative grid h-11 w-11 place-items-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600"
         aria-label="Thông báo"
@@ -395,16 +395,14 @@ export default function CustomerNotificationBell() {
                 return (
                   <div
                     key={notification.id}
-                    className={`flex gap-3 border-b border-slate-100 px-5 py-4 last:border-b-0 ${
-                      isUnread ? 'bg-blue-50/55' : 'bg-white'
-                    }`}
+                    className={`flex gap-3 border-b border-slate-100 px-5 py-4 last:border-b-0 ${isUnread ? 'bg-blue-50/55' : 'bg-white'
+                      }`}
                   >
                     <span
-                      className={`mt-1 grid h-10 w-10 shrink-0 place-items-center rounded-xl ${
-                        isReview
+                      className={`mt-1 grid h-10 w-10 shrink-0 place-items-center rounded-xl ${isReview
                           ? 'bg-amber-100 text-amber-600'
                           : 'bg-blue-100 text-blue-600'
-                      }`}
+                        }`}
                     >
                       {isReview ? '★' : 'i'}
                     </span>
