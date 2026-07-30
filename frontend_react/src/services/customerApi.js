@@ -88,7 +88,31 @@ export async function fetchProfileSummary() {
 export async function fetchBookings() {
   const response = await api.get('/profile/bookings')
 
-  return response.data?.data || []
+  console.log('RAW /profile/bookings:', response.data)
+
+  const payload = response.data?.data ?? response.data
+
+  const bookings = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.data)
+      ? payload.data
+      : []
+
+  console.table(
+    bookings.map((booking) => ({
+      id: booking.id,
+      booking_code: booking.booking_code,
+      status: booking.status,
+      payment_status: booking.payment_status,
+      payment_method: booking.payment?.payment_method,
+      payment_state: booking.payment?.status,
+      expires_at: booking.payment?.expires_at,
+      departure_date: booking.tour_departure?.departure_date,
+      return_date: booking.tour_departure?.return_date,
+    })),
+  )
+
+  return bookings
 }
 
 export async function previewCustomerBooking(payload) {

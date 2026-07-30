@@ -75,6 +75,10 @@ import SupportNotificationsPage from '../pages/support/SupportNotificationsPage'
 import SupportRequestsPage from '../pages/support/SupportRequestsPage'
 import SupportWorkSchedulePage from '../pages/support/SupportWorkSchedulePage'
 
+import ReviewManagement from '../pages/admin/ReviewManagement'
+ import HiddenTourReviews from '../pages/admin/HiddenTourReviews'
+ import TourReviewDetailManagement from '../pages/admin/TourReviewDetailManagement'
+
 const protect = (
   page,
   allowedRoles = ['admin'],
@@ -434,14 +438,25 @@ function AppRoutes() {
       />
 
       {/* ================= ADMIN: TỔNG QUAN ================= */}
-
+            <Route
+        path="/admin/reviews"
+        element={adminPage(
+          <ReviewManagement />,
+        )}
+      />
+      
       <Route
         path="/admin"
         element={adminPage(
           <AdminDashboardPage />,
         )}
       />
-
+       <Route
+  path="/admin/reviews/hidden"
+  element={adminPage(
+    <HiddenTourReviews />,
+  )}
+/>
       <Route
         path="/admin/reports"
         element={adminPage(
@@ -638,6 +653,12 @@ function AppRoutes() {
           />
         }
       />
+          <Route
+      path="/admin/reviews/tours/:tourId"
+      element={adminPage(
+        <TourReviewDetailManagement />,
+      )}
+    />
 
       <Route
         path="/admin/notifications"
