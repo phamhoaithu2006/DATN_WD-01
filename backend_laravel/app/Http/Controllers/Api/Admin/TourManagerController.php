@@ -153,6 +153,7 @@ class TourManagerController extends Controller
             'age_pricing_rules.*.is_active' => 'nullable|boolean',
         ]);
 
+        $this->normalizeDiscountPriceData($validatedData);
         $validatedData['duration_nights'] = max((int) $validatedData['duration_days'] - 1, 0);
 
         // Lấy user đang đăng nhập qua token Sanctum
@@ -295,6 +296,8 @@ class TourManagerController extends Controller
             'age_pricing_rules.*.sort_order' => 'nullable|integer|min:0',
             'age_pricing_rules.*.is_active' => 'nullable|boolean',
         ]);
+
+        $this->normalizeDiscountPriceData($validatedData);
 
         if (isset($validatedData['title']) && ! $request->has('slug')) {
             $validatedData['slug'] = Str::slug($validatedData['title']);
@@ -724,6 +727,22 @@ class TourManagerController extends Controller
             ->all();
 
         $request->merge(['age_pricing_rules' => $normalized]);
+    }
+
+    private function normalizeDiscountPriceData(array &$data): void
+    {
+        if (! array_key_exists('discount_price', $data)) {
+            return;
+        }
+
+        if ($data['discount_price'] === null || $data['discount_price'] === '') {
+            $data['discount_price'] = null;
+            return;
+        }
+
+        $discountPrice = (float) $data['discount_price'];
+
+        $data['discount_price'] = $discountPrice > 0 ? $discountPrice : null;
     }
 
     private function syncAgePricingRules(Tour $tour, array $rules): void
