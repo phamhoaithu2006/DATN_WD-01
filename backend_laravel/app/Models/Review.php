@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Review extends Model
 {
+    public const STATUSES = ['visible', 'hidden', 'spam'];
+
     protected $fillable = [
         'user_id',
         'tour_id',
