@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import { tourDepartureApi } from '../../services/tourDepartureApi'
 import adminGuideReplacementRequestApi from '../../services/adminGuideReplacementRequestApi'
 import adminGuideLeaveRequestApi from '../../services/adminGuideLeaveRequestApi'
@@ -264,6 +264,7 @@ function AdminSidebar({
   role = 'admin',
   tourDepartureWarningCount,
 }) {
+  const location = useLocation()
   const [internalWarningCount, setInternalWarningCount] = useState(0)
   const [guideLeavePendingCount, setGuideLeavePendingCount] = useState(0)
   const [receivedNotificationUnreadCount, setReceivedNotificationUnreadCount] = useState(0)
@@ -445,10 +446,16 @@ function AdminSidebar({
                 ? receivedNotificationUnreadCount
                 : 0
 
+          const isTourSuiteActive =
+            item.path === '/admin/tours' &&
+            (location.pathname.startsWith('/admin/tours') ||
+              location.pathname.startsWith('/admin/categories') ||
+              location.pathname.startsWith('/admin/destinations'))
+
           return (
             <NavLink
               className={({ isActive }) =>
-                isActive ? 'admin-nav-link active' : 'admin-nav-link'
+                isActive || isTourSuiteActive ? 'admin-nav-link active' : 'admin-nav-link'
               }
               end={item.path === '/admin' || item.path === '/admin/notifications'}
               key={item.path}

@@ -139,9 +139,6 @@ function HomePage({
   const safeBanners = Array.isArray(banners) ? banners : [];
 
   const safeFavorites = Array.isArray(favorites) ? favorites : [];
-  const safeDestinations = Array.isArray(homeContent.destinations)
-    ? homeContent.destinations
-    : [];
   const safeCategories = Array.isArray(homeContent.categories)
     ? homeContent.categories
     : [];
@@ -157,15 +154,6 @@ function HomePage({
     : safeTours.slice(0, 6);
   const internationalTourCards = safeInternationalTours;
 
-  const destinationCards = safeDestinations
-    .map((destination) => ({
-      ...destination,
-      image: mediaUrl(destination.thumbnail_url || destination.image),
-      tours: Number(destination.tour_count) || 0,
-    }))
-    .filter((destination) => destination.tours > 0)
-    .slice(0, 6);
-
   const visibleCategories = safeCategories
     .map((category) => ({
       ...category,
@@ -173,7 +161,7 @@ function HomePage({
       tour_count: Number(category.tour_count) || 0,
     }))
     .filter((category) => category.tour_count > 0)
-    .slice(0, 6);
+    .slice(0, 5);
 
   const serviceHighlights = [
     {
@@ -536,77 +524,49 @@ function HomePage({
 
       {/* Section 5: Loại hình du lịch phổ biến (Categories Grid) */}
       {!loading && visibleCategories.length > 0 ? (
-        <section className="vg-home-section vg-home-section-alt" id="loai-hinh-du-lich">
+        <section className="vg-home-section vg-home-section-alt vg-popular-categories-section" id="loai-hinh-du-lich">
           <div className="vg-container">
-            <div className="vg-centered-heading">
-              <span className="vg-kicker">Loại hình</span>
-              <h2>Những loại hình du lịch phổ biến</h2>
-              <p>Lựa chọn phong cách chuyến đi phù hợp nhất với trải nghiệm của bạn.</p>
-            </div>
-            <div className="vg-destination-grid vg-destination-grid-home">
-              {visibleCategories.map((category) => (
-                <Link
-                  to={`/tours?category_id=${category.id}`}
-                  className="vg-destination-card vg-category-card"
-                  key={category.id}
-                >
-                  {category.image ? (
-                    <img
-                      src={category.image}
-                      alt={category.name}
-                      width="1200"
-                      height="800"
-                    />
-                  ) : (
-                    <div className="vg-category-fallback-img">
-                      <Icon name="briefcase" size={32} />
+            <div className="vg-popular-categories-block">
+              <div className="vg-centered-heading">
+                <span className="vg-kicker">Loại hình</span>
+                <h2>Những loại hình du lịch phổ biến</h2>
+                <p>Các danh mục có nhiều tour đang mở nhất để bạn chọn hành trình phù hợp.</p>
+              </div>
+              <div className="vg-category-masonry-grid">
+                {visibleCategories.map((category, index) => (
+                  <Link
+                    to={`/tours?categories=${category.id}`}
+                    className={`vg-masonry-card vg-masonry-item-${index + 1}`}
+                    key={category.id}
+                  >
+                    <div className="vg-category-fallback-img" aria-hidden="true">
+                      <Icon name="briefcase" size={28} />
                     </div>
-                  )}
-                  <div>
-                    <h3>{category.name}</h3>
-                    <span>{category.tour_count} tour đang mở</span>
-                  </div>
-                </Link>
-              ))}
+                    {category.image ? (
+                      <img
+                        src={category.image}
+                        alt={category.name}
+                        className="vg-masonry-img"
+                        loading="lazy"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                        }}
+                      />
+                    ) : null}
+                    <div className="vg-masonry-overlay"></div>
+                    <div className="vg-masonry-content">
+                      <span className="vg-masonry-badge">{category.tour_count} tour đang mở</span>
+                      <h3>{category.name}</h3>
+                      <span className="vg-masonry-link-text">Khám phá ngay →</span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
             </div>
           </div>
         </section>
       ) : null}
 
-      {/* Section 6: Điểm đến đang có tour mở bán (Destinations Grid) */}
-      {!loading && destinationCards.length > 0 ? (
-        <section className="vg-home-section" id="diem-den-hot">
-          <div className="vg-container">
-            <div className="vg-centered-heading">
-              <span className="vg-kicker">Điểm đến</span>
-              <h2>Những điểm đến đang có tour mở bán</h2>
-              <p>Danh sách các điểm đến ưa thích hàng đầu được tổng hợp từ dữ liệu hệ thống.</p>
-            </div>
-            <div className="vg-destination-grid vg-destination-grid-home">
-              {destinationCards.map((destination) => (
-                <Link
-                  to={`/tours?destination_id=${destination.id}`}
-                  className="vg-destination-card"
-                  key={destination.id || destination.name}
-                >
-                  {destination.image ? (
-                    <img
-                      src={destination.image}
-                      alt={destination.name}
-                      width="1200"
-                      height="800"
-                    />
-                  ) : null}
-                  <div>
-                    <h3>{destination.name}</h3>
-                    <span>{destination.tours} tour đang mở</span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </section>
-      ) : null}
 
       {/* Section 7: Đánh giá thực tế của khách hàng (Reviews Section) */}
       {/* Section 7: Đánh giá thực tế của khách hàng (Reviews Section) */}
@@ -667,6 +627,8 @@ function HomePage({
                   const reviewerAvatar = mediaUrl(review.reviewer_avatar_url);
                   const isDuplicatedReview = index >= safeReviews.length;
                   const tourTitle = review.tour_title || review.tour?.title || "Tour Du Lịch Trải Nghiệm";
+                  const tourSlug = review.tour_slug || review.tour?.slug || review.tour_id || review.tour?.id;
+                  const tourLink = tourSlug ? `/tours/${tourSlug}` : "/tours";
                   const avatarColorIndex = (index % 4) + 1;
 
                   return (
@@ -677,11 +639,15 @@ function HomePage({
                     >
                       <div className="vg-review-card-accent"></div>
                       <div className="vg-review-quote-mark" aria-hidden="true">“</div>
-                      
-                      <div className="vg-review-tour-tag">
+
+                      <Link
+                        to={tourLink}
+                        className="vg-review-tour-tag"
+                        title={`Xem chi tiết ${tourTitle}`}
+                      >
                         <Icon name="compass" size={13} />
                         <span>{tourTitle}</span>
-                      </div>
+                      </Link>
 
                       <p className="vg-review-comment">{review.comment}</p>
 

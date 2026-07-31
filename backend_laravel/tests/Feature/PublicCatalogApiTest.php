@@ -239,3 +239,58 @@ test('home returns only bookable content and visible customer reviews', function
         ->assertJsonPath('data.reviews.0.reviewer_name', 'N. V. A.')
         ->assertJsonPath('data.reviews.0.tour_slug', 'da-nang-cuoi-tuan');
 });
+
+test('home returns the five categories with the most bookable tours', function () {
+    $destination = Destination::query()->create([
+        'name' => 'Đà Nẵng',
+        'slug' => 'da-nang-top-categories',
+        'province_city' => 'Đà Nẵng',
+        'country' => 'Việt Nam',
+        'status' => 'active',
+    ]);
+
+    for ($categoryIndex = 1; $categoryIndex <= 6; $categoryIndex++) {
+        $category = Category::query()->create([
+            'name' => "Loại hình {$categoryIndex}",
+            'slug' => "loai-hinh-{$categoryIndex}",
+            'status' => 'active',
+        ]);
+
+        $tourCount = 7 - $categoryIndex;
+
+        for ($tourIndex = 1; $tourIndex <= $tourCount; $tourIndex++) {
+            $tour = Tour::query()->create([
+                'category_id' => $category->id,
+                'destination_id' => $destination->id,
+                'title' => "Tour {$categoryIndex}-{$tourIndex}",
+                'slug' => "tour-{$categoryIndex}-{$tourIndex}",
+                'duration_days' => 3,
+                'duration_nights' => 2,
+                'base_price' => 3000000,
+                'max_slots' => 20,
+                'available_slots' => 20,
+                'status' => 'published',
+            ]);
+
+            DB::table('tour_departures')->insert([
+                'tour_id' => $tour->id,
+                'departure_date' => now()->addWeek()->toDateString(),
+                'return_date' => now()->addDays(9)->toDateString(),
+                'base_price' => 3000000,
+                'total_slots' => 20,
+                'booked_slots' => 0,
+                'status' => 'open',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+    }
+
+    $this->getJson('/api/home')
+        ->assertOk()
+        ->assertJsonCount(5, 'data.categories')
+        ->assertJsonPath('data.categories.0.slug', 'loai-hinh-1')
+        ->assertJsonPath('data.categories.0.tour_count', 6)
+        ->assertJsonPath('data.categories.4.slug', 'loai-hinh-5')
+        ->assertJsonPath('data.categories.4.tour_count', 2);
+});

@@ -11,45 +11,80 @@ use Illuminate\Support\Str;
 
 class CategoryController extends Controller
 {
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $categories = Category::query()
-            ->where('status', 'active')
+        $this->normalizeTextInputs($request);
+
+        $validated = $request->validate([
+            'search' => 'nullable|string|max:150',
+            'status' => 'nullable|in:active,inactive,all',
+            'page' => 'nullable|integer|min:1',
+            'per_page' => 'nullable|integer|min:1|max:100',
+        ]);
+
+        $status = $validated['status'] ?? 'active';
+        $search = trim((string) ($validated['search'] ?? ''));
+        $perPage = min(max((int) ($validated['per_page'] ?? 15), 1), 100);
+
+        $paginator = Category::query()
+            ->when($status !== 'all', fn ($query) => $query->where('status', $status))
+            ->when($search !== '', fn ($query) => $query->where('name', 'like', "%{$search}%"))
+            ->withCount('tours')
             ->latest('id')
-            ->get();
+            ->paginate($perPage)
+            ->withQueryString();
+
+        $statistics = [
+            'total' => Category::query()->count(),
+            'active' => Category::query()->where('status', 'active')->count(),
+            'inactive' => Category::query()->where('status', 'inactive')->count(),
+        ];
 
         return response()->json([
             'status' => 'success',
             'message' => 'Lấy danh sách loại tour thành công',
-            'data' => $categories,
+            'data' => $paginator->items(),
+            'pagination' => $this->paginationPayload($paginator),
+            'statistics' => $statistics,
         ]);
     }
 
     public function search(Request $request): JsonResponse
     {
-        $request->validate([
-            'name' => 'required|string|max:150',
+        $request->merge([
+            'search' => $request->input('name', $request->input('search')),
         ]);
 
-        $categories = Category::query()
-            ->where('status', 'active')
-            ->where('name', 'like', '%' . $request->name . '%')
-            ->latest('id')
-            ->get();
+        return $this->index($request);
+    }
+
+    public function show(int $id): JsonResponse
+    {
+        $category = Category::query()
+            ->withCount('tours')
+            ->find($id);
+
+        if (! $category) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Không tìm thấy loại tour',
+            ], 404);
+        }
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Tìm kiếm loại tour thành công',
-            'count' => $categories->count(),
-            'data' => $categories,
+            'message' => 'Lấy chi tiết loại tour thành công',
+            'data' => $category,
         ]);
     }
 
     public function store(Request $request): JsonResponse
     {
+        $this->normalizeTextInputs($request);
+
         $validated = $request->validate([
-            'name' => 'required|string|max:150|unique:categories,name',
-            'description' => 'nullable|string',
+            'name' => 'required|string|max:100|unique:categories,name',
+            'description' => 'nullable|string|max:500',
             'thumbnail_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
             'thumbnail_alt_text' => 'nullable|string|max:255',
             'status' => 'nullable|in:active,inactive',
@@ -80,6 +115,8 @@ class CategoryController extends Controller
 
     public function update(Request $request, int $id): JsonResponse
     {
+        $this->normalizeTextInputs($request);
+
         $category = Category::query()->find($id);
 
         if (! $category) {
@@ -90,11 +127,12 @@ class CategoryController extends Controller
         }
 
         $validated = $request->validate([
-            'name' => 'sometimes|required|string|max:150|unique:categories,name,' . $id,
-            'description' => 'sometimes|nullable|string',
+            'name' => 'sometimes|required|string|max:100|unique:categories,name,' . $id,
+            'description' => 'sometimes|nullable|string|max:500',
             'thumbnail_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
             'thumbnail_alt_text' => 'sometimes|nullable|string|max:255',
             'status' => 'sometimes|in:active,inactive',
+            'remove_thumbnail' => 'sometimes|boolean',
         ]);
 
         if (array_key_exists('name', $validated)) {
@@ -106,14 +144,20 @@ class CategoryController extends Controller
             $category->description = $validated['description'];
         }
 
+        $removeThumbnail = filter_var($validated['remove_thumbnail'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
         if ($request->hasFile('thumbnail_image')) {
             $this->deleteStoredCategoryImage($category->thumbnail_url);
 
             $path = $request->file('thumbnail_image')->store('categories', 'public');
             $category->thumbnail_url = asset('storage/' . $path);
+        } elseif ($removeThumbnail) {
+            $this->deleteStoredCategoryImage($category->thumbnail_url);
+            $category->thumbnail_url = null;
+            $category->thumbnail_alt_text = null;
         }
 
-        if (array_key_exists('thumbnail_alt_text', $validated)) {
+        if (array_key_exists('thumbnail_alt_text', $validated) && ! $removeThumbnail) {
             $category->thumbnail_alt_text = $validated['thumbnail_alt_text'];
         }
 
@@ -141,6 +185,21 @@ class CategoryController extends Controller
             ], 404);
         }
 
+        $tourCount = $category->tours()->count();
+
+        if ($tourCount > 0) {
+            return response()->json([
+                'status' => 'error',
+                'message' => "Không thể xóa loại tour đang được sử dụng bởi {$tourCount} tour.",
+                'errors' => [
+                    'category' => [
+                        'Hãy chuyển các tour sang loại khác trước khi xóa loại tour này.',
+                    ],
+                ],
+                'tour_count' => $tourCount,
+            ], 422);
+        }
+
         $category->delete();
 
         return response()->json([
@@ -152,6 +211,7 @@ class CategoryController extends Controller
     public function trashed(): JsonResponse
     {
         $categories = Category::onlyTrashed()
+            ->withCount('tours')
             ->latest('deleted_at')
             ->get();
 
@@ -171,6 +231,21 @@ class CategoryController extends Controller
                 'status' => 'error',
                 'message' => 'Không tìm thấy loại tour đã xóa mềm',
             ], 404);
+        }
+
+        $hasDuplicateActiveName = Category::query()
+            ->where('name', $category->name)
+            ->where('id', '!=', $category->id)
+            ->exists();
+
+        if ($hasDuplicateActiveName) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Không thể khôi phục vì tên loại tour đã tồn tại.',
+                'errors' => [
+                    'name' => ['Vui lòng đổi tên loại tour đang hoạt động trước khi khôi phục.'],
+                ],
+            ], 422);
         }
 
         $category->restore();
@@ -194,7 +269,7 @@ class CategoryController extends Controller
         $index = 1;
 
         while (
-            Category::query()
+            Category::withTrashed()
                 ->when($ignoreId, fn ($query) => $query->where('id', '!=', $ignoreId))
                 ->where('slug', $slug)
                 ->exists()
@@ -204,6 +279,31 @@ class CategoryController extends Controller
         }
 
         return $slug;
+    }
+
+    private function normalizeTextInputs(Request $request): void
+    {
+        $payload = [];
+
+        foreach (['name', 'description', 'thumbnail_alt_text', 'search'] as $field) {
+            if ($request->exists($field) && is_string($request->input($field))) {
+                $payload[$field] = trim($request->input($field));
+            }
+        }
+
+        if ($payload !== []) {
+            $request->merge($payload);
+        }
+    }
+
+    private function paginationPayload($paginator): array
+    {
+        return [
+            'current_page' => $paginator->currentPage(),
+            'last_page' => $paginator->lastPage(),
+            'per_page' => $paginator->perPage(),
+            'total' => $paginator->total(),
+        ];
     }
 
     private function deleteStoredCategoryImage(?string $imageUrl): void

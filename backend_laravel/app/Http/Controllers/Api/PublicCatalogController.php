@@ -26,7 +26,7 @@ class PublicCatalogController extends Controller
             ])
             ->orderByDesc('tour_count')
             ->orderBy('name')
-            ->limit(6)
+            ->limit(5)
             ->get(['id', 'name', 'slug', 'description', 'thumbnail_url']);
 
         $destinations = Destination::query()
