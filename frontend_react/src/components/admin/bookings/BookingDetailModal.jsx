@@ -1,5 +1,6 @@
 import BookingBadge from './BookingBadge'
 import { statusOptions } from './bookingConstants'
+import { InvoiceIcon } from './BookingIcons'
 import {
   bookingDeparture,
   customerName,
@@ -8,7 +9,7 @@ import {
   formatMoney,
 } from './bookingFormatters'
 
-function BookingDetailModal({ booking, busy, onClose, onPaymentChange, onStatusChange }) {
+function BookingDetailModal({ booking, busy, onClose, onInvoice, onPaymentChange, onStatusChange }) {
   const name = customerName(booking)
   const phone = customerPhone(booking)
   const departure = bookingDeparture(booking)
@@ -21,6 +22,9 @@ function BookingDetailModal({ booking, busy, onClose, onPaymentChange, onStatusC
   const paymentMethodLabel = payment?.payment_method === 'cod'
     ? 'Thanh toán thủ công'
     : payment?.payment_method || '--'
+  const cannotReturnToPending = booking.payment_status === 'paid'
+    || booking.status === 'completed'
+    || booking.tourDeparture?.status === 'completed'
 
   return (
     <div className="booking-modal-backdrop" role="presentation" onMouseDown={onClose}>
@@ -34,6 +38,9 @@ function BookingDetailModal({ booking, busy, onClose, onPaymentChange, onStatusC
           <div className="booking-detail-header-actions">
             <BookingBadge type="status" value={booking.status} />
             <BookingBadge type="payment" value={booking.payment_status} />
+            <button type="button" className="booking-invoice-button" title="Xuất hóa đơn" aria-label="Xuất hóa đơn" onClick={() => onInvoice(booking)}>
+              <InvoiceIcon />
+            </button>
             <button type="button" aria-label="Đóng" onClick={onClose}>×</button>
           </div>
         </header>
@@ -94,7 +101,13 @@ function BookingDetailModal({ booking, busy, onClose, onPaymentChange, onStatusC
                   onChange={(event) => onStatusChange(booking, event.target.value)}
                 >
                   {statusOptions.filter((item) => item.value).map((item) => (
-                    <option key={item.value} value={item.value}>{item.label}</option>
+                    <option
+                      key={item.value}
+                      value={item.value}
+                      disabled={item.value === 'pending' && cannotReturnToPending}
+                    >
+                      {item.label}
+                    </option>
                   ))}
                 </select>
               </label>

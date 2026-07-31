@@ -24,7 +24,7 @@ class TourReviewController extends Controller
     {
         $data = $request->validated();
 
-        $review = DB::transaction(function () use ($data, $request): ?TourReview {
+        $review = DB::transaction(function () use ($data, $request): TourReview {
             $booking = Booking::query()
                 ->where('user_id', $request->user()->id)
                 ->lockForUpdate()
@@ -37,10 +37,6 @@ class TourReviewController extends Controller
                 throw ValidationException::withMessages([
                     'booking_id' => 'Chỉ có thể đánh giá khi tour đã hoàn thành.',
                 ]);
-            }
-
-            if (TourReview::query()->where('booking_id', $booking->id)->exists()) {
-                return null;
             }
 
             $review = TourReview::query()->create([
@@ -57,13 +53,6 @@ class TourReviewController extends Controller
 
             return $review;
         });
-
-        if (! $review) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Booking này đã có đánh giá tour.',
-            ], 409);
-        }
 
         return response()->json([
             'status' => 'success',

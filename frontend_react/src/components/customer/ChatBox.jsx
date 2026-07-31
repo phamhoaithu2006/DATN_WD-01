@@ -6,13 +6,13 @@ import {
   normalizeRecommendedTours,
 } from "../../services/customerApi";
 import "../../styles/chatbot.css";
+import FaqBrowser from "./faq/FaqBrowser";
 import Icon from "./Icon";
 import ChatInput from "./chatbot/ChatInput";
 import ChatMessage, {
   ChatTypingIndicator,
 } from "./chatbot/ChatMessage";
 import { ChatTourRecommendations } from "./chatbot/ChatTourRecommendations";
-import QuickTourPrompts from "./chatbot/QuickTourPrompts";
 import {
   getDefaultChatMessages,
   getOrCreateChatSessionId,
@@ -33,6 +33,8 @@ function mapServerMessage(message) {
 
 function ChatBox({ userId = null }) {
   const [open, setOpen] = useState(false);
+  const [chatStarted, setChatStarted] = useState(false);
+  const [activeView, setActiveView] = useState("chat");
   const [endingSupport, setEndingSupport] = useState(false);
   const [loading, setLoading] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(true);
@@ -49,7 +51,6 @@ function ChatBox({ userId = null }) {
   const fileInputRef = useRef(null);
   const chatContentRef = useRef(null);
   const shouldStickToBottomRef = useRef(true);
-
   const lastMessageIdRef = useRef(0);
   const pollRef = useRef(null);
   const historyLoadedRef = useRef(false);
@@ -110,6 +111,8 @@ function ChatBox({ userId = null }) {
   useEffect(() => {
     function handleReset() {
       setMessages(getDefaultChatMessages());
+      setChatStarted(false);
+      setActiveView("chat");
       setText("");
       setLoading(false);
       setHistoryLoading(false);
@@ -152,7 +155,10 @@ function ChatBox({ userId = null }) {
         }
 
         storeChatSessionId(userId, response?.session_id);
-        if (response?.mode) setMode(response.mode);
+        if (response?.mode) {
+          setMode(response.mode);
+          if (response.mode !== "ai") setChatStarted(true);
+        }
       })
       .catch(() => {
         if (active) {
@@ -257,7 +263,7 @@ function ChatBox({ userId = null }) {
 
       pollRequestRef.current = false;
     };
-  }, [mode, open]);
+  }, [mode, open, userId]);
 
   useEffect(() => {
     function handleVisibilityChange() {
@@ -282,7 +288,7 @@ function ChatBox({ userId = null }) {
     return () => {
       if (pollRef.current) window.clearInterval(pollRef.current);
     };
-  }, [mode, userId]);
+  }, [mode, open, userId]);
 
   function handleImageSelect(event) {
     const file = event.target.files?.[0] || null;
@@ -370,32 +376,38 @@ function ChatBox({ userId = null }) {
   }
 
   function handleRequestHuman() {
-    sendMessage(null, "", true);
+    return sendMessage(null, "", true);
   }
-async function handleEndSupport() {
-  if (endingSupport) return;
-  setEndingSupport(true);
 
-  try {
-    const sessionId = getOrCreateChatSessionId(userId);
-    const response = await closeChatSession(sessionId);
+  async function handleEndConversation() {
+    if (endingSupport) return;
+    setEndingSupport(true);
 
-    if (response?.mode) setMode(response.mode);
-    setQueuePosition(null);
-    setStaffInfo({ name: "", avatar: "" });
+    try {
+      const sessionId = getOrCreateChatSessionId(userId);
+      const response = await closeChatSession(sessionId);
 
-    if (response?.reply) {
-      setMessages((current) => [
-        ...current,
-        { from: "ai", text: response.reply },
-      ]);
+      if (response?.mode) setMode(response.mode);
+      setQueuePosition(null);
+      setStaffInfo({ name: "", avatar: "" });
+
+      if (response?.reply) {
+        setMessages((current) => [
+          ...current,
+          { from: "ai", text: response.reply },
+        ]);
+      }
+    } catch {
+      // Nếu server chưa có phiên chat, giao diện vẫn có thể trở về màn hình chào.
+    } finally {
+      setText("");
+      clearSelectedImage();
+      setChatStarted(false);
+      setActiveView("chat");
+      setEndingSupport(false);
     }
-  } catch {
-    // im lặng, lần poll tiếp theo sẽ tự đồng bộ lại mode
-  } finally {
-    setEndingSupport(false);
   }
-}
+
   function handleChatScroll(event) {
     const { scrollHeight, scrollTop, clientHeight } = event.currentTarget;
     shouldStickToBottomRef.current =
@@ -449,86 +461,91 @@ async function handleEndSupport() {
           </button>
         </header>
 
-          <div
-            ref={chatContentRef}
-            className="vg-chat-content"
-            role="log"
-            aria-live="polite"
-            aria-relevant="additions"
-            onScroll={handleChatScroll}
-          >
-            <p className="vg-chat-date">Hôm nay</p>
-
-            {messages.map((message, index) => (
-              <ChatMessage
-                key={message.id || `${message.from}-${index}`}
-                message={message}
-                staffAvatarUrl={staffInfo.avatar}
-                onTourNavigate={() => setOpen(false)}
-              />
-            ))}
-
-           {mode === "ai" ? (
-  <QuickTourPrompts
-    key={messages.length}   // ép remount để random lại mỗi khi có tin nhắn mới
-    disabled={historyLoading || loading}
-    onSelect={sendMessage}
-  />
-) : null}
-
-            {mode === "pending_human" && queuePosition ? (
-              <div className="vg-queue-banner">
-                <span className="vg-queue-dots">•••</span>
-                Hàng đợi của bạn là <strong>#{queuePosition}</strong>. Bạn vui lòng chờ thêm xíu nhé.
+          {!chatStarted ? (
+            <div className="vg-chat-welcome">
+              <div className="vg-chat-welcome-avatar" aria-hidden="true">
+                <Icon name="sparkle" size={34} />
+                <span>AI</span>
               </div>
-            ) : null}
+              <div className="vg-chat-welcome-copy">
+                <h2>Trợ lý ViVuGo AI</h2>
+                <p>Xin chào! Mình có thể giúp gì cho chuyến đi của bạn?</p>
+              </div>
+              <button
+                type="button"
+                className="vg-chat-start-btn"
+                onClick={() => {
+                  setChatStarted(true);
+                  setActiveView("chat");
+                }}
+                disabled={historyLoading}
+              >
+                {historyLoading ? "Đang chuẩn bị..." : "Bắt đầu trò chuyện"}
+              </button>
+            </div>
+          ) : activeView === "faq" ? (
+            <div className="vg-chat-faq-view">
+              <FaqBrowser
+                compact
+                onBack={() => setActiveView("chat")}
+              />
+            </div>
+          ) : (
+            <>
+              <div
+                ref={chatContentRef}
+                className="vg-chat-content"
+                role="log"
+                aria-live="polite"
+                aria-relevant="additions"
+                onScroll={handleChatScroll}
+              >
+                <p className="vg-chat-date">Hôm nay</p>
 
-            {loading ? (
-              <>
-                <ChatTypingIndicator />
-                <ChatTourRecommendations loading />
-              </>
-            ) : null}
-          </div>
+                {messages.map((message, index) => (
+                  <ChatMessage
+                    key={message.id || `${message.from}-${index}`}
+                    message={message}
+                    staffAvatarUrl={staffInfo.avatar}
+                    onTourNavigate={() => setOpen(false)}
+                  />
+                ))}
 
-         {mode === "ai" ? (
-  <div className="vg-human-request-bar">
-    <button
-      type="button"
-      className="vg-request-human-btn"
-      onClick={handleRequestHuman}
-      disabled={loading || historyLoading}
-    >
-      Gặp nhân viên hỗ trợ
-    </button>
-  </div>
-) : (
-  <div className="vg-human-request-bar">
-    <button
-      type="button"
-      className="vg-request-human-btn is-cancel"
-      onClick={handleEndSupport}
-      disabled={endingSupport}
-    >
-      {endingSupport ? "Đang kết thúc..." : "Kết thúc hỗ trợ"}
-    </button>
-  </div>
-)}
+                {mode === "pending_human" && queuePosition ? (
+                  <div className="vg-queue-banner">
+                    <span className="vg-queue-dots">•••</span>
+                    Hàng đợi của bạn là <strong>#{queuePosition}</strong>. Bạn vui lòng chờ thêm xíu nhé.
+                  </div>
+                ) : null}
 
-          <ChatInput
-            fileInputRef={fileInputRef}
-            imagePreview={imagePreview}
-            loading={loading || historyLoading}
-            mode={mode}
-            text={text}
-            onClearImage={clearSelectedImage}
-            onImageSelect={handleImageSelect}
-            onSubmit={sendMessage}
-            onTextChange={(event) => setText(event.target.value)}
-          />
-          <small className="vg-chat-note">
-            ViVuGo AI có thể mắc lỗi. Hãy kiểm tra thông tin quan trọng.
-          </small>
+                {loading ? (
+                  <>
+                    <ChatTypingIndicator />
+                    <ChatTourRecommendations loading />
+                  </>
+                ) : null}
+              </div>
+
+              <ChatInput
+                fileInputRef={fileInputRef}
+                imagePreview={imagePreview}
+                loading={loading || historyLoading || endingSupport}
+                mode={mode}
+                text={text}
+                onClearImage={clearSelectedImage}
+                onEndConversation={handleEndConversation}
+                onImageSelect={handleImageSelect}
+                onOpenFaq={() => setActiveView("faq")}
+                onRequestHuman={handleRequestHuman}
+                onStartConversation={() => setActiveView("chat")}
+                onSubmit={sendMessage}
+                onTextChange={(event) => setText(event.target.value)}
+              />
+              <small className="vg-chat-note">
+                ViVuGo AI có thể mắc lỗi. Hãy kiểm tra thông tin quan trọng.
+              </small>
+            </>
+          )}
       </section>
 
       <button

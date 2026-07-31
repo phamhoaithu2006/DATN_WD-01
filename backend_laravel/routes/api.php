@@ -42,8 +42,8 @@ use App\Http\Controllers\Api\Customer\NotificationCustomerController;
 use App\Http\Controllers\Api\Customer\TourController;
 use App\Http\Controllers\Api\Customer\TourReviewController as CustomerTourReviewController;
 use App\Http\Controllers\Api\Customer\VnpayPaymentController;
-use App\Http\Controllers\Api\TourReviewController as PublicTourReviewController;
 use App\Http\Controllers\Api\Customer\WishlistController;
+use App\Http\Controllers\Api\FaqController;
 use App\Http\Controllers\Api\Guide\GuideAttendanceController;
 use App\Http\Controllers\Api\Guide\GuideDashboardController;
 use App\Http\Controllers\Api\Guide\GuideLeaveRequestController;
@@ -61,8 +61,11 @@ use App\Http\Controllers\Api\Support\SupportPresenceController;
 use App\Http\Controllers\Api\Support\SupportProfileController;
 use App\Http\Controllers\Api\Support\SupportRequestController;
 use App\Http\Controllers\Api\Support\SupportWorkflowController;
+use App\Http\Controllers\Api\TourReviewController as PublicTourReviewController;
 use App\Models\GuideSpecialization;
 use Illuminate\Support\Facades\Route;
+
+Route::get('/faqs', [FaqController::class, 'index'])->middleware('throttle:60,1');
 
 /*
 |--------------------------------------------------------------------------
@@ -330,8 +333,6 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::patch('/notifications/customers/{id}/read', [NotificationCustomerController::class, 'markAsRead'])
         ->whereNumber('id');
 });
-
-
 
 // Quản lý tour cho khách hàng
 Route::prefix('tours')->group(function () {

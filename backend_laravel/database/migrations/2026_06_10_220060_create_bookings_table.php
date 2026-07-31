@@ -23,7 +23,7 @@ return new class extends Migration
             $table->decimal('unit_price', 12, 2);
             $table->decimal('discount_amount', 12, 2)->default(0);
             $table->decimal('total_amount', 12, 2);
-            $table->enum('status', ['pending', 'confirmed', 'completed', 'cancelled'])->default('pending')->index();
+            $table->enum('status', ['pending', 'confirmed', 'departed', 'completed', 'cancelled'])->default('pending')->index();
             $table->enum('payment_status', ['unpaid', 'paid', 'failed', 'refunded'])->default('unpaid')->index();
             $table->text('note')->nullable();
             $table->text('cancel_reason')->nullable();

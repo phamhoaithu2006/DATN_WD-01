@@ -96,6 +96,16 @@ const menuItems = [
     ),
   },
   {
+  label: 'Quản Lý Đánh Giá',
+  path: '/admin/reviews',
+  icon: (
+    <>
+      <path d="m12 3 2.7 5.47 6.04.88-4.37 4.26 1.03 6.02L12 16.8l-5.4 2.83 1.03-6.02-4.37-4.26 6.04-.88L12 3Z" />
+      <path d="M8 21h8" />
+    </>
+  ),
+},
+  {
     label: 'Báo Cáo & Thống Kê',
     path: '/admin/reports',
     icon: (

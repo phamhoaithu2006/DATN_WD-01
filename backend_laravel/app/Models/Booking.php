@@ -99,13 +99,12 @@ class Booking extends Model
     {
         return $query->when(
             $keyword,
-            fn ($q) => $q->where('booking_code', 'like', "%{$keyword}%")
-                ->orWhereHas('user', fn ($u) => $u->where('full_name', 'like', "%{$keyword}%"))
-                ->orWhereHas(
-                    'contact',
-                    fn ($c) => $c->where('contact_name', 'like', "%{$keyword}%")
-                        ->orWhere('contact_phone', 'like', "%{$keyword}%")
-                )
+            fn ($q) => $q->where(function ($searchQuery) use ($keyword) {
+                $searchQuery
+                    ->whereHas('tour', fn ($tour) => $tour->where('title', 'like', "%{$keyword}%"))
+                    ->orWhereHas('user', fn ($user) => $user->where('full_name', 'like', "%{$keyword}%"))
+                    ->orWhereHas('contact', fn ($contact) => $contact->where('contact_name', 'like', "%{$keyword}%"));
+            })
         );
     }
 

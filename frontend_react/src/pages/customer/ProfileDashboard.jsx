@@ -279,53 +279,94 @@ function ProfileDashboard({
     && paymentExpiresAt(booking) > now
   ), [now, paymentExpiresAt]);
 
+  // Dùng cho bộ lọc/trạng thái: chỉ cần booking đang chờ và chưa thanh toán.
+  // Không phụ thuộc payment object đã được backend tạo đầy đủ hay chưa.
+  const isAwaitingPayment = useCallback((booking) => (
+    booking.status === "pending"
+    && booking.payment_status === "unpaid"
+  ), []);
+
+  const getBookingTripState = useCallback((booking) => {
+    if (booking.status === "cancelled") return "cancelled";
+
+    const departureAt = booking.tour_departure?.departure_date
+      ? new Date(booking.tour_departure.departure_date).getTime()
+      : 0;
+    const returnAt = booking.tour_departure?.return_date
+      ? new Date(booking.tour_departure.return_date).getTime()
+      : 0;
+
+    // Tour đã kết thúc phải được ưu tiên là "completed",
+    // kể cả payment trước đó đã hết hạn trong dữ liệu mẫu.
+    if (
+      booking.status === "completed"
+      || (returnAt > 0 && returnAt <= now)
+    ) {
+      return "completed";
+    }
+
+    // Booking vừa tạo, đang pending và chưa thanh toán phải hiện ở "Chờ thanh toán",
+    // kể cả payment object chưa có hoặc chưa đủ trường.
+    if (isAwaitingPayment(booking)) {
+      const expiresAt = paymentExpiresAt(booking);
+
+      if (expiresAt > 0 && expiresAt <= now) {
+        return "expired";
+      }
+
+      return "pending";
+    }
+
+    // Chỉ booking đã thanh toán mới được xếp theo lịch chuyến đi.
+    if (booking.payment_status === "paid") {
+      if (departureAt > now) return "upcoming";
+
+      if (
+        departureAt > 0
+        && departureAt <= now
+        && (!returnAt || returnAt > now)
+      ) {
+        return "ongoing";
+      }
+    }
+
+    return "other";
+  }, [canPayBooking, now, paymentExpiresAt]);
+
   const stats = useMemo(() => {
-    let pending = 0;
-    let upcoming = 0;
-    let completed = 0;
-    let cancelled = 0;
+    const result = {
+      all: bookings.length,
+      pending: 0,
+      upcoming: 0,
+      completed: 0,
+      cancelled: 0,
+      expired: 0,
+      other: 0,
+    };
 
     bookings.forEach((booking) => {
-      if (booking.status === "cancelled") {
-        cancelled++;
-      } else if (canPayBooking(booking)) {
-        pending++;
-      } else if (booking.status === "completed") {
-        completed++;
-      } else {
-        const depDate = booking.tour_departure?.departure_date;
-        if (depDate && new Date(depDate).getTime() < now) {
-          completed++;
-        } else {
-          upcoming++;
-        }
-      }
+      const state = getBookingTripState(booking);
+
+      if (state === "pending") result.pending++;
+      if (state === "upcoming" || state === "ongoing") result.upcoming++;
+      if (state === "completed") result.completed++;
+      if (state === "cancelled") result.cancelled++;
+      if (state === "expired") result.expired++;
+      if (state === "other") result.other++;
     });
 
-    return {
-      all: bookings.length,
-      pending,
-      upcoming,
-      completed,
-      cancelled,
-    };
-  }, [bookings, canPayBooking, now]);
+    return result;
+  }, [bookings, getBookingTripState]);
 
   const filteredBookings = useMemo(() => {
     return bookings.filter((booking) => {
-      if (bookingFilter === "pending") {
-        if (!canPayBooking(booking)) return false;
-      } else if (bookingFilter === "upcoming") {
-        if (booking.status === "cancelled" || canPayBooking(booking)) return false;
-        if (booking.status === "completed") return false;
-        const depDate = booking.tour_departure?.departure_date;
-        if (depDate && new Date(depDate).getTime() < now) return false;
-      } else if (bookingFilter === "completed") {
-        const isEnded = booking.tour_departure?.departure_date && new Date(booking.tour_departure.departure_date).getTime() < now;
-        if (booking.status !== "completed" && !isEnded) return false;
-        if (booking.status === "cancelled") return false;
-      } else if (bookingFilter === "cancelled") {
-        if (booking.status !== "cancelled") return false;
+      const state = getBookingTripState(booking);
+
+      if (bookingFilter !== "all" && state !== bookingFilter) {
+        // Tab "Sắp khởi hành" hiển thị cả tour đang diễn ra.
+        if (!(bookingFilter === "upcoming" && state === "ongoing")) {
+          return false;
+        }
       }
 
       if (bookingSearch.trim()) {
@@ -352,13 +393,48 @@ function ProfileDashboard({
   }, [bookings, bookingFilter, bookingSearch, bookingSort, canPayBooking, now]);
 
   const renderStatusBadge = (booking) => {
-    if (booking.status === "cancelled") {
+    const state = getBookingTripState(booking);
+
+    if (state === "cancelled") {
       return (
         <span className="vg-status-badge is-cancelled">
           <Icon name="trash" size={13} /> Đã hủy
         </span>
       );
     }
+
+    if (state === "completed") {
+      return (
+        <span className="vg-status-badge is-paid">
+          <Icon name="checkCircle" size={13} /> Đã thanh toán
+        </span>
+      );
+    }
+
+    if (state === "upcoming") {
+      return (
+        <span className="vg-status-badge is-paid">
+          <Icon name="calendar" size={13} /> Sắp khởi hành
+        </span>
+      );
+    }
+
+    if (state === "ongoing") {
+      return (
+        <span className="vg-status-badge is-paid">
+          <Icon name="calendar" size={13} /> Đang diễn ra
+        </span>
+      );
+    }
+
+    if (state === "expired") {
+      return (
+        <span className="vg-status-badge is-expired">
+          <Icon name="alertCircle" size={13} /> Đã hết hạn
+        </span>
+      );
+    }
+
     if (booking.payment_status === "paid") {
       return (
         <span className="vg-status-badge is-paid">
@@ -366,6 +442,7 @@ function ProfileDashboard({
         </span>
       );
     }
+
     if (booking.payment_status === "failed") {
       return (
         <span className="vg-status-badge is-failed">
@@ -373,14 +450,8 @@ function ProfileDashboard({
         </span>
       );
     }
-    if (booking.status === "pending" && paymentExpiresAt(booking) <= now) {
-      return (
-        <span className="vg-status-badge is-expired">
-          <Icon name="alertCircle" size={13} /> Đã hết hạn
-        </span>
-      );
-    }
-    if (canPayBooking(booking)) {
+
+    if (state === "pending") {
       return (
         <span className="vg-status-badge is-pending-payment">
           <Icon name="clock" size={13} /> Đang đợi thanh toán
@@ -612,6 +683,22 @@ function ProfileDashboard({
                 >
                   Đã hủy <span className="vg-filter-count">{stats.cancelled}</span>
                 </button>
+                <button
+                  type="button"
+                  className={`vg-filter-btn ${bookingFilter === "expired" ? "active" : ""}`}
+                  onClick={() => setBookingFilter("expired")}
+                >
+                  Đã hết hạn <span className="vg-filter-count is-warn">{stats.expired}</span>
+                </button>
+                {stats.other > 0 ? (
+                  <button
+                    type="button"
+                    className={`vg-filter-btn ${bookingFilter === "other" ? "active" : ""}`}
+                    onClick={() => setBookingFilter("other")}
+                  >
+                    Khác <span className="vg-filter-count">{stats.other}</span>
+                  </button>
+                ) : null}
               </div>
 
               <div className="vg-booking-search-sort">
@@ -662,13 +749,26 @@ function ProfileDashboard({
                   const unitPrice = Number(booking.unit_price || (booking.total_amount && booking.number_of_people ? Number(booking.total_amount) / booking.number_of_people : 0));
                   const durationText = booking.tour?.duration || (booking.tour?.duration_days ? `${booking.tour.duration_days}N${booking.tour.duration_nights || 0}Đ` : "Chuyến đi");
                   const reviewableBooking = reviewableBookingById.get(Number(booking.id));
-                  const reviewableGuides = (reviewableBooking?.guides || []).filter((guide) => guide?.id);
-                  const returnDateValue = booking.tour_departure?.return_date;
-                  const hasTourEnded = Boolean(returnDateValue)
-                    && new Date(returnDateValue).getTime() <= now;
-                  const canReviewBooking = booking.payment_status === "paid"
-                    && booking.status !== "cancelled"
-                    && hasTourEnded;
+
+                  const rawGuideCandidates = [
+                    ...(reviewableBooking?.guides || []),
+                    ...(booking?.guides || []),
+                    ...(booking?.tour_departure?.guides || []),
+                    booking?.tour_departure?.guide,
+                    booking?.guide,
+                    booking?.assigned_guide,
+                    booking?.tour_guide,
+                  ].filter(Boolean);
+
+                  const reviewableGuides = rawGuideCandidates
+                    .map((item) => item?.guide || item)
+                    .filter((guide, index, list) => (
+                      guide?.id
+                      && list.findIndex((candidate) => Number(candidate?.id) === Number(guide.id)) === index
+                    ));
+
+                  const bookingTripState = getBookingTripState(booking);
+                  const canReviewBooking = bookingTripState === "completed";
                   const guideForReview = reviewableGuides.find((guide) => !guide.reviewed)
                     || reviewableGuides[0]
                     || null;
@@ -772,7 +872,17 @@ function ProfileDashboard({
                                 <Icon name={guideForReview.reviewed ? "edit" : "star"} size={14} />
                                 {guideForReview.reviewed ? "Sửa đánh giá HDV" : "Đánh giá HDV"}
                               </button>
-                            ) : null}
+                            ) : (
+                              <button
+                                type="button"
+                                disabled
+                                title="Booking này chưa có dữ liệu hướng dẫn viên từ API"
+                                className="inline-flex h-9 cursor-not-allowed items-center justify-center gap-2 rounded-lg border border-slate-300 bg-slate-100 px-4 text-xs font-extrabold text-slate-400"
+                              >
+                                <Icon name="star" size={14} />
+                                Chưa có HDV
+                              </button>
+                            )}
 
                             <button
                               type="button"

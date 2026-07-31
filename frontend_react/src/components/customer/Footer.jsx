@@ -42,7 +42,7 @@ function Footer() {
           <a href="#">Chính sách đặt tour</a>
           <a href="#">Chính sách hoàn hủy</a>
           <a href="#">Điều khoản sử dụng</a>
-          <a href="#">FAQ - Câu hỏi thường gặp</a>
+          <Link to="/faqs">FAQ - Câu hỏi thường gặp</Link>
           <div className="vg-hotline-card">
             <span>Hotline hỗ trợ 24/7</span>
             <strong>{footerHotline}</strong>

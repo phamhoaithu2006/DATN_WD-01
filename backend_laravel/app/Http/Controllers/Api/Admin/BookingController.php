@@ -30,7 +30,7 @@ class BookingController extends Controller
     {
         $request->validate([
             'search' => 'nullable|string|max:100',
-            'status' => ['nullable', Rule::in(['pending', 'confirmed', 'completed', 'cancelled'])],
+            'status' => ['nullable', Rule::in(['pending', 'confirmed', 'departed', 'completed', 'cancelled'])],
             'payment_status' => ['nullable', Rule::in(['unpaid', 'paid', 'failed', 'refunded'])],
             'from_date' => 'nullable|date',
             'to_date' => 'nullable|date|after_or_equal:from_date',
@@ -38,6 +38,8 @@ class BookingController extends Controller
             'sort_by' => ['nullable', Rule::in(['created_at', 'total_amount', 'booking_code'])],
             'sort_dir' => ['nullable', Rule::in(['asc', 'desc'])],
         ]);
+
+        $this->markBookingsAsDeparted();
 
         $bookings = Booking::with([
             'user:id,full_name,email',
@@ -74,6 +76,7 @@ class BookingController extends Controller
     public function statistics(Request $request)
     {
         $year = $request->integer('year');
+        $this->markBookingsAsDeparted();
         $query = Booking::query();
 
         if ($year) {
@@ -84,6 +87,7 @@ class BookingController extends Controller
             COUNT(*) as total,
             SUM(CASE WHEN status = 'pending'   THEN 1 ELSE 0 END) as pending,
             SUM(CASE WHEN status = 'confirmed' THEN 1 ELSE 0 END) as confirmed,
+            SUM(CASE WHEN status = 'departed'  THEN 1 ELSE 0 END) as departed,
             SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
             SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled,
             SUM(CASE WHEN payment_status = 'unpaid'   THEN 1 ELSE 0 END) as unpaid,
@@ -214,7 +218,7 @@ class BookingController extends Controller
             'number_of_people' => 'sometimes|integer|min:1',
             'unit_price' => 'sometimes|numeric|min:0',
             'discount_amount' => 'sometimes|numeric|min:0',
-            'status' => ['sometimes', Rule::in(['pending', 'confirmed', 'completed', 'cancelled'])],
+            'status' => ['sometimes', Rule::in(['pending', 'confirmed', 'departed', 'completed', 'cancelled'])],
             'payment_status' => ['prohibited'],
             'note' => 'nullable|string',
             'cancel_reason' => 'nullable|string',
@@ -274,6 +278,17 @@ class BookingController extends Controller
             ) {
                 throw ValidationException::withMessages([
                     'status' => 'Booking đã hủy không thể chuyển sang trạng thái khác.',
+                ]);
+            }
+
+            $departureIsCompleted = $lockedBooking->tourDeparture?->status === 'completed';
+            if ($requestedStatus === 'pending' && (
+                $lockedBooking->payment_status === 'paid'
+                || $lockedBooking->status === 'completed'
+                || $departureIsCompleted
+            )) {
+                throw ValidationException::withMessages([
+                    'status' => 'Booking đã thanh toán hoặc tour đã hoàn thành không thể chuyển về Chờ xác nhận.',
                 ]);
             }
 
@@ -462,5 +477,16 @@ class BookingController extends Controller
             (int) $departure->booked_slots - $slotsToRelease
         );
         $departure->save();
+    }
+
+    private function markBookingsAsDeparted(): void
+    {
+        Booking::query()
+            ->whereIn('status', ['pending', 'confirmed'])
+            ->whereHas('tourDeparture', function ($query): void {
+                $query->whereDate('departure_date', '<=', today())
+                    ->whereNotIn('status', ['cancelled', 'canceled']);
+            })
+            ->update(['status' => 'departed', 'updated_at' => now()]);
     }
 }
