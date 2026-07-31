@@ -1498,6 +1498,25 @@
   transform: rotate(180deg);
 }
 
+/* Keep the sidebar collapse control visible when the admin menu is long. */
+@media (min-width: 761px) {
+  .admin-sidebar .admin-nav {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+
+  .admin-sidebar .collapse-button {
+    flex: 0 0 52px;
+    min-height: 52px;
+    position: relative;
+    z-index: 2;
+    box-shadow: 0 -8px 18px rgba(15, 23, 42, 0.035);
+  }
+}
+
 @media (max-width: 760px) {
   .admin-shell,
   .admin-shell.sidebar-collapsed {

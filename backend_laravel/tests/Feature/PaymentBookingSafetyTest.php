@@ -232,6 +232,32 @@ test('admin cannot move a paid booking back to pending', function () {
     expect($booking->fresh()->status)->toBe('confirmed');
 });
 
+test('customer cannot cancel more than two bookings', function () {
+    $customer = paymentSafetyUser('customer');
+    $booking = paymentSafetyBooking(['user_id' => $customer->id]);
+
+    foreach ([1, 2] as $index) {
+        $previous = paymentSafetyBooking([
+            'user_id' => $customer->id,
+            'status' => 'cancelled',
+        ]);
+        $previous->statusHistories()->create([
+            'changed_by' => $customer->id,
+            'old_status' => 'pending',
+            'new_status' => 'cancelled',
+            'note' => "Khách hàng tự hủy lần {$index}.",
+        ]);
+    }
+
+    Sanctum::actingAs($customer);
+
+    $this->patchJson("/api/customer/bookings/{$booking->id}/cancel")
+        ->assertUnprocessable()
+        ->assertJsonPath('message', 'Bạn đã sử dụng hết giới hạn 2 lần hủy booking theo chính sách ViVuGo.');
+
+    expect($booking->fresh()->status)->toBe('pending');
+});
+
 test('customer booking creates a pending VNPAY payment with checkout url', function () {
     configureVnpayForTest();
     $customer = paymentSafetyUser('customer');

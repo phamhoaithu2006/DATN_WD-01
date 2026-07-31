@@ -527,6 +527,13 @@ function Header({ user, onLogout, pendingCount = 0 }) {
 
   const activeMenuObj = menuData[activeMenu];
   const activeContentItems = activeMenuObj?.content[activeTab] || [];
+  const policyLinks = {
+    "Quy định chung": "/policies/general",
+    "Điều khoản sử dụng": "/policies/terms",
+    "Hướng dẫn thanh toán": "/policies/payment",
+    "Chính sách đặt tour": "/policies/booking",
+    "Chính sách hoàn hủy": "/policies/cancellation",
+  };
 
   return (
     <header className="vg-header sticky top-0 z-[80]" ref={headerRef}>
@@ -545,10 +552,7 @@ function Header({ user, onLogout, pendingCount = 0 }) {
         {/* Desktop Main Navigation Links */}
         <nav className="hidden md:flex items-center gap-8 mx-auto relative h-full">
           <NavLink
-            className={({ isActive }) =>
-              `relative py-6 font-semibold text-[0.98rem] transition-colors duration-200 ${isActive ? "text-blue-600" : "text-[#111820] hover:text-blue-600"
-              }`
-            }
+            className="relative py-6 font-semibold text-[0.98rem] text-[#111820] transition-colors duration-200 hover:text-orange-600 focus-visible:text-orange-600 after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[3px] after:scale-x-0 after:rounded-full after:bg-orange-500 after:transition-transform hover:after:scale-x-100 focus-visible:after:scale-x-100 active:after:scale-x-100"
             to="/"
             end
           >
@@ -589,14 +593,12 @@ function Header({ user, onLogout, pendingCount = 0 }) {
 
           {/* Customer Support */}
           <NavLink
-            to="/customer/profile?view=support"
-            className={({ isActive }) =>
-              `relative py-6 font-semibold text-[0.98rem] transition-colors duration-200 ${
-                isActive
-                  ? 'text-blue-600'
-                  : 'text-[#111820] hover:text-blue-600'
-              }`
-            }
+            to={user ? "/customer/profile?view=support" : "/auth/login"}
+            state={user ? undefined : {
+              notice: "Vui lòng đăng nhập để được hỗ trợ.",
+              noticeVariant: "error",
+            }}
+            className="relative py-6 font-semibold text-[0.98rem] text-[#111820] transition-colors duration-200 hover:text-orange-600 focus-visible:text-orange-600 after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[3px] after:scale-x-0 after:rounded-full after:bg-orange-500 after:transition-transform hover:after:scale-x-100 focus-visible:after:scale-x-100 active:after:scale-x-100"
           >
             {language === 'vi'
               ? 'Hỗ trợ'
@@ -671,7 +673,7 @@ function Header({ user, onLogout, pendingCount = 0 }) {
       {/* Desktop Mega Menu Dropdown Drop-down container */}
       {activeMenu && activeMenuObj && (
         <div
-          className="absolute left-0 right-0 w-full bg-white shadow-[0_20px_40px_rgba(0,0,0,0.08)] border-t border-gray-100/80 z-20 hidden md:block transition-all duration-300 ease-out transform"
+          className="vg-mega-menu absolute left-0 right-0 w-full bg-white shadow-[0_20px_40px_rgba(0,0,0,0.08)] border-t border-gray-100/80 z-20 hidden md:block transition-all duration-300 ease-out transform"
           onMouseEnter={handleDropdownMouseEnter}
           onMouseLeave={handleDropdownMouseLeave}
         >
@@ -714,7 +716,9 @@ function Header({ user, onLogout, pendingCount = 0 }) {
                   const itemSubtitle = language === "vi" ? item.subtitle.vi : item.subtitle.en;
 
                   // Construct a search dynamic link query for destinations or experiences
-                  const searchUrl = item.slug
+                  const searchUrl = activeMenu === "policies"
+                    ? policyLinks[item.title.vi] || "/policies/general"
+                    : item.slug
                     ? `/tours/${item.slug}`
                     : `/tours?q=${encodeURIComponent(language === "vi" ? item.title.vi : item.title.en)}`;
 

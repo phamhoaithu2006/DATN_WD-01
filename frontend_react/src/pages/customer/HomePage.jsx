@@ -4,6 +4,7 @@ import Icon from "../../components/customer/Icon";
 import TourCard from "../../components/customer/TourCard";
 import { fetchTourFilterOptions } from "../../services/customerApi";
 import { mediaUrl } from "../../utils/mediaUrl";
+import { VIETNAM_PROVINCES } from "../../constants/vietnamProvinces";
 
 // Skeleton Loading khi đang tải dữ liệu
 function HomeSkeleton() {
@@ -43,7 +44,7 @@ function HeroBannerBackground({ banners = [], activeIndex, setActiveIndex }) {
     if (safeBanners.length <= 1) return undefined;
     const timer = setInterval(() => {
       setActiveIndex((prev) => (prev + 1) % safeBanners.length);
-    }, 7000);
+    }, 10000);
 
     return () => clearInterval(timer);
   }, [safeBanners.length, activeIndex, setActiveIndex]);
@@ -145,10 +146,11 @@ function HomePage({
   const safeReviews = Array.isArray(homeContent.reviews)
     ? homeContent.reviews
     : [];
-  const reviewMarqueeItems = safeReviews.length > 0
-    ? [...safeReviews, ...safeReviews]
-    : [];
-
+  const reviewMarqueeCopies = safeReviews.length > 0 ? 2 : 0;
+  const marqueeReviews = Array.from(
+    { length: reviewMarqueeCopies },
+    () => safeReviews,
+  ).flat();
   const featuredTourCards = Array.isArray(homeContent.featured_tours)
     ? homeContent.featured_tours
     : safeTours.slice(0, 6);
@@ -202,9 +204,12 @@ function HomePage({
     };
   }, []);
 
-  const departureLocations = Array.isArray(filterOptions?.departure_locations)
-    ? filterOptions.departure_locations
-    : [];
+  const departureLocations = Array.from(new Set([
+    ...VIETNAM_PROVINCES,
+    ...(Array.isArray(filterOptions?.departure_locations)
+      ? filterOptions.departure_locations.map((location) => location.name).filter(Boolean)
+      : []),
+  ])).sort((first, second) => first.localeCompare(second, 'vi'));
   const destinationOptions = Array.isArray(filterOptions?.destinations)
     ? filterOptions.destinations
     : [];
@@ -267,10 +272,16 @@ function HomePage({
           <div className="vg-hero-content-wrapper">
             {/* Hero Main Heading & Intro */}
             <div className="vg-hero-header-text">
+              <div className="vg-hero-trust-badge">
+                <Icon name="shield" size={15} /> Nền tảng du lịch được tin chọn
+              </div>
               <h1 className="vg-hero-main-title">
                 Khám phá thế giới, <br />
                 <span className="vg-text-gradient">nâng tầm trải nghiệm</span>
               </h1>
+              <p className="vg-hero-subtitle">
+                Hơn một chuyến đi — đó là những khoảnh khắc đáng nhớ của riêng bạn.
+              </p>
             </div>
 
             {/* Seamless Floating Glass Search Card */}
@@ -320,7 +331,7 @@ function HomePage({
 
                     <datalist id="vg-departure-location-options">
                       {departureLocations.map((location) => (
-                        <option key={location.name} value={location.name} />
+                        <option key={location} value={location} />
                       ))}
                     </datalist>
 
@@ -391,6 +402,11 @@ function HomePage({
                     </div>
                   </div>
                 </form>
+              </div>
+              <div className="vg-hero-proof-strip" aria-label="Cam kết dịch vụ ViVuGo">
+                <span><Icon name="shield" size={16} /> Thanh toán an toàn</span>
+                <span><Icon name="headset" size={16} /> Hỗ trợ tận tâm</span>
+                <span><Icon name="star" size={16} /> Hành trình chọn lọc</span>
               </div>
             </div>
           </div>
@@ -576,7 +592,9 @@ function HomePage({
           <div className="vg-container">
             <div className="vg-centered-heading">
               <span className="vg-kicker">Trải nghiệm du khách</span>
-              <h2>Khách hàng nói gì về ViVuGo?</h2>
+              <h2>
+                Khách hàng nói gì về <span className="vg-brand-word-primary">ViVu</span><span className="vg-brand-word-accent">Go</span>?
+              </h2>
               <p>Cảm nhận chân thực từ những du khách đã đồng hành cùng chúng tôi trên mọi nẻo đường.</p>
             </div>
 
@@ -609,33 +627,30 @@ function HomePage({
                   </div>
                   <div className="vg-trust-stats-info">
                     <strong>{totalCount > 0 ? `${totalCount}+ Đánh giá thực tế` : "1.200+ Du khách hài lòng"}</strong>
-                    <span>• 100% Đánh giá 5 sao từ du khách đã đi tour</span>
+                    <span>100% Đánh giá 5 sao từ du khách đã đi tour</span>
                   </div>
                 </div>
               );
             })()}
 
-            <div className="vg-review-marquee" aria-label="Đánh giá tour 5 sao từ khách hàng">
+            <div className="vg-review-marquee-wrap">
+              <div className="vg-review-marquee" aria-label="Đánh giá tour 5 sao từ khách hàng">
               <div
                 className="vg-review-marquee-track"
-                style={{
-                  "--vg-review-duration": `${Math.max(34, safeReviews.length * 8)}s`,
-                }}
               >
-                {reviewMarqueeItems.map((review, index) => {
+                {marqueeReviews.map((review, index) => {
                   const reviewerName = review.reviewer_name || "Khách hàng ViVuGo";
                   const reviewerAvatar = mediaUrl(review.reviewer_avatar_url);
-                  const isDuplicatedReview = index >= safeReviews.length;
                   const tourTitle = review.tour_title || review.tour?.title || "Tour Du Lịch Trải Nghiệm";
                   const tourSlug = review.tour_slug || review.tour?.slug || review.tour_id || review.tour?.id;
                   const tourLink = tourSlug ? `/tours/${tourSlug}` : "/tours";
-                  const avatarColorIndex = (index % 4) + 1;
+                  const reviewColorIndex = (index % 5) + 1;
 
                   return (
                     <article
-                      className="vg-review-card"
+                      className={`vg-review-card vg-review-card-color-${reviewColorIndex}`}
                       key={`${review.id}-${index}`}
-                      aria-hidden={isDuplicatedReview || undefined}
+                      aria-hidden={index >= safeReviews.length}
                     >
                       <div className="vg-review-card-accent"></div>
                       <div className="vg-review-quote-mark" aria-hidden="true">“</div>
@@ -653,7 +668,7 @@ function HomePage({
 
                       <div className="vg-review-card-footer">
                         <div className="vg-review-person">
-                          <div className={`vg-review-avatar vg-review-avatar-${avatarColorIndex}`} aria-hidden="true">
+                          <div className={`vg-review-avatar vg-review-avatar-${reviewColorIndex}`} aria-hidden="true">
                             {reviewerAvatar ? (
                               <img
                                 src={reviewerAvatar}
@@ -675,9 +690,11 @@ function HomePage({
                           <span className="vg-stars-gold">★★★★★</span>
                         </div>
                       </div>
+                      <div className="vg-review-card-accent vg-review-card-accent-bottom"></div>
                     </article>
                   );
                 })}
+              </div>
               </div>
             </div>
           </div>
