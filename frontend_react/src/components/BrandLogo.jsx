@@ -41,12 +41,8 @@ function BrandLogo({
         )}
       </span>
       <span className={nameClassName} aria-label={siteName}>
-        {footer ? siteName : (
-          <>
-            <span className="brand-name-primary">{brandNamePrimary}</span>
-            <span className="brand-name-accent">{brandNameAccent}</span>
-          </>
-        )}
+        <span className="brand-name-primary">{brandNamePrimary}</span>
+        <span className="brand-name-accent">{brandNameAccent}</span>
       </span>
     </>
   );

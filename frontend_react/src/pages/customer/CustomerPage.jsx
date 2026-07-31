@@ -34,6 +34,7 @@ import ToursPage from "./ToursPage";
 import CustomerTourDetailPage from "./TourDetailPage";
 import CustomerSupportPage from "./CustomerSupportPage";
 import FaqPage from "./FaqPage";
+import PolicyPage from "./PolicyPage";
 import {
   isDomesticTour,
   normalizeTour,
@@ -62,19 +63,31 @@ function CustomerPage() {
   const [tours, setTours] = useState([]);
   const [hasLiveTours, setHasLiveTours] = useState(false);
   const [favorites, setFavorites] = useState(readStoredFavorites);
+  const [favoritesLoaded, setFavoritesLoaded] = useState(false);
   const [bookings, setBookings] = useState([]);
+  const [bookingsLoaded, setBookingsLoaded] = useState(false);
   const [reviewNotifications, setReviewNotifications] = useState([]);
   const [homeContent, setHomeContent] = useState({});
   const [homeBanners, setHomeBanners] = useState([]);
   const [homeLoading, setHomeLoading] = useState(true);
+  const [tourLoading, setTourLoading] = useState(true);
   const [homeLoadError, setHomeLoadError] = useState("");
   const [tourLoadError, setTourLoadError] = useState("");
   const [currentTime, setCurrentTime] = useState(() => Date.now());
+  const [showScrollTop, setShowScrollTop] = useState(false);
 
   const [summary, setSummary] = useState({
     bookings_count: 0,
     wishlist_count: 0,
   });
+
+  useEffect(() => {
+    const updateScrollTopVisibility = () => setShowScrollTop(window.scrollY > 420);
+
+    updateScrollTopVisibility();
+    window.addEventListener("scroll", updateScrollTopVisibility, { passive: true });
+    return () => window.removeEventListener("scroll", updateScrollTopVisibility);
+  }, []);
 
   const [profile, setProfile] = useState(() => ({
     ...fallbackProfile,
@@ -225,6 +238,7 @@ function CustomerPage() {
       try {
         if (active) {
           setTourLoadError("");
+          setTourLoading(true);
         }
 
         const response = await fetchTours(searchParams);
@@ -254,6 +268,10 @@ function CustomerPage() {
           setHasLiveTours(false);
           setTourLoadError("Không thể tải danh sách tour.");
         }
+      } finally {
+        if (active) {
+          setTourLoading(false);
+        }
       }
     }
 
@@ -268,6 +286,8 @@ function CustomerPage() {
     if (!token) return undefined;
 
     let active = true;
+    setFavoritesLoaded(false);
+    setBookingsLoaded(false);
 
     Promise.all([
       fetchWishlist(),
@@ -282,9 +302,11 @@ function CustomerPage() {
             .map((item) => item.tour_id || item.tour?.id || item.id)
             .filter(Boolean),
         );
+        setFavoritesLoaded(true);
 
         setSummary(account || {});
         setBookings(accountBookings || []);
+        setBookingsLoaded(true);
 
         setProfile((current) => ({
           ...current,
@@ -296,7 +318,12 @@ function CustomerPage() {
           ...(account || {}),
         }));
       })
-      .catch(() => { });
+      .catch(() => {
+        if (active) {
+          setFavoritesLoaded(true);
+          setBookingsLoaded(true);
+        }
+      });
 
     return () => {
       active = false;
@@ -307,12 +334,18 @@ function CustomerPage() {
     if (!token || location.pathname !== "/customer/bookings") return undefined;
 
     let active = true;
+    setBookingsLoaded(false);
 
     fetchBookings()
       .then((accountBookings) => {
-        if (active) setBookings(accountBookings || []);
+        if (active) {
+          setBookings(accountBookings || []);
+          setBookingsLoaded(true);
+        }
       })
-      .catch(() => { });
+      .catch(() => {
+        if (active) setBookingsLoaded(true);
+      });
 
     return () => {
       active = false;
@@ -356,6 +389,9 @@ function CustomerPage() {
   }, [token, location.pathname]);
 
   function updateBooking(updatedBooking) {
+    const cancellationCount = updatedBooking.customer_cancellation_count;
+    const cancellationLimit = updatedBooking.customer_cancellation_limit;
+
     setBookings((current) => current.map((booking) => (
       booking.id === updatedBooking.id
         ? {
@@ -364,7 +400,13 @@ function CustomerPage() {
           tour: updatedBooking.tour || booking.tour,
           tour_departure: updatedBooking.tour_departure || booking.tour_departure,
         }
-        : booking
+        : {
+          ...booking,
+          ...(cancellationCount === undefined ? {} : {
+            customer_cancellation_count: cancellationCount,
+            customer_cancellation_limit: cancellationLimit,
+          }),
+        }
     )));
   }
 
@@ -435,7 +477,7 @@ function CustomerPage() {
       banners={homeBanners}
       favorites={favorites}
       homeContent={normalizedHomeContent}
-      loading={homeLoading}
+      loading={homeLoading || tourLoading}
       tourLoadError={homeLoadError || tourLoadError}
       onFavorite={toggleFavorite}
     />
@@ -466,6 +508,8 @@ function CustomerPage() {
     content = <DestinationsPage />;
   } else if (route === "/faqs") {
     content = <FaqPage />;
+  } else if (route.startsWith("/policies")) {
+    content = <PolicyPage />;
   } else if (isSupportPage) {
     content = user ? (
       <CustomerSupportPage profile={profile} />
@@ -479,7 +523,9 @@ function CustomerPage() {
         profile={profile}
         summary={summary}
         bookings={bookings}
+        bookingsLoading={!bookingsLoaded}
         favoriteTours={favoriteTours}
+        favoritesLoading={!favoritesLoaded || tourLoading}
         onFavorite={toggleFavorite}
         onBookingUpdated={updateBooking}
       />
@@ -519,6 +565,17 @@ function CustomerPage() {
       />
       {content}
       <Footer />
+      {showScrollTop ? (
+        <button
+          type="button"
+          className="vg-scroll-top"
+          aria-label="Lên đầu trang"
+          title="Lên đầu trang"
+          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+        >
+          ↑
+        </button>
+      ) : null}
       {canRenderChat ? (
         <ChatBox
           key={chatUserId ? `user-${chatUserId}` : "guest"}

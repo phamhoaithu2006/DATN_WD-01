@@ -8,12 +8,18 @@ function Footer() {
   const footerHotline = settings.footer_hotline || settings.hotline || "1900 1234";
   const footerEmail = settings.footer_email || settings.contact_email || "support@vivugo.vn";
   const siteName = settings.site_name || "ViVuGo";
+  const accentIndex = Math.max(siteName.length - 2, 0);
+  const brandNamePrimary = siteName.slice(0, accentIndex) || siteName;
+  const brandNameAccent = siteName.slice(accentIndex);
 
   return (
     <footer className="vg-footer vg-footer-soft">
       <div className="vg-container vg-footer-grid">
         <div className="vg-footer-brand">
-          <div className="vg-footer-title">ViVuGo</div>
+          <div className="vg-footer-title" aria-label={siteName}>
+            <span className="brand-name-primary">{brandNamePrimary}</span>
+            <span className="brand-name-accent">{brandNameAccent}</span>
+          </div>
           <p className="vg-footer-company">Công ty TNHH Du lịch {siteName}</p>
           {footerText ? <p>{footerText}</p> : <p>Khám phá hành trình mới cùng đội ngũ tư vấn tận tâm.</p>}
           {footerAddress ? <p>{footerAddress}</p> : null}
@@ -24,9 +30,8 @@ function Footer() {
         <div>
           <h3>Liên kết nhanh</h3>
           <Link to="/">Trang chủ</Link>
-          <Link to="/tours">Tour trong nước</Link>
-          <Link to="/deals">Tour quốc tế</Link>
-          <Link to="/destinations">Về chúng tôi</Link>
+          <Link to="/tours?scope=domestic">Tour trong nước</Link>
+          <Link to="/tours?scope=international">Tour quốc tế</Link>
         </div>
 
         <div>
@@ -39,9 +44,9 @@ function Footer() {
 
         <div>
           <h3>Hỗ trợ</h3>
-          <a href="#">Chính sách đặt tour</a>
-          <a href="#">Chính sách hoàn hủy</a>
-          <a href="#">Điều khoản sử dụng</a>
+          <Link to="/policies/booking">Chính sách đặt tour</Link>
+          <Link to="/policies/cancellation">Chính sách hoàn hủy</Link>
+          <Link to="/policies/terms">Điều khoản sử dụng</Link>
           <Link to="/faqs">FAQ - Câu hỏi thường gặp</Link>
           <div className="vg-hotline-card">
             <span>Hotline hỗ trợ 24/7</span>

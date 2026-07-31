@@ -150,6 +150,11 @@ function AppRoutes() {
       />
 
       <Route
+        path="/policies/*"
+        element={<CustomerPage />}
+      />
+
+      <Route
         path="/deals"
         element={<CustomerPage />}
       />

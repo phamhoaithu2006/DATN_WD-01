@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import Icon from "../../components/customer/Icon";
 import TourCard from "../../components/customer/TourCard";
 import BookingCountdown from "../../components/customer/BookingCountdown";
@@ -195,11 +195,15 @@ function ProfileDashboard({
   profile,
   summary,
   bookings,
+  bookingsLoading = false,
   favoriteTours,
+  favoritesLoading = false,
   onFavorite,
   onBookingUpdated,
 }) {
   const { formatCurrency, formatDate } = useLocale();
+  const location = useLocation();
+  const navigate = useNavigate();
   const active = route.includes("bookings")
     ? "bookings"
     : route.includes("favorites")
@@ -224,6 +228,24 @@ function ProfileDashboard({
   const [reviewableBookingsError, setReviewableBookingsError] = useState("");
   const [activeGuideReview, setActiveGuideReview] = useState(null);
   const [activeTourReview, setActiveTourReview] = useState(null);
+
+  const selectBookingFilter = (nextFilter) => {
+    setBookingFilter(nextFilter);
+    setBookingSearch("");
+  };
+
+  useEffect(() => {
+    if (active !== "bookings") {
+      setBookingSearch("");
+      return;
+    }
+
+    const bookingCode = new URLSearchParams(location.search).get("booking");
+    if (!bookingCode) return;
+
+    setBookingSearch(bookingCode);
+    navigate("/customer/bookings", { replace: true });
+  }, [active, location.search, navigate]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 5000);
@@ -287,6 +309,10 @@ function ProfileDashboard({
   ), []);
 
   const getBookingTripState = useCallback((booking) => {
+    if (booking.status === "cancelled" && booking.payment_status === "failed") {
+      return "expired";
+    }
+
     if (booking.status === "cancelled") return "cancelled";
 
     const departureAt = booking.tour_departure?.departure_date
@@ -379,6 +405,23 @@ function ProfileDashboard({
 
       return true;
     }).sort((a, b) => {
+      if (bookingFilter === "all") {
+        const stateOrder = {
+          pending: 0,
+          upcoming: 1,
+          ongoing: 1,
+          completed: 2,
+          cancelled: 3,
+          expired: 4,
+          other: 5,
+        };
+        const priorityDifference =
+          (stateOrder[getBookingTripState(a)] ?? 5) -
+          (stateOrder[getBookingTripState(b)] ?? 5);
+
+        if (priorityDifference !== 0) return priorityDifference;
+      }
+
       if (bookingSort === "oldest") {
         return a.id - b.id;
       }
@@ -568,7 +611,9 @@ function ProfileDashboard({
         </nav>
 
         {active === "favorites" ? (
-          favoriteTours.length ? (
+          favoritesLoading ? (
+            <p className="vg-profile-loading-state">Đang tải tour yêu thích...</p>
+          ) : favoriteTours.length ? (
             <div className="vg-tour-grid vg-profile-grid">
               {favoriteTours.map((tour) => (
                 <TourCard
@@ -590,103 +635,48 @@ function ProfileDashboard({
 
         {active === "bookings" ? (
           <div className="vg-bookings-wrapper">
-            {/* Stats Overview Bar */}
-            <div className="vg-booking-stats-grid">
-              <div
-                className={`vg-stat-card ${bookingFilter === "all" ? "is-active" : ""}`}
-                onClick={() => setBookingFilter("all")}
-              >
-                <div className="vg-stat-icon is-blue">
-                  <Icon name="briefcase" size={20} />
-                </div>
-                <div className="vg-stat-content">
-                  <span className="vg-stat-label">Tổng chuyến đi</span>
-                  <strong className="vg-stat-value">{stats.all}</strong>
-                </div>
-              </div>
-
-              <div
-                className={`vg-stat-card ${bookingFilter === "pending" ? "is-active" : ""}`}
-                onClick={() => setBookingFilter("pending")}
-              >
-                <div className="vg-stat-icon is-amber">
-                  <Icon name="clock" size={20} />
-                </div>
-                <div className="vg-stat-content">
-                  <span className="vg-stat-label">Chờ thanh toán</span>
-                  <strong className="vg-stat-value">{stats.pending}</strong>
-                </div>
-              </div>
-
-              <div
-                className={`vg-stat-card ${bookingFilter === "upcoming" ? "is-active" : ""}`}
-                onClick={() => setBookingFilter("upcoming")}
-              >
-                <div className="vg-stat-icon is-emerald">
-                  <Icon name="calendar" size={20} />
-                </div>
-                <div className="vg-stat-content">
-                  <span className="vg-stat-label">Sắp khởi hành</span>
-                  <strong className="vg-stat-value">{stats.upcoming}</strong>
-                </div>
-              </div>
-
-              <div
-                className={`vg-stat-card ${bookingFilter === "completed" ? "is-active" : ""}`}
-                onClick={() => setBookingFilter("completed")}
-              >
-                <div className="vg-stat-icon is-indigo">
-                  <Icon name="sparkle" size={20} />
-                </div>
-                <div className="vg-stat-content">
-                  <span className="vg-stat-label">Đã hoàn thành</span>
-                  <strong className="vg-stat-value">{stats.completed}</strong>
-                </div>
-              </div>
-            </div>
-
             {/* Filter & Search Toolbar */}
             <div className="vg-booking-toolbar">
               <div className="vg-booking-filter-tabs">
                 <button
                   type="button"
                   className={`vg-filter-btn ${bookingFilter === "all" ? "active" : ""}`}
-                  onClick={() => setBookingFilter("all")}
+                  onClick={() => selectBookingFilter("all")}
                 >
                   Tất cả <span className="vg-filter-count">{stats.all}</span>
                 </button>
                 <button
                   type="button"
                   className={`vg-filter-btn ${bookingFilter === "pending" ? "active" : ""}`}
-                  onClick={() => setBookingFilter("pending")}
+                  onClick={() => selectBookingFilter("pending")}
                 >
                   Chờ thanh toán <span className="vg-filter-count is-warn">{stats.pending}</span>
                 </button>
                 <button
                   type="button"
                   className={`vg-filter-btn ${bookingFilter === "upcoming" ? "active" : ""}`}
-                  onClick={() => setBookingFilter("upcoming")}
+                  onClick={() => selectBookingFilter("upcoming")}
                 >
                   Sắp khởi hành <span className="vg-filter-count">{stats.upcoming}</span>
                 </button>
                 <button
                   type="button"
                   className={`vg-filter-btn ${bookingFilter === "completed" ? "active" : ""}`}
-                  onClick={() => setBookingFilter("completed")}
+                  onClick={() => selectBookingFilter("completed")}
                 >
                   Hoàn thành <span className="vg-filter-count">{stats.completed}</span>
                 </button>
                 <button
                   type="button"
                   className={`vg-filter-btn ${bookingFilter === "cancelled" ? "active" : ""}`}
-                  onClick={() => setBookingFilter("cancelled")}
+                  onClick={() => selectBookingFilter("cancelled")}
                 >
                   Đã hủy <span className="vg-filter-count">{stats.cancelled}</span>
                 </button>
                 <button
                   type="button"
                   className={`vg-filter-btn ${bookingFilter === "expired" ? "active" : ""}`}
-                  onClick={() => setBookingFilter("expired")}
+                  onClick={() => selectBookingFilter("expired")}
                 >
                   Đã hết hạn <span className="vg-filter-count is-warn">{stats.expired}</span>
                 </button>
@@ -694,7 +684,7 @@ function ProfileDashboard({
                   <button
                     type="button"
                     className={`vg-filter-btn ${bookingFilter === "other" ? "active" : ""}`}
-                    onClick={() => setBookingFilter("other")}
+                    onClick={() => selectBookingFilter("other")}
                   >
                     Khác <span className="vg-filter-count">{stats.other}</span>
                   </button>
@@ -728,7 +718,7 @@ function ProfileDashboard({
               </div>
             </div>
 
-            {reviewableBookingsLoading ? (
+            {!bookingsLoading && reviewableBookingsLoading ? (
               <p className="vg-guide-review-load-state">Đang kiểm tra các tour có thể đánh giá...</p>
             ) : null}
             {reviewableBookingsError ? (
@@ -736,11 +726,15 @@ function ProfileDashboard({
             ) : null}
 
             {/* Bookings List */}
-            {filteredBookings.length ? (
+            {bookingsLoading ? (
+              <p className="vg-profile-loading-state">Đang tải chuyến đi của bạn...</p>
+            ) : filteredBookings.length ? (
               <div className="vg-bookings">
                 {bookingActionError ? <p className="vg-booking-action-error">{bookingActionError}</p> : null}
                 {filteredBookings.map((booking) => {
                   const isPendingPayment = canPayBooking(booking);
+                  const cancellationLimitReached = Number(booking.customer_cancellation_count || 0)
+                    >= Number(booking.customer_cancellation_limit || 2);
                   const tourImage = booking.tour?.thumbnail_url || booking.tour?.image || booking.tour?.thumbnail?.image_url || "";
                   const departureDate = booking.tour_departure?.departure_date ? formatDate(booking.tour_departure.departure_date) : null;
                   const returnDate = booking.tour_departure?.return_date ? formatDate(booking.tour_departure.return_date) : null;
@@ -775,24 +769,17 @@ function ProfileDashboard({
 
                   return (
                     <article key={booking.id} className={`vg-booking-card ${isPendingPayment ? "is-pending-payment-card" : ""}`}>
-                      <div className="vg-booking-thumb">
-                        {tourImage ? (
+                      {tourImage ? (
+                        <div className="vg-booking-thumb">
                           <img
                             src={mediaUrl(tourImage)}
                             alt={booking.tour?.title || "Tour ViVuGo"}
                             onError={(e) => {
-                              e.currentTarget.style.display = "none";
-                              if (e.currentTarget.nextElementSibling) {
-                                e.currentTarget.nextElementSibling.style.display = "flex";
-                              }
+                              e.currentTarget.parentElement.style.display = "none";
                             }}
                           />
-                        ) : null}
-                        <div className="vg-booking-thumb-fallback" style={{ display: tourImage ? "none" : "flex" }}>
-                          <Icon name="mapPin" size={24} />
-                          <span>ViVuGo</span>
                         </div>
-                      </div>
+                      ) : null}
 
                       <div className="vg-booking-details">
                         <div className="vg-booking-header-line">
@@ -928,7 +915,8 @@ function ProfileDashboard({
                                 type="button"
                                 className="is-pay"
                                 onClick={() => handleContinuePayment(booking)}
-                                disabled={bookingActionId === booking.id}
+                                disabled={bookingActionId === booking.id || cancellationLimitReached}
+                                title={cancellationLimitReached ? "Bạn đã dùng hết 2 lần hủy booking theo chính sách." : undefined}
                               >
                                 <Icon name="creditCard" size={14} />
                                 {bookingActionId === booking.id ? "Đang xử lý..." : "Thanh toán"}

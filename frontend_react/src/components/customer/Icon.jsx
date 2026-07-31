@@ -94,6 +94,16 @@ const iconPaths = {
       <path d="m19 14 .8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8Z" />
     </>
   ),
+  maximize: (
+    <>
+      <path d="M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7" />
+    </>
+  ),
+  minimize: (
+    <>
+      <path d="m20 4-6 6M14 4h6v6M4 20l6-6M4 14v6h6" />
+    </>
+  ),
   close: <path d="m6 6 12 12M18 6 6 18" />,
   menu: <path d="M4 7h16M4 12h16M4 17h16" />,
   chevronDown: <path d="m6 9 6 6 6-6" />,

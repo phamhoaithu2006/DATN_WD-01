@@ -8,6 +8,7 @@ use App\Models\Booking;
 use App\Models\Payment;
 use App\Models\Tour;
 use App\Models\TourDeparture;
+use App\Models\User;
 use App\Services\TourPricingService;
 use App\Services\VnpayPaymentLifecycleService;
 use App\Services\VnpayService;
@@ -282,6 +283,10 @@ class CustomerBookingController extends Controller
         }
 
         $result = DB::transaction(function () use ($booking, $request): array {
+            // Serialize cancellation attempts per customer so two concurrent requests
+            // cannot both consume the final permitted cancellation.
+            User::query()->whereKey($request->user()->id)->lockForUpdate()->firstOrFail();
+
             $lockedBooking = Booking::query()
                 ->lockForUpdate()
                 ->findOrFail($booking->id);
@@ -373,12 +378,29 @@ class CustomerBookingController extends Controller
                 return ['error' => 'Chỉ có thể hủy đơn đang chờ thanh toán.'];
             }
 
+            $customerCancellationCount = Booking::query()
+                ->where('user_id', $request->user()->id)
+                ->whereHas('statusHistories', fn ($query) => $query
+                    ->where('new_status', 'cancelled')
+                    ->where('changed_by', $request->user()->id))
+                ->count();
+
+            if ($customerCancellationCount >= 2) {
+                return ['error' => 'Bạn đã sử dụng hết giới hạn 2 lần hủy booking theo chính sách ViVuGo.'];
+            }
+
             $this->paymentLifecycleService->failPendingPayment(
                 $payment,
-                'Khách hàng chủ động hủy đơn chờ thanh toán.'
+                'Khách hàng chủ động hủy đơn chờ thanh toán.',
+                null,
+                $request->user()->id,
             );
 
-            return ['booking' => $lockedBooking->fresh(['payment'])];
+            $cancelledBooking = $lockedBooking->fresh(['payment']);
+            $cancelledBooking->setAttribute('customer_cancellation_count', $customerCancellationCount + 1);
+            $cancelledBooking->setAttribute('customer_cancellation_limit', 2);
+
+            return ['booking' => $cancelledBooking];
         }, 3);
 
         if (isset($result['error'])) {

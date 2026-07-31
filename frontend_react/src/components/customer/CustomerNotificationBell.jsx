@@ -76,6 +76,17 @@ function extractSupportTicketCode(notification) {
 }
 
 
+function extractBookingCode(notification) {
+  const data = parseNotificationData(notification?.data)
+
+  if (data?.booking_code) return String(data.booking_code).trim().toUpperCase()
+
+  const source = `${notification?.title || ''} ${notification?.message || ''}`
+  const match = source.match(/\bBK-[A-Z0-9-]+\b/i)
+
+  return match ? match[0].toUpperCase() : ''
+}
+
 function isGuideReviewNotification(notification) {
   const data = parseNotificationData(notification?.data)
   const searchableText = `${notification?.title || ''} ${notification?.message || ''}`.toLocaleLowerCase('vi-VN')
@@ -288,6 +299,13 @@ export default function CustomerNotificationBell() {
         )
       }
 
+      const bookingCode = extractBookingCode(normalizedNotification)
+      if (bookingCode) {
+        setOpen(false)
+        navigate(`/customer/bookings?booking=${encodeURIComponent(bookingCode)}`)
+        return
+      }
+
       if (isSupportRequestNotification(normalizedNotification)) {
         const supportRequestId =
           extractSupportRequestId(normalizedNotification)
@@ -321,6 +339,7 @@ export default function CustomerNotificationBell() {
       toast.info(normalizedNotification.title || 'Thông báo', {
         description: normalizedNotification.message,
       })
+
     } catch (error) {
       console.error('Không thể mở thông báo:', error)
       toast.error('Không thể mở thông báo. Vui lòng thử lại.')

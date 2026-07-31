@@ -36,20 +36,30 @@ class CustomerDashboardController extends Controller
 
     public function bookings(Request $request): JsonResponse
     {
+        $customerCancellationCount = Booking::query()
+            ->where('user_id', $request->user()->id)
+            ->whereHas('statusHistories', fn ($query) => $query
+                ->where('new_status', 'cancelled')
+                ->where('changed_by', $request->user()->id))
+            ->count();
+
         $bookings = Booking::query()
             ->where('user_id', $request->user()->id)
             ->with([
                 'tour.category',
                 'tour.destination',
+                'tour.thumbnail',
                 'tourDeparture',
                 'payment',
                 'tourReview',
             ])
             ->orderByDesc('id')
             ->get()
-            ->map(function (Booking $booking) use ($request): array {
+            ->map(function (Booking $booking) use ($request, $customerCancellationCount): array {
                 $data = $booking->toArray();
                 $data['can_review_tour'] = $this->bookingReviewEligibilityService->isReviewable($booking);
+                $data['customer_cancellation_count'] = $customerCancellationCount;
+                $data['customer_cancellation_limit'] = 2;
                 $data['tour_review'] = $booking->tourReview
                     ? (new CustomerTourReviewResource($booking->tourReview))->resolve($request)
                     : null;

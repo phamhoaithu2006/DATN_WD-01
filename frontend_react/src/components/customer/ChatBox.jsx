@@ -33,6 +33,7 @@ function mapServerMessage(message) {
 
 function ChatBox({ userId = null }) {
   const [open, setOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const [chatStarted, setChatStarted] = useState(false);
   const [activeView, setActiveView] = useState("chat");
   const [endingSupport, setEndingSupport] = useState(false);
@@ -423,7 +424,7 @@ function ChatBox({ userId = null }) {
     >
       <section
         id="vivugo-chat-panel"
-        className={`vg-chat-panel${open ? " is-open" : ""}`}
+        className={`vg-chat-panel${open ? " is-open" : ""}${expanded ? " is-expanded" : ""}`}
         aria-label="Trợ lý du lịch ViVuGo"
         aria-hidden={!open}
         inert={!open}
@@ -450,15 +451,27 @@ function ChatBox({ userId = null }) {
                 : "Đang hoạt động"}
             </span>
           </div>
-          <button
-            type="button"
-            className="vg-chat-close-btn"
-            onClick={() => setOpen(false)}
-            aria-label="Đóng cửa sổ trò chuyện"
-            title="Đóng"
-          >
-            <Icon name="close" size={18} />
-          </button>
+          <div className="vg-chat-header-actions">
+            <button
+              type="button"
+              className="vg-chat-resize-btn"
+              onClick={() => setExpanded((value) => !value)}
+              aria-label={expanded ? "Thu nhỏ cửa sổ trò chuyện" : "Phóng to cửa sổ trò chuyện"}
+              title={expanded ? "Thu nhỏ" : "Phóng to"}
+              aria-pressed={expanded}
+            >
+              <Icon name={expanded ? "minimize" : "maximize"} size={18} />
+            </button>
+            <button
+              type="button"
+              className="vg-chat-close-btn"
+              onClick={() => setOpen(false)}
+              aria-label="Đóng cửa sổ trò chuyện"
+              title="Đóng"
+            >
+              <Icon name="close" size={18} />
+            </button>
+          </div>
         </header>
 
           {!chatStarted ? (
