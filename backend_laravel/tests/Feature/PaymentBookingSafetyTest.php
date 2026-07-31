@@ -185,6 +185,53 @@ test('guest and non admin cannot access admin booking and payment routes', funct
     $this->getJson('/api/admin/payments')->assertForbidden();
 });
 
+test('admin booking list marks bookings whose departure has started as departed', function () {
+    $booking = paymentSafetyBooking([
+        'status' => 'confirmed',
+    ]);
+    $booking->tourDeparture()->update([
+        'departure_date' => today()->toDateString(),
+        'return_date' => today()->addDay()->toDateString(),
+    ]);
+
+    Sanctum::actingAs(paymentSafetyUser('admin'));
+
+    $this->getJson('/api/admin/bookings?status=departed')
+        ->assertOk()
+        ->assertJsonPath('data.0.id', $booking->id)
+        ->assertJsonPath('data.0.status', 'departed');
+
+    expect($booking->fresh()->status)->toBe('departed');
+});
+
+test('admin cannot move a booking of a completed departure back to pending', function () {
+    $booking = paymentSafetyBooking(['status' => 'completed']);
+    $booking->tourDeparture()->update(['status' => 'completed']);
+
+    Sanctum::actingAs(paymentSafetyUser('admin'));
+
+    $this->putJson("/api/admin/bookings/{$booking->id}", ['status' => 'pending'])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('status');
+
+    expect($booking->fresh()->status)->toBe('completed');
+});
+
+test('admin cannot move a paid booking back to pending', function () {
+    $booking = paymentSafetyBooking([
+        'status' => 'confirmed',
+        'payment_status' => 'paid',
+    ]);
+
+    Sanctum::actingAs(paymentSafetyUser('admin'));
+
+    $this->putJson("/api/admin/bookings/{$booking->id}", ['status' => 'pending'])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('status');
+
+    expect($booking->fresh()->status)->toBe('confirmed');
+});
+
 test('customer booking creates a pending VNPAY payment with checkout url', function () {
     configureVnpayForTest();
     $customer = paymentSafetyUser('customer');

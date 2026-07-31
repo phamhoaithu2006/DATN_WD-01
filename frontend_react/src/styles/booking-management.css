@@ -411,6 +411,11 @@
   color: #0ea5e9;
 }
 
+.booking-badge.departed {
+  background: #ede9fe;
+  color: #7c3aed;
+}
+
 .booking-badge.refunded {
   background: #edf2f7;
   color: #60718e;
@@ -566,6 +571,21 @@
   justify-content: center;
   line-height: 1;
   width: 38px;
+}
+
+.booking-detail-header-actions .booking-invoice-button {
+  color: #0284c7;
+  font-size: 0;
+}
+
+.booking-invoice-button svg {
+  fill: none;
+  height: 19px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+  width: 19px;
 }
 
 .booking-detail-summary {
