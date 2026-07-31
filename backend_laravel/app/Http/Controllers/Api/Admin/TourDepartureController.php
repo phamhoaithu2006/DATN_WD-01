@@ -143,6 +143,11 @@ class TourDepartureController extends Controller
                 'date',
                 'after_or_equal:today',
             ],
+            'departure_location' => [
+                'nullable',
+                'string',
+                'max:150',
+            ],
             'base_price' => [
                 'nullable',
                 'required_with:discount_price',
@@ -165,6 +170,7 @@ class TourDepartureController extends Controller
             ],
         ]);
 
+        $this->normalizeDepartureLocation($validatedData);
         $this->normalizeDeparturePrices($validatedData);
 
         $validatedData['tour_id'] = $tour->id;
@@ -210,6 +216,11 @@ class TourDepartureController extends Controller
                 'sometimes',
                 'date',
                 'after_or_equal:today',
+            ],
+            'departure_location' => [
+                'nullable',
+                'string',
+                'max:150',
             ],
             'base_price' => [
                 'nullable',
@@ -260,9 +271,12 @@ class TourDepartureController extends Controller
             'change_reason',
         ]);
 
+        $this->normalizeDepartureLocation($payload);
+
         $trackedFields = [
             'departure_date',
             'return_date',
+            'departure_location',
             'base_price',
             'price',
             'discount_price',
@@ -490,6 +504,16 @@ class TourDepartureController extends Controller
         $data['discount_price'] = $discountPrice !== null
             ? (float) $discountPrice
             : null;
+    }
+
+    private function normalizeDepartureLocation(array &$data): void
+    {
+        if (! array_key_exists('departure_location', $data)) {
+            return;
+        }
+
+        $location = trim((string) ($data['departure_location'] ?? ''));
+        $data['departure_location'] = $location !== '' ? $location : null;
     }
 
     private function normalizeUpdatedPrices(

@@ -33,9 +33,11 @@ function parseParams(search) {
     q: query.get("q") || "",
     price_min: query.get("price_min") || "",
     price_max: query.get("price_max") || "",
+    departure_location: query.get("departure_location") || "",
     destinations: query.getAll("destinations"),
     categories: query.getAll("categories"),
     duration: query.getAll("duration"),
+    departure_date: query.get("departure_date") || "",
     date_from: query.get("date_from") || "",
     date_to: query.get("date_to") || "",
     rating_min: query.get("rating_min") || "",
@@ -51,9 +53,11 @@ function buildSearch(params) {
   if (params.q) query.set("q", params.q);
   if (params.price_min) query.set("price_min", params.price_min);
   if (params.price_max) query.set("price_max", params.price_max);
+  if (params.departure_location) query.set("departure_location", params.departure_location);
   params.destinations.forEach((id) => query.append("destinations", id));
   params.categories.forEach((id) => query.append("categories", id));
   params.duration.forEach((bucket) => query.append("duration", bucket));
+  if (params.departure_date) query.set("departure_date", params.departure_date);
   if (params.date_from) query.set("date_from", params.date_from);
   if (params.date_to) query.set("date_to", params.date_to);
   if (params.rating_min) query.set("rating_min", params.rating_min);
@@ -68,9 +72,11 @@ function countActiveFilters(params) {
   return (
     (params.q ? 1 : 0) +
     (params.price_min || params.price_max ? 1 : 0) +
+    (params.departure_location ? 1 : 0) +
     params.destinations.length +
     params.categories.length +
     params.duration.length +
+    (params.departure_date ? 1 : 0) +
     (params.date_from || params.date_to ? 1 : 0) +
     (params.rating_min ? 1 : 0)
   );
@@ -170,12 +176,10 @@ function ToursPage({ favorites = [], onFavorite }) {
   // URL đổi từ bên ngoài (back/forward, share link) → đồng bộ lại draft.
   useEffect(() => {
     // Đồng bộ draft khi URL đổi từ ngoài (back/forward, share link).
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setQDraft(params.q);
   }, [params.q]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPriceDraft({
       min: params.price_min ? Number(params.price_min) : null,
       max: params.price_max ? Number(params.price_max) : null,
@@ -241,16 +245,17 @@ function ToursPage({ favorites = [], onFavorite }) {
   useEffect(() => {
     const controller = new AbortController();
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- bật skeleton ngay khi bộ lọc đổi
     setLoading(true);
 
     const apiParams = {
       q: params.q || undefined,
       price_min: params.price_min || undefined,
       price_max: params.price_max || undefined,
+      departure_location: params.departure_location || undefined,
       destinations: params.destinations.length ? params.destinations : undefined,
       categories: params.categories.length ? params.categories : undefined,
       duration: params.duration.length ? params.duration : undefined,
+      departure_date: params.departure_date || undefined,
       date_from: params.date_from || undefined,
       date_to: params.date_to || undefined,
       rating_min: params.rating_min || undefined,
@@ -311,6 +316,14 @@ function ToursPage({ favorites = [], onFavorite }) {
     });
   }
 
+  if (params.departure_location) {
+    chips.push({
+      key: "departure-location",
+      label: `Khởi hành từ: ${params.departure_location}`,
+      patch: { departure_location: "" },
+    });
+  }
+
   params.destinations.forEach((id) => {
     chips.push({
       key: `dest-${id}`,
@@ -334,6 +347,14 @@ function ToursPage({ favorites = [], onFavorite }) {
       patch: { duration: params.duration.filter((value) => value !== bucket) },
     });
   });
+
+  if (params.departure_date) {
+    chips.push({
+      key: "departure-date",
+      label: `Ngày đi: ${params.departure_date}`,
+      patch: { departure_date: "" },
+    });
+  }
 
   if (params.date_from || params.date_to) {
     chips.push({
@@ -451,21 +472,26 @@ function ToursPage({ favorites = [], onFavorite }) {
           </div>
 
           {chips.length > 0 ? (
-            <div className="vg-chips">
-              {chips.map((chip) => (
-                <button
-                  key={chip.key}
-                  type="button"
-                  className="vg-chip"
-                  onClick={() => updateParams(chip.patch)}
-                >
-                  {chip.label}
-                  <span aria-hidden="true">×</span>
+            <div className="vg-active-filter-bar">
+              <span className="vg-active-filter-title">
+                <Icon name="sparkle" size={13} /> Đang lọc theo:
+              </span>
+              <div className="vg-chips">
+                {chips.map((chip) => (
+                  <button
+                    key={chip.key}
+                    type="button"
+                    className="vg-chip"
+                    onClick={() => updateParams(chip.patch)}
+                  >
+                    <span>{chip.label}</span>
+                    <span className="vg-chip-close" aria-hidden="true">×</span>
+                  </button>
+                ))}
+                <button type="button" className="vg-chip clear" onClick={clearAll}>
+                  Xóa tất cả ({chips.length})
                 </button>
-              ))}
-              <button type="button" className="vg-chip clear" onClick={clearAll}>
-                Xóa tất cả
-              </button>
+              </div>
             </div>
           ) : null}
 

@@ -177,6 +177,7 @@ class TourResource extends JsonResource
                         'tour_id' => $departure->tour_id,
                         'departure_date' => $this->formatDate($departure->departure_date),
                         'return_date' => $this->formatDate($departure->return_date),
+                        'departure_location' => $departure->departure_location,
                         'base_price' => $basePrice,
                         'discount_price' => $discountPrice,
                         'price' => $discountPrice ?? $basePrice,

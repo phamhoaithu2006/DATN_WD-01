@@ -5,6 +5,7 @@ import TourDepartureForm from '../../../components/admin/tourDepartures/TourDepa
 
 const emptyForm = {
   departure_date: '',
+  departure_location: '',
   price: '',
   base_price: '',
   discount_price: '',
@@ -101,6 +102,10 @@ function validateTourDepartureForm(formData, selectedTourId) {
 
   if (isBlank(formData.status)) {
     errors.status = 'Vui lòng chọn trạng thái.'
+  }
+
+  if (String(formData.departure_location || '').trim().length > 150) {
+    errors.departure_location = 'Điểm khởi hành không được vượt quá 150 ký tự.'
   }
 
   if (isBlank(formData.base_price)) {
@@ -253,6 +258,7 @@ const TourDepartureCreatePage = () => {
 
     const payload = {
       departure_date: formData.departure_date,
+      departure_location: String(formData.departure_location || '').trim() || null,
       base_price: Number(formData.base_price),
       discount_price:
         formData.discount_price === '' ? null : Number(formData.discount_price),

@@ -254,8 +254,9 @@ class RichDemoDataSeeder extends Seeder
                 [22 + ($tourIndex % 7), 'open', 'future'],
                 [45 + ($tourIndex % 9), 'open', 'future'],
             ];
+            $departureLocations = ['Hà Nội', 'TP. Hồ Chí Minh', 'Đà Nẵng'];
 
-            foreach ($departureOffsets as [$offset, $status, $phase]) {
+            foreach ($departureOffsets as $departureIndex => [$offset, $status, $phase]) {
                 $departureDate = $this->now->copy()->startOfDay()->addDays($offset);
 
                 // Truyền Carbon (không phải chuỗi Y-m-d) để WHERE khớp giá trị đã lưu trên sqlite.
@@ -266,6 +267,7 @@ class RichDemoDataSeeder extends Seeder
                     ],
                     [
                         'return_date' => $departureDate->copy()->addDays(max(0, $days - 1))->toDateString(),
+                        'departure_location' => $departureLocations[($tourIndex + $departureIndex) % count($departureLocations)],
                         'base_price' => $base,
                         'discount_price' => $discount,
                         'total_slots' => $slots,

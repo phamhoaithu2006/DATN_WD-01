@@ -46,6 +46,7 @@ class TourFilterRequest extends FormRequest
             'start_date' => ['nullable', 'date'],
             'date_from' => ['nullable', 'date_format:Y-m-d'],
             'date_to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:date_from'],
+            'departure_location' => ['nullable', 'string', 'max:150'],
 
             'rating_min' => ['nullable', 'integer', 'between:1,5'],
 
@@ -106,6 +107,9 @@ class TourFilterRequest extends FormRequest
             'departure_date' => $data['departure_date'] ?? $data['start_date'] ?? null,
             'date_from' => $data['date_from'] ?? null,
             'date_to' => $data['date_to'] ?? null,
+            'departure_location' => isset($data['departure_location'])
+                ? trim($data['departure_location'])
+                : null,
 
             'guests' => isset($data['guests']) || isset($data['min_slots'])
                 ? (int) ($data['guests'] ?? $data['min_slots'])

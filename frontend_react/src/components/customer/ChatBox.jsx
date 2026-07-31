@@ -49,7 +49,6 @@ function ChatBox({ userId = null }) {
   const fileInputRef = useRef(null);
   const chatContentRef = useRef(null);
   const shouldStickToBottomRef = useRef(true);
-  const hasUserMessage = messages.some((message) => message.from === "user");
 
   const lastMessageIdRef = useRef(0);
   const pollRef = useRef(null);

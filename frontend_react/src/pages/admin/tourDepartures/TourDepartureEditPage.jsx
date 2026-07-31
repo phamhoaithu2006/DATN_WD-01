@@ -9,6 +9,7 @@ import TourDepartureForm from '../../../components/admin/tourDepartures/TourDepa
 
 const emptyForm = {
   departure_date: '',
+  departure_location: '',
   base_price: '',
   discount_price: '',
   total_slots: '',
@@ -154,6 +155,10 @@ function validateTourDepartureEditForm(formData, changeReason) {
     errors.status = 'Vui lòng chọn trạng thái.'
   }
 
+  if (String(formData.departure_location || '').trim().length > 150) {
+    errors.departure_location = 'Điểm khởi hành không được vượt quá 150 ký tự.'
+  }
+
   if (isBlank(formData.base_price)) {
     errors.base_price = 'Vui lòng nhập giá gốc.'
   } else if (!isNonNegativeNumber(formData.base_price)) {
@@ -275,6 +280,7 @@ export default function TourDepartureEditPage() {
 
       setFormData({
         departure_date: toDateInputValue(departure.departure_date),
+        departure_location: departure.departure_location || '',
 
         base_price: getDepartureBasePrice(departure),
 
@@ -367,6 +373,7 @@ export default function TourDepartureEditPage() {
   const updateDeparture = async (confirmBookedChange) => {
     const payload = {
       departure_date: toDateInputValue(formData.departure_date),
+      departure_location: String(formData.departure_location || '').trim() || null,
 
       base_price: Number(formData.base_price),
 

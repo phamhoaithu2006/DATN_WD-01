@@ -102,11 +102,34 @@ class TourController extends Controller
                 ->selectRaw("SUM(CASE WHEN duration_days >= 8 THEN 1 ELSE 0 END) as bucket_8_plus")
                 ->first();
 
+            $departureLocations = DB::table('tour_departures')
+                ->join('tours', 'tours.id', '=', 'tour_departures.tour_id')
+                ->where('tours.status', 'published')
+                ->whereNull('tours.deleted_at')
+                ->where('tour_departures.status', 'open')
+                ->whereDate('tour_departures.departure_date', '>=', today())
+                ->whereNotNull('tour_departures.departure_location')
+                ->where('tour_departures.departure_location', '!=', '')
+                ->select(
+                    'tour_departures.departure_location',
+                    DB::raw('COUNT(DISTINCT tours.id) as tours_count')
+                )
+                ->groupBy('tour_departures.departure_location')
+                ->orderBy('tour_departures.departure_location')
+                ->get()
+                ->map(fn ($location) => [
+                    'name' => $location->departure_location,
+                    'tours_count' => (int) $location->tours_count,
+                ])
+                ->values()
+                ->all();
+
             return [
                 'price' => [
                     'min' => (float) ($priceRange?->min_price ?? 0),
                     'max' => (float) ($priceRange?->max_price ?? 0),
                 ],
+                'departure_locations' => $departureLocations,
                 'categories' => $categories,
                 'destinations' => $destinations,
                 'durations' => [
@@ -210,6 +233,7 @@ class TourController extends Controller
                         'tour_id',
                         'departure_date',
                         'return_date',
+                        'departure_location',
                         'price',
                         'base_price',
                         'discount_price',
@@ -265,6 +289,14 @@ class TourController extends Controller
             $query->whereDate('departure_date', '<=', $filters['date_to']);
         }
 
+        if (!empty($filters['departure_location'])) {
+            $query->where(
+                'departure_location',
+                'like',
+                '%' . $filters['departure_location'] . '%'
+            );
+        }
+
         if (!empty($filters['guests'])) {
             $query->whereRaw(
                 '(COALESCE(total_slots, 0) - COALESCE(booked_slots, 0)) >= ?',
@@ -299,6 +331,7 @@ class TourController extends Controller
         return !empty($filters['departure_date'])
             || !empty($filters['date_from'])
             || !empty($filters['date_to'])
+            || !empty($filters['departure_location'])
             || !empty($filters['guests'])
             || $filters['min_price'] !== null
             || $filters['max_price'] !== null;
