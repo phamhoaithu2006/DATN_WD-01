@@ -20,6 +20,10 @@ function AuthCard({
 }) {
   return (
     <div className="form-card">
+      <div className="auth-card-heading">
+        <p>{mode === 'login' ? 'Chào mừng trở lại' : 'Bắt đầu hành trình mới'}</p>
+        <h2>{mode === 'login' ? 'Đăng nhập tài khoản' : 'Tạo tài khoản ViVuGo'}</h2>
+      </div>
       <div className="tabs" role="tablist" aria-label="Chọn chức năng">
         <button
           className={mode === 'login' ? 'active' : ''}

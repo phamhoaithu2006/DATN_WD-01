@@ -1,5 +1,6 @@
 ﻿﻿import { useEffect, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import AuthCard from "../../components/auth/AuthCard";
 import AuthLayout from "../../layouts/AuthLayout";
 import {
@@ -199,10 +200,14 @@ function AuthPage() {
 
       // Thông báo mang theo từ trang khác (ví dụ: đặt lại mật khẩu thành công)
       const arrivalNotice = location.state?.notice || "";
-      setNotice(arrivalNotice);
-      setNoticeVariant(arrivalNotice ? location.state?.noticeVariant || "success" : "");
+      setNotice("");
+      setNoticeVariant("");
 
       if (arrivalNotice) {
+        const variant = location.state?.noticeVariant || "success";
+        const showToast = variant === "error" ? toast.error : toast.success;
+        showToast(arrivalNotice, { duration: 5000 });
+
         // Xóa state khỏi history để refresh không hiện lại thông báo
         window.history.replaceState({}, "");
       }
@@ -316,7 +321,7 @@ function AuthPage() {
     setLoginErrors(errors);
 
     if (Object.keys(errors).length > 0) {
-      setNotice("Vui lòng kiểm tra lại các trường đăng nhập.");
+      toast.error("Vui lòng kiểm tra lại các trường đăng nhập.", { duration: 5000 });
       return;
     }
 
@@ -339,7 +344,7 @@ function AuthPage() {
 
       if (!roleName) {
         clearSession();
-        setNotice("Tài khoản chưa được gán vai trò hợp lệ.");
+        toast.error("Tài khoản chưa được gán vai trò hợp lệ.", { duration: 5000 });
         return;
       }
 
@@ -367,11 +372,12 @@ function AuthPage() {
       }
 
       clearSession();
-      setNotice("Tài khoản không có quyền truy cập phù hợp.");
+      toast.error("Tài khoản không có quyền truy cập phù hợp.", { duration: 5000 });
     } catch (error) {
-      setNotice(
+      toast.error(
         error.response?.data?.message ||
           "Không đăng nhập được. Vui lòng kiểm tra lại thông tin đăng nhập.",
+        { duration: 5000 },
       );
     } finally {
       setIsSubmitting(false);
@@ -385,7 +391,7 @@ function AuthPage() {
     setRegisterErrors(errors);
 
     if (Object.keys(errors).length > 0) {
-      setNotice("Vui lòng kiểm tra lại các trường đăng ký.");
+      toast.error("Vui lòng kiểm tra lại các trường đăng ký.", { duration: 5000 });
       return;
     }
 
@@ -407,7 +413,7 @@ function AuthPage() {
       setLoginData({ email: payload.email, password: "", remember: false });
       setRegisterData(emptyRegisterForm);
       setRegisterErrors({});
-      setNotice("Đăng ký thành công. Vui lòng đăng nhập để tiếp tục.");
+      toast.success("Đăng ký thành công. Vui lòng đăng nhập để tiếp tục.", { duration: 5000 });
     } catch (error) {
       const apiErrors = error.response?.data?.errors || {};
       const nextErrors = {};
@@ -422,9 +428,10 @@ function AuthPage() {
       if (apiErrors.terms) nextErrors.terms = apiErrors.terms[0];
 
       setRegisterErrors(nextErrors);
-      setNotice(
+      toast.error(
         error.response?.data?.message ||
           "Không tạo được tài khoản. Vui lòng kiểm tra lại thông tin.",
+        { duration: 5000 },
       );
     } finally {
       setIsSubmitting(false);

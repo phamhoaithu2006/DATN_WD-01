@@ -8,7 +8,12 @@ use App\Models\TourDeparture;
 
 class VnpayPaymentLifecycleService
 {
-    public function failPendingPayment(Payment $payment, string $reason, ?array $gatewayResponse = null): void
+    public function failPendingPayment(
+        Payment $payment,
+        string $reason,
+        ?array $gatewayResponse = null,
+        ?int $changedBy = null,
+    ): void
     {
         if ($payment->status !== 'pending') {
             return;
@@ -50,7 +55,7 @@ class VnpayPaymentLifecycleService
         ]);
 
         $booking->statusHistories()->create([
-            'changed_by' => null,
+            'changed_by' => $changedBy,
             'old_status' => 'pending',
             'new_status' => 'cancelled',
             'note' => $reason,
