@@ -24,20 +24,28 @@ const buildCategoryFormData = (data, method = 'POST') => {
     formData.append('thumbnail_image', data.thumbnail_image)
   }
 
+  if (data.remove_thumbnail) {
+    formData.append('remove_thumbnail', '1')
+  }
+
   return formData
 }
 
 export const categoryApi = {
   // Lấy tất cả danh sách loại tour
-  getAll() {
-    return apiClient.get(`${API_URL}/categories`)
+  getAll(params = {}) {
+    return apiClient.get(`${API_URL}/categories`, { params })
   },
 
   // Tìm kiếm loại tour theo tên
-  search(name) {
+  search(name, params = {}) {
     return apiClient.get(`${API_URL}/categories/search`, {
-      params: { name },
+      params: { ...params, name },
     })
+  },
+
+  getById(id) {
+    return apiClient.get(`${API_URL}/categories/${id}`)
   },
 
   // Thêm mới loại tour

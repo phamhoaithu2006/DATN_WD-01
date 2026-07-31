@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import AdminPageHeader from '../../../components/admin/AdminPageHeader'
 
 import CategoryForm from '../../../components/admin/categories/CategoryForm'
 import { categoryApi } from '../../../services/categoryApi'
@@ -8,6 +9,10 @@ const defaultForm = {
   name: '',
   description: '',
   status: 'active',
+  thumbnail_image: null,
+  thumbnail_alt_text: '',
+  thumbnail_url: '',
+  remove_thumbnail: false,
 }
 
 function normalizeErrors(errors) {
@@ -66,14 +71,27 @@ function TourTypeCreatePage() {
 
   const handleChange = (event) => {
     const { name, value } = event.target
+    const nextValue = name === 'thumbnail_image'
+      ? event.target.files?.[0] || null
+      : value
 
     setFormData((current) => ({
       ...current,
-      [name]: value,
+      [name]: nextValue,
+      ...(name === 'thumbnail_image' ? { remove_thumbnail: false } : {}),
     }))
 
     clearFieldError(name)
     setPageError('')
+  }
+
+  const handleRemoveThumbnail = () => {
+    setFormData((current) => ({
+      ...current,
+      thumbnail_image: null,
+      thumbnail_url: '',
+      remove_thumbnail: false,
+    }))
   }
 
   const handleSubmit = async (event) => {
@@ -96,6 +114,8 @@ function TourTypeCreatePage() {
         name: formData.name.trim(),
         description: formData.description.trim(),
         status: formData.status,
+        thumbnail_image: formData.thumbnail_image,
+        thumbnail_alt_text: formData.thumbnail_alt_text.trim(),
       })
 
       setSuccessCardOpen(true)
@@ -121,20 +141,23 @@ function TourTypeCreatePage() {
   }
 
   return (
-    <section className="w-full">
-      <div className="mb-8 border-b border-slate-200 pb-6">
-        <p className="mb-2 text-xs font-bold uppercase tracking-[0.35em] text-slate-500">
-          Quản lý danh mục tour
-        </p>
-
-        <h1 className="text-3xl font-extrabold text-slate-950">
-          Thêm loại tour
-        </h1>
-
-        <p className="mt-2 text-slate-500">
-          Tạo mới một loại tour để phân loại các tour du lịch.
-        </p>
-      </div>
+    <div className="min-h-full bg-slate-50/70 px-8 py-8">
+      <AdminPageHeader
+        breadcrumb={['ViVuGo', 'Quản Lý Tour', 'Thêm Loại Tour']}
+        title="Thêm Loại Tour Mới"
+        description="Tạo mới một loại tour để phân loại và quản lý danh mục tour du lịch."
+        actions={
+          <div className="flex items-center gap-3">
+            <Link
+              to="/admin/categories"
+              className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700"
+            >
+              <span className="text-lg leading-none">←</span>
+              Quay lại danh sách loại tour
+            </Link>
+          </div>
+        }
+      />
 
       {pageError ? (
         <div
@@ -151,6 +174,7 @@ function TourTypeCreatePage() {
         submitting={submitting}
         submitLabel="Thêm mới"
         onChange={handleChange}
+        onRemoveThumbnail={handleRemoveThumbnail}
         onSubmit={handleSubmit}
         onCancel={() => navigate('/admin/categories')}
       />
@@ -232,7 +256,7 @@ function TourTypeCreatePage() {
           </div>
         </div>
       ) : null}
-    </section>
+    </div>
   )
 }
 

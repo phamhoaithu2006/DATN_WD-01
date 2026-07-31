@@ -140,6 +140,9 @@ function HomePage({
   const safeBanners = Array.isArray(banners) ? banners : [];
 
   const safeFavorites = Array.isArray(favorites) ? favorites : [];
+  const safeCategories = Array.isArray(homeContent.categories)
+    ? homeContent.categories
+    : [];
   const safeReviews = Array.isArray(homeContent.reviews)
     ? homeContent.reviews
     : [];
@@ -152,6 +155,15 @@ function HomePage({
     ? homeContent.featured_tours
     : safeTours.slice(0, 6);
   const internationalTourCards = safeInternationalTours;
+
+  const visibleCategories = safeCategories
+    .map((category) => ({
+      ...category,
+      image: mediaUrl(category.thumbnail_url || category.image),
+      tour_count: Number(category.tour_count) || 0,
+    }))
+    .filter((category) => category.tour_count > 0)
+    .slice(0, 5);
 
   const serviceHighlights = [
     {
@@ -526,7 +538,54 @@ function HomePage({
         </section>
       ) : null}
 
-      {/* Section 5: Đánh giá thực tế của khách hàng */}
+      {/* Section 5: Loại hình du lịch phổ biến (Categories Grid) */}
+      {!loading && visibleCategories.length > 0 ? (
+        <section className="vg-home-section vg-home-section-alt vg-popular-categories-section" id="loai-hinh-du-lich">
+          <div className="vg-container">
+            <div className="vg-popular-categories-block">
+              <div className="vg-centered-heading">
+                <span className="vg-kicker">Loại hình</span>
+                <h2>Những loại hình du lịch phổ biến</h2>
+                <p>Các danh mục có nhiều tour đang mở nhất để bạn chọn hành trình phù hợp.</p>
+              </div>
+              <div className="vg-category-masonry-grid">
+                {visibleCategories.map((category, index) => (
+                  <Link
+                    to={`/tours?categories=${category.id}`}
+                    className={`vg-masonry-card vg-masonry-item-${index + 1}`}
+                    key={category.id}
+                  >
+                    <div className="vg-category-fallback-img" aria-hidden="true">
+                      <Icon name="briefcase" size={28} />
+                    </div>
+                    {category.image ? (
+                      <img
+                        src={category.image}
+                        alt={category.name}
+                        className="vg-masonry-img"
+                        loading="lazy"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                        }}
+                      />
+                    ) : null}
+                    <div className="vg-masonry-overlay"></div>
+                    <div className="vg-masonry-content">
+                      <span className="vg-masonry-badge">{category.tour_count} tour đang mở</span>
+                      <h3>{category.name}</h3>
+                      <span className="vg-masonry-link-text">Khám phá ngay →</span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+
+      {/* Section 7: Đánh giá thực tế của khách hàng (Reviews Section) */}
+      {/* Section 7: Đánh giá thực tế của khách hàng (Reviews Section) */}
       {!loading && safeReviews.length > 0 ? (
         <section className="vg-home-section vg-reviews-section vg-home-section-alt" id="danh-gia">
           <div className="vg-reviews-bg-glow" aria-hidden="true"></div>
@@ -583,6 +642,8 @@ function HomePage({
                   const reviewerName = review.reviewer_name || "Khách hàng ViVuGo";
                   const reviewerAvatar = mediaUrl(review.reviewer_avatar_url);
                   const tourTitle = review.tour_title || review.tour?.title || "Tour Du Lịch Trải Nghiệm";
+                  const tourSlug = review.tour_slug || review.tour?.slug || review.tour_id || review.tour?.id;
+                  const tourLink = tourSlug ? `/tours/${tourSlug}` : "/tours";
                   const reviewColorIndex = (index % 5) + 1;
 
                   return (
@@ -593,11 +654,15 @@ function HomePage({
                     >
                       <div className="vg-review-card-accent"></div>
                       <div className="vg-review-quote-mark" aria-hidden="true">“</div>
-                      
-                      <div className="vg-review-tour-tag">
+
+                      <Link
+                        to={tourLink}
+                        className="vg-review-tour-tag"
+                        title={`Xem chi tiết ${tourTitle}`}
+                      >
                         <Icon name="compass" size={13} />
                         <span>{tourTitle}</span>
-                      </div>
+                      </Link>
 
                       <p className="vg-review-comment">{review.comment}</p>
 

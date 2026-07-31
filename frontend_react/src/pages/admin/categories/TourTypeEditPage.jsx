@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { useLocation, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
+import AdminPageHeader from '../../../components/admin/AdminPageHeader'
 
 import CategoryForm from '../../../components/admin/categories/CategoryForm'
 import { categoryApi } from '../../../services/categoryApi'
@@ -8,12 +9,20 @@ const defaultForm = {
   name: '',
   description: '',
   status: 'active',
+  thumbnail_image: null,
+  thumbnail_alt_text: '',
+  thumbnail_url: '',
+  remove_thumbnail: false,
 }
 
 const mapCategoryToFormData = (category) => ({
   name: category?.name || '',
   description: category?.description || '',
   status: category?.status || 'active',
+  thumbnail_image: null,
+  thumbnail_alt_text: category?.thumbnail_alt_text || '',
+  thumbnail_url: category?.thumbnail_url || '',
+  remove_thumbnail: false,
 })
 
 function normalizeErrors(errors) {
@@ -79,16 +88,8 @@ function TourTypeEditPage() {
         setLoading(true)
         setPageError('')
 
-        const response = await categoryApi.getAll()
-        const list = Array.isArray(response?.data?.data)
-          ? response.data.data
-          : Array.isArray(response?.data)
-            ? response.data
-            : []
-
-        const category = list.find(
-          (item) => String(item.id) === String(id),
-        )
+        const response = await categoryApi.getById(id)
+        const category = response?.data?.data || response?.data
 
         if (!active) return
 
@@ -130,14 +131,27 @@ function TourTypeEditPage() {
 
   const handleChange = (event) => {
     const { name, value } = event.target
+    const nextValue = name === 'thumbnail_image'
+      ? event.target.files?.[0] || null
+      : value
 
     setFormData((current) => ({
       ...current,
-      [name]: value,
+      [name]: nextValue,
+      ...(name === 'thumbnail_image' ? { remove_thumbnail: false } : {}),
     }))
 
     clearFieldError(name)
     setPageError('')
+  }
+
+  const handleRemoveThumbnail = () => {
+    setFormData((current) => ({
+      ...current,
+      thumbnail_image: null,
+      thumbnail_url: '',
+      remove_thumbnail: true,
+    }))
   }
 
   const handleSubmit = async (event) => {
@@ -160,6 +174,9 @@ function TourTypeEditPage() {
         name: formData.name.trim(),
         description: formData.description.trim(),
         status: formData.status,
+        thumbnail_image: formData.thumbnail_image,
+        thumbnail_alt_text: formData.thumbnail_alt_text.trim(),
+        remove_thumbnail: formData.remove_thumbnail,
       })
 
       navigate('/admin/categories', {
@@ -190,48 +207,50 @@ function TourTypeEditPage() {
   }
 
   return (
-    <section className="w-full">
-      <div className="mx-auto w-full max-w-5xl">
-        <div className="mb-8 border-b border-slate-200 pb-6">
-          <p className="mb-2 text-xs font-bold uppercase tracking-[0.35em] text-sky-600">
-            Quản lý danh mục tour
-          </p>
+    <div className="min-h-full bg-slate-50/70 px-8 py-8">
+      <AdminPageHeader
+        breadcrumb={['ViVuGo', 'Quản Lý Tour', 'Chỉnh Sửa Loại Tour']}
+        title="Chỉnh Sửa Loại Tour"
+        description="Chỉnh sửa thông tin tên, mô tả và trạng thái của loại tour du lịch."
+        actions={
+          <div className="flex items-center gap-3">
+            <Link
+              to="/admin/categories"
+              className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700"
+            >
+              <span className="text-lg leading-none">←</span>
+              Quay lại danh sách loại tour
+            </Link>
+          </div>
+        }
+      />
 
-          <h1 className="text-3xl font-extrabold text-slate-950">
-            Cập nhật loại tour
-          </h1>
-
-          <p className="mt-2 text-slate-500">
-            Chỉnh sửa tên, mô tả và trạng thái của loại tour.
-          </p>
+      {pageError ? (
+        <div
+          className="mb-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700"
+          role="alert"
+        >
+          {pageError}
         </div>
+      ) : null}
 
-        {pageError ? (
-          <div
-            className="mb-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700"
-            role="alert"
-          >
-            {pageError}
-          </div>
-        ) : null}
-
-        {loading ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-8 text-slate-500">
-            Đang tải dữ liệu...
-          </div>
-        ) : (
-          <CategoryForm
-            formData={formData}
-            errors={errors}
-            submitting={submitting}
-            submitLabel="Cập nhật"
-            onChange={handleChange}
-            onSubmit={handleSubmit}
-            onCancel={() => navigate('/admin/categories')}
-          />
-        )}
-      </div>
-    </section>
+      {loading ? (
+        <div className="rounded-2xl border border-slate-200 bg-white p-8 text-slate-500">
+          Đang tải dữ liệu...
+        </div>
+      ) : (
+        <CategoryForm
+          formData={formData}
+          errors={errors}
+          submitting={submitting}
+          submitLabel="Cập nhật"
+          onChange={handleChange}
+          onRemoveThumbnail={handleRemoveThumbnail}
+          onSubmit={handleSubmit}
+          onCancel={() => navigate('/admin/categories')}
+        />
+      )}
+    </div>
   )
 }
 
