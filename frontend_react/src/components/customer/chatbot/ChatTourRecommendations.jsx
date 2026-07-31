@@ -43,7 +43,15 @@ function ChatTourCard({ tour, onNavigate }) {
       </div>
 
       <div className="vg-chat-tour-card-body">
-        <h4>{tour.title}</h4>
+        <h4>
+          <Link
+            className="vg-chat-tour-title-link"
+            to={`/tours/${encodeURIComponent(tour.slug)}`}
+            onClick={onNavigate}
+          >
+            {tour.title}
+          </Link>
+        </h4>
 
         <div className="vg-chat-tour-card-meta">
           {tour.destination ? (
@@ -104,8 +112,9 @@ function ChatTourCard({ tour, onNavigate }) {
           className="vg-chat-tour-detail-link"
           to={`/tours/${encodeURIComponent(tour.slug)}`}
           onClick={onNavigate}
+          aria-label={`Xem chi tiết tour ${tour.title}`}
         >
-          Xem chi tiết
+          Xem chi tiết tour
           <Icon name="arrowRight" size={14} />
         </Link>
       </div>
