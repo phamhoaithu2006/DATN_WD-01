@@ -33,6 +33,7 @@ import ProfileForm from "./ProfileForm";
 import ToursPage from "./ToursPage";
 import CustomerTourDetailPage from "./TourDetailPage";
 import CustomerSupportPage from "./CustomerSupportPage";
+import FaqPage from "./FaqPage";
 import {
   isDomesticTour,
   normalizeTour,
@@ -463,6 +464,8 @@ function CustomerPage() {
     );
   } else if (route === "/destinations") {
     content = <DestinationsPage />;
+  } else if (route === "/faqs") {
+    content = <FaqPage />;
   } else if (isSupportPage) {
     content = user ? (
       <CustomerSupportPage profile={profile} />

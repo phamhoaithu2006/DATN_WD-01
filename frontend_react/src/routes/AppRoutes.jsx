@@ -145,6 +145,11 @@ function AppRoutes() {
       />
 
       <Route
+        path="/faqs"
+        element={<CustomerPage />}
+      />
+
+      <Route
         path="/deals"
         element={<CustomerPage />}
       />

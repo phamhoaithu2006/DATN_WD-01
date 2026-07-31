@@ -6,6 +6,7 @@ import {
   normalizeRecommendedTours,
 } from "../../services/customerApi";
 import "../../styles/chatbot.css";
+import FaqBrowser from "./faq/FaqBrowser";
 import Icon from "./Icon";
 import ChatInput from "./chatbot/ChatInput";
 import ChatMessage, {
@@ -33,6 +34,7 @@ function mapServerMessage(message) {
 function ChatBox({ userId = null }) {
   const [open, setOpen] = useState(false);
   const [chatStarted, setChatStarted] = useState(false);
+  const [activeView, setActiveView] = useState("chat");
   const [endingSupport, setEndingSupport] = useState(false);
   const [loading, setLoading] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(true);
@@ -110,6 +112,7 @@ function ChatBox({ userId = null }) {
     function handleReset() {
       setMessages(getDefaultChatMessages());
       setChatStarted(false);
+      setActiveView("chat");
       setText("");
       setLoading(false);
       setHistoryLoading(false);
@@ -260,7 +263,7 @@ function ChatBox({ userId = null }) {
 
       pollRequestRef.current = false;
     };
-  }, [mode, open]);
+  }, [mode, open, userId]);
 
   useEffect(() => {
     function handleVisibilityChange() {
@@ -285,7 +288,7 @@ function ChatBox({ userId = null }) {
     return () => {
       if (pollRef.current) window.clearInterval(pollRef.current);
     };
-  }, [mode, userId]);
+  }, [mode, open, userId]);
 
   function handleImageSelect(event) {
     const file = event.target.files?.[0] || null;
@@ -400,6 +403,7 @@ function ChatBox({ userId = null }) {
       setText("");
       clearSelectedImage();
       setChatStarted(false);
+      setActiveView("chat");
       setEndingSupport(false);
     }
   }
@@ -470,11 +474,21 @@ function ChatBox({ userId = null }) {
               <button
                 type="button"
                 className="vg-chat-start-btn"
-                onClick={() => setChatStarted(true)}
+                onClick={() => {
+                  setChatStarted(true);
+                  setActiveView("chat");
+                }}
                 disabled={historyLoading}
               >
                 {historyLoading ? "Đang chuẩn bị..." : "Bắt đầu trò chuyện"}
               </button>
+            </div>
+          ) : activeView === "faq" ? (
+            <div className="vg-chat-faq-view">
+              <FaqBrowser
+                compact
+                onBack={() => setActiveView("chat")}
+              />
             </div>
           ) : (
             <>
@@ -521,7 +535,9 @@ function ChatBox({ userId = null }) {
                 onClearImage={clearSelectedImage}
                 onEndConversation={handleEndConversation}
                 onImageSelect={handleImageSelect}
+                onOpenFaq={() => setActiveView("faq")}
                 onRequestHuman={handleRequestHuman}
+                onStartConversation={() => setActiveView("chat")}
                 onSubmit={sendMessage}
                 onTextChange={(event) => setText(event.target.value)}
               />

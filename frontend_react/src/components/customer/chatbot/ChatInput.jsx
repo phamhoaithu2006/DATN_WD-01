@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import Icon from "../Icon";
 import ChatSendButton from "./ChatSendButton";
-import QuickTourPrompts from "./QuickTourPrompts";
 
 const MAX_INPUT_HEIGHT = 96;
 
@@ -19,14 +18,15 @@ function ChatInput({
   onClearImage,
   onEndConversation,
   onImageSelect,
+  onOpenFaq,
   onRequestHuman,
+  onStartConversation,
   onSubmit,
   onTextChange,
 }) {
   const textareaRef = useRef(null);
   const menuRef = useRef(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [faqOpen, setFaqOpen] = useState(false);
   const isSendDisabled = loading || (!text.trim() && !imagePreview);
 
   useEffect(() => {
@@ -39,14 +39,12 @@ function ChatInput({
     function handlePointerDown(event) {
       if (!menuRef.current?.contains(event.target)) {
         setMenuOpen(false);
-        setFaqOpen(false);
       }
     }
 
     function handleKeyDown(event) {
       if (event.key === "Escape") {
         setMenuOpen(false);
-        setFaqOpen(false);
       }
     }
 
@@ -80,7 +78,16 @@ function ChatInput({
 
   function closeMenu() {
     setMenuOpen(false);
-    setFaqOpen(false);
+  }
+
+  function handleStartConversation() {
+    closeMenu();
+    onStartConversation();
+  }
+
+  function handleOpenFaq() {
+    closeMenu();
+    onOpenFaq();
   }
 
   function handleRequestHuman() {
@@ -91,11 +98,6 @@ function ChatInput({
   function handleEndConversation() {
     closeMenu();
     onEndConversation();
-  }
-
-  function handleFaqSelect(event, prompt) {
-    closeMenu();
-    onSubmit(event, prompt);
   }
 
   return (
@@ -121,10 +123,7 @@ function ChatInput({
           <button
             type="button"
             className={`vg-chat-menu-btn${menuOpen ? " is-open" : ""}`}
-            onClick={() => {
-              setMenuOpen((current) => !current);
-              setFaqOpen(false);
-            }}
+            onClick={() => setMenuOpen((current) => !current)}
             aria-label="Mở menu hỗ trợ"
             aria-expanded={menuOpen}
             aria-haspopup="menu"
@@ -138,6 +137,24 @@ function ChatInput({
               <button
                 type="button"
                 className="vg-chat-menu-item"
+                onClick={handleStartConversation}
+                role="menuitem"
+              >
+                <Icon name="sparkle" size={19} />
+                <span>Bắt đầu cuộc trò chuyện</span>
+              </button>
+              <button
+                type="button"
+                className="vg-chat-menu-item"
+                onClick={handleOpenFaq}
+                role="menuitem"
+              >
+                <Icon name="alertCircle" size={19} />
+                <span>Câu hỏi thường gặp</span>
+              </button>
+              <button
+                type="button"
+                className="vg-chat-menu-item"
                 onClick={handleRequestHuman}
                 disabled={loading || mode !== "ai"}
                 role="menuitem"
@@ -145,27 +162,6 @@ function ChatInput({
                 <Icon name="headset" size={19} />
                 <span>Gặp nhân viên hỗ trợ</span>
               </button>
-              <button
-                type="button"
-                className="vg-chat-menu-item"
-                onClick={() => setFaqOpen((current) => !current)}
-                aria-expanded={faqOpen}
-                role="menuitem"
-              >
-                <Icon name="sparkle" size={19} />
-                <span>Câu hỏi thường gặp</span>
-                <Icon
-                  name={faqOpen ? "chevronDown" : "chevronRight"}
-                  size={16}
-                />
-              </button>
-
-              {faqOpen ? (
-                <QuickTourPrompts
-                  disabled={loading}
-                  onSelect={handleFaqSelect}
-                />
-              ) : null}
 
               <button
                 type="button"
