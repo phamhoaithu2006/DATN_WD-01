@@ -234,6 +234,13 @@
   background: #bfd0dc;
 }
 
+.vg-chat-faq-view {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: #f4f8fb;
+}
+
 .vg-chat-welcome {
   flex: 1;
   min-height: 0;
@@ -759,60 +766,6 @@
   background: #eff6ff;
 }
 
-.vg-chat-faq {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  max-width: calc(100% - 39px);
-  margin: -4px 0 14px 39px;
-}
-
-.vg-chat-faq-button {
-  min-width: 0;
-  max-width: 100%;
-  padding: 7px 11px;
-  border: 1px solid #bddbf3;
-  border-radius: 999px;
-  background: #f5fbff;
-  color: #0871d3;
-  font-size: 0.72rem;
-  line-height: 1.35;
-  overflow-wrap: anywhere;
-  text-align: left;
-  cursor: pointer;
-  transition:
-    border-color 0.2s ease,
-    background 0.2s ease,
-    box-shadow 0.2s ease,
-    color 0.2s ease;
-}
-
-.vg-chat-faq-button:hover {
-  border-color: #77b8eb;
-  background: #eaf6ff;
-  color: #075eb8;
-}
-
-.vg-chat-faq-button:focus-visible {
-  outline: 2px solid #1a73e8;
-  outline-offset: 2px;
-}
-
-.vg-chat-faq-button:active {
-  background: #dcefff;
-}
-
-.vg-chat-faq-button:disabled {
-  opacity: 0.65;
-  cursor: not-allowed;
-}
-
-.vg-chat-faq-button:disabled:hover {
-  border-color: #bddbf3;
-  background: #f5fbff;
-  color: #0871d3;
-}
-
 .vg-image-preview-bar {
   display: flex;
   align-items: center;
@@ -948,22 +901,6 @@
 
 .vg-chat-menu-item.is-end {
   border-bottom: 0;
-}
-
-.vg-chat-menu .vg-chat-faq {
-  display: grid;
-  max-width: none;
-  margin: 0;
-  padding: 9px 12px 10px 46px;
-  border-bottom: 1px solid #edf1f4;
-  background: #f8fbfd;
-}
-
-.vg-chat-menu .vg-chat-faq-button {
-  width: 100%;
-  border-radius: 9px;
-  background: #ffffff;
-  font-size: 0.7rem;
 }
 
 .vg-attach-btn {
