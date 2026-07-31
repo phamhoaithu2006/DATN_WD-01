@@ -16,6 +16,21 @@ const CalendarIcon = ({ className = 'h-4 w-4' }) => (
   </svg>
 )
 
+const MapPinIcon = ({ className = 'h-4 w-4' }) => (
+  <svg
+    className={className}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z" />
+    <circle cx="12" cy="10" r="3" />
+  </svg>
+)
+
 const MoneyIcon = ({ className = 'h-4 w-4' }) => (
   <svg
     className={className}
@@ -318,6 +333,30 @@ export default function TourDepartureForm({
           <p className="mt-1 text-xs text-slate-500">
             Tự động tính theo thời lượng tour gốc.
           </p>
+        </div>
+
+        <div className="md:col-span-2">
+          <label className="mb-1.5 block text-sm font-medium text-slate-700">
+            Điểm khởi hành
+          </label>
+
+          <div className="relative">
+            <FieldIcon tone="green">
+              <MapPinIcon />
+            </FieldIcon>
+
+            <input
+              type="text"
+              name="departure_location"
+              value={formData.departure_location ?? ''}
+              onChange={onChange}
+              disabled={disabled}
+              className={getInputClass(getError('departure_location'))}
+              placeholder="VD: Hà Nội, TP. Hồ Chí Minh, Đà Nẵng"
+              maxLength={150}
+            />
+          </div>
+          <FieldError message={getError('departure_location')} />
         </div>
 
         <div>

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Cache;
 
 class TourDeparture extends Model
 {
@@ -14,6 +15,7 @@ class TourDeparture extends Model
         'tour_id',
         'departure_date',
         'return_date',
+        'departure_location',
         'price',
         'base_price',
         'discount_price',
@@ -35,6 +37,14 @@ class TourDeparture extends Model
         'total_slots' => 'integer',
         'booked_slots' => 'integer',
     ];
+
+    protected static function booted(): void
+    {
+        $clearFilterOptionsCache = static fn () => Cache::forget(Tour::FILTER_OPTIONS_CACHE_KEY);
+
+        static::saved($clearFilterOptionsCache);
+        static::deleted($clearFilterOptionsCache);
+    }
 
     /**
      * Quan hệ N-1: Một TourDeparture thuộc về một Tour.

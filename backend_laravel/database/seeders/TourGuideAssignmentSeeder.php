@@ -44,11 +44,13 @@ class TourGuideAssignmentSeeder extends Seeder
             $start = now()->addDays($startOffset);
             $end = now()->addDays($endOffset);
             $price = $tour->discount_price ?? $tour->base_price;
+            $departureLocation = str_contains($tourSlug, 'da-nang') ? 'Đà Nẵng' : 'Hà Nội';
 
             $departure = TourDeparture::query()->updateOrCreate(
                 ['tour_id' => $tour->id, 'departure_date' => $start->toDateString()],
                 [
                     'return_date' => $end->toDateString(),
+                    'departure_location' => $departureLocation,
                     'price' => $price,
                     'base_price' => $tour->base_price,
                     'discount_price' => $tour->discount_price,

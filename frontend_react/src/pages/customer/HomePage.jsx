@@ -1,7 +1,8 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import Icon from "../../components/customer/Icon";
 import TourCard from "../../components/customer/TourCard";
+import { fetchTourFilterOptions } from "../../services/customerApi";
 import { mediaUrl } from "../../utils/mediaUrl";
 
 // Skeleton Loading khi đang tải dữ liệu
@@ -25,7 +26,16 @@ function HomeSkeleton() {
   );
 }
 
-// Dynamic Background Slider cho Hero (Hiển thị tĩnh trong 5 giây, sau 5 giây chuyển mượt sang ảnh khác)
+function getTodayInputValue() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+// Dynamic Background Slider cho Hero.
 function HeroBannerBackground({ banners = [], activeIndex, setActiveIndex }) {
   const safeBanners = Array.isArray(banners) && banners.length > 0 ? banners : [];
 
@@ -53,6 +63,8 @@ function HeroBannerBackground({ banners = [], activeIndex, setActiveIndex }) {
     );
   }
 
+  const currentBanner = safeBanners[activeIndex];
+
   return (
     <div className="vg-hero-bg-slider">
       {safeBanners.map((banner, index) => {
@@ -76,6 +88,17 @@ function HeroBannerBackground({ banners = [], activeIndex, setActiveIndex }) {
         );
       })}
       <div className="vg-hero-bg-overlay" />
+
+      {/* Floating Banner Title Badge */}
+      {currentBanner && (currentBanner.title || currentBanner.subtitle) ? (
+        <div className="vg-hero-banner-info-badge">
+          <span className="vg-banner-tag">
+            <Icon name="sparkle" size={12} /> Nổi bật
+          </span>
+          {currentBanner.title ? <h4>{currentBanner.title}</h4> : null}
+          {currentBanner.subtitle ? <p>{currentBanner.subtitle}</p> : null}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -92,7 +115,16 @@ function HomePage({
   tourLoadError = "",
   onFavorite,
 }) {
+  const navigate = useNavigate();
   const [heroBannerIndex, setHeroBannerIndex] = useState(0);
+  const [filterOptions, setFilterOptions] = useState(null);
+  const [heroSearch, setHeroSearch] = useState({
+    departure_location: "",
+    destination_id: "",
+    departure_date: "",
+    category_id: "",
+  });
+  const todayInputValue = getTodayInputValue();
 
   const safeTours = Array.isArray(tours) ? tours : [];
   const safeInternationalTours = Array.isArray(internationalTours)
@@ -105,7 +137,6 @@ function HomePage({
     ? upcomingTours
     : [];
   const safeBanners = Array.isArray(banners) ? banners : [];
-  const activeBanner = safeBanners[heroBannerIndex] || null;
 
   const safeFavorites = Array.isArray(favorites) ? favorites : [];
   const safeDestinations = Array.isArray(homeContent.destinations)
@@ -117,12 +148,13 @@ function HomePage({
   const safeReviews = Array.isArray(homeContent.reviews)
     ? homeContent.reviews
     : [];
+  const reviewMarqueeItems = safeReviews.length > 0
+    ? [...safeReviews, ...safeReviews]
+    : [];
 
   const featuredTourCards = Array.isArray(homeContent.featured_tours)
     ? homeContent.featured_tours
     : safeTours.slice(0, 6);
-  const statistics = homeContent.statistics || {};
-
   const internationalTourCards = safeInternationalTours;
 
   const destinationCards = safeDestinations
@@ -166,6 +198,56 @@ function HomePage({
     },
   ];
 
+  useEffect(() => {
+    let active = true;
+
+    fetchTourFilterOptions()
+      .then((options) => {
+        if (active) setFilterOptions(options);
+      })
+      .catch(() => {
+        if (active) setFilterOptions(null);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const departureLocations = Array.isArray(filterOptions?.departure_locations)
+    ? filterOptions.departure_locations
+    : [];
+  const destinationOptions = Array.isArray(filterOptions?.destinations)
+    ? filterOptions.destinations
+    : [];
+  const categoryOptions = Array.isArray(filterOptions?.categories)
+    ? filterOptions.categories
+    : [];
+
+  const updateHeroSearch = (field, value) => {
+    setHeroSearch((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  };
+
+  const handleHeroSearchSubmit = (event) => {
+    event.preventDefault();
+
+    const query = new URLSearchParams();
+    const departureLocation = heroSearch.departure_location.trim();
+
+    if (heroSearch.scope) query.set("scope", heroSearch.scope);
+    if (departureLocation) query.set("departure_location", departureLocation);
+    if (heroSearch.destination_id) query.append("destinations", heroSearch.destination_id);
+    if (heroSearch.departure_date) query.set("departure_date", heroSearch.departure_date);
+    if (heroSearch.category_id) query.append("categories", heroSearch.category_id);
+    query.set("sort", "departure_soon");
+
+    const search = query.toString();
+    navigate(search ? `/tours?${search}` : "/tours");
+  };
+
   return (
     <main className="vg-home-page">
       {/* Alert lỗi nếu không tải được dữ liệu */}
@@ -194,122 +276,136 @@ function HomePage({
         />
 
         <div className="vg-container">
-
-
-          <div className="vg-hero-grid">
-            <div className="vg-hero-copy">
-              <span className="vg-trust">
-                <Icon name="sparkle" size={14} /> Khám phá tour đang mở bán
-              </span>
-              <h1>
-                Khám phá thế giới
-                <br />
-                cùng{" "}
-                <span className="hero-brand">
-                  <span className="hero-brand-vivu">ViVu</span>
-                  <span className="hero-brand-go">Go</span>
-                </span>
+          <div className="vg-hero-content-wrapper">
+            {/* Hero Main Heading & Intro */}
+            <div className="vg-hero-header-text">
+              <h1 className="vg-hero-main-title">
+                Khám phá thế giới, <br />
+                <span className="vg-text-gradient">nâng tầm trải nghiệm</span>
               </h1>
-              <p>
-                Chọn hành trình phù hợp theo điểm đến, loại hình và ngày khởi hành của bạn.
-              </p>
-
-
-
-              <div className="vg-hero-inline-stats">
-                <div className="vg-inline-stat">
-                  <div className="vg-stat-icon">
-                    <Icon name="globe" size={20} />
-                  </div>
-                  <div className="vg-stat-info">
-                    <strong>{statistics.destinations || destinationCards.length || 0}</strong>
-                    <span>Điểm đến đang mở</span>
-                  </div>
-                </div>
-                <div className="vg-inline-stat">
-                  <div className="vg-stat-icon">
-                    <Icon name="briefcase" size={20} />
-                  </div>
-                  <div className="vg-stat-info">
-                    <strong>{statistics.available_tours || safeTours.length || 0}</strong>
-                    <span>Tour đang mở bán</span>
-                  </div>
-                </div>
-                <div className="vg-inline-stat">
-                  <div className="vg-stat-icon">
-                    <Icon name="users" size={20} />
-                  </div>
-                  <div className="vg-stat-info">
-                    <strong>{statistics.categories || visibleCategories.length || 0}</strong>
-                    <span>Loại hình du lịch</span>
-                  </div>
-                </div>
-              </div>
             </div>
 
-            {destinationCards.length > 0 ? (
-              <div className="vg-hero-visual" aria-hidden="true">
-                <div className="vg-hero-collage">
-                  {destinationCards.slice(0, 3).map((destination, index) => (
-                    <div
-                      className={`vg-collage-card vg-collage-card-${index + 1}`}
-                      key={destination.id || index}
-                    >
-                      {destination.image ? (
-                        <img
-                          src={destination.image}
-                          alt={destination.name}
-                          width="1200"
-                          height="800"
-                        />
-                      ) : null}
-                      <div className="vg-collage-info">
-                        <h4>{destination.name}</h4>
-                        <span>
-                          <Icon name="mapPin" size={12} /> {destination.tours} tour đang mở
-                        </span>
-                      </div>
+            {/* Seamless Floating Glass Search Card */}
+            <div className="vg-hero-search-wrapper">
+              <div className="vg-hero-search-card-white">
+                <div className="vg-hero-search-tabs">
+                  <button
+                    type="button"
+                    className={`vg-hero-search-tab ${!heroSearch.scope ? "active" : ""}`}
+                    onClick={() => updateHeroSearch("scope", "")}
+                  >
+                    <Icon name="sparkle" size={14} /> Tất cả tour
+                  </button>
+                  <button
+                    type="button"
+                    className={`vg-hero-search-tab ${heroSearch.scope === "domestic" ? "active" : ""}`}
+                    onClick={() => updateHeroSearch("scope", "domestic")}
+                  >
+                    Tour trong nước
+                  </button>
+                  <button
+                    type="button"
+                    className={`vg-hero-search-tab ${heroSearch.scope === "international" ? "active" : ""}`}
+                    onClick={() => updateHeroSearch("scope", "international")}
+                  >
+                    Tour quốc tế
+                  </button>
+                </div>
+
+                <form className="vg-hero-search-form" onSubmit={handleHeroSearchSubmit}>
+                  <div className="vg-hero-search-grid">
+                    {/* Điểm khởi hành */}
+                    <div className="vg-hero-field-group">
+                      <label htmlFor="hero-departure-input">
+                        <Icon name="mapPin" size={14} /> Điểm khởi hành
+                      </label>
+                      <input
+                        id="hero-departure-input"
+                        type="search"
+                        value={heroSearch.departure_location}
+                        list="vg-departure-location-options"
+                        onChange={(event) => updateHeroSearch("departure_location", event.target.value)}
+                        placeholder="Bạn xuất phát từ đâu?"
+                        autoComplete="off"
+                      />
                     </div>
-                  ))}
-                </div>
+
+                    <datalist id="vg-departure-location-options">
+                      {departureLocations.map((location) => (
+                        <option key={location.name} value={location.name} />
+                      ))}
+                    </datalist>
+
+                    <div className="vg-search-divider" />
+
+                    {/* Điểm đến */}
+                    <div className="vg-hero-field-group">
+                      <label htmlFor="hero-destination-select">
+                        <Icon name="compass" size={14} /> Điểm đến
+                      </label>
+                      <select
+                        id="hero-destination-select"
+                        value={heroSearch.destination_id}
+                        onChange={(event) => updateHeroSearch("destination_id", event.target.value)}
+                      >
+                        <option value="">Tất cả điểm đến</option>
+                        {destinationOptions.map((destination) => (
+                          <option key={destination.id} value={destination.id}>
+                            {destination.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="vg-search-divider" />
+
+                    {/* Ngày đi */}
+                    <div className="vg-hero-field-group">
+                      <label htmlFor="hero-date-input">
+                        <Icon name="calendar" size={14} /> Ngày đi
+                      </label>
+                      <input
+                        id="hero-date-input"
+                        type="date"
+                        value={heroSearch.departure_date}
+                        min={todayInputValue}
+                        onChange={(event) => updateHeroSearch("departure_date", event.target.value)}
+                      />
+                    </div>
+
+                    <div className="vg-search-divider" />
+
+                    {/* Loại tour */}
+                    <div className="vg-hero-field-group">
+                      <label htmlFor="hero-category-select">
+                        <Icon name="layers" size={14} /> Loại tour
+                      </label>
+                      <select
+                        id="hero-category-select"
+                        value={heroSearch.category_id}
+                        onChange={(event) => updateHeroSearch("category_id", event.target.value)}
+                      >
+                        <option value="">Tất cả loại tour</option>
+                        {categoryOptions.map((category) => (
+                          <option key={category.id} value={category.id}>
+                            {category.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Submit Button */}
+                    <div className="vg-hero-field-group action">
+                      <button type="submit" className="vg-hero-search-btn">
+                        <Icon name="search" size={18} />
+                        <span>Tìm tour</span>
+                      </button>
+                    </div>
+                  </div>
+                </form>
               </div>
-            ) : null}
-          </div>
-
-
-
-          {/* Thanh hiển thị thông tin Banner & Chấm tròn chuyển đổi ở chân Hero */}
-          {safeBanners.length > 0 ? (
-            <div className="vg-hero-banner-footer">
-              {activeBanner?.display_title || activeBanner?.title ? (
-                <a
-                  href={activeBanner.link_url || "#"}
-                  className="vg-hero-active-banner-tag"
-                  target={activeBanner.link_url?.startsWith("http") ? "_blank" : "_self"}
-                  rel="noopener noreferrer"
-                >
-                  <Icon name="sparkle" size={14} />
-                  <span>{activeBanner.display_title || activeBanner.title}</span>
-                  <Icon name="chevronRight" size={12} />
-                </a>
-              ) : null}
-
-              {safeBanners.length > 1 ? (
-                <div className="vg-hero-banner-dots">
-                  {safeBanners.map((_, index) => (
-                    <button
-                      key={index}
-                      type="button"
-                      className={`vg-hero-banner-dot ${index === heroBannerIndex ? "is-active" : ""
-                        }`}
-                      onClick={() => setHeroBannerIndex(index)}
-                      aria-label={`Chuyển đến banner ${index + 1}`}
-                    />
-                  ))}
-                </div>
-              ) : null}
             </div>
-          ) : null}
+          </div>
         </div>
       </section>
 
@@ -513,41 +609,110 @@ function HomePage({
       ) : null}
 
       {/* Section 7: Đánh giá thực tế của khách hàng (Reviews Section) */}
+      {/* Section 7: Đánh giá thực tế của khách hàng (Reviews Section) */}
       {!loading && safeReviews.length > 0 ? (
         <section className="vg-home-section vg-reviews-section vg-home-section-alt" id="danh-gia">
+          <div className="vg-reviews-bg-glow" aria-hidden="true"></div>
           <div className="vg-container">
             <div className="vg-centered-heading">
-              <span className="vg-kicker">Đánh giá thực tế</span>
+              <span className="vg-kicker">Trải nghiệm du khách</span>
               <h2>Khách hàng nói gì về ViVuGo?</h2>
-              <p>Cảm nhận chân thực từ những du khách đã tham gia hành trình.</p>
+              <p>Cảm nhận chân thực từ những du khách đã đồng hành cùng chúng tôi trên mọi nẻo đường.</p>
             </div>
-            <div className="vg-review-grid">
-              {safeReviews.map((review) => (
-                <article className="vg-review-card" key={review.id}>
-                  <div className="vg-review-quote">“</div>
-                  <p>{review.comment}</p>
-                  <div className="vg-review-meta">
-                    <div>
-                      <strong>{Number(review.rating).toFixed(1)}</strong>
-                      <span className="vg-stars">★★★★★</span>
-                    </div>
-                    {review.tour_title ? (
-                      <small className="vg-review-tour-name">{review.tour_title}</small>
+
+            {/* Social Proof Trust Bar */}
+            {(() => {
+              const avgScore = safeReviews.length > 0
+                ? (safeReviews.reduce((acc, r) => acc + Number(r.rating || 5), 0) / safeReviews.length).toFixed(1).replace(".", ",")
+                : "5,0";
+              const totalCount = safeReviews.length;
+
+              return (
+                <div className="vg-reviews-trust-bar">
+                  <div className="vg-trust-score-badge">
+                    <span className="vg-trust-score-num">{avgScore}</span>
+                    <div className="vg-trust-stars">★★★★★</div>
+                  </div>
+                  <div className="vg-trust-avatar-stack">
+                    {safeReviews.slice(0, 4).map((r, i) => {
+                      const name = r.reviewer_name || "K";
+                      const avColor = (i % 4) + 1;
+                      return (
+                        <span key={i} className={`vg-trust-avatar vg-av-${avColor}`}>
+                          {name.charAt(0).toUpperCase()}
+                        </span>
+                      );
+                    })}
+                    {totalCount > 4 ? (
+                      <span className="vg-trust-avatar vg-av-plus">+{totalCount - 4}</span>
                     ) : null}
                   </div>
-                  <div className="vg-review-person">
-                    <div className="vg-review-avatar" aria-hidden="true">
-                      {(review.reviewer_name || "K").charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                      <strong>{review.reviewer_name || "Khách hàng ViVuGo"}</strong>
-                      <span className="vg-verified-badge">
-                        <Icon name="shield" size={12} /> Đánh giá đã xác thực
-                      </span>
-                    </div>
+                  <div className="vg-trust-stats-info">
+                    <strong>{totalCount > 0 ? `${totalCount}+ Đánh giá thực tế` : "1.200+ Du khách hài lòng"}</strong>
+                    <span>• 100% Đánh giá 5 sao từ du khách đã đi tour</span>
                   </div>
-                </article>
-              ))}
+                </div>
+              );
+            })()}
+
+            <div className="vg-review-marquee" aria-label="Đánh giá tour 5 sao từ khách hàng">
+              <div
+                className="vg-review-marquee-track"
+                style={{
+                  "--vg-review-duration": `${Math.max(34, safeReviews.length * 8)}s`,
+                }}
+              >
+                {reviewMarqueeItems.map((review, index) => {
+                  const reviewerName = review.reviewer_name || "Khách hàng ViVuGo";
+                  const reviewerAvatar = mediaUrl(review.reviewer_avatar_url);
+                  const isDuplicatedReview = index >= safeReviews.length;
+                  const tourTitle = review.tour_title || review.tour?.title || "Tour Du Lịch Trải Nghiệm";
+                  const avatarColorIndex = (index % 4) + 1;
+
+                  return (
+                    <article
+                      className="vg-review-card"
+                      key={`${review.id}-${index}`}
+                      aria-hidden={isDuplicatedReview || undefined}
+                    >
+                      <div className="vg-review-card-accent"></div>
+                      <div className="vg-review-quote-mark" aria-hidden="true">“</div>
+                      
+                      <div className="vg-review-tour-tag">
+                        <Icon name="compass" size={13} />
+                        <span>{tourTitle}</span>
+                      </div>
+
+                      <p className="vg-review-comment">{review.comment}</p>
+
+                      <div className="vg-review-card-footer">
+                        <div className="vg-review-person">
+                          <div className={`vg-review-avatar vg-review-avatar-${avatarColorIndex}`} aria-hidden="true">
+                            {reviewerAvatar ? (
+                              <img
+                                src={reviewerAvatar}
+                                alt=""
+                                onError={(event) => {
+                                  event.currentTarget.hidden = true;
+                                }}
+                              />
+                            ) : null}
+                            <span>{reviewerName.charAt(0).toUpperCase()}</span>
+                          </div>
+                          <div>
+                            <strong>{reviewerName}</strong>
+                          </div>
+                        </div>
+
+                        <div className="vg-review-stars" aria-label="5 trên 5 sao">
+                          <strong>{Number(review.rating).toFixed(1).replace(".", ",")}</strong>
+                          <span className="vg-stars-gold">★★★★★</span>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </section>

@@ -123,6 +123,11 @@ class TourTestingDataSeeder extends Seeder
             'ha-noi-ninh-binh-3-ngay-2-dem-test' => 1,
             'da-nang-hoi-an-cuoi-tuan-test' => 8,
         ];
+        $departureLocations = [
+            'ha-long-du-thuyen-2-ngay-1-dem-test' => 'Hà Nội',
+            'ha-noi-ninh-binh-3-ngay-2-dem-test' => 'Hà Nội',
+            'da-nang-hoi-an-cuoi-tuan-test' => 'Đà Nẵng',
+        ];
 
         foreach ($tours as $slug => $tour) {
             $price = $tour->discount_price ?? $tour->base_price;
@@ -133,7 +138,7 @@ class TourTestingDataSeeder extends Seeder
             ];
             foreach ($dates as $name => [$start, $status, $booked]) {
                 $end = $start->copy()->addDays($tour->duration_days - 1);
-                $this->upsert('tour_departures', ['tour_id' => $tour->id, 'departure_date' => $start->toDateString()], ['return_date' => $end->toDateString(), 'price' => $price, 'base_price' => $tour->base_price, 'discount_price' => $tour->discount_price, 'total_slots' => 30, 'booked_slots' => $booked, 'status' => $status], $now);
+                $this->upsert('tour_departures', ['tour_id' => $tour->id, 'departure_date' => $start->toDateString()], ['return_date' => $end->toDateString(), 'departure_location' => $departureLocations[$slug] ?? 'Hà Nội', 'price' => $price, 'base_price' => $tour->base_price, 'discount_price' => $tour->discount_price, 'total_slots' => 30, 'booked_slots' => $booked, 'status' => $status], $now);
                 $departure = DB::table('tour_departures')->where(['tour_id' => $tour->id, 'departure_date' => $start->toDateString()])->first();
                 $all[$slug][$name] = $departure;
                 $isOngoingTarget = $slug === $ongoingTourSlug && $name === 'ongoing';

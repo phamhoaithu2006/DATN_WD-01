@@ -77,20 +77,21 @@ class PublicCatalogController extends Controller
         $reviews = TourReview::query()
             ->visible()
             ->whereHas('tour', fn (Builder $query) => $query->where('status', 'published'))
+            ->where('rating', 5)
             ->whereNotNull('comment')
             ->where('comment', '!=', '')
             ->with([
                 'tour:id,title,slug',
-                'user:id,full_name',
+                'user:id,full_name,avatar_url',
             ])
             ->latest('created_at')
-            ->limit(3)
             ->get()
             ->map(fn (TourReview $review): array => [
                 'id' => $review->id,
                 'rating' => (int) $review->rating,
                 'comment' => trim((string) $review->comment),
                 'reviewer_name' => $this->maskReviewerName($review->user?->full_name),
+                'reviewer_avatar_url' => $review->user?->avatar_url,
                 'tour_title' => $review->tour?->title,
                 'tour_slug' => $review->tour?->slug,
                 'created_at' => $review->created_at?->toDateString(),
