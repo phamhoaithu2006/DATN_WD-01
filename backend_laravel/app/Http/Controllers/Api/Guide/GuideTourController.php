@@ -34,7 +34,7 @@ class GuideTourController extends Controller
         ];
     }
 
-    private function baseQuery(Guide $guide)
+    private function baseQuery(Guide $guide, bool $includeCancelled = false)
     {
         $assignmentNoteExpression = 'NULL as assignment_note';
 
@@ -53,6 +53,7 @@ class GuideTourController extends Controller
             ->join('tour_guide_assignments as tga', 'tga.tour_departure_id', '=', 'tour_departures.id')
             ->where('tga.guide_id', $guide->id)
             ->where('tga.status', '!=', 'cancelled')
+            ->when(! $includeCancelled, fn ($query) => $query->whereNotIn('tour_departures.status', ['cancelled', 'canceled']))
             ->with([
                 'tour:id,title,slug,summary,duration_days,duration_nights,base_price,discount_price,average_rating,review_count,destination_id,category_id',
                 'tour.destination:id,name,province_city',
@@ -72,7 +73,7 @@ class GuideTourController extends Controller
                 ->from('bookings')
                 ->selectRaw('COALESCE(SUM(number_of_people), 0)')
                 ->whereColumn('bookings.tour_departure_id', 'tour_departures.id')
-                ->where('bookings.status', '!=', 'cancelled')
+                ->whereNotIn('bookings.status', ['cancelled', 'cancelled_by_tour'])
                 ->where('bookings.payment_status', 'paid');
         }, 'customer_count');
 
@@ -234,7 +235,7 @@ class GuideTourController extends Controller
 
                 if ($participants->isNotEmpty()) {
                     return $participants->map(fn ($row) => [
-                        'id' => 'participant-' . $row->participant_id,
+                        'id' => 'participant-'.$row->participant_id,
                         'full_name' => $row->full_name,
                         'phone' => $row->phone ?: $row->contact_phone,
                         'email' => $row->contact_email,
@@ -252,7 +253,7 @@ class GuideTourController extends Controller
                 $booking = $rows->first();
 
                 return [[
-                    'id' => 'booking-' . $booking->booking_id,
+                    'id' => 'booking-'.$booking->booking_id,
                     'full_name' => $booking->contact_name ?: 'Khách đặt tour',
                     'phone' => $booking->contact_phone,
                     'email' => $booking->contact_email,
@@ -535,6 +536,28 @@ class GuideTourController extends Controller
 
         return response()->json([
             'message' => 'Danh sách tour đã hoàn thành',
+            'data' => $this->paginatedResponse($query, $request),
+        ]);
+    }
+
+    public function cancelled(Request $request)
+    {
+        $guide = $this->getGuide($request);
+
+        if (! $guide) {
+            return response()->json([
+                'message' => 'Tài khoản chưa có hồ sơ hướng dẫn viên hoặc chưa được phân công tour.',
+                'data' => $this->emptyPaginator($request),
+            ]);
+        }
+
+        $query = $this->baseQuery($guide, true)
+            ->whereIn('tour_departures.status', ['cancelled', 'canceled']);
+        $query = $this->applyFilters($query, $request);
+        $this->sortForGuide($query, $request);
+
+        return response()->json([
+            'message' => 'Danh sách tour đã hủy',
             'data' => $this->paginatedResponse($query, $request),
         ]);
     }

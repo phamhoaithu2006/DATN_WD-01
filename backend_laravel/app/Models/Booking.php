@@ -17,6 +17,7 @@ class Booking extends Model
         // Thông tin Tour
         'tour_id',
         'tour_departure_id',
+        'source_booking_id',
 
         // Thông tin giảm giá & Nhân viên
         'promotion_id',
@@ -35,6 +36,8 @@ class Booking extends Model
         // Ghi chú & Hủy tour
         'note',
         'cancel_reason',
+        'cancellation_reason',
+        'resolution_status',
         'cancelled_at',
     ];
 
@@ -92,6 +95,16 @@ class Booking extends Model
     public function tourDeparture(): BelongsTo
     {
         return $this->belongsTo(TourDeparture::class);
+    }
+
+    public function sourceBooking(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'source_booking_id');
+    }
+
+    public function replacementBookings(): HasMany
+    {
+        return $this->hasMany(self::class, 'source_booking_id');
     }
 
     // ─── Scopes cho filter/search ─────────────────────────────────

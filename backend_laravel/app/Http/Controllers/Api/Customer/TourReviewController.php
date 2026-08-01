@@ -13,6 +13,7 @@ use App\Services\TourReviewService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 
 class TourReviewController extends Controller
 {
@@ -37,6 +38,10 @@ class TourReviewController extends Controller
                 throw ValidationException::withMessages([
                     'booking_id' => 'Chỉ có thể đánh giá khi tour đã hoàn thành.',
                 ]);
+            }
+
+            if (TourReview::query()->where('booking_id', $booking->id)->exists()) {
+                throw new ConflictHttpException('Booking này đã có đánh giá.');
             }
 
             $review = TourReview::query()->create([

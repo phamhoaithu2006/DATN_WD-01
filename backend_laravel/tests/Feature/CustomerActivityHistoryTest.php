@@ -8,8 +8,8 @@ use Laravel\Sanctum\Sanctum;
 uses(RefreshDatabase::class);
 
 it('allows an admin to view a customer activity history', function () {
-    $adminRole = Role::query()->create(['name' => 'admin', 'description' => 'Administrator']);
-    $customerRole = Role::query()->create(['name' => 'customer', 'description' => 'Customer']);
+    $adminRole = Role::query()->firstOrCreate(['name' => 'admin'], ['description' => 'Administrator']);
+    $customerRole = Role::query()->firstOrCreate(['name' => 'customer'], ['description' => 'Customer']);
     $admin = User::factory()->create(['role_id' => $adminRole->id]);
     $customer = User::factory()->create(['role_id' => $customerRole->id]);
 
@@ -25,7 +25,7 @@ it('allows an admin to view a customer activity history', function () {
 });
 
 it('does not return activity history for a non-customer account', function () {
-    $adminRole = Role::query()->create(['name' => 'admin', 'description' => 'Administrator']);
+    $adminRole = Role::query()->firstOrCreate(['name' => 'admin'], ['description' => 'Administrator']);
     $admin = User::factory()->create(['role_id' => $adminRole->id]);
     $otherAdmin = User::factory()->create(['role_id' => $adminRole->id]);
 

@@ -50,12 +50,12 @@ function BookingActions({ booking, busy, onCancel, onComplete, onConfirm, onDele
           <CheckIcon />
         </button>
       ) : null}
-      {booking.status !== 'cancelled' && booking.status !== 'completed' ? (
+      {!['cancelled', 'cancelled_by_tour', 'completed'].includes(booking.status) ? (
         <button className="danger" type="button" title="Hủy booking" onClick={() => onCancel(booking)} disabled={!!busy}>
           <CloseIcon />
         </button>
       ) : null}
-      {booking.status === 'cancelled' ? (
+      {['cancelled', 'cancelled_by_tour'].includes(booking.status) ? (
         <button className="danger" type="button" title="Xóa vĩnh viễn" onClick={() => onDelete(booking)} disabled={!!busy}>
           <TrashIcon />
         </button>

@@ -9446,7 +9446,7 @@
 }
 .guide-shot-tabs {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   min-height: 72px;
   border-bottom: 1px solid #cfd8e7;
 }
@@ -9458,6 +9458,7 @@
   font-weight: 950;
   cursor: pointer;
   position: relative;
+  white-space: nowrap;
 }
 .guide-shot-tabs button.is-active {
   color: #0b7af3;
@@ -9608,6 +9609,12 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+.guide-shot-cancellation-reason {
+  margin: 10px 0 0;
+  color: #dc2626;
+  font-size: 13px;
+  font-weight: 800;
 }
 .guide-shot-row-actions {
   display: grid;
@@ -10202,7 +10209,6 @@
   }
   .guide-shot-stats-grid,
   .guide-attendance-stats,
-  .guide-shot-tabs,
   .guide-attendance-tabs,
   .guide-attendance-toolbar,
   .guide-attendance-tour-card {
@@ -10563,6 +10569,19 @@
 .guide-replacement-modal h2,
 .guide-replacement-modal p {
   margin: 0;
+}
+@media (max-width: 680px) {
+  .guide-shot-tabs {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    min-height: 56px;
+  }
+  .guide-shot-tabs button {
+    font-size: 11px;
+  }
+  .guide-shot-tabs button.is-active:after {
+    left: 6px;
+    right: 6px;
+  }
 }
 .guide-replacement-title {
   width: fit-content;

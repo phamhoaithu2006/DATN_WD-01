@@ -9,6 +9,20 @@ import {
   formatMoney,
 } from './bookingFormatters'
 
+function cancellationReasonLabel(booking) {
+  const reason = String(booking.cancellation_reason || '').toLowerCase()
+
+  if (reason.includes('insufficient_participants')) {
+    return 'Không đủ tối thiểu 10 khách.'
+  }
+
+  if (reason.includes('weather_disaster')) {
+    return 'Mưa bão hoặc thời tiết xấu.'
+  }
+
+  return booking.cancel_reason || 'Chưa xác định.'
+}
+
 function BookingDetailModal({ booking, busy, onClose, onInvoice, onPaymentChange, onStatusChange }) {
   const name = customerName(booking)
   const phone = customerPhone(booking)
@@ -24,7 +38,9 @@ function BookingDetailModal({ booking, busy, onClose, onInvoice, onPaymentChange
     : payment?.payment_method || '--'
   const cannotReturnToPending = booking.payment_status === 'paid'
     || booking.status === 'completed'
+    || booking.status === 'cancelled_by_tour'
     || booking.tourDeparture?.status === 'completed'
+  const isCancelledByTour = booking.status === 'cancelled_by_tour'
 
   return (
     <div className="booking-modal-backdrop" role="presentation" onMouseDown={onClose}>
@@ -97,7 +113,7 @@ function BookingDetailModal({ booking, busy, onClose, onInvoice, onPaymentChange
                 Trạng thái
                 <select
                   value={booking.status || ''}
-                  disabled={busy}
+                  disabled={busy || isCancelledByTour}
                   onChange={(event) => onStatusChange(booking, event.target.value)}
                 >
                   {statusOptions.filter((item) => item.value).map((item) => (
@@ -117,21 +133,21 @@ function BookingDetailModal({ booking, busy, onClose, onInvoice, onPaymentChange
                   <div>
                     <button
                       type="button"
-                      disabled={busy || payment.status === 'success' || payment.status === 'refunded'}
+                      disabled={busy || isCancelledByTour || payment.status === 'success' || payment.status === 'refunded'}
                       onClick={() => onPaymentChange(booking, 'confirm')}
                     >
                       Xác nhận
                     </button>
                     <button
                       type="button"
-                      disabled={busy || payment.status === 'failed' || payment.status === 'success' || payment.status === 'refunded'}
+                      disabled={busy || isCancelledByTour || payment.status === 'failed' || payment.status === 'success' || payment.status === 'refunded'}
                       onClick={() => onPaymentChange(booking, 'fail')}
                     >
                       Thất bại
                     </button>
                     <button
                       type="button"
-                      disabled={busy || payment.status !== 'success'}
+                      disabled={busy || isCancelledByTour || payment.status !== 'success'}
                       onClick={() => onPaymentChange(booking, 'refund')}
                     >
                       Hoàn tiền
@@ -143,6 +159,12 @@ function BookingDetailModal({ booking, busy, onClose, onInvoice, onPaymentChange
               </div>
             </div>
             <dl className="booking-detail-list compact">
+              {booking.status === 'cancelled_by_tour' ? (
+                <div>
+                  <dt>Lý do hủy</dt>
+                  <dd>{cancellationReasonLabel(booking)}</dd>
+                </div>
+              ) : null}
               <div>
                 <dt>Đơn giá</dt>
                 <dd>{formatMoney(booking.unit_price)}</dd>

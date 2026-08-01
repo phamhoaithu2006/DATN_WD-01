@@ -843,6 +843,22 @@ class GuideTourOperationService
      */
     private function assertDepartureCanTakeAttendance(TourDeparture $departure): void
     {
+        if (in_array($departure->status, ['cancelled', 'canceled'], true)) {
+            $reason = $departure->cancellation_reason === 'weather_disaster'
+                ? 'Tour đã bị hủy do mưa bão hoặc thời tiết xấu.'
+                : 'Không thể bắt đầu tour vì tour đã bị hủy. Lý do: Không đủ số lượng khách tối thiểu.';
+
+            throw ValidationException::withMessages([
+                'tour_departure_id' => $reason,
+            ]);
+        }
+
+        if ($departure->status !== 'confirmed') {
+            throw ValidationException::withMessages([
+                'tour_departure_id' => 'Chỉ có thể bắt đầu tour khi tour đã được xác nhận.',
+            ]);
+        }
+
         if ($this->isDepartureOngoing($departure)) {
             return;
         }
@@ -854,7 +870,7 @@ class GuideTourOperationService
 
     private function isDepartureOngoing(TourDeparture $departure): bool
     {
-        if (in_array($departure->status, ['completed', 'cancelled', 'canceled'], true)) {
+        if (! in_array($departure->status, ['confirmed', 'in_progress'], true)) {
             return false;
         }
 
