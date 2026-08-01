@@ -113,7 +113,7 @@ function guideAttendanceScenario(): array
         'return_date' => now()->addDay()->toDateString(),
         'total_slots' => 10,
         'booked_slots' => 1,
-        'status' => 'open',
+        'status' => 'confirmed',
     ]);
 
     $upcoming = TourDeparture::query()->create([

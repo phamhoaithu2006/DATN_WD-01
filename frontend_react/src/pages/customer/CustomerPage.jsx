@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import ChatBox from "../../components/customer/ChatBox";
 import CustomerPresenceHeartbeat from "../../components/customer/CustomerPresenceHeartbeat";
 import { resetChatSession } from "../../components/customer/chatbot/chatStorage";
 import Footer from "../../components/customer/Footer";
@@ -26,19 +25,21 @@ import {
   readToken,
 } from "../../services/authStorage";
 import "../../styles/customer.css";
-import DestinationsPage from "./DestinationsPage";
-import HomePage from "./HomePage";
-import ProfileDashboard from "./ProfileDashboard";
-import ProfileForm from "./ProfileForm";
-import ToursPage from "./ToursPage";
-import CustomerTourDetailPage from "./TourDetailPage";
-import CustomerSupportPage from "./CustomerSupportPage";
-import FaqPage from "./FaqPage";
-import PolicyPage from "./PolicyPage";
 import {
   isDomesticTour,
   normalizeTour,
 } from "../../utils/tourNormalizer";
+
+const ChatBox = lazy(() => import("../../components/customer/ChatBox"));
+const DestinationsPage = lazy(() => import("./DestinationsPage"));
+const HomePage = lazy(() => import("./HomePage"));
+const ProfileDashboard = lazy(() => import("./ProfileDashboard"));
+const ProfileForm = lazy(() => import("./ProfileForm"));
+const ToursPage = lazy(() => import("./ToursPage"));
+const CustomerTourDetailPage = lazy(() => import("./TourDetailPage"));
+const CustomerSupportPage = lazy(() => import("./CustomerSupportPage"));
+const FaqPage = lazy(() => import("./FaqPage"));
+const PolicyPage = lazy(() => import("./PolicyPage"));
 
 const fallbackProfile = {
   full_name: "Khách hàng ViVuGo",
@@ -563,7 +564,9 @@ function CustomerPage() {
         reviewNotifications={reviewNotifications}
         reviewNotificationCount={reviewNotifications.length}
       />
-      {content}
+      <Suspense fallback={<main className="vg-container" style={{ minHeight: "45vh", paddingTop: 48 }}>Đang tải nội dung...</main>}>
+        {content}
+      </Suspense>
       <Footer />
       {showScrollTop ? (
         <button
@@ -577,10 +580,12 @@ function CustomerPage() {
         </button>
       ) : null}
       {canRenderChat ? (
-        <ChatBox
-          key={chatUserId ? `user-${chatUserId}` : "guest"}
-          userId={chatUserId}
-        />
+        <Suspense fallback={null}>
+          <ChatBox
+            key={chatUserId ? `user-${chatUserId}` : "guest"}
+            userId={chatUserId}
+          />
+        </Suspense>
       ) : null}
     </div>
   );

@@ -14,6 +14,7 @@ class TourDeparture extends Model
     protected $fillable = [
         'tour_id',
         'departure_date',
+        'departure_at',
         'return_date',
         'departure_location',
         'price',
@@ -22,6 +23,7 @@ class TourDeparture extends Model
         'total_slots',
         'booked_slots',
         'status',
+        'cancellation_reason',
         'current_stage_id',
     ];
 
@@ -30,6 +32,7 @@ class TourDeparture extends Model
      */
     protected $casts = [
         'departure_date' => 'date',
+        'departure_at' => 'datetime',
         'return_date' => 'date',
         'price' => 'decimal:2',
         'base_price' => 'decimal:2',
@@ -101,5 +104,10 @@ class TourDeparture extends Model
             TourGuideAssignment::class,
             'tour_departure_id'
         );
+    }
+
+    public function statusHistories(): HasMany
+    {
+        return $this->hasMany(TourDepartureStatusHistory::class);
     }
 }

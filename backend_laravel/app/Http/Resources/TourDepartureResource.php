@@ -28,6 +28,7 @@ class TourDepartureResource extends JsonResource
             'id' => $this->id,
             'tour_id' => $this->tour_id,
             'departure_date' => $this->departure_date?->toDateString(),
+            'departure_at' => $this->departure_at?->toIso8601String(),
             'return_date' => $this->return_date?->toDateString(),
             'departure_location' => $this->departure_location,
             'base_price' => $basePrice,

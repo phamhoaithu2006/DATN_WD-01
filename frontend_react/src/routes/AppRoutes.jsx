@@ -3,81 +3,68 @@ import {
   Route,
   Routes,
 } from 'react-router-dom'
+import { lazy, Suspense } from 'react'
 
 import ProtectedAdminRoute from '../components/admin/ProtectedAdminRoute'
 
-import AdminLayout from '../layouts/AdminLayout'
-import GuideLayout from '../layouts/GuideLayout'
-import SupportLayout from '../layouts/SupportLayout'
-
-import BookingManagementPage from '../pages/admin/BookingManagementPage'
-import AdminDashboardPage from '../pages/admin/AdminDashboardPage'
-import GuideManagementPage from '../pages/admin/GuideManagementPage'
-import GuideTrashPage from '../pages/admin/GuideTrashPage'
-import SupportStaffManagementPage from '../pages/admin/SupportStaffManagementPage'
-import SupportStaffTrashPage from '../pages/admin/SupportStaffTrashPage'
-import UserManagementPage from '../pages/admin/UserManagementPage'
-
-import TourTypeCreatePage from '../pages/admin/categories/TourTypeCreatePage'
-import TourTypeEditPage from '../pages/admin/categories/TourTypeEditPage'
-import TourTypeListPage from '../pages/admin/categories/TourTypeListPage'
-import TourTypeTrashPage from '../pages/admin/categories/TourTypeTrashPage'
-
-import DestinationCreatePage from '../pages/admin/destinations/DestinationCreatePage'
-import DestinationEditPage from '../pages/admin/destinations/DestinationEditPage'
-import DestinationListPage from '../pages/admin/destinations/DestinationListPage'
-import DestinationTrashPage from '../pages/admin/destinations/DestinationTrashPage'
-
-import BackupSettingsPage from '../pages/admin/settings/BackupSettingsPage'
-import LocaleSettingsPage from '../pages/admin/settings/LocaleSettingsPage'
-import NotificationSettingsPage from '../pages/admin/settings/NotificationSettingsPage'
-import PaymentSettingsPage from '../pages/admin/settings/PaymentSettingsPage'
-import SecuritySettingsPage from '../pages/admin/settings/SecuritySettingsPage'
-import SettingsHomePage from '../pages/admin/settings/SettingsHomePage'
-import SystemSettingsPage from '../pages/admin/settings/SystemSettingsPage'
-
-import TourCreatePage from '../pages/admin/tours/TourCreatePage'
-import TourEditPage from '../pages/admin/tours/TourEditPage'
-import TourHiddenPage from '../pages/admin/tours/TourHiddenPage'
-import TourListPage from '../pages/admin/tours/TourListPage'
-import TourDetailPage from '../pages/admin/tours/TourDetailPage'
-
-import ReportStatisticsPage from '../pages/admin/reportStatistics/ReportStatisticsPage'
-
-import TourDepartureListPage from '../pages/admin/tourDepartures/TourDepartureListPage'
-import TourDepartureCreatePage from '../pages/admin/tourDepartures/TourDepartureCreatePage'
-import TourDepartureEditPage from '../pages/admin/tourDepartures/TourDepartureEditPage'
-
-import AdminNotificationsPage from '../pages/admin/Notifications/AdminNotificationsPage'
-import AdminReceivedNotificationsPage from '../pages/admin/AdminReceivedNotificationsPage'
-
-import LanguageManagementPage from '../pages/admin/language/LanguageManagementPage'
-import CertificateManagementPage from '../pages/admin/certificate/CertificateManagementPage'
-
-import AuthPage from '../pages/auth/AuthPage'
-import ForgotPasswordPage from '../pages/auth/ForgotPasswordPage'
-
-import CustomerPage from '../pages/customer/CustomerPage'
-import VnpayPaymentResultPage from '../pages/customer/VnpayPaymentResultPage'
-
-import GuideAttendancePage from '../pages/guide/GuideAttendancePage'
-import GuideDashboardPage from '../pages/guide/GuideDashboardPage'
-import GuideHistoryPage from '../pages/guide/GuideHistoryPage'
-import GuideNotificationsPage from '../pages/guide/GuideNotificationsPage'
-import GuideProfilePage from '../pages/guide/GuideProfilePage'
-import GuideToursPage from '../pages/guide/GuideToursPage'
-import GuideReviewsPage from '../pages/guide/GuideReviews/GuideReviewsPage'
-
-import SupportDashboardPage from '../pages/support/SupportDashboardPage'
-import SupportChatbotPage from '../pages/support/SupportChatbotPage'
-import SupportProfilePage from '../pages/support/SupportProfilePage'
-import SupportNotificationsPage from '../pages/support/SupportNotificationsPage'
-import SupportRequestsPage from '../pages/support/SupportRequestsPage'
-import SupportWorkSchedulePage from '../pages/support/SupportWorkSchedulePage'
-
-import ReviewManagement from '../pages/admin/ReviewManagement'
- import HiddenTourReviews from '../pages/admin/HiddenTourReviews'
- import TourReviewDetailManagement from '../pages/admin/TourReviewDetailManagement'
+const AdminLayout = lazy(() => import('../layouts/AdminLayout'))
+const GuideLayout = lazy(() => import('../layouts/GuideLayout'))
+const SupportLayout = lazy(() => import('../layouts/SupportLayout'))
+const BookingManagementPage = lazy(() => import('../pages/admin/BookingManagementPage'))
+const AdminDashboardPage = lazy(() => import('../pages/admin/AdminDashboardPage'))
+const GuideManagementPage = lazy(() => import('../pages/admin/GuideManagementPage'))
+const GuideTrashPage = lazy(() => import('../pages/admin/GuideTrashPage'))
+const SupportStaffManagementPage = lazy(() => import('../pages/admin/SupportStaffManagementPage'))
+const SupportStaffTrashPage = lazy(() => import('../pages/admin/SupportStaffTrashPage'))
+const UserManagementPage = lazy(() => import('../pages/admin/UserManagementPage'))
+const TourTypeCreatePage = lazy(() => import('../pages/admin/categories/TourTypeCreatePage'))
+const TourTypeEditPage = lazy(() => import('../pages/admin/categories/TourTypeEditPage'))
+const TourTypeListPage = lazy(() => import('../pages/admin/categories/TourTypeListPage'))
+const TourTypeTrashPage = lazy(() => import('../pages/admin/categories/TourTypeTrashPage'))
+const DestinationCreatePage = lazy(() => import('../pages/admin/destinations/DestinationCreatePage'))
+const DestinationEditPage = lazy(() => import('../pages/admin/destinations/DestinationEditPage'))
+const DestinationListPage = lazy(() => import('../pages/admin/destinations/DestinationListPage'))
+const DestinationTrashPage = lazy(() => import('../pages/admin/destinations/DestinationTrashPage'))
+const BackupSettingsPage = lazy(() => import('../pages/admin/settings/BackupSettingsPage'))
+const LocaleSettingsPage = lazy(() => import('../pages/admin/settings/LocaleSettingsPage'))
+const NotificationSettingsPage = lazy(() => import('../pages/admin/settings/NotificationSettingsPage'))
+const PaymentSettingsPage = lazy(() => import('../pages/admin/settings/PaymentSettingsPage'))
+const SecuritySettingsPage = lazy(() => import('../pages/admin/settings/SecuritySettingsPage'))
+const SettingsHomePage = lazy(() => import('../pages/admin/settings/SettingsHomePage'))
+const SystemSettingsPage = lazy(() => import('../pages/admin/settings/SystemSettingsPage'))
+const TourCreatePage = lazy(() => import('../pages/admin/tours/TourCreatePage'))
+const TourEditPage = lazy(() => import('../pages/admin/tours/TourEditPage'))
+const TourHiddenPage = lazy(() => import('../pages/admin/tours/TourHiddenPage'))
+const TourListPage = lazy(() => import('../pages/admin/tours/TourListPage'))
+const TourDetailPage = lazy(() => import('../pages/admin/tours/TourDetailPage'))
+const ReportStatisticsPage = lazy(() => import('../pages/admin/reportStatistics/ReportStatisticsPage'))
+const TourDepartureListPage = lazy(() => import('../pages/admin/tourDepartures/TourDepartureListPage'))
+const TourDepartureCreatePage = lazy(() => import('../pages/admin/tourDepartures/TourDepartureCreatePage'))
+const TourDepartureEditPage = lazy(() => import('../pages/admin/tourDepartures/TourDepartureEditPage'))
+const AdminNotificationsPage = lazy(() => import('../pages/admin/Notifications/AdminNotificationsPage'))
+const AdminReceivedNotificationsPage = lazy(() => import('../pages/admin/AdminReceivedNotificationsPage'))
+const LanguageManagementPage = lazy(() => import('../pages/admin/language/LanguageManagementPage'))
+const CertificateManagementPage = lazy(() => import('../pages/admin/certificate/CertificateManagementPage'))
+const AuthPage = lazy(() => import('../pages/auth/AuthPage'))
+const ForgotPasswordPage = lazy(() => import('../pages/auth/ForgotPasswordPage'))
+const CustomerPage = lazy(() => import('../pages/customer/CustomerPage'))
+const VnpayPaymentResultPage = lazy(() => import('../pages/customer/VnpayPaymentResultPage'))
+const GuideAttendancePage = lazy(() => import('../pages/guide/GuideAttendancePage'))
+const GuideDashboardPage = lazy(() => import('../pages/guide/GuideDashboardPage'))
+const GuideHistoryPage = lazy(() => import('../pages/guide/GuideHistoryPage'))
+const GuideNotificationsPage = lazy(() => import('../pages/guide/GuideNotificationsPage'))
+const GuideProfilePage = lazy(() => import('../pages/guide/GuideProfilePage'))
+const GuideToursPage = lazy(() => import('../pages/guide/GuideToursPage'))
+const GuideReviewsPage = lazy(() => import('../pages/guide/GuideReviews/GuideReviewsPage'))
+const SupportDashboardPage = lazy(() => import('../pages/support/SupportDashboardPage'))
+const SupportChatbotPage = lazy(() => import('../pages/support/SupportChatbotPage'))
+const SupportProfilePage = lazy(() => import('../pages/support/SupportProfilePage'))
+const SupportNotificationsPage = lazy(() => import('../pages/support/SupportNotificationsPage'))
+const SupportRequestsPage = lazy(() => import('../pages/support/SupportRequestsPage'))
+const SupportWorkSchedulePage = lazy(() => import('../pages/support/SupportWorkSchedulePage'))
+const ReviewManagement = lazy(() => import('../pages/admin/ReviewManagement'))
+const HiddenTourReviews = lazy(() => import('../pages/admin/HiddenTourReviews'))
+const TourReviewDetailManagement = lazy(() => import('../pages/admin/TourReviewDetailManagement'))
 
 const protect = (
   page,
@@ -126,6 +113,7 @@ function GuideComingSoonPage({
 
 function AppRoutes() {
   return (
+    <Suspense fallback={<div className="app-route-loading" role="status">Đang tải trang...</div>}>
     <Routes>
       {/* ================= KHÁCH HÀNG ================= */}
 
@@ -715,6 +703,7 @@ function AppRoutes() {
         }
       />
     </Routes>
+    </Suspense>
   )
 }
 

@@ -142,11 +142,6 @@ const iconPaths = {
       <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
     </>
   ),
-  maximize: (
-    <>
-      <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
-    </>
-  ),
   alertCircle: (
     <>
       <circle cx="12" cy="12" r="9" />

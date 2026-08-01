@@ -4,12 +4,14 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\TourDepartureResource;
+use App\Jobs\DeliverTourFinalizationOutbox;
 use App\Models\Booking;
 use App\Models\Tour;
 use App\Models\TourDeparture;
 use App\Services\AdminNotificationService;
 use App\Services\TourDepartureChangeNotificationService;
 use App\Services\TourDepartureMutationGuard;
+use App\TourFinalizationService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -18,6 +20,17 @@ use Illuminate\Validation\ValidationException;
 
 class TourDepartureController extends Controller
 {
+    public function cancelConfirmed(Request $request, int $id, TourFinalizationService $finalizer)
+    {
+        $data = $request->validate([
+            'cancellation_reason' => ['required', 'in:insufficient_participants,weather_disaster,other'],
+        ]);
+        $outbox = $finalizer->cancelConfirmed(TourDeparture::findOrFail($id), $data['cancellation_reason'], $request->user()->id);
+        DeliverTourFinalizationOutbox::dispatch($outbox->id);
+
+        return response()->json(['status' => 'success', 'data' => $outbox->departure()->first()]);
+    }
+
     /**
      * GET /api/admin/tours/{tourId}/departures
      */
@@ -143,6 +156,7 @@ class TourDepartureController extends Controller
                 'date',
                 'after_or_equal:today',
             ],
+            'departure_at' => ['nullable', 'date'],
             'departure_location' => [
                 'nullable',
                 'string',
@@ -179,6 +193,8 @@ class TourDepartureController extends Controller
             $tour,
             $validatedData['departure_date']
         );
+        $validatedData['departure_at'] = $validatedData['departure_at']
+            ?? Carbon::parse($validatedData['departure_date'])->startOfDay();
 
         $validatedData['booked_slots'] = 0;
 
@@ -217,6 +233,7 @@ class TourDepartureController extends Controller
                 'date',
                 'after_or_equal:today',
             ],
+            'departure_at' => ['sometimes', 'nullable', 'date'],
             'departure_location' => [
                 'nullable',
                 'string',
@@ -275,6 +292,7 @@ class TourDepartureController extends Controller
 
         $trackedFields = [
             'departure_date',
+            'departure_at',
             'return_date',
             'departure_location',
             'base_price',
@@ -300,6 +318,10 @@ class TourDepartureController extends Controller
                 $tourDeparture->tour,
                 $payload['departure_date']
             );
+
+            if (! array_key_exists('departure_at', $payload)) {
+                $payload['departure_at'] = Carbon::parse($payload['departure_date'])->startOfDay();
+            }
         }
 
         $this->normalizeUpdatedPrices(
