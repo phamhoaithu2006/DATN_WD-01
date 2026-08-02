@@ -285,7 +285,7 @@ function CancelBookingModal({ booking, onClose, onCancelled }) {
   );
 }
 
-function BookingContactEditModal({ booking, onClose, onUpdated }) {
+function BookingContactEditModal({ booking, onClose, onUpdated, readOnly = false }) {
   const contact = booking?.contact || {};
   const [form, setForm] = useState({
     contact_name: contact.contact_name || "",
@@ -306,6 +306,8 @@ function BookingContactEditModal({ booking, onClose, onUpdated }) {
 
   async function handleSubmit(event) {
     event.preventDefault();
+
+    if (readOnly) return;
 
     if (!form.contact_name.trim() || !form.contact_phone.trim()) {
       setError("Vui lòng nhập đầy đủ họ tên và số điện thoại liên hệ.");
@@ -331,18 +333,24 @@ function BookingContactEditModal({ booking, onClose, onUpdated }) {
     <div className="vg-ticket-modal-overlay" onClick={() => !submitting && onClose?.()}>
       <div className="vg-simple-modal" onClick={(e) => e.stopPropagation()}>
         <header className="vg-simple-modal-header">
-          <h2>Sửa thông tin liên hệ</h2>
+          <h2>{readOnly ? "Thông tin liên hệ" : "Sửa thông tin liên hệ"}</h2>
           <button type="button" onClick={onClose} disabled={submitting} aria-label="Đóng">
             <Icon name="close" size={18} />
           </button>
         </header>
         <form onSubmit={handleSubmit} className="vg-simple-modal-body">
+          {readOnly ? (
+            <p className="vg-simple-modal-hint">
+              Tour đang diễn ra nên không thể chỉnh sửa thông tin liên hệ. Bạn chỉ có thể xem lại thông tin bên dưới.
+            </p>
+          ) : null}
           <label>
             Họ và tên người liên hệ
             <input
               type="text"
               value={form.contact_name}
               onChange={(event) => updateField("contact_name", event.target.value)}
+              disabled={readOnly}
             />
           </label>
           <label>
@@ -351,6 +359,7 @@ function BookingContactEditModal({ booking, onClose, onUpdated }) {
               type="tel"
               value={form.contact_phone}
               onChange={(event) => updateField("contact_phone", event.target.value)}
+              disabled={readOnly}
             />
           </label>
           <label>
@@ -359,6 +368,7 @@ function BookingContactEditModal({ booking, onClose, onUpdated }) {
               type="email"
               value={form.contact_email}
               onChange={(event) => updateField("contact_email", event.target.value)}
+              disabled={readOnly}
             />
           </label>
           <label>
@@ -367,6 +377,7 @@ function BookingContactEditModal({ booking, onClose, onUpdated }) {
               type="text"
               value={form.address}
               onChange={(event) => updateField("address", event.target.value)}
+              disabled={readOnly}
             />
           </label>
           <label>
@@ -375,6 +386,7 @@ function BookingContactEditModal({ booking, onClose, onUpdated }) {
               rows={3}
               value={form.special_request}
               onChange={(event) => updateField("special_request", event.target.value)}
+              disabled={readOnly}
             />
           </label>
           {error ? <p className="vg-booking-action-error">{error}</p> : null}
@@ -382,9 +394,11 @@ function BookingContactEditModal({ booking, onClose, onUpdated }) {
             <button type="button" onClick={onClose} disabled={submitting} className="is-ghost">
               Đóng
             </button>
-            <button type="submit" disabled={submitting} className="is-primary">
-              {submitting ? "Đang lưu..." : "Lưu thay đổi"}
-            </button>
+            {readOnly ? null : (
+              <button type="submit" disabled={submitting} className="is-primary">
+                {submitting ? "Đang lưu..." : "Lưu thay đổi"}
+              </button>
+            )}
           </div>
         </form>
       </div>
@@ -398,7 +412,7 @@ const GENDER_OPTIONS = [
   { value: "other", label: "Khác" },
 ];
 
-function ParticipantsEditModal({ booking, onClose, onUpdated }) {
+function ParticipantsEditModal({ booking, onClose, onUpdated, readOnly = false }) {
   const [rows, setRows] = useState(() =>
     (booking?.participants || []).map((p) => ({
       id: p.id,
@@ -424,6 +438,8 @@ function ParticipantsEditModal({ booking, onClose, onUpdated }) {
 
   async function handleSubmit(event) {
     event.preventDefault();
+
+    if (readOnly) return;
 
     if (rows.some((row) => !row.full_name.trim())) {
       setError("Vui lòng nhập đầy đủ họ tên cho tất cả hành khách.");
@@ -457,14 +473,16 @@ function ParticipantsEditModal({ booking, onClose, onUpdated }) {
     <div className="vg-ticket-modal-overlay" onClick={() => !submitting && onClose?.()}>
       <div className="vg-simple-modal" onClick={(e) => e.stopPropagation()}>
         <header className="vg-simple-modal-header">
-          <h2>Sửa thông tin hành khách ({rows.length} khách)</h2>
+          <h2>{readOnly ? `Thông tin hành khách (${rows.length} khách)` : `Sửa thông tin hành khách (${rows.length} khách)`}</h2>
           <button type="button" onClick={onClose} disabled={submitting} aria-label="Đóng">
             <Icon name="close" size={18} />
           </button>
         </header>
         <form onSubmit={handleSubmit} className="vg-simple-modal-body">
           <p className="vg-simple-modal-hint">
-            Không thể sửa ngày sinh vì ảnh hưởng đến giá vé. Nếu cần đổi ngày sinh, vui lòng liên hệ hỗ trợ.
+            {readOnly
+              ? "Tour đang diễn ra nên không thể chỉnh sửa thông tin hành khách. Bạn chỉ có thể xem lại thông tin bên dưới."
+              : "Không thể sửa ngày sinh vì ảnh hưởng đến giá vé. Nếu cần đổi ngày sinh, vui lòng liên hệ hỗ trợ."}
           </p>
 
           <div className="vg-participant-edit-list">
@@ -481,6 +499,7 @@ function ParticipantsEditModal({ booking, onClose, onUpdated }) {
                     type="text"
                     value={row.full_name}
                     onChange={(event) => updateRow(index, "full_name", event.target.value)}
+                    disabled={readOnly}
                   />
                 </label>
 
@@ -491,6 +510,7 @@ function ParticipantsEditModal({ booking, onClose, onUpdated }) {
                       type="tel"
                       value={row.phone}
                       onChange={(event) => updateRow(index, "phone", event.target.value)}
+                      disabled={readOnly}
                     />
                   </label>
 
@@ -499,6 +519,7 @@ function ParticipantsEditModal({ booking, onClose, onUpdated }) {
                     <select
                       value={row.gender}
                       onChange={(event) => updateRow(index, "gender", event.target.value)}
+                      disabled={readOnly}
                     >
                       <option value="">-- Chọn --</option>
                       {GENDER_OPTIONS.map((option) => (
@@ -516,6 +537,7 @@ function ParticipantsEditModal({ booking, onClose, onUpdated }) {
                     type="text"
                     value={row.identity_number}
                     onChange={(event) => updateRow(index, "identity_number", event.target.value)}
+                    disabled={readOnly}
                   />
                 </label>
               </div>
@@ -528,9 +550,11 @@ function ParticipantsEditModal({ booking, onClose, onUpdated }) {
             <button type="button" onClick={onClose} disabled={submitting} className="is-ghost">
               Đóng
             </button>
-            <button type="submit" disabled={submitting} className="is-primary">
-              {submitting ? "Đang lưu..." : "Lưu thay đổi"}
-            </button>
+            {readOnly ? null : (
+              <button type="submit" disabled={submitting} className="is-primary">
+                {submitting ? "Đang lưu..." : "Lưu thay đổi"}
+              </button>
+            )}
           </div>
         </form>
       </div>
@@ -1048,6 +1072,19 @@ function ProfileDashboard({
     }));
   };
 
+  // Cập nhật ngay state `bookings` (qua onBookingUpdated) với đánh giá tour vừa lưu,
+  // để mở lại modal là thấy dữ liệu mới mà không cần tải lại trang.
+  const handleTourReviewSaved = (savedReview) => {
+    if (!activeTourReview?.booking) return;
+
+    const updatedBooking = {
+      ...activeTourReview.booking,
+      tour_review: savedReview,
+    };
+
+    onBookingUpdated?.(updatedBooking);
+  };
+
   return (
     <main className="vg-profile-page">
       <section className="vg-profile-hero">
@@ -1215,9 +1252,15 @@ function ProfileDashboard({
                   const isPendingPayment = canPayBooking(booking);
                   const cancellationLimitReached = Number(booking.customer_cancellation_count || 0)
                     >= Number(booking.customer_cancellation_limit || 2);
-                  // Chỉ những đơn đang chờ/đã xác nhận (chưa khởi hành, chưa hoàn thành, chưa hủy)
-                  // mới cho phép khách tự sửa thông tin hoặc gửi yêu cầu xử lý sự cố.
-                  const canManageBooking = ["pending", "confirmed"].includes(booking.status);
+                  const bookingTripState = getBookingTripState(booking);
+                  // Tour đang diễn ra (đã khởi hành, chưa kết thúc): khách chỉ được XEM
+                  // thông tin liên hệ/hành khách, không được sửa, không được yêu cầu xử lý
+                  // mưa bão hay hủy đơn nữa.
+                  const isOngoingTrip = bookingTripState === "ongoing";
+                  // Chỉ đơn "sắp diễn ra" (chưa khởi hành, đã xác nhận, chưa hết hạn) mới cho
+                  // phép khách tự sửa thông tin, gửi yêu cầu xử lý mưa bão hoặc hủy đơn.
+                  // Đơn đã hết hạn / đã hủy / đã hoàn thành / đang diễn ra đều không hiện các nút này.
+                  const canManageBooking = bookingTripState === "upcoming";
                   const tourImage = booking.tour?.thumbnail_url || booking.tour?.image || booking.tour?.thumbnail?.image_url || "";
                   const departureDate = booking.tour_departure?.departure_date ? formatDate(booking.tour_departure.departure_date) : null;
                   const returnDate = booking.tour_departure?.return_date ? formatDate(booking.tour_departure.return_date) : null;
@@ -1244,7 +1287,6 @@ function ProfileDashboard({
                       && list.findIndex((candidate) => Number(candidate?.id) === Number(guide.id)) === index
                     ));
 
-                  const bookingTripState = getBookingTripState(booking);
                   const canReviewBooking = bookingTripState === "completed";
                   const guideForReview = reviewableGuides.find((guide) => !guide.reviewed)
                     || reviewableGuides[0]
@@ -1416,7 +1458,7 @@ function ProfileDashboard({
                             </div>
                           ) : (
                             <div className="vg-booking-actions-group">
-                              {booking.status !== "cancelled" && (
+                              {booking.status !== "cancelled" && bookingTripState !== "expired" && (
                                 <button
                                   type="button"
                                   className="vg-btn-ticket"
@@ -1463,6 +1505,30 @@ function ProfileDashboard({
                                   >
                                     Hủy đơn
                                   </button>
+                                </>
+                              ) : null}
+
+                              {/* Tour đang diễn ra: chỉ cho xem lại thông tin liên hệ/hành khách,
+                                  không cho sửa, không hiện nút xử lý mưa bão hay hủy đơn. */}
+                              {isOngoingTrip ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    className="vg-btn-secondary"
+                                    onClick={() => setContactEditBooking({ ...booking, __viewOnly: true })}
+                                  >
+                                    <Icon name="edit" size={14} /> Xem thông tin liên hệ
+                                  </button>
+
+                                  {Array.isArray(booking.participants) && booking.participants.length > 0 ? (
+                                    <button
+                                      type="button"
+                                      className="vg-btn-secondary"
+                                      onClick={() => setParticipantsEditBooking({ ...booking, __viewOnly: true })}
+                                    >
+                                      <Icon name="users" size={14} /> Xem thông tin hành khách
+                                    </button>
+                                  ) : null}
                                 </>
                               ) : null}
                             </div>
@@ -1577,7 +1643,10 @@ function ProfileDashboard({
         key={activeTourReview ? `tour-${activeTourReview.bookingId}` : "tour-review-closed"}
         target={activeTourReview}
         onClose={() => setActiveTourReview(null)}
-        onSubmitted={() => setActiveTourReview(null)}
+        onSubmitted={(savedReview) => {
+          handleTourReviewSaved(savedReview);
+          setActiveTourReview(null);
+        }}
       />
 
       {cancelTargetBooking ? (
@@ -1593,6 +1662,7 @@ function ProfileDashboard({
           booking={contactEditBooking}
           onClose={() => setContactEditBooking(null)}
           onUpdated={handleContactUpdated}
+          readOnly={contactEditBooking.__viewOnly === true}
         />
       ) : null}
 
@@ -1601,6 +1671,7 @@ function ProfileDashboard({
           booking={participantsEditBooking}
           onClose={() => setParticipantsEditBooking(null)}
           onUpdated={handleParticipantsUpdated}
+          readOnly={participantsEditBooking.__viewOnly === true}
         />
       ) : null}
 
