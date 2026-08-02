@@ -10,7 +10,6 @@ import Header from "../../components/customer/Header";
 import {
   addWishlist,
   fetchBookings,
-  fetchGuideReviewableBookings,
   fetchHomeContent,
   fetchProfileSummary,
   fetchTours,
@@ -95,6 +94,15 @@ function CustomerPage() {
     ...readSession(),
   }));
 
+  // CustomerPage là vỏ chung của mọi trang khách hàng: chỉ yêu cầu dữ liệu
+  // đúng với route hiện tại, không tải trước toàn bộ dữ liệu tài khoản.
+  const route = location.pathname;
+  const isHomeRoute = route === "/";
+  const isTourListRoute = ["/tours", "/deals", "/customer/search"].includes(route);
+  const isTourDetailRoute = /^\/tours\/[^/]+$/.test(route);
+  const isAccountRoute = ["/customer/profile", "/customer/bookings", "/customer/favorites", "/customer/settings", "/customer/profile/edit", "/customer/password"].includes(route);
+  const isSupportRoute = route === "/customer/support" || (route === "/customer/profile" && new URLSearchParams(location.search).get("view") === "support");
+
   const normalizedTours = useMemo(
     () => tours.map(normalizeTour),
     [tours],
@@ -160,6 +168,7 @@ function CustomerPage() {
   }, []);
 
   useEffect(() => {
+    if (!isHomeRoute) return undefined;
     let active = true;
 
     async function loadHomeContent() {
@@ -198,16 +207,14 @@ function CustomerPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [isHomeRoute]);
 
   useEffect(() => {
     let active = true;
 
     // Các trang danh sách tour tự fetch với bộ lọc nâng cao (ToursPage);
     // tránh gọi API trùng lặp ở đây.
-    const selfFetchingRoutes = ["/tours", "/deals", "/customer/search"];
-
-    if (selfFetchingRoutes.includes(location.pathname)) {
+    if (!isHomeRoute || isTourListRoute || isTourDetailRoute) {
       return undefined;
     }
 
@@ -281,33 +288,17 @@ function CustomerPage() {
     return () => {
       active = false;
     };
-  }, [location.pathname, location.search]);
+  }, [isHomeRoute, isTourDetailRoute, isTourListRoute, location.search]);
 
   useEffect(() => {
-    if (!token) return undefined;
+    if (!token || !(isAccountRoute || isSupportRoute)) return undefined;
 
     let active = true;
-    setFavoritesLoaded(false);
-    setBookingsLoaded(false);
-
-    Promise.all([
-      fetchWishlist(),
-      fetchProfileSummary(),
-      fetchBookings(),
-    ])
-      .then(([wishlist, account, accountBookings]) => {
+    fetchProfileSummary()
+      .then((account) => {
         if (!active) return;
 
-        setFavorites(
-          (wishlist || [])
-            .map((item) => item.tour_id || item.tour?.id || item.id)
-            .filter(Boolean),
-        );
-        setFavoritesLoaded(true);
-
         setSummary(account || {});
-        setBookings(accountBookings || []);
-        setBookingsLoaded(true);
 
         setProfile((current) => ({
           ...current,
@@ -320,19 +311,16 @@ function CustomerPage() {
         }));
       })
       .catch(() => {
-        if (active) {
-          setFavoritesLoaded(true);
-          setBookingsLoaded(true);
-        }
+        // Dùng dữ liệu phiên cục bộ nếu API hồ sơ tạm thời lỗi.
       });
 
     return () => {
       active = false;
     };
-  }, [token]);
+  }, [isAccountRoute, isSupportRoute, token]);
 
   useEffect(() => {
-    if (!token || location.pathname !== "/customer/bookings") return undefined;
+    if (!token || route !== "/customer/bookings") return undefined;
 
     let active = true;
     setBookingsLoaded(false);
@@ -351,10 +339,10 @@ function CustomerPage() {
     return () => {
       active = false;
     };
-  }, [location.pathname, token]);
+  }, [route, token]);
 
   useEffect(() => {
-    if (!token) {
+    if (!token || route !== "/customer/bookings") {
       setReviewNotifications([]);
       return undefined;
     }
@@ -363,7 +351,9 @@ function CustomerPage() {
 
     async function loadReviewNotifications() {
       try {
-        const items = await fetchGuideReviewableBookings();
+        // Đánh giá được tải tại ProfileDashboard khi người dùng mở mục
+        // "Chuyến đi"; không gọi API nền từ vỏ trang chung.
+        const items = [];
 
         if (active) {
           setReviewNotifications(Array.isArray(items) ? items : []);
@@ -387,7 +377,25 @@ function CustomerPage() {
       active = false;
       window.clearInterval(timer);
     };
-  }, [token, location.pathname]);
+  }, [route, token]);
+
+  useEffect(() => {
+    const needsFavorites = token && (isHomeRoute || isTourListRoute || isTourDetailRoute || route === "/customer/favorites");
+    if (!needsFavorites) return undefined;
+
+    let active = true;
+    setFavoritesLoaded(false);
+    fetchWishlist()
+      .then((wishlist) => {
+        if (active) setFavorites((wishlist || []).map((item) => item.tour_id || item.tour?.id || item.id).filter(Boolean));
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (active) setFavoritesLoaded(true);
+      });
+
+    return () => { active = false; };
+  }, [isHomeRoute, isTourDetailRoute, isTourListRoute, route, token]);
 
   function updateBooking(updatedBooking) {
     const cancellationCount = updatedBooking.customer_cancellation_count;
@@ -452,7 +460,6 @@ function CustomerPage() {
     favorites.includes(tour.id),
   );
 
-  const route = location.pathname;
   const chatUserId = token && user?.id ? user.id : null;
   const canRenderChat = !token || chatUserId;
   const pageParams = new URLSearchParams(location.search);

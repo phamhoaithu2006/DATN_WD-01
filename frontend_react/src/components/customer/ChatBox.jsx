@@ -138,6 +138,8 @@ function ChatBox({ userId = null }) {
   // Lịch sử luôn lấy từ server theo identity hiện tại. Không render cache của
   // identity trước trong lúc đổi tài khoản.
   useEffect(() => {
+    if (!open) return undefined;
+
     let active = true;
     const sessionId = getOrCreateChatSessionId(userId);
 
@@ -175,7 +177,7 @@ function ChatBox({ userId = null }) {
     return () => {
       active = false;
     };
-  }, [userId]);
+  }, [open, userId]);
 
   useEffect(() => {
     function handleCustomOpen() {
