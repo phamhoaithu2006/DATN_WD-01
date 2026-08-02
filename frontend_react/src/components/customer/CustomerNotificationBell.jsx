@@ -9,6 +9,7 @@ import {
   markCustomerNotificationAsRead,
 } from '../../services/customerReviewApi'
 import GuideReviewModal from './GuideReviewModal'
+import LoadingState from '../common/LoadingState'
 
 function BellIcon() {
   return (
@@ -398,9 +399,7 @@ export default function CustomerNotificationBell() {
 
           <div className="max-h-[430px] overflow-y-auto">
             {loading ? (
-              <div className="px-5 py-10 text-center text-sm text-slate-500">
-                Đang tải thông báo...
-              </div>
+              <div className="p-4"><LoadingState compact label="Đang tải thông báo..." /></div>
             ) : latestNotifications.length === 0 ? (
               <div className="px-5 py-10 text-center text-sm text-slate-500">
                 Bạn chưa có thông báo nào.

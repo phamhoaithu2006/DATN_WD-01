@@ -11,6 +11,7 @@ import {
 import { getTourReviews } from "../../services/customerReviewApi";
 import { readSession, readToken } from "../../services/authStorage";
 import Icon from "../../components/customer/Icon";
+import LoadingState from "../../components/common/LoadingState";
 import { mediaUrl } from "../../utils/mediaUrl";
 
 function normalizeTourDetail(tour, fallback = {}) {
@@ -322,8 +323,8 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
 
   if (!tour && detailLoading) {
     return (
-      <div className="vg-container" style={{ padding: "120px 20px", textAlign: "center" }}>
-        <h2>Đang tải chi tiết tour...</h2>
+      <div className="vg-container" style={{ padding: "80px 20px" }}>
+        <LoadingState label="Đang tải chi tiết tour..." />
       </div>
     );
   }
@@ -1724,7 +1725,7 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
               {reviewsLoading ? (
                 <div className="vg-review-item">
                   <div className="review-main">
-                    <p className="review-text">Đang tải đánh giá...</p>
+                    <LoadingState compact label="Đang tải đánh giá..." />
                   </div>
                 </div>
               ) : reviewsError ? (

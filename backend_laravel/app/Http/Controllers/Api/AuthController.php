@@ -64,8 +64,21 @@ class AuthController extends Controller
         ]);
 
         $user = $this->findUserByIdentifier(trim($request->identifier))?->load('role');
+        $passwordMatches = false;
 
-        if (! $user || ! Hash::check($request->password, $user->password)) {
+        if ($user) {
+            try {
+                $passwordMatches = Hash::check($request->password, $user->password);
+            } catch (Throwable $exception) {
+                // Không để lỗi hash cũ/lỗi dữ liệu lộ ra phía người dùng.
+                Log::warning('Không thể xác thực mật khẩu có định dạng không hợp lệ', [
+                    'user_id' => $user->id,
+                    'exception' => $exception::class,
+                ]);
+            }
+        }
+
+        if (! $user || ! $passwordMatches) {
             return response()->json([
                 'message' => 'Email hoặc SĐT hoặc mật khẩu không đúng',
             ], 401);

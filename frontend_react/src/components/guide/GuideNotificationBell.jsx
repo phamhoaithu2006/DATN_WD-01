@@ -11,6 +11,7 @@ import {
   getGuideNotifications,
   getGuideUnreadNotificationCount,
 } from '../../services/guideNotificationApi'
+import LoadingState from '../common/LoadingState'
 
 const POLL_INTERVAL = 60000
 const CACHE_DURATION = 30000
@@ -349,7 +350,7 @@ function GuideNotificationBell() {
 
           {loading ? (
             <div className="guide-notification-empty">
-              Đang tải thông báo...
+              <LoadingState compact label="Đang tải thông báo..." />
             </div>
           ) : latestNotifications.length > 0 ? (
             <div className="guide-notification-list compact">

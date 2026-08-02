@@ -46,8 +46,9 @@ class TourFinalizationDemoSeeder extends Seeder
             'Tour bị hủy do mưa bão hoặc thời tiết xấu.',
         );
         $this->seedConfirmedDeparture($insufficientTour, now()->addDays(30)->startOfDay(), $customer, $guide);
+        $this->seedDepartedDeparture($weatherTour, now()->startOfDay(), $customer, $guide);
 
-        $this->command?->info('Đã seed 2 lịch đã hủy và 1 lịch đã xác nhận trên các tour có sẵn trong Quản lý tour.');
+        $this->command?->info('Đã seed 2 lịch đã hủy, 1 lịch đã xác nhận và 1 lịch đang khởi hành trên các tour có sẵn trong Quản lý tour.');
     }
 
     private function seedConfirmedDeparture(Tour $tour, CarbonInterface $departureAt, User $customer, Guide $guide): void
@@ -70,6 +71,42 @@ class TourFinalizationDemoSeeder extends Seeder
         $booking->participants()->createMany(collect(range(1, 10))->map(fn (int $number) => ['full_name' => "Khách xác nhận {$number}", 'participant_type' => 'adult', 'unit_price' => $booking->unit_price])->all());
         $booking->payment()->create(['payment_method' => 'vnpay', 'amount' => $booking->total_amount, 'transaction_code' => 'SEED-CONFIRMED-10', 'status' => 'success', 'paid_at' => now()]);
         $booking->statusHistories()->create(['old_status' => 'pending', 'new_status' => 'confirmed', 'note' => 'Eligible for tour finalization.']);
+        TourGuideAssignment::query()->updateOrCreate(['guide_id' => $guide->id, 'tour_departure_id' => $departure->id], ['role' => 'lead', 'status' => 'assigned', 'assigned_at' => now()]);
+    }
+
+    private function seedDepartedDeparture(Tour $tour, CarbonInterface $departureAt, User $customer, Guide $guide): void
+    {
+        $this->removeDepartures(DB::table('bookings')->where('booking_code', 'BK-SEED-DEPARTED-10')->pluck('tour_departure_id')->all());
+
+        $departure = TourDeparture::query()->create([
+            'tour_id' => $tour->id,
+            'departure_date' => $departureAt->toDateString(),
+            'departure_at' => $departureAt,
+            'return_date' => $departureAt->copy()->addDays(max((int) $tour->duration_days - 1, 0))->toDateString(),
+            'departure_location' => 'Hà Nội',
+            'price' => $tour->discount_price ?? $tour->base_price,
+            'total_slots' => max((int) $tour->max_slots, 30),
+            'booked_slots' => 10,
+            'status' => 'confirmed',
+        ]);
+        $departure->statusHistories()->create(['old_status' => 'open', 'new_status' => 'confirmed', 'reason' => 'minimum_participants_met']);
+
+        $booking = Booking::query()->create([
+            'booking_code' => 'BK-SEED-DEPARTED-10',
+            'user_id' => $customer->id,
+            'tour_id' => $tour->id,
+            'tour_departure_id' => $departure->id,
+            'number_of_people' => 10,
+            'unit_price' => $tour->discount_price ?? $tour->base_price,
+            'discount_amount' => 0,
+            'total_amount' => ($tour->discount_price ?? $tour->base_price) * 10,
+            'status' => 'departed',
+            'payment_status' => 'paid',
+        ]);
+        $booking->contact()->create(['contact_name' => $customer->full_name, 'contact_email' => $customer->email, 'contact_phone' => $customer->phone]);
+        $booking->participants()->createMany(collect(range(1, 10))->map(fn (int $number) => ['full_name' => "Khách đang khởi hành {$number}", 'participant_type' => 'adult', 'unit_price' => $booking->unit_price])->all());
+        $booking->payment()->create(['payment_method' => 'vnpay', 'amount' => $booking->total_amount, 'transaction_code' => 'SEED-DEPARTED-10', 'status' => 'success', 'paid_at' => now()]);
+        $booking->statusHistories()->create(['old_status' => 'confirmed', 'new_status' => 'departed', 'note' => 'Tour đã đến ngày khởi hành.']);
         TourGuideAssignment::query()->updateOrCreate(['guide_id' => $guide->id, 'tour_departure_id' => $departure->id], ['role' => 'lead', 'status' => 'assigned', 'assigned_at' => now()]);
     }
 
@@ -199,7 +236,7 @@ class TourFinalizationDemoSeeder extends Seeder
     private function removeCancelledFixtures(): void
     {
         $departureIds = DB::table('bookings')
-            ->whereIn('booking_code', ['BK-SEED-CANCEL-INSUFFICIENT', 'BK-SEED-CANCEL-WEATHER', 'BK-SEED-CONFIRMED-10'])
+            ->whereIn('booking_code', ['BK-SEED-CANCEL-INSUFFICIENT', 'BK-SEED-CANCEL-WEATHER', 'BK-SEED-CONFIRMED-10', 'BK-SEED-DEPARTED-10'])
             ->pluck('tour_departure_id');
         $this->removeDepartures($departureIds->all());
     }

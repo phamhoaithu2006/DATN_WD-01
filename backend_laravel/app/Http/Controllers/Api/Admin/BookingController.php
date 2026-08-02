@@ -30,7 +30,7 @@ class BookingController extends Controller
     {
         $request->validate([
             'search' => 'nullable|string|max:100',
-            'status' => ['nullable', Rule::in(['pending', 'confirmed', 'departed', 'completed', 'cancelled', 'cancelled_by_tour'])],
+            'status' => ['nullable', Rule::in(['pending', 'confirmed', 'departed', 'completed', 'cancelled', 'cancelled_by_tour', 'cancelled_all'])],
             'payment_status' => ['nullable', Rule::in(['unpaid', 'paid', 'failed', 'refunded'])],
             'from_date' => 'nullable|date',
             'to_date' => 'nullable|date|after_or_equal:from_date',
@@ -272,9 +272,11 @@ class BookingController extends Controller
             $requestedStatus = $data['status'] ?? null;
 
             if ($lockedBooking->status === 'cancelled_by_tour') {
-                throw ValidationException::withMessages([
-                    'status' => 'Booking bị hủy theo tour không thể chỉnh sửa. Hãy xử lý bằng phương án đổi tour/ngày hoặc hoàn tiền.',
-                ]);
+                if ($requestedStatus === 'pending') {
+                    throw ValidationException::withMessages([
+                        'status' => 'Booking bị hủy theo tour không thể chuyển về Chờ xác nhận.',
+                    ]);
+                }
             }
 
             if (

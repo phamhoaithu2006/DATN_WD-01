@@ -56,6 +56,7 @@ class DeliverTourFinalizationOutbox implements ShouldQueue
             User::query()->whereHas('role', fn ($query) => $query->where('name', 'admin'))->each(function (User $admin) use ($adminMessage, $departure, $outbox): void {
                 $this->notify($admin->id, $outbox->event_type === 'tour_cancelled_insufficient_participants' ? 'Tour đã bị hủy' : 'Tour đã được xác nhận', $adminMessage, [
                     'tour_departure_id' => $departure->id,
+                    'tour_detail_url' => "/admin/tours/departures/{$departure->id}",
                     'booking_list_url' => "/admin/tours/departures/{$departure->id}/bookings",
                 ]);
             });

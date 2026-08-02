@@ -571,7 +571,11 @@ function CustomerPage() {
         reviewNotifications={reviewNotifications}
         reviewNotificationCount={reviewNotifications.length}
       />
-      <Suspense fallback={<main className="vg-container" style={{ minHeight: "45vh", paddingTop: 48 }}>Đang tải nội dung...</main>}>
+      <Suspense fallback={<main className="vg-container customer-content-loading" role="status" aria-live="polite">
+        <div className="customer-content-loading__heading"><i /><i /></div>
+        <div className="customer-content-loading__grid"><i /><i /><i /></div>
+        <span>Đang tải nội dung hành trình...</span>
+      </main>}>
         {content}
       </Suspense>
       <Footer />

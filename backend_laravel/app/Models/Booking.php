@@ -25,6 +25,15 @@ class Booking extends Model
             ->count();
     }
 
+    /** Đếm tổng số booking khách đã tự hủy để áp dụng giới hạn toàn hệ thống. */
+    public static function customerCancellationCountForUser(int $userId): int
+    {
+        return static::query()
+            ->where('user_id', $userId)
+            ->where('status', 'cancelled')
+            ->count();
+    }
+
     protected $fillable = [
         // Định danh
         'booking_code',
@@ -174,7 +183,13 @@ class Booking extends Model
 
     public function scopeFilterStatus($query, $status)
     {
-        return $query->when($status, fn($q) => $q->where('status', $status));
+        return $query->when($status, function ($q) use ($status) {
+            if ($status === 'cancelled_all') {
+                return $q->whereIn('status', ['cancelled', 'cancelled_by_tour']);
+            }
+
+            return $q->where('status', $status);
+        });
     }
 
     public function scopeFilterPaymentStatus($query, $paymentStatus)

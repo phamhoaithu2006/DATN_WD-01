@@ -467,10 +467,15 @@ test('customer booking creation is rate limited after three requests per minute'
             ));
 
         if ($responses[$index - 1]->status() === 201) {
+            $bookingId = $responses[$index - 1]->json('data.id');
             $this->patchJson(
-                "/api/customer/bookings/{$responses[$index - 1]->json('data.id')}/cancel",
+                "/api/customer/bookings/{$bookingId}/cancel",
                 ['reason' => 'Giải phóng đơn để kiểm tra giới hạn request.']
             )->assertOk();
+
+            // Không để thao tác dọn dữ liệu của test chạm giới hạn hủy booking
+            // toàn tài khoản; test này chỉ kiểm tra rate limiter tạo booking.
+            Booking::query()->whereKey($bookingId)->update(['status' => 'cancelled_by_tour']);
         }
     }
 

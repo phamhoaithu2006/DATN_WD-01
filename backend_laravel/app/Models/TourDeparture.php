@@ -45,6 +45,12 @@ class TourDeparture extends Model
     {
         $clearFilterOptionsCache = static fn () => Cache::forget(Tour::FILTER_OPTIONS_CACHE_KEY);
 
+        static::creating(function (self $departure): void {
+            if (! $departure->departure_at && $departure->departure_date) {
+                $departure->departure_at = $departure->departure_date->copy()->startOfDay();
+            }
+        });
+
         static::saved($clearFilterOptionsCache);
         static::deleted($clearFilterOptionsCache);
     }

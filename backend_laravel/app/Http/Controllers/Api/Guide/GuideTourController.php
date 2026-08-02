@@ -187,6 +187,7 @@ class GuideTourController extends Controller
             'upcoming' => 'Sắp đi',
             'completed' => 'Đã đi',
             'cancelled' => 'Đã hủy',
+            'not_finalized' => 'Chưa chốt khởi hành',
             default => 'Không xác định',
         };
         $data['can_take_attendance'] = $guideStatus === 'ongoing';
@@ -323,6 +324,13 @@ class GuideTourController extends Controller
 
         if ($departureDate->gt($today)) {
             return 'upcoming';
+        }
+
+        // Chỉ tour đã chốt đủ khách (CONFIRMED) mới được coi là đang diễn ra.
+        // Không suy trạng thái "đang diễn ra" chỉ dựa vào ngày, vì tour OPEN có thể
+        // chưa được cron chốt và tuyệt đối không được để HDV thao tác.
+        if (! in_array($departure->status, ['confirmed', 'in_progress'], true)) {
+            return 'not_finalized';
         }
 
         if ($departureDate->lte($today) && $returnDate->gte($today)) {
@@ -498,7 +506,7 @@ class GuideTourController extends Controller
                 $q->whereNull('tour_departures.return_date')
                     ->orWhere('tour_departures.return_date', '>=', $today);
             })
-            ->whereNotIn('tour_departures.status', ['completed', 'cancelled', 'canceled']);
+            ->whereIn('tour_departures.status', ['confirmed', 'in_progress']);
 
         $query = $this->applyFilters($query, $request);
         $this->sortForGuide($query, $request);

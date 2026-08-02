@@ -4,6 +4,7 @@ import {
   useState,
 } from "react";
 import CustomerSupportPage from "./CustomerSupportPage";
+import LoadingState from "../../components/common/LoadingState";
 import {
   getMySupportRequestDetail,
   getMySupportRequests,
@@ -225,7 +226,7 @@ function CustomerSupportCenterPage({ profile }) {
           <section className="vg-my-support-requests">
             {loading ? (
               <div className="vg-support-empty">
-                Đang tải yêu cầu hỗ trợ...
+                <LoadingState compact label="Đang tải yêu cầu hỗ trợ..." />
               </div>
             ) : items.length === 0 ? (
               <div className="vg-support-empty">
