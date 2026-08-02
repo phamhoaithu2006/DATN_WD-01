@@ -70,7 +70,7 @@ class GuideReviewController extends Controller
 
         $bookings->setCollection(
             $bookings->getCollection()
-                ->map(fn (Booking $booking): array => $this->mapReviewableBooking($booking, $request))
+                ->map(fn(Booking $booking): array => $this->mapReviewableBooking($booking, $request))
         );
 
         return response()->json([
@@ -102,7 +102,7 @@ class GuideReviewController extends Controller
         }
 
         $assignment = $booking->tourDeparture?->guideAssignments
-            ->first(fn (TourGuideAssignment $assignment): bool => (int) $assignment->guide_id === (int) $data['guide_id']);
+            ->first(fn(TourGuideAssignment $assignment): bool => (int) $assignment->guide_id === (int) $data['guide_id']);
 
         if (! $assignment) {
             throw ValidationException::withMessages([
@@ -158,6 +158,41 @@ class GuideReviewController extends Controller
         ], $created ? 201 : 200);
     }
 
+    public function update(Request $request, Review $review): JsonResponse
+    {
+        if ($review->user_id !== $request->user()->id) {
+            abort(404);
+        }
+
+        $data = $request->validate([
+            'rating' => ['required', 'integer', 'min:1', 'max:5'],
+            'comment' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        DB::transaction(function () use ($review, $data): void {
+            $review->update([
+                'rating' => $data['rating'],
+                'comment' => $data['comment'] ?? null,
+            ]);
+
+            $this->guideReviewService->refreshGuideRating((int) $review->guide_id);
+        });
+
+        $review->load([
+            'booking',
+            'guide.user:id,full_name,avatar_url',
+            'tour:id,title,slug',
+            'tourDeparture:id,departure_date,return_date,status',
+            'user:id,full_name,avatar_url',
+        ]);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Cập nhật đánh giá HDV thành công.',
+            'data' => new GuideReviewResource($review),
+        ]);
+    }
+
     public function guideReviews(Request $request, Guide $guide): JsonResponse
     {
         return $this->reviewsResponse($request, $guide);
@@ -189,7 +224,7 @@ class GuideReviewController extends Controller
         $reviews = $query->paginate($this->perPage($request));
         $reviews->setCollection(
             $reviews->getCollection()
-                ->map(fn (Review $review): array => (new GuideReviewResource($review))->resolve($request))
+                ->map(fn(Review $review): array => (new GuideReviewResource($review))->resolve($request))
         );
 
         return response()->json([
@@ -245,7 +280,7 @@ class GuideReviewController extends Controller
 
         $assignments->setCollection(
             $assignments->getCollection()
-                ->map(fn (TourGuideAssignment $assignment): array => $this->mapTourHistoryAssignment($assignment))
+                ->map(fn(TourGuideAssignment $assignment): array => $this->mapTourHistoryAssignment($assignment))
         );
 
         return response()->json([

@@ -133,8 +133,41 @@ export async function continueCustomerBookingPayment(bookingId) {
   return response.data?.data || response.data
 }
 
-export async function cancelCustomerBooking(bookingId) {
-  const response = await api.patch(`/customer/bookings/${bookingId}/cancel`)
+// `reason` là bắt buộc phía backend (dùng để lưu vào lịch sử booking_status_histories).
+export async function cancelCustomerBooking(bookingId, reason) {
+  const response = await api.patch(`/customer/bookings/${bookingId}/cancel`, { reason })
+
+  return response.data?.data || response.data
+}
+
+// Sửa thông tin liên hệ sau khi đã đặt tour (chỉ khi đơn chưa khởi hành/hoàn thành/hủy).
+export async function updateBookingContact(bookingId, payload) {
+  const response = await api.patch(`/customer/bookings/${bookingId}/contact`, payload)
+
+  return response.data?.data || response.data
+}
+
+// Sửa thông tin hành khách (không sửa được ngày sinh vì ảnh hưởng đến giá vé).
+// payload: { participants: [{ id, full_name, phone, gender, identity_number }] }
+export async function updateBookingParticipants(bookingId, payload) {
+  const response = await api.patch(`/customer/bookings/${bookingId}/participants`, payload)
+
+  return response.data?.data || response.data
+}
+
+// ===========================
+// XỬ LÝ SỰ CỐ MƯA BÃO (hoàn tiền / bảo lưu / đổi tour)
+// ===========================
+
+export async function fetchDisruptionRequests(params = {}) {
+  const response = await api.get('/customer/disruption-requests', { params })
+
+  return response.data?.data || null
+}
+
+// payload: { type: 'refund' | 'retain' | 'transfer', reason, requested_tour_departure_id? }
+export async function createDisruptionRequest(bookingId, payload) {
+  const response = await api.post(`/customer/bookings/${bookingId}/disruption-requests`, payload)
 
   return response.data?.data || response.data
 }

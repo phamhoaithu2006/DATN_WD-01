@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { submitCustomerTourReview } from '../../services/customerReviewApi'
+import { submitCustomerTourReview, updateCustomerTourReview } from '../../services/customerReviewApi'
 import { mediaUrl } from '../../utils/mediaUrl'
 
 const RATING_LABELS = {
@@ -133,10 +133,11 @@ export default function TourReviewModal({ target, onClose, onSubmitted }) {
   const booking = target?.booking || null
   const tour = booking?.tour || null
   const departure = booking?.tour_departure || null
+  const existingReview = target?.existingReview || null
 
-  const [rating, setRating] = useState(0)
+  const [rating, setRating] = useState(Number(existingReview?.rating || 0))
   const [hoveredRating, setHoveredRating] = useState(0)
-  const [comment, setComment] = useState('')
+  const [comment, setComment] = useState(existingReview?.comment || '')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
@@ -162,9 +163,9 @@ export default function TourReviewModal({ target, onClose, onSubmitted }) {
   useEffect(() => {
     if (!target) return undefined
 
-    setRating(0)
+    setRating(Number(target?.existingReview?.rating || 0))
     setHoveredRating(0)
-    setComment('')
+    setComment(target?.existingReview?.comment || '')
     setError('')
 
     const previousOverflow = document.body.style.overflow
@@ -210,11 +211,16 @@ export default function TourReviewModal({ target, onClose, onSubmitted }) {
       setSubmitting(true)
       setError('')
 
-      const response = await submitCustomerTourReview({
-        booking_id: bookingId,
-        rating,
-        comment: comment.trim() || null,
-      })
+      const response = existingReview
+        ? await updateCustomerTourReview(existingReview.id, {
+          rating,
+          comment: comment.trim() || null,
+        })
+        : await submitCustomerTourReview({
+          booking_id: bookingId,
+          rating,
+          comment: comment.trim() || null,
+        })
 
       onSubmitted?.(response?.data || response)
     } catch (submitError) {
@@ -255,7 +261,9 @@ export default function TourReviewModal({ target, onClose, onSubmitted }) {
                   <StarIcon filled className="h-4 w-4 text-amber-300" />
                   GIAO DIỆN MỚI · Chuyến đi đã hoàn thành
                 </div>
-                <h2 id="tour-review-title" className="text-2xl font-black tracking-tight sm:text-3xl">Đánh giá chuyến đi</h2>
+                <h2 id="tour-review-title" className="text-2xl font-black tracking-tight sm:text-3xl">
+                  {existingReview ? 'Cập nhật đánh giá chuyến đi' : 'Đánh giá chuyến đi'}
+                </h2>
                 <p className="mt-1.5 max-w-xl text-sm leading-6 text-blue-100">
                   Chia sẻ trải nghiệm thực tế để giúp ViVuGo nâng cao chất lượng tour và dịch vụ.
                 </p>
@@ -453,7 +461,7 @@ export default function TourReviewModal({ target, onClose, onSubmitted }) {
                 className="inline-flex min-w-52 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-3 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:-translate-y-0.5 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <StarIcon filled className="h-4 w-4 text-amber-300" />
-                {submitting ? 'Đang gửi...' : 'Gửi đánh giá tour'}
+                {submitting ? 'Đang gửi...' : existingReview ? 'Cập nhật đánh giá' : 'Gửi đánh giá tour'}
               </button>
             </div>
           </footer>

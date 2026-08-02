@@ -30,8 +30,8 @@ class BookingController extends Controller
     {
         $request->validate([
             'search' => 'nullable|string|max:100',
-            'status' => ['nullable', Rule::in(['pending', 'confirmed', 'departed', 'completed', 'cancelled'])],
-            'payment_status' => ['nullable', Rule::in(['unpaid', 'paid', 'failed', 'refunded'])],
+            'status' => ['nullable', Rule::in(['pending', 'confirmed', 'departed', 'completed', 'cancelled', 'retained'])],
+            'payment_status' => ['nullable', Rule::in(['unpaid', 'paid', 'failed', 'refunded', 'refund_pending'])],
             'from_date' => 'nullable|date',
             'to_date' => 'nullable|date|after_or_equal:from_date',
             'per_page' => 'nullable|integer|min:5|max:100',
@@ -90,10 +90,12 @@ class BookingController extends Controller
             SUM(CASE WHEN status = 'departed'  THEN 1 ELSE 0 END) as departed,
             SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
             SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled,
+            SUM(CASE WHEN status = 'retained'  THEN 1 ELSE 0 END) as retained,
             SUM(CASE WHEN payment_status = 'unpaid'   THEN 1 ELSE 0 END) as unpaid,
             SUM(CASE WHEN payment_status = 'paid'     THEN 1 ELSE 0 END) as paid,
             SUM(CASE WHEN payment_status = 'failed'   THEN 1 ELSE 0 END) as failed,
             SUM(CASE WHEN payment_status = 'refunded' THEN 1 ELSE 0 END) as refunded,
+            SUM(CASE WHEN payment_status = 'refund_pending' THEN 1 ELSE 0 END) as refund_pending,
             SUM(CASE WHEN payment_status = 'paid' AND status != 'cancelled' THEN total_amount ELSE 0 END) as total_revenue
         ")->first();
 
@@ -117,7 +119,7 @@ class BookingController extends Controller
             'contact',
             'participants',
             'payment',
-            'statusHistories' => fn ($q) => $q->latest(),
+            'statusHistories' => fn($q) => $q->latest(),
         ])->findOrFail($id);
 
         return response()->json([
@@ -158,7 +160,7 @@ class BookingController extends Controller
         $contact = $data['contact'] ?? null;
         unset($data['participants'], $data['contact']);
 
-        $data['booking_code'] = 'BK'.now()->format('Ymd').strtoupper(Str::random(4));
+        $data['booking_code'] = 'BK' . now()->format('Ymd') . strtoupper(Str::random(4));
         $data['discount_amount'] = $data['discount_amount'] ?? 0;
         $data['status'] = 'pending';
         $data['payment_status'] = 'unpaid';
@@ -218,7 +220,7 @@ class BookingController extends Controller
             'number_of_people' => 'sometimes|integer|min:1',
             'unit_price' => 'sometimes|numeric|min:0',
             'discount_amount' => 'sometimes|numeric|min:0',
-            'status' => ['sometimes', Rule::in(['pending', 'confirmed', 'departed', 'completed', 'cancelled'])],
+            'status' => ['sometimes', Rule::in(['pending', 'confirmed', 'departed', 'completed', 'cancelled', 'retained'])],
             'payment_status' => ['prohibited'],
             'note' => 'nullable|string',
             'cancel_reason' => 'nullable|string',

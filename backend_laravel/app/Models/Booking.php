@@ -9,6 +9,22 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Booking extends Model
 {
+    // Số lần hủy tối đa được phép cho MỖI TOUR (không phân biệt lịch khởi hành).
+    public const CUSTOMER_CANCELLATION_LIMIT = 2;
+
+    /**
+     * Đếm số booking đã hủy của 1 khách hàng cho MỘT tour cụ thể
+     * (gộp mọi lịch khởi hành của tour đó lại với nhau).
+     */
+    public static function customerCancellationCountForTour(int $userId, int $tourId): int
+    {
+        return static::query()
+            ->where('user_id', $userId)
+            ->where('tour_id', $tourId)
+            ->where('status', 'cancelled')
+            ->count();
+    }
+
     protected $fillable = [
         // Định danh
         'booking_code',
@@ -47,6 +63,31 @@ class Booking extends Model
         'total_amount' => 'decimal:2',
         'cancelled_at' => 'datetime',
     ];
+
+    // ─── Bảo vệ state machine (lớp phòng vệ thứ 2, độc lập với check ở Admin\BookingController) ──
+    // Admin\BookingController::update() đã chặn completed/paid -> pending ở tầng controller.
+    // Guard này đảm bảo dù có endpoint/khu vực nào khác lỡ set status trực tiếp
+    // qua Eloquent thì cũng không thể đưa 1 booking completed quay lại pending.
+    protected static function booted(): void
+    {
+        static::updating(function (Booking $booking): void {
+            if (
+                $booking->isDirty('status')
+                && $booking->getOriginal('status') === 'completed'
+                && $booking->status === 'pending'
+            ) {
+                throw new \RuntimeException(
+                    'Booking đã hoàn thành (completed) không được phép quay lại trạng thái chờ xác nhận (pending).'
+                );
+            }
+        });
+    }
+
+    // Các trạng thái khách hàng còn được phép tự thao tác (hủy / sửa thông tin)
+    public function canBeManagedByCustomer(): bool
+    {
+        return in_array($this->status, ['pending', 'confirmed'], true);
+    }
 
     public function user(): BelongsTo
     {
@@ -92,6 +133,11 @@ class Booking extends Model
     public function tourDeparture(): BelongsTo
     {
         return $this->belongsTo(TourDeparture::class);
+    }
+
+    public function disruptionRequests(): HasMany
+    {
+        return $this->hasMany(BookingDisruptionRequest::class);
     }
 
     // ─── Scopes cho filter/search ─────────────────────────────────
