@@ -3,6 +3,7 @@ import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import Icon from "../../components/customer/Icon";
 import TourCard from "../../components/customer/TourCard";
 import BookingCountdown from "../../components/customer/BookingCountdown";
+import BookingInformationModal from "../../components/customer/BookingInformationModal";
 import GuideReviewModal from "../../components/customer/GuideReviewModal";
 import TourReviewModal from "../../components/customer/TourReviewModal";
 import { useLocale } from "../../contexts/LocaleContext";
@@ -13,6 +14,7 @@ import {
   fetchGuideReviewableBookings,
   updateBookingContact,
   updateBookingParticipants,
+  updateCustomerBookingInformation,
 } from "../../services/customerApi";
 import { mediaUrl } from "../../utils/mediaUrl";
 
@@ -724,6 +726,7 @@ function ProfileDashboard({
   const [contactEditBooking, setContactEditBooking] = useState(null);
   const [participantsEditBooking, setParticipantsEditBooking] = useState(null);
   const [disruptionBooking, setDisruptionBooking] = useState(null);
+  const [editingBooking, setEditingBooking] = useState(null);
 
   const selectBookingFilter = (nextFilter) => {
     setBookingFilter(nextFilter);
@@ -796,6 +799,19 @@ function ProfileDashboard({
     && booking.payment?.status === "pending"
     && paymentExpiresAt(booking) > now
   ), [now, paymentExpiresAt]);
+
+  const canEditBookingInformation = useCallback((booking) => {
+    if (!['pending', 'confirmed'].includes(booking.status)) return false;
+
+    const departureDate = booking.tour_departure?.departure_date;
+    if (!departureDate) return false;
+
+    const deadline = new Date(`${departureDate}T00:00:00`);
+    deadline.setDate(deadline.getDate() - 3);
+    deadline.setHours(23, 59, 59, 999);
+
+    return Date.now() <= deadline.getTime();
+  }, []);
 
   // Dùng cho bộ lọc/trạng thái: chỉ cần booking đang chờ và chưa thanh toán.
   // Không phụ thuộc payment object đã được backend tạo đầy đủ hay chưa.
@@ -1045,6 +1061,11 @@ function ProfileDashboard({
 
   const handleDisruptionSubmitted = () => {
     // Modal tự hiển thị trạng thái thành công, không cần đóng ngay.
+  };
+
+  const handleBookingInformationSaved = async (payload) => {
+    const updatedBooking = await updateCustomerBookingInformation(editingBooking.id, payload);
+    onBookingUpdated?.(updatedBooking);
   };
 
 
@@ -1435,6 +1456,15 @@ function ProfileDashboard({
                         </div>
 
                         <div className="vg-booking-actions-row">
+                          {canEditBookingInformation(booking) ? (
+                            <button
+                              type="button"
+                              className="vg-btn-ticket"
+                              onClick={() => setEditingBooking(booking)}
+                            >
+                              <Icon name="edit" size={15} /> Sửa thông tin
+                            </button>
+                          ) : null}
                           {isPendingPayment ? (
                             <div className="vg-booking-actions">
                               <button
@@ -1470,24 +1500,6 @@ function ProfileDashboard({
 
                               {canManageBooking ? (
                                 <>
-                                  <button
-                                    type="button"
-                                    className="vg-btn-secondary"
-                                    onClick={() => setContactEditBooking(booking)}
-                                  >
-                                    <Icon name="edit" size={14} /> Sửa thông tin liên hệ
-                                  </button>
-
-                                  {Array.isArray(booking.participants) && booking.participants.length > 0 ? (
-                                    <button
-                                      type="button"
-                                      className="vg-btn-secondary"
-                                      onClick={() => setParticipantsEditBooking(booking)}
-                                    >
-                                      <Icon name="users" size={14} /> Sửa thông tin hành khách
-                                    </button>
-                                  ) : null}
-
                                   <button
                                     type="button"
                                     className="vg-btn-secondary is-warn"
@@ -1625,6 +1637,15 @@ function ProfileDashboard({
           onClose={() => setActiveTicketBooking(null)}
           formatCurrency={formatCurrency}
           formatDate={formatDate}
+        />
+      ) : null}
+
+      {editingBooking ? (
+        <BookingInformationModal
+          key={editingBooking.id}
+          booking={editingBooking}
+          onClose={() => setEditingBooking(null)}
+          onSave={handleBookingInformationSaved}
         />
       ) : null}
 

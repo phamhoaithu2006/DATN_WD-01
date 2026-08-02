@@ -45,6 +45,8 @@ class CustomerDashboardController extends Controller
                 'tour.destination',
                 'tourDeparture',
                 'payment',
+                'contact',
+                'participants',
                 'tourReview',
                 'contact',
                 'participants',

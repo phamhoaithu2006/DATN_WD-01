@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Customer;
 
+use App\Support\BookingPhoneNormalizer;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
 
@@ -74,7 +75,7 @@ class StoreBookingRequest extends FormRequest
             'contact.contact_phone' => [
                 'required',
                 'string',
-                'max:20',
+                'regex:/^0\d{9}$/',
             ],
 
             'contact.address' => [
@@ -105,7 +106,7 @@ class StoreBookingRequest extends FormRequest
             'participants.*.phone' => [
                 'nullable',
                 'string',
-                'max:20',
+                'regex:/^0\d{9}$/',
             ],
 
             'participants.*.birth_date' => [
@@ -127,11 +128,6 @@ class StoreBookingRequest extends FormRequest
                 'max:30',
             ],
 
-            'participants.*.participant_type' => [
-                'nullable',
-                'string',
-                'in:adult,child,infant',
-            ],
         ];
     }
 
@@ -169,12 +165,36 @@ class StoreBookingRequest extends FormRequest
         ];
     }
 
+    protected function prepareForValidation(): void
+    {
+        $contact = (array) $this->input('contact', []);
+        $participants = collect($this->input('participants', []))
+            ->map(function (array $participant): array {
+                $participant['phone'] = BookingPhoneNormalizer::normalize($participant['phone'] ?? null);
+
+                return $participant;
+            })
+            ->all();
+
+        $contact['contact_phone'] = BookingPhoneNormalizer::normalize($contact['contact_phone'] ?? null);
+
+        $this->merge([
+            'contact' => $contact,
+            'participants' => $participants,
+        ]);
+    }
+
     public function messages(): array
     {
         return [
             'tour_departure_id.exists' => 'Lịch khởi hành không tồn tại.',
             'participants.required' => 'Vui lòng nhập đầy đủ danh sách hành khách tham gia.',
+            'participants.*.birth_date.required' => 'Vui lòng chọn ngày sinh.',
+            'participants.*.birth_date.date' => 'Ngày sinh không hợp lệ.',
+            'participants.*.birth_date.before_or_equal' => 'Ngày sinh không hợp lệ.',
             'quantity_summary.*.rule_id.exists' => 'Nhóm giá đã chọn không tồn tại.',
+            'contact.contact_phone.regex' => 'Số điện thoại liên hệ phải gồm 10 chữ số và bắt đầu bằng số 0.',
+            'participants.*.phone.regex' => 'Số điện thoại hành khách phải gồm 10 chữ số và bắt đầu bằng số 0.',
         ];
     }
 }

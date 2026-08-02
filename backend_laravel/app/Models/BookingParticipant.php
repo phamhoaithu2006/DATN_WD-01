@@ -13,6 +13,7 @@ class BookingParticipant extends Model
         'booking_id',
         'full_name',
         'phone',
+        'phone_normalized',
         'birth_date',
         'gender',
         'identity_number',
