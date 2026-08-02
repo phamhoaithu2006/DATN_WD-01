@@ -4,10 +4,13 @@ namespace App\Http\Controllers\Api\Customer;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Customer\StoreBookingRequest;
+use App\Jobs\ProcessTourRefundOutbox;
 use App\Models\Booking;
 use App\Models\Payment;
 use App\Models\Tour;
 use App\Models\TourDeparture;
+use App\Models\TourRefundOutbox;
+use App\Models\User;
 use App\Services\TourPricingService;
 use App\Services\VnpayPaymentLifecycleService;
 use App\Services\VnpayService;
@@ -549,6 +552,85 @@ class CustomerBookingController extends Controller
                 'booking' => ['Bạn đã hủy đủ ' . Booking::CUSTOMER_CANCELLATION_LIMIT . ' đơn của tour này, không thể hủy thêm đơn nào khác của tour này nữa. Vui lòng liên hệ hỗ trợ nếu cần trợ giúp.'],
             ]);
         }
+    public function selectTourCancellationResolution(Request $request, Booking $booking): JsonResponse
+    {
+        if ($booking->user_id !== $request->user()->id) {
+            abort(404);
+        }
+
+        $data = $request->validate([
+            'resolution' => ['required', 'in:change_departure_date,change_tour,full_refund,store_credit'],
+            'tour_departure_id' => ['required_if:resolution,change_departure_date,change_tour', 'nullable', 'integer', 'exists:tour_departures,id'],
+        ]);
+
+        $result = DB::transaction(function () use ($booking, $data): array {
+            $source = Booking::query()->with(['contact', 'participants', 'payment'])->lockForUpdate()->findOrFail($booking->id);
+            if ($source->status !== 'cancelled_by_tour' || $source->resolution_status !== 'pending_selection') {
+                return ['error' => 'Booking này không chờ lựa chọn phương án xử lý.'];
+            }
+
+            if (in_array($data['resolution'], ['change_departure_date', 'change_tour'], true)) {
+                $target = TourDeparture::query()->lockForUpdate()->findOrFail($data['tour_departure_id']);
+                if ($target->status !== 'open' || $target->total_slots - $target->booked_slots < $source->number_of_people) {
+                    return ['error' => 'Lịch khởi hành mới không còn mở hoặc không đủ chỗ.'];
+                }
+
+                $replacement = $source->replicate(['booking_code', 'created_at', 'updated_at']);
+                $replacement->fill([
+                    'booking_code' => 'BK-'.Str::upper((string) Str::ulid()),
+                    'tour_id' => $target->tour_id,
+                    'tour_departure_id' => $target->id,
+                    'source_booking_id' => $source->id,
+                    'status' => 'pending',
+                    'payment_status' => 'unpaid',
+                    'cancel_reason' => null,
+                    'cancellation_reason' => null,
+                    'resolution_status' => null,
+                    'cancelled_at' => null,
+                ]);
+                $replacement->save();
+                $replacement->contact()->create($source->contact?->only(['contact_name', 'contact_email', 'contact_phone', 'address', 'special_request']) ?? []);
+                $replacement->participants()->createMany($source->participants->map(fn ($participant) => $participant->only([
+                    'full_name', 'phone', 'birth_date', 'gender', 'identity_number', 'participant_type', 'unit_price', 'pricing_rule_label', 'pricing_type', 'pricing_value',
+                ]))->all());
+                $replacement->statusHistories()->create(['old_status' => null, 'new_status' => 'pending', 'note' => "Created from cancelled booking {$source->booking_code}."]);
+                $target->increment('booked_slots', $replacement->number_of_people);
+                $source->update(['resolution_status' => $data['resolution']]);
+
+                return ['booking' => $replacement];
+            }
+
+            $source->update(['resolution_status' => $data['resolution']]);
+            if ($data['resolution'] === 'full_refund' && $source->payment_status === 'paid' && $source->payment) {
+                $amount = max(0, (float) $source->payment->amount);
+                $refundRequestId = DB::table('refund_requests')->insertGetId([
+                    'booking_id' => $source->id,
+                    'payment_id' => $source->payment->id,
+                    'requested_by' => $source->user_id,
+                    'amount' => $amount,
+                    'reason' => 'Tour cancelled due to insufficient participants.',
+                    'status' => 'pending',
+                    'requested_at' => now(),
+                ]);
+                $outbox = TourRefundOutbox::query()->create([
+                    'booking_id' => $source->id,
+                    'refund_request_id' => $refundRequestId,
+                    'payload' => ['amount' => $amount],
+                ]);
+            }
+
+            return ['booking' => $source->fresh('payment'), 'refund_outbox_id' => $outbox->id ?? null];
+        }, 3);
+
+        if (isset($result['error'])) {
+            return response()->json(['message' => $result['error']], 422);
+        }
+
+        if ($result['refund_outbox_id'] ?? null) {
+            ProcessTourRefundOutbox::dispatch($result['refund_outbox_id']);
+        }
+
+        return response()->json(['success' => true, 'data' => $result['booking']]);
     }
 
     private function ensureDepartureCanBeBooked(Tour $tour, TourDeparture $departure): void

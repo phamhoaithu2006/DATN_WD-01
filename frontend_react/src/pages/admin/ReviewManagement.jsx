@@ -81,7 +81,6 @@ function TourThumb({ title }) {
 export default function ReviewManagement() {
   const [activeTab, setActiveTab] = useState('tour')
   const [reviews, setReviews] = useState([])
-  const [summary, setSummary] = useState({})
   const [search, setSearch] = useState('')
   const [sort, setSort] = useState('reviews_desc')
   const [loading, setLoading] = useState(false)
@@ -99,10 +98,8 @@ export default function ReviewManagement() {
       })
 
       setReviews(Array.isArray(result.reviews) ? result.reviews : [])
-      setSummary(result.summary || {})
     } catch (loadError) {
       setReviews([])
-      setSummary({})
       setError(
         loadError?.response?.data?.message
           || 'Không thể tải danh sách đánh giá tour.',

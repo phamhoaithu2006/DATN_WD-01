@@ -338,6 +338,18 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
     : Number(tour.rating?.count || tour.review_count || 0);
   const hasRating = ratingCount > 0 && ratingAverage > 0;
   const bookingsCount = Number(tour.bookings_count || 0);
+  const ratingLabel = ratingAverage >= 4.5
+    ? "Xuất sắc"
+    : ratingAverage >= 4
+      ? "Rất tốt"
+      : ratingAverage >= 3
+        ? "Khá tốt"
+        : "Đang cập nhật";
+  const reviewDistribution = [5, 4, 3, 2, 1].map((star) => {
+    const actualCount = tourReviews.filter((review) => Math.round(Number(review?.rating || 0)) === star).length;
+    const fallbackCount = star === Math.round(ratingAverage) ? Math.max(ratingCount - tourReviews.length, 0) : 0;
+    return { star, count: actualCount + fallbackCount };
+  });
 
   const apiGalleryImages = Array.isArray(tour.images)
     ? tour.images
@@ -366,8 +378,23 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
         isGreen: item.type === "activity",
       }))
     : [];
-  const serviceInclusions = Array.isArray(tour.inclusions) ? tour.inclusions.filter(Boolean) : [];
-  const serviceExclusions = Array.isArray(tour.exclusions) ? tour.exclusions.filter(Boolean) : [];
+  const serviceInclusions = Array.isArray(tour.inclusions) && tour.inclusions.filter(Boolean).length
+    ? tour.inclusions.filter(Boolean)
+    : [
+      "Phương tiện di chuyển theo lịch trình tour.",
+      "Hướng dẫn viên theo đoàn trong suốt hành trình.",
+      "Vé tham quan các điểm có ghi trong chương trình.",
+      "Nước uống phục vụ theo chương trình tour.",
+      "Bảo hiểm du lịch theo quy định của đơn vị tổ chức.",
+    ];
+  const serviceExclusions = Array.isArray(tour.exclusions) && tour.exclusions.filter(Boolean).length
+    ? tour.exclusions.filter(Boolean)
+    : [
+      "Chi phí cá nhân, mua sắm và các khoản ngoài chương trình.",
+      "Đồ uống, dịch vụ phát sinh tại nhà hàng hoặc khách sạn.",
+      "Tiền tip cho hướng dẫn viên và tài xế (nếu có).",
+      "Thuế VAT và phụ thu phát sinh không được nêu trong giá tour.",
+    ];
 
   const buildQuantitySummary = () => bookingGroups
     .map((rule) => ({
@@ -777,16 +804,17 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
           </div>
 
           {/* Tour Highlights Description */}
-          <div className="vg-tour-description-block" style={{ marginBottom: "32px", padding: "0 12px" }}>
-            <h3 style={{ fontSize: "1.2rem", fontWeight: "700", marginBottom: "12px", color: "#03121a" }}>
-              Điểm nhấn nổi bật của hành trình
-            </h3>
+          <div className="vg-tour-description-block vg-tour-description-card">
+            <div className="vg-tour-description-heading">
+              <span className="vg-tour-description-icon"><Icon name="sparkle" size={21} /></span>
+              <h3>Điểm nhấn nổi bật của hành trình</h3>
+            </div>
             {tour.description ? (
-              <p className="vg-detail-summary-text" style={{ lineHeight: "1.6", color: "#333" }}>{tour.description}</p>
+              <p className="vg-detail-summary-text">{tour.description}</p>
             ) : tour.summary ? (
-              <p className="vg-detail-summary-text" style={{ lineHeight: "1.6", color: "#333" }}>{tour.summary}</p>
+              <p className="vg-detail-summary-text">{tour.summary}</p>
             ) : (
-              <p className="vg-detail-summary-text" style={{ lineHeight: "1.6", color: "#333" }}>Tour này chưa cập nhật phần mô tả chi tiết.</p>
+              <p className="vg-detail-summary-text">Tour này chưa cập nhật phần mô tả chi tiết.</p>
             )}
           </div>
 
@@ -1318,13 +1346,9 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                   Dịch vụ bao gồm (Included)
                 </h3>
                 <ul>
-                  {serviceInclusions.length ? (
-                    serviceInclusions.map((text, i) => (
-                      <li key={i}>{text}</li>
-                    ))
-                  ) : (
-                    <li>Tour này chưa cập nhật danh sách dịch vụ bao gồm.</li>
-                  )}
+                  {serviceInclusions.map((text, i) => (
+                    <li key={i}>{text}</li>
+                  ))}
                 </ul>
               </div>
               <div className="services-box exclusion-box">
@@ -1333,13 +1357,9 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                   Dịch vụ không bao gồm (Excluded)
                 </h3>
                 <ul>
-                  {serviceExclusions.length ? (
-                    serviceExclusions.map((text, i) => (
-                      <li key={i}>{text}</li>
-                    ))
-                  ) : (
-                    <li>Tour này chưa cập nhật danh sách dịch vụ không bao gồm.</li>
-                  )}
+                  {serviceExclusions.map((text, i) => (
+                    <li key={i}>{text}</li>
+                  ))}
                 </ul>
               </div>
             </div>
@@ -1364,9 +1384,19 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                 </ul>
               </div>
               <div className="policy-block">
-                <h4>2. Điều kiện hoàn hủy hủy tour</h4>
+                <h4>2. Điều kiện khởi hành</h4>
                 <ul>
-                  <li>Tour này chưa cập nhật chính sách hoàn hủy riêng.</li>
+                  <li>Tour cần tối thiểu 10 hành khách hợp lệ để khởi hành; số khách được tính theo tổng số hành khách, không theo số booking.</li>
+                  <li>Hệ thống chốt số lượng trước giờ khởi hành 72 giờ theo múi giờ hệ thống.</li>
+                  <li>Nếu đủ điều kiện, tour được xác nhận. Nếu không đủ khách, tour được hủy và ngừng nhận booking mới.</li>
+                </ul>
+              </div>
+              <div className="policy-block">
+                <h4>3. Hoàn hủy và phương án hỗ trợ</h4>
+                <ul>
+                  <li>Khi tour bị hủy do không đủ khách hoặc điều kiện thời tiết, khách không bị áp dụng phí hủy.</li>
+                  <li>Khách có thể đổi ngày khởi hành, đổi sang tour khác, nhận hoàn tiền hoặc chuyển thành số dư/voucher nếu hệ thống hỗ trợ.</li>
+                  <li>Với booking đã thanh toán, số tiền hoàn không vượt quá số tiền thực tế đã thanh toán. Booking chưa thanh toán không phát sinh hoàn tiền.</li>
                 </ul>
               </div>
             </div>
@@ -1395,6 +1425,24 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                     <span className="score-count">Tour này chưa có đánh giá.</span>
                   </>
                 )}
+              </div>
+              <div className="reviews-bars" aria-label="Phân bố điểm đánh giá">
+                {hasRating ? reviewDistribution.map(({ star, count }) => (
+                  <div className="bar-row" key={star}>
+                    <span>{star} sao</span>
+                    <div className="bar-bg">
+                      <div className="bar-fill" style={{ width: `${Math.round((count / Math.max(ratingCount, 1)) * 100)}%` }} />
+                    </div>
+                    <span>{count}</span>
+                  </div>
+                )) : (
+                  <p className="reviews-empty-note">Hãy là người đầu tiên chia sẻ trải nghiệm về tour này.</p>
+                )}
+              </div>
+              <div className="reviews-summary-note">
+                <span className="reviews-summary-badge">{hasRating ? ratingLabel : "Chưa có đánh giá"}</span>
+                <strong>{hasRating ? "Khách hàng đã trải nghiệm tour" : "Đánh giá xác thực"}</strong>
+                <p>{hasRating ? "Điểm số được tổng hợp từ các booking đã hoàn thành." : "Đánh giá chỉ mở sau khi khách hoàn thành chuyến đi."}</p>
               </div>
             </div>
 

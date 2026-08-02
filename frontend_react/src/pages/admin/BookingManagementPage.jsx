@@ -215,6 +215,7 @@ function BookingManagementPage() {
       departed: 'Đã khởi hành',
       completed: 'Hoàn thành',
       cancelled: 'Đã hủy',
+      cancelled_by_tour: 'Đã hủy',
     }[booking.status] || '--'
     const paymentMethod = booking.payment?.payment_method === 'cod'
       ? 'Thanh toán thủ công'
@@ -230,6 +231,7 @@ function BookingManagementPage() {
     invoice.focus()
     return
 
+    // eslint-disable-next-line no-unreachable
     invoice.document.write(`<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>Hóa đơn ${escapeHtml(booking.booking_code)}</title><style>body{font-family:Arial,sans-serif;color:#12213a;padding:42px;max-width:760px;margin:auto}header{display:flex;justify-content:space-between;border-bottom:2px solid #0ea5e9;padding-bottom:20px}h1{margin:0;color:#0284c7}h2{font-size:18px;margin-top:30px}table{width:100%;border-collapse:collapse;margin-top:12px}td,th{padding:11px;border-bottom:1px solid #dbe5f2;text-align:left}th{background:#f8fafc}.total{font-size:20px;font-weight:700;text-align:right;margin-top:20px}.muted{color:#64748b}@media print{body{padding:0}}</style></head><body><header><div><h1>ViVuGo</h1><p class="muted">HÓA ĐƠN BOOKING</p></div><div><strong>Mã booking: ${escapeHtml(booking.booking_code || `#${booking.id}`)}</strong><br><span class="muted">Ngày xuất: ${escapeHtml(formatInvoiceDate(new Date()))}</span></div></header><h2>Thông tin khách hàng</h2><table><tr><td>Họ tên</td><td>${escapeHtml(customer)}</td></tr><tr><td>Số điện thoại</td><td>${escapeHtml(phone)}</td></tr><tr><td>Email</td><td>${escapeHtml(booking.contact?.contact_email || booking.user?.email)}</td></tr></table><h2>Chi tiết tour</h2><table><thead><tr><th>Tour</th><th>Ngày khởi hành</th><th>Số khách</th><th>Thành tiền</th></tr></thead><tbody><tr><td>${escapeHtml(booking.tour?.title)}</td><td>${escapeHtml(formatInvoiceDate(booking.tourDeparture?.departure_date))}</td><td>${escapeHtml(booking.number_of_people)}</td><td>${escapeHtml(formatCurrency(booking.total_amount))}</td></tr></tbody></table><p class="total">Tổng thanh toán: ${escapeHtml(formatCurrency(booking.total_amount))}</p><p class="muted">Trạng thái thanh toán: ${escapeHtml(booking.payment_status === 'paid' ? 'Đã thanh toán' : 'Chưa thanh toán')}</p></body></html>`)
     invoice.document.close()
     invoice.focus()

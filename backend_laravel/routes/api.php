@@ -277,6 +277,7 @@ Route::middleware(['auth:sanctum', 'role:customer'])->group(function () {
     Route::patch('customer/bookings/{booking}/cancel', [CustomerBookingController::class, 'cancel'])->whereNumber('booking');
     Route::patch('customer/bookings/{booking}/contact', [CustomerBookingController::class, 'updateContact'])->whereNumber('booking');
     Route::patch('customer/bookings/{booking}/participants', [CustomerBookingController::class, 'updateParticipants'])->whereNumber('booking');
+    Route::post('customer/bookings/{booking}/tour-cancellation-resolution', [CustomerBookingController::class, 'selectTourCancellationResolution'])->whereNumber('booking');
     Route::get('customer/payments/vnpay/{payment}', [VnpayPaymentController::class, 'status'])->whereNumber('payment');
 
     // Xử lý sự cố mưa bão (hoàn tiền / bảo lưu / chuyển tour)
@@ -536,6 +537,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(functi
         Route::get('/{tourId}/departures', [TourDepartureController::class, 'index']);
         Route::post('/{tourId}/departures', [TourDepartureController::class, 'store']);
         Route::put('/departures/{id}', [TourDepartureController::class, 'update']);
+        Route::post('/departures/{id}/cancel', [TourDepartureController::class, 'cancelConfirmed']);
         Route::delete('/departures/{id}', [TourDepartureController::class, 'destroy']);
     });
 
@@ -670,6 +672,7 @@ Route::middleware(['auth:sanctum', 'role:tour guide'])->group(function () {
     Route::get('/guide/tours/upcoming', [GuideTourController::class, 'upcoming']);
     Route::get('/guide/tours/ongoing', [GuideTourController::class, 'ongoing']);
     Route::get('/guide/tours/completed', [GuideTourController::class, 'completed']);
+    Route::get('/guide/tours/cancelled', [GuideTourController::class, 'cancelled']);
     Route::get('/guide/tours', [GuideTourController::class, 'index']);
     Route::get('/guide/tours/{tourDeparture}/overview', [GuideAttendanceController::class, 'overview']);
     Route::get('/guide/tours/{tourDeparture}/customers', [GuideAttendanceController::class, 'customers']);

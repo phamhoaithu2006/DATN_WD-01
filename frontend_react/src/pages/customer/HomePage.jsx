@@ -436,7 +436,7 @@ function HomePage({
 
       {/* Section 1: Tour Giảm Giá / Hot Deals */}
       {!loading && safeDiscountedTours.length > 0 ? (
-        <section className="vg-home-section vg-deals-section" id="tour-giam-gia">
+        <section className="vg-home-section vg-deals-section vg-tour-showcase vg-tour-showcase-deals" id="tour-giam-gia">
           <div className="vg-container">
             <div className="vg-section-heading">
               <div>
@@ -462,7 +462,7 @@ function HomePage({
 
       {/* Section 2: Tour Nổi Bật (Trong nước) */}
       {!loading && featuredTourCards.length > 0 ? (
-        <section className="vg-home-section" id="tour-trong-nuoc">
+        <section className="vg-home-section vg-tour-showcase vg-tour-showcase-featured" id="tour-trong-nuoc">
           <div className="vg-container">
             <div className="vg-section-heading">
               <div>
@@ -488,7 +488,7 @@ function HomePage({
 
       {/* Section 3: Tour Sắp Khởi Hành (ngày khởi hành gần nhất, badge tĩnh trên card) */}
       {!loading && safeUpcomingTours.length > 0 ? (
-        <section className="vg-home-section vg-home-section-alt" id="tour-sap-khoi-hanh">
+        <section className="vg-home-section vg-home-section-alt vg-tour-showcase vg-tour-showcase-upcoming" id="tour-sap-khoi-hanh">
           <div className="vg-container">
             <div className="vg-section-heading">
               <div>
@@ -514,7 +514,7 @@ function HomePage({
 
       {/* Section 4: Tour Quốc Tế */}
       {!loading && internationalTourCards.length > 0 ? (
-        <section className="vg-home-section" id="tour-quoc-te">
+        <section className="vg-home-section vg-tour-showcase vg-tour-showcase-international" id="tour-quoc-te">
           <div className="vg-container">
             <div className="vg-section-heading">
               <div>
@@ -702,28 +702,28 @@ function HomePage({
       ) : null}
 
       {/* Section 8: Về chúng tôi & Highlight dịch vụ */}
-      <section className="vg-home-section" id="gioi-thieu">
+      <section className="vg-home-section vg-about-section" id="gioi-thieu">
         <div className="vg-container">
-          <div className="vg-centered-heading">
-            <span className="vg-kicker">Về chúng tôi</span>
-            <h2>Lên kế hoạch nhẹ nhàng, đi chơi trọn vẹn</h2>
+          <div className="vg-centered-heading vg-about-heading">
+            <span className="vg-kicker">Về ViVuGo</span>
+            <h2>Đi nhẹ nhàng, trải nghiệm trọn vẹn</h2>
             <p>
-              ViVuGo tập trung vào hành trình rõ ràng, dịch vụ dễ hiểu và hỗ hỗ trợ sát sao trước - trong - sau chuyến đi.
+              ViVuGo đồng hành để việc chọn tour, đặt chỗ và chuẩn bị cho chuyến đi của bạn trở nên rõ ràng, đơn giản và an tâm hơn.
             </p>
           </div>
           <div className="vg-about-strip">
             <article>
               <Icon name="sparkle" size={22} />
               <div>
-                <strong>Trải nghiệm đã được chọn lọc</strong>
-                <span>Từ tour trong nước đến quốc tế, mọi lịch trình đều được cập nhật từ API và kiểm duyệt nội dung trước khi hiển thị.</span>
+                <strong>Hành trình được chọn lọc</strong>
+                <span>Từ tour trong nước đến quốc tế, mỗi hành trình đều được chọn lọc kỹ và cập nhật thông tin rõ ràng trước khi giới thiệu đến bạn.</span>
               </div>
             </article>
             <article>
               <Icon name="headset" size={22} />
               <div>
-                <strong>Khách hàng là trung tâm</strong>
-                <span>Chúng tôi lắng nghe phản hồi thực tế để cải thiện chất lượng dịch vụ và chăm sóc từng chuyến đi.</span>
+                <strong>Đồng hành cùng khách hàng</strong>
+                <span>Chúng tôi lắng nghe phản hồi thực tế để nâng cao chất lượng dịch vụ và chăm sóc từng chuyến đi.</span>
               </div>
             </article>
           </div>

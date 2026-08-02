@@ -30,8 +30,8 @@ class BookingController extends Controller
     {
         $request->validate([
             'search' => 'nullable|string|max:100',
-            'status' => ['nullable', Rule::in(['pending', 'confirmed', 'departed', 'completed', 'cancelled', 'retained'])],
-            'payment_status' => ['nullable', Rule::in(['unpaid', 'paid', 'failed', 'refunded', 'refund_pending'])],
+            'status' => ['nullable', Rule::in(['pending', 'confirmed', 'departed', 'completed', 'cancelled', 'cancelled_by_tour'])],
+            'payment_status' => ['nullable', Rule::in(['unpaid', 'paid', 'failed', 'refunded'])],
             'from_date' => 'nullable|date',
             'to_date' => 'nullable|date|after_or_equal:from_date',
             'per_page' => 'nullable|integer|min:5|max:100',
@@ -89,14 +89,12 @@ class BookingController extends Controller
             SUM(CASE WHEN status = 'confirmed' THEN 1 ELSE 0 END) as confirmed,
             SUM(CASE WHEN status = 'departed'  THEN 1 ELSE 0 END) as departed,
             SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
-            SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled,
-            SUM(CASE WHEN status = 'retained'  THEN 1 ELSE 0 END) as retained,
+            SUM(CASE WHEN status IN ('cancelled', 'cancelled_by_tour') THEN 1 ELSE 0 END) as cancelled,
             SUM(CASE WHEN payment_status = 'unpaid'   THEN 1 ELSE 0 END) as unpaid,
             SUM(CASE WHEN payment_status = 'paid'     THEN 1 ELSE 0 END) as paid,
             SUM(CASE WHEN payment_status = 'failed'   THEN 1 ELSE 0 END) as failed,
             SUM(CASE WHEN payment_status = 'refunded' THEN 1 ELSE 0 END) as refunded,
-            SUM(CASE WHEN payment_status = 'refund_pending' THEN 1 ELSE 0 END) as refund_pending,
-            SUM(CASE WHEN payment_status = 'paid' AND status != 'cancelled' THEN total_amount ELSE 0 END) as total_revenue
+            SUM(CASE WHEN payment_status = 'paid' AND status NOT IN ('cancelled', 'cancelled_by_tour') THEN total_amount ELSE 0 END) as total_revenue
         ")->first();
 
         return response()->json([
@@ -272,6 +270,12 @@ class BookingController extends Controller
                 ->lockForUpdate()
                 ->findOrFail($booking->id);
             $requestedStatus = $data['status'] ?? null;
+
+            if ($lockedBooking->status === 'cancelled_by_tour') {
+                throw ValidationException::withMessages([
+                    'status' => 'Booking bị hủy theo tour không thể chỉnh sửa. Hãy xử lý bằng phương án đổi tour/ngày hoặc hoàn tiền.',
+                ]);
+            }
 
             if (
                 $lockedBooking->status === 'cancelled'

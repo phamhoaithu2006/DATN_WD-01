@@ -9,6 +9,15 @@ const policies = {
   cancellation: { title: 'Chính sách hoàn hủy', intro: 'Quy định hủy booking và quản lý số lần hủy trên ViVuGo.', sections: [['Giới hạn hủy booking', ['Mỗi khách hàng được tự hủy tối đa 2 booking trên toàn hệ thống.', 'Chỉ các lần khách hàng chủ động hủy booking chờ thanh toán được tính vào giới hạn.', 'Lần hủy do hệ thống hết hạn thanh toán hoặc do nhân viên xử lý không tính vào giới hạn này.']], ['Lịch sử và xử lý', ['Mỗi lần hủy được ghi nhận kèm thời điểm, booking và người thực hiện.', 'Khi đã dùng hết 2 lần hủy, khách hàng không thể tự hủy thêm; vui lòng liên hệ bộ phận hỗ trợ nếu cần.']]] },
 }
 
+policies.booking.sections.splice(1, 0, ['Điều kiện khởi hành', [
+  'Mỗi lịch khởi hành cần tối thiểu 10 hành khách hợp lệ; số khách được tính theo hành khách, không theo số booking.',
+  'Hệ thống chốt số lượng trước giờ khởi hành 72 giờ. Nếu đủ điều kiện tour được xác nhận; nếu không đủ, tour bị hủy và đóng nhận booking mới.',
+]])
+policies.cancellation.sections.unshift(['Tour bị hủy bởi hệ thống', [
+  'Khi tour bị hủy do không đủ khách hoặc điều kiện thời tiết, khách không bị áp dụng phí hủy.',
+  'Khách có thể đổi ngày khởi hành, đổi tour, nhận hoàn tiền hoặc chuyển thành số dư/voucher nếu hệ thống hỗ trợ. Khoản hoàn tiền không vượt quá số tiền thực tế đã thanh toán.',
+]])
+
 const links = [['general', 'Quy định chung'], ['terms', 'Điều khoản sử dụng'], ['payment', 'Chính sách thanh toán'], ['booking', 'Chính sách đặt tour'], ['cancellation', 'Chính sách hoàn hủy']]
 
 function PolicyPage() {

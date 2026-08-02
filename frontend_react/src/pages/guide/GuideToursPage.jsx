@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import { readSession } from "../../services/authStorage";
 import {
   getGuideTourCompleted,
+  getGuideTourCancelled,
   getGuideTourDetail,
   getGuideTourCustomers,
   getGuideTourOngoing,
@@ -36,6 +37,13 @@ function getTourDescription(item) {
       item?.description ||
       item?.summary,
   );
+}
+
+function getCancellationReason(item) {
+  const reason = String(item?.cancellation_reason || "").toLowerCase()
+  if (reason === "insufficient_participants") return "Không đủ tối thiểu 10 khách"
+  if (reason === "weather_disaster") return "Mưa bão hoặc thời tiết xấu"
+  return reason ? reason.replaceAll("_", " ") : ""
 }
 
 function getRequestErrorMessage(error, fallback) {
@@ -108,12 +116,14 @@ const tabs = [
   { key: "upcoming", label: "Sắp diễn ra" },
   { key: "ongoing", label: "Đang dẫn tour" },
   { key: "completed", label: "Hoàn thành" },
+  { key: "cancelled", label: "Đã hủy" },
 ];
 const fetchers = {
   all: getGuideTours,
   upcoming: getGuideTourUpcoming,
   ongoing: getGuideTourOngoing,
   completed: getGuideTourCompleted,
+  cancelled: getGuideTourCancelled,
 };
 function getPageNumbers(currentPage, lastPage) {
   const start = Math.max(1, currentPage - 2);
@@ -165,6 +175,11 @@ function TourRow({ customerCount, item, onDetail, onOpenReplacement }) {
             {getDestination(item)}
           </span>
         </div>
+        {getCancellationReason(item) ? (
+          <p className="guide-shot-cancellation-reason">
+            Lý do hủy: {getCancellationReason(item)}
+          </p>
+        ) : null}
       </div>
       <div className="guide-shot-row-actions">
         <span className={`guide-shot-status ${getTourStateClass(item)}`}>
@@ -349,6 +364,7 @@ function ReplacementRequestModal({
   onReasonChange,
   onFileChange,
   onFileRemove,
+  
   onSubmit,
 }) {
   if (!item) return null;

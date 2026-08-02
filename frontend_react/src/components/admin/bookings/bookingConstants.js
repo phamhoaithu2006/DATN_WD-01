@@ -5,6 +5,7 @@ export const statusOptions = [
   { value: 'departed', label: 'Đã khởi hành' },
   { value: 'completed', label: 'Hoàn thành' },
   { value: 'cancelled', label: 'Đã hủy' },
+  { value: 'cancelled_by_tour', label: 'Đã hủy' },
 ]
 
 export const paymentOptions = [
@@ -21,6 +22,7 @@ export const statusMeta = {
   departed: { label: 'Đã khởi hành', className: 'departed' },
   completed: { label: 'Hoàn thành', className: 'completed' },
   cancelled: { label: 'Đã hủy', className: 'cancelled' },
+  cancelled_by_tour: { label: 'Đã hủy', className: 'cancelled' },
 }
 
 export const paymentMeta = {
