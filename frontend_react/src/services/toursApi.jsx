@@ -1,8 +1,8 @@
 import apiClient from './apiClient'
 
 const tourApi = {
-  getAll() {
-    return apiClient.get('/admin/tours')
+  getAll(params = {}) {
+    return apiClient.get('/admin/tours', { params })
   },
   getById(id) {
     return apiClient.get(`/admin/tours/${id}`)

@@ -99,6 +99,16 @@ function isGuideReviewNotification(notification) {
   )
 }
 
+function isTourReviewNotification(notification) {
+  const data = parseNotificationData(notification?.data)
+
+  return data.kind === 'tour_review_request' || data.action === 'open_tour_review'
+}
+
+function isReviewNotification(notification) {
+  return isGuideReviewNotification(notification) || isTourReviewNotification(notification)
+}
+
 function extractReviewNames(notification) {
   const message = notification?.message || ''
   const match = message.match(/Tour\s+["“](.+?)["”].*?hướng dẫn viên\s+(.+?)(?:\.|$)/i)
@@ -206,7 +216,7 @@ export default function CustomerNotificationBell() {
           const reviewNotification = items.find((item) => {
             return (
               item?.status === 'unread' &&
-              isGuideReviewNotification(item)
+              isReviewNotification(item)
             )
           })
 
@@ -278,10 +288,18 @@ export default function CustomerNotificationBell() {
 
       const detail = await getCustomerNotificationDetail(notification.id)
       const normalizedNotification = detail || notification
-      const isReview = isGuideReviewNotification(normalizedNotification)
+      const isGuideReview = isGuideReviewNotification(normalizedNotification)
+      const isTourReview = isTourReviewNotification(normalizedNotification)
 
-      if (isReview) {
+      if (isGuideReview) {
         await openReviewNotification(normalizedNotification)
+        return
+      }
+
+      if (isTourReview) {
+        const data = parseNotificationData(normalizedNotification.data)
+        setOpen(false)
+        navigate(`/customer/bookings${data.booking_code ? `?booking=${encodeURIComponent(data.booking_code)}` : ''}`)
         return
       }
 
@@ -406,7 +424,7 @@ export default function CustomerNotificationBell() {
               </div>
             ) : (
               latestNotifications.map((notification) => {
-                const isReview = isGuideReviewNotification(notification)
+                const isReview = isReviewNotification(notification)
                 const isUnread = notification.status === 'unread'
                 const isOpening = openingId === notification.id
 
@@ -425,7 +443,7 @@ export default function CustomerNotificationBell() {
                       {isReview ? '★' : 'i'}
                     </span>
 
-                    <div className="min-w-0 flex-1">
+                    <div className="relative min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-3">
                         <strong className="line-clamp-1 text-sm text-slate-900">
                           {notification.title || 'Thông báo'}
@@ -450,7 +468,7 @@ export default function CustomerNotificationBell() {
                             void handleNotificationAction(notification)
                           }
                           disabled={isOpening}
-                          className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-extrabold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                          className="ml-auto mt-2 flex w-fit items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-[11px] font-extrabold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           <span aria-hidden="true">★</span>
                           {isOpening ? 'ĐANG MỞ FORM...' : 'ĐÁNH GIÁ NGAY'}

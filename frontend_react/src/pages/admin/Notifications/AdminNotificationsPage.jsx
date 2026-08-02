@@ -337,6 +337,42 @@ useEffect(() => {
     }
   }
 
+  const saveAndSend = async () => {
+    if (!validateForm()) return
+
+    const payload = {
+      title: form.title.trim(),
+      message: form.message.trim(),
+      target_type: form.target_type,
+      target_ids: getTargetIds(),
+    }
+
+    try {
+      setSaving(true)
+      let draftId = editingDraftId
+
+      if (editingDraftId) {
+        await adminNotificationApi.updateDraft(editingDraftId, payload)
+      } else {
+        const response = await adminNotificationApi.saveDraft(payload)
+        draftId = response?.data?.id
+      }
+
+      if (!draftId) throw new Error('Không lấy được mã thông báo vừa tạo.')
+
+      const response = await adminNotificationApi.sendDraft(draftId)
+      toast.success(response?.message || 'Gửi thông báo thành công')
+      await refreshLists()
+      resetForm()
+      setTab('sent')
+    } catch (error) {
+      console.error(error)
+      toast.error(error.response?.data?.message || error.message || 'Không thể gửi thông báo')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const previewRecipients = async () => {
     if (form.target_type === 'all') {
       toast.info('Thông báo sẽ được gửi cho toàn bộ người dùng')
@@ -746,6 +782,15 @@ const openDraftDetail = async (id) => {
                 )}
 
             <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                disabled={saving}
+                onClick={saveAndSend}
+                className="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-60"
+              >
+                {saving ? 'Đang gửi...' : 'Gửi ngay'}
+              </button>
+
               <button
                 type="button"
                 disabled={saving}
