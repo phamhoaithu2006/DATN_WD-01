@@ -299,9 +299,15 @@ function Header({ user, onLogout, pendingCount = 0 }) {
   const headerRef = useRef(null);
   const accountMenuRef = useRef(null);
   const closeTimeoutRef = useRef(null);
+  const menuDataLoadedRef = useRef(false);
 
   // Load live category, destination, and tour data for the Mega Menu
   useEffect(() => {
+    const requestedMenu = activeMenu || mobileAccordion;
+    if (!requestedMenu || requestedMenu === "policies" || menuDataLoadedRef.current) {
+      return undefined;
+    }
+
     let active = true;
 
     async function loadMenuData() {
@@ -428,6 +434,7 @@ function Header({ user, onLogout, pendingCount = 0 }) {
           },
           policies: megaMenuData.policies
         });
+        menuDataLoadedRef.current = true;
       } catch (err) {
         console.error("Failed to load mega menu data:", err);
       }
@@ -437,11 +444,10 @@ function Header({ user, onLogout, pendingCount = 0 }) {
     return () => {
       active = false;
     };
-  }, []);
+  }, [activeMenu, mobileAccordion]);
 
   // Auto-close menu drawer and dropdown on path navigation changes
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setActiveMenu(null);
     setMenuOpenedByClick(false);
     setMobileOpen(false);
