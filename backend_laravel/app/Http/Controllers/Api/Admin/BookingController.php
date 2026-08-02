@@ -117,7 +117,7 @@ class BookingController extends Controller
             'contact',
             'participants',
             'payment',
-            'statusHistories' => fn ($q) => $q->latest(),
+            'statusHistories' => fn($q) => $q->latest(),
         ])->findOrFail($id);
 
         return response()->json([
@@ -158,7 +158,7 @@ class BookingController extends Controller
         $contact = $data['contact'] ?? null;
         unset($data['participants'], $data['contact']);
 
-        $data['booking_code'] = 'BK'.now()->format('Ymd').strtoupper(Str::random(4));
+        $data['booking_code'] = 'BK' . now()->format('Ymd') . strtoupper(Str::random(4));
         $data['discount_amount'] = $data['discount_amount'] ?? 0;
         $data['status'] = 'pending';
         $data['payment_status'] = 'unpaid';
@@ -218,7 +218,7 @@ class BookingController extends Controller
             'number_of_people' => 'sometimes|integer|min:1',
             'unit_price' => 'sometimes|numeric|min:0',
             'discount_amount' => 'sometimes|numeric|min:0',
-            'status' => ['sometimes', Rule::in(['pending', 'confirmed', 'departed', 'completed', 'cancelled'])],
+            'status' => ['sometimes', Rule::in(['pending', 'confirmed', 'departed', 'completed', 'cancelled', 'retained'])],
             'payment_status' => ['prohibited'],
             'note' => 'nullable|string',
             'cancel_reason' => 'nullable|string',

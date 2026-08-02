@@ -8367,11 +8367,60 @@ textarea.vg-checkout-input {
 
 .vg-booking-actions-group {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: 8px;
   margin-top: 10px;
+  width: 100%;
+}
+.vg-booking-actions-group > .vg-btn-ticket,
+.vg-booking-actions-group > .vg-btn-secondary,
+.vg-booking-actions-group > .is-cancel {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.vg-booking-actions-group > .is-cancel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid #fca5a5;
+  background: #ffffff;
+  color: #dc2626;
+  font-size: 12.5px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 
+.vg-booking-actions-group > .is-cancel:hover:not(:disabled) {
+  background: #fef2f2;
+  border-color: #f87171;
+}
+ 
+.vg-booking-actions-group > .is-cancel:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+ 
+/* Trên màn hình hẹp, xếp nút thành cột đầy đủ chiều rộng cho dễ bấm */
+@media (max-width: 640px) {
+  .vg-booking-actions-group {
+    flex-direction: column;
+    align-items: stretch;
+  }
+ 
+  .vg-booking-actions-group > .vg-btn-ticket,
+  .vg-booking-actions-group > .vg-btn-secondary,
+  .vg-booking-actions-group > .is-cancel {
+    width: 100%;
+    justify-content: center;
+  }
+}
+ 
 .vg-btn-ticket {
   display: inline-flex;
   align-items: center;
@@ -11482,6 +11531,466 @@ textarea.vg-checkout-input {
 .vg-scroll-top:active { transform: translateY(-2px); border-color: transparent; background: linear-gradient(135deg, #118ef3, #086bd4); box-shadow: 0 14px 30px rgba(8, 105, 210, .35); color: #fff; }
 .vg-scroll-top:focus-visible { outline: 3px solid rgba(17, 142, 243, .35); outline-offset: 3px; }
 @media (max-width: 1023px) { .vg-scroll-top { right: 18px; bottom: 86px; width: 42px; height: 42px; font-size: 1.75rem; } }
+/* ============================================================
+   BỔ SUNG CHO: Hủy tour (có lý do) / Sửa thông tin liên hệ /
+   Yêu cầu xử lý sự cố mưa bão
+   Dùng chung overlay .vg-ticket-modal-overlay đã có sẵn trong dự án.
+   ============================================================ */
+
+.vg-simple-modal {
+  width: 100%;
+  max-width: 520px;
+  background: #fff;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 30px 90px rgba(2, 6, 23, 0.35);
+  max-height: calc(100dvh - 48px);
+  display: flex;
+  flex-direction: column;
+}
+
+.vg-simple-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 22px;
+  border-bottom: 1px solid #e2e8f0;
+  background: linear-gradient(90deg, #0ea5e9, #4f46e5);
+  color: #fff;
+}
+
+.vg-simple-modal-header h2 {
+  font-size: 17px;
+  font-weight: 800;
+  margin: 0;
+}
+
+.vg-simple-modal-header button {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+  border-radius: 999px;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.vg-simple-modal-body {
+  padding: 20px 22px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.vg-simple-modal-hint {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.vg-simple-modal-success {
+  font-size: 14px;
+  font-weight: 700;
+  color: #15803d;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  padding: 14px;
+  border-radius: 12px;
+}
+
+.vg-simple-modal-body label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #334155;
+}
+
+.vg-simple-modal-body input,
+.vg-simple-modal-body textarea {
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #0f172a;
+  outline: none;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.vg-simple-modal-body input:focus,
+.vg-simple-modal-body textarea:focus {
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+}
+
+.vg-disruption-type-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vg-disruption-type-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.vg-disruption-type-item.is-selected {
+  border-color: #4f46e5;
+  background: #eef2ff;
+}
+
+.vg-disruption-type-item input {
+  margin-top: 3px;
+}
+
+.vg-disruption-type-item strong {
+  display: block;
+  font-size: 13.5px;
+  color: #0f172a;
+}
+
+.vg-disruption-type-item small {
+  display: block;
+  color: #64748b;
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.vg-simple-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.vg-simple-modal-actions button {
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-size: 13.5px;
+  font-weight: 800;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.vg-simple-modal-actions .is-ghost {
+  background: #fff;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+.vg-simple-modal-actions .is-primary {
+  background: linear-gradient(90deg, #2563eb, #4f46e5);
+  color: #fff;
+}
+
+.vg-simple-modal-actions .is-danger {
+  background: #dc2626;
+  color: #fff;
+}
+
+.vg-simple-modal-actions button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Nút phụ trong danh sách hành động của mỗi booking */
+.vg-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #334155;
+  border-radius: 10px;
+  padding: 0 14px;
+  height: 36px;
+  font-size: 12.5px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.vg-btn-secondary:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+
+.vg-btn-secondary.is-warn {
+  border-color: #f59e0b;
+  color: #b45309;
+}
+
+.vg-btn-secondary.is-warn:hover {
+  background: #fffbeb;
+}
+/* ============================================================
+   BỔ SUNG CHO: Hủy tour (có lý do) / Sửa thông tin liên hệ /
+   Yêu cầu xử lý sự cố mưa bão
+   Dùng chung overlay .vg-ticket-modal-overlay đã có sẵn trong dự án.
+   ============================================================ */
+
+.vg-simple-modal {
+  width: 100%;
+  max-width: 520px;
+  background: #fff;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 30px 90px rgba(2, 6, 23, 0.35);
+  max-height: calc(100dvh - 48px);
+  display: flex;
+  flex-direction: column;
+}
+
+.vg-simple-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 22px;
+  border-bottom: 1px solid #e2e8f0;
+  background: linear-gradient(90deg, #0ea5e9, #4f46e5);
+  color: #fff;
+}
+
+.vg-simple-modal-header h2 {
+  font-size: 17px;
+  font-weight: 800;
+  margin: 0;
+}
+
+.vg-simple-modal-header button {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+  border-radius: 999px;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.vg-simple-modal-body {
+  padding: 20px 22px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.vg-simple-modal-hint {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.vg-simple-modal-success {
+  font-size: 14px;
+  font-weight: 700;
+  color: #15803d;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  padding: 14px;
+  border-radius: 12px;
+}
+
+.vg-simple-modal-body label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #334155;
+}
+
+.vg-simple-modal-body input,
+.vg-simple-modal-body textarea {
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #0f172a;
+  outline: none;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.vg-simple-modal-body input:focus,
+.vg-simple-modal-body textarea:focus {
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+}
+
+.vg-disruption-type-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vg-disruption-type-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.vg-disruption-type-item.is-selected {
+  border-color: #4f46e5;
+  background: #eef2ff;
+}
+
+.vg-disruption-type-item input {
+  margin-top: 3px;
+}
+
+.vg-disruption-type-item strong {
+  display: block;
+  font-size: 13.5px;
+  color: #0f172a;
+}
+
+.vg-disruption-type-item small {
+  display: block;
+  color: #64748b;
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.vg-simple-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.vg-simple-modal-actions button {
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-size: 13.5px;
+  font-weight: 800;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.vg-simple-modal-actions .is-ghost {
+  background: #fff;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+.vg-simple-modal-actions .is-primary {
+  background: linear-gradient(90deg, #2563eb, #4f46e5);
+  color: #fff;
+}
+
+.vg-simple-modal-actions .is-danger {
+  background: #dc2626;
+  color: #fff;
+}
+
+.vg-simple-modal-actions button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Nút phụ trong danh sách hành động của mỗi booking */
+.vg-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #334155;
+  border-radius: 10px;
+  padding: 0 14px;
+  height: 36px;
+  font-size: 12.5px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.vg-btn-secondary:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+
+.vg-btn-secondary.is-warn {
+  border-color: #f59e0b;
+  color: #b45309;
+}
+
+.vg-btn-secondary.is-warn:hover {
+  background: #fffbeb;
+}
+
+.vg-participant-edit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: 340px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.vg-participant-edit-item {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: #f8fafc;
+}
+
+.vg-participant-edit-item-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.vg-participant-edit-item-head strong {
+  font-size: 13.5px;
+  color: #0f172a;
+}
+
+.vg-participant-edit-item-head small {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.vg-participant-edit-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.vg-participant-edit-item select {
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: #0f172a;
+  background: #fff;
+}
 
 /* Customer-facing surfaces: one visual system below the header. */
 .vg-listing-page,

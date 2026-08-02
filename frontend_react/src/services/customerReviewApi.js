@@ -63,6 +63,16 @@ export async function submitCustomerTourReview(payload) {
   return response.data
 }
 
+// Sửa đánh giá tour đã gửi trước đó.
+export async function updateCustomerTourReview(tourReviewId, payload) {
+  const response = await apiClient.put(
+    `/customer/tour-reviews/${tourReviewId}`,
+    payload,
+  )
+
+  return response.data
+}
+
 export async function getTourReviews(slug, params = {}) {
   const response = await apiClient.get(
     `/tours/${encodeURIComponent(slug)}/reviews`,

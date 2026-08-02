@@ -19,6 +19,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class CustomerBookingController extends Controller
@@ -182,7 +183,7 @@ class CustomerBookingController extends Controller
                 });
 
             // Loại khách suy ra từ quy tắc giá (không tin participant_type do client gửi)
-            if (! $pricedParticipants->contains(fn (array $participant) => $participant['_derived_type'] === 'adult')) {
+            if (! $pricedParticipants->contains(fn(array $participant) => $participant['_derived_type'] === 'adult')) {
                 throw ValidationException::withMessages([
                     'participants' => ['Đơn đặt tour phải có ít nhất 1 người lớn đi kèm.'],
                 ]);
@@ -204,7 +205,7 @@ class CustomerBookingController extends Controller
             }
 
             $booking = Booking::create([
-                'booking_code' => 'BK-'.Str::upper((string) Str::ulid()),
+                'booking_code' => 'BK-' . Str::upper((string) Str::ulid()),
                 'user_id' => $user->id,
                 'tour_id' => $tour->id,
                 'tour_departure_id' => $departure->id,
@@ -285,10 +286,6 @@ class CustomerBookingController extends Controller
         }
 
         $result = DB::transaction(function () use ($booking, $request): array {
-            // Serialize cancellation attempts per customer so two concurrent requests
-            // cannot both consume the final permitted cancellation.
-            User::query()->whereKey($request->user()->id)->lockForUpdate()->firstOrFail();
-
             $lockedBooking = Booking::query()
                 ->lockForUpdate()
                 ->findOrFail($booking->id);
@@ -352,7 +349,12 @@ class CustomerBookingController extends Controller
             abort(404);
         }
 
-        $result = DB::transaction(function () use ($booking, $request): array {
+        $data = $request->validate([
+            // Lý do hủy là bắt buộc để lưu lại lịch sử booking_status_histories
+            'reason' => ['required', 'string', 'min:5', 'max:1000'],
+        ]);
+
+        $result = DB::transaction(function () use ($booking, $request, $data): array {
             $lockedBooking = Booking::query()
                 ->lockForUpdate()
                 ->findOrFail($booking->id);
@@ -365,57 +367,191 @@ class CustomerBookingController extends Controller
                 return ['booking' => $lockedBooking->fresh(['payment'])];
             }
 
+            // Chỉ những trạng thái này khách mới được tự hủy.
+            // Đã khởi hành / đã hoàn thành / đang bảo lưu thì không được hủy tự động.
+            if (! in_array($lockedBooking->status, ['pending', 'confirmed'], true)) {
+                return ['error' => 'Không thể hủy đơn ở trạng thái hiện tại. Vui lòng liên hệ hỗ trợ nếu cần xử lý.'];
+            }
+
+            try {
+                $this->ensureCancelLimitNotExceeded($request->user()->id, $lockedBooking->tour_id);
+            } catch (ValidationException $exception) {
+                return ['error' => collect($exception->errors())->flatten()->first() ?? 'Bạn đã hủy đủ số lần cho phép của tour này.'];
+            }
+
+            $oldStatus = $lockedBooking->status;
+
             $payment = Payment::query()
                 ->where('booking_id', $lockedBooking->id)
                 ->lockForUpdate()
                 ->first();
 
+            // Trường hợp 1: đơn đang chờ thanh toán VNPAY (giữ nguyên logic cũ)
             if (
-                $lockedBooking->status !== 'pending'
-                || $lockedBooking->payment_status !== 'unpaid'
-                || ! $payment
-                || $payment->payment_method !== 'vnpay'
-                || $payment->status !== 'pending'
+                $lockedBooking->status === 'pending'
+                && $lockedBooking->payment_status === 'unpaid'
+                && $payment
+                && $payment->payment_method === 'vnpay'
+                && $payment->status === 'pending'
             ) {
-                return ['error' => 'Chỉ có thể hủy đơn đang chờ thanh toán.'];
+                $this->paymentLifecycleService->failPendingPayment(
+                    $payment,
+                    'Khách hàng chủ động hủy đơn chờ thanh toán.'
+                );
             }
 
-            $customerCancellationCount = Booking::query()
-                ->where('user_id', $request->user()->id)
-                ->whereHas('statusHistories', fn ($query) => $query
-                    ->where('new_status', 'cancelled')
-                    ->where('changed_by', $request->user()->id))
-                ->count();
+            // Trường hợp 2: đơn đã xác nhận / đã thanh toán -> khách chủ động hủy tour
+            $lockedBooking->status = 'cancelled';
+            $lockedBooking->cancel_reason = $data['reason'];
+            $lockedBooking->cancelled_at = now();
 
-            if ($customerCancellationCount >= 2) {
-                return ['error' => 'Bạn đã sử dụng hết giới hạn 2 lần hủy booking theo chính sách ViVuGo.'];
+            if ($lockedBooking->payment_status === 'paid') {
+                // Đánh dấu chờ admin xử lý hoàn tiền thủ công (VD: qua VNPAY / chuyển khoản)
+                $lockedBooking->payment_status = 'refund_pending';
             }
 
-            $this->paymentLifecycleService->failPendingPayment(
-                $payment,
-                'Khách hàng chủ động hủy đơn chờ thanh toán.',
-                null,
-                $request->user()->id,
-            );
+            $lockedBooking->save();
 
-            $cancelledBooking = $lockedBooking->fresh(['payment']);
-            $cancelledBooking->setAttribute('customer_cancellation_count', $customerCancellationCount + 1);
-            $cancelledBooking->setAttribute('customer_cancellation_limit', 2);
+            // Hoàn lại số chỗ cho lịch khởi hành
+            if ($lockedBooking->tour_departure_id) {
+                TourDeparture::query()
+                    ->whereKey($lockedBooking->tour_departure_id)
+                    ->where('booked_slots', '>=', $lockedBooking->number_of_people)
+                    ->decrement('booked_slots', $lockedBooking->number_of_people);
+            }
 
-            return ['booking' => $cancelledBooking];
+            $lockedBooking->statusHistories()->create([
+                'changed_by' => $request->user()->id,
+                'old_status' => $oldStatus,
+                'new_status' => 'cancelled',
+                'note' => $data['reason'],
+            ]);
+
+            return ['booking' => $lockedBooking->fresh(['payment'])];
         }, 3);
 
         if (isset($result['error'])) {
             return response()->json(['message' => $result['error']], 422);
         }
 
+        $bookingData = $result['booking']->toArray();
+        $bookingData['customer_cancellation_count'] = Booking::customerCancellationCountForTour(
+            $request->user()->id,
+            $result['booking']->tour_id
+        );
+        $bookingData['customer_cancellation_limit'] = Booking::CUSTOMER_CANCELLATION_LIMIT;
+
         return response()->json([
             'success' => true,
             'message' => 'Đã hủy đơn hàng và hoàn lại số chỗ.',
-            'data' => $result['booking'],
+            'data' => $bookingData,
         ]);
     }
 
+    /**
+     * Khách hàng sửa thông tin liên hệ sau khi đã đặt tour.
+     * Chỉ cho phép khi đơn chưa khởi hành / chưa hoàn thành / chưa hủy.
+     */
+    public function updateContact(Request $request, Booking $booking): JsonResponse
+    {
+        if ($booking->user_id !== $request->user()->id) {
+            abort(404);
+        }
+
+        $this->ensureBookingStillEditable($booking);
+
+        $data = $request->validate([
+            'contact_name' => ['required', 'string', 'max:150'],
+            'contact_email' => ['nullable', 'email', 'max:150'],
+            'contact_phone' => ['required', 'string', 'max:20'],
+            'address' => ['nullable', 'string', 'max:255'],
+            'special_request' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $booking->contact()->updateOrCreate(['booking_id' => $booking->id], $data);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đã cập nhật thông tin liên hệ.',
+            'data' => $booking->fresh(['contact']),
+        ]);
+    }
+
+    /**
+     * Khách hàng sửa thông tin hành khách (không cho sửa ngày sinh vì ảnh hưởng đến giá vé).
+     */
+    public function updateParticipants(Request $request, Booking $booking): JsonResponse
+    {
+        if ($booking->user_id !== $request->user()->id) {
+            abort(404);
+        }
+
+        $this->ensureBookingStillEditable($booking);
+
+        $data = $request->validate([
+            'participants' => ['required', 'array', 'min:1'],
+            'participants.*.id' => [
+                'required',
+                'integer',
+                Rule::exists('booking_participants', 'id')->where('booking_id', $booking->id),
+            ],
+            'participants.*.full_name' => ['required', 'string', 'max:150'],
+            'participants.*.phone' => ['nullable', 'string', 'max:20'],
+            'participants.*.gender' => ['nullable', 'in:male,female,other'],
+            'participants.*.identity_number' => ['nullable', 'string', 'max:30'],
+        ]);
+
+        DB::transaction(function () use ($booking, $data): void {
+            foreach ($data['participants'] as $participant) {
+                $booking->participants()
+                    ->whereKey($participant['id'])
+                    ->update([
+                        'full_name' => $participant['full_name'],
+                        'phone' => $participant['phone'] ?? null,
+                        'gender' => $participant['gender'] ?? null,
+                        'identity_number' => $participant['identity_number'] ?? null,
+                    ]);
+            }
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đã cập nhật thông tin hành khách.',
+            'data' => $booking->fresh(['participants']),
+        ]);
+    }
+
+    private function ensureBookingStillEditable(Booking $booking): void
+    {
+        if (! $booking->canBeManagedByCustomer()) {
+            throw ValidationException::withMessages([
+                'booking' => ['Không thể sửa thông tin khi đơn đã khởi hành, đã hoàn thành hoặc đã hủy.'],
+            ]);
+        }
+
+        $booking->loadMissing('tourDeparture');
+
+        if ($booking->tourDeparture?->departure_date?->isPast()) {
+            throw ValidationException::withMessages([
+                'booking' => ['Không thể sửa thông tin sau khi lịch khởi hành đã diễn ra.'],
+            ]);
+        }
+    }
+
+    /**
+     * Giới hạn hủy tour tối đa 2 lần cho MỖI TOUR (gộp mọi lịch khởi hành).
+     * Khách đã hủy đủ 2 đơn của tour X thì KHÔNG được hủy thêm đơn nào khác của tour X nữa
+     * (các tour khác không bị ảnh hưởng).
+     */
+    private function ensureCancelLimitNotExceeded(int $userId, int $tourId): void
+    {
+        $cancelledCount = Booking::customerCancellationCountForTour($userId, $tourId);
+
+        if ($cancelledCount >= Booking::CUSTOMER_CANCELLATION_LIMIT) {
+            throw ValidationException::withMessages([
+                'booking' => ['Bạn đã hủy đủ ' . Booking::CUSTOMER_CANCELLATION_LIMIT . ' đơn của tour này, không thể hủy thêm đơn nào khác của tour này nữa. Vui lòng liên hệ hỗ trợ nếu cần trợ giúp.'],
+            ]);
+        }
     public function selectTourCancellationResolution(Request $request, Booking $booking): JsonResponse
     {
         if ($booking->user_id !== $request->user()->id) {

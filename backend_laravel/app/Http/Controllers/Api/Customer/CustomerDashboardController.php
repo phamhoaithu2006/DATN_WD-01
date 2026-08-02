@@ -36,36 +36,43 @@ class CustomerDashboardController extends Controller
 
     public function bookings(Request $request): JsonResponse
     {
-        $customerCancellationCount = Booking::query()
-            ->where('user_id', $request->user()->id)
-            ->whereHas('statusHistories', fn ($query) => $query
-                ->where('new_status', 'cancelled')
-                ->where('changed_by', $request->user()->id))
-            ->count();
+        $userId = $request->user()->id;
 
         $bookings = Booking::query()
-            ->where('user_id', $request->user()->id)
+            ->where('user_id', $userId)
             ->with([
                 'tour.category',
                 'tour.destination',
-                'tour.thumbnail',
                 'tourDeparture',
                 'payment',
                 'tourReview',
+                'contact',
+                'participants',
             ])
             ->orderByDesc('id')
-            ->get()
-            ->map(function (Booking $booking) use ($request, $customerCancellationCount): array {
-                $data = $booking->toArray();
-                $data['can_review_tour'] = $this->bookingReviewEligibilityService->isReviewable($booking);
-                $data['customer_cancellation_count'] = $customerCancellationCount;
-                $data['customer_cancellation_limit'] = 2;
-                $data['tour_review'] = $booking->tourReview
-                    ? (new CustomerTourReviewResource($booking->tourReview))->resolve($request)
-                    : null;
+            ->get();
 
-                return $data;
-            });
+        // Đếm số lần hủy theo TỪNG TOUR (không phân biệt lịch khởi hành),
+        // tính 1 lần cho cả danh sách thay vì query lại cho mỗi booking (tránh N+1).
+        $cancelledCountByTourId = Booking::query()
+            ->where('user_id', $userId)
+            ->where('status', 'cancelled')
+            ->selectRaw('tour_id, COUNT(*) as total')
+            ->groupBy('tour_id')
+            ->pluck('total', 'tour_id');
+
+        $bookings = $bookings->map(function (Booking $booking) use ($request, $cancelledCountByTourId): array {
+            $data = $booking->toArray();
+            $data['can_review_tour'] = $this->bookingReviewEligibilityService->isReviewable($booking);
+            $data['tour_review'] = $booking->tourReview
+                ? (new CustomerTourReviewResource($booking->tourReview))->resolve($request)
+                : null;
+
+            $data['customer_cancellation_count'] = (int) ($cancelledCountByTourId[$booking->tour_id] ?? 0);
+            $data['customer_cancellation_limit'] = Booking::CUSTOMER_CANCELLATION_LIMIT;
+
+            return $data;
+        });
 
         return response()->json([
             'status' => 'success',

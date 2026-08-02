@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\Admin\AdminReceivedNotificationController;
 use App\Http\Controllers\Api\Admin\AdminSupportStaffMonitoringController;
 use App\Http\Controllers\Api\Admin\AdminTourDepartureBookingController;
 use App\Http\Controllers\Api\Admin\BookingController;
+use App\Http\Controllers\Api\Admin\BookingDisruptionController as AdminBookingDisruptionController;
 use App\Http\Controllers\Api\Admin\CategoryController;
 use App\Http\Controllers\Api\Admin\CertificateController;
 use App\Http\Controllers\Api\Admin\CustomerManagerController;
@@ -30,6 +31,7 @@ use App\Http\Controllers\Api\Admin\TourReviewController as AdminTourReviewContro
 use App\Http\Controllers\Api\Admin\WidgetController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\Chat\ChatBotController;
+use App\Http\Controllers\Api\Customer\BookingDisruptionController as CustomerBookingDisruptionController;
 use App\Http\Controllers\Api\Customer\CustomerBookingController;
 use App\Http\Controllers\Api\Customer\CustomerController;
 use App\Http\Controllers\Api\Customer\CustomerDashboardController;
@@ -273,12 +275,19 @@ Route::middleware(['auth:sanctum', 'role:customer'])->group(function () {
     Route::post('customer/bookings', [CustomerBookingController::class, 'store']);
     Route::post('customer/bookings/{booking}/continue-payment', [CustomerBookingController::class, 'continuePayment'])->whereNumber('booking');
     Route::patch('customer/bookings/{booking}/cancel', [CustomerBookingController::class, 'cancel'])->whereNumber('booking');
+    Route::patch('customer/bookings/{booking}/contact', [CustomerBookingController::class, 'updateContact'])->whereNumber('booking');
+    Route::patch('customer/bookings/{booking}/participants', [CustomerBookingController::class, 'updateParticipants'])->whereNumber('booking');
     Route::post('customer/bookings/{booking}/tour-cancellation-resolution', [CustomerBookingController::class, 'selectTourCancellationResolution'])->whereNumber('booking');
     Route::get('customer/payments/vnpay/{payment}', [VnpayPaymentController::class, 'status'])->whereNumber('payment');
+
+    // Xử lý sự cố mưa bão (hoàn tiền / bảo lưu / chuyển tour)
+    Route::get('customer/disruption-requests', [CustomerBookingDisruptionController::class, 'index']);
+    Route::post('customer/bookings/{booking}/disruption-requests', [CustomerBookingDisruptionController::class, 'store'])->whereNumber('booking');
 
     // Đánh giá HDV
     Route::get('customer/guide-reviewable-bookings', [CustomerGuideReviewController::class, 'reviewableBookings']);
     Route::post('customer/guide-reviews', [CustomerGuideReviewController::class, 'store']);
+    Route::put('customer/guide-reviews/{review}', [CustomerGuideReviewController::class, 'update'])->whereNumber('review');
     Route::get('customer/guides/{guide}/reviews', [CustomerGuideReviewController::class, 'guideReviews'])->whereNumber('guide');
     Route::get('customer/guides/{guide}/tour-history', [CustomerGuideReviewController::class, 'guideTourHistory'])->whereNumber('guide');
 
@@ -565,6 +574,14 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(functi
         Route::put('/{id}', [BookingController::class, 'update']);
         Route::patch('/{id}/cancel', [BookingController::class, 'softDelete']);
         Route::delete('/{id}', [BookingController::class, 'destroy']);
+    });
+
+    // Xử lý sự cố mưa bão (hoàn tiền / bảo lưu / chuyển tour)
+    Route::prefix('booking-disruption-requests')->group(function () {
+        Route::get('/', [AdminBookingDisruptionController::class, 'index']);
+        Route::get('/{bookingDisruptionRequest}', [AdminBookingDisruptionController::class, 'show']);
+        Route::patch('/{bookingDisruptionRequest}/approve', [AdminBookingDisruptionController::class, 'approve']);
+        Route::patch('/{bookingDisruptionRequest}/reject', [AdminBookingDisruptionController::class, 'reject']);
     });
 
     // Gửi thông báo

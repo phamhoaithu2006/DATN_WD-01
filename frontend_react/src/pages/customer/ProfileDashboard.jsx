@@ -9,7 +9,10 @@ import { useLocale } from "../../contexts/LocaleContext";
 import {
   cancelCustomerBooking,
   continueCustomerBookingPayment,
+  createDisruptionRequest,
   fetchGuideReviewableBookings,
+  updateBookingContact,
+  updateBookingParticipants,
 } from "../../services/customerApi";
 import { mediaUrl } from "../../utils/mediaUrl";
 
@@ -190,6 +193,471 @@ function BookingTicketModal({ booking, onClose, formatCurrency, formatDate }) {
   );
 }
 
+const DISRUPTION_TYPE_OPTIONS = [
+  {
+    value: "refund",
+    label: "Hoàn tiền",
+    description: "Hủy tour và hoàn lại tiền đã thanh toán.",
+  },
+  {
+    value: "retain",
+    label: "Bảo lưu",
+    description: "Giữ lại giá trị đơn để đặt tour khác trong tương lai.",
+  },
+  {
+    value: "transfer",
+    label: "Đổi lịch khởi hành",
+    description: "Chuyển sang một lịch khởi hành khác của cùng tour.",
+  },
+];
+
+function CancelBookingModal({ booking, onClose, onCancelled }) {
+  const [reason, setReason] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  if (!booking) return null;
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+
+    const trimmedReason = reason.trim();
+
+    if (trimmedReason.length < 5) {
+      setError("Vui lòng nhập lý do hủy tour (tối thiểu 5 ký tự).");
+      return;
+    }
+
+    setSubmitting(true);
+    setError("");
+
+    try {
+      const updatedBooking = await cancelCustomerBooking(booking.id, trimmedReason);
+      onCancelled?.(updatedBooking);
+    } catch (submitError) {
+      setError(
+        submitError.response?.data?.message
+        || submitError.response?.data?.errors?.reason?.[0]
+        || "Không thể hủy đơn hàng. Vui lòng thử lại.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="vg-ticket-modal-overlay" onClick={() => !submitting && onClose?.()}>
+      <div className="vg-simple-modal" onClick={(e) => e.stopPropagation()}>
+        <header className="vg-simple-modal-header">
+          <h2>Hủy đơn {booking.booking_code}</h2>
+          <button type="button" onClick={onClose} disabled={submitting} aria-label="Đóng">
+            <Icon name="close" size={18} />
+          </button>
+        </header>
+        <form onSubmit={handleSubmit} className="vg-simple-modal-body">
+          <p className="vg-simple-modal-hint">
+            Vui lòng cho ViVuGo biết lý do hủy tour. Thông tin này sẽ được lưu lại trong lịch sử đơn hàng.
+          </p>
+          <label>
+            Lý do hủy tour
+            <textarea
+              rows={4}
+              value={reason}
+              onChange={(event) => {
+                setReason(event.target.value);
+                setError("");
+              }}
+              placeholder="Ví dụ: Thay đổi kế hoạch cá nhân, trùng lịch công việc..."
+            />
+          </label>
+          {error ? <p className="vg-booking-action-error">{error}</p> : null}
+          <div className="vg-simple-modal-actions">
+            <button type="button" onClick={onClose} disabled={submitting} className="is-ghost">
+              Đóng
+            </button>
+            <button type="submit" disabled={submitting} className="is-danger">
+              {submitting ? "Đang hủy..." : "Xác nhận hủy tour"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function BookingContactEditModal({ booking, onClose, onUpdated }) {
+  const contact = booking?.contact || {};
+  const [form, setForm] = useState({
+    contact_name: contact.contact_name || "",
+    contact_email: contact.contact_email || "",
+    contact_phone: contact.contact_phone || "",
+    address: contact.address || "",
+    special_request: contact.special_request || "",
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  if (!booking) return null;
+
+  function updateField(field, value) {
+    setForm((current) => ({ ...current, [field]: value }));
+    setError("");
+  }
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+
+    if (!form.contact_name.trim() || !form.contact_phone.trim()) {
+      setError("Vui lòng nhập đầy đủ họ tên và số điện thoại liên hệ.");
+      return;
+    }
+
+    setSubmitting(true);
+    setError("");
+
+    try {
+      const updatedBooking = await updateBookingContact(booking.id, form);
+      onUpdated?.(updatedBooking);
+    } catch (submitError) {
+      const errors = submitError.response?.data?.errors;
+      const firstError = errors ? Object.values(errors).flat().find(Boolean) : null;
+      setError(firstError || submitError.response?.data?.message || "Không thể cập nhật thông tin liên hệ.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="vg-ticket-modal-overlay" onClick={() => !submitting && onClose?.()}>
+      <div className="vg-simple-modal" onClick={(e) => e.stopPropagation()}>
+        <header className="vg-simple-modal-header">
+          <h2>Sửa thông tin liên hệ</h2>
+          <button type="button" onClick={onClose} disabled={submitting} aria-label="Đóng">
+            <Icon name="close" size={18} />
+          </button>
+        </header>
+        <form onSubmit={handleSubmit} className="vg-simple-modal-body">
+          <label>
+            Họ và tên người liên hệ
+            <input
+              type="text"
+              value={form.contact_name}
+              onChange={(event) => updateField("contact_name", event.target.value)}
+            />
+          </label>
+          <label>
+            Số điện thoại
+            <input
+              type="tel"
+              value={form.contact_phone}
+              onChange={(event) => updateField("contact_phone", event.target.value)}
+            />
+          </label>
+          <label>
+            Email
+            <input
+              type="email"
+              value={form.contact_email}
+              onChange={(event) => updateField("contact_email", event.target.value)}
+            />
+          </label>
+          <label>
+            Địa chỉ
+            <input
+              type="text"
+              value={form.address}
+              onChange={(event) => updateField("address", event.target.value)}
+            />
+          </label>
+          <label>
+            Yêu cầu đặc biệt
+            <textarea
+              rows={3}
+              value={form.special_request}
+              onChange={(event) => updateField("special_request", event.target.value)}
+            />
+          </label>
+          {error ? <p className="vg-booking-action-error">{error}</p> : null}
+          <div className="vg-simple-modal-actions">
+            <button type="button" onClick={onClose} disabled={submitting} className="is-ghost">
+              Đóng
+            </button>
+            <button type="submit" disabled={submitting} className="is-primary">
+              {submitting ? "Đang lưu..." : "Lưu thay đổi"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+const GENDER_OPTIONS = [
+  { value: "male", label: "Nam" },
+  { value: "female", label: "Nữ" },
+  { value: "other", label: "Khác" },
+];
+
+function ParticipantsEditModal({ booking, onClose, onUpdated }) {
+  const [rows, setRows] = useState(() =>
+    (booking?.participants || []).map((p) => ({
+      id: p.id,
+      full_name: p.full_name || "",
+      phone: p.phone || "",
+      gender: p.gender || "",
+      identity_number: p.identity_number || "",
+      participant_type: p.participant_type,
+      birth_date: p.birth_date,
+    })),
+  );
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  if (!booking) return null;
+
+  function updateRow(index, field, value) {
+    setRows((current) =>
+      current.map((row, i) => (i === index ? { ...row, [field]: value } : row)),
+    );
+    setError("");
+  }
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+
+    if (rows.some((row) => !row.full_name.trim())) {
+      setError("Vui lòng nhập đầy đủ họ tên cho tất cả hành khách.");
+      return;
+    }
+
+    setSubmitting(true);
+    setError("");
+
+    try {
+      const updatedBooking = await updateBookingParticipants(booking.id, {
+        participants: rows.map((row) => ({
+          id: row.id,
+          full_name: row.full_name,
+          phone: row.phone || null,
+          gender: row.gender || null,
+          identity_number: row.identity_number || null,
+        })),
+      });
+      onUpdated?.(updatedBooking);
+    } catch (submitError) {
+      const errors = submitError.response?.data?.errors;
+      const firstError = errors ? Object.values(errors).flat().find(Boolean) : null;
+      setError(firstError || submitError.response?.data?.message || "Không thể cập nhật thông tin hành khách.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="vg-ticket-modal-overlay" onClick={() => !submitting && onClose?.()}>
+      <div className="vg-simple-modal" onClick={(e) => e.stopPropagation()}>
+        <header className="vg-simple-modal-header">
+          <h2>Sửa thông tin hành khách ({rows.length} khách)</h2>
+          <button type="button" onClick={onClose} disabled={submitting} aria-label="Đóng">
+            <Icon name="close" size={18} />
+          </button>
+        </header>
+        <form onSubmit={handleSubmit} className="vg-simple-modal-body">
+          <p className="vg-simple-modal-hint">
+            Không thể sửa ngày sinh vì ảnh hưởng đến giá vé. Nếu cần đổi ngày sinh, vui lòng liên hệ hỗ trợ.
+          </p>
+
+          <div className="vg-participant-edit-list">
+            {rows.map((row, index) => (
+              <div className="vg-participant-edit-item" key={row.id}>
+                <div className="vg-participant-edit-item-head">
+                  <strong>Hành khách {index + 1}</strong>
+                  {row.birth_date ? <small>Ngày sinh: {row.birth_date}</small> : null}
+                </div>
+
+                <label>
+                  Họ và tên
+                  <input
+                    type="text"
+                    value={row.full_name}
+                    onChange={(event) => updateRow(index, "full_name", event.target.value)}
+                  />
+                </label>
+
+                <div className="vg-participant-edit-row">
+                  <label>
+                    Số điện thoại
+                    <input
+                      type="tel"
+                      value={row.phone}
+                      onChange={(event) => updateRow(index, "phone", event.target.value)}
+                    />
+                  </label>
+
+                  <label>
+                    Giới tính
+                    <select
+                      value={row.gender}
+                      onChange={(event) => updateRow(index, "gender", event.target.value)}
+                    >
+                      <option value="">-- Chọn --</option>
+                      {GENDER_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+
+                <label>
+                  CCCD / Hộ chiếu
+                  <input
+                    type="text"
+                    value={row.identity_number}
+                    onChange={(event) => updateRow(index, "identity_number", event.target.value)}
+                  />
+                </label>
+              </div>
+            ))}
+          </div>
+
+          {error ? <p className="vg-booking-action-error">{error}</p> : null}
+
+          <div className="vg-simple-modal-actions">
+            <button type="button" onClick={onClose} disabled={submitting} className="is-ghost">
+              Đóng
+            </button>
+            <button type="submit" disabled={submitting} className="is-primary">
+              {submitting ? "Đang lưu..." : "Lưu thay đổi"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function DisruptionRequestModal({ booking, onClose, onSubmitted }) {
+  const [type, setType] = useState("refund");
+  const [reason, setReason] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
+
+  if (!booking) return null;
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+
+    if (reason.trim().length < 5) {
+      setError("Vui lòng mô tả rõ tình huống (tối thiểu 5 ký tự).");
+      return;
+    }
+
+    setSubmitting(true);
+    setError("");
+
+    try {
+      const result = await createDisruptionRequest(booking.id, {
+        type,
+        reason: reason.trim(),
+      });
+      setSuccess(true);
+      onSubmitted?.(result);
+    } catch (submitError) {
+      const errors = submitError.response?.data?.errors;
+      const firstError = errors ? Object.values(errors).flat().find(Boolean) : null;
+      setError(firstError || submitError.response?.data?.message || "Không thể gửi yêu cầu. Vui lòng thử lại.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="vg-ticket-modal-overlay" onClick={() => !submitting && onClose?.()}>
+      <div className="vg-simple-modal" onClick={(e) => e.stopPropagation()}>
+        <header className="vg-simple-modal-header">
+          <h2>Yêu cầu xử lý sự cố (mưa bão)</h2>
+          <button type="button" onClick={onClose} disabled={submitting} aria-label="Đóng">
+            <Icon name="close" size={18} />
+          </button>
+        </header>
+
+        {success ? (
+          <div className="vg-simple-modal-body">
+            <p className="vg-simple-modal-success">
+              Đã gửi yêu cầu thành công. Nhân viên ViVuGo sẽ liên hệ và xử lý sớm nhất.
+            </p>
+            <div className="vg-simple-modal-actions">
+              <button type="button" onClick={onClose} className="is-primary">
+                Đóng
+              </button>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="vg-simple-modal-body">
+            <p className="vg-simple-modal-hint">
+              Áp dụng cho đơn <strong>{booking.booking_code}</strong> khi gặp sự cố thời tiết (mưa bão) ảnh hưởng tới chuyến đi.
+            </p>
+
+            <div className="vg-disruption-type-list">
+              {DISRUPTION_TYPE_OPTIONS.map((option) => (
+                <label
+                  key={option.value}
+                  className={`vg-disruption-type-item ${type === option.value ? "is-selected" : ""}`}
+                >
+                  <input
+                    type="radio"
+                    name="disruption-type"
+                    value={option.value}
+                    checked={type === option.value}
+                    onChange={() => setType(option.value)}
+                  />
+                  <span>
+                    <strong>{option.label}</strong>
+                    <small>{option.description}</small>
+                  </span>
+                </label>
+              ))}
+            </div>
+
+            <label>
+              Mô tả tình huống
+              <textarea
+                rows={4}
+                value={reason}
+                onChange={(event) => {
+                  setReason(event.target.value);
+                  setError("");
+                }}
+                placeholder="Ví dụ: Khu vực khởi hành đang có bão số X, không thể di chuyển an toàn..."
+              />
+            </label>
+
+            {type === "transfer" ? (
+              <p className="vg-simple-modal-hint">
+                Bạn chưa cần chọn lịch khởi hành mới — nhân viên hỗ trợ sẽ liên hệ để chọn lịch phù hợp còn chỗ trống.
+              </p>
+            ) : null}
+
+            {error ? <p className="vg-booking-action-error">{error}</p> : null}
+
+            <div className="vg-simple-modal-actions">
+              <button type="button" onClick={onClose} disabled={submitting} className="is-ghost">
+                Đóng
+              </button>
+              <button type="submit" disabled={submitting} className="is-primary">
+                {submitting ? "Đang gửi..." : "Gửi yêu cầu"}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ProfileDashboard({
   route,
   profile,
@@ -228,6 +696,10 @@ function ProfileDashboard({
   const [reviewableBookingsError, setReviewableBookingsError] = useState("");
   const [activeGuideReview, setActiveGuideReview] = useState(null);
   const [activeTourReview, setActiveTourReview] = useState(null);
+  const [cancelTargetBooking, setCancelTargetBooking] = useState(null);
+  const [contactEditBooking, setContactEditBooking] = useState(null);
+  const [participantsEditBooking, setParticipantsEditBooking] = useState(null);
+  const [disruptionBooking, setDisruptionBooking] = useState(null);
 
   const selectBookingFilter = (nextFilter) => {
     setBookingFilter(nextFilter);
@@ -527,20 +999,28 @@ function ProfileDashboard({
     }
   };
 
-  const handleCancelBooking = async (booking) => {
-    if (!window.confirm(`Bạn có chắc muốn hủy đơn ${booking.booking_code}?`)) return;
-
+  const handleCancelBooking = (booking) => {
     setBookingActionError("");
-    setBookingActionId(booking.id);
+    setCancelTargetBooking(booking);
+  };
 
-    try {
-      const updatedBooking = await cancelCustomerBooking(booking.id);
-      onBookingUpdated?.(updatedBooking);
-    } catch (error) {
-      setBookingActionError(error.response?.data?.message || "Không thể hủy đơn hàng.");
-    } finally {
-      setBookingActionId(null);
-    }
+  const handleBookingCancelled = (updatedBooking) => {
+    onBookingUpdated?.(updatedBooking);
+    setCancelTargetBooking(null);
+  };
+
+  const handleContactUpdated = (updatedBooking) => {
+    onBookingUpdated?.(updatedBooking);
+    setContactEditBooking(null);
+  };
+
+  const handleParticipantsUpdated = (updatedBooking) => {
+    onBookingUpdated?.(updatedBooking);
+    setParticipantsEditBooking(null);
+  };
+
+  const handleDisruptionSubmitted = () => {
+    // Modal tự hiển thị trạng thái thành công, không cần đóng ngay.
   };
 
 
@@ -735,6 +1215,9 @@ function ProfileDashboard({
                   const isPendingPayment = canPayBooking(booking);
                   const cancellationLimitReached = Number(booking.customer_cancellation_count || 0)
                     >= Number(booking.customer_cancellation_limit || 2);
+                  // Chỉ những đơn đang chờ/đã xác nhận (chưa khởi hành, chưa hoàn thành, chưa hủy)
+                  // mới cho phép khách tự sửa thông tin hoặc gửi yêu cầu xử lý sự cố.
+                  const canManageBooking = ["pending", "confirmed"].includes(booking.status);
                   const tourImage = booking.tour?.thumbnail_url || booking.tour?.image || booking.tour?.thumbnail?.image_url || "";
                   const departureDate = booking.tour_departure?.departure_date ? formatDate(booking.tour_departure.departure_date) : null;
                   const returnDate = booking.tour_departure?.return_date ? formatDate(booking.tour_departure.return_date) : null;
@@ -879,11 +1362,12 @@ function ProfileDashboard({
                                 tourId: booking.tour?.id,
                                 tourDepartureId: booking.tour_departure?.id,
                                 tourTitle: booking.tour?.title || "Tour đã hoàn thành",
+                                existingReview: booking.tour_review || null,
                               })}
                               className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-amber-500 bg-white px-4 text-xs font-extrabold text-amber-600 transition hover:bg-amber-50"
                             >
-                              <Icon name="star" size={14} />
-                              Đánh giá tour
+                              <Icon name={booking.tour_review ? "edit" : "star"} size={14} />
+                              {booking.tour_review ? "Sửa đánh giá tour" : "Đánh giá tour"}
                             </button>
                           </div>
                         ) : null}
@@ -915,8 +1399,7 @@ function ProfileDashboard({
                                 type="button"
                                 className="is-pay"
                                 onClick={() => handleContinuePayment(booking)}
-                                disabled={bookingActionId === booking.id || cancellationLimitReached}
-                                title={cancellationLimitReached ? "Bạn đã dùng hết 2 lần hủy booking theo chính sách." : undefined}
+                                disabled={bookingActionId === booking.id}
                               >
                                 <Icon name="creditCard" size={14} />
                                 {bookingActionId === booking.id ? "Đang xử lý..." : "Thanh toán"}
@@ -925,7 +1408,8 @@ function ProfileDashboard({
                                 type="button"
                                 className="is-cancel"
                                 onClick={() => handleCancelBooking(booking)}
-                                disabled={bookingActionId === booking.id}
+                                disabled={bookingActionId === booking.id || cancellationLimitReached}
+                                title={cancellationLimitReached ? "Bạn đã dùng hết 2 lần hủy booking theo chính sách." : undefined}
                               >
                                 Hủy đơn
                               </button>
@@ -941,6 +1425,46 @@ function ProfileDashboard({
                                   <Icon name="eye" size={15} /> Vé điện tử
                                 </button>
                               )}
+
+                              {canManageBooking ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    className="vg-btn-secondary"
+                                    onClick={() => setContactEditBooking(booking)}
+                                  >
+                                    <Icon name="edit" size={14} /> Sửa thông tin liên hệ
+                                  </button>
+
+                                  {Array.isArray(booking.participants) && booking.participants.length > 0 ? (
+                                    <button
+                                      type="button"
+                                      className="vg-btn-secondary"
+                                      onClick={() => setParticipantsEditBooking(booking)}
+                                    >
+                                      <Icon name="users" size={14} /> Sửa thông tin hành khách
+                                    </button>
+                                  ) : null}
+
+                                  <button
+                                    type="button"
+                                    className="vg-btn-secondary is-warn"
+                                    onClick={() => setDisruptionBooking(booking)}
+                                  >
+                                    <Icon name="alertCircle" size={14} /> Xử lý mưa bão
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    className="is-cancel"
+                                    onClick={() => handleCancelBooking(booking)}
+                                    disabled={bookingActionId === booking.id || cancellationLimitReached}
+                                    title={cancellationLimitReached ? "Bạn đã dùng hết 2 lần hủy booking theo chính sách." : undefined}
+                                  >
+                                    Hủy đơn
+                                  </button>
+                                </>
+                              ) : null}
                             </div>
                           )}
                         </div>
@@ -1055,6 +1579,38 @@ function ProfileDashboard({
         onClose={() => setActiveTourReview(null)}
         onSubmitted={() => setActiveTourReview(null)}
       />
+
+      {cancelTargetBooking ? (
+        <CancelBookingModal
+          booking={cancelTargetBooking}
+          onClose={() => setCancelTargetBooking(null)}
+          onCancelled={handleBookingCancelled}
+        />
+      ) : null}
+
+      {contactEditBooking ? (
+        <BookingContactEditModal
+          booking={contactEditBooking}
+          onClose={() => setContactEditBooking(null)}
+          onUpdated={handleContactUpdated}
+        />
+      ) : null}
+
+      {participantsEditBooking ? (
+        <ParticipantsEditModal
+          booking={participantsEditBooking}
+          onClose={() => setParticipantsEditBooking(null)}
+          onUpdated={handleParticipantsUpdated}
+        />
+      ) : null}
+
+      {disruptionBooking ? (
+        <DisruptionRequestModal
+          booking={disruptionBooking}
+          onClose={() => setDisruptionBooking(null)}
+          onSubmitted={handleDisruptionSubmitted}
+        />
+      ) : null}
     </main>
   );
 }
