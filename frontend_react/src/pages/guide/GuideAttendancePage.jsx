@@ -517,11 +517,6 @@ function GuideAttendancePage() {
             </article>
           </section>
           <section className="guide-attendance-card">
-            {attendanceSessions.length === 0 ? (
-              <div className="guide-attendance-readonly-notice" role="status">
-                Tour chưa có lịch trình để tạo phiên điểm danh.
-              </div>
-            ) : null}
             {isReadOnlySession ? (
               <div className="guide-attendance-readonly-notice" role="status">
                 Mốc này không diễn ra hôm nay nên chỉ có thể xem lịch sử điểm danh.

@@ -26,7 +26,11 @@ class GuideTourOperationService
     public function getOverview(User $user, TourDeparture $tourDeparture): TourDeparture
     {
         $departure = $this->assignedDepartureForUser($user, $tourDeparture);
-        $this->ensureStagesForDeparture($departure);
+        // Chỉ tạo/cập nhật tiến trình khi tour thực sự đang diễn ra.
+        // API xem chi tiết không được làm thay đổi tour đã hủy hoặc chưa chốt.
+        if ($this->isDepartureOngoing($departure)) {
+            $this->ensureStagesForDeparture($departure);
+        }
 
         return $departure->fresh([
             'tour:id,title,slug,status',
@@ -99,7 +103,9 @@ class GuideTourOperationService
     public function getAttendanceSessions(User $user, TourDeparture $tourDeparture): Collection
     {
         $departure = $this->assignedDepartureForUser($user, $tourDeparture);
-        $this->ensureDepartureAttendanceSession($departure, $user);
+        if ($this->isDepartureOngoing($departure)) {
+            $this->ensureDepartureAttendanceSession($departure, $user);
+        }
 
         $sessions = AttendanceSession::query()
             ->where('tour_departure_id', $departure->id)
@@ -469,7 +475,9 @@ class GuideTourOperationService
     public function getStages(User $user, TourDeparture $tourDeparture): Collection
     {
         $departure = $this->assignedDepartureForUser($user, $tourDeparture);
-        $this->ensureStagesForDeparture($departure);
+        if ($this->isDepartureOngoing($departure)) {
+            $this->ensureStagesForDeparture($departure);
+        }
 
         return $departure->fresh()->stages()->get();
     }

@@ -113,7 +113,18 @@ function GuideComingSoonPage({
 
 function AppRoutes() {
   return (
-    <Suspense fallback={<div className="app-route-loading" role="status">Đang tải trang...</div>}>
+    <Suspense fallback={<div className="app-route-loading" role="status" aria-live="polite">
+      <div className="app-route-loading__card">
+        <span className="app-route-loading__spinner" aria-hidden="true" />
+        <div className="app-route-loading__copy">
+          <strong>Đang chuẩn bị hành trình</strong>
+          <span>Nội dung sẽ sẵn sàng trong giây lát</span>
+        </div>
+        <div className="app-route-loading__skeletons" aria-hidden="true">
+          <i /><i /><i />
+        </div>
+      </div>
+    </div>}>
     <Routes>
       {/* ================= KHÁCH HÀNG ================= */}
 

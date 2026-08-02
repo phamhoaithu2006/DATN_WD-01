@@ -1,5 +1,4 @@
 import BookingBadge from './BookingBadge'
-import { statusOptions } from './bookingConstants'
 import { InvoiceIcon } from './BookingIcons'
 import {
   bookingDeparture,
@@ -41,6 +40,14 @@ function BookingDetailModal({ booking, busy, onClose, onInvoice, onPaymentChange
     || booking.status === 'cancelled_by_tour'
     || booking.tourDeparture?.status === 'completed'
   const isCancelledByTour = booking.status === 'cancelled_by_tour'
+  const statusValue = isCancelledByTour ? 'confirmed' : (booking.status || '')
+  const detailStatusOptions = [
+    { value: 'pending', label: 'Chờ xác nhận' },
+    { value: 'confirmed', label: 'Đã xác nhận' },
+    { value: 'departed', label: 'Đã khởi hành' },
+    { value: 'completed', label: 'Hoàn thành' },
+    { value: 'cancelled', label: 'Đã hủy' },
+  ]
 
   return (
     <div className="booking-modal-backdrop" role="presentation" onMouseDown={onClose}>
@@ -112,15 +119,15 @@ function BookingDetailModal({ booking, busy, onClose, onInvoice, onPaymentChange
               <label>
                 Trạng thái
                 <select
-                  value={booking.status || ''}
-                  disabled={busy || isCancelledByTour}
+                  value={statusValue}
+                  disabled={busy}
                   onChange={(event) => onStatusChange(booking, event.target.value)}
                 >
-                  {statusOptions.filter((item) => item.value).map((item) => (
+                  {detailStatusOptions.map((item) => (
                     <option
                       key={item.value}
                       value={item.value}
-                      disabled={item.value === 'pending' && cannotReturnToPending}
+                      disabled={item.value === 'pending' && (cannotReturnToPending || isCancelledByTour)}
                     >
                       {item.label}
                     </option>
@@ -147,7 +154,7 @@ function BookingDetailModal({ booking, busy, onClose, onInvoice, onPaymentChange
                     </button>
                     <button
                       type="button"
-                      disabled={busy || isCancelledByTour || payment.status !== 'success'}
+                      disabled={busy || payment.status !== 'success'}
                       onClick={() => onPaymentChange(booking, 'refund')}
                     >
                       Hoàn tiền
@@ -160,10 +167,16 @@ function BookingDetailModal({ booking, busy, onClose, onInvoice, onPaymentChange
             </div>
             <dl className="booking-detail-list compact">
               {booking.status === 'cancelled_by_tour' ? (
-                <div>
-                  <dt>Lý do hủy</dt>
-                  <dd>{cancellationReasonLabel(booking)}</dd>
-                </div>
+                <>
+                  <div>
+                    <dt>Lý do hủy</dt>
+                    <dd>{cancellationReasonLabel(booking)}</dd>
+                  </div>
+                  <div>
+                    <dt>Phương án khách chọn</dt>
+                    <dd>{booking.resolution_status === 'pending_selection' ? 'Đang chờ khách lựa chọn' : booking.resolution_status || 'Chưa có'}</dd>
+                  </div>
+                </>
               ) : null}
               <div>
                 <dt>Đơn giá</dt>

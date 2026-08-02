@@ -16,7 +16,7 @@ use Laravel\Sanctum\Sanctum;
 
 uses(RefreshDatabase::class);
 
-test('finalization demo seeder adds cancelled departures to existing managed tours', function () {
+test('finalization demo seeder adds cancelled, confirmed and departed departures to existing managed tours', function () {
     $customerRole = Role::query()->firstOrCreate(['name' => 'customer']);
     $guideRole = Role::query()->firstOrCreate(['name' => 'tour guide']);
     User::factory()->create(['role_id' => $customerRole->id, 'email' => 'customer@vivugo.vn']);
@@ -43,8 +43,9 @@ test('finalization demo seeder adds cancelled departures to existing managed tou
     expect(TourDeparture::query()->where('status', 'cancelled')->count())->toBe(2)
         ->and(Booking::query()->where('booking_code', 'BK-SEED-CANCEL-INSUFFICIENT')->value('number_of_people'))->toBe(8)
         ->and(Booking::query()->where('booking_code', 'BK-SEED-CANCEL-WEATHER')->value('number_of_people'))->toBe(6)
-        ->and(TourGuideAssignment::query()->whereHas('guide', fn ($query) => $query->where('guide_code', 'HDV001'))->count())->toBe(3)
-        ->and(Booking::query()->whereHas('user', fn ($query) => $query->where('email', 'customer@vivugo.vn'))->count())->toBe(3)
+        ->and(Booking::query()->where('booking_code', 'BK-SEED-DEPARTED-10')->where('status', 'departed')->count())->toBe(1)
+        ->and(TourGuideAssignment::query()->whereHas('guide', fn ($query) => $query->where('guide_code', 'HDV001'))->count())->toBe(4)
+        ->and(Booking::query()->whereHas('user', fn ($query) => $query->where('email', 'customer@vivugo.vn'))->count())->toBe(4)
         ->and(TourDeparture::query()->where('cancellation_reason', 'weather_disaster')->where('status', 'cancelled')->count())->toBe(1)
         ->and(Notification::query()->where('user_id', $guideUser->id)->where('status', 'unread')->count())->toBe(2);
 

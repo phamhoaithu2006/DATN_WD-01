@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import Icon from "../../components/customer/Icon";
+import LoadingState from "../../components/common/LoadingState";
 import TourCard from "../../components/customer/TourCard";
 import BookingCountdown from "../../components/customer/BookingCountdown";
 import GuideReviewModal from "../../components/customer/GuideReviewModal";
@@ -809,7 +810,7 @@ function ProfileDashboard({
       return "expired";
     }
 
-    if (booking.status === "cancelled") return "cancelled";
+    if (["cancelled", "cancelled_by_tour"].includes(booking.status)) return "cancelled";
 
     const departureAt = booking.tour_departure?.departure_date
       ? new Date(booking.tour_departure.departure_date).getTime()
@@ -1129,7 +1130,7 @@ function ProfileDashboard({
 
         {active === "favorites" ? (
           favoritesLoading ? (
-            <p className="vg-profile-loading-state">Đang tải tour yêu thích...</p>
+            <LoadingState compact label="Đang tải tour yêu thích..." />
           ) : favoriteTours.length ? (
             <div className="vg-tour-grid vg-profile-grid">
               {favoriteTours.map((tour) => (
@@ -1244,7 +1245,7 @@ function ProfileDashboard({
 
             {/* Bookings List */}
             {bookingsLoading ? (
-              <p className="vg-profile-loading-state">Đang tải chuyến đi của bạn...</p>
+              <LoadingState label="Đang tải chuyến đi của bạn..." />
             ) : filteredBookings.length ? (
               <div className="vg-bookings">
                 {bookingActionError ? <p className="vg-booking-action-error">{bookingActionError}</p> : null}

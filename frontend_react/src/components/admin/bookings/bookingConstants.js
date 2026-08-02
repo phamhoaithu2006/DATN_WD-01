@@ -4,8 +4,7 @@ export const statusOptions = [
   { value: 'confirmed', label: 'Đã xác nhận' },
   { value: 'departed', label: 'Đã khởi hành' },
   { value: 'completed', label: 'Hoàn thành' },
-  { value: 'cancelled', label: 'Đã hủy' },
-  { value: 'cancelled_by_tour', label: 'Đã hủy' },
+  { value: 'cancelled_all', label: 'Đã hủy' },
 ]
 
 export const paymentOptions = [

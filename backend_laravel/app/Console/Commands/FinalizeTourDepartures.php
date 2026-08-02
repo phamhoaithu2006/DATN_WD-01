@@ -30,8 +30,16 @@ class FinalizeTourDepartures extends Command
     {
         $dueDepartures = TourDeparture::query()
             ->where('status', 'open')
-            ->whereNotNull('departure_at')
-            ->where('departure_at', '<=', now()->addHours(72))
+            ->where(function ($query): void {
+                $query
+                    ->where('departure_at', '<=', now()->addHours(72))
+                    // Dữ liệu cũ chưa có departure_at vẫn phải được chốt theo
+                    // ngày khởi hành, tránh bị coi là tour đang diễn ra khi 0 khách.
+                    ->orWhere(function ($legacyQuery): void {
+                        $legacyQuery->whereNull('departure_at')
+                            ->whereDate('departure_date', '<=', now()->addDays(3)->toDateString());
+                    });
+            })
             ->orderBy('id')
             ->get();
 

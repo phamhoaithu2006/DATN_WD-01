@@ -24,6 +24,12 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // SQLite không có ENUM; cột string hiện tại đã chấp nhận các giá trị mới.
+        // Bỏ qua ALTER TABLE kiểu MySQL để test dùng SQLite vẫn chạy được.
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
+
         DB::statement(
             "ALTER TABLE bookings MODIFY COLUMN status "
                 . "ENUM('pending','confirmed','departed','completed','cancelled','retained') "
@@ -45,6 +51,10 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
+
         DB::statement(
             "ALTER TABLE bookings MODIFY COLUMN status "
                 . "ENUM('pending','confirmed','departed','completed','cancelled') "

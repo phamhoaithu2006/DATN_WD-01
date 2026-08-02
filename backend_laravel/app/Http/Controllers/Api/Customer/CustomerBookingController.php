@@ -350,11 +350,12 @@ class CustomerBookingController extends Controller
         }
 
         $data = $request->validate([
-            // Lý do hủy là bắt buộc để lưu lại lịch sử booking_status_histories
-            'reason' => ['required', 'string', 'min:5', 'max:1000'],
+            // Cho phép API cũ không gửi lý do; vẫn lưu note mặc định trong lịch sử.
+            'reason' => ['nullable', 'string', 'min:5', 'max:1000'],
         ]);
+        $reason = trim((string) ($data['reason'] ?? '')) ?: 'Khách hàng chủ động hủy booking.';
 
-        $result = DB::transaction(function () use ($booking, $request, $data): array {
+        $result = DB::transaction(function () use ($booking, $request, $reason): array {
             $lockedBooking = Booking::query()
                 ->lockForUpdate()
                 ->findOrFail($booking->id);
@@ -373,8 +374,14 @@ class CustomerBookingController extends Controller
                 return ['error' => 'Không thể hủy đơn ở trạng thái hiện tại. Vui lòng liên hệ hỗ trợ nếu cần xử lý.'];
             }
 
+            // Đơn đang chờ thanh toán nhưng đã thanh toán thành công phải được
+            // xử lý qua quy trình hoàn tiền, không được khách tự hủy trực tiếp.
+            if ($lockedBooking->status === 'pending' && $lockedBooking->payment_status !== 'unpaid') {
+                return ['error' => 'Đơn đã thanh toán không thể tự hủy. Vui lòng liên hệ hỗ trợ để được xử lý.'];
+            }
+
             try {
-                $this->ensureCancelLimitNotExceeded($request->user()->id, $lockedBooking->tour_id);
+                $this->ensureCancelLimitNotExceeded($request->user()->id);
             } catch (ValidationException $exception) {
                 return ['error' => collect($exception->errors())->flatten()->first() ?? 'Bạn đã hủy đủ số lần cho phép của tour này.'];
             }
@@ -398,11 +405,15 @@ class CustomerBookingController extends Controller
                     $payment,
                     'Khách hàng chủ động hủy đơn chờ thanh toán.'
                 );
+
+                // Service đã cập nhật booking, hoàn chỗ và ghi lịch sử.
+                // Không tạo thêm một lịch sử hủy lần nữa ở phía dưới.
+                return ['booking' => $lockedBooking->fresh(['payment'])];
             }
 
             // Trường hợp 2: đơn đã xác nhận / đã thanh toán -> khách chủ động hủy tour
             $lockedBooking->status = 'cancelled';
-            $lockedBooking->cancel_reason = $data['reason'];
+            $lockedBooking->cancel_reason = $reason;
             $lockedBooking->cancelled_at = now();
 
             if ($lockedBooking->payment_status === 'paid') {
@@ -424,7 +435,7 @@ class CustomerBookingController extends Controller
                 'changed_by' => $request->user()->id,
                 'old_status' => $oldStatus,
                 'new_status' => 'cancelled',
-                'note' => $data['reason'],
+                'note' => $reason,
             ]);
 
             return ['booking' => $lockedBooking->fresh(['payment'])];
@@ -538,18 +549,14 @@ class CustomerBookingController extends Controller
         }
     }
 
-    /**
-     * Giới hạn hủy tour tối đa 2 lần cho MỖI TOUR (gộp mọi lịch khởi hành).
-     * Khách đã hủy đủ 2 đơn của tour X thì KHÔNG được hủy thêm đơn nào khác của tour X nữa
-     * (các tour khác không bị ảnh hưởng).
-     */
-    private function ensureCancelLimitNotExceeded(int $userId, int $tourId): void
+    /** Giới hạn khách tự hủy tối đa 2 booking theo chính sách ViVuGo. */
+    private function ensureCancelLimitNotExceeded(int $userId): void
     {
-        $cancelledCount = Booking::customerCancellationCountForTour($userId, $tourId);
+        $cancelledCount = Booking::customerCancellationCountForUser($userId);
 
         if ($cancelledCount >= Booking::CUSTOMER_CANCELLATION_LIMIT) {
             throw ValidationException::withMessages([
-                'booking' => ['Bạn đã hủy đủ ' . Booking::CUSTOMER_CANCELLATION_LIMIT . ' đơn của tour này, không thể hủy thêm đơn nào khác của tour này nữa. Vui lòng liên hệ hỗ trợ nếu cần trợ giúp.'],
+                'booking' => ['Bạn đã sử dụng hết giới hạn ' . Booking::CUSTOMER_CANCELLATION_LIMIT . ' lần hủy booking theo chính sách ViVuGo.'],
             ]);
         }
     }

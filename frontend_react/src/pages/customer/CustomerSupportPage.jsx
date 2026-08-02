@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
+import LoadingState from "../../components/common/LoadingState";
 import { createCustomerSupportRequest } from "../../services/supportRequestApi";
 import {
   getMySupportRequestDetail,
@@ -892,9 +893,7 @@ export default function CustomerSupportPage({ profile }) {
 
             {requestsLoading ? (
               <div className="rounded-3xl border border-slate-200 bg-white p-12 text-center shadow-sm">
-                <p className="font-bold text-slate-600">
-                  Đang tải yêu cầu hỗ trợ...
-                </p>
+                <LoadingState label="Đang tải yêu cầu hỗ trợ..." />
               </div>
             ) : items.length === 0 ? (
               <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-12 text-center">
