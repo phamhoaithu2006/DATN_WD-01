@@ -141,6 +141,7 @@ class Booking extends Model
     public function disruptionRequests(): HasMany
     {
         return $this->hasMany(BookingDisruptionRequest::class);
+    }
     public function sourceBooking(): BelongsTo
     {
         return $this->belongsTo(self::class, 'source_booking_id');
@@ -156,29 +157,29 @@ class Booking extends Model
     {
         return $query->when(
             $keyword,
-            fn ($q) => $q->where(function ($searchQuery) use ($keyword) {
+            fn($q) => $q->where(function ($searchQuery) use ($keyword) {
                 $searchQuery
-                    ->whereHas('tour', fn ($tour) => $tour->where('title', 'like', "%{$keyword}%"))
-                    ->orWhereHas('user', fn ($user) => $user->where('full_name', 'like', "%{$keyword}%"))
-                    ->orWhereHas('contact', fn ($contact) => $contact->where('contact_name', 'like', "%{$keyword}%"));
+                    ->whereHas('tour', fn($tour) => $tour->where('title', 'like', "%{$keyword}%"))
+                    ->orWhereHas('user', fn($user) => $user->where('full_name', 'like', "%{$keyword}%"))
+                    ->orWhereHas('contact', fn($contact) => $contact->where('contact_name', 'like', "%{$keyword}%"));
             })
         );
     }
 
     public function scopeFilterStatus($query, $status)
     {
-        return $query->when($status, fn ($q) => $q->where('status', $status));
+        return $query->when($status, fn($q) => $q->where('status', $status));
     }
 
     public function scopeFilterPaymentStatus($query, $paymentStatus)
     {
-        return $query->when($paymentStatus, fn ($q) => $q->where('payment_status', $paymentStatus));
+        return $query->when($paymentStatus, fn($q) => $q->where('payment_status', $paymentStatus));
     }
 
     public function scopeFilterDate($query, $from, $to)
     {
         return $query
-            ->when($from, fn ($q) => $q->whereDate('created_at', '>=', $from))
-            ->when($to, fn ($q) => $q->whereDate('created_at', '<=', $to));
+            ->when($from, fn($q) => $q->whereDate('created_at', '>=', $from))
+            ->when($to, fn($q) => $q->whereDate('created_at', '<=', $to));
     }
 }

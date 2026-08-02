@@ -552,6 +552,7 @@ class CustomerBookingController extends Controller
                 'booking' => ['Bạn đã hủy đủ ' . Booking::CUSTOMER_CANCELLATION_LIMIT . ' đơn của tour này, không thể hủy thêm đơn nào khác của tour này nữa. Vui lòng liên hệ hỗ trợ nếu cần trợ giúp.'],
             ]);
         }
+    }
     public function selectTourCancellationResolution(Request $request, Booking $booking): JsonResponse
     {
         if ($booking->user_id !== $request->user()->id) {
@@ -577,7 +578,7 @@ class CustomerBookingController extends Controller
 
                 $replacement = $source->replicate(['booking_code', 'created_at', 'updated_at']);
                 $replacement->fill([
-                    'booking_code' => 'BK-'.Str::upper((string) Str::ulid()),
+                    'booking_code' => 'BK-' . Str::upper((string) Str::ulid()),
                     'tour_id' => $target->tour_id,
                     'tour_departure_id' => $target->id,
                     'source_booking_id' => $source->id,
@@ -590,8 +591,17 @@ class CustomerBookingController extends Controller
                 ]);
                 $replacement->save();
                 $replacement->contact()->create($source->contact?->only(['contact_name', 'contact_email', 'contact_phone', 'address', 'special_request']) ?? []);
-                $replacement->participants()->createMany($source->participants->map(fn ($participant) => $participant->only([
-                    'full_name', 'phone', 'birth_date', 'gender', 'identity_number', 'participant_type', 'unit_price', 'pricing_rule_label', 'pricing_type', 'pricing_value',
+                $replacement->participants()->createMany($source->participants->map(fn($participant) => $participant->only([
+                    'full_name',
+                    'phone',
+                    'birth_date',
+                    'gender',
+                    'identity_number',
+                    'participant_type',
+                    'unit_price',
+                    'pricing_rule_label',
+                    'pricing_type',
+                    'pricing_value',
                 ]))->all());
                 $replacement->statusHistories()->create(['old_status' => null, 'new_status' => 'pending', 'note' => "Created from cancelled booking {$source->booking_code}."]);
                 $target->increment('booked_slots', $replacement->number_of_people);
