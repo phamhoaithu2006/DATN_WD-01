@@ -360,6 +360,48 @@ test('customer booking with only free participants is rejected before reaching V
     $this->assertDatabaseCount('payments', 0);
 });
 
+test('customer booking preview returns the latest available slots before confirmation', function () {
+    $customer = paymentSafetyUser('customer');
+    $departure = paymentSafetyDeparture(null, [
+        'total_slots' => 10,
+        'booked_slots' => 8,
+    ]);
+
+    Sanctum::actingAs($customer);
+
+    $this->postJson('/api/customer/bookings/preview', [
+        'tour_departure_id' => $departure->id,
+        'quantity_summary' => [
+            ['rule_id' => null, 'quantity' => 2],
+        ],
+    ])
+        ->assertOk()
+        ->assertJsonPath('data.available_slots', 2)
+        ->assertJsonPath('data.total_people', 2);
+});
+
+test('customer booking preview rejects a departure that ran out of slots before confirmation', function () {
+    $customer = paymentSafetyUser('customer');
+    $departure = paymentSafetyDeparture(null, [
+        'total_slots' => 10,
+        'booked_slots' => 10,
+    ]);
+
+    Sanctum::actingAs($customer);
+
+    $this->postJson('/api/customer/bookings/preview', [
+        'tour_departure_id' => $departure->id,
+        'quantity_summary' => [
+            ['rule_id' => null, 'quantity' => 1],
+        ],
+    ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('quantity_summary');
+
+    $this->assertDatabaseCount('bookings', 0);
+    $this->assertDatabaseCount('payments', 0);
+});
+
 test('customer booking list includes payment and departure needed for pending actions', function () {
     $customer = paymentSafetyUser('customer');
     $booking = paymentSafetyBooking(['user_id' => $customer->id]);
@@ -406,6 +448,107 @@ test('customer can retry a pending payment with a new transaction reference with
     $this->assertDatabaseHas('tour_departures', [
         'id' => $booking->tour_departure_id,
         'booked_slots' => $booking->number_of_people,
+    ]);
+});
+
+test('customer booking creation is rate limited after three requests per minute', function () {
+    configureVnpayForTest();
+    $customer = paymentSafetyUser('customer');
+
+    Sanctum::actingAs($customer);
+
+    $responses = [];
+    foreach (range(1, 4) as $index) {
+        $departure = paymentSafetyDeparture();
+        $responses[] = $this->withHeader('Idempotency-Key', "booking-rate-limit-test-{$index}")
+            ->postJson('/api/customer/bookings', customerBookingSafetyPayload(
+                $departure,
+                sprintf('09000000%02d', $index),
+            ));
+
+        if ($responses[$index - 1]->status() === 201) {
+            $bookingId = $responses[$index - 1]->json('data.id');
+            $this->patchJson(
+                "/api/customer/bookings/{$bookingId}/cancel",
+                ['reason' => 'Giải phóng đơn để kiểm tra giới hạn request.']
+            )->assertOk();
+
+            // Không để thao tác dọn dữ liệu của test chạm giới hạn hủy booking
+            // toàn tài khoản; test này chỉ kiểm tra rate limiter tạo booking.
+            Booking::query()->whereKey($bookingId)->update(['status' => 'cancelled_by_tour']);
+        }
+    }
+
+    $responses[0]->assertCreated();
+    $responses[1]->assertCreated();
+    $responses[2]->assertCreated();
+    $responses[3]->assertTooManyRequests();
+});
+
+test('customer payment retry is rate limited after five requests per booking per minute', function () {
+    configureVnpayForTest();
+    $customer = paymentSafetyUser('customer');
+    $booking = paymentSafetyBooking(['user_id' => $customer->id]);
+    $expiresAt = $booking->payment->expires_at->toIso8601String();
+
+    Sanctum::actingAs($customer);
+
+    $responses = [];
+    foreach (range(1, 6) as $index) {
+        $responses[] = $this->postJson("/api/customer/bookings/{$booking->id}/continue-payment");
+    }
+
+    foreach (array_slice($responses, 0, 5) as $response) {
+        $response->assertOk();
+    }
+    $responses[5]->assertTooManyRequests();
+
+    expect($booking->fresh()->payment->expires_at->toIso8601String())->toBe($expiresAt);
+});
+
+test('customer payment stores the frontend origin and sends VNPAY to the backend callback', function () {
+    configureVnpayForTest();
+    $customer = paymentSafetyUser('customer');
+    $departure = paymentSafetyDeparture();
+
+    Sanctum::actingAs($customer);
+
+    $response = $this->withHeader('Origin', 'http://localhost:5174')
+        ->postJson('/api/customer/bookings', customerBookingSafetyPayload($departure));
+
+    $response->assertCreated();
+    $bookingId = $response->json('data.id');
+    $payment = Payment::query()->where('booking_id', $bookingId)->firstOrFail();
+    parse_str((string) parse_url($response->json('data.checkout_url'), PHP_URL_QUERY), $query);
+
+    expect($payment->frontend_origin)
+        ->toBe('http://localhost:5174')
+        ->and($query['vnp_ReturnUrl'] ?? null)
+        ->toEndWith('/api/vnpay/return');
+});
+
+test('VNPAY backend callback processes payment and redirects to the stored frontend origin', function () {
+    configureVnpayForTest();
+    $customer = paymentSafetyUser('customer');
+    $booking = paymentSafetyBooking(['user_id' => $customer->id]);
+    $booking->payment->update(['frontend_origin' => 'http://127.0.0.1:5173']);
+    $payload = vnpayIpnPayload($booking->payment);
+
+    $response = $this->get('/api/vnpay/return?'.http_build_query($payload));
+    $location = (string) $response->headers->get('Location');
+
+    $response->assertStatus(302);
+    expect($location)
+        ->toStartWith('http://127.0.0.1:5173/payment/vnpay/return?')
+        ->toContain('vnp_TxnRef='.urlencode($payload['vnp_TxnRef']));
+
+    $this->assertDatabaseHas('payments', [
+        'id' => $booking->payment->id,
+        'status' => 'success',
+    ]);
+    $this->assertDatabaseHas('bookings', [
+        'id' => $booking->id,
+        'payment_status' => 'paid',
     ]);
 });
 
@@ -978,4 +1121,440 @@ test('cannot permanently delete booking before it is cancelled', function () {
     $this->assertDatabaseHas('bookings', [
         'id' => $booking->id,
     ]);
+});
+
+function customerBookingSafetyPayload(TourDeparture $departure, string $contactPhone = '0900000000', ?string $participantPhone = null): array
+{
+    return [
+        'tour_departure_id' => $departure->id,
+        'number_of_people' => 1,
+        'quantity_summary' => [
+            ['rule_id' => null, 'quantity' => 1],
+        ],
+        'contact' => [
+            'contact_name' => 'Nguyễn Văn An',
+            'contact_email' => 'an@example.com',
+            'contact_phone' => $contactPhone,
+        ],
+        'participants' => [
+            [
+                'full_name' => 'Nguyễn Văn An',
+                'phone' => $participantPhone,
+                'birth_date' => now()->subYears(30)->toDateString(),
+                'gender' => 'male',
+            ],
+        ],
+    ];
+}
+
+test('customer booking reuses the booking for a repeated idempotency key', function () {
+    configureVnpayForTest();
+    $customer = paymentSafetyUser('customer');
+    $departure = paymentSafetyDeparture();
+    $idempotencyKey = 'booking-safety-idempotency-0001';
+
+    Sanctum::actingAs($customer);
+
+    $first = $this->withHeader('Idempotency-Key', $idempotencyKey)
+        ->postJson('/api/customer/bookings', customerBookingSafetyPayload($departure));
+    $second = $this->withHeader('Idempotency-Key', $idempotencyKey)
+        ->postJson('/api/customer/bookings', customerBookingSafetyPayload($departure));
+
+    $first->assertCreated();
+    $second->assertOk()
+        ->assertJsonPath('data.id', $first->json('data.id'));
+
+    $this->assertDatabaseCount('bookings', 1);
+    $this->assertDatabaseHas('tour_departures', [
+        'id' => $departure->id,
+        'booked_slots' => 1,
+    ]);
+});
+
+test('customer cannot create another booking while an existing payment is pending', function () {
+    configureVnpayForTest();
+    $customer = paymentSafetyUser('customer');
+    $firstDeparture = paymentSafetyDeparture();
+    $secondDeparture = paymentSafetyDeparture();
+
+    Sanctum::actingAs($customer);
+
+    $first = $this->withHeader('Idempotency-Key', 'booking-active-pending-first-0001')
+        ->postJson('/api/customer/bookings', customerBookingSafetyPayload($firstDeparture));
+    $second = $this->withHeader('Idempotency-Key', 'booking-active-pending-second-0001')
+        ->postJson('/api/customer/bookings', customerBookingSafetyPayload(
+            $secondDeparture,
+            '0900000011',
+            '0900000012',
+        ));
+
+    $first->assertCreated();
+    $second->assertStatus(409)
+        ->assertJsonPath('code', 'ACTIVE_PENDING_BOOKING')
+        ->assertJsonPath('data.booking_id', $first->json('data.id'))
+        ->assertJsonPath('data.payment_id', $first->json('data.payment.id'));
+
+    expect(Booking::query()->where('user_id', $customer->id)->count())->toBe(1)
+        ->and(Payment::query()->count())->toBe(1);
+
+    $this->assertDatabaseHas('tour_departures', [
+        'id' => $firstDeparture->id,
+        'booked_slots' => 1,
+    ]);
+    $this->assertDatabaseHas('tour_departures', [
+        'id' => $secondDeparture->id,
+        'booked_slots' => 0,
+    ]);
+});
+
+test('customer can create a new booking after the previous pending payment expires', function () {
+    configureVnpayForTest();
+    $customer = paymentSafetyUser('customer');
+    $firstDeparture = paymentSafetyDeparture();
+    $secondDeparture = paymentSafetyDeparture();
+
+    Sanctum::actingAs($customer);
+
+    $first = $this->withHeader('Idempotency-Key', 'booking-expired-pending-first-0001')
+        ->postJson('/api/customer/bookings', customerBookingSafetyPayload($firstDeparture));
+    $first->assertCreated();
+
+    $firstBooking = Booking::query()->findOrFail($first->json('data.id'));
+    $firstBooking->payment()->update(['expires_at' => now()->subMinute()]);
+
+    $second = $this->withHeader('Idempotency-Key', 'booking-expired-pending-second-0001')
+        ->postJson('/api/customer/bookings', customerBookingSafetyPayload(
+            $secondDeparture,
+            '0900000021',
+            '0900000022',
+        ));
+
+    $second->assertCreated();
+
+    expect($firstBooking->fresh()->status)->toBe('cancelled')
+        ->and($firstBooking->fresh()->payment_status)->toBe('failed')
+        ->and(Booking::query()->where('user_id', $customer->id)->count())->toBe(2);
+
+    $this->assertDatabaseHas('tour_departures', [
+        'id' => $firstDeparture->id,
+        'booked_slots' => 0,
+    ]);
+});
+
+test('customer booking rejects a phone duplicated across contact and passenger of active booking', function () {
+    configureVnpayForTest();
+    $tour = paymentSafetyTour();
+    $departure = paymentSafetyDeparture($tour);
+    $existing = Booking::query()->create([
+        'booking_code' => 'BK-PHONE-SAFETY',
+        'user_id' => paymentSafetyUser('customer')->id,
+        'tour_id' => $tour->id,
+        'tour_departure_id' => $departure->id,
+        'number_of_people' => 1,
+        'unit_price' => 1500000,
+        'discount_amount' => 0,
+        'total_amount' => 1500000,
+        'status' => 'confirmed',
+        'payment_status' => 'paid',
+    ]);
+    $existing->contact()->create([
+        'contact_name' => 'Khách đã đặt',
+        'contact_email' => 'existing@example.com',
+        'contact_phone' => '0901111111',
+        'phone_normalized' => '0901111111',
+    ]);
+
+    Sanctum::actingAs(paymentSafetyUser('customer'));
+
+    $this->postJson(
+        '/api/customer/bookings',
+        customerBookingSafetyPayload($departure, '0902222222', '0901111111')
+    )
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('contact.contact_phone');
+});
+
+test('customer booking derives participant type and price from age at departure', function () {
+    configureVnpayForTest();
+    $customer = paymentSafetyUser('customer');
+    $tour = paymentSafetyTour();
+    $departure = paymentSafetyDeparture($tour);
+    $infantRule = $tour->agePricingRules()->create([
+        'label' => 'Trẻ em dưới 5 tuổi',
+        'min_age' => 0,
+        'max_age' => 4,
+        'pricing_type' => 'free',
+        'price_value' => 0,
+        'is_active' => true,
+    ]);
+
+    Sanctum::actingAs($customer);
+
+    $response = $this->postJson('/api/customer/bookings', [
+        'tour_departure_id' => $departure->id,
+        'number_of_people' => 2,
+        'quantity_summary' => [
+            ['rule_id' => $infantRule->id, 'quantity' => 1],
+            ['rule_id' => null, 'quantity' => 1],
+        ],
+        'contact' => [
+            'contact_name' => 'Nguyễn Văn An',
+            'contact_email' => 'an@example.com',
+            'contact_phone' => '0900000000',
+        ],
+        'participants' => [
+            [
+                'full_name' => 'Bé An',
+                'birth_date' => $departure->departure_date->copy()->subYears(4)->toDateString(),
+                'gender' => 'male',
+            ],
+            [
+                'full_name' => 'Người lớn An',
+                'birth_date' => $departure->departure_date->copy()->subYears(5)->toDateString(),
+                'gender' => 'male',
+            ],
+        ],
+    ]);
+
+    $response->assertCreated();
+    $booking = Booking::query()->with('participants')->findOrFail($response->json('data.id'));
+    $participants = $booking->participants->keyBy('full_name');
+
+    expect($participants->get('Người lớn An')->participant_type)
+        ->toBe('adult')
+        ->and((float) $participants->get('Người lớn An')->unit_price)
+        ->toBe(1500000.0)
+        ->and($participants->get('Bé An')->participant_type)
+        ->toBe('infant')
+        ->and((float) $participants->get('Bé An')->unit_price)
+        ->toBe(0.0);
+});
+
+test('customer booking rejects participants whose age groups exceed the selected quantities', function () {
+    configureVnpayForTest();
+    $customer = paymentSafetyUser('customer');
+    $tour = paymentSafetyTour();
+    $departure = paymentSafetyDeparture($tour);
+    $childRule = $tour->agePricingRules()->create([
+        'label' => 'Trẻ em từ 2 đến 11 tuổi',
+        'min_age' => 2,
+        'max_age' => 11,
+        'pricing_type' => 'percentage',
+        'price_value' => 70,
+        'is_active' => true,
+    ]);
+
+    Sanctum::actingAs($customer);
+
+    $response = $this->postJson('/api/customer/bookings', [
+        'tour_departure_id' => $departure->id,
+        'number_of_people' => 3,
+        'quantity_summary' => [
+            ['rule_id' => $childRule->id, 'quantity' => 1],
+            ['rule_id' => null, 'quantity' => 2],
+        ],
+        'contact' => [
+            'contact_name' => 'Nguyễn Văn An',
+            'contact_email' => 'an@example.com',
+            'contact_phone' => '0900000000',
+        ],
+        'participants' => [
+            [
+                'full_name' => 'Người lớn An',
+                'birth_date' => $departure->departure_date->copy()->subYears(30)->toDateString(),
+                'gender' => 'male',
+            ],
+            [
+                'full_name' => 'Bé An 1',
+                'birth_date' => $departure->departure_date->copy()->subYears(5)->toDateString(),
+                'gender' => 'male',
+            ],
+            [
+                'full_name' => 'Bé An 2',
+                'birth_date' => $departure->departure_date->copy()->subYears(6)->toDateString(),
+                'gender' => 'male',
+            ],
+        ],
+    ]);
+
+    $response
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors([
+            'participants.2.birth_date',
+        ]);
+
+    expect($response->json('errors'))->toBe([
+        'participants.2.birth_date' => ['Ngày sinh không hợp lệ.'],
+    ]);
+
+    $this->assertDatabaseCount('bookings', 0);
+    $this->assertDatabaseCount('payments', 0);
+    $this->assertDatabaseHas('tour_departures', [
+        'id' => $departure->id,
+        'booked_slots' => 0,
+    ]);
+});
+
+test('customer booking rejects a birth date older than 120 years with the generic message', function () {
+    configureVnpayForTest();
+    $customer = paymentSafetyUser('customer');
+    $tour = paymentSafetyTour();
+    $departure = paymentSafetyDeparture($tour);
+
+    Sanctum::actingAs($customer);
+
+    $payload = customerBookingSafetyPayload($departure);
+    $payload['participants'][0]['birth_date'] = $departure->departure_date
+        ->copy()
+        ->subYears(121)
+        ->toDateString();
+
+    $response = $this->postJson('/api/customer/bookings', $payload);
+
+    $response
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('participants.0.birth_date');
+
+    expect($response->json('errors'))->toBe([
+        'participants.0.birth_date' => ['Ngày sinh không hợp lệ.'],
+    ]);
+
+    $this->assertDatabaseCount('bookings', 0);
+    $this->assertDatabaseCount('payments', 0);
+    $this->assertDatabaseHas('tour_departures', [
+        'id' => $departure->id,
+        'booked_slots' => 0,
+    ]);
+});
+
+test('customer can update allowed booking information and the change is audited', function () {
+    $customer = paymentSafetyUser('customer');
+    $booking = paymentSafetyBooking([
+        'user_id' => $customer->id,
+        'status' => 'confirmed',
+        'payment_status' => 'paid',
+    ]);
+    $booking->contact()->create([
+        'contact_name' => 'Nguyễn Văn An',
+        'contact_email' => 'an@example.com',
+        'contact_phone' => '0900000000',
+        'phone_normalized' => '0900000000',
+    ]);
+    $participant = $booking->participants()->create([
+        'full_name' => 'Nguyễn Văn An',
+        'phone' => '0900000000',
+        'phone_normalized' => '0900000000',
+        'birth_date' => now()->subYears(30)->toDateString(),
+        'gender' => 'male',
+        'participant_type' => 'adult',
+    ]);
+
+    Sanctum::actingAs($customer);
+
+    $this->patchJson("/api/customer/bookings/{$booking->id}/information", [
+        'contact' => [
+            'contact_name' => 'Nguyễn Văn Bình',
+            'contact_email' => 'binh@example.com',
+            'contact_phone' => '+84 901 234 567',
+            'address' => 'Hà Nội',
+            'special_request' => 'Ăn chay',
+        ],
+        'participants' => [[
+            'id' => $participant->id,
+            'full_name' => 'Nguyễn Văn Bình',
+            'phone' => '0901234567',
+            'gender' => 'male',
+            'identity_number' => '001234567890',
+        ]],
+    ])
+        ->assertOk()
+        ->assertJsonPath('data.contact.contact_phone', '0901234567');
+
+    $this->assertDatabaseHas('booking_participants', [
+        'id' => $participant->id,
+        'birth_date' => now()->subYears(30)->toDateString(),
+    ]);
+
+    $this->assertDatabaseHas('booking_information_change_histories', [
+        'booking_id' => $booking->id,
+        'changed_by' => $customer->id,
+    ]);
+});
+
+test('customer cannot update booking information in the final two days before departure', function () {
+    $customer = paymentSafetyUser('customer');
+    $booking = paymentSafetyBooking(['user_id' => $customer->id]);
+    $booking->tourDeparture()->update([
+        'departure_date' => today('Asia/Ho_Chi_Minh')->addDays(2)->toDateString(),
+    ]);
+    $booking->contact()->create([
+        'contact_name' => 'Nguyễn Văn An',
+        'contact_email' => 'an@example.com',
+        'contact_phone' => '0900000000',
+        'phone_normalized' => '0900000000',
+    ]);
+    $participant = $booking->participants()->create([
+        'full_name' => 'Nguyễn Văn An',
+        'birth_date' => now()->subYears(30)->toDateString(),
+        'gender' => 'male',
+        'participant_type' => 'adult',
+    ]);
+
+    Sanctum::actingAs($customer);
+
+    $this->patchJson("/api/customer/bookings/{$booking->id}/information", [
+        'contact' => [
+            'contact_name' => 'Nguyễn Văn An',
+            'contact_email' => 'an@example.com',
+            'contact_phone' => '0900000000',
+        ],
+        'participants' => [[
+            'id' => $participant->id,
+            'full_name' => 'Nguyễn Văn An',
+            'gender' => 'male',
+        ]],
+    ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('booking');
+});
+
+test('legacy customer information endpoints keep the same final two day restriction', function () {
+    $customer = paymentSafetyUser('customer');
+    $booking = paymentSafetyBooking(['user_id' => $customer->id]);
+    $booking->tourDeparture()->update([
+        'departure_date' => today('Asia/Ho_Chi_Minh')->addDays(2)->toDateString(),
+    ]);
+    $booking->contact()->create([
+        'contact_name' => 'Nguyễn Văn An',
+        'contact_email' => 'an@example.com',
+        'contact_phone' => '0900000000',
+        'phone_normalized' => '0900000000',
+    ]);
+    $participant = $booking->participants()->create([
+        'full_name' => 'Nguyễn Văn An',
+        'birth_date' => now()->subYears(30)->toDateString(),
+        'gender' => 'male',
+        'participant_type' => 'adult',
+    ]);
+
+    Sanctum::actingAs($customer);
+
+    $this->patchJson("/api/customer/bookings/{$booking->id}/contact", [
+        'contact_name' => 'Nguyễn Văn Bình',
+        'contact_email' => 'binh@example.com',
+        'contact_phone' => '0901234567',
+    ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('booking');
+
+    $this->patchJson("/api/customer/bookings/{$booking->id}/participants", [
+        'participants' => [[
+            'id' => $participant->id,
+            'full_name' => 'Nguyễn Văn Bình',
+            'phone' => '0901234567',
+            'gender' => 'male',
+        ]],
+    ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('booking');
 });

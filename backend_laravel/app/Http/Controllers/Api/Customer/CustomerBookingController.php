@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Customer;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Customer\StoreBookingRequest;
+use App\Http\Requests\Customer\UpdateCustomerBookingInformationRequest;
 use App\Jobs\ProcessTourRefundOutbox;
 use App\Models\Booking;
 use App\Models\Payment;
@@ -12,6 +13,7 @@ use App\Models\TourDeparture;
 use App\Models\TourRefundOutbox;
 use App\Models\User;
 use App\Services\TourPricingService;
+use App\Services\BookingPhoneDuplicateGuard;
 use App\Services\VnpayPaymentLifecycleService;
 use App\Services\VnpayService;
 use Carbon\Carbon;
@@ -21,11 +23,13 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use App\Support\BookingPhoneNormalizer;
 
 class CustomerBookingController extends Controller
 {
     public function __construct(
         private readonly TourPricingService $tourPricingService,
+        private readonly BookingPhoneDuplicateGuard $bookingPhoneDuplicateGuard,
         private readonly VnpayService $vnpayService,
         private readonly VnpayPaymentLifecycleService $paymentLifecycleService,
     ) {}
@@ -81,6 +85,8 @@ class CustomerBookingController extends Controller
 
     public function store(StoreBookingRequest $request): JsonResponse
     {
+        $idempotencyKey = $this->idempotencyKey($request);
+
         if (! $this->vnpayService->isConfigured()) {
             throw ValidationException::withMessages([
                 'payment' => ['VNPAY Sandbox chưa được cấu hình. Vui lòng liên hệ quản trị viên.'],
@@ -89,8 +95,44 @@ class CustomerBookingController extends Controller
 
         $data = $request->validated();
         $user = $request->user();
+        $userId = (int) $user->id;
+        $frontendOrigin = $this->vnpayService->frontendOrigin($request);
 
-        $booking = DB::transaction(function () use ($data, $user) {
+        $result = DB::transaction(function () use ($data, $userId, $idempotencyKey, $frontendOrigin) {
+            // Khóa user để hai request tạo booking khác nhau của cùng khách
+            // không thể cùng vượt qua kiểm tra đơn chờ thanh toán.
+            $lockedUser = User::query()
+                ->lockForUpdate()
+                ->findOrFail($userId);
+
+            $existingBooking = Booking::query()
+                ->where('user_id', $lockedUser->id)
+                ->where('idempotency_key', $idempotencyKey)
+                ->first();
+
+            if ($existingBooking) {
+                if ($frontendOrigin) {
+                    $existingBooking->payment()->update([
+                        'frontend_origin' => $frontendOrigin,
+                    ]);
+                }
+
+                return ['booking' => $existingBooking, 'created' => false];
+            }
+
+            // Scheduler thường xuyên dọn các đơn hết hạn, nhưng xử lý thêm tại
+            // thời điểm đặt để không giữ chỗ cũ nếu scheduler vừa chậm chạy.
+            $this->expireCustomerPendingBookings($lockedUser->id);
+
+            $activePendingBooking = $this->activeCustomerPendingBooking($lockedUser->id);
+
+            if ($activePendingBooking) {
+                return [
+                    'booking' => $activePendingBooking,
+                    'blocked' => true,
+                ];
+            }
+
             // Khóa lịch khởi hành để tránh overbooking khi nhiều người đặt cùng lúc
             $departure = TourDeparture::query()
                 ->lockForUpdate()
@@ -103,6 +145,10 @@ class CustomerBookingController extends Controller
                 ->findOrFail($departure->tour_id);
 
             $this->ensureDepartureCanBeBooked($tour, $departure);
+            $this->bookingPhoneDuplicateGuard->ensureAvailable(
+                $tour->id,
+                $this->submittedPhones($data['contact'], $data['participants'])
+            );
 
             $numberOfPeople = (int) $data['number_of_people'];
             $quantitySummary = ! empty($data['quantity_summary'])
@@ -121,7 +167,13 @@ class CustomerBookingController extends Controller
             $availableSlots = (int) $departure->total_slots
                 - (int) $departure->booked_slots;
 
-            if ($availableSlots < $numberOfPeople) {
+            if ($pricingSummary['total_people'] !== $numberOfPeople) {
+                throw ValidationException::withMessages([
+                    'quantity_summary' => ['Tổng số lượng theo nhóm giá phải đúng bằng số hành khách.'],
+                ]);
+            }
+
+            if ($availableSlots < $pricingSummary['total_people']) {
                 throw ValidationException::withMessages([
                     'number_of_people' => [
                         "Lịch này chỉ còn {$availableSlots} chỗ trống.",
@@ -142,12 +194,17 @@ class CustomerBookingController extends Controller
             }
 
             $discountAmount = 0;
-            $hasActiveAgePricingRules = $tour->agePricingRules
-                ->where('is_active', true)
-                ->isNotEmpty();
             $pricedParticipants = collect($data['participants'] ?? [])
-                ->map(function (array $participant, int $index) use ($tour, $departure, $hasActiveAgePricingRules) {
+                ->map(function (array $participant, int $index) use ($tour, $departure) {
                     $birthDate = Carbon::parse($participant['birth_date']);
+                    $age = (int) $birthDate->diffInYears($departure->departure_date);
+
+                    if ($birthDate->isAfter($departure->departure_date) || $age > 120) {
+                        throw ValidationException::withMessages([
+                            "participants.{$index}.birth_date" => ['Ngày sinh không hợp lệ.'],
+                        ]);
+                    }
+
                     $pricing = $this->tourPricingService->calculateParticipantPrice(
                         $tour,
                         $departure,
@@ -156,29 +213,21 @@ class CustomerBookingController extends Controller
                     );
                     $rule = $pricing['rule'];
 
-                    if (
-                        $hasActiveAgePricingRules
-                        && ! $rule
-                        && ($participant['participant_type'] ?? 'adult') !== 'adult'
-                    ) {
-                        throw ValidationException::withMessages([
-                            "participants.{$index}.birth_date" => 'Không tìm thấy quy tắc giá phù hợp cho hành khách này.',
-                        ]);
-                    }
-
                     return [
                         'full_name' => $participant['full_name'],
                         'phone' => $participant['phone'] ?? null,
+                        'phone_normalized' => $participant['phone'] ?? null,
                         'birth_date' => $birthDate->toDateString(),
                         'gender' => $participant['gender'] ?? null,
                         'identity_number' => $participant['identity_number'] ?? null,
-                        'participant_type' => $participant['participant_type'] ?? $this->participantTypeFromPricingRule($rule),
+                        'participant_type' => $this->participantTypeFromPricingRule($rule),
                         'unit_price' => $pricing['unit_price'],
                         'pricing_rule_label' => $rule?->label ?? 'Người lớn mặc định',
                         'pricing_type' => $rule?->pricing_type ?? 'percentage',
                         'pricing_value' => $rule?->price_value ?? 100,
                         '_pricing_rule_id' => $rule?->id,
                         '_derived_type' => $this->participantTypeFromPricingRule($rule),
+                        '_participant_index' => $index,
                     ];
                 });
 
@@ -189,9 +238,15 @@ class CustomerBookingController extends Controller
                 ]);
             }
 
+            $this->ensureParticipantGroupsMatchQuantitySummary($pricedParticipants, $quantitySummary);
+
             $participantsForInsert = $pricedParticipants
                 ->map(function (array $participant) {
-                    unset($participant['_pricing_rule_id'], $participant['_derived_type']);
+                    unset(
+                        $participant['_pricing_rule_id'],
+                        $participant['_derived_type'],
+                        $participant['_participant_index'],
+                    );
 
                     return $participant;
                 });
@@ -206,7 +261,8 @@ class CustomerBookingController extends Controller
 
             $booking = Booking::create([
                 'booking_code' => 'BK-' . Str::upper((string) Str::ulid()),
-                'user_id' => $user->id,
+                'idempotency_key' => $idempotencyKey,
+                'user_id' => $lockedUser->id,
                 'tour_id' => $tour->id,
                 'tour_departure_id' => $departure->id,
 
@@ -230,6 +286,7 @@ class CustomerBookingController extends Controller
                 'contact_name' => $data['contact']['contact_name'],
                 'contact_email' => $data['contact']['contact_email'] ?? null,
                 'contact_phone' => $data['contact']['contact_phone'],
+                'phone_normalized' => $data['contact']['contact_phone'],
                 'address' => $data['contact']['address'] ?? null,
                 'special_request' => $data['contact']['special_request'] ?? null,
             ]);
@@ -237,6 +294,7 @@ class CustomerBookingController extends Controller
             $booking->participants()->createMany($participantsForInsert->all());
 
             $booking->payment()->create([
+                'frontend_origin' => $frontendOrigin,
                 'payment_method' => 'vnpay',
                 'amount' => $totalAmount,
                 'status' => 'pending',
@@ -245,7 +303,7 @@ class CustomerBookingController extends Controller
             ]);
 
             $booking->statusHistories()->create([
-                'changed_by' => $user->id,
+                'changed_by' => $lockedUser->id,
                 'old_status' => null,
                 'new_status' => 'pending',
                 'note' => 'Khách hàng tạo đơn đặt tour.',
@@ -255,8 +313,34 @@ class CustomerBookingController extends Controller
             $departure->booked_slots += $numberOfPeople;
             $departure->save();
 
-            return $booking;
+            return ['booking' => $booking, 'created' => true];
         }, 3);
+
+        $booking = $result['booking'];
+
+        if ($result['blocked'] ?? false) {
+            $booking->load([
+                'tour:id,title,slug',
+                'tourDeparture:id,tour_id,departure_date,return_date',
+                'payment:id,booking_id,amount,status,expires_at',
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'code' => 'ACTIVE_PENDING_BOOKING',
+                'message' => 'Bạn đang có một đơn chờ thanh toán. Vui lòng tiếp tục thanh toán đơn hiện có trước khi đặt tour mới.',
+                'data' => [
+                    'booking_id' => $booking->id,
+                    'booking_code' => $booking->booking_code,
+                    'tour_title' => $booking->tour?->title,
+                    'departure_date' => $booking->tourDeparture?->departure_date?->toDateString(),
+                    'number_of_people' => $booking->number_of_people,
+                    'total_amount' => $booking->total_amount,
+                    'payment_id' => $booking->payment?->id,
+                    'expires_at' => $booking->payment?->expires_at?->toIso8601String(),
+                ],
+            ], 409);
+        }
 
         $booking->load([
             'tour:id,title,slug',
@@ -276,7 +360,82 @@ class CustomerBookingController extends Controller
                 'payment_id' => $booking->payment->id,
                 'expires_at' => $booking->payment->expires_at?->toIso8601String(),
             ]),
-        ], 201);
+        ], $result['created'] ? 201 : 200);
+    }
+
+    public function updateInformation(UpdateCustomerBookingInformationRequest $request, Booking $booking): JsonResponse
+    {
+        if ($booking->user_id !== $request->user()->id) {
+            abort(404);
+        }
+
+        $data = $request->validated();
+
+        $updatedBooking = DB::transaction(function () use ($booking, $request, $data): Booking {
+            $lockedBooking = Booking::query()
+                ->with(['tourDeparture', 'contact', 'participants'])
+                ->lockForUpdate()
+                ->findOrFail($booking->id);
+
+            if ($lockedBooking->user_id !== $request->user()->id) {
+                abort(404);
+            }
+
+            $this->ensureBookingInformationCanBeUpdated($lockedBooking);
+            $this->ensureSameParticipants($lockedBooking, $data['participants']);
+            $this->bookingPhoneDuplicateGuard->ensureAvailable(
+                $lockedBooking->tour_id,
+                $this->submittedPhones($data['contact'], $data['participants']),
+                $lockedBooking->id,
+            );
+
+            $before = $this->bookingInformationSnapshot($lockedBooking);
+            $lockedBooking->contact()->updateOrCreate(
+                ['booking_id' => $lockedBooking->id],
+                [
+                    'contact_name' => $data['contact']['contact_name'],
+                    'contact_email' => $data['contact']['contact_email'] ?? null,
+                    'contact_phone' => $data['contact']['contact_phone'],
+                    'phone_normalized' => $data['contact']['contact_phone'],
+                    'address' => $data['contact']['address'] ?? null,
+                    'special_request' => $data['contact']['special_request'] ?? null,
+                ],
+            );
+
+            $participantsById = $lockedBooking->participants->keyBy('id');
+            foreach ($data['participants'] as $participant) {
+                $participantsById[(int) $participant['id']]->update([
+                    'full_name' => $participant['full_name'],
+                    'phone' => $participant['phone'] ?? null,
+                    'phone_normalized' => $participant['phone'] ?? null,
+                    'gender' => $participant['gender'],
+                    'identity_number' => $participant['identity_number'] ?? null,
+                ]);
+            }
+
+            $lockedBooking->load(['contact', 'participants']);
+            $lockedBooking->informationChangeHistories()->create([
+                'changed_by' => $request->user()->id,
+                'before' => $before,
+                'after' => $this->bookingInformationSnapshot($lockedBooking),
+            ]);
+
+            return $lockedBooking;
+        }, 3);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đã cập nhật thông tin booking.',
+            'data' => $updatedBooking->fresh([
+                'tour.category',
+                'tour.destination',
+                'tour.thumbnail',
+                'tourDeparture',
+                'payment',
+                'contact',
+                'participants',
+            ]),
+        ]);
     }
 
     public function continuePayment(Request $request, Booking $booking): JsonResponse
@@ -285,7 +444,9 @@ class CustomerBookingController extends Controller
             abort(404);
         }
 
-        $result = DB::transaction(function () use ($booking, $request): array {
+        $frontendOrigin = $this->vnpayService->frontendOrigin($request);
+
+        $result = DB::transaction(function () use ($booking, $request, $frontendOrigin): array {
             $lockedBooking = Booking::query()
                 ->lockForUpdate()
                 ->findOrFail($booking->id);
@@ -320,6 +481,7 @@ class CustomerBookingController extends Controller
 
             $payment->update([
                 'gateway_response' => null,
+                'frontend_origin' => $frontendOrigin ?: $payment->frontend_origin,
             ]);
 
             return [
@@ -469,22 +631,65 @@ class CustomerBookingController extends Controller
             abort(404);
         }
 
-        $this->ensureBookingStillEditable($booking);
+        $lockedBooking = DB::transaction(function () use ($request, $booking): Booking {
+            $lockedBooking = Booking::query()
+                ->with(['tourDeparture', 'contact', 'participants'])
+                ->lockForUpdate()
+                ->findOrFail($booking->id);
 
-        $data = $request->validate([
-            'contact_name' => ['required', 'string', 'max:150'],
-            'contact_email' => ['nullable', 'email', 'max:150'],
-            'contact_phone' => ['required', 'string', 'max:20'],
-            'address' => ['nullable', 'string', 'max:255'],
-            'special_request' => ['nullable', 'string', 'max:2000'],
-        ]);
+            if ($lockedBooking->user_id !== $request->user()->id) {
+                abort(404);
+            }
 
-        $booking->contact()->updateOrCreate(['booking_id' => $booking->id], $data);
+            $this->ensureBookingInformationCanBeUpdated($lockedBooking);
+            $request->merge([
+                'contact_phone' => BookingPhoneNormalizer::normalize($request->input('contact_phone')),
+            ]);
+
+            $data = $request->validate([
+                'contact_name' => ['required', 'string', 'max:150'],
+                'contact_email' => ['nullable', 'email', 'max:150'],
+                'contact_phone' => ['required', 'string', 'regex:/^0\d{9}$/'],
+                'address' => ['nullable', 'string', 'max:255'],
+                'special_request' => ['nullable', 'string', 'max:2000'],
+            ]);
+
+            $this->bookingPhoneDuplicateGuard->ensureAvailable(
+                $lockedBooking->tour_id,
+                [
+                    $data['contact_phone'],
+                    ...$lockedBooking->participants->pluck('phone_normalized')->all(),
+                ],
+                $lockedBooking->id,
+            );
+
+            $before = $this->bookingInformationSnapshot($lockedBooking);
+            $lockedBooking->contact()->updateOrCreate(
+                ['booking_id' => $lockedBooking->id],
+                [
+                    'contact_name' => $data['contact_name'],
+                    'contact_email' => $data['contact_email'] ?? null,
+                    'contact_phone' => $data['contact_phone'],
+                    'phone_normalized' => $data['contact_phone'],
+                    'address' => $data['address'] ?? null,
+                    'special_request' => $data['special_request'] ?? null,
+                ],
+            );
+
+            $lockedBooking->load(['contact', 'participants']);
+            $lockedBooking->informationChangeHistories()->create([
+                'changed_by' => $request->user()->id,
+                'before' => $before,
+                'after' => $this->bookingInformationSnapshot($lockedBooking),
+            ]);
+
+            return $lockedBooking;
+        }, 3);
 
         return response()->json([
             'success' => true,
             'message' => 'Đã cập nhật thông tin liên hệ.',
-            'data' => $booking->fresh(['contact']),
+            'data' => $lockedBooking->fresh(['contact', 'participants']),
         ]);
     }
 
@@ -497,56 +702,81 @@ class CustomerBookingController extends Controller
             abort(404);
         }
 
-        $this->ensureBookingStillEditable($booking);
+        $lockedBooking = DB::transaction(function () use ($request, $booking): Booking {
+            $lockedBooking = Booking::query()
+                ->with(['tourDeparture', 'contact', 'participants'])
+                ->lockForUpdate()
+                ->findOrFail($booking->id);
 
-        $data = $request->validate([
-            'participants' => ['required', 'array', 'min:1'],
-            'participants.*.id' => [
-                'required',
-                'integer',
-                Rule::exists('booking_participants', 'id')->where('booking_id', $booking->id),
-            ],
-            'participants.*.full_name' => ['required', 'string', 'max:150'],
-            'participants.*.phone' => ['nullable', 'string', 'max:20'],
-            'participants.*.gender' => ['nullable', 'in:male,female,other'],
-            'participants.*.identity_number' => ['nullable', 'string', 'max:30'],
-        ]);
+            if ($lockedBooking->user_id !== $request->user()->id) {
+                abort(404);
+            }
 
-        DB::transaction(function () use ($booking, $data): void {
+            $this->ensureBookingInformationCanBeUpdated($lockedBooking);
+
+            $participantsInput = collect($request->input('participants', []))
+                ->map(function (array $participant): array {
+                    $participant['phone'] = BookingPhoneNormalizer::normalize($participant['phone'] ?? null);
+
+                    return $participant;
+                })
+                ->all();
+            $request->merge(['participants' => $participantsInput]);
+
+            $data = $request->validate([
+                'participants' => ['required', 'array', 'min:1'],
+                'participants.*.id' => [
+                    'required',
+                    'integer',
+                    Rule::exists('booking_participants', 'id')->where('booking_id', $lockedBooking->id),
+                ],
+                'participants.*.full_name' => ['required', 'string', 'max:150'],
+                'participants.*.phone' => ['nullable', 'string', 'regex:/^0\d{9}$/'],
+                'participants.*.gender' => ['nullable', 'in:male,female,other'],
+                'participants.*.identity_number' => ['nullable', 'string', 'max:30'],
+            ]);
+
+            $submittedById = collect($data['participants'])->keyBy(fn (array $participant): int => (int) $participant['id']);
+            $phones = [
+                $lockedBooking->contact?->phone_normalized,
+                ...$lockedBooking->participants->map(function ($participant) use ($submittedById): ?string {
+                    $submitted = $submittedById->get($participant->id);
+
+                    return is_array($submitted) && array_key_exists('phone', $submitted)
+                        ? $submitted['phone']
+                        : $participant->phone_normalized;
+                })->all(),
+            ];
+            $this->bookingPhoneDuplicateGuard->ensureAvailable($lockedBooking->tour_id, $phones, $lockedBooking->id);
+
+            $before = $this->bookingInformationSnapshot($lockedBooking);
             foreach ($data['participants'] as $participant) {
-                $booking->participants()
+                $lockedBooking->participants()
                     ->whereKey($participant['id'])
                     ->update([
                         'full_name' => $participant['full_name'],
                         'phone' => $participant['phone'] ?? null,
+                        'phone_normalized' => $participant['phone'] ?? null,
                         'gender' => $participant['gender'] ?? null,
                         'identity_number' => $participant['identity_number'] ?? null,
                     ]);
             }
-        });
+
+            $lockedBooking->load(['contact', 'participants']);
+            $lockedBooking->informationChangeHistories()->create([
+                'changed_by' => $request->user()->id,
+                'before' => $before,
+                'after' => $this->bookingInformationSnapshot($lockedBooking),
+            ]);
+
+            return $lockedBooking;
+        }, 3);
 
         return response()->json([
             'success' => true,
             'message' => 'Đã cập nhật thông tin hành khách.',
-            'data' => $booking->fresh(['participants']),
+            'data' => $lockedBooking->fresh(['contact', 'participants']),
         ]);
-    }
-
-    private function ensureBookingStillEditable(Booking $booking): void
-    {
-        if (! $booking->canBeManagedByCustomer()) {
-            throw ValidationException::withMessages([
-                'booking' => ['Không thể sửa thông tin khi đơn đã khởi hành, đã hoàn thành hoặc đã hủy.'],
-            ]);
-        }
-
-        $booking->loadMissing('tourDeparture');
-
-        if ($booking->tourDeparture?->departure_date?->isPast()) {
-            throw ValidationException::withMessages([
-                'booking' => ['Không thể sửa thông tin sau khi lịch khởi hành đã diễn ra.'],
-            ]);
-        }
     }
 
     /** Giới hạn khách tự hủy tối đa 2 booking theo chính sách ViVuGo. */
@@ -746,6 +976,46 @@ class CustomerBookingController extends Controller
         };
     }
 
+    private function ensureParticipantGroupsMatchQuantitySummary($pricedParticipants, array $quantitySummary): void
+    {
+        $selectedQuantityByRule = [];
+
+        foreach ($quantitySummary as $item) {
+            $ruleKey = ($item['rule_id'] ?? null) === null
+                ? 'adult_default'
+                : (string) (int) $item['rule_id'];
+
+            $selectedQuantityByRule[$ruleKey] = ($selectedQuantityByRule[$ruleKey] ?? 0)
+                + (int) ($item['quantity'] ?? 0);
+        }
+
+        $validationErrors = [];
+        $participantsByRule = $pricedParticipants->groupBy(
+            fn (array $participant) => $participant['_pricing_rule_id'] === null
+                ? 'adult_default'
+                : (string) $participant['_pricing_rule_id']
+        );
+
+        foreach ($participantsByRule as $ruleKey => $participants) {
+            $allowedQuantity = (int) ($selectedQuantityByRule[$ruleKey] ?? 0);
+
+            if ($participants->count() <= $allowedQuantity) {
+                continue;
+            }
+
+            foreach ($participants->slice($allowedQuantity) as $participant) {
+                $participantIndex = (int) $participant['_participant_index'];
+                $validationErrors["participants.{$participantIndex}.birth_date"] = [
+                    'Ngày sinh không hợp lệ.',
+                ];
+            }
+        }
+
+        if ($validationErrors !== []) {
+            throw ValidationException::withMessages($validationErrors);
+        }
+    }
+
     private function participantTypeFromPricingRule($rule): string
     {
         if (! $rule || $rule->max_age === null) {
@@ -753,5 +1023,127 @@ class CustomerBookingController extends Controller
         }
 
         return (int) $rule->max_age <= 4 ? 'infant' : 'child';
+    }
+
+    private function expireCustomerPendingBookings(int $userId): void
+    {
+        $expiredBookings = Booking::query()
+            ->with('payment')
+            ->where('user_id', $userId)
+            ->where('status', 'pending')
+            ->where('payment_status', 'unpaid')
+            ->whereHas('payment', function ($query): void {
+                $query
+                    ->where('status', 'pending')
+                    ->where(function ($query): void {
+                        $query
+                            ->whereNull('expires_at')
+                            ->orWhere('expires_at', '<=', now());
+                    });
+            })
+            ->orderBy('id')
+            ->get();
+
+        foreach ($expiredBookings as $booking) {
+            if ($booking->payment) {
+                $this->paymentLifecycleService->failPendingPayment(
+                    $booking->payment,
+                    'Booking đã hết hạn thanh toán VNPAY sau 15 phút.'
+                );
+            }
+        }
+    }
+
+    private function activeCustomerPendingBooking(int $userId): ?Booking
+    {
+        return Booking::query()
+            ->with([
+                'tour:id,title,slug',
+                'tourDeparture:id,tour_id,departure_date,return_date',
+                'payment:id,booking_id,amount,status,expires_at',
+            ])
+            ->where('user_id', $userId)
+            ->where('status', 'pending')
+            ->where('payment_status', 'unpaid')
+            ->whereHas('payment', function ($query): void {
+                $query
+                    ->where('status', 'pending')
+                    ->where('expires_at', '>', now());
+            })
+            ->orderBy('id')
+            ->first();
+    }
+
+    private function idempotencyKey(Request $request): string
+    {
+        $key = trim((string) $request->header('Idempotency-Key'));
+
+        if ($key === '') {
+            return (string) Str::uuid();
+        }
+
+        if (preg_match('/^[A-Za-z0-9-]{16,64}$/', $key) !== 1) {
+            throw ValidationException::withMessages([
+                'idempotency_key' => 'Yêu cầu đặt tour không hợp lệ. Vui lòng thử lại.',
+            ]);
+        }
+
+        return $key;
+    }
+
+    private function submittedPhones(array $contact, array $participants): array
+    {
+        return [
+            $contact['contact_phone'] ?? null,
+            ...collect($participants)->pluck('phone')->all(),
+        ];
+    }
+
+    private function ensureBookingInformationCanBeUpdated(Booking $booking): void
+    {
+        $departureDate = $booking->tourDeparture?->departure_date;
+        $lastEditableDate = $departureDate?->copy()->subDays(3);
+
+        if (
+            ! in_array($booking->status, ['pending', 'confirmed'], true)
+            || ! $lastEditableDate
+            || today('Asia/Ho_Chi_Minh')->gt($lastEditableDate)
+        ) {
+            throw ValidationException::withMessages([
+                'booking' => 'Booking này không còn trong thời hạn được sửa thông tin.',
+            ]);
+        }
+    }
+
+    private function ensureSameParticipants(Booking $booking, array $participants): void
+    {
+        $existingIds = $booking->participants->pluck('id')->sort()->values()->all();
+        $submittedIds = collect($participants)->pluck('id')->map(fn ($id) => (int) $id)->sort()->values()->all();
+
+        if ($existingIds !== $submittedIds) {
+            throw ValidationException::withMessages([
+                'participants' => 'Chỉ được sửa thông tin của các hành khách hiện có.',
+            ]);
+        }
+    }
+
+    private function bookingInformationSnapshot(Booking $booking): array
+    {
+        return [
+            'contact' => $booking->contact?->only([
+                'contact_name',
+                'contact_email',
+                'contact_phone',
+                'address',
+                'special_request',
+            ]),
+            'participants' => $booking->participants->map(fn ($participant) => $participant->only([
+                'id',
+                'full_name',
+                'phone',
+                'gender',
+                'identity_number',
+            ]))->values()->all(),
+        ];
     }
 }

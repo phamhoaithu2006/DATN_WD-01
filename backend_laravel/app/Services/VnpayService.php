@@ -22,7 +22,7 @@ class VnpayService
         return $this->merchantCode() !== ''
             && $this->hashSecret() !== ''
             && $this->paymentUrl() !== ''
-            && $this->returnUrl() !== '';
+            && $this->legacyReturnUrl() !== '';
     }
 
     public function createPaymentUrl(Payment $payment, Request $request): string
@@ -49,7 +49,7 @@ class VnpayService
             'vnp_Locale' => 'vn',
             'vnp_OrderInfo' => "Thanh toan booking {$payment->booking_id}",
             'vnp_OrderType' => 'other',
-            'vnp_ReturnUrl' => $this->returnUrl(),
+            'vnp_ReturnUrl' => $this->callbackUrl($request),
             'vnp_TmnCode' => $this->merchantCode(),
             'vnp_TxnRef' => $this->newTransactionReference($payment),
             'vnp_Version' => self::VERSION,
@@ -116,8 +116,48 @@ class VnpayService
         return trim((string) env('VNPAY_PAYMENT_URL', 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html'));
     }
 
-    private function returnUrl(): string
+    public function legacyReturnUrl(): string
     {
         return trim((string) env('VNPAY_RETURN_URL'));
+    }
+
+    public function frontendOrigin(Request $request): ?string
+    {
+        $origin = rtrim(trim((string) $request->headers->get('Origin')), '/');
+
+        return $this->isAllowedFrontendOrigin($origin) ? $origin : null;
+    }
+
+    private function callbackUrl(Request $request): string
+    {
+        return rtrim($request->getSchemeAndHttpHost(), '/').'/api/vnpay/return';
+    }
+
+    private function isAllowedFrontendOrigin(string $origin): bool
+    {
+        if ($origin === '') {
+            return false;
+        }
+
+        $parts = parse_url($origin);
+        if (! is_array($parts) || ! in_array($parts['scheme'] ?? null, ['http', 'https'], true)) {
+            return false;
+        }
+
+        if (isset($parts['user'], $parts['pass'], $parts['path'], $parts['query'], $parts['fragment'])) {
+            return false;
+        }
+
+        $host = strtolower((string) ($parts['host'] ?? ''));
+        if (in_array($host, ['localhost', '127.0.0.1', '::1'], true)) {
+            return true;
+        }
+
+        $allowedOrigins = array_filter(array_map(
+            static fn (string $allowedOrigin): string => rtrim(trim($allowedOrigin), '/'),
+            explode(',', (string) env('VNPAY_ALLOWED_FRONTEND_ORIGINS', '')),
+        ));
+
+        return in_array($origin, $allowedOrigins, true);
     }
 }

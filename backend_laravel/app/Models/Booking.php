@@ -37,6 +37,7 @@ class Booking extends Model
     protected $fillable = [
         // Định danh
         'booking_code',
+        'idempotency_key',
         'user_id',
 
         // Thông tin Tour
@@ -130,6 +131,11 @@ class Booking extends Model
     public function statusHistories(): HasMany
     {
         return $this->hasMany(BookingStatusHistory::class);
+    }
+
+    public function informationChangeHistories(): HasMany
+    {
+        return $this->hasMany(BookingInformationChangeHistory::class);
     }
 
     public function reviews(): HasMany

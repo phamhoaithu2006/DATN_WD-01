@@ -191,7 +191,7 @@ function VnpayPaymentResultPage() {
                   isFailed || isAttemptFailed || displayError ? 'bg-rose-50 border-rose-200 text-rose-600 shadow-rose-100/30' :
                   'bg-amber-50 border-amber-200 text-amber-600 shadow-amber-100/30'}`}
               >
-                <Icon name={isSuccessful ? 'shield' : isFailed || isAttemptFailed || displayError ? 'close' : 'clock'} size={36} />
+                <Icon name={isSuccessful ? 'checkCircle' : isFailed || isAttemptFailed || displayError ? 'close' : 'clock'} size={36} />
               </div>
 
               <h1 className="text-xl font-bold text-slate-900 uppercase tracking-wide">
