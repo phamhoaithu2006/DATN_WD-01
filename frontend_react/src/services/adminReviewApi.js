@@ -28,3 +28,28 @@ export async function updateAdminTourReviewStatus(reviewId, status) {
 
   return response.data?.data || null
 }
+
+export async function getAdminGuideReviews(params = {}) {
+  const response = await apiClient.get('/admin/guide-reviews', { params })
+
+  return {
+    summary: response.data?.summary || {},
+    reviews: response.data?.data?.data || [],
+    pagination: response.data?.data || {},
+  }
+}
+
+export async function getAdminGuideReviewDetail(reviewId) {
+  const response = await apiClient.get(`/admin/guide-reviews/${reviewId}`)
+
+  return response.data?.data || null
+}
+
+export async function updateAdminGuideReviewStatus(reviewId, status) {
+  const response = await apiClient.patch(
+    `/admin/guide-reviews/${reviewId}/status`,
+    { status },
+  )
+
+  return response.data?.data || null
+}

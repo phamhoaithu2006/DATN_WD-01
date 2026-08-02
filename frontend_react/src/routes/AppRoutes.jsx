@@ -63,8 +63,9 @@ const SupportNotificationsPage = lazy(() => import('../pages/support/SupportNoti
 const SupportRequestsPage = lazy(() => import('../pages/support/SupportRequestsPage'))
 const SupportWorkSchedulePage = lazy(() => import('../pages/support/SupportWorkSchedulePage'))
 const ReviewManagement = lazy(() => import('../pages/admin/ReviewManagement'))
-const HiddenTourReviews = lazy(() => import('../pages/admin/HiddenTourReviews'))
+const HiddenTourReviews = lazy(() => import('../pages/admin/HiddenReviewManagement'))
 const TourReviewDetailManagement = lazy(() => import('../pages/admin/TourReviewDetailManagement'))
+const GuideReviewDetailManagement = lazy(() => import('../pages/admin/GuideReviewDetailManagement'))
 
 const protect = (
   page,
@@ -662,12 +663,19 @@ function AppRoutes() {
           />
         }
       />
-          <Route
+    <Route
       path="/admin/reviews/tours/:tourId"
       element={adminPage(
         <TourReviewDetailManagement />,
       )}
     />
+
+      <Route
+        path="/admin/reviews/guides/:guideId"
+        element={adminPage(
+          <GuideReviewDetailManagement />,
+        )}
+      />
 
       <Route
         path="/admin/notifications"

@@ -962,6 +962,14 @@ function ProfileDashboard({
     if (state === "completed") {
       return (
         <span className="vg-status-badge is-paid">
+          <Icon name="checkCircle" size={13} /> Đã hoàn thành
+        </span>
+      );
+    }
+
+    if (state === "completed-legacy") {
+      return (
+        <span className="vg-status-badge is-paid">
           <Icon name="checkCircle" size={13} /> Đã thanh toán
         </span>
       );
@@ -1309,7 +1317,14 @@ function ProfileDashboard({
                       && list.findIndex((candidate) => Number(candidate?.id) === Number(guide.id)) === index
                     ));
 
-                  const canReviewBooking = bookingTripState === "completed";
+                  // Dùng kết quả kiểm tra từ backend để nút/form đánh giá luôn
+                  // đồng nhất với điều kiện API. `reviewableBooking` là fallback
+                  // cho dữ liệu cũ chưa có trường can_review_tour.
+                  const canReviewBooking = Boolean(
+                    bookingTripState === "completed"
+                    || booking.can_review_tour
+                    || reviewableBooking,
+                  );
                   const guideForReview = reviewableGuides.find((guide) => !guide.reviewed)
                     || reviewableGuides[0]
                     || null;
@@ -1411,7 +1426,7 @@ function ProfileDashboard({
                                 type="button"
                                 disabled
                                 title="Booking này chưa có dữ liệu hướng dẫn viên từ API"
-                                className="inline-flex h-9 cursor-not-allowed items-center justify-center gap-2 rounded-lg border border-slate-300 bg-slate-100 px-4 text-xs font-extrabold text-slate-400"
+                                className="inline-flex h-10 cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-slate-300 bg-slate-200 px-5 text-sm font-black text-slate-500 shadow-sm opacity-90"
                               >
                                 <Icon name="star" size={14} />
                                 Chưa có HDV
@@ -1428,7 +1443,7 @@ function ProfileDashboard({
                                 tourTitle: booking.tour?.title || "Tour đã hoàn thành",
                                 existingReview: booking.tour_review || null,
                               })}
-                              className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-amber-500 bg-white px-4 text-xs font-extrabold text-amber-600 transition hover:bg-amber-50"
+                              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-amber-600 bg-gradient-to-r from-amber-500 to-orange-500 px-5 text-sm font-black text-white shadow-md shadow-amber-200 transition hover:-translate-y-0.5 hover:from-amber-600 hover:to-orange-600 hover:shadow-lg active:translate-y-0"
                             >
                               <Icon name={booking.tour_review ? "edit" : "star"} size={14} />
                               {booking.tour_review ? "Sửa đánh giá tour" : "Đánh giá tour"}

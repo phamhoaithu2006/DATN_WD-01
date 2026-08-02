@@ -6,13 +6,15 @@ use App\Http\Controllers\Controller;
 use App\Models\Notification;
 use App\Models\User;
 use App\Services\GuideReviewNotificationService;
+use App\Services\TourReviewNotificationService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 
 class NotificationCustomerController extends Controller
 {
     public function __construct(
-        private readonly GuideReviewNotificationService $guideReviewNotificationService
+        private readonly GuideReviewNotificationService $guideReviewNotificationService,
+        private readonly TourReviewNotificationService $tourReviewNotificationService
     ) {}
 
     // Hiển thị danh sách thông báo của user đang đăng nhập.
@@ -24,6 +26,7 @@ class NotificationCustomerController extends Controller
         // Chỉ tài khoản khách hàng mới được tạo thông báo đánh giá HDV.
         if ($this->isCustomer($user)) {
             $this->guideReviewNotificationService->syncForUser($user);
+            $this->tourReviewNotificationService->syncForUser($user);
         }
 
         $notifications = $this->visibleNotificationsQuery($user)

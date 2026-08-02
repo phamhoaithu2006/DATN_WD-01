@@ -32,6 +32,9 @@ class AdminTourReviewResource extends JsonResource
                 'id' => $tour->id,
                 'title' => $tour->title,
                 'slug' => $tour->slug,
+                'thumbnail_url' => $tour->relationLoaded('thumbnail')
+                    ? $tour->thumbnail?->image_url
+                    : null,
             ] : null,
             'booking' => $booking ? [
                 'id' => $booking->id,
