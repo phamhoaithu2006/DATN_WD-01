@@ -6,6 +6,7 @@ use App\Models\Role;
 use App\Models\Tour;
 use App\Models\TourDeparture;
 use App\Models\User;
+use App\Services\VnpayPaymentLifecycleService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
@@ -188,6 +189,49 @@ test('guest and non admin cannot access admin booking and payment routes', funct
 
     $this->getJson('/api/admin/bookings')->assertForbidden();
     $this->getJson('/api/admin/payments')->assertForbidden();
+});
+
+test('customer can restore an active pending booking for the current tour', function () {
+    $customer = paymentSafetyUser('customer');
+    $booking = paymentSafetyBooking([
+        'user_id' => $customer->id,
+    ]);
+
+    Sanctum::actingAs($customer);
+
+    $this->getJson('/api/customer/bookings/active-pending?tour_id='.$booking->tour_id)
+        ->assertOk()
+        ->assertJsonPath('data.id', $booking->id)
+        ->assertJsonPath('data.payment.status', 'pending')
+        ->assertJsonPath('data.status', 'pending');
+});
+
+test('customer cannot restore another customer pending booking', function () {
+    $owner = paymentSafetyUser('customer');
+    $otherCustomer = paymentSafetyUser('customer');
+    $booking = paymentSafetyBooking([
+        'user_id' => $owner->id,
+    ]);
+
+    Sanctum::actingAs($otherCustomer);
+
+    $this->getJson('/api/customer/bookings/active-pending?tour_id='.$booking->tour_id)
+        ->assertOk()
+        ->assertJsonPath('data', null);
+});
+
+test('customer cannot restore an expired pending booking', function () {
+    $customer = paymentSafetyUser('customer');
+    $booking = paymentSafetyBooking([
+        'user_id' => $customer->id,
+    ]);
+    $booking->payment()->update(['expires_at' => now()->subMinute()]);
+
+    Sanctum::actingAs($customer);
+
+    $this->getJson('/api/customer/bookings/active-pending?tour_id='.$booking->tour_id)
+        ->assertOk()
+        ->assertJsonPath('data', null);
 });
 
 test('admin booking list marks bookings whose departure has started as departed', function () {
@@ -743,7 +787,7 @@ test('payment succeeds but booking waits for refund when the last slots are take
         'id' => $secondBooking->id,
         'status' => 'cancelled',
         'payment_status' => 'refund_pending',
-        'cancel_reason' => \App\Services\VnpayPaymentLifecycleService::SOLD_OUT_AFTER_PAYMENT_REASON,
+        'cancel_reason' => VnpayPaymentLifecycleService::SOLD_OUT_AFTER_PAYMENT_REASON,
     ]);
 });
 

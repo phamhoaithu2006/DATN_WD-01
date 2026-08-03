@@ -115,6 +115,14 @@ export async function fetchBookings() {
   return bookings
 }
 
+export async function fetchActivePendingBooking(tourId) {
+  const response = await api.get('/customer/bookings/active-pending', {
+    params: { tour_id: tourId },
+  })
+
+  return response.data?.data || null
+}
+
 export async function previewCustomerBooking(payload) {
   const response = await api.post('/customer/bookings/preview', payload)
 

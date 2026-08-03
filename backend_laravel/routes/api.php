@@ -272,6 +272,7 @@ Route::middleware(['auth:sanctum', 'role:customer'])->group(function () {
 
     // Đặt tour
     Route::post('customer/bookings/preview', [CustomerBookingController::class, 'preview']);
+    Route::get('customer/bookings/active-pending', [CustomerBookingController::class, 'activePending']);
     Route::post('customer/bookings', [CustomerBookingController::class, 'store'])
         ->middleware('throttle:customer-booking-create');
     Route::post('customer/bookings/{booking}/continue-payment', [CustomerBookingController::class, 'continuePayment'])
