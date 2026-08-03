@@ -95,8 +95,12 @@ function paymentSafetyBooking(array $attributes = []): Booking
 {
     $admin = paymentSafetyUser('admin');
     $tour = paymentSafetyTour();
+    $numberOfPeople = (int) ($attributes['number_of_people'] ?? 2);
+    $slotCommittedAt = array_key_exists('slot_committed_at', $attributes)
+        ? $attributes['slot_committed_at']
+        : (($attributes['payment_status'] ?? 'unpaid') === 'paid' ? now() : null);
     $departure = paymentSafetyDeparture($tour, [
-        'booked_slots' => $attributes['number_of_people'] ?? 2,
+        'booked_slots' => $slotCommittedAt ? $numberOfPeople : 0,
     ]);
 
     $booking = Booking::query()->create(array_merge([
@@ -104,12 +108,13 @@ function paymentSafetyBooking(array $attributes = []): Booking
         'user_id' => $admin->id,
         'tour_id' => $tour->id,
         'tour_departure_id' => $departure->id,
-        'number_of_people' => 2,
+        'number_of_people' => $numberOfPeople,
         'unit_price' => 1500000,
         'discount_amount' => 0,
-        'total_amount' => 3000000,
+        'total_amount' => 1500000 * $numberOfPeople,
         'status' => 'pending',
         'payment_status' => 'unpaid',
+        'slot_committed_at' => $slotCommittedAt,
     ], $attributes));
 
     $booking->payment()->create([
@@ -314,6 +319,11 @@ test('customer booking creates a pending VNPAY payment with checkout url', funct
         ->toBe($payment->expires_at->toIso8601String())
         ->and($checkoutQuery['vnp_ExpireDate'] ?? null)
         ->toBe($payment->expires_at->copy()->setTimezone('Asia/Ho_Chi_Minh')->format('YmdHis'));
+
+    $this->assertDatabaseHas('tour_departures', [
+        'id' => $departure->id,
+        'booked_slots' => 0,
+    ]);
 });
 
 test('customer booking with only free participants is rejected before reaching VNPAY', function () {
@@ -447,7 +457,7 @@ test('customer can retry a pending payment with a new transaction reference with
 
     $this->assertDatabaseHas('tour_departures', [
         'id' => $booking->tour_departure_id,
-        'booked_slots' => $booking->number_of_people,
+        'booked_slots' => 0,
     ]);
 });
 
@@ -570,7 +580,7 @@ test('customer cannot continue or cancel another customers booking', function ()
     ]);
 });
 
-test('continuing an expired booking cancels it and releases slots', function () {
+test('continuing an expired booking cancels it without changing slots', function () {
     configureVnpayForTest();
     $customer = paymentSafetyUser('customer');
     $booking = paymentSafetyBooking(['user_id' => $customer->id, 'number_of_people' => 2]);
@@ -579,7 +589,7 @@ test('continuing an expired booking cancels it and releases slots', function () 
 
     $this->postJson("/api/customer/bookings/{$booking->id}/continue-payment")
         ->assertUnprocessable()
-        ->assertJsonPath('message', 'Đơn hàng đã hết thời gian giữ chỗ thanh toán.');
+        ->assertJsonPath('message', 'Đơn hàng đã hết thời gian thanh toán.');
 
     $this->assertDatabaseHas('bookings', [
         'id' => $booking->id,
@@ -660,6 +670,81 @@ test('VNPAY IPN marks the matching booking paid', function () {
         'status' => 'pending',
         'payment_status' => 'paid',
     ]);
+    $this->assertDatabaseHas('tour_departures', [
+        'id' => $booking->tour_departure_id,
+        'booked_slots' => $booking->number_of_people,
+    ]);
+    $this->assertNotNull($booking->fresh()->slot_committed_at);
+});
+
+test('successful VNPAY payment commits slots exactly once', function () {
+    configureVnpayForTest();
+    $booking = paymentSafetyBooking(['number_of_people' => 2]);
+    $payload = vnpayIpnPayload($booking->payment);
+
+    $this->getJson('/api/webhooks/vnpay?'.http_build_query($payload))
+        ->assertOk()
+        ->assertJsonPath('RspCode', '00');
+
+    $this->getJson('/api/webhooks/vnpay?'.http_build_query($payload))
+        ->assertOk();
+
+    $this->assertDatabaseHas('tour_departures', [
+        'id' => $booking->tour_departure_id,
+        'booked_slots' => 2,
+    ]);
+    $this->assertDatabaseHas('bookings', [
+        'id' => $booking->id,
+        'payment_status' => 'paid',
+    ]);
+});
+
+test('payment succeeds but booking waits for refund when the last slots are taken first', function () {
+    configureVnpayForTest();
+    $departure = paymentSafetyDeparture(null, [
+        'total_slots' => 1,
+        'booked_slots' => 0,
+    ]);
+    $firstCustomer = paymentSafetyUser('customer');
+    $secondCustomer = paymentSafetyUser('customer');
+
+    Sanctum::actingAs($firstCustomer);
+    $firstResponse = $this->postJson(
+        '/api/customer/bookings',
+        customerBookingSafetyPayload($departure, '0900000011')
+    )->assertCreated();
+
+    Sanctum::actingAs($secondCustomer);
+    $secondResponse = $this->postJson(
+        '/api/customer/bookings',
+        customerBookingSafetyPayload($departure, '0900000012')
+    )->assertCreated();
+
+    $firstBooking = Booking::query()->findOrFail($firstResponse->json('data.id'));
+    $secondBooking = Booking::query()->findOrFail($secondResponse->json('data.id'));
+
+    $this->getJson('/api/webhooks/vnpay?'.http_build_query(vnpayIpnPayload($firstBooking->payment)))
+        ->assertOk()
+        ->assertJsonPath('RspCode', '00');
+    $this->getJson('/api/webhooks/vnpay?'.http_build_query(vnpayIpnPayload($secondBooking->payment)))
+        ->assertOk()
+        ->assertJsonPath('RspCode', '00');
+
+    $this->assertDatabaseHas('tour_departures', [
+        'id' => $departure->id,
+        'booked_slots' => 1,
+    ]);
+    $this->assertDatabaseHas('bookings', [
+        'id' => $firstBooking->id,
+        'payment_status' => 'paid',
+    ]);
+    expect($firstBooking->fresh()->slot_committed_at)->not->toBeNull();
+    $this->assertDatabaseHas('bookings', [
+        'id' => $secondBooking->id,
+        'status' => 'cancelled',
+        'payment_status' => 'refund_pending',
+        'cancel_reason' => \App\Services\VnpayPaymentLifecycleService::SOLD_OUT_AFTER_PAYMENT_REASON,
+    ]);
 });
 
 test('VNPAY IPN with invalid signature does not update payment', function () {
@@ -728,7 +813,7 @@ test('VNPAY return status keeps a failed attempt available for retry', function 
 
     $this->assertDatabaseHas('tour_departures', [
         'id' => $booking->tour_departure_id,
-        'booked_slots' => 2,
+        'booked_slots' => 0,
     ]);
 });
 
@@ -839,7 +924,7 @@ test('VNPAY failed attempt keeps the booking pending and accepts a later success
     ]);
     $this->assertDatabaseHas('tour_departures', [
         'id' => $booking->tour_departure_id,
-        'booked_slots' => 2,
+        'booked_slots' => 0,
     ]);
 
     $successfulRetryPayload = vnpayIpnPayload($booking->payment->fresh(), [
@@ -1167,7 +1252,7 @@ test('customer booking reuses the booking for a repeated idempotency key', funct
     $this->assertDatabaseCount('bookings', 1);
     $this->assertDatabaseHas('tour_departures', [
         'id' => $departure->id,
-        'booked_slots' => 1,
+        'booked_slots' => 0,
     ]);
 });
 
@@ -1199,7 +1284,7 @@ test('customer cannot create another booking while an existing payment is pendin
 
     $this->assertDatabaseHas('tour_departures', [
         'id' => $firstDeparture->id,
-        'booked_slots' => 1,
+        'booked_slots' => 0,
     ]);
     $this->assertDatabaseHas('tour_departures', [
         'id' => $secondDeparture->id,

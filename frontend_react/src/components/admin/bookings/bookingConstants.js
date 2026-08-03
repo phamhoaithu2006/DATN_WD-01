@@ -12,6 +12,7 @@ export const paymentOptions = [
   { value: 'unpaid', label: 'Chưa thanh toán' },
   { value: 'paid', label: 'Đã thanh toán' },
   { value: 'failed', label: 'Thất bại' },
+  { value: 'refund_pending', label: 'Chờ hoàn tiền' },
   { value: 'refunded', label: 'Hoàn tiền' },
 ]
 
@@ -28,5 +29,6 @@ export const paymentMeta = {
   unpaid: { label: 'Chưa thanh toán', className: 'unpaid' },
   paid: { label: 'Đã thanh toán', className: 'paid' },
   failed: { label: 'Thất bại', className: 'failed' },
+  refund_pending: { label: 'Chờ hoàn tiền', className: 'failed' },
   refunded: { label: 'Hoàn tiền', className: 'refunded' },
 }

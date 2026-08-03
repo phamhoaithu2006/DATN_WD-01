@@ -285,9 +285,29 @@ class VnpayPaymentController extends Controller
                 'paid_at' => now(),
             ]);
 
-            $payment->booking->update([
-                'payment_status' => 'paid',
-            ]);
+            $oldBookingStatus = $payment->booking->status;
+            $hasCommittedSlots = $this->paymentLifecycleService
+                ->commitSlotsForPaidBooking($payment->booking);
+
+            if ($hasCommittedSlots) {
+                $payment->booking->update([
+                    'payment_status' => 'paid',
+                ]);
+            } else {
+                $payment->booking->update([
+                    'status' => 'cancelled',
+                    'payment_status' => 'refund_pending',
+                    'cancel_reason' => VnpayPaymentLifecycleService::SOLD_OUT_AFTER_PAYMENT_REASON,
+                    'cancelled_at' => now(),
+                ]);
+
+                $payment->booking->statusHistories()->create([
+                    'changed_by' => null,
+                    'old_status' => $oldBookingStatus,
+                    'new_status' => 'cancelled',
+                    'note' => VnpayPaymentLifecycleService::SOLD_OUT_AFTER_PAYMENT_REASON,
+                ]);
+            }
 
             return ['00', 'Confirm Success'];
         }, 3);

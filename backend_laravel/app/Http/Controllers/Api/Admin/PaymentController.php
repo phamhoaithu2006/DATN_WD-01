@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Payment;
+use App\Services\VnpayPaymentLifecycleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -11,6 +12,10 @@ use Illuminate\Validation\ValidationException;
 
 class PaymentController extends Controller
 {
+    public function __construct(
+        private readonly VnpayPaymentLifecycleService $paymentLifecycleService,
+    ) {}
+
     public function index(Request $request): JsonResponse
     {
         $payments = Payment::query()
@@ -110,10 +115,38 @@ class PaymentController extends Controller
 
             $payment->update($paymentData);
 
-            if ($payment->booking) {
+            if ($payment->booking && $paymentStatus === 'success') {
+                $oldBookingStatus = $payment->booking->status;
+                $hasCommittedSlots = $this->paymentLifecycleService
+                    ->commitSlotsForPaidBooking($payment->booking);
+
+                if ($hasCommittedSlots) {
+                    $payment->booking->update([
+                        'payment_status' => $bookingPaymentStatus,
+                    ]);
+                } else {
+                    $payment->booking->update([
+                        'status' => 'cancelled',
+                        'payment_status' => 'refund_pending',
+                        'cancel_reason' => VnpayPaymentLifecycleService::SOLD_OUT_AFTER_PAYMENT_REASON,
+                        'cancelled_at' => now(),
+                    ]);
+
+                    $payment->booking->statusHistories()->create([
+                        'changed_by' => null,
+                        'old_status' => $oldBookingStatus,
+                        'new_status' => 'cancelled',
+                        'note' => VnpayPaymentLifecycleService::SOLD_OUT_AFTER_PAYMENT_REASON,
+                    ]);
+                }
+            } elseif ($payment->booking) {
                 $payment->booking->update([
                     'payment_status' => $bookingPaymentStatus,
                 ]);
+
+                if ($paymentStatus === 'refunded') {
+                    $this->paymentLifecycleService->releaseCommittedSlots($payment->booking);
+                }
             }
 
             return $payment->fresh(['booking.user']);

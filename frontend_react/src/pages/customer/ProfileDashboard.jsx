@@ -951,6 +951,14 @@ function ProfileDashboard({
   const renderStatusBadge = (booking) => {
     const state = getBookingTripState(booking);
 
+    if (booking.payment_status === "refund_pending") {
+      return (
+        <span className="vg-status-badge is-pending-payment">
+          <Icon name="clock" size={13} /> Chờ hoàn tiền
+        </span>
+      );
+    }
+
     if (state === "cancelled") {
       return (
         <span className="vg-status-badge is-cancelled">
@@ -1443,6 +1451,12 @@ function ProfileDashboard({
                               onExpire={() => setNow(Date.now())}
                             />
                           </div>
+                        ) : null}
+
+                        {booking.payment_status === "refund_pending" ? (
+                          <p className="vg-booking-action-error">
+                            Thanh toán đã được ghi nhận nhưng lịch vừa hết chỗ. Nhân viên sẽ liên hệ để hỗ trợ hoàn tiền.
+                          </p>
                         ) : null}
                       </div>
 

@@ -58,6 +58,7 @@ class Booking extends Model
         // Trạng thái đơn hàng
         'status',           // Ví dụ: confirmed, pending, completed
         'payment_status',   // Ví dụ: unpaid, paid, partially_paid
+        'slot_committed_at', // Thời điểm booking thực sự chiếm chỗ
 
         // Ghi chú & Hủy tour
         'note',
@@ -75,6 +76,7 @@ class Booking extends Model
         'discount_amount' => 'decimal:2',
         'total_amount' => 'decimal:2',
         'cancelled_at' => 'datetime',
+        'slot_committed_at' => 'datetime',
     ];
 
     // ─── Bảo vệ state machine (lớp phòng vệ thứ 2, độc lập với check ở Admin\BookingController) ──
