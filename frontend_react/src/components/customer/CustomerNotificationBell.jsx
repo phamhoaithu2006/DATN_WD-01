@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import {
+  clearAllCustomerNotifications,
   getCustomerNotificationDetail,
   getCustomerNotifications,
   getCustomerUnreadNotificationCount,
@@ -154,6 +155,7 @@ export default function CustomerNotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [openingId, setOpeningId] = useState(null)
+  const [clearingAll, setClearingAll] = useState(false)
   const [reviewTarget, setReviewTarget] = useState(null)
   const containerRef = useRef(null)
 
@@ -162,10 +164,27 @@ export default function CustomerNotificationBell() {
     [notifications],
   )
 
+  const dismissReviewNotification = useCallback(async (notification) => {
+    if (notification.status === 'unread') {
+      await markCustomerNotificationAsRead(notification.id)
+    }
+
+    setNotifications((current) =>
+      current.filter((item) => item.id !== notification.id),
+    )
+
+    if (notification.status === 'unread') {
+      setUnreadCount((current) => Math.max(0, current - 1))
+    }
+  }, [])
+
   const openReviewNotification = useCallback(async (notification) => {
     const notificationData = parseNotificationData(notification?.data)
 
     if (!isGuideReviewNotification(notification)) return false
+
+    await dismissReviewNotification(notification)
+    setOpen(false)
 
     const payload = await getReviewableGuideBookings({ per_page: 50 })
     const bookings = extractReviewableBookings(payload)
@@ -195,12 +214,10 @@ export default function CustomerNotificationBell() {
     setReviewTarget({
       booking,
       guide,
-      notificationId: notification.id,
     })
-    setOpen(false)
 
     return true
-  }, [])
+  }, [dismissReviewNotification])
 
   const loadNotifications = useCallback(
     async ({ announce = false } = {}) => {
@@ -233,7 +250,10 @@ export default function CustomerNotificationBell() {
                   action: {
                     label: 'Đánh giá',
                     onClick: () => {
-                      void openReviewNotification(reviewNotification)
+                      void openReviewNotification(reviewNotification).catch((error) => {
+                        console.error('Không thể ẩn thông báo đánh giá:', error)
+                        toast.error('Không thể mở đánh giá. Vui lòng thử lại.')
+                      })
                     },
                   },
                 },
@@ -368,13 +388,7 @@ export default function CustomerNotificationBell() {
   }
 
   async function handleReviewSubmitted() {
-    const notificationId = reviewTarget?.notificationId
-
     try {
-      if (notificationId) {
-        await markCustomerNotificationAsRead(notificationId).catch(() => null)
-      }
-
       toast.success('Đánh giá hướng dẫn viên thành công.')
       setReviewTarget(null)
       await loadNotifications()
@@ -382,6 +396,23 @@ export default function CustomerNotificationBell() {
       console.error('Không thể cập nhật thông báo sau đánh giá:', error)
       setReviewTarget(null)
       await loadNotifications()
+    }
+  }
+
+  async function handleClearAll() {
+    if (clearingAll || notifications.length === 0) return
+
+    try {
+      setClearingAll(true)
+      await clearAllCustomerNotifications()
+      setNotifications([])
+      setUnreadCount(0)
+      toast.success('Đã ẩn tất cả thông báo.')
+    } catch (error) {
+      console.error('Không thể ẩn tất cả thông báo:', error)
+      toast.error('Không thể ẩn tất cả thông báo. Vui lòng thử lại.')
+    } finally {
+      setClearingAll(false)
     }
   }
 
@@ -408,11 +439,24 @@ export default function CustomerNotificationBell() {
 
       {open ? (
         <div className="absolute right-0 top-[calc(100%+12px)] z-[90] w-[min(92vw,410px)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.2)]">
-          <div className="border-b border-slate-100 px-5 py-4">
-            <h3 className="font-extrabold text-slate-950">Thông báo</h3>
-            <p className="mt-0.5 text-xs text-slate-500">
-              {unreadCount} thông báo chưa đọc
-            </p>
+          <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
+            <div>
+              <h3 className="font-extrabold text-slate-950">Thông báo</h3>
+              <p className="mt-0.5 text-xs text-slate-500">
+                {unreadCount} thông báo chưa đọc
+              </p>
+            </div>
+
+            {notifications.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => void handleClearAll()}
+                disabled={clearingAll}
+                className="shrink-0 rounded-lg px-2 py-1 text-xs font-extrabold text-blue-600 transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {clearingAll ? 'Đang ẩn...' : 'Ẩn tất cả'}
+              </button>
+            ) : null}
           </div>
 
           <div className="max-h-[430px] overflow-y-auto">

@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\GuideReviewNotificationService;
 use App\Services\TourReviewNotificationService;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Http\Request;
 
 class NotificationCustomerController extends Controller
@@ -88,6 +89,27 @@ class NotificationCustomerController extends Controller
         return response()->json(['message' => 'Đã đánh dấu đã đọc!']);
     }
 
+    // Ẩn tất cả thông báo đang hiển thị nhưng vẫn giữ dữ liệu.
+    public function clearAll(Request $request)
+    {
+        $user = $request->user();
+        $user->loadMissing('role');
+        $timestamp = now();
+
+        $updatedCount = $this->visibleNotificationsQuery($user)
+            ->update([
+                'cleared_at' => $timestamp,
+                'status' => 'read',
+                'read_at' => $timestamp,
+                'updated_at' => $timestamp,
+            ]);
+
+        return response()->json([
+            'message' => 'Đã ẩn tất cả thông báo.',
+            'cleared_count' => $updatedCount,
+        ], 200);
+    }
+
     // Hiển thị số lượng thông báo chưa đọc.
     public function getUnreadCount(Request $request)
     {
@@ -103,18 +125,45 @@ class NotificationCustomerController extends Controller
 
     private function visibleNotificationsQuery(User $user): Builder
     {
-        $query = Notification::query()->where('user_id', $user->id);
+        $query = Notification::query()
+            ->where('user_id', $user->id)
+            ->whereNull('cleared_at');
+
+        if ($this->isCustomer($user)) {
+            // Reminder đánh giá chỉ hiển thị khi khách chưa bấm vào và chưa có review.
+            $query->where(function (Builder $notificationQuery): void {
+                $notificationQuery
+                    ->where(function (Builder $nonReviewQuery): void {
+                        $nonReviewQuery
+                            ->whereNull('data->kind')
+                            ->orWhere('data->kind', '!=', 'guide_review_request');
+                    })
+                    ->orWhere(function (Builder $reviewNotificationQuery): void {
+                        $reviewNotificationQuery
+                            ->where('data->kind', 'guide_review_request')
+                            ->where('status', 'unread')
+                            ->whereNotExists(function (QueryBuilder $matchedReviewQuery): void {
+                                $matchedReviewQuery
+                                    ->selectRaw('1')
+                                    ->from('reviews')
+                                    ->whereColumn('reviews.user_id', 'notifications.user_id')
+                                    ->whereRaw("json_extract(notifications.data, '$.booking_id') = reviews.booking_id")
+                                    ->whereRaw("json_extract(notifications.data, '$.guide_id') = reviews.guide_id");
+                            });
+                    });
+            });
+
+            return $query;
+        }
 
         // HDV, admin và nhân viên hỗ trợ vẫn xem được thông báo của họ,
         // nhưng không được thấy thông báo yêu cầu khách hàng đánh giá HDV.
-        if (! $this->isCustomer($user)) {
-            $query->where(function (Builder $notificationQuery): void {
-                $notificationQuery
-                    ->whereNull('data')
-                    ->orWhereNull('data->kind')
-                    ->orWhere('data->kind', '!=', 'guide_review_request');
-            });
-        }
+        $query->where(function (Builder $notificationQuery): void {
+            $notificationQuery
+                ->whereNull('data')
+                ->orWhereNull('data->kind')
+                ->orWhere('data->kind', '!=', 'guide_review_request');
+        });
 
         return $query;
     }

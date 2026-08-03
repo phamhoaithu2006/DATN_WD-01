@@ -12,10 +12,11 @@ use App\Models\Tour;
 use App\Models\TourDeparture;
 use App\Models\TourRefundOutbox;
 use App\Models\User;
-use App\Services\TourPricingService;
 use App\Services\BookingPhoneDuplicateGuard;
+use App\Services\TourPricingService;
 use App\Services\VnpayPaymentLifecycleService;
 use App\Services\VnpayService;
+use App\Support\BookingPhoneNormalizer;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -23,7 +24,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
-use App\Support\BookingPhoneNormalizer;
 
 class CustomerBookingController extends Controller
 {
@@ -80,6 +80,23 @@ class CustomerBookingController extends Controller
                 'total_amount' => $summary['subtotal'],
                 'pricing_groups' => $summary['groups'],
             ],
+        ]);
+    }
+
+    public function activePending(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'tour_id' => ['required', 'integer', 'exists:tours,id'],
+        ]);
+
+        $booking = $this->activeCustomerPendingBooking(
+            (int) $request->user()->id,
+            (int) $data['tour_id'],
+        );
+
+        return response()->json([
+            'success' => true,
+            'data' => $booking,
         ]);
     }
 
@@ -232,7 +249,7 @@ class CustomerBookingController extends Controller
                 });
 
             // Loại khách suy ra từ quy tắc giá (không tin participant_type do client gửi)
-            if (! $pricedParticipants->contains(fn(array $participant) => $participant['_derived_type'] === 'adult')) {
+            if (! $pricedParticipants->contains(fn (array $participant) => $participant['_derived_type'] === 'adult')) {
                 throw ValidationException::withMessages([
                     'participants' => ['Đơn đặt tour phải có ít nhất 1 người lớn đi kèm.'],
                 ]);
@@ -260,7 +277,7 @@ class CustomerBookingController extends Controller
             }
 
             $booking = Booking::create([
-                'booking_code' => 'BK-' . Str::upper((string) Str::ulid()),
+                'booking_code' => 'BK-'.Str::upper((string) Str::ulid()),
                 'idempotency_key' => $idempotencyKey,
                 'user_id' => $lockedUser->id,
                 'tour_id' => $tour->id,
@@ -778,10 +795,11 @@ class CustomerBookingController extends Controller
 
         if ($cancelledCount >= Booking::CUSTOMER_CANCELLATION_LIMIT) {
             throw ValidationException::withMessages([
-                'booking' => ['Bạn đã sử dụng hết giới hạn ' . Booking::CUSTOMER_CANCELLATION_LIMIT . ' lần hủy booking theo chính sách ViVuGo.'],
+                'booking' => ['Bạn đã sử dụng hết giới hạn '.Booking::CUSTOMER_CANCELLATION_LIMIT.' lần hủy booking theo chính sách ViVuGo.'],
             ]);
         }
     }
+
     public function selectTourCancellationResolution(Request $request, Booking $booking): JsonResponse
     {
         if ($booking->user_id !== $request->user()->id) {
@@ -807,7 +825,7 @@ class CustomerBookingController extends Controller
 
                 $replacement = $source->replicate(['booking_code', 'created_at', 'updated_at']);
                 $replacement->fill([
-                    'booking_code' => 'BK-' . Str::upper((string) Str::ulid()),
+                    'booking_code' => 'BK-'.Str::upper((string) Str::ulid()),
                     'tour_id' => $target->tour_id,
                     'tour_departure_id' => $target->id,
                     'source_booking_id' => $source->id,
@@ -820,7 +838,7 @@ class CustomerBookingController extends Controller
                 ]);
                 $replacement->save();
                 $replacement->contact()->create($source->contact?->only(['contact_name', 'contact_email', 'contact_phone', 'address', 'special_request']) ?? []);
-                $replacement->participants()->createMany($source->participants->map(fn($participant) => $participant->only([
+                $replacement->participants()->createMany($source->participants->map(fn ($participant) => $participant->only([
                     'full_name',
                     'phone',
                     'birth_date',
@@ -1045,7 +1063,7 @@ class CustomerBookingController extends Controller
         }
     }
 
-    private function activeCustomerPendingBooking(int $userId): ?Booking
+    private function activeCustomerPendingBooking(int $userId, ?int $tourId = null): ?Booking
     {
         return Booking::query()
             ->with([
@@ -1054,6 +1072,7 @@ class CustomerBookingController extends Controller
                 'payment:id,booking_id,amount,status,expires_at',
             ])
             ->where('user_id', $userId)
+            ->when($tourId !== null, fn ($query) => $query->where('tour_id', $tourId))
             ->where('status', 'pending')
             ->where('payment_status', 'unpaid')
             ->whereHas('payment', function ($query): void {

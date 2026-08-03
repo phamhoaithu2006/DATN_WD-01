@@ -5,6 +5,7 @@ import { useLocale } from "../../contexts/LocaleContext";
 import {
   continueCustomerBookingPayment,
   createCustomerBooking,
+  fetchActivePendingBooking,
   fetchTourDetail,
   previewCustomerBooking,
 } from "../../services/customerApi";
@@ -151,6 +152,60 @@ function formatReviewDateTime(value) {
   });
 }
 
+function getPersistedBookingGroups(participants = []) {
+  const groups = new Map();
+
+  participants.forEach((participant) => {
+    const label = participant.pricing_rule_label
+      || (participant.participant_type === "child" ? "Trẻ em" : "Người lớn");
+    const unitPrice = Number(participant.unit_price ?? 0);
+    const key = [
+      label,
+      participant.pricing_type || "",
+      participant.pricing_value ?? "",
+      unitPrice,
+    ].join("|");
+    const existing = groups.get(key);
+
+    if (existing) {
+      existing.quantity += 1;
+      existing.total += unitPrice;
+      return;
+    }
+
+    groups.set(key, {
+      id: `persisted-${groups.size}`,
+      label,
+      quantity: 1,
+      unitPrice,
+      total: unitPrice,
+    });
+  });
+
+  return Array.from(groups.values());
+}
+
+function getPersistedBookingPreview(booking) {
+  const departure = booking?.tour_departure || {};
+  const discountAmount = Number(booking?.discount_amount || 0);
+  const totalAmount = Number(booking?.total_amount || 0);
+
+  return {
+    tour_departure_id: booking?.tour_departure_id,
+    departure_date: departure.departure_date,
+    return_date: departure.return_date,
+    available_slots: Math.max(
+      0,
+      Number(departure.total_slots || 0) - Number(departure.booked_slots || 0),
+    ),
+    total_people: Number(booking?.number_of_people || booking?.participants?.length || 0),
+    subtotal: totalAmount + discountAmount,
+    discount_amount: discountAmount,
+    total_amount: totalAmount,
+    pricing_groups: getPersistedBookingGroups(booking?.participants || []),
+  };
+}
+
 function getReviewUserName(review) {
   return (
     review?.user?.full_name ||
@@ -212,6 +267,7 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
   const [bookingSubmitting, setBookingSubmitting] = useState(false);
   const [bookingConfirmationModal, setBookingConfirmationModal] = useState(null);
   const [createdBooking, setCreatedBooking] = useState(null);
+  const [bookingRestoreLoading, setBookingRestoreLoading] = useState(() => Boolean(readToken()));
   const bookingIdempotencyKeyRef = useRef("");
   const [useCustomContact, setUseCustomContact] = useState(false);
   const [contact, setContact] = useState(() => {
@@ -269,6 +325,56 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
       active = false;
     };
   }, [detailLookup, listTour]);
+
+  useEffect(() => {
+    let active = true;
+    const currentTourId = Number(tour?.id);
+
+    if (!Number.isInteger(currentTourId) || currentTourId <= 0) return undefined;
+
+    if (!readToken()) {
+      setBookingRestoreLoading(false);
+      return undefined;
+    }
+
+    setBookingRestoreLoading(true);
+
+    fetchActivePendingBooking(currentTourId)
+      .then((booking) => {
+        if (!active) return;
+
+        setBookingError("");
+        setBookingConfirmationModal(null);
+        setCreatedBooking(booking || null);
+        setBookingPreview(booking ? getPersistedBookingPreview(booking) : null);
+        setSelectedDepartureId(booking ? String(booking.tour_departure_id) : "");
+        setParticipants(booking?.participants || []);
+        setCheckoutStep(booking ? 3 : 1);
+
+        if (booking?.contact) {
+          setContact((current) => ({
+            ...current,
+            ...booking.contact,
+          }));
+          setUseCustomContact(true);
+        }
+
+      })
+      .catch((error) => {
+        if (!active) return;
+
+        if (error.response?.status !== 401) {
+          console.warn("Không thể khôi phục đơn chờ thanh toán:", error);
+        }
+      })
+      .finally(() => {
+        if (active) setBookingRestoreLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [tour?.id]);
 
   const reviewSlug =
     detailTour?.slug ||
@@ -385,6 +491,26 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
   const localTotal = bookingGroups.reduce((sum, rule) => sum + getRuleQuantity(rule) * getRuleUnitPrice(rule), 0);
   const finalTotal = Number(bookingPreview?.total_amount ?? localTotal);
   const availableSlots = Number(selectedDeparture?.available_slots || tour.slots?.available || 0);
+  const persistedParticipants = Array.isArray(createdBooking?.participants)
+    ? createdBooking.participants
+    : [];
+  const persistedBookingGroups = getPersistedBookingGroups(persistedParticipants);
+  const usePersistedBookingSnapshot = checkoutStep === 3
+    && Boolean(createdBooking?.id)
+    && persistedParticipants.length > 0;
+  const summaryGroups = usePersistedBookingSnapshot ? persistedBookingGroups : bookingGroups.map((rule) => ({
+    id: rule.id,
+    label: rule.label,
+    quantity: getRuleQuantity(rule),
+    unitPrice: getRuleUnitPrice(rule),
+    total: getRuleQuantity(rule) * getRuleUnitPrice(rule),
+  }));
+  const summaryGuests = usePersistedBookingSnapshot
+    ? Number(createdBooking.number_of_people || persistedParticipants.length)
+    : totalGuests;
+  const summaryTotal = usePersistedBookingSnapshot
+    ? Number(createdBooking.total_amount || 0)
+    : finalTotal;
 
   const apiRatingAverage = getSummaryAverage(reviewSummary);
   const apiRatingCount = getSummaryCount(reviewSummary);
@@ -864,7 +990,7 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
       return;
     }
 
-    if (!createdBooking?.checkout_url) {
+    if (!createdBooking?.id && !createdBooking?.checkout_url) {
       notifyRequestError(
         "Không tìm thấy liên kết thanh toán. Vui lòng tiếp tục từ trang đơn hàng."
       );
@@ -872,7 +998,26 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
     }
 
     setBookingSubmitting(true);
-    window.location.assign(createdBooking.checkout_url);
+    try {
+      const payment = createdBooking.id
+        ? await continueCustomerBookingPayment(createdBooking.id)
+        : createdBooking;
+
+      if (!payment?.checkout_url) {
+        throw new Error("Không thể tạo liên kết thanh toán VNPAY.");
+      }
+
+      window.location.assign(payment.checkout_url);
+    } catch (error) {
+      notifyRequestError(
+        getApiErrorMessage(
+          error,
+          "Đơn chờ thanh toán có thể đã hết hạn. Vui lòng kiểm tra lại trong trang đơn hàng.",
+        ),
+      );
+    } finally {
+      setBookingSubmitting(false);
+    }
   };
 
   const handleConfirmBooking = async () => {
@@ -1096,7 +1241,10 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
             {/* Left Column: Option selection form card */}
             <div className="vg-package-options-form-card">
               {/* Step Progress Indicator */}
-              <div className="vg-checkout-steps-bar">
+              <div
+                className="vg-checkout-steps-bar"
+                style={{ visibility: bookingRestoreLoading ? "hidden" : "visible" }}
+              >
                 <div className={`step-item ${checkoutStep === 1 ? 'active' : checkoutStep > 1 ? 'completed' : ''}`}>
                   <span className="step-num">{checkoutStep > 1 ? "✓" : "1"}</span>
                   <span className="step-label">Chọn lịch đi</span>
@@ -1115,11 +1263,12 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
 
               <div className="vg-form-title-row">
                 <h3>
-                  {checkoutStep === 1 && "Chọn ngày & số lượng"}
-                  {checkoutStep === 2 && "Thông tin liên hệ & hành khách"}
-                  {checkoutStep === 3 && "Xác nhận đặt tour"}
+                  {bookingRestoreLoading && "Đang khôi phục đơn chờ thanh toán"}
+                  {!bookingRestoreLoading && checkoutStep === 1 && "Chọn ngày & số lượng"}
+                  {!bookingRestoreLoading && checkoutStep === 2 && "Thông tin liên hệ & hành khách"}
+                  {!bookingRestoreLoading && checkoutStep === 3 && "Xác nhận đặt tour"}
                 </h3>
-                {checkoutStep === 1 && (
+                {!bookingRestoreLoading && checkoutStep === 1 && (
                   <span className="vg-clear-all-link" onClick={handleClearAll}>
                     Xóa tất cả
                   </span>
@@ -1132,7 +1281,30 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                 </div>
               ) : null}
 
-              <form onSubmit={handleBookingSubmit} noValidate>
+              {bookingRestoreLoading && (
+                <div
+                  role="status"
+                  style={{
+                    marginBottom: 20,
+                    padding: "16px 18px",
+                    border: "1px solid #bfdbfe",
+                    borderRadius: 12,
+                    background: "#eff6ff",
+                    color: "#1d4ed8",
+                  }}
+                >
+                  Đang kiểm tra và khôi phục đơn chờ thanh toán...
+                </div>
+              )}
+
+              <form
+                onSubmit={handleBookingSubmit}
+                noValidate
+                aria-busy={bookingRestoreLoading}
+                style={bookingRestoreLoading
+                  ? { pointerEvents: "none", visibility: "hidden", opacity: 0 }
+                  : undefined}
+              >
                 {checkoutStep === 1 && (
                   <>
                     {/* Date Picker Input */}
@@ -1420,10 +1592,10 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                 <div className="vg-options-bottom-summary">
                   <div className="vg-summary-price-box">
                     <span className="vg-summary-price-value">
-                      {formatCurrency(finalTotal)}
+                      {formatCurrency(summaryTotal)}
                     </span>
                     <span className="vg-summary-price-label">
-                      Tổng tiền cho {totalGuests} khách hàng
+                      Tổng tiền cho {summaryGuests} khách hàng
                     </span>
                   </div>
 
@@ -1478,14 +1650,14 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                 <div className="summary-price-breakdown">
                   <h5>Tóm tắt chi phí</h5>
                   <div className="price-rows">
-                    {bookingGroups.map((rule) => {
-                      const qty = getRuleQuantity(rule);
+                    {summaryGroups.map((group) => {
+                      const qty = Number(group.quantity || 0);
                       if (qty <= 0) return null;
-                      const unitPrice = getRuleUnitPrice(rule);
+                      const unitPrice = Number(group.unitPrice || 0);
                       return (
-                        <div className="price-row" key={rule.id}>
-                          <span>{rule.label} (x{qty})</span>
-                          <strong>{formatCurrency(unitPrice * qty)}</strong>
+                        <div className="price-row" key={group.id}>
+                          <span>{group.label} (x{qty})</span>
+                          <strong>{formatCurrency(Number(group.total ?? unitPrice * qty))}</strong>
                         </div>
                       );
                     })}
@@ -1500,7 +1672,7 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
 
                   <div className="price-total-row">
                     <span>Tổng cộng:</span>
-                    <strong className="total-amount">{formatCurrency(finalTotal)}</strong>
+                    <strong className="total-amount">{formatCurrency(summaryTotal)}</strong>
                   </div>
                 </div>
 
