@@ -26,7 +26,7 @@ class TourManagerController extends Controller
 
         //  1. ADMIN TÌM KIẾM: Theo tiêu đề tour (title)
         if ($request->has('search') && $request->search != '') {
-            $query->where('title', 'LIKE', '%' . $request->search . '%');
+            $query->where('title', 'LIKE', '%'.$request->search.'%');
         }
 
         //  2. ADMIN LỌC TRẠNG THÁI: Lọc nhanh theo 'draft', 'published', 'cancelled'
@@ -42,9 +42,13 @@ class TourManagerController extends Controller
             $query->where('base_price', '<=', $request->price_to);
         }
 
+        // Mặc định giữ phân trang 10 tour cho màn hình quản lý; các dropdown
+        // có thể yêu cầu tối đa 1000 tour để hiển thị đầy đủ danh sách.
+        $perPage = min(max((int) $request->input('per_page', 10), 1), 1000);
+
         // Sắp xếp theo ID tăng dần để STT hiển thị từ bé đến lớn
-        $tours = $query->orderBy('id', 'asc')->paginate(10);
-        $tours->getCollection()->transform(fn($tour) => (new TourResource($tour))->resolve($request));
+        $tours = $query->orderBy('id', 'asc')->paginate($perPage);
+        $tours->getCollection()->transform(fn ($tour) => (new TourResource($tour))->resolve($request));
 
         return response()->json([
             'status' => 'success',
@@ -80,7 +84,7 @@ class TourManagerController extends Controller
 
         //  1. USER TÌM KIẾM: Tìm theo tiêu đề tour
         if ($request->has('search') && $request->search != '') {
-            $query->where('title', 'LIKE', '%' . $request->search . '%');
+            $query->where('title', 'LIKE', '%'.$request->search.'%');
         }
 
         //  2. USER LỌC KHOẢNG GIÁ: Tìm theo ngân sách của khách
@@ -93,7 +97,7 @@ class TourManagerController extends Controller
 
         // Sắp xếp theo ID tăng dần để STT hiển thị từ bé đến lớn
         $tours = $query->orderBy('id', 'asc')->paginate(10);
-        $tours->getCollection()->transform(fn($tour) => (new TourResource($tour))->resolve($request));
+        $tours->getCollection()->transform(fn ($tour) => (new TourResource($tour))->resolve($request));
 
         return response()->json([
             'status' => 'success',
@@ -485,7 +489,7 @@ class TourManagerController extends Controller
             ->where('status', 'hidden')
             ->orderBy('id', 'asc')
             ->paginate(10);
-        $tours->getCollection()->transform(fn($tour) => (new TourResource($tour))->resolve(request()));
+        $tours->getCollection()->transform(fn ($tour) => (new TourResource($tour))->resolve(request()));
 
         return response()->json([
             'status' => 'success',
@@ -695,7 +699,7 @@ class TourManagerController extends Controller
                 $label = trim((string) ($rule['label'] ?? ''));
 
                 if ($label === '') {
-                    $label = 'Mức giá ' . ($index + 1);
+                    $label = 'Mức giá '.($index + 1);
                 }
 
                 $pricingType = $rule['pricing_type'] ?? 'fixed';
@@ -737,6 +741,7 @@ class TourManagerController extends Controller
 
         if ($data['discount_price'] === null || $data['discount_price'] === '') {
             $data['discount_price'] = null;
+
             return;
         }
 
