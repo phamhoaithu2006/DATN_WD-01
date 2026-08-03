@@ -1737,7 +1737,24 @@
   display: flex !important;
   align-items: center !important;
   justify-content: flex-end !important;
+  flex-wrap: wrap !important;
+  gap: 10px !important;
   width: 100% !important;
+}
+
+/* Nút đứng riêng (Sửa thông tin / Xem thông tin) không được co lại, không vỡ chữ */
+.vg-booking-actions-row > .vg-btn-ticket {
+  flex: 0 0 auto !important;
+  white-space: nowrap !important;
+}
+
+/* Nhóm nút bên cạnh (Vé điện tử / Xử lý mưa bão / Hủy đơn, hoặc Thanh toán/Hủy đơn)
+   không còn ép full width nữa khi đứng chung hàng với nút Sửa/Xem thông tin */
+.vg-booking-actions-row > .vg-booking-actions-group,
+.vg-booking-actions-row > .vg-booking-actions {
+  width: auto !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
 }
 
 .vg-booking-actions {
