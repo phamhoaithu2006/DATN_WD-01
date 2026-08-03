@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import AdminPageHeader from '../../components/admin/AdminPageHeader'
+import { confirmAction } from '../../components/common/AppConfirmDialog.jsx'
 import supportChatApi from '../../services/supportChatApi'
 
 function formatTime(value) {
@@ -198,8 +199,8 @@ function SupportChatbotPage() {
     setIsManageMode(false)
   }
 
-  function deleteReply(id) {
-    if (!window.confirm('Bạn có chắc chắn muốn xóa mẫu tin nhắn này?')) return
+  async function deleteReply(id) {
+    if (!await confirmAction('Bạn có chắc chắn muốn xóa mẫu tin nhắn này?', { title: 'Xóa mẫu tin nhắn', confirmLabel: 'Xóa', tone: 'danger' })) return
     const next = quickReplies.filter((item) => item.id !== id)
     setQuickReplies(next)
     saveQuickReplies(next)
@@ -300,7 +301,7 @@ function SupportChatbotPage() {
 
   async function handleClose() {
     if (!activeConversation || closing) return
-    if (!window.confirm('Đóng phiên hỗ trợ này và trả lại cho AI xử lý?')) return
+    if (!await confirmAction('Đóng phiên hỗ trợ này và trả lại cho AI xử lý?', { title: 'Đóng phiên hỗ trợ', confirmLabel: 'Đóng phiên' })) return
 
     setClosing(true)
     try {

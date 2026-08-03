@@ -6,6 +6,7 @@ import {
 } from 'react-router-dom'
 import { tourDepartureApi } from '../../../services/tourDepartureApi'
 import TourDepartureForm from '../../../components/admin/tourDepartures/TourDepartureForm'
+import { confirmAction } from '../../../components/common/AppConfirmDialog.jsx'
 
 const emptyForm = {
   departure_date: '',
@@ -262,7 +263,7 @@ export default function TourDepartureEditPage() {
       setBookingCount(totalBookings)
 
       if (booked && !confirmedFromQuery) {
-        const confirmed = window.confirm(
+        const confirmed = await confirmAction(
           `Lịch này đã có ${totalBookings} khách/đơn đặt tour.\n\n` +
             'Bạn có muốn tiếp tục chỉnh sửa không?\n\n' +
             'Sau khi lưu, hệ thống sẽ gửi thông báo cho khách hàng và HDV phụ trách.'
@@ -410,7 +411,7 @@ export default function TourDepartureEditPage() {
       confirmBookedChange = bookedChangeConfirmed
 
       if (!confirmBookedChange) {
-        const confirmed = window.confirm(
+        const confirmed = await confirmAction(
           `Lịch này đã có ${bookingCount} khách/đơn đặt tour.\n\n` +
             'Bạn xác nhận cập nhật và gửi thông báo cho khách hàng, HDV chứ?'
         )
@@ -444,7 +445,7 @@ export default function TourDepartureEditPage() {
         error?.response?.data?.requires_confirmation
 
       if (needsConfirmation) {
-        const confirmed = window.confirm(
+        const confirmed = await confirmAction(
           'Lịch này vừa có khách đặt tour. Bạn có xác nhận cập nhật và gửi thông báo không?'
         )
 

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { confirmAction } from '../../components/common/AppConfirmDialog.jsx'
 import {
   getAdminTourReviews,
   updateAdminTourReviewStatus,
@@ -97,9 +98,7 @@ export default function HiddenTourReviews() {
   async function handleRestore(review) {
     if (!review?.id) return
 
-    const accepted = window.confirm(
-      'Bạn có chắc muốn hiển thị lại đánh giá này?',
-    )
+    const accepted = await confirmAction('Bạn có chắc muốn hiển thị lại đánh giá này?', { title: 'Hiển thị lại đánh giá', confirmLabel: 'Hiển thị lại' })
 
     if (!accepted) return
 

@@ -6,6 +6,7 @@ import UserFormModal from "../../components/admin/users/UserFormModal";
 import UserTable from "../../components/admin/users/UserTable";
 import CustomerActivityModal from "../../components/admin/users/CustomerActivityModal";
 import AdminPageHeader from "../../components/admin/AdminPageHeader";
+import { confirmAction } from "../../components/common/AppConfirmDialog.jsx";
 import {
   createAccount,
   getAccount,
@@ -253,7 +254,7 @@ function UserManagementPage({ roleName = "customer" }) {
     const nextStatus = account.status === "active" ? "inactive" : "active";
     const actionLabel = nextStatus === "inactive" ? "Khóa" : "Mở khóa";
 
-    if (!window.confirm(`${actionLabel} tài khoản của ${account.full_name}?`)) {
+    if (!await confirmAction(`${actionLabel} tài khoản của ${account.full_name}?`, { title: 'Xác nhận tài khoản', confirmLabel: actionLabel, tone: nextStatus === 'inactive' ? 'danger' : 'primary' })) {
       return;
     }
 

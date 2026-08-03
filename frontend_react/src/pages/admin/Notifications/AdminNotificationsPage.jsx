@@ -1,5 +1,6 @@
 ﻿import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
+import { confirmAction } from '../../../components/common/AppConfirmDialog.jsx'
 import AdminPageHeader from '../../../components/admin/AdminPageHeader'
 import adminNotificationApi from '/src/services/adminNotificationApi.js'
 
@@ -424,7 +425,7 @@ const openDraftDetail = async (id) => {
 }
 
   const deleteDraft = async (id) => {
-    if (!window.confirm('Bạn có chắc muốn chuyển bản nháp vào thùng rác?')) {
+    if (!await confirmAction('Bạn có chắc muốn chuyển bản nháp vào thùng rác?', { title: 'Chuyển vào thùng rác', confirmLabel: 'Xóa', tone: 'danger' })) {
         return
     }
 
@@ -438,7 +439,7 @@ const openDraftDetail = async (id) => {
     }
 
   const sendDraft = async (id) => {
-    if (!window.confirm('Gửi thông báo này ngay bây giờ?')) {
+    if (!await confirmAction('Gửi thông báo này ngay bây giờ?', { title: 'Gửi thông báo', confirmLabel: 'Gửi' })) {
       return
     }
 
@@ -465,7 +466,7 @@ const openDraftDetail = async (id) => {
   }
 
   const forceDeleteDraft = async (id) => {
-    if (!window.confirm('Xóa vĩnh viễn bản nháp này?')) return
+    if (!await confirmAction('Xóa vĩnh viễn bản nháp này?', { title: 'Xóa vĩnh viễn', confirmLabel: 'Xóa', tone: 'danger' })) return
 
     try {
       await adminNotificationApi.forceDeleteDraft(id)
@@ -477,7 +478,7 @@ const openDraftDetail = async (id) => {
   }
 
   const revokeNotification = async (draftId) => {
-    if (!window.confirm('Thu hồi toàn bộ thông báo đã gửi từ chiến dịch này?')) {
+    if (!await confirmAction('Thu hồi toàn bộ thông báo đã gửi từ chiến dịch này?', { title: 'Thu hồi thông báo', confirmLabel: 'Thu hồi', tone: 'danger' })) {
       return
     }
 

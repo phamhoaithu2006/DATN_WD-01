@@ -586,9 +586,15 @@
   border: 1px solid #cbd5e1;
   border-radius: 18px;
   background: #ffffff;
-  color: #0f172a;
+  color: #e05656;
   text-decoration: none;
   padding: 0 16px;
+}
+
+.guide-trash-button:hover {
+  border-color: #f1b5b5;
+  background: #fff6f6;
+  color: #d83f3f;
 }
 
 .guide-modal-actions button:last-child:disabled {
@@ -1144,6 +1150,21 @@
   min-height: 28px;
   width: 28px;
   padding: 0;
+  color: #1677d2;
+  background: #f7fbff;
+  border-color: #cfe3fb;
+}
+
+.guide-actions .guide-action-icon:nth-child(2) {
+  color: #0f8a97;
+  background: #f0fdfa;
+  border-color: #bceae4;
+}
+
+.guide-actions .guide-action-icon:nth-child(3) {
+  color: #7656c5;
+  background: #f7f5ff;
+  border-color: #dfd6ff;
 }
 
 .guide-add-button.guide-action-icon {
@@ -1152,7 +1173,9 @@
 }
 
 .guide-action-icon.danger {
-  color: #b91c1c;
+  color: #df4e4e;
+  background: #fff7f7;
+  border-color: #f5caca;
 }
 
 .guide-action-icon:hover,

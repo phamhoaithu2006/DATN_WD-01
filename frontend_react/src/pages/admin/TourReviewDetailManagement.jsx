@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { confirmAction } from '../../components/common/AppConfirmDialog.jsx'
 import {
   getAdminTourReviews,
   updateAdminTourReviewStatus,
@@ -221,7 +222,7 @@ export default function TourReviewDetailManagement() {
       ? 'Ẩn đánh giá này? Sau khi ẩn, đánh giá sẽ biến mất khỏi trang này và chỉ có thể hiện lại trong trang Đánh giá đã ẩn.'
       : 'Đánh dấu đánh giá này là rác?'
 
-    if (!window.confirm(message)) return
+    if (!await confirmAction(message, { title: 'Xác nhận xử lý đánh giá', confirmLabel: status === 'hidden' ? 'Ẩn đánh giá' : 'Đánh dấu rác', tone: 'danger' })) return
 
     try {
       setActionId(review.id)

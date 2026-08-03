@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { confirmAction } from '../../../components/common/AppConfirmDialog.jsx'
 import { tourDepartureApi } from '../../../services/tourDepartureApi'
 
 import { formatDateDdMmYyyy, formatDateTimeDdMmYyyy } from '../../../utils/dateFormat'
@@ -1989,9 +1990,7 @@ export function GuideAssignmentPanel({
       return
     }
 
-    const confirmed = window.confirm(
-      'Bạn có chắc muốn hoàn tác phân công HDV cho lịch này không?'
-    )
+    const confirmed = await confirmAction('Bạn có chắc muốn hoàn tác phân công HDV cho lịch này không?', { title: 'Hoàn tác phân công HDV', confirmLabel: 'Hoàn tác', tone: 'danger' })
 
     if (!confirmed) return
 

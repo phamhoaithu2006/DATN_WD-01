@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import { tourDepartureApi } from '../../../services/tourDepartureApi'
 import adminGuideReplacementRequestApi from '../../../services/adminGuideReplacementRequestApi'
 import TourDepartureTable from '../../../components/admin/tourDepartures/TourDepartureTable'
 import { GuideAssignmentPanel } from './GuideAssignmentPage.jsx'
 import TourDepartureBookingModal from '../../../components/admin/tourDepartures/TourDepartureBookingModal.jsx'
+import { confirmAction } from '../../../components/common/AppConfirmDialog.jsx'
 
 function getArrayFromResponse(res) {
   if (Array.isArray(res?.data?.data)) return res.data.data
@@ -286,7 +288,7 @@ export default function TourDepartureListPage() {
       setTours(list)
     } catch (error) {
       console.error(error)
-      alert(getRequestErrorMessage(error, 'Không tải được danh sách tour'))
+      toast.error(getRequestErrorMessage(error, 'Không tải được danh sách tour'))
     }
   }, [])
 
@@ -358,7 +360,7 @@ export default function TourDepartureListPage() {
       setAllDepartures(list)
     } catch (error) {
       console.error(error)
-      alert(
+      toast.error(
         getRequestErrorMessage(error, 'Không tải được lịch khởi hành')
       )
     } finally {
@@ -624,7 +626,7 @@ useEffect(() => {
     )
 
     if (departure && isLockedDeparture(departure)) {
-      alert(
+      toast.warning(
         'Lịch khởi hành đã bắt đầu hoặc đã qua nên không thể phân công HDV.'
       )
       return
@@ -634,11 +636,11 @@ useEffect(() => {
     setActiveTab('departures')
   }
 
-  const requestEdit = (departure) => {
+  const requestEdit = async (departure) => {
     if (!departure?.id) return
 
     if (isLockedDeparture(departure)) {
-      alert(
+      toast.warning(
         'Lịch khởi hành đã bắt đầu hoặc đã qua nên không thể chỉnh sửa.'
       )
       return
@@ -647,14 +649,14 @@ useEffect(() => {
     const tourId = selectedTourId || departure.tour_id || departure.tour?.id
 
     if (!tourId) {
-      alert('Không xác định được tour của lịch khởi hành này.')
+      toast.error('Không xác định được tour của lịch khởi hành này.')
       return
     }
 
     if (hasActiveBookings(departure)) {
       const bookingCount = getBookingCount(departure)
 
-      const confirmed = window.confirm(
+      const confirmed = await confirmAction(
         `Lịch này đã có ${bookingCount} khách/đơn đặt tour. ` +
           'Bạn có chắc muốn chỉnh sửa không?\n\n' +
           'Sau khi cập nhật, hệ thống sẽ gửi thông báo cho khách hàng và HDV phụ trách.'
@@ -735,15 +737,16 @@ const approveReplacementRequest = async (request) => {
 
   if (!requestId) return
 
-  const confirmed = window.confirm(
-    'Duyệt yêu cầu đổi HDV này? Hệ thống sẽ tự động tìm HDV khác đang trống lịch và phân công thay thế.'
+  const confirmed = await confirmAction(
+    'Hệ thống sẽ tự động tìm HDV khác đang trống lịch và phân công thay thế.',
+    { title: 'Duyệt yêu cầu đổi hướng dẫn viên', confirmLabel: 'Duyệt yêu cầu' }
   )
 
   if (!confirmed) return
 
   try {
     await adminGuideReplacementRequestApi.approve(requestId)
-    alert('Đã duyệt yêu cầu đổi HDV và phân công HDV thay thế.')
+    toast.success('Đã duyệt yêu cầu đổi HDV và phân công HDV thay thế.')
     await fetchReplacementRequests()
     await fetchDepartures(selectedTourId)
     window.dispatchEvent(new Event('admin-notification:changed'))
@@ -751,7 +754,7 @@ const approveReplacementRequest = async (request) => {
     window.dispatchEvent(new Event('tourDepartureNeedAssignmentCountChanged'))
   } catch (error) {
     console.error(error)
-    alert(
+    toast.error(
       getRequestErrorMessage(
         error,
         'Duyệt yêu cầu đổi HDV thất bại.'
