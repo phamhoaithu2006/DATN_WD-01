@@ -264,7 +264,14 @@ function normalizeNotificationDetail(
   detail,
   fallback,
 ) {
+  /*
+   * Hỗ trợ các dạng response phổ biến:
+   * - { notification, support_request }
+   * - { data: { notification, support_request } }
+   * - Axios response: { data: { data: { notification, support_request } } }
+   */
   const root =
+    detail?.data?.data ||
     detail?.data ||
     detail ||
     {}
@@ -1228,32 +1235,70 @@ function AdminReceivedNotificationsPage() {
   ])
 
   useEffect(() => {
-    const target =
-      queryNotificationId
-        ? filteredNotifications.find(
-            (item) =>
-              String(
-                getNotificationId(
-                  item,
-                ),
-              ) ===
-              String(
-                queryNotificationId,
+    let target = null
+
+    if (queryNotificationId) {
+      target =
+        filteredNotifications.find(
+          (item) =>
+            String(
+              getNotificationId(
+                item,
               ),
-          )
-        : querySupportRequestId
-          ? filteredNotifications.find(
-              (item) =>
-                String(
-                  getSupportRequestId(
-                    item,
-                  ),
-                ) ===
-                String(
-                  querySupportRequestId,
-                ),
-            )
-          : notifications[0]
+            ) ===
+            String(
+              queryNotificationId,
+            ),
+        ) || null
+    } else if (
+      querySupportRequestId
+    ) {
+      target =
+        filteredNotifications.find(
+          (item) =>
+            String(
+              getSupportRequestId(
+                item,
+              ),
+            ) ===
+            String(
+              querySupportRequestId,
+            ),
+        ) || null
+    } else {
+      const selectedId =
+        getNotificationId(
+          selectedNotification,
+        )
+
+      /*
+       * Khi người dùng bấm một notification, openNotification đã cập nhật
+       * selectedNotification. Nếu item đó vẫn nằm trong trang hiện tại thì
+       * giữ nguyên lựa chọn, không tự động ghi đè bằng notifications[0].
+       */
+      const selectedStillVisible =
+        Boolean(selectedId) &&
+        notifications.some(
+          (item) =>
+            String(
+              getNotificationId(
+                item,
+              ),
+            ) ===
+            String(selectedId),
+        )
+
+      if (selectedStillVisible) {
+        return
+      }
+
+      /*
+       * Chỉ tự chọn phần tử đầu tiên khi trang/filter vừa thay đổi hoặc
+       * chưa có notification nào đang được chọn.
+       */
+      target =
+        notifications[0] || null
+    }
 
     if (!target) {
       setSelectedNotification(
@@ -1276,10 +1321,6 @@ function AdminReceivedNotificationsPage() {
     ) {
       return
     }
-
-    setSelectedNotification(
-      target,
-    )
 
     void openNotification(
       target,
