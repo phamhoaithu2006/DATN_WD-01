@@ -343,6 +343,8 @@ Route::middleware(['auth:sanctum', 'role:customer'])->group(function () {
 Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/notifications/customers', [NotificationCustomerController::class, 'getMyNotifications']);
     Route::get('/notifications/customers/unread-count', [NotificationCustomerController::class, 'getUnreadCount']);
+    Route::patch('/notifications/customers/clear-all', [NotificationCustomerController::class, 'clearAll']);
+    Route::patch('/notifications/customers/read-all', [NotificationCustomerController::class, 'clearAll']);
     Route::get('/notifications/customers/{id}', [NotificationCustomerController::class, 'getNotificationDetail'])
         ->whereNumber('id');
     Route::patch('/notifications/customers/{id}/read', [NotificationCustomerController::class, 'markAsRead'])

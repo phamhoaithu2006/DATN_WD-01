@@ -30,6 +30,12 @@ export async function markCustomerNotificationAsRead(notificationId) {
   return response.data
 }
 
+export async function clearAllCustomerNotifications() {
+  const response = await apiClient.patch('/notifications/customers/clear-all')
+
+  return response.data
+}
+
 export async function getReviewableGuideBookings(params = {}) {
   const response = await apiClient.get(
     '/customer/guide-reviewable-bookings',

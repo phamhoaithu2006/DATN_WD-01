@@ -2,8 +2,9 @@
 
 use App\Models\Booking;
 use App\Models\Guide;
-use App\Models\Role;
+use App\Models\Notification;
 use App\Models\Review;
+use App\Models\Role;
 use App\Models\Tour;
 use App\Models\TourDeparture;
 use App\Models\TourGuideAssignment;
@@ -152,6 +153,192 @@ test('customer can create and update a guide review after a completed tour', fun
 
     expect((float) $scenario['guide']->refresh()->average_rating)->toBe(4.0)
         ->and((int) $scenario['guide']->review_count)->toBe(1);
+});
+
+test('customer notification hides a guide review request after the guide is reviewed', function () {
+    $scenario = guideReviewScenario();
+    Sanctum::actingAs($scenario['customer']);
+
+    $otherNotification = Notification::query()->create([
+        'user_id' => $scenario['customer']->id,
+        'title' => 'Cập nhật đơn hàng',
+        'message' => 'Đơn hàng của bạn đã được cập nhật.',
+        'type' => 'booking',
+        'status' => 'unread',
+    ]);
+
+    $this->getJson('/api/notifications/customers')
+        ->assertOk()
+        ->assertJsonPath('data.total', 2);
+
+    $this->getJson('/api/notifications/customers/unread-count')
+        ->assertOk()
+        ->assertJsonPath('unread_count', 2);
+
+    $this->postJson('/api/customer/guide-reviews', [
+        'booking_id' => $scenario['booking']->id,
+        'guide_id' => $scenario['guide']->id,
+        'rating' => 5,
+        'comment' => 'Đánh giá sau khi hoàn thành tour.',
+    ])->assertCreated();
+
+    $this->getJson('/api/notifications/customers')
+        ->assertOk()
+        ->assertJsonPath('data.total', 1)
+        ->assertJsonPath('data.data.0.id', $otherNotification->id);
+
+    $this->getJson('/api/notifications/customers/unread-count')
+        ->assertOk()
+        ->assertJsonPath('unread_count', 1);
+});
+
+test('customer notification hides a guide review request after it is opened', function () {
+    $scenario = guideReviewScenario();
+    Sanctum::actingAs($scenario['customer']);
+
+    $otherNotification = Notification::query()->create([
+        'user_id' => $scenario['customer']->id,
+        'title' => 'Cập nhật đơn hàng',
+        'message' => 'Thông báo khác vẫn hiển thị.',
+        'type' => 'booking',
+        'status' => 'unread',
+    ]);
+
+    $this->getJson('/api/notifications/customers')
+        ->assertOk()
+        ->assertJsonPath('data.total', 2);
+
+    $reviewNotification = Notification::query()
+        ->where('user_id', $scenario['customer']->id)
+        ->where('data->kind', 'guide_review_request')
+        ->firstOrFail();
+
+    $this->patchJson("/api/notifications/customers/{$reviewNotification->id}/read")
+        ->assertOk();
+
+    expect($reviewNotification->refresh()->status)->toBe('read')
+        ->and($reviewNotification->read_at)->not->toBeNull();
+
+    $this->getJson('/api/notifications/customers')
+        ->assertOk()
+        ->assertJsonPath('data.total', 1)
+        ->assertJsonPath('data.data.0.id', $otherNotification->id);
+
+    $this->getJson('/api/notifications/customers/unread-count')
+        ->assertOk()
+        ->assertJsonPath('unread_count', 1);
+});
+
+test('customer can hide all visible notifications without deleting them', function () {
+    $customer = guideReviewUser('customer');
+    $otherCustomer = guideReviewUser('customer');
+
+    $unreadNotification = Notification::query()->create([
+        'user_id' => $customer->id,
+        'title' => 'Thông báo chưa đọc',
+        'message' => 'Thông báo cần được đánh dấu đã đọc.',
+        'type' => 'system',
+        'status' => 'unread',
+    ]);
+    $readNotification = Notification::query()->create([
+        'user_id' => $customer->id,
+        'title' => 'Thông báo đã đọc',
+        'message' => 'Thông báo vẫn phải hiển thị.',
+        'type' => 'system',
+        'status' => 'read',
+        'read_at' => now(),
+    ]);
+    $otherUserNotification = Notification::query()->create([
+        'user_id' => $otherCustomer->id,
+        'title' => 'Thông báo của khách khác',
+        'message' => 'Không được cập nhật.',
+        'type' => 'system',
+        'status' => 'unread',
+    ]);
+
+    Sanctum::actingAs($customer);
+
+    $this->patchJson('/api/notifications/customers/clear-all')
+        ->assertOk()
+        ->assertJsonPath('cleared_count', 2);
+
+    expect(Notification::query()->findOrFail($unreadNotification->id)->status)->toBe('read')
+        ->and(Notification::query()->findOrFail($unreadNotification->id)->cleared_at)->not->toBeNull()
+        ->and(Notification::query()->findOrFail($readNotification->id)->status)->toBe('read')
+        ->and(Notification::query()->findOrFail($readNotification->id)->cleared_at)->not->toBeNull()
+        ->and(Notification::query()->findOrFail($otherUserNotification->id)->status)->toBe('unread')
+        ->and(Notification::query()->findOrFail($otherUserNotification->id)->cleared_at)->toBeNull();
+
+    $this->getJson('/api/notifications/customers')
+        ->assertOk()
+        ->assertJsonPath('data.total', 0);
+
+    $this->getJson('/api/notifications/customers/unread-count')
+        ->assertOk()
+        ->assertJsonPath('unread_count', 0);
+
+    $newNotification = Notification::query()->create([
+        'user_id' => $customer->id,
+        'title' => 'Thông báo mới',
+        'message' => 'Thông báo tạo sau khi ẩn tất cả.',
+        'type' => 'system',
+        'status' => 'unread',
+    ]);
+
+    $this->getJson('/api/notifications/customers')
+        ->assertOk()
+        ->assertJsonPath('data.total', 1)
+        ->assertJsonPath('data.data.0.id', $newNotification->id);
+});
+
+test('hide all ignores completed guide review notifications hidden from the list', function () {
+    $scenario = guideReviewScenario();
+
+    Review::query()->create([
+        'user_id' => $scenario['customer']->id,
+        'tour_id' => $scenario['tour']->id,
+        'booking_id' => $scenario['booking']->id,
+        'guide_id' => $scenario['guide']->id,
+        'tour_departure_id' => $scenario['departure']->id,
+        'rating' => 5,
+        'comment' => 'Đã hoàn thành đánh giá.',
+        'status' => 'visible',
+    ]);
+
+    $hiddenReviewNotification = Notification::query()->create([
+        'user_id' => $scenario['customer']->id,
+        'title' => 'Đánh giá hướng dẫn viên',
+        'message' => 'Thông báo đánh giá đã hoàn thành.',
+        'type' => 'booking',
+        'status' => 'unread',
+        'data' => json_encode([
+            'kind' => 'guide_review_request',
+            'booking_id' => $scenario['booking']->id,
+            'guide_id' => $scenario['guide']->id,
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+    ]);
+    $visibleNotification = Notification::query()->create([
+        'user_id' => $scenario['customer']->id,
+        'title' => 'Thông báo khác',
+        'message' => 'Thông báo này vẫn hiển thị.',
+        'type' => 'system',
+        'status' => 'unread',
+    ]);
+
+    Sanctum::actingAs($scenario['customer']);
+
+    $this->patchJson('/api/notifications/customers/clear-all')
+        ->assertOk()
+        ->assertJsonPath('cleared_count', 1);
+
+    expect(Notification::query()->findOrFail($hiddenReviewNotification->id)->status)->toBe('unread')
+        ->and(Notification::query()->findOrFail($hiddenReviewNotification->id)->cleared_at)->toBeNull()
+        ->and(Notification::query()->findOrFail($visibleNotification->id)->status)->toBe('read')
+        ->and(Notification::query()->findOrFail($visibleNotification->id)->cleared_at)->not->toBeNull();
+
+    $this->getJson('/api/notifications/customers')
+        ->assertOk()
+        ->assertJsonPath('data.total', 0);
 });
 
 test('customer can view reviewable bookings guide reviews and guide tour history', function () {
