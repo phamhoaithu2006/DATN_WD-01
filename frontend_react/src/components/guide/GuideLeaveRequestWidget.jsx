@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
+import { confirmAction } from '../common/AppConfirmDialog.jsx'
 import {
   cancelGuideLeaveRequest,
   createGuideLeaveRequest,
@@ -350,7 +351,7 @@ function GuideLeaveRequestWidget() {
   }
 
   async function cancelRequest(item) {
-    const confirmed = window.confirm('Bạn chắc chắn muốn hủy đơn xin nghỉ này?')
+    const confirmed = await confirmAction('Bạn chắc chắn muốn hủy đơn xin nghỉ này?', { title: 'Hủy đơn xin nghỉ', confirmLabel: 'Hủy đơn', tone: 'danger' })
     if (!confirmed) return
 
     try {

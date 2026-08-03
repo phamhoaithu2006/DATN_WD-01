@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import AdminPageHeader from '../../../components/admin/AdminPageHeader'
+import { confirmAction } from '../../../components/common/AppConfirmDialog.jsx'
 
 import { categoryApi } from '../../../services/categoryApi'
 import { formatDateDdMmYyyy } from '../../../utils/dateFormat'
@@ -47,7 +48,7 @@ function TourTypeTrashPage() {
   }, [fetchTrashedCategories])
 
   const handleRestore = async (id) => {
-    if (!window.confirm('Bạn có chắc muốn khôi phục loại tour này không?')) return
+    if (!await confirmAction('Bạn có chắc muốn khôi phục loại tour này không?', { title: 'Khôi phục loại tour', confirmLabel: 'Khôi phục' })) return
 
     try {
       setRestoringId(id)

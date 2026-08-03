@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import adminGuideLeaveRequestApi, {
   normalizeItems,
 } from '../../../services/adminGuideLeaveRequestApi.js'
+import { confirmAction } from '../../common/AppConfirmDialog.jsx'
 
 const emptyFilters = {
   search: '',
@@ -244,8 +245,9 @@ function AdminGuideLeaveRequestsPanel({
 
   async function decide(item, status) {
     const actionText = status === 'approved' ? 'duyệt' : 'không duyệt'
-    const confirmed = window.confirm(
+    const confirmed = await confirmAction(
       `Bạn chắc chắn muốn ${actionText} đơn xin nghỉ này?`,
+      { title: 'Xác nhận xử lý đơn xin nghỉ', confirmLabel: actionText === 'duyệt' ? 'Duyệt đơn' : 'Không duyệt', tone: status === 'approved' ? 'primary' : 'danger' },
     )
 
     if (!confirmed) return
@@ -276,8 +278,9 @@ function AdminGuideLeaveRequestsPanel({
   }
 
   async function changeDecision(item, status) {
-    const confirmed = window.confirm(
+    const confirmed = await confirmAction(
       'Bạn muốn sửa lại trạng thái phê duyệt của đơn này?',
+      { title: 'Xác nhận sửa quyết định', confirmLabel: 'Xác nhận' },
     )
 
     if (!confirmed) return

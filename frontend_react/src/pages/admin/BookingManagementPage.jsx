@@ -5,6 +5,7 @@ import BookingPagination from '../../components/admin/bookings/BookingPagination
 import BookingStats from '../../components/admin/bookings/BookingStats'
 import BookingTable from '../../components/admin/bookings/BookingTable'
 import AdminPageHeader from '../../components/admin/AdminPageHeader'
+import { confirmAction, promptAction } from '../../components/common/AppConfirmDialog.jsx'
 import {
   getBookingList,
   getMeta,
@@ -143,7 +144,7 @@ function BookingManagementPage() {
     setBusy(`${booking.id}-${action}`)
     try {
       const transactionCode = action === 'confirm'
-        ? window.prompt('Nhập mã giao dịch thanh toán thủ công (có thể để trống):')?.trim()
+        ? (await promptAction('Mã này có thể để trống.', { title: 'Xác nhận thanh toán thủ công', confirmLabel: 'Xác nhận', placeholder: 'Mã giao dịch' }))?.trim()
         : undefined
 
       if (action === 'confirm' && transactionCode === undefined) {
@@ -240,7 +241,7 @@ function BookingManagementPage() {
   }
 
   const removeBooking = async (booking) => {
-    if (!window.confirm('Xóa vĩnh viễn booking này?')) return
+    if (!await confirmAction('Xóa vĩnh viễn booking này? Hành động này không thể khôi phục.', { title: 'Xóa booking', confirmLabel: 'Xóa', tone: 'danger' })) return
 
     setBusy(`delete-${booking.id}`)
     try {

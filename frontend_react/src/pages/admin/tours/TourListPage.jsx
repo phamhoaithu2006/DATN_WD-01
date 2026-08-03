@@ -253,12 +253,30 @@ function TourListPage() {
     return []
   }
 
+  const getLastPage = (res) => {
+    const paginator = res?.data
+    const lastPage = Number(paginator?.last_page || 1)
+
+    return Number.isInteger(lastPage) && lastPage > 0 ? lastPage : 1
+  }
+
   const fetchTours = useCallback(async () => {
     try {
       setLoading(true)
 
-      const res = await tourApi.getAll()
-      const data = getData(res.data)
+      const firstPageResponse = await tourApi.getAll({ page: 1 })
+      const lastPage = getLastPage(firstPageResponse.data)
+      const remainingPageRequests = Array.from(
+        { length: Math.max(lastPage - 1, 0) },
+        (_, index) => tourApi.getAll({ page: index + 2 }),
+      )
+      const remainingPageResponses = await Promise.all(remainingPageRequests)
+      const data = [firstPageResponse, ...remainingPageResponses]
+        .flatMap((response) => getData(response.data))
+        .filter(
+          (tour, index, allTours) =>
+            allTours.findIndex((item) => item.id === tour.id) === index,
+        )
 
       console.log('TOURS API:', data)
 

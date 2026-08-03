@@ -1,6 +1,7 @@
 import { useState } from "react";
 import SettingField from "./SettingField";
 import SettingSwitch from "./SettingSwitch";
+import { confirmAction } from "../../common/AppConfirmDialog.jsx";
 
 const emptyBanner = {
   title: "",
@@ -37,8 +38,8 @@ function BannerManager({ banners, onChange }) {
     reset();
   }
 
-  function remove(id) {
-    if (window.confirm("Bạn có chắc muốn xóa banner này?"))
+  async function remove(id) {
+    if (await confirmAction("Bạn có chắc muốn xóa banner này?", { title: 'Xóa banner', confirmLabel: 'Xóa', tone: 'danger' }))
       onChange(banners.filter((banner) => banner.id !== id));
   }
 

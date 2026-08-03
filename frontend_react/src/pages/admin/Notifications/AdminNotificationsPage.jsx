@@ -1,5 +1,6 @@
 ﻿import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
+import { confirmAction } from '../../../components/common/AppConfirmDialog.jsx'
 import AdminPageHeader from '../../../components/admin/AdminPageHeader'
 import adminNotificationApi from '/src/services/adminNotificationApi.js'
 
@@ -337,6 +338,42 @@ useEffect(() => {
     }
   }
 
+  const saveAndSend = async () => {
+    if (!validateForm()) return
+
+    const payload = {
+      title: form.title.trim(),
+      message: form.message.trim(),
+      target_type: form.target_type,
+      target_ids: getTargetIds(),
+    }
+
+    try {
+      setSaving(true)
+      let draftId = editingDraftId
+
+      if (editingDraftId) {
+        await adminNotificationApi.updateDraft(editingDraftId, payload)
+      } else {
+        const response = await adminNotificationApi.saveDraft(payload)
+        draftId = response?.data?.id
+      }
+
+      if (!draftId) throw new Error('Không lấy được mã thông báo vừa tạo.')
+
+      const response = await adminNotificationApi.sendDraft(draftId)
+      toast.success(response?.message || 'Gửi thông báo thành công')
+      await refreshLists()
+      resetForm()
+      setTab('sent')
+    } catch (error) {
+      console.error(error)
+      toast.error(error.response?.data?.message || error.message || 'Không thể gửi thông báo')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const previewRecipients = async () => {
     if (form.target_type === 'all') {
       toast.info('Thông báo sẽ được gửi cho toàn bộ người dùng')
@@ -424,7 +461,7 @@ const openDraftDetail = async (id) => {
 }
 
   const deleteDraft = async (id) => {
-    if (!window.confirm('Bạn có chắc muốn chuyển bản nháp vào thùng rác?')) {
+    if (!await confirmAction('Bạn có chắc muốn chuyển bản nháp vào thùng rác?', { title: 'Chuyển vào thùng rác', confirmLabel: 'Xóa', tone: 'danger' })) {
         return
     }
 
@@ -438,7 +475,7 @@ const openDraftDetail = async (id) => {
     }
 
   const sendDraft = async (id) => {
-    if (!window.confirm('Gửi thông báo này ngay bây giờ?')) {
+    if (!await confirmAction('Gửi thông báo này ngay bây giờ?', { title: 'Gửi thông báo', confirmLabel: 'Gửi' })) {
       return
     }
 
@@ -465,7 +502,7 @@ const openDraftDetail = async (id) => {
   }
 
   const forceDeleteDraft = async (id) => {
-    if (!window.confirm('Xóa vĩnh viễn bản nháp này?')) return
+    if (!await confirmAction('Xóa vĩnh viễn bản nháp này?', { title: 'Xóa vĩnh viễn', confirmLabel: 'Xóa', tone: 'danger' })) return
 
     try {
       await adminNotificationApi.forceDeleteDraft(id)
@@ -477,7 +514,7 @@ const openDraftDetail = async (id) => {
   }
 
   const revokeNotification = async (draftId) => {
-    if (!window.confirm('Thu hồi toàn bộ thông báo đã gửi từ chiến dịch này?')) {
+    if (!await confirmAction('Thu hồi toàn bộ thông báo đã gửi từ chiến dịch này?', { title: 'Thu hồi thông báo', confirmLabel: 'Thu hồi', tone: 'danger' })) {
       return
     }
 
@@ -746,6 +783,15 @@ const openDraftDetail = async (id) => {
                 )}
 
             <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                disabled={saving}
+                onClick={saveAndSend}
+                className="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-60"
+              >
+                {saving ? 'Đang gửi...' : 'Gửi ngay'}
+              </button>
+
               <button
                 type="button"
                 disabled={saving}

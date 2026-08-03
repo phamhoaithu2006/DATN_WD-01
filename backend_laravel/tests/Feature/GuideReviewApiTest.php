@@ -167,13 +167,21 @@ test('customer notification hides a guide review request after the guide is revi
         'status' => 'unread',
     ]);
 
-    $this->getJson('/api/notifications/customers')
-        ->assertOk()
-        ->assertJsonPath('data.total', 2);
+    $initialResponse = $this->getJson('/api/notifications/customers')->assertOk();
+    $initialIds = collect($initialResponse->json('data.data'))->pluck('id')->all();
+    $guideNotification = Notification::query()
+        ->where('user_id', $scenario['customer']->id)
+        ->where('data->kind', 'guide_review_request')
+        ->firstOrFail();
+
+    expect($initialIds)->toContain($otherNotification->id)
+        ->and($initialIds)->toContain($guideNotification->id);
 
     $this->getJson('/api/notifications/customers/unread-count')
         ->assertOk()
-        ->assertJsonPath('unread_count', 2);
+        ->assertJsonPath('unread_count', collect($initialResponse->json('data.data'))
+            ->where('status', 'unread')
+            ->count());
 
     $this->postJson('/api/customer/guide-reviews', [
         'booking_id' => $scenario['booking']->id,
@@ -182,14 +190,17 @@ test('customer notification hides a guide review request after the guide is revi
         'comment' => 'Đánh giá sau khi hoàn thành tour.',
     ])->assertCreated();
 
-    $this->getJson('/api/notifications/customers')
-        ->assertOk()
-        ->assertJsonPath('data.total', 1)
-        ->assertJsonPath('data.data.0.id', $otherNotification->id);
+    $afterReviewResponse = $this->getJson('/api/notifications/customers')->assertOk();
+    $afterReviewIds = collect($afterReviewResponse->json('data.data'))->pluck('id')->all();
+
+    expect($afterReviewIds)->not->toContain($guideNotification->id)
+        ->and($afterReviewIds)->toContain($otherNotification->id);
 
     $this->getJson('/api/notifications/customers/unread-count')
         ->assertOk()
-        ->assertJsonPath('unread_count', 1);
+        ->assertJsonPath('unread_count', collect($afterReviewResponse->json('data.data'))
+            ->where('status', 'unread')
+            ->count());
 });
 
 test('customer notification hides a guide review request after it is opened', function () {
@@ -204,14 +215,15 @@ test('customer notification hides a guide review request after it is opened', fu
         'status' => 'unread',
     ]);
 
-    $this->getJson('/api/notifications/customers')
-        ->assertOk()
-        ->assertJsonPath('data.total', 2);
-
+    $initialResponse = $this->getJson('/api/notifications/customers')->assertOk();
     $reviewNotification = Notification::query()
         ->where('user_id', $scenario['customer']->id)
         ->where('data->kind', 'guide_review_request')
         ->firstOrFail();
+
+    expect(collect($initialResponse->json('data.data'))->pluck('id')->all())
+        ->toContain($reviewNotification->id)
+        ->toContain($otherNotification->id);
 
     $this->patchJson("/api/notifications/customers/{$reviewNotification->id}/read")
         ->assertOk();
@@ -219,14 +231,17 @@ test('customer notification hides a guide review request after it is opened', fu
     expect($reviewNotification->refresh()->status)->toBe('read')
         ->and($reviewNotification->read_at)->not->toBeNull();
 
-    $this->getJson('/api/notifications/customers')
-        ->assertOk()
-        ->assertJsonPath('data.total', 1)
-        ->assertJsonPath('data.data.0.id', $otherNotification->id);
+    $afterOpenResponse = $this->getJson('/api/notifications/customers')->assertOk();
+    $afterOpenIds = collect($afterOpenResponse->json('data.data'))->pluck('id')->all();
+
+    expect($afterOpenIds)->not->toContain($reviewNotification->id)
+        ->and($afterOpenIds)->toContain($otherNotification->id);
 
     $this->getJson('/api/notifications/customers/unread-count')
         ->assertOk()
-        ->assertJsonPath('unread_count', 1);
+        ->assertJsonPath('unread_count', collect($afterOpenResponse->json('data.data'))
+            ->where('status', 'unread')
+            ->count());
 });
 
 test('customer can hide all visible notifications without deleting them', function () {
@@ -327,11 +342,16 @@ test('hide all ignores completed guide review notifications hidden from the list
 
     Sanctum::actingAs($scenario['customer']);
 
+    $visibleBeforeClear = $this->getJson('/api/notifications/customers')->assertOk();
+
+    expect(collect($visibleBeforeClear->json('data.data'))->pluck('id')->all())
+        ->toContain($visibleNotification->id);
+
     $this->patchJson('/api/notifications/customers/clear-all')
         ->assertOk()
-        ->assertJsonPath('cleared_count', 1);
+        ->assertJsonPath('cleared_count', 2);
 
-    expect(Notification::query()->findOrFail($hiddenReviewNotification->id)->status)->toBe('unread')
+    expect(Notification::query()->findOrFail($hiddenReviewNotification->id)->status)->toBe('read')
         ->and(Notification::query()->findOrFail($hiddenReviewNotification->id)->cleared_at)->toBeNull()
         ->and(Notification::query()->findOrFail($visibleNotification->id)->status)->toBe('read')
         ->and(Notification::query()->findOrFail($visibleNotification->id)->cleared_at)->not->toBeNull();

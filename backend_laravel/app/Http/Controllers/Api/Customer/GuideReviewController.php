@@ -34,12 +34,12 @@ class GuideReviewController extends Controller
             ->where(function ($query) use ($today): void {
                 $query->where('status', 'completed')
                     ->orWhere(function ($subQuery) use ($today): void {
-                        $subQuery->whereIn('status', ['confirmed', 'completed'])
+                        $subQuery->whereIn('status', ['confirmed', 'completed', 'departed'])
                             ->whereHas('tourDeparture', function ($departureQuery) use ($today): void {
                                 $departureQuery->where('status', 'completed')
                                     ->orWhere(function ($departureSubQuery) use ($today): void {
                                         $departureSubQuery->whereNotNull('return_date')
-                                            ->whereDate('return_date', '<', $today);
+                                            ->whereDate('return_date', '<=', $today);
                                     });
                             });
                     });

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { confirmAction } from '../../../components/common/AppConfirmDialog.jsx'
 
 import { destinationApi } from '../../../services/destinationApi'
 import { formatDateDdMmYyyy } from '../../../utils/dateFormat'
@@ -57,7 +58,7 @@ function DestinationTrashPage() {
   }, [fetchTrashedDestinations])
 
   const handleRestore = async (id) => {
-    const confirmRestore = window.confirm('Bạn có muốn khôi phục địa chỉ tour này không?')
+    const confirmRestore = await confirmAction('Bạn có muốn khôi phục địa chỉ tour này không?', { title: 'Khôi phục địa chỉ tour', confirmLabel: 'Khôi phục' })
     if (!confirmRestore) return
 
     try {
@@ -74,7 +75,7 @@ function DestinationTrashPage() {
   }
 
   const handleForceDelete = async (id) => {
-    const confirmDelete = window.confirm('Xóa vĩnh viễn địa chỉ tour này? Hành động này không thể khôi phục.')
+    const confirmDelete = await confirmAction('Xóa vĩnh viễn địa chỉ tour này? Hành động này không thể khôi phục.', { title: 'Xóa vĩnh viễn', confirmLabel: 'Xóa', tone: 'danger' })
     if (!confirmDelete) return
 
     try {

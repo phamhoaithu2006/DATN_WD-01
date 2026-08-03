@@ -32,6 +32,17 @@ body {
   min-height: 100svh;
 }
 
+/* Icon dùng chung cho cả các màn quản trị và khách hàng. Một số trang admin
+   không tải customer.css nên cần khai báo tại đây để SVG không bị fill đen. */
+.vg-icon {
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 /* Trạng thái tải trang dùng khi lazy-load: nhẹ, có nhận diện ViVuGo và không nhấp nháy chữ đơn lẻ. */
 .app-route-loading {
   display: grid;
@@ -136,6 +147,18 @@ body {
 .vg-loading-state__lines i:nth-child(3) { width: 56%; }
 .vg-loading-state--compact { min-height: 0; padding: 13px 16px; grid-auto-flow: column; grid-template-columns: auto 1fr; justify-content: start; border-radius: 12px; }
 .vg-loading-state--compact .vg-loading-state__spinner { width: 20px; height: 20px; border-width: 2px; }
+
+.vg-confirm-overlay { position: fixed; inset: 0; z-index: 9999; display: grid; place-items: center; padding: 20px; background: rgb(15 35 63 / 48%); backdrop-filter: blur(3px); }
+.vg-confirm-dialog { width: min(100%, 455px); display: grid; grid-template-columns: 46px 1fr; gap: 14px; padding: 26px; border: 1px solid #d8e8f8; border-radius: 22px; background: #fff; box-shadow: 0 28px 70px rgb(15 35 63 / 28%); }
+.vg-confirm-dialog__icon { width: 46px; height: 46px; display: grid; place-items: center; border-radius: 15px; color: #0877db; background: #e8f4ff; font-size: 1.35rem; font-weight: 900; }
+.vg-confirm-dialog__icon.is-danger { color: #dc2626; background: #feecec; }
+.vg-confirm-dialog h2 { margin: 3px 0 7px; color: #173963; font-size: 1.12rem; }
+.vg-confirm-dialog p { margin: 0; color: #627994; line-height: 1.55; }
+.vg-confirm-dialog__input { grid-column: 2; width: 100%; padding: 11px 12px; border: 1px solid #cbddec; border-radius: 10px; color: #183a63; font: inherit; }
+.vg-confirm-dialog__actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
+.vg-confirm-dialog__actions button { min-width: 92px; padding: 10px 16px; border: 1px solid #d5e3f1; border-radius: 10px; color: #38526f; background: #fff; font-weight: 800; cursor: pointer; }
+.vg-confirm-dialog__actions button:last-child { border-color: #167ee4; color: #fff; background: linear-gradient(135deg, #2378e8, #119b91); }
+.vg-confirm-dialog__actions button:last-child.is-danger { border-color: #df3f4e; background: linear-gradient(135deg, #ef4444, #be123c); }
 
 @media (max-width: 640px) {
   .app-route-loading__card { padding: 24px; }
