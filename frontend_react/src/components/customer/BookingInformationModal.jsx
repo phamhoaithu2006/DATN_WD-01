@@ -5,7 +5,7 @@ function normalizePhone(value) {
   return String(value || "").trim().replace(/\D/g, "");
 }
 
-function BookingInformationModal({ booking, onClose, onSave }) {
+function BookingInformationModal({ booking, onClose, onSave, readOnly = false }) {
   const [contact, setContact] = useState(() => ({
     contact_name: booking.contact?.contact_name || "",
     contact_email: booking.contact?.contact_email || "",
@@ -31,6 +31,8 @@ function BookingInformationModal({ booking, onClose, onSave }) {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    if (readOnly) return;
+
     setSaving(true);
     setError("");
 
@@ -68,8 +70,14 @@ function BookingInformationModal({ booking, onClose, onSave }) {
         <header className="mb-6 flex items-start justify-between gap-4">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-sky-600">Booking {booking.booking_code}</p>
-            <h2 className="mt-1 text-xl font-extrabold text-slate-900">Chỉnh sửa thông tin hành khách</h2>
-            <p className="mt-1 text-sm text-slate-500">Số lượng khách, ngày sinh và tổng tiền không thể thay đổi.</p>
+            <h2 className="mt-1 text-xl font-extrabold text-slate-900">
+              {readOnly ? "Thông tin hành khách" : "Chỉnh sửa thông tin hành khách"}
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              {readOnly
+                ? "Đã quá thời hạn chỉnh sửa (trong vòng 3 ngày trước khởi hành). Bạn chỉ có thể xem lại thông tin bên dưới, vui lòng liên hệ hỗ trợ nếu cần thay đổi."
+                : "Số lượng khách, ngày sinh và tổng tiền không thể thay đổi."}
+            </p>
           </div>
           <button type="button" className="rounded-full p-2 text-slate-500 hover:bg-slate-100" onClick={onClose} aria-label="Đóng">
             <Icon name="close" size={20} />
@@ -81,12 +89,12 @@ function BookingInformationModal({ booking, onClose, onSave }) {
         <section className="space-y-4">
           <h3 className="text-sm font-extrabold text-slate-800">Người liên hệ</h3>
           <div className="grid gap-3 sm:grid-cols-2">
-            <input required value={contact.contact_name} onChange={(event) => setContact((current) => ({ ...current, contact_name: event.target.value }))} placeholder="Họ và tên" className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
-            <input required value={contact.contact_phone} onChange={(event) => setContact((current) => ({ ...current, contact_phone: event.target.value }))} placeholder="Số điện thoại" className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
-            <input type="email" value={contact.contact_email} onChange={(event) => setContact((current) => ({ ...current, contact_email: event.target.value }))} placeholder="Email" className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
-            <input value={contact.address} onChange={(event) => setContact((current) => ({ ...current, address: event.target.value }))} placeholder="Địa chỉ" className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+            <input disabled={readOnly} required value={contact.contact_name} onChange={(event) => setContact((current) => ({ ...current, contact_name: event.target.value }))} placeholder="Họ và tên" className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm disabled:bg-slate-50 disabled:text-slate-500" />
+            <input disabled={readOnly} required value={contact.contact_phone} onChange={(event) => setContact((current) => ({ ...current, contact_phone: event.target.value }))} placeholder="Số điện thoại" className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm disabled:bg-slate-50 disabled:text-slate-500" />
+            <input disabled={readOnly} type="email" value={contact.contact_email} onChange={(event) => setContact((current) => ({ ...current, contact_email: event.target.value }))} placeholder="Email" className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm disabled:bg-slate-50 disabled:text-slate-500" />
+            <input disabled={readOnly} value={contact.address} onChange={(event) => setContact((current) => ({ ...current, address: event.target.value }))} placeholder="Địa chỉ" className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm disabled:bg-slate-50 disabled:text-slate-500" />
           </div>
-          <textarea value={contact.special_request} onChange={(event) => setContact((current) => ({ ...current, special_request: event.target.value }))} placeholder="Yêu cầu đặc biệt" rows="3" className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+          <textarea disabled={readOnly} value={contact.special_request} onChange={(event) => setContact((current) => ({ ...current, special_request: event.target.value }))} placeholder="Yêu cầu đặc biệt" rows="3" className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm disabled:bg-slate-50 disabled:text-slate-500" />
         </section>
 
         <section className="mt-7 space-y-3">
@@ -95,24 +103,28 @@ function BookingInformationModal({ booking, onClose, onSave }) {
             <div key={participant.id} className="rounded-2xl border border-slate-200 p-4">
               <p className="mb-3 text-sm font-bold text-slate-700">Hành khách {index + 1}</p>
               <div className="grid gap-3 sm:grid-cols-2">
-                <input required value={participant.full_name} onChange={(event) => updateParticipant(index, "full_name", event.target.value)} placeholder="Họ và tên" className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
-                <input value={participant.phone} onChange={(event) => updateParticipant(index, "phone", event.target.value)} placeholder="Số điện thoại" className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
-                <select value={participant.gender} onChange={(event) => updateParticipant(index, "gender", event.target.value)} className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm">
+                <input disabled={readOnly} required value={participant.full_name} onChange={(event) => updateParticipant(index, "full_name", event.target.value)} placeholder="Họ và tên" className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm disabled:bg-slate-50 disabled:text-slate-500" />
+                <input disabled={readOnly} value={participant.phone} onChange={(event) => updateParticipant(index, "phone", event.target.value)} placeholder="Số điện thoại" className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm disabled:bg-slate-50 disabled:text-slate-500" />
+                <select disabled={readOnly} value={participant.gender} onChange={(event) => updateParticipant(index, "gender", event.target.value)} className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm disabled:bg-slate-50 disabled:text-slate-500">
                   <option value="male">Nam</option>
                   <option value="female">Nữ</option>
                   <option value="other">Khác</option>
                 </select>
-                <input value={participant.identity_number} onChange={(event) => updateParticipant(index, "identity_number", event.target.value)} placeholder="CCCD/Hộ chiếu" className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+                <input disabled={readOnly} value={participant.identity_number} onChange={(event) => updateParticipant(index, "identity_number", event.target.value)} placeholder="CCCD/Hộ chiếu" className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm disabled:bg-slate-50 disabled:text-slate-500" />
               </div>
             </div>
           ))}
         </section>
 
         <footer className="mt-7 flex justify-end gap-3">
-          <button type="button" className="rounded-xl px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-100" onClick={onClose}>Hủy</button>
-          <button type="submit" disabled={saving} className="rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60">
-            {saving ? "Đang lưu..." : "Lưu thông tin"}
+          <button type="button" className="rounded-xl px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-100" onClick={onClose}>
+            {readOnly ? "Đóng" : "Hủy"}
           </button>
+          {readOnly ? null : (
+            <button type="submit" disabled={saving} className="rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60">
+              {saving ? "Đang lưu..." : "Lưu thông tin"}
+            </button>
+          )}
         </footer>
       </form>
     </div>

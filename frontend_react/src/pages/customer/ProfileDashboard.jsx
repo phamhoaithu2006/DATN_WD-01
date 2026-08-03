@@ -728,6 +728,7 @@ function ProfileDashboard({
   const [participantsEditBooking, setParticipantsEditBooking] = useState(null);
   const [disruptionBooking, setDisruptionBooking] = useState(null);
   const [editingBooking, setEditingBooking] = useState(null);
+  const [editingBookingReadOnly, setEditingBookingReadOnly] = useState(false);
 
   const selectBookingFilter = (nextFilter) => {
     setBookingFilter(nextFilter);
@@ -807,7 +808,14 @@ function ProfileDashboard({
     const departureDate = booking.tour_departure?.departure_date;
     if (!departureDate) return false;
 
-    const deadline = new Date(`${departureDate}T00:00:00`);
+    // Không ghép chuỗi thủ công (dễ tạo ra chuỗi ngày không hợp lệ nếu
+    // departureDate đã là datetime đầy đủ, ví dụ "...T00:00:00Z") — parse
+    // trực tiếp rồi tự chuẩn hoá về đầu ngày để tính hạn chỉnh sửa.
+    const departureTime = new Date(departureDate).getTime();
+    if (Number.isNaN(departureTime)) return false;
+
+    const deadline = new Date(departureTime);
+    deadline.setHours(0, 0, 0, 0);
     deadline.setDate(deadline.getDate() - 3);
     deadline.setHours(23, 59, 59, 999);
 
@@ -1486,13 +1494,17 @@ function ProfileDashboard({
                         </div>
 
                         <div className="vg-booking-actions-row">
-                          {canEditBookingInformation(booking) ? (
+                          {(canManageBooking || isOngoingTrip) ? (
                             <button
                               type="button"
                               className="vg-btn-ticket"
-                              onClick={() => setEditingBooking(booking)}
+                              onClick={() => {
+                                setEditingBookingReadOnly(!canEditBookingInformation(booking));
+                                setEditingBooking(booking);
+                              }}
                             >
-                              <Icon name="edit" size={15} /> Sửa thông tin
+                              <Icon name={canEditBookingInformation(booking) ? "edit" : "eye"} size={15} />
+                              {canEditBookingInformation(booking) ? "Sửa thông tin" : "Xem thông tin"}
                             </button>
                           ) : null}
                           {isPendingPayment ? (
@@ -1547,30 +1559,6 @@ function ProfileDashboard({
                                   >
                                     Hủy đơn
                                   </button>
-                                </>
-                              ) : null}
-
-                              {/* Tour đang diễn ra: chỉ cho xem lại thông tin liên hệ/hành khách,
-                                  không cho sửa, không hiện nút xử lý mưa bão hay hủy đơn. */}
-                              {isOngoingTrip ? (
-                                <>
-                                  <button
-                                    type="button"
-                                    className="vg-btn-secondary"
-                                    onClick={() => setContactEditBooking({ ...booking, __viewOnly: true })}
-                                  >
-                                    <Icon name="edit" size={14} /> Xem thông tin liên hệ
-                                  </button>
-
-                                  {Array.isArray(booking.participants) && booking.participants.length > 0 ? (
-                                    <button
-                                      type="button"
-                                      className="vg-btn-secondary"
-                                      onClick={() => setParticipantsEditBooking({ ...booking, __viewOnly: true })}
-                                    >
-                                      <Icon name="users" size={14} /> Xem thông tin hành khách
-                                    </button>
-                                  ) : null}
                                 </>
                               ) : null}
                             </div>
@@ -1674,7 +1662,11 @@ function ProfileDashboard({
         <BookingInformationModal
           key={editingBooking.id}
           booking={editingBooking}
-          onClose={() => setEditingBooking(null)}
+          readOnly={editingBookingReadOnly}
+          onClose={() => {
+            setEditingBooking(null);
+            setEditingBookingReadOnly(false);
+          }}
           onSave={handleBookingInformationSaved}
         />
       ) : null}
