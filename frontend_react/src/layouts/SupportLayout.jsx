@@ -5,6 +5,7 @@ import SupportSidebar from '../components/support/SupportSidebar'
 import apiClient from '../services/apiClient'
 import { logout as logoutApi } from '../services/authApi'
 import { clearSession } from '../services/authStorage'
+import '../styles/admin.css'
 import '../styles/guide.css'
 
 function getInitials(name) {
