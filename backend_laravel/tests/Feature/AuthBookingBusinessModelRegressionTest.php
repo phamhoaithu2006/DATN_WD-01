@@ -4,7 +4,6 @@ use App\Models\Booking;
 use App\Models\Payment;
 use App\Models\Role;
 use App\Models\Tour;
-use App\Models\TourAgePricingRule;
 use App\Models\TourDeparture;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -288,19 +287,9 @@ test('tổng tiền booking và payment được tính từ ngày sinh hành kh�
     Sanctum::actingAs(abRegressionUser('customer'));
     $tour = abRegressionTour();
     $departure = abRegressionDeparture($tour);
-    $freeChildRule = TourAgePricingRule::query()->create([
-        'tour_id' => $tour->id,
-        'label' => 'Trẻ nhỏ miễn phí',
-        'min_age' => 0,
-        'max_age' => 4,
-        'pricing_type' => 'free',
-        'price_value' => 0,
-        'sort_order' => 1,
-        'is_active' => true,
-    ]);
     $payload = abRegressionBookingPayload($departure);
     $payload['quantity_summary'] = [
-        ['rule_id' => $freeChildRule->id, 'quantity' => 1],
+        ['rule_id' => null, 'quantity' => 1],
     ];
 
     $response = $this->postJson('/api/customer/bookings', $payload)

@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Tour;
 use App\Models\TourDeparture;
+use App\Services\VnpayPaymentLifecycleService;
 use App\Services\TourPricingService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -19,7 +20,8 @@ use Illuminate\Validation\ValidationException;
 class BookingController extends Controller
 {
     public function __construct(
-        private readonly TourPricingService $tourPricingService
+        private readonly TourPricingService $tourPricingService,
+        private readonly VnpayPaymentLifecycleService $paymentLifecycleService,
     ) {}
 
     /**
@@ -31,7 +33,7 @@ class BookingController extends Controller
         $request->validate([
             'search' => 'nullable|string|max:100',
             'status' => ['nullable', Rule::in(['pending', 'confirmed', 'departed', 'completed', 'cancelled', 'cancelled_by_tour', 'cancelled_all'])],
-            'payment_status' => ['nullable', Rule::in(['unpaid', 'paid', 'failed', 'refunded'])],
+            'payment_status' => ['nullable', Rule::in(['unpaid', 'paid', 'failed', 'refunded', 'refund_pending'])],
             'from_date' => 'nullable|date',
             'to_date' => 'nullable|date|after_or_equal:from_date',
             'per_page' => 'nullable|integer|min:5|max:100',
@@ -94,6 +96,7 @@ class BookingController extends Controller
             SUM(CASE WHEN payment_status = 'paid'     THEN 1 ELSE 0 END) as paid,
             SUM(CASE WHEN payment_status = 'failed'   THEN 1 ELSE 0 END) as failed,
             SUM(CASE WHEN payment_status = 'refunded' THEN 1 ELSE 0 END) as refunded,
+            SUM(CASE WHEN payment_status = 'refund_pending' THEN 1 ELSE 0 END) as refund_pending,
             SUM(CASE WHEN payment_status = 'paid' AND status NOT IN ('cancelled', 'cancelled_by_tour') THEN total_amount ELSE 0 END) as total_revenue
         ")->first();
 
@@ -302,12 +305,11 @@ class BookingController extends Controller
 
             $shouldReleaseSlots = ($data['status'] ?? null) === 'cancelled'
                 && $lockedBooking->status !== 'cancelled';
-            $slotsToRelease = (int) $lockedBooking->number_of_people;
 
             $lockedBooking->update($data);
 
             if ($shouldReleaseSlots) {
-                $this->releaseBookedSlots($lockedBooking, $slotsToRelease);
+                $this->releaseBookedSlots($lockedBooking);
             }
 
             if ($contact !== null) {
@@ -343,10 +345,8 @@ class BookingController extends Controller
                 return;
             }
 
-            $slotsToRelease = (int) $booking->number_of_people;
-
             $booking->update(['status' => 'cancelled', 'cancelled_at' => Carbon::now()]);
-            $this->releaseBookedSlots($booking, $slotsToRelease);
+            $this->releaseBookedSlots($booking);
         });
 
         return response()->json([
@@ -470,21 +470,9 @@ class BookingController extends Controller
         return 'adult';
     }
 
-    private function releaseBookedSlots(Booking $booking, int $slotsToRelease): void
+    private function releaseBookedSlots(Booking $booking): void
     {
-        $departure = $booking->tourDeparture()
-            ->lockForUpdate()
-            ->first();
-
-        if (! $departure) {
-            return;
-        }
-
-        $departure->booked_slots = max(
-            0,
-            (int) $departure->booked_slots - $slotsToRelease
-        );
-        $departure->save();
+        $this->paymentLifecycleService->releaseCommittedSlots($booking);
     }
 
     private function markBookingsAsDeparted(): void

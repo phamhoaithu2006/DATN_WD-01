@@ -208,6 +208,7 @@ function BookingManagementPage() {
       paid: 'Đã thanh toán',
       unpaid: 'Chưa thanh toán',
       failed: 'Thanh toán thất bại',
+      refund_pending: 'Chờ hoàn tiền',
       refunded: 'Đã hoàn tiền',
     }[booking.payment_status] || '--'
     const bookingStatus = {

@@ -309,10 +309,6 @@ class CustomerBookingController extends Controller
                 'note' => 'Khách hàng tạo đơn đặt tour.',
             ]);
 
-            // Chỉ tăng booked_slots của lịch cụ thể
-            $departure->booked_slots += $numberOfPeople;
-            $departure->save();
-
             return ['booking' => $booking, 'created' => true];
         }, 3);
 
@@ -476,7 +472,7 @@ class CustomerBookingController extends Controller
                     'Link thanh toán VNPAY đã hết hạn.'
                 );
 
-                return ['error' => 'Đơn hàng đã hết thời gian giữ chỗ thanh toán.'];
+                return ['error' => 'Đơn hàng đã hết thời gian thanh toán.'];
             }
 
             $payment->update([
@@ -555,7 +551,8 @@ class CustomerBookingController extends Controller
                 ->lockForUpdate()
                 ->first();
 
-            // Trường hợp 1: đơn đang chờ thanh toán VNPAY (giữ nguyên logic cũ)
+            // Trường hợp 1: đơn đang chờ thanh toán VNPAY.
+            // Đơn chờ không giữ chỗ nên việc hủy chỉ cập nhật payment/booking.
             if (
                 $lockedBooking->status === 'pending'
                 && $lockedBooking->payment_status === 'unpaid'
@@ -568,7 +565,7 @@ class CustomerBookingController extends Controller
                     'Khách hàng chủ động hủy đơn chờ thanh toán.'
                 );
 
-                // Service đã cập nhật booking, hoàn chỗ và ghi lịch sử.
+                // Service đã cập nhật booking và ghi lịch sử.
                 // Không tạo thêm một lịch sử hủy lần nữa ở phía dưới.
                 return ['booking' => $lockedBooking->fresh(['payment'])];
             }
@@ -585,13 +582,8 @@ class CustomerBookingController extends Controller
 
             $lockedBooking->save();
 
-            // Hoàn lại số chỗ cho lịch khởi hành
-            if ($lockedBooking->tour_departure_id) {
-                TourDeparture::query()
-                    ->whereKey($lockedBooking->tour_departure_id)
-                    ->where('booked_slots', '>=', $lockedBooking->number_of_people)
-                    ->decrement('booked_slots', $lockedBooking->number_of_people);
-            }
+            // Chỉ hoàn chỗ nếu booking đã thực sự commit slot sau thanh toán.
+            $this->paymentLifecycleService->releaseCommittedSlots($lockedBooking);
 
             $lockedBooking->statusHistories()->create([
                 'changed_by' => $request->user()->id,
@@ -616,7 +608,7 @@ class CustomerBookingController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Đã hủy đơn hàng và hoàn lại số chỗ.',
+            'message' => 'Đã hủy đơn hàng và cập nhật lại số chỗ nếu booking đã được xác nhận.',
             'data' => $bookingData,
         ]);
     }
@@ -841,7 +833,6 @@ class CustomerBookingController extends Controller
                     'pricing_value',
                 ]))->all());
                 $replacement->statusHistories()->create(['old_status' => null, 'new_status' => 'pending', 'note' => "Created from cancelled booking {$source->booking_code}."]);
-                $target->increment('booked_slots', $replacement->number_of_people);
                 $source->update(['resolution_status' => $data['resolution']]);
 
                 return ['booking' => $replacement];

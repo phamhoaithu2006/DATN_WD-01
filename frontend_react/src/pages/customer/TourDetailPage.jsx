@@ -1408,7 +1408,7 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                       <h4>Thanh toán đặt chỗ an toàn</h4>
                     </div>
                     <p style={{ color: "#475569", fontSize: "0.88rem", lineHeight: 1.6, margin: "12px 0" }}>
-                      Bạn sẽ được chuyển đến VNPAY Sandbox để hoàn tất thanh toán. Chỗ sẽ được giữ trong 15 phút và tự động hoàn lại khi thanh toán không thành công hoặc hết hạn.
+                      Bạn sẽ được chuyển đến VNPAY Sandbox để hoàn tất thanh toán. Link thanh toán có hiệu lực trong 15 phút; chỗ chỉ được xác nhận sau khi thanh toán thành công.
                     </p>
                     <div className="fake-payment-warning">
                       <span>✓ Bạn có thể hoàn hủy hoặc thay đổi thông tin theo chính sách của ViVuGo.</span>
@@ -2013,7 +2013,7 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                 <div className="booking-confirmation-note">
                   <Icon name="clock" size={18} />
                   <span>
-                    Đơn hiện tại đang giữ chỗ đến {formatReviewDateTime(bookingConfirmationModal.booking?.expires_at)}.
+                    Link thanh toán của đơn có hiệu lực đến {formatReviewDateTime(bookingConfirmationModal.booking?.expires_at)}. Chỗ chỉ được xác nhận sau khi thanh toán thành công.
                   </span>
                 </div>
 
@@ -2073,8 +2073,8 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                     <strong>{totalGuests} người</strong>
                   </div>
                   <div className="summary-item">
-                    <span>Chỗ còn lại sau khi đặt</span>
-                    <strong>{Number(bookingPreview?.available_slots ?? 0) - totalGuests} chỗ</strong>
+                    <span>Chỗ hiện có trước thanh toán</span>
+                    <strong>{Number(bookingPreview?.available_slots ?? 0)} chỗ</strong>
                   </div>
                   <div className="summary-item total">
                     <span>Tổng thanh toán</span>
@@ -2084,7 +2084,7 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
 
                 <div className="booking-confirmation-note">
                   <Icon name="clock" size={18} />
-                  <span>Chỗ sẽ được giữ trong 15 phút để bạn hoàn tất thanh toán VNPAY.</span>
+                  <span>Chỗ chỉ được xác nhận sau khi VNPAY báo thanh toán thành công. Link thanh toán có hiệu lực trong 15 phút.</span>
                 </div>
 
                 <div className="modal-actions">
