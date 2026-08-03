@@ -588,6 +588,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(functi
     // Xử lý sự cố mưa bão (hoàn tiền / bảo lưu / chuyển tour)
     Route::prefix('booking-disruption-requests')->group(function () {
         Route::get('/', [AdminBookingDisruptionController::class, 'index']);
+        Route::get('/summary', [AdminBookingDisruptionController::class, 'summary']);
         Route::get('/{bookingDisruptionRequest}', [AdminBookingDisruptionController::class, 'show']);
         Route::patch('/{bookingDisruptionRequest}/approve', [AdminBookingDisruptionController::class, 'approve']);
         Route::patch('/{bookingDisruptionRequest}/reject', [AdminBookingDisruptionController::class, 'reject']);

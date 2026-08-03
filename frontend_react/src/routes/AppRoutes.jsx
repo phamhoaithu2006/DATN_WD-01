@@ -11,6 +11,7 @@ const AdminLayout = lazy(() => import('../layouts/AdminLayout'))
 const GuideLayout = lazy(() => import('../layouts/GuideLayout'))
 const SupportLayout = lazy(() => import('../layouts/SupportLayout'))
 const BookingManagementPage = lazy(() => import('../pages/admin/BookingManagementPage'))
+const BookingCancellationRequestsPage = lazy(() => import('../pages/admin/BookingCancellationRequestsPage'))
 const AdminDashboardPage = lazy(() => import('../pages/admin/AdminDashboardPage'))
 const GuideManagementPage = lazy(() => import('../pages/admin/GuideManagementPage'))
 const GuideTrashPage = lazy(() => import('../pages/admin/GuideTrashPage'))
@@ -480,6 +481,13 @@ function AppRoutes() {
         path="/admin/bookings"
         element={adminPage(
           <BookingManagementPage />,
+        )}
+      />
+
+      <Route
+        path="/admin/booking-cancellation-requests"
+        element={adminPage(
+          <BookingCancellationRequestsPage />,
         )}
       />
 

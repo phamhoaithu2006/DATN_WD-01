@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { tourDepartureApi } from '../../services/tourDepartureApi'
+import adminBookingDisruptionApi from '../../services/adminBookingDisruptionApi'
 import adminGuideReplacementRequestApi from '../../services/adminGuideReplacementRequestApi'
 import adminGuideLeaveRequestApi from '../../services/adminGuideLeaveRequestApi'
 import { getAdminReceivedUnreadCount } from '../../services/supportWorkflowApi'
@@ -56,6 +57,18 @@ const menuItems = [
         <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 1 4 16.5v-11Z" />
         <path d="M8 7h8" />
         <path d="M8 11h7" />
+      </>
+    ),
+  },
+  {
+    label: 'Yêu Cầu Hủy Booking',
+    path: '/admin/booking-cancellation-requests',
+    showBookingDisruptionBadge: true,
+    icon: (
+      <>
+        <path d="M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" />
+        <path d="M8 9h8M8 13h5M8 17h3" />
+        <path d="m16 14 3 3m0-3-3 3" />
       </>
     ),
   },
@@ -268,6 +281,7 @@ function AdminSidebar({
   const [internalWarningCount, setInternalWarningCount] = useState(0)
   const [guideLeavePendingCount, setGuideLeavePendingCount] = useState(0)
   const [receivedNotificationUnreadCount, setReceivedNotificationUnreadCount] = useState(0)
+  const [bookingDisruptionPendingCount, setBookingDisruptionPendingCount] = useState(0)
 
   const visibleMenuItems = useMemo(() => {
     return role === 'admin' ? menuItems : []
@@ -358,11 +372,27 @@ function AdminSidebar({
     }
   }, [role])
 
+  const loadBookingDisruptionPendingCount = useCallback(async () => {
+    if (role !== 'admin') {
+      setBookingDisruptionPendingCount(0)
+      return
+    }
+
+    try {
+      const count = await adminBookingDisruptionApi.getPendingCount()
+      setBookingDisruptionPendingCount(Number(count || 0))
+    } catch (error) {
+      console.error(error)
+      setBookingDisruptionPendingCount(0)
+    }
+  }, [role])
+
   useEffect(() => {
     const loadTimeout = window.setTimeout(() => {
       void loadTourDepartureWarningCount()
       void loadGuideLeavePendingCount()
       void loadReceivedNotificationUnreadCount()
+      void loadBookingDisruptionPendingCount()
     }, 0)
 
     return () => window.clearTimeout(loadTimeout)
@@ -370,6 +400,7 @@ function AdminSidebar({
     loadTourDepartureWarningCount,
     loadGuideLeavePendingCount,
     loadReceivedNotificationUnreadCount,
+    loadBookingDisruptionPendingCount,
   ])
 
   useEffect(() => {
@@ -377,6 +408,7 @@ function AdminSidebar({
       void loadTourDepartureWarningCount()
       void loadGuideLeavePendingCount()
       void loadReceivedNotificationUnreadCount()
+      void loadBookingDisruptionPendingCount()
     }
 
     window.addEventListener('focus', handleRefresh)
@@ -385,6 +417,7 @@ function AdminSidebar({
     window.addEventListener('admin-guide-replacement:changed', handleRefresh)
     window.addEventListener('admin-guide-leave-request:changed', handleRefresh)
     window.addEventListener('admin-notification:changed', handleRefresh)
+    window.addEventListener('admin-booking-disruption:changed', handleRefresh)
 
     return () => {
       window.removeEventListener('focus', handleRefresh)
@@ -393,11 +426,13 @@ function AdminSidebar({
       window.removeEventListener('admin-guide-replacement:changed', handleRefresh)
       window.removeEventListener('admin-guide-leave-request:changed', handleRefresh)
       window.removeEventListener('admin-notification:changed', handleRefresh)
+      window.removeEventListener('admin-booking-disruption:changed', handleRefresh)
     }
   }, [
     loadTourDepartureWarningCount,
     loadGuideLeavePendingCount,
     loadReceivedNotificationUnreadCount,
+    loadBookingDisruptionPendingCount,
   ])
 
   const assignmentWarningCount = Number(
@@ -442,9 +477,11 @@ function AdminSidebar({
             ? assignmentWarningCount
             : item.showGuideLeaveBadge
               ? guideLeavePendingCount
-              : item.showReceivedNotificationBadge
-                ? receivedNotificationUnreadCount
-                : 0
+            : item.showReceivedNotificationBadge
+              ? receivedNotificationUnreadCount
+              : item.showBookingDisruptionBadge
+                ? bookingDisruptionPendingCount
+              : 0
 
           const isTourSuiteActive =
             item.path === '/admin/tours' &&
