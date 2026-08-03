@@ -28,8 +28,8 @@ class BookingReviewEligibilityService
             return true;
         }
 
-        return $booking->status === 'confirmed'
+        return in_array($booking->status, ['confirmed', 'completed', 'departed'], true)
             && $departure->return_date !== null
-            && $departure->return_date->isBefore(today());
+            && $departure->return_date->lessThanOrEqualTo(today());
     }
 }

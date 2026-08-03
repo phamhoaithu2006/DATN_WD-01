@@ -7,6 +7,7 @@ use App\Models\Payment;
 use App\Services\VnpayPaymentLifecycleService;
 use App\Services\VnpayService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -29,6 +30,55 @@ class VnpayPaymentController extends Controller
         }
 
         return $this->paymentStatusResponse($payment);
+    }
+
+    public function callback(Request $request): RedirectResponse|JsonResponse
+    {
+        if (! $this->vnpayService->isConfigured()) {
+            return response()->json([
+                'message' => 'VNPAY Sandbox chưa được cấu hình.',
+            ], 503);
+        }
+
+        $payload = $request->query();
+
+        if (! $this->vnpayService->verifyResponse($payload)) {
+            return response()->json([
+                'message' => 'Dữ liệu trả về từ VNPAY không hợp lệ.',
+            ], 422);
+        }
+
+        $paymentId = $this->paymentIdFromPayload($payload);
+
+        if (! $paymentId) {
+            return response()->json([
+                'message' => 'Không tìm thấy thanh toán VNPAY.',
+            ], 404);
+        }
+
+        [$code] = $this->processVnpayResponse($paymentId, $payload);
+
+        if ($code === '02') {
+            return response()->json([
+                'message' => 'Không tìm thấy thanh toán VNPAY.',
+            ], 404);
+        }
+
+        if ($code === '04') {
+            return response()->json([
+                'message' => 'Số tiền thanh toán VNPAY không khớp.',
+            ], 422);
+        }
+
+        $payment = Payment::query()->find($paymentId);
+
+        if (! $payment) {
+            return response()->json([
+                'message' => 'Không tìm thấy thanh toán VNPAY.',
+            ], 404);
+        }
+
+        return redirect()->away($this->frontendReturnUrl($payment, $payload));
     }
 
     public function returnStatus(Request $request): JsonResponse
@@ -102,6 +152,16 @@ class VnpayPaymentController extends Controller
                 'last_attempt_status' => $this->lastAttemptStatus($payment),
             ],
         ]);
+    }
+
+    private function frontendReturnUrl(Payment $payment, array $payload): string
+    {
+        $baseUrl = $payment->frontend_origin
+            ? rtrim($payment->frontend_origin, '/').'/payment/vnpay/return'
+            : $this->vnpayService->legacyReturnUrl();
+        $separator = str_contains($baseUrl, '?') ? '&' : '?';
+
+        return $baseUrl.$separator.http_build_query($payload, '', '&', PHP_QUERY_RFC3986);
     }
 
     private function lastAttemptStatus(Payment $payment): ?string

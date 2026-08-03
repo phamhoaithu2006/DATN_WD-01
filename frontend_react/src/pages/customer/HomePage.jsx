@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import Icon from "../../components/customer/Icon";
 import TourCard from "../../components/customer/TourCard";
 import { fetchTourFilterOptions } from "../../services/customerApi";
@@ -104,6 +104,171 @@ function HeroBannerBackground({ banners = [], activeIndex, setActiveIndex }) {
   );
 }
 
+function CustomHeroDropdown({
+  label,
+  iconName,
+  value,
+  onChange,
+  options,
+  placeholder,
+  isInput = false,
+  inputValue = "",
+  onInputChange = null,
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchFilter, setSearchFilter] = useState("");
+  const dropdownRef = useRef(null);
+  const searchInputRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      setSearchFilter("");
+      setTimeout(() => {
+        if (searchInputRef.current) {
+          searchInputRef.current.focus();
+        }
+      }, 50);
+    }
+  }, [isOpen]);
+
+  const filteredOptions = useMemo(() => {
+    if (!options) return [];
+    const query = isInput
+      ? (inputValue || searchFilter).toLowerCase().trim()
+      : searchFilter.toLowerCase().trim();
+
+    if (!query) return options;
+
+    return options.filter((opt) => {
+      const text = typeof opt === "string" ? opt : opt.name;
+      return text.toLowerCase().includes(query);
+    });
+  }, [options, isInput, inputValue, searchFilter]);
+
+  const selectedLabel = useMemo(() => {
+    if (isInput) return inputValue;
+    if (!value) return placeholder;
+    const found = options?.find((opt) => (typeof opt === "string" ? opt === value : String(opt.id) === String(value)));
+    return found ? (typeof found === "string" ? found : found.name) : placeholder;
+  }, [isInput, inputValue, value, options, placeholder]);
+
+  return (
+    <div className={`vg-custom-dropdown-container ${isOpen ? "is-open" : ""}`} ref={dropdownRef}>
+      <label>
+        <Icon name={iconName} size={14} /> {label}
+      </label>
+      {isInput ? (
+        <div className="vg-custom-dropdown-trigger input-trigger" onClick={() => setIsOpen(true)}>
+          <input
+            type="text"
+            value={inputValue}
+            onChange={(e) => {
+              onInputChange(e.target.value);
+              setIsOpen(true);
+            }}
+            onFocus={() => setIsOpen(true)}
+            placeholder={placeholder}
+            autoComplete="off"
+          />
+          <Icon name="chevronDown" size={14} className={`vg-dropdown-arrow ${isOpen ? "rotated" : ""}`} />
+        </div>
+      ) : (
+        <button
+          type="button"
+          className="vg-custom-dropdown-trigger"
+          onClick={() => setIsOpen(!isOpen)}
+          aria-expanded={isOpen}
+        >
+          <span className={!value ? "is-placeholder" : "is-selected"}>{selectedLabel}</span>
+          <Icon name="chevronDown" size={14} className={`vg-dropdown-arrow ${isOpen ? "rotated" : ""}`} />
+        </button>
+      )}
+
+      {isOpen && (
+        <div className="vg-custom-dropdown-popover">
+          <div className="vg-dropdown-search-box">
+            <Icon name="search" size={14} className="vg-dropdown-search-icon" />
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchFilter}
+              onChange={(e) => setSearchFilter(e.target.value)}
+              placeholder={`Lọc ${label.toLowerCase()}...`}
+              onClick={(e) => e.stopPropagation()}
+            />
+            {searchFilter && (
+              <button
+                type="button"
+                className="vg-dropdown-search-clear"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSearchFilter("");
+                }}
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
+          <ul className="vg-custom-dropdown-menu">
+            {!isInput && placeholder && !searchFilter && (
+              <li
+                className={`vg-dropdown-item ${!value ? "active" : ""}`}
+                onClick={() => {
+                  onChange("");
+                  setIsOpen(false);
+                }}
+              >
+                <span>{placeholder}</span>
+                {!value && <Icon name="check" size={14} className="vg-check-icon" />}
+              </li>
+            )}
+            {filteredOptions.length > 0 ? (
+              filteredOptions.map((opt, index) => {
+                const optValue = typeof opt === "string" ? opt : opt.id;
+                const optText = typeof opt === "string" ? opt : opt.name;
+                const isSelected = isInput
+                  ? inputValue.trim().toLowerCase() === optText.toLowerCase()
+                  : String(value) === String(optValue);
+
+                return (
+                  <li
+                    key={typeof opt === "string" ? `${opt}-${index}` : opt.id}
+                    className={`vg-dropdown-item ${isSelected ? "active" : ""}`}
+                    onClick={() => {
+                      if (isInput) {
+                        onInputChange(optText);
+                      } else {
+                        onChange(optValue);
+                      }
+                      setIsOpen(false);
+                    }}
+                  >
+                    <span>{optText}</span>
+                    {isSelected && <Icon name="check" size={14} className="vg-check-icon" />}
+                  </li>
+                );
+              })
+            ) : (
+              <li className="vg-dropdown-empty">Không tìm thấy kết quả phù hợp</li>
+            )}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function HomePage({
   tours = [],
   internationalTours = [],
@@ -120,6 +285,7 @@ function HomePage({
   const [heroBannerIndex, setHeroBannerIndex] = useState(0);
   const [filterOptions, setFilterOptions] = useState(null);
   const [heroSearch, setHeroSearch] = useState({
+    q: "",
     departure_location: "",
     destination_id: "",
     departure_date: "",
@@ -228,8 +394,10 @@ function HomePage({
     event.preventDefault();
 
     const query = new URLSearchParams();
+    const keyword = heroSearch.q?.trim() || "";
     const departureLocation = heroSearch.departure_location.trim();
 
+    if (keyword) query.set("q", keyword);
     if (heroSearch.scope) query.set("scope", heroSearch.scope);
     if (departureLocation) query.set("departure_location", departureLocation);
     if (heroSearch.destination_id) query.append("destinations", heroSearch.destination_id);
@@ -272,9 +440,6 @@ function HomePage({
           <div className="vg-hero-content-wrapper">
             {/* Hero Main Heading & Intro */}
             <div className="vg-hero-header-text">
-              <div className="vg-hero-trust-badge">
-                <Icon name="shield" size={15} /> Nền tảng du lịch được tin chọn
-              </div>
               <h1 className="vg-hero-main-title">
                 Khám phá thế giới, <br />
                 <span className="vg-text-gradient">nâng tầm trải nghiệm</span>
@@ -313,48 +478,45 @@ function HomePage({
 
                 <form className="vg-hero-search-form" onSubmit={handleHeroSearchSubmit}>
                   <div className="vg-hero-search-grid">
-                    {/* Điểm khởi hành */}
+                    {/* Từ khóa / Tên tour */}
                     <div className="vg-hero-field-group">
-                      <label htmlFor="hero-departure-input">
-                        <Icon name="mapPin" size={14} /> Điểm khởi hành
+                      <label htmlFor="hero-keyword-input">
+                        <Icon name="search" size={14} /> Tìm kiếm tour
                       </label>
                       <input
-                        id="hero-departure-input"
+                        id="hero-keyword-input"
                         type="search"
-                        value={heroSearch.departure_location}
-                        list="vg-departure-location-options"
-                        onChange={(event) => updateHeroSearch("departure_location", event.target.value)}
-                        placeholder="Bạn xuất phát từ đâu?"
+                        value={heroSearch.q}
+                        onChange={(event) => updateHeroSearch("q", event.target.value)}
+                        placeholder="Bạn muốn đi đâu hoặc tìm tour gì?"
                         autoComplete="off"
                       />
                     </div>
 
-                    <datalist id="vg-departure-location-options">
-                      {departureLocations.map((location) => (
-                        <option key={location} value={location} />
-                      ))}
-                    </datalist>
+                    <div className="vg-search-divider" />
+
+                    {/* Điểm khởi hành */}
+                    <CustomHeroDropdown
+                      label="Điểm khởi hành"
+                      iconName="mapPin"
+                      isInput={true}
+                      inputValue={heroSearch.departure_location}
+                      onInputChange={(val) => updateHeroSearch("departure_location", val)}
+                      options={departureLocations}
+                      placeholder="Bạn xuất phát từ đâu?"
+                    />
 
                     <div className="vg-search-divider" />
 
                     {/* Điểm đến */}
-                    <div className="vg-hero-field-group">
-                      <label htmlFor="hero-destination-select">
-                        <Icon name="compass" size={14} /> Điểm đến
-                      </label>
-                      <select
-                        id="hero-destination-select"
-                        value={heroSearch.destination_id}
-                        onChange={(event) => updateHeroSearch("destination_id", event.target.value)}
-                      >
-                        <option value="">Tất cả điểm đến</option>
-                        {destinationOptions.map((destination) => (
-                          <option key={destination.id} value={destination.id}>
-                            {destination.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                    <CustomHeroDropdown
+                      label="Điểm đến"
+                      iconName="compass"
+                      value={heroSearch.destination_id}
+                      onChange={(val) => updateHeroSearch("destination_id", val)}
+                      options={destinationOptions}
+                      placeholder="Tất cả điểm đến"
+                    />
 
                     <div className="vg-search-divider" />
 
@@ -375,23 +537,14 @@ function HomePage({
                     <div className="vg-search-divider" />
 
                     {/* Loại tour */}
-                    <div className="vg-hero-field-group">
-                      <label htmlFor="hero-category-select">
-                        <Icon name="layers" size={14} /> Loại tour
-                      </label>
-                      <select
-                        id="hero-category-select"
-                        value={heroSearch.category_id}
-                        onChange={(event) => updateHeroSearch("category_id", event.target.value)}
-                      >
-                        <option value="">Tất cả loại tour</option>
-                        {categoryOptions.map((category) => (
-                          <option key={category.id} value={category.id}>
-                            {category.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                    <CustomHeroDropdown
+                      label="Loại tour"
+                      iconName="layers"
+                      value={heroSearch.category_id}
+                      onChange={(val) => updateHeroSearch("category_id", val)}
+                      options={categoryOptions}
+                      placeholder="Tất cả loại tour"
+                    />
 
                     {/* Submit Button */}
                     <div className="vg-hero-field-group action">
@@ -637,6 +790,9 @@ function HomePage({
               <div className="vg-review-marquee" aria-label="Đánh giá tour 5 sao từ khách hàng">
               <div
                 className="vg-review-marquee-track"
+                style={{
+                  "--vg-review-duration": `${Math.max(140, safeReviews.length * 20)}s`,
+                }}
               >
                 {marqueeReviews.map((review, index) => {
                   const reviewerName = review.reviewer_name || "Khách hàng ViVuGo";
@@ -644,15 +800,13 @@ function HomePage({
                   const tourTitle = review.tour_title || review.tour?.title || "Tour Du Lịch Trải Nghiệm";
                   const tourSlug = review.tour_slug || review.tour?.slug || review.tour_id || review.tour?.id;
                   const tourLink = tourSlug ? `/tours/${tourSlug}` : "/tours";
-                  const reviewColorIndex = (index % 5) + 1;
 
                   return (
                     <article
-                      className={`vg-review-card vg-review-card-color-${reviewColorIndex}`}
+                      className="vg-review-card"
                       key={`${review.id}-${index}`}
                       aria-hidden={index >= safeReviews.length}
                     >
-                      <div className="vg-review-card-accent"></div>
                       <div className="vg-review-quote-mark" aria-hidden="true">“</div>
 
                       <Link
@@ -668,7 +822,7 @@ function HomePage({
 
                       <div className="vg-review-card-footer">
                         <div className="vg-review-person">
-                          <div className={`vg-review-avatar vg-review-avatar-${reviewColorIndex}`} aria-hidden="true">
+                          <div className="vg-review-avatar" aria-hidden="true">
                             {reviewerAvatar ? (
                               <img
                                 src={reviewerAvatar}

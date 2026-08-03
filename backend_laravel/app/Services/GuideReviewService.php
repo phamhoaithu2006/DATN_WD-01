@@ -30,7 +30,7 @@ class GuideReviewService
                 $query->where('tour_departures.status', 'completed')
                     ->orWhere(function (Builder $subQuery) use ($today): void {
                         $subQuery->whereNotNull('tour_departures.return_date')
-                            ->whereDate('tour_departures.return_date', '<', $today);
+                            ->whereDate('tour_departures.return_date', '<=', $today);
                     });
             });
     }

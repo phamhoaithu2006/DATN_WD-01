@@ -111,6 +111,7 @@ class TourReviewController extends Controller
         return [
             'user:id,full_name,email',
             'tour:id,title,slug',
+            'tour.thumbnail:id,tour_id,image_url,alt_text,is_thumbnail',
             'booking:id,booking_code,status',
             'tourDeparture:id,departure_date,return_date',
             'moderator:id,full_name',

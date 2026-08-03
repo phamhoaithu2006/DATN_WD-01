@@ -2,7 +2,12 @@ import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useLocale } from "../../contexts/LocaleContext";
-import { createCustomerBooking, fetchTourDetail, previewCustomerBooking } from "../../services/customerApi";
+import {
+  continueCustomerBookingPayment,
+  createCustomerBooking,
+  fetchTourDetail,
+  previewCustomerBooking,
+} from "../../services/customerApi";
 import { getTourReviews } from "../../services/customerReviewApi";
 import { readSession, readToken } from "../../services/authStorage";
 import Icon from "../../components/customer/Icon";
@@ -61,6 +66,41 @@ function normalizePhone(value) {
   return String(value || "").trim().replace(/\D/g, "");
 }
 
+function formatBirthDateForDisplay(value) {
+  const isoMatch = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+  if (!isoMatch) return String(value || "");
+
+  return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
+}
+
+function parseBirthDateInput(value) {
+  const rawValue = String(value || "");
+  const digits = rawValue.replace(/\D/g, "").slice(0, 8);
+
+  if (digits.length < 8) {
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+
+    return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+  }
+
+  const day = Number(digits.slice(0, 2));
+  const month = Number(digits.slice(2, 4));
+  const year = Number(digits.slice(4, 8));
+  const date = new Date(year, month - 1, day);
+
+  if (
+    date.getFullYear() !== year
+    || date.getMonth() !== month - 1
+    || date.getDate() !== day
+  ) {
+    return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+  }
+
+  return `${year.toString().padStart(4, "0")}-${digits.slice(2, 4)}-${digits.slice(0, 2)}`;
+}
+
 function getAgeFromBirthDate(birthDate, referenceDate) {
   const birth = new Date(`${birthDate}T00:00:00`);
   const reference = new Date(`${referenceDate}T00:00:00`);
@@ -93,6 +133,21 @@ function formatReviewDate(value) {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
+  });
+}
+
+function formatReviewDateTime(value) {
+  if (!value) return "";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  return date.toLocaleString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }
 
@@ -155,7 +210,9 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
   const [previewLoading, setPreviewLoading] = useState(false);
   const [bookingError, setBookingError] = useState("");
   const [bookingSubmitting, setBookingSubmitting] = useState(false);
+  const [bookingConfirmationModal, setBookingConfirmationModal] = useState(null);
   const [createdBooking, setCreatedBooking] = useState(null);
+  const bookingIdempotencyKeyRef = useRef("");
   const [useCustomContact, setUseCustomContact] = useState(false);
   const [contact, setContact] = useState(() => {
     const session = readSession() || {};
@@ -404,6 +461,101 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
     }))
     .filter((item) => item.quantity > 0);
 
+  const getBookingGroupKey = (rule) => (
+    isDefaultAdultRule(rule) ? "adult_default" : String(rule.id)
+  );
+
+  const getPricingGroupKeyForAge = (age) => {
+    const matchedRule = activePricingRules.find((rule) => {
+      const minAge = Number(rule.min_age || 0);
+      const maxAge = rule.max_age === null || rule.max_age === undefined
+        ? null
+        : Number(rule.max_age);
+
+      return age >= minAge && (maxAge === null || age <= maxAge);
+    });
+
+    return matchedRule ? String(matchedRule.id) : "adult_default";
+  };
+
+  const isCompleteBirthDate = (birthDate) => (
+    String(birthDate || "").replace(/\D/g, "").length === 8
+  );
+
+  const getParticipantBirthDateErrors = (
+    participantList,
+    quantitySnapshot = effectiveQuantities,
+  ) => {
+    const errors = {};
+    const selectedQuantities = {};
+    const validParticipants = [];
+    const referenceDate = selectedDeparture?.departure_date
+      || new Date().toISOString().split("T")[0];
+
+    bookingGroups.forEach((rule) => {
+      selectedQuantities[getBookingGroupKey(rule)] = Number(quantitySnapshot?.[rule.id] || 0);
+    });
+
+    participantList.forEach((participant, index) => {
+      const birthDate = String(participant.birth_date || "").trim();
+
+      // Không báo lỗi khi khách vẫn đang nhập dở ngày sinh.
+      if (!birthDate || !isCompleteBirthDate(birthDate)) return;
+
+      const age = getAgeFromBirthDate(birthDate, referenceDate);
+
+      if (age === null || age < 0 || age > 120) {
+        errors[index] = "Ngày sinh không hợp lệ.";
+        return;
+      }
+
+      validParticipants.push({
+        index,
+        groupKey: getPricingGroupKeyForAge(age),
+      });
+    });
+
+    const actualGroupCounts = validParticipants.reduce((counts, participant) => ({
+      ...counts,
+      [participant.groupKey]: (counts[participant.groupKey] || 0) + 1,
+    }), {});
+
+    Object.entries(actualGroupCounts).forEach(([groupKey, actualCount]) => {
+      const allowedCount = selectedQuantities[groupKey] || 0;
+
+      if (actualCount <= allowedCount) return;
+
+      validParticipants
+        .filter((participant) => participant.groupKey === groupKey)
+        .slice(allowedCount)
+        .forEach((participant) => {
+          errors[participant.index] = "Ngày sinh không hợp lệ.";
+        });
+    });
+
+    return errors;
+  };
+
+  const syncParticipantBirthDateErrors = (participantList, quantitySnapshot = effectiveQuantities) => {
+    const birthDateErrors = getParticipantBirthDateErrors(participantList, quantitySnapshot);
+
+    setFieldErrors((current) => {
+      const nextParticipantErrors = { ...current.participants };
+
+      participantList.forEach((_, index) => {
+        const nextErrors = { ...(nextParticipantErrors[index] || {}) };
+
+        if (birthDateErrors[index]) nextErrors.birth_date = birthDateErrors[index];
+        else delete nextErrors.birth_date;
+
+        if (Object.keys(nextErrors).length) nextParticipantErrors[index] = nextErrors;
+        else delete nextParticipantErrors[index];
+      });
+
+      return { ...current, participants: nextParticipantErrors };
+    });
+  };
+
   const notifyValidationError = (message) => {
     toast.error(message, {
       id: "tour-booking-validation",
@@ -419,6 +571,25 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
     });
   };
 
+  const getApiErrorMessage = (error, fallback) => {
+    const validationErrors = error.response?.data?.errors;
+    const firstValidationError = validationErrors
+      ? Object.values(validationErrors).flat()[0]
+      : null;
+
+    return firstValidationError || error.response?.data?.message || fallback;
+  };
+
+  const openBookingIssueModal = (error, fallback) => {
+    setBookingConfirmationModal({
+      type: "issue",
+      title: error.response?.status === 422
+        ? "Lịch khởi hành vừa thay đổi"
+        : "Chưa thể xác nhận đặt tour",
+      message: getApiErrorMessage(error, fallback),
+    });
+  };
+
   const updateQuantity = (ruleId, nextQuantity) => {
     const isAdultGroup = String(ruleId) === String(adultPricingRule.id);
     const safeQuantity = Math.max(isAdultGroup ? 1 : 0, nextQuantity);
@@ -431,7 +602,9 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
     }
 
     setBookingError("");
-    setQuantities((current) => ({ ...effectiveQuantities, ...current, [ruleId]: safeQuantity }));
+    const nextQuantities = { ...effectiveQuantities, [ruleId]: safeQuantity };
+    setQuantities((current) => ({ ...nextQuantities, ...current, [ruleId]: safeQuantity }));
+    syncParticipantBirthDateErrors(participants, nextQuantities);
   };
 
   const createParticipantTemplate = () => ({
@@ -465,10 +638,16 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
   };
 
   const updateParticipantField = (index, field, value) => {
-    setParticipants((current) => current.map((participant, itemIndex) => (
+    const nextParticipants = participants.map((participant, itemIndex) => (
       itemIndex === index ? { ...participant, [field]: value } : participant
-    )));
+    ));
+
+    setParticipants(nextParticipants);
     clearParticipantError(index, field);
+
+    if (field === "birth_date") {
+      syncParticipantBirthDateErrors(nextParticipants);
+    }
   };
 
   const errorInputStyle = (hasError) => (hasError
@@ -523,8 +702,8 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
       if (!birthDate) itemErrors.birth_date = "Vui lòng chọn ngày sinh.";
       else {
         const age = getAgeFromBirthDate(birthDate, referenceDate);
-        if (age === null || age < 0) itemErrors.birth_date = "Ngày sinh không hợp lệ hoặc sau ngày khởi hành.";
-        else if (age > 120) itemErrors.birth_date = "Tuổi hành khách không được vượt quá 120.";
+        if (age === null || age < 0) itemErrors.birth_date = "Ngày sinh không hợp lệ.";
+        else if (age > 120) itemErrors.birth_date = "Ngày sinh không hợp lệ.";
       }
 
       if (!participant.gender || !["male", "female", "other"].includes(participant.gender)) {
@@ -542,6 +721,13 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
       if (Object.keys(itemErrors).length) errors.participants[index] = itemErrors;
     });
 
+    Object.entries(getParticipantBirthDateErrors(participants)).forEach(([index, message]) => {
+      errors.participants[index] = {
+        ...(errors.participants[index] || {}),
+        birth_date: message,
+      };
+    });
+
     if (participants.length !== totalGuests) {
       errors.participants._form = `Thông tin hành khách phải có đủ ${totalGuests} người.`;
     }
@@ -555,6 +741,27 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
 
     return !hasErrors;
   };
+
+  const getBookingPayload = () => ({
+    tour_departure_id: Number(selectedDeparture.id),
+    number_of_people: totalGuests,
+    quantity_summary: buildQuantitySummary(),
+    contact: {
+      ...contact,
+      contact_name: String(contact.contact_name || "").trim(),
+      contact_email: String(contact.contact_email || "").trim(),
+      contact_phone: normalizePhone(contact.contact_phone),
+      address: String(contact.address || "").trim(),
+      special_request: String(contact.special_request || "").trim(),
+    },
+    participants: participants.map((participant) => ({
+      ...participant,
+      full_name: String(participant.full_name || "").trim(),
+      phone: normalizePhone(participant.phone) || "",
+      identity_number: String(participant.identity_number || "").trim(),
+    })),
+    note: String(contact.special_request || "").trim() || undefined,
+  });
 
   const handleClearAll = () => {
     setQuantities({ [defaultQuantityRule.id]: 1 });
@@ -612,10 +819,7 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
         });
         setBookingPreview(preview);
       } catch (error) {
-        notifyRequestError(
-          error.response?.data?.message ||
-          "Chưa thể tính giá từ máy chủ, vui lòng thử lại."
-        );
+        openBookingIssueModal(error, "Chưa thể kiểm tra số chỗ từ máy chủ, vui lòng thử lại.");
         return;
       } finally {
         setPreviewLoading(false);
@@ -644,48 +848,17 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
       }
 
       try {
-        setBookingSubmitting(true);
-        const booking = await createCustomerBooking({
+        setPreviewLoading(true);
+        const latestPreview = await previewCustomerBooking({
           tour_departure_id: Number(selectedDeparture.id),
-          number_of_people: totalGuests,
           quantity_summary: buildQuantitySummary(),
-          contact: {
-            ...contact,
-            contact_name: String(contact.contact_name || "").trim(),
-            contact_email: String(contact.contact_email || "").trim(),
-            contact_phone: normalizePhone(contact.contact_phone),
-            address: String(contact.address || "").trim(),
-            special_request: String(contact.special_request || "").trim(),
-          },
-          participants: participants.map((participant) => ({
-            ...participant,
-            full_name: String(participant.full_name || "").trim(),
-            phone: normalizePhone(participant.phone) || "",
-            identity_number: String(participant.identity_number || "").trim(),
-          })),
-          note: String(contact.special_request || "").trim() || undefined,
         });
-
-        if (!booking?.checkout_url) {
-          throw new Error("Không thể tạo liên kết thanh toán VNPAY.");
-        }
-
-        setCreatedBooking(booking);
-        setCheckoutStep(3);
-        toast.success("Thông tin hợp lệ. Đơn đặt tour đã được tạo.", {
-          id: "tour-booking-created",
-        });
+        setBookingPreview(latestPreview);
+        setBookingConfirmationModal({ type: "confirm" });
       } catch (error) {
-        const errors = error.response?.data?.errors;
-        const firstError = errors ? Object.values(errors).flat()[0] : null;
-        notifyRequestError(
-          firstError ||
-          error.response?.data?.message ||
-          error.message ||
-          "Không thể lưu đơn chờ thanh toán, vui lòng thử lại."
-        );
+        openBookingIssueModal(error, "Chưa thể kiểm tra số chỗ từ máy chủ, vui lòng thử lại.");
       } finally {
-        setBookingSubmitting(false);
+        setPreviewLoading(false);
       }
 
       return;
@@ -702,12 +875,111 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
     window.location.assign(createdBooking.checkout_url);
   };
 
+  const handleConfirmBooking = async () => {
+    try {
+      setBookingSubmitting(true);
+      if (!bookingIdempotencyKeyRef.current) {
+        bookingIdempotencyKeyRef.current = window.crypto?.randomUUID?.()
+          || `booking-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      }
+
+      const booking = await createCustomerBooking(
+        getBookingPayload(),
+        bookingIdempotencyKeyRef.current,
+      );
+
+      if (!booking?.checkout_url) {
+        throw new Error("Không thể tạo liên kết thanh toán VNPAY.");
+      }
+
+      setBookingConfirmationModal(null);
+      setCreatedBooking(booking);
+      setCheckoutStep(3);
+      toast.success("Thông tin hợp lệ. Đơn đặt tour đã được tạo.", {
+        id: "tour-booking-created",
+      });
+    } catch (error) {
+      const message = getApiErrorMessage(
+        error,
+        error.message || "Không thể tạo đơn chờ thanh toán, vui lòng thử lại.",
+      );
+      const validationErrors = error.response?.data?.errors || {};
+      const isAvailabilityConflict = Boolean(
+        validationErrors.number_of_people
+        || validationErrors.quantity_summary
+        || /chỗ|lịch khởi hành/i.test(message),
+      );
+
+      if (
+        error.response?.status === 409
+        && error.response?.data?.code === "ACTIVE_PENDING_BOOKING"
+      ) {
+        setBookingConfirmationModal({
+          type: "pending",
+          title: "Bạn đang có đơn chờ thanh toán",
+          message: error.response?.data?.message || "Vui lòng tiếp tục thanh toán đơn hiện có trước khi đặt tour mới.",
+          booking: error.response?.data?.data || null,
+        });
+        return;
+      }
+
+      if (isAvailabilityConflict) {
+        openBookingIssueModal(error, message);
+      } else {
+        setBookingConfirmationModal({
+          type: "issue",
+          title: "Chưa thể tạo đơn đặt tour",
+          message,
+        });
+      }
+    } finally {
+      setBookingSubmitting(false);
+    }
+  };
+
+  const handleContinuePendingBooking = async () => {
+    const pendingBooking = bookingConfirmationModal?.booking;
+
+    if (!pendingBooking?.booking_id) {
+      navigate("/customer/profile");
+      return;
+    }
+
+    try {
+      setBookingSubmitting(true);
+      const payment = await continueCustomerBookingPayment(pendingBooking.booking_id);
+
+      if (!payment?.checkout_url) {
+        throw new Error("Không thể tạo liên kết thanh toán VNPAY.");
+      }
+
+      window.location.assign(payment.checkout_url);
+    } catch (error) {
+      setBookingConfirmationModal({
+        type: "issue",
+        title: "Không thể tiếp tục thanh toán",
+        message: getApiErrorMessage(
+          error,
+          "Đơn chờ thanh toán có thể đã hết hạn. Vui lòng kiểm tra lại trong trang đơn hàng.",
+        ),
+      });
+    } finally {
+      setBookingSubmitting(false);
+    }
+  };
+
+  const handleBookingIssueReturn = () => {
+    setBookingConfirmationModal(null);
+    setBookingPreview(null);
+    setBookingError("");
+    bookingIdempotencyKeyRef.current = "";
+    setCheckoutStep(1);
+  };
+
   // Filter 3 related tours (excluding current tour)
   const relatedTours = tours
     .filter((t) => String(t.id) !== String(tourId) && String(t.slug) !== String(tourId))
     .slice(0, 3);
-
-  const todayStr = new Date().toISOString().split("T")[0];
 
   return (
     <div className="vg-tour-detail-page">
@@ -1070,10 +1342,12 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                                 className="vg-checkout-input"
                                 style={errorInputStyle(Boolean(fieldErrors.participants?.[index]?.birth_date))}
                                 data-validation-error={fieldErrors.participants?.[index]?.birth_date ? "true" : undefined}
-                                type="date"
-                                value={p.birth_date}
-                                onChange={(e) => updateParticipantField(index, "birth_date", e.target.value)}
-                                max={todayStr}
+                                type="text"
+                                inputMode="numeric"
+                                placeholder="dd/mm/yyyy"
+                                maxLength={10}
+                                value={formatBirthDateForDisplay(p.birth_date)}
+                                onChange={(e) => updateParticipantField(index, "birth_date", parseBirthDateInput(e.target.value))}
                                 required
                               />
                               {fieldErrors.participants?.[index]?.birth_date && <small style={fieldErrorStyle}>{fieldErrors.participants[index].birth_date}</small>}
@@ -1170,7 +1444,7 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                       disabled={previewLoading || bookingSubmitting || !departures.length}
                     >
                       {checkoutStep === 1 && (previewLoading ? "Đang xử lý..." : "Đặt ngay")}
-                      {checkoutStep === 2 && (bookingSubmitting ? "Đang lưu đơn..." : "Đến bước thanh toán")}
+                      {checkoutStep === 2 && (previewLoading ? "Đang kiểm tra chỗ..." : "Đến bước xác nhận")}
                       {checkoutStep === 3 && (bookingSubmitting ? "Đang chuyển đến VNPAY..." : "Thanh toán qua VNPAY")}
                     </button>
                   </div>
@@ -1681,6 +1955,186 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
           )}
         </div>
       </main>
+
+      {bookingConfirmationModal && (
+        <div
+          className="vg-modal-backdrop"
+          role="presentation"
+          onClick={() => !bookingSubmitting && setBookingConfirmationModal(null)}
+        >
+          <div
+            className={`vg-success-modal-card booking-confirmation-modal ${bookingConfirmationModal.type === "issue" ? "is-issue" : ""}`}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="booking-confirmation-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {bookingConfirmationModal.type === "pending" ? (
+              <>
+                <button
+                  type="button"
+                  className="modal-close-btn"
+                  onClick={() => setBookingConfirmationModal(null)}
+                  disabled={bookingSubmitting}
+                  aria-label="Đóng thông báo đơn chờ thanh toán"
+                >
+                  <Icon name="close" size={24} />
+                </button>
+
+                <div className="modal-icon-warning booking-confirmation-icon">
+                  <Icon name="clock" size={34} />
+                </div>
+                <div className="modal-header-title">
+                  <h2 id="booking-confirmation-title">{bookingConfirmationModal.title}</h2>
+                  <p className="modal-sub">{bookingConfirmationModal.message}</p>
+                </div>
+
+                {bookingConfirmationModal.booking ? (
+                  <div className="modal-summary-box">
+                    <div className="summary-item">
+                      <span>Mã đơn</span>
+                      <strong>{bookingConfirmationModal.booking.booking_code}</strong>
+                    </div>
+                    <div className="summary-item">
+                      <span>Tour</span>
+                      <strong>{bookingConfirmationModal.booking.tour_title}</strong>
+                    </div>
+                    <div className="summary-item">
+                      <span>Ngày khởi hành</span>
+                      <strong>{formatReviewDate(bookingConfirmationModal.booking.departure_date)}</strong>
+                    </div>
+                    <div className="summary-item">
+                      <span>Tổng thanh toán</span>
+                      <strong className="price">{formatCurrency(bookingConfirmationModal.booking.total_amount)}</strong>
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="booking-confirmation-note">
+                  <Icon name="clock" size={18} />
+                  <span>
+                    Đơn hiện tại đang giữ chỗ đến {formatReviewDateTime(bookingConfirmationModal.booking?.expires_at)}.
+                  </span>
+                </div>
+
+                <div className="modal-actions">
+                  <button
+                    type="button"
+                    className="btn-support"
+                    onClick={() => {
+                      setBookingConfirmationModal(null);
+                      navigate("/customer/profile");
+                    }}
+                    disabled={bookingSubmitting}
+                  >
+                    Xem đơn hàng
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-done"
+                    onClick={handleContinuePendingBooking}
+                    disabled={bookingSubmitting}
+                  >
+                    {bookingSubmitting ? "Đang tạo liên kết..." : "Tiếp tục thanh toán"}
+                  </button>
+                </div>
+              </>
+            ) : bookingConfirmationModal.type === "confirm" ? (
+              <>
+                <button
+                  type="button"
+                  className="modal-close-btn"
+                  onClick={() => setBookingConfirmationModal(null)}
+                  disabled={bookingSubmitting}
+                  aria-label="Đóng xác nhận đặt tour"
+                >
+                  <Icon name="close" size={24} />
+                </button>
+
+                <div className="modal-icon-success booking-confirmation-icon">
+                  <Icon name="shield" size={34} />
+                </div>
+                <div className="modal-header-title">
+                  <h2 id="booking-confirmation-title">Xác nhận đặt tour</h2>
+                  <p className="modal-sub">Vui lòng kiểm tra lại thông tin trước khi tạo đơn đặt chỗ.</p>
+                </div>
+
+                <div className="modal-summary-box">
+                  <div className="summary-item">
+                    <span>Tour</span>
+                    <strong>{tour.title}</strong>
+                  </div>
+                  <div className="summary-item">
+                    <span>Ngày khởi hành</span>
+                    <strong>{formatReviewDate(selectedDeparture?.departure_date)}</strong>
+                  </div>
+                  <div className="summary-item">
+                    <span>Số khách</span>
+                    <strong>{totalGuests} người</strong>
+                  </div>
+                  <div className="summary-item">
+                    <span>Chỗ còn lại sau khi đặt</span>
+                    <strong>{Number(bookingPreview?.available_slots ?? 0) - totalGuests} chỗ</strong>
+                  </div>
+                  <div className="summary-item total">
+                    <span>Tổng thanh toán</span>
+                    <strong className="price">{formatCurrency(finalTotal)}</strong>
+                  </div>
+                </div>
+
+                <div className="booking-confirmation-note">
+                  <Icon name="clock" size={18} />
+                  <span>Chỗ sẽ được giữ trong 15 phút để bạn hoàn tất thanh toán VNPAY.</span>
+                </div>
+
+                <div className="modal-actions">
+                  <button
+                    type="button"
+                    className="btn-support"
+                    onClick={() => setBookingConfirmationModal(null)}
+                    disabled={bookingSubmitting}
+                  >
+                    Kiểm tra lại
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-done"
+                    onClick={handleConfirmBooking}
+                    disabled={bookingSubmitting}
+                  >
+                    {bookingSubmitting ? "Đang tạo đơn..." : "Xác nhận đặt tour"}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="modal-icon-warning booking-confirmation-icon">
+                  <Icon name="alertCircle" size={34} />
+                </div>
+                <div className="modal-header-title">
+                  <h2 id="booking-confirmation-title">{bookingConfirmationModal.title}</h2>
+                  <p className="modal-sub">{bookingConfirmationModal.message}</p>
+                </div>
+
+                <div className="booking-issue-message">
+                  <Icon name="calendar" size={18} />
+                  <span>Đơn đặt tour chưa được tạo. Vui lòng chọn lại lịch khởi hành hoặc số lượng khách.</span>
+                </div>
+
+                <div className="modal-actions">
+                  <button
+                    type="button"
+                    className="btn-done"
+                    onClick={handleBookingIssueReturn}
+                  >
+                    Chọn lại lịch
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Detailed Itinerary Modal */}
       {showItineraryModal && (

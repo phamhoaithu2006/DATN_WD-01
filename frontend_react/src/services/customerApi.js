@@ -121,8 +121,12 @@ export async function previewCustomerBooking(payload) {
   return response.data?.data || null
 }
 
-export async function createCustomerBooking(payload) {
-  const response = await api.post('/customer/bookings', payload)
+export async function createCustomerBooking(payload, idempotencyKey) {
+  const response = await api.post('/customer/bookings', payload, {
+    headers: {
+      'Idempotency-Key': idempotencyKey,
+    },
+  })
 
   return response.data?.data || response.data
 }
@@ -168,6 +172,12 @@ export async function fetchDisruptionRequests(params = {}) {
 // payload: { type: 'refund' | 'retain' | 'transfer', reason, requested_tour_departure_id? }
 export async function createDisruptionRequest(bookingId, payload) {
   const response = await api.post(`/customer/bookings/${bookingId}/disruption-requests`, payload)
+
+  return response.data?.data || response.data
+}
+
+export async function updateCustomerBookingInformation(bookingId, payload) {
+  const response = await api.patch(`/customer/bookings/${bookingId}/information`, payload)
 
   return response.data?.data || response.data
 }

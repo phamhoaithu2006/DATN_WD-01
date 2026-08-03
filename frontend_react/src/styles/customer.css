@@ -4234,8 +4234,13 @@
   display: flex;
   width: max-content;
   gap: 24px;
-  animation: vg-review-marquee-scroll 60s linear infinite;
+  animation: vg-review-marquee-scroll var(--vg-review-duration, 140s) linear infinite;
   will-change: transform;
+}
+
+.vg-review-marquee:hover .vg-review-marquee-track,
+.vg-review-marquee-track:hover {
+  animation-play-state: paused;
 }
 
 @keyframes vg-review-marquee-scroll {
@@ -4243,103 +4248,93 @@
   to { transform: translateX(calc(-50% - 12px)); }
 }
 
-/* Review Card 3D Glassmorphism - Compact */
+/* Review Card Minimalist & Clean - Luxury Redesign */
 .vg-review-card {
-  --vg-review-accent: linear-gradient(90deg, #0284c7, #3b82f6);
   --vg-review-primary: #0284c7;
-  --vg-review-soft: rgba(2, 132, 199, 0.12);
+  --vg-review-soft: rgba(2, 132, 199, 0.08);
   position: relative;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 12px;
-  width: min(310px, calc(100vw - 36px));
-  flex: 0 0 min(310px, calc(100vw - 36px));
-  padding: 18px 20px;
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  border-radius: 18px;
+  gap: 14px;
+  width: min(320px, calc(100vw - 36px));
+  flex: 0 0 min(320px, calc(100vw - 36px));
+  padding: 20px;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
   background: #ffffff;
-  box-shadow: 0 8px 24px -4px rgba(15, 23, 42, 0.05), 0 3px 8px -2px rgba(2, 132, 199, 0.03);
-  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05), 0 2px 6px rgba(15, 23, 42, 0.02);
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s ease, border-color 0.3s ease;
   overflow: hidden;
   scroll-snap-align: start;
 }
 
-.vg-review-card-color-1 { --vg-review-accent: linear-gradient(90deg, #0284c7, #3b82f6); --vg-review-primary: #0284c7; --vg-review-soft: rgba(2, 132, 199, 0.12); }
-.vg-review-card-color-2 { --vg-review-accent: linear-gradient(90deg, #0d9488, #10b981); --vg-review-primary: #0d9488; --vg-review-soft: rgba(13, 148, 136, 0.12); }
-.vg-review-card-color-3 { --vg-review-accent: linear-gradient(90deg, #f59e0b, #ea580c); --vg-review-primary: #d97706; --vg-review-soft: rgba(245, 158, 11, 0.14); }
-.vg-review-card-color-4 { --vg-review-accent: linear-gradient(90deg, #8b5cf6, #ec4899); --vg-review-primary: #8b5cf6; --vg-review-soft: rgba(139, 92, 246, 0.12); }
-.vg-review-card-color-5 { --vg-review-accent: linear-gradient(90deg, #e11d48, #fb7185); --vg-review-primary: #e11d48; --vg-review-soft: rgba(225, 29, 72, 0.12); }
-
 .vg-review-card-accent {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: var(--vg-review-accent);
-  opacity: 0.85;
-  transition: height 0.3s ease;
-}
-
-.vg-review-card-accent-bottom {
-  bottom: 0;
-  top: auto;
+  display: none;
 }
 
 .vg-review-card:hover {
-  transform: translateY(-5px) scale(1.01);
-  border-color: color-mix(in srgb, var(--vg-review-primary) 45%, transparent);
-  box-shadow: 0 16px 36px -6px var(--vg-review-soft), 0 8px 18px -4px rgba(15, 23, 42, 0.06);
-}
-
-.vg-review-card:hover .vg-review-card-accent {
-  height: 5px;
+  transform: translateY(-6px);
+  border-color: #38bdf8;
+  box-shadow: 0 20px 40px rgba(2, 132, 199, 0.12), 0 6px 16px rgba(15, 23, 42, 0.04);
 }
 
 .vg-review-quote-mark {
   position: absolute;
-  top: 10px;
-  right: 14px;
-  font-size: 3rem;
+  top: 14px;
+  right: 18px;
+  font-size: 2.2rem;
   line-height: 1;
   font-family: Georgia, serif;
-  color: var(--vg-review-soft);
+  color: rgba(2, 132, 199, 0.12);
   pointer-events: none;
   user-select: none;
   transition: all 0.3s ease;
 }
 
 .vg-review-card:hover .vg-review-quote-mark {
-  color: color-mix(in srgb, var(--vg-review-primary) 25%, transparent);
-  transform: scale(1.08) rotate(-5deg);
+  color: rgba(2, 132, 199, 0.25);
+  transform: scale(1.1) rotate(-5deg);
 }
 
-/* Tour Badge */
+/* Tour Badge - Compact Pill Tag */
 .vg-review-tour-tag {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   align-self: flex-start;
-  width: calc(100% + 16px);
-  margin-left: -8px;
-  padding: 4px 10px;
+  max-width: 100%;
+  padding: 5px 12px;
   border-radius: 99px;
-  background: color-mix(in srgb, var(--vg-review-primary) 7%, white);
-  border: 1px solid color-mix(in srgb, var(--vg-review-primary) 18%, transparent);
-  color: var(--vg-review-primary);
-  font-size: 0.74rem;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  color: #0284c7;
+  font-size: 0.78rem;
   font-weight: 600;
   line-height: 1.35;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(2, 132, 199, 0.06);
 }
 
 .vg-review-tour-tag svg {
   flex: 0 0 auto;
+  color: #0284c7;
 }
 
 .vg-review-tour-tag span {
-  min-width: 0;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vg-review-tour-tag:hover,
+.vg-review-tour-tag:focus-visible {
+  background: #e0f2fe;
+  color: #0369a1;
+  border-color: #7dd3fc;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(2, 132, 199, 0.12);
 }
 
 /* Customer navigation and catalogue visual refresh */
@@ -4466,8 +4461,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding-top: 12px;
-  border-top: 1px dashed #e2e8f0;
+  padding-top: 14px;
+  border-top: 1px solid #f1f5f9;
 }
 
 .vg-review-person {
@@ -4479,23 +4474,18 @@
 .vg-review-avatar {
   position: relative;
   overflow: hidden;
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   display: grid;
   place-items: center;
   border-radius: 50%;
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
   color: #ffffff;
   font-size: 0.95rem;
   font-weight: 700;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.22);
   flex-shrink: 0;
 }
-
-.vg-review-avatar-1 { background: linear-gradient(135deg, #0284c7, #3b82f6); }
-.vg-review-avatar-2 { background: linear-gradient(135deg, #0d9488, #10b981); }
-.vg-review-avatar-3 { background: linear-gradient(135deg, #f59e0b, #ea580c); }
-.vg-review-avatar-4 { background: linear-gradient(135deg, #8b5cf6, #ec4899); }
-.vg-review-avatar-5 { background: linear-gradient(135deg, #e11d48, #fb7185); }
 
 .vg-review-avatar img,
 .vg-review-avatar span {
@@ -6175,6 +6165,105 @@
   display: grid;
   place-items: center;
   margin: 0 auto 20px;
+}
+
+.booking-confirmation-modal {
+  max-width: 560px;
+  text-align: left;
+}
+
+.booking-confirmation-modal .modal-header-title,
+.booking-confirmation-modal .booking-confirmation-icon {
+  text-align: center;
+}
+
+.booking-confirmation-modal .modal-header-title h2 {
+  text-align: center;
+}
+
+.booking-confirmation-modal .modal-sub {
+  text-align: center;
+}
+
+.booking-confirmation-icon {
+  margin-bottom: 18px;
+}
+
+.booking-confirmation-icon svg {
+  display: block;
+}
+
+.modal-icon-warning {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: #fff7ed;
+  border: 2px solid #fed7aa;
+  color: #ea580c;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 20px;
+}
+
+.booking-confirmation-modal.is-issue {
+  text-align: center;
+}
+
+.booking-confirmation-note,
+.booking-issue-message {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  margin-bottom: 22px;
+}
+
+.booking-confirmation-note {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.booking-issue-message {
+  background: #fff7ed;
+  color: #9a3412;
+  text-align: left;
+}
+
+.booking-confirmation-note svg,
+.booking-issue-message svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.booking-confirmation-modal .modal-actions {
+  margin-bottom: 0;
+}
+
+.booking-confirmation-modal .modal-actions button {
+  min-height: 46px;
+}
+
+.booking-confirmation-modal .modal-actions button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 560px) {
+  .booking-confirmation-modal {
+    padding: 30px 20px 24px;
+    border-radius: 22px;
+  }
+
+  .booking-confirmation-modal .modal-actions {
+    flex-direction: column;
+  }
+
+  .booking-confirmation-modal .modal-actions button {
+    width: 100%;
+  }
 }
 
 .vg-success-modal-card h2 {
@@ -9880,7 +9969,12 @@ textarea.vg-checkout-input {
   position: relative;
   overflow: hidden;
   margin-top: -73px;
-  padding: 153px 0 0;
+  padding: 120px 0 60px;
+  min-height: 560px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
   background: #f8fafc;
   color: #0f172a;
 }
@@ -10594,6 +10688,7 @@ textarea.vg-checkout-input {
 .vg-hero-content-wrapper {
   position: relative;
   z-index: 10;
+  width: 100%;
   max-width: 1140px;
   margin: 0 auto;
 }
@@ -10708,7 +10803,7 @@ textarea.vg-checkout-input {
 /* Horizontal Search Grid */
 .vg-hero-search-grid {
   display: grid;
-  grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr auto;
+  grid-template-columns: 1.4fr auto 1.1fr auto 1fr auto 1fr auto 1fr auto;
   align-items: center;
   gap: 12px;
 }
@@ -10717,6 +10812,225 @@ textarea.vg-checkout-input {
   width: 1px;
   height: 36px;
   background: #e2e8f0;
+}
+
+/* Custom Hero Dropdown styling */
+.vg-custom-dropdown-container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 100%;
+}
+
+.vg-custom-dropdown-container label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+  margin-bottom: 4px;
+}
+
+.vg-custom-dropdown-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 4px 0;
+  width: 100%;
+  cursor: pointer;
+  text-align: left;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.vg-custom-dropdown-trigger.input-trigger {
+  cursor: text;
+}
+
+.vg-custom-dropdown-trigger input {
+  border: none;
+  background: transparent;
+  outline: none;
+  width: 100%;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f172a;
+  padding: 0;
+}
+
+.vg-custom-dropdown-trigger input::placeholder,
+.vg-custom-dropdown-trigger .is-placeholder {
+  color: #94a3b8;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.vg-custom-dropdown-trigger .is-selected {
+  color: #0f172a;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.vg-dropdown-arrow {
+  color: #64748b;
+  transition: transform 0.25s ease, color 0.2s ease;
+  flex-shrink: 0;
+}
+
+.vg-dropdown-arrow.rotated {
+  transform: rotate(180deg);
+  color: #0284c7;
+}
+
+.vg-custom-dropdown-popover {
+  position: absolute;
+  top: calc(100% + 12px);
+  left: -12px;
+  min-width: 250px;
+  width: max-content;
+  max-width: 320px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.14), 0 4px 14px rgba(15, 23, 42, 0.04);
+  z-index: 1000;
+  padding: 10px 0 6px;
+  animation: vgDropdownSlideIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.vg-dropdown-search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 8px 8px;
+  padding: 7px 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.vg-dropdown-search-box:focus-within {
+  background: #ffffff;
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
+}
+
+.vg-dropdown-search-icon {
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+.vg-dropdown-search-box input {
+  border: none;
+  background: transparent;
+  outline: none;
+  width: 100%;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #0f172a;
+  padding: 0;
+}
+
+.vg-dropdown-search-box input::placeholder {
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.vg-dropdown-search-clear {
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 50%;
+  line-height: 1;
+}
+
+.vg-dropdown-search-clear:hover {
+  color: #64748b;
+  background: #e2e8f0;
+}
+
+@keyframes vgDropdownSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.vg-custom-dropdown-menu {
+  list-style: none;
+  margin: 0;
+  padding: 4px 6px;
+  max-height: 240px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.vg-custom-dropdown-menu::-webkit-scrollbar {
+  width: 5px;
+}
+
+.vg-custom-dropdown-menu::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 99px;
+}
+
+.vg-dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.vg-dropdown-item:hover {
+  background: #f0f9ff;
+  color: #0284c7;
+}
+
+.vg-dropdown-item.active {
+  background: #e0f2fe;
+  color: #0284c7;
+  font-weight: 700;
+}
+
+.vg-check-icon {
+  color: #0284c7;
+  flex-shrink: 0;
+}
+
+.vg-dropdown-empty {
+  padding: 14px;
+  font-size: 0.88rem;
+  color: #94a3b8;
+  text-align: center;
 }
 
 .vg-hero-field-group {
@@ -11222,7 +11536,23 @@ textarea.vg-checkout-input {
 
 /* Home page visual refresh — presentation only */
 .vg-home-page { background: linear-gradient(180deg, #f8fbff 0%, #ffffff 26%, #f5f9ff 74%, #ffffff 100%); }
-.vg-hero { isolation: isolate; }
+.vg-home-page .vg-hero {
+  isolation: isolate;
+  overflow: visible;
+  z-index: 2;
+}
+.vg-home-page .vg-hero-bg-slider {
+  overflow: hidden;
+}
+.vg-home-page .vg-custom-dropdown-popover {
+  left: 0;
+  width: min(320px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+  max-height: min(360px, calc(100vh - 180px));
+}
+.vg-home-page .vg-custom-dropdown-menu {
+  max-height: min(260px, calc(100vh - 280px));
+}
 .vg-hero-bg-overlay { background: linear-gradient(105deg, rgba(3, 18, 45, 0.83) 0%, rgba(8, 43, 87, 0.58) 48%, rgba(5, 28, 61, 0.26) 100%) !important; }
 .vg-hero-content-wrapper { padding-block: clamp(88px, 11vw, 150px) clamp(48px, 7vw, 90px); }
 .vg-hero-main-title { max-width: 850px; text-shadow: 0 8px 28px rgba(0, 0, 0, 0.2); letter-spacing: -0.055em; }

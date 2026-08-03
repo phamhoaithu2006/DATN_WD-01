@@ -188,13 +188,18 @@ const iconPaths = {
   ),
 };
 
-function Icon({ name, size = 20 }) {
+function Icon({ name, size = 20, className = '' }) {
   return (
     <svg
-      className="vg-icon"
+      className={`vg-icon ${className}`.trim()}
       width={size}
       height={size}
       viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
       aria-hidden="true"
     >
       {iconPaths[name]}

@@ -272,8 +272,13 @@ Route::middleware(['auth:sanctum', 'role:customer'])->group(function () {
 
     // Đặt tour
     Route::post('customer/bookings/preview', [CustomerBookingController::class, 'preview']);
-    Route::post('customer/bookings', [CustomerBookingController::class, 'store']);
-    Route::post('customer/bookings/{booking}/continue-payment', [CustomerBookingController::class, 'continuePayment'])->whereNumber('booking');
+    Route::post('customer/bookings', [CustomerBookingController::class, 'store'])
+        ->middleware('throttle:customer-booking-create');
+    Route::post('customer/bookings/{booking}/continue-payment', [CustomerBookingController::class, 'continuePayment'])
+        ->whereNumber('booking')
+        ->middleware('throttle:customer-booking-payment');
+    Route::patch('customer/bookings/{booking}/information', [CustomerBookingController::class, 'updateInformation'])
+        ->whereNumber('booking');
     Route::patch('customer/bookings/{booking}/cancel', [CustomerBookingController::class, 'cancel'])->whereNumber('booking');
     Route::patch('customer/bookings/{booking}/contact', [CustomerBookingController::class, 'updateContact'])->whereNumber('booking');
     Route::patch('customer/bookings/{booking}/participants', [CustomerBookingController::class, 'updateParticipants'])->whereNumber('booking');
@@ -366,6 +371,7 @@ Route::prefix('tours')->group(function () {
 
 // VNPAY: IPN từ cổng thanh toán và tra cứu trạng thái cho trang kết quả thanh toán
 Route::get('webhooks/vnpay', [VnpayPaymentController::class, 'ipn'])->middleware('throttle:60,1');
+Route::get('vnpay/return', [VnpayPaymentController::class, 'callback'])->middleware('throttle:60,1');
 Route::get('vnpay/return-status', [VnpayPaymentController::class, 'returnStatus'])->middleware('throttle:60,1');
 
 /*
