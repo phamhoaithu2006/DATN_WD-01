@@ -123,6 +123,9 @@ class TourTestingDataSeeder extends Seeder
             'ha-noi-ninh-binh-3-ngay-2-dem-test' => 1,
             'da-nang-hoi-an-cuoi-tuan-test' => 8,
         ];
+        $assignedUpcomingTourSlugs = [
+            'da-nang-hoi-an-cuoi-tuan-test',
+        ];
         $departureLocations = [
             'ha-long-du-thuyen-2-ngay-1-dem-test' => 'Hà Nội',
             'ha-noi-ninh-binh-3-ngay-2-dem-test' => 'Hà Nội',
@@ -142,7 +145,7 @@ class TourTestingDataSeeder extends Seeder
                 $departure = DB::table('tour_departures')->where(['tour_id' => $tour->id, 'departure_date' => $start->toDateString()])->first();
                 $all[$slug][$name] = $departure;
                 $isOngoingTarget = $slug === $ongoingTourSlug && $name === 'ongoing';
-                $isUpcomingTarget = isset($upcomingTourOffsets[$slug]) && $name === 'open';
+                $isUpcomingTarget = in_array($slug, $assignedUpcomingTourSlugs, true) && $name === 'open';
                 $isCompletedTarget = $name === 'completed';
 
                 if ($guideId && ($isOngoingTarget || $isUpcomingTarget || $isCompletedTarget)) {

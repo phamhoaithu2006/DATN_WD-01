@@ -156,7 +156,6 @@ test('tour testing data seeder creates a complete and repeatable tour lifecycle'
 
     expect($activeAssignments)->toBe([
         today()->toDateString(),
-        today()->addDay()->toDateString(),
         today()->addDays(8)->toDateString(),
     ])->and(DB::table('tour_guide_assignments')
         ->where('guide_id', $guideId)
