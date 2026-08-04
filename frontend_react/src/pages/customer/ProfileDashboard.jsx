@@ -605,7 +605,7 @@ function DisruptionRequestModal({ booking, onClose, onSubmitted }) {
     <div className="vg-ticket-modal-overlay" onClick={() => !submitting && onClose?.()}>
       <div className="vg-simple-modal" onClick={(e) => e.stopPropagation()}>
         <header className="vg-simple-modal-header">
-          <h2>Yêu cầu xử lý sự cố (mưa bão)</h2>
+          <h2>Yêu cầu hủy đơn</h2>
           <button type="button" onClick={onClose} disabled={submitting} aria-label="Đóng">
             <Icon name="close" size={18} />
           </button>
@@ -625,7 +625,7 @@ function DisruptionRequestModal({ booking, onClose, onSubmitted }) {
         ) : (
           <form onSubmit={handleSubmit} className="vg-simple-modal-body">
             <p className="vg-simple-modal-hint">
-              Áp dụng cho đơn <strong>{booking.booking_code}</strong> khi gặp sự cố thời tiết (mưa bão) ảnh hưởng tới chuyến đi.
+              Áp dụng cho đơn <strong>{booking.booking_code}</strong> khi bạn muốn gửi yêu cầu hủy đơn, hoàn tiền, bảo lưu hoặc đổi lịch.
             </p>
 
             <div className="vg-disruption-type-list">
@@ -650,7 +650,7 @@ function DisruptionRequestModal({ booking, onClose, onSubmitted }) {
             </div>
 
             <label>
-              Mô tả tình huống
+              Lý do hủy đơn
               <textarea
                 rows={4}
                 value={reason}
@@ -658,7 +658,7 @@ function DisruptionRequestModal({ booking, onClose, onSubmitted }) {
                   setReason(event.target.value);
                   setError("");
                 }}
-                placeholder="Ví dụ: Khu vực khởi hành đang có bão số X, không thể di chuyển an toàn..."
+                placeholder="Ví dụ: Tôi có việc bận đột xuất không thể tham gia chuyến đi..."
               />
             </label>
 
@@ -1066,7 +1066,7 @@ function ProfileDashboard({
 
   const handleCancelBooking = (booking) => {
     setBookingActionError("");
-    setCancelTargetBooking(booking);
+    setDisruptionBooking(booking);
   };
 
   const handleBookingCancelled = (updatedBooking) => {
@@ -1307,6 +1307,11 @@ function ProfileDashboard({
                   // phép khách tự sửa thông tin, gửi yêu cầu xử lý mưa bão hoặc hủy đơn.
                   // Đơn đã hết hạn / đã hủy / đã hoàn thành / đang diễn ra đều không hiện các nút này.
                   const canManageBooking = bookingTripState === "upcoming";
+                  const hasPendingDisruption = Boolean(
+                    booking.has_pending_disruption
+                    || booking.pending_disruption_request
+                    || booking.disruption_requests?.some((r) => r.status === "pending")
+                  );
                   const tourImage = booking.tour?.thumbnail_url || booking.tour?.image || booking.tour?.thumbnail?.image_url || "";
                   const departureDate = booking.tour_departure?.departure_date ? formatDate(booking.tour_departure.departure_date) : null;
                   const returnDate = booking.tour_departure?.return_date ? formatDate(booking.tour_departure.return_date) : null;
@@ -1366,6 +1371,11 @@ function ProfileDashboard({
                               <Icon name="briefcase" size={13} /> {booking.booking_code}
                             </span>
                             <span className="vg-booking-created-date">Ngày đặt: {formatDate(booking.created_at)}</span>
+                            {hasPendingDisruption ? (
+                              <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-800">
+                                <Icon name="alertCircle" size={12} /> Đơn này đã có yêu cầu đang chờ xử lý
+                              </span>
+                            ) : null}
                           </div>
                           {destinationName ? (
                             <span className="vg-booking-dest-chip">
@@ -1481,6 +1491,12 @@ function ProfileDashboard({
                             Thanh toán đã được ghi nhận nhưng lịch vừa hết chỗ. Nhân viên sẽ liên hệ để hỗ trợ hoàn tiền.
                           </p>
                         ) : null}
+
+                        {hasPendingDisruption ? (
+                          <p className="mt-2 flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-xs font-semibold text-amber-800">
+                            <Icon name="alertCircle" size={15} /> Đơn này đã có yêu cầu đang chờ xử lý, vui lòng đợi ViVuGo phản hồi.
+                          </p>
+                        ) : null}
                       </div>
 
                       <div className="vg-booking-summary-side">
@@ -1541,25 +1557,21 @@ function ProfileDashboard({
                               )}
 
                               {canManageBooking ? (
-                                <>
-                                  <button
-                                    type="button"
-                                    className="vg-btn-secondary is-warn"
-                                    onClick={() => setDisruptionBooking(booking)}
-                                  >
-                                    <Icon name="alertCircle" size={14} /> Xử lý mưa bão
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    className="is-cancel"
-                                    onClick={() => handleCancelBooking(booking)}
-                                    disabled={bookingActionId === booking.id || cancellationLimitReached}
-                                    title={cancellationLimitReached ? "Bạn đã dùng hết 2 lần hủy booking theo chính sách." : undefined}
-                                  >
-                                    Hủy đơn
-                                  </button>
-                                </>
+                                <button
+                                  type="button"
+                                  className="is-cancel"
+                                  onClick={() => handleCancelBooking(booking)}
+                                  disabled={bookingActionId === booking.id || cancellationLimitReached || hasPendingDisruption}
+                                  title={
+                                    hasPendingDisruption
+                                      ? "Đơn này đã có yêu cầu đang chờ xử lý, vui lòng đợi ViVuGo phản hồi."
+                                      : cancellationLimitReached
+                                        ? "Bạn đã dùng hết 2 lần hủy booking theo chính sách."
+                                        : undefined
+                                  }
+                                >
+                                  {hasPendingDisruption ? "Đang chờ xử lý" : "Hủy đơn"}
+                                </button>
                               ) : null}
                             </div>
                           )}
