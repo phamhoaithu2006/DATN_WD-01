@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Booking;
+use App\Models\BookingDisruptionRequest;
 use App\Models\Category;
 use App\Models\Destination;
 use App\Models\Guide;
@@ -98,6 +99,7 @@ class RichDemoDataSeeder extends Seeder
             $this->seedTours();
             $this->seedAssignments();
             $this->seedBookings();
+            $this->seedBookingDisruptionRequests();
             $this->seedReviews();
             $this->seedWishlists();
             $this->seedSupportRequests();
@@ -107,6 +109,78 @@ class RichDemoDataSeeder extends Seeder
         });
 
         $this->command?->info('Đã seed dữ liệu RICH-DEMO: tours, bookings, payments, reviews, support, attendance.');
+    }
+
+    private function seedBookingDisruptionRequests(): void
+    {
+        $futureBookings = Booking::query()
+            ->whereIn('status', ['pending', 'confirmed'])
+            ->whereIn('payment_status', ['unpaid', 'paid'])
+            ->whereHas('tourDeparture', function ($query): void {
+                $query->where('status', 'open')
+                    ->whereDate('departure_date', '>', $this->now->toDateString());
+            })
+            ->orderBy('id')
+            ->get();
+
+        $pendingBooking = $futureBookings->first();
+        $rejectedBooking = $futureBookings->skip(1)->first() ?: $pendingBooking;
+        $approvedBooking = Booking::query()
+            ->where('booking_code', 'like', self::BOOKING_PREFIX.'%')
+            ->where('status', 'cancelled')
+            ->orderBy('id')
+            ->first();
+
+        if ($pendingBooking) {
+            BookingDisruptionRequest::query()->updateOrCreate(
+                [
+                    'booking_id' => $pendingBooking->id,
+                    'type' => 'refund',
+                ],
+                [
+                    'status' => 'pending',
+                    'reason' => 'Khách cần hủy chuyến do phát sinh lịch cá nhân. '.self::MARKER,
+                    'requested_tour_departure_id' => null,
+                    'admin_note' => null,
+                    'processed_by' => null,
+                    'processed_at' => null,
+                ],
+            );
+        }
+
+        if ($rejectedBooking) {
+            BookingDisruptionRequest::query()->updateOrCreate(
+                [
+                    'booking_id' => $rejectedBooking->id,
+                    'type' => 'transfer',
+                ],
+                [
+                    'status' => 'rejected',
+                    'reason' => 'Khách muốn đổi sang lịch khởi hành khác. '.self::MARKER,
+                    'requested_tour_departure_id' => null,
+                    'admin_note' => 'Lịch khách yêu cầu đã đủ chỗ trong dữ liệu demo.',
+                    'processed_by' => $this->admin->id,
+                    'processed_at' => $this->now->copy()->subDays(2),
+                ],
+            );
+        }
+
+        if ($approvedBooking) {
+            BookingDisruptionRequest::query()->updateOrCreate(
+                [
+                    'booking_id' => $approvedBooking->id,
+                    'type' => 'retain',
+                ],
+                [
+                    'status' => 'approved',
+                    'reason' => 'Khách đề nghị bảo lưu giá trị booking. '.self::MARKER,
+                    'requested_tour_departure_id' => null,
+                    'admin_note' => 'Đã ghi nhận bảo lưu thủ công trong dữ liệu demo.',
+                    'processed_by' => $this->admin->id,
+                    'processed_at' => $this->now->copy()->subDays(1),
+                ],
+            );
+        }
     }
 
     private function seedDestinations(): void
@@ -408,6 +482,10 @@ class RichDemoDataSeeder extends Seeder
                 $booking->forceFill([
                     'created_at' => $createdAt,
                     'updated_at' => $cancelledAt ?? $createdAt,
+                    'slot_committed_at' => in_array($status, ['confirmed', 'completed'], true)
+                        && $paymentState === 'success'
+                        ? $createdAt->copy()->addHours(2)
+                        : null,
                 ])->saveQuietly();
 
                 $this->seedBookingChildren($booking, $customer, $people, $unitPrice, $paymentState, $createdAt, $sequence);
