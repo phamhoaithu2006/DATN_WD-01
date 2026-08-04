@@ -670,6 +670,13 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(functi
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth:sanctum', 'role:tour guide'])->group(function () {
+    Route::get('/notifications/guides', [NotificationCustomerController::class, 'getMyNotifications']);
+    Route::get('/notifications/guides/unread-count', [NotificationCustomerController::class, 'getUnreadCount']);
+    Route::get('/notifications/guides/{id}', [NotificationCustomerController::class, 'getNotificationDetail'])
+        ->whereNumber('id');
+    Route::patch('/notifications/guides/{id}/read', [NotificationCustomerController::class, 'markAsRead'])
+        ->whereNumber('id');
+
     Route::get('/guide/profile', [GuideProfileController::class, 'show']);
     Route::get('/guide/dashboard', [GuideDashboardController::class, 'show']);
     Route::get('/guide/reviews', [GuideGuideReviewController::class, 'reviews']);
