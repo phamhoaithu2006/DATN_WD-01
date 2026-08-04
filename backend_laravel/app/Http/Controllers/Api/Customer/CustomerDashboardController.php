@@ -48,8 +48,7 @@ class CustomerDashboardController extends Controller
                 'contact',
                 'participants',
                 'tourReview',
-                'contact',
-                'participants',
+                'disruptionRequests',
             ])
             ->orderByDesc('id')
             ->get();
@@ -69,6 +68,16 @@ class CustomerDashboardController extends Controller
             $data['tour_review'] = $booking->tourReview
                 ? (new CustomerTourReviewResource($booking->tourReview))->resolve($request)
                 : null;
+
+            $pendingDisruption = $booking->disruptionRequests->firstWhere('status', 'pending');
+            $data['has_pending_disruption'] = (bool) $pendingDisruption;
+            $data['pending_disruption_request'] = $pendingDisruption ? [
+                'id' => $pendingDisruption->id,
+                'type' => $pendingDisruption->type,
+                'status' => $pendingDisruption->status,
+                'reason' => $pendingDisruption->reason,
+                'created_at' => $pendingDisruption->created_at?->toIso8601String(),
+            ] : null;
 
             $data['customer_cancellation_count'] = (int) ($cancelledCountByTourId[$booking->tour_id] ?? 0);
             $data['customer_cancellation_limit'] = Booking::CUSTOMER_CANCELLATION_LIMIT;
