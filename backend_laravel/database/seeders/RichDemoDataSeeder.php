@@ -34,6 +34,12 @@ class RichDemoDataSeeder extends Seeder
 
     private const MARKER = 'RICH-DEMO';
 
+    private const TARGET_BOOKED_SLOTS = 12;
+
+    private const UNDERFILLED_BOOKED_SLOTS = 6;
+
+    private const UNDERFILLED_DEPARTURE_INTERVAL = 12;
+
     private Carbon $now;
 
     private User $admin;
@@ -318,15 +324,46 @@ class RichDemoDataSeeder extends Seeder
             $isPast = $fixture['phase'] === 'past';
 
             $bookingCount = 2 + ($departureIndex % 3);
+            $bookingPlans = [];
 
             for ($i = 0; $i < $bookingCount; $i++) {
-                $sequence++;
+                $bookingSequence = $sequence + $i + 1;
+                [$status, $paymentStatus, $paymentState] = $this->bookingStateFor($bookingSequence, $isPast);
+
+                $bookingPlans[] = [
+                    'sequence' => $bookingSequence,
+                    'status' => $status,
+                    'payment_status' => $paymentStatus,
+                    'payment_state' => $paymentState,
+                ];
+            }
+
+            $activeBookingCount = count(array_filter(
+                $bookingPlans,
+                fn (array $plan): bool => in_array($plan['status'], ['pending', 'confirmed', 'completed'], true),
+            ));
+            $targetBookedSlots = $departureIndex % self::UNDERFILLED_DEPARTURE_INTERVAL === 0
+                ? self::UNDERFILLED_BOOKED_SLOTS
+                : self::TARGET_BOOKED_SLOTS;
+            $activeBookingPosition = 0;
+
+            foreach ($bookingPlans as $i => $plan) {
+                $sequence = $plan['sequence'];
 
                 $customer = $this->customers[($sequence - 1) % count($this->customers)];
-                $people = 1 + ($sequence % 3);
+                $isActiveBooking = in_array($plan['status'], ['pending', 'confirmed', 'completed'], true);
+                $people = $isActiveBooking
+                    ? $this->peopleForDeparture($targetBookedSlots, $activeBookingCount, $activeBookingPosition)
+                    : 1 + ($sequence % 3);
                 $unitPrice = (float) ($departure->discount_price ?? $departure->base_price);
 
-                [$status, $paymentStatus, $paymentState] = $this->bookingStateFor($sequence, $isPast);
+                if ($isActiveBooking) {
+                    $activeBookingPosition++;
+                }
+
+                $status = $plan['status'];
+                $paymentStatus = $plan['payment_status'];
+                $paymentState = $plan['payment_state'];
 
                 $discount = 0;
                 $promotionId = null;
@@ -346,7 +383,7 @@ class RichDemoDataSeeder extends Seeder
                     ? $createdAt->copy()->addHours(6)
                     : null;
 
-                $code = self::BOOKING_PREFIX . str_pad((string) $sequence, 4, '0', STR_PAD_LEFT);
+                $code = self::BOOKING_PREFIX.str_pad((string) $sequence, 4, '0', STR_PAD_LEFT);
 
                 $booking = Booking::query()->updateOrCreate(
                     ['booking_code' => $code],
@@ -416,6 +453,15 @@ class RichDemoDataSeeder extends Seeder
         };
     }
 
+    private function peopleForDeparture(int $targetBookedSlots, int $activeBookingCount, int $activeBookingPosition): int
+    {
+        $activeBookingCount = max(1, $activeBookingCount);
+        $basePeople = intdiv($targetBookedSlots, $activeBookingCount);
+        $remainingPeople = $targetBookedSlots % $activeBookingCount;
+
+        return $basePeople + ($activeBookingPosition < $remainingPeople ? 1 : 0);
+    }
+
     private function seedBookingChildren(
         Booking $booking,
         User $customer,
@@ -431,7 +477,7 @@ class RichDemoDataSeeder extends Seeder
                 'contact_name' => $customer->full_name,
                 'contact_email' => $customer->email,
                 'contact_phone' => $customer->phone,
-                'address' => 'Số ' . (10 + $sequence % 90) . ' đường Trần Hưng Đạo',
+                'address' => 'Số '.(10 + $sequence % 90).' đường Trần Hưng Đạo',
                 'created_at' => $createdAt,
                 'updated_at' => $createdAt,
             ],
@@ -468,7 +514,7 @@ class RichDemoDataSeeder extends Seeder
             [
                 'payment_method' => $method,
                 'amount' => $booking->total_amount,
-                'transaction_code' => $paymentState === 'success' ? 'VV-PAY-' . $booking->id : null,
+                'transaction_code' => $paymentState === 'success' ? 'VV-PAY-'.$booking->id : null,
                 'gateway_response' => $paymentState === 'success'
                     ? json_encode(['demo' => true, 'source' => self::MARKER])
                     : null,
@@ -675,7 +721,7 @@ class RichDemoDataSeeder extends Seeder
                 'support_request_id' => $requestId,
                 'sender_id' => $customer->id,
                 'sender_type' => 'customer',
-                'message' => 'Chào ViVuGo, ' . mb_strtolower($subjects[$index % count($subjects)]) . ', nhờ bên mình kiểm tra giúp.',
+                'message' => 'Chào ViVuGo, '.mb_strtolower($subjects[$index % count($subjects)]).', nhờ bên mình kiểm tra giúp.',
                 'created_at' => $createdAt->copy()->addMinutes(5),
                 'updated_at' => $createdAt->copy()->addMinutes(5),
             ]);
@@ -730,7 +776,7 @@ class RichDemoDataSeeder extends Seeder
         // Điểm danh cho 4 chuyến đã hoàn thành là đủ minh họa luồng.
         foreach (array_slice($pastFixtures, 0, 4) as $fixtureIndex => $fixture) {
             $departure = $fixture['departure'];
-            $sessionName = 'Điểm danh khởi hành ' . self::MARKER;
+            $sessionName = 'Điểm danh khởi hành '.self::MARKER;
 
             $sessionId = DB::table('attendance_sessions')
                 ->where('tour_departure_id', $departure->id)
@@ -820,8 +866,8 @@ class RichDemoDataSeeder extends Seeder
     }
 
     /**
-     * @param array<string, mixed> $keys
-     * @param array<string, mixed> $values
+     * @param  array<string, mixed>  $keys
+     * @param  array<string, mixed>  $values
      */
     private function upsert(string $table, array $keys, array $values): void
     {
