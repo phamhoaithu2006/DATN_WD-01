@@ -122,6 +122,46 @@ function guideReviewScenario(array $overrides = []): array
     return compact('customer', 'guideUser', 'guide', 'tour', 'departure', 'booking', 'assignment');
 }
 
+test('tour guide reads only their notifications through guide endpoints', function () {
+    $guideUser = guideReviewUser('tour guide');
+    $otherUser = guideReviewUser('tour guide');
+
+    $ownNotification = Notification::query()->create([
+        'user_id' => $guideUser->id,
+        'title' => 'Lịch tour mới',
+        'message' => 'Bạn vừa được phân công một tour mới.',
+        'type' => 'guide_assignment',
+        'status' => 'unread',
+    ]);
+
+    Notification::query()->create([
+        'user_id' => $otherUser->id,
+        'title' => 'Thông báo của HDV khác',
+        'message' => 'Nội dung không được phép xem.',
+        'type' => 'guide_assignment',
+        'status' => 'unread',
+    ]);
+
+    Sanctum::actingAs($guideUser);
+
+    $this->getJson('/api/notifications/guides')
+        ->assertOk()
+        ->assertJsonCount(1, 'data.data')
+        ->assertJsonPath('data.data.0.id', $ownNotification->id);
+
+    $this->getJson('/api/notifications/guides/unread-count')
+        ->assertOk()
+        ->assertJsonPath('unread_count', 1);
+
+    $this->getJson("/api/notifications/guides/{$ownNotification->id}")
+        ->assertOk()
+        ->assertJsonPath('data.status', 'read');
+
+    $this->getJson('/api/notifications/guides/unread-count')
+        ->assertOk()
+        ->assertJsonPath('unread_count', 0);
+});
+
 test('customer can create and update a guide review after a completed tour', function () {
     $scenario = guideReviewScenario();
     Sanctum::actingAs($scenario['customer']);

@@ -1,6 +1,6 @@
 import apiClient from './apiClient'
 
-const ENDPOINT = '/notifications/customers'
+const ENDPOINT = '/notifications/guides'
 
 const unwrapCollection = (payload) => {
   const data = payload?.data

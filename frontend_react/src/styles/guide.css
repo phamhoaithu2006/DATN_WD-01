@@ -11068,3 +11068,47 @@
 .guide-notifications-list-panel.is-empty {
   justify-content: flex-start;
 }
+
+@media (max-width: 900px) {
+  .guide-main {
+    width: 100%;
+    max-width: 100vw;
+    box-sizing: border-box;
+    overflow-x: hidden;
+  }
+
+  .guide-topbar-right-section {
+    width: 100%;
+    min-width: 0;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .guide-topbar-search {
+    flex: 1 1 220px;
+    min-width: 0;
+  }
+
+  .guide-topbar-search input,
+  .guide-topbar-search input:focus {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .guide-notifications-header {
+    align-items: flex-start;
+  }
+
+  .guide-notifications-header > div:first-child,
+  .guide-notifications-header h1,
+  .guide-notifications-header p {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .guide-notifications-summary {
+    width: 100%;
+    box-sizing: border-box;
+  }
+}
