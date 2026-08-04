@@ -649,7 +649,7 @@ class GuideTourOperationService
     {
         return $query
             ->where('tour_departure_id', $departure->id)
-            ->where('status', 'confirmed')
+            ->whereIn('status', ['confirmed', 'departed', 'completed'])
             ->where('payment_status', 'paid');
     }
 

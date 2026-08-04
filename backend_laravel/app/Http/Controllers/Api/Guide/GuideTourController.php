@@ -73,7 +73,7 @@ class GuideTourController extends Controller
                 ->from('bookings')
                 ->selectRaw('COALESCE(SUM(number_of_people), 0)')
                 ->whereColumn('bookings.tour_departure_id', 'tour_departures.id')
-                ->whereNotIn('bookings.status', ['cancelled', 'cancelled_by_tour'])
+                ->whereIn('bookings.status', ['confirmed', 'departed', 'completed'])
                 ->where('bookings.payment_status', 'paid');
         }, 'customer_count');
 

@@ -319,6 +319,26 @@ test('guide customer list includes phone and health notes', function () {
         ->assertJsonPath('data.0.health_note', 'Di ung hai san.');
 });
 
+test('guide attendance includes paid participants after booking departs', function () {
+    $scenario = guideAttendanceScenario();
+    $scenario['booking']->update(['status' => 'departed']);
+    Sanctum::actingAs($scenario['guideUser']);
+
+    $this->getJson("/api/guide/tours/{$scenario['ongoing']->id}/customers")
+        ->assertOk()
+        ->assertJsonPath('meta.total', 1)
+        ->assertJsonPath('data.0.id', $scenario['participant']->id);
+
+    $this->getJson("/api/guide/tours/{$scenario['ongoing']->id}/attendance/statistics")
+        ->assertOk()
+        ->assertJsonPath('data.total_customers', 1)
+        ->assertJsonPath('data.not_checked_in', 1);
+
+    $this->getJson('/api/guide/tours')
+        ->assertOk()
+        ->assertJsonPath('data.data.0.customer_count', 1);
+});
+
 test('departure attendance remains available throughout the departure date', function () {
     Carbon::setTestNow('2026-07-20 13:59:00');
     $scenario = guideAttendanceScenario();
