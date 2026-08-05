@@ -848,6 +848,8 @@ function DirectGuideAssignmentPanel({
   focusedDepartureId = null,
   onAssigned,
   onRefreshPlanning,
+  onAutoAssign,
+  autoAssigningId = null,
   modalLayout = false,
 }) {
   const [departureId, setDepartureId] = useState(focusedDepartureId || '')
@@ -1162,13 +1164,30 @@ function DirectGuideAssignmentPanel({
 
               {!selectedDepartureHasAssignedGuide ? (
                 <div className="mt-3 rounded-lg border border-rose-200 bg-white/80 p-2 text-sm font-bold text-rose-700">
-                  Lịch này chưa được phân công HDV. Danh sách HDV bên phải đang dùng để phân công mới.
+                  Lịch này chưa được phân công HDV. Bạn có thể để hệ thống tự chọn HDV phù hợp hoặc chọn trực tiếp trong danh sách bên phải.
                 </div>
               ) : (
                 <div className="mt-3 rounded-lg border border-emerald-200 bg-white/80 p-2 text-sm font-bold text-emerald-700">
                   Lịch này đã có HDV. Khi chọn HDV bên phải, hệ thống sẽ đổi/cập nhật HDV phụ trách.
                 </div>
               )}
+
+              {!selectedDepartureHasAssignedGuide &&
+              typeof onAutoAssign === 'function' ? (
+                <button
+                  type="button"
+                  onClick={() => onAutoAssign(selectedDeparture.id)}
+                  disabled={
+                    !selectedDeparture?.id ||
+                    String(autoAssigningId || '') === String(selectedDeparture.id)
+                  }
+                  className="mt-3 flex w-full items-center justify-center rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-black text-white shadow-sm transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {String(autoAssigningId || '') === String(selectedDeparture.id)
+                    ? 'Đang tự động phân công...'
+                    : 'Tự động chọn HDV phù hợp'}
+                </button>
+              ) : null}
 
               <div className="mt-3 rounded-lg bg-white/80 p-3 text-slate-700">
                 <p className="font-bold text-slate-900">
@@ -1634,7 +1653,6 @@ export function GuideAssignmentPanel({
   embedded = false,
   modalLayout = false,
 }) {
-  const [assignMode, setAssignMode] = useState('direct')
   const [directDepartureId, setDirectDepartureId] = useState(
     focusedDepartureId || ''
   )
@@ -2024,7 +2042,6 @@ export function GuideAssignmentPanel({
     }
 
     setDirectDepartureId(String(item.id))
-    setAssignMode('direct')
     setMessage(
       `Đang phân công trực tiếp cho ${getDepartureTitle(item)} - ${formatDateShort(
         item.departure_date
@@ -2275,43 +2292,39 @@ export function GuideAssignmentPanel({
         </div>
       ) : null}
 
-      <div className="mb-5 flex flex-wrap gap-2 border-b border-slate-200">
-        <button
-          type="button"
-          onClick={() => setAssignMode('direct')}
-          className={`border-b-2 px-4 py-3 text-sm font-bold transition ${
-            assignMode === 'direct'
-              ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-900'
-          }`}
-        >
-          Phân công trực tiếp
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setAssignMode('auto')}
-          className={`border-b-2 px-4 py-3 text-sm font-bold transition ${
-            assignMode === 'auto'
-              ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-900'
-          }`}
-        >
-          Tự động phân công
-        </button>
+      <div className="mb-5 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
+        <h3 className="font-black text-blue-950">
+          Phân công hướng dẫn viên
+        </h3>
+        <p className="mt-1 text-sm leading-6 text-blue-700">
+          Chọn trực tiếp một HDV trong danh sách hoặc bấm “Tự động chọn HDV phù hợp”. Hai cách phân công được đặt chung trong một giao diện.
+        </p>
       </div>
 
-      {assignMode === 'direct' ? (
-        <DirectGuideAssignmentPanel
-          departureOptions={actionableDirectDepartureOptions}
-          focusedDepartureId={directDepartureId || focusedDepartureId}
-          onAssigned={onAssigned}
-          onRefreshPlanning={fetchPlanning}
-          modalLayout={modalLayout}
-        />
-      ) : (
-        autoAssignmentContent
-      )}
+      <DirectGuideAssignmentPanel
+        departureOptions={actionableDirectDepartureOptions}
+        focusedDepartureId={directDepartureId || focusedDepartureId}
+        onAssigned={onAssigned}
+        onRefreshPlanning={fetchPlanning}
+        onAutoAssign={autoAssign}
+        autoAssigningId={busyId}
+        modalLayout={modalLayout}
+      />
+
+      {!focusedDepartureId ? (
+        <section className="mt-8 border-t border-slate-200 pt-6">
+          <div className="mb-4">
+            <h3 className="text-lg font-black text-slate-900">
+              Quản lý phân công theo lịch khởi hành
+            </h3>
+            <p className="mt-1 text-sm text-slate-500">
+              Theo dõi trạng thái, tự động phân công, đổi trực tiếp hoặc hoàn tác ngay trong cùng màn hình.
+            </p>
+          </div>
+
+          {autoAssignmentContent}
+        </section>
+      ) : null}
     </div>
   )
 

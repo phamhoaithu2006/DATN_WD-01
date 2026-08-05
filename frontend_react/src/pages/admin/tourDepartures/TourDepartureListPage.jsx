@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import Select from 'react-select'
 import { toast } from 'sonner'
 import { tourDepartureApi } from '../../../services/tourDepartureApi'
 import adminGuideReplacementRequestApi from '../../../services/adminGuideReplacementRequestApi'
@@ -24,6 +25,16 @@ function getReplacementRequestList(response) {
   if (Array.isArray(data)) return data
 
   return []
+}
+
+function normalizeTourSearch(value) {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase()
+    .trim()
 }
 
 function getTourName(tour) {
@@ -241,6 +252,7 @@ export default function TourDepartureListPage() {
   const [departures, setDepartures] = useState([])
   const [allDepartures, setAllDepartures] = useState([])
   const [loading, setLoading] = useState(false)
+  const [tourLoading, setTourLoading] = useState(false)
   const [replacementRequests, setReplacementRequests] = useState([])
   const [replacementPanelOpen, setReplacementPanelOpen] = useState(false)
   const [highlightedReplacementDepartureId, setHighlightedReplacementDepartureId] = useState(null)
@@ -282,6 +294,8 @@ export default function TourDepartureListPage() {
 
   const fetchTours = useCallback(async () => {
     try {
+      setTourLoading(true)
+
       const response = await tourDepartureApi.getTours()
       const list = getArrayFromResponse(response)
 
@@ -289,6 +303,8 @@ export default function TourDepartureListPage() {
     } catch (error) {
       console.error(error)
       toast.error(getRequestErrorMessage(error, 'Không tải được danh sách tour'))
+    } finally {
+      setTourLoading(false)
     }
   }, [])
 
@@ -877,6 +893,62 @@ const submitRejectReplacementRequest = async () => {
     return map
   }, [allDepartures])
 
+
+  const tourOptions = useMemo(() => {
+    const options = tours
+      .map((tour) => {
+        const tourName = getTourName(tour)
+        const warningCount =
+          tourAssignmentWarningCounts.get(String(tour.id)) || 0
+
+        return {
+          value: String(tour.id),
+          label: tourName,
+          tourName,
+          tourId: tour.id,
+          warningCount,
+          searchText: normalizeTourSearch(`${tourName} ${tour.id}`),
+          isAllToursOption: false,
+        }
+      })
+      .sort((first, second) =>
+        first.tourName.localeCompare(second.tourName, 'vi')
+      )
+
+    return [
+      {
+        value: '',
+        label: 'Tất cả tour',
+        tourName: 'Tất cả tour',
+        warningCount: assignmentWarningCount,
+        searchText: 'tat ca tour',
+        isAllToursOption: true,
+      },
+      ...options,
+    ]
+  }, [
+    assignmentWarningCount,
+    tourAssignmentWarningCounts,
+    tours,
+  ])
+
+  const selectedTourOption =
+    tourOptions.find(
+      (option) => option.value === String(selectedTourId)
+    ) || tourOptions[0]
+
+  const handleSelectTour = (option) => {
+    setSelectedTourId(option?.value ?? '')
+    clearFieldError('selectedTourId')
+    setFocusedDepartureId(null)
+    setActiveTab('departures')
+    setScheduleFilter('upcoming')
+  }
+
+  const resetTourFilter = () => {
+    handleSelectTour(tourOptions[0])
+  }
+
   function clearFieldError(fieldName) {
     setFieldErrors((current) => {
       if (!current[fieldName]) return current
@@ -955,67 +1027,252 @@ const submitRejectReplacementRequest = async () => {
               event.preventDefault()
             }
           }}
-          className="inline-flex h-10 items-center justify-center rounded-lg bg-blue-600 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700"
+          aria-disabled={!selectedTourId}
+          title={
+            selectedTourId
+              ? 'Thêm lịch khởi hành cho tour đã chọn'
+              : 'Vui lòng chọn tour trước khi thêm lịch khởi hành'
+          }
+          className={`inline-flex h-10 items-center justify-center rounded-lg px-4 text-sm font-bold text-white shadow-sm transition ${
+            selectedTourId
+              ? 'bg-blue-600 hover:bg-blue-700'
+              : 'cursor-not-allowed bg-blue-400'
+          }`}
         >
           + Thêm lịch khởi hành
         </Link>
       </div>
 
-      <div className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="mb-3">
-          <label className="text-sm font-medium text-slate-700">
-            Chọn tour
-          </label>
+      <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
+          <div className="min-w-0 flex-1">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <label
+                  htmlFor="tour-departure-tour-filter"
+                  className="text-sm font-bold text-slate-800"
+                >
+                  Tìm và chọn tour
+                </label>
+                <p className="mt-1 text-xs leading-5 text-slate-500">
+                  Có thể tìm theo tên tour, địa điểm hoặc mã tour. Hỗ trợ tìm không dấu.
+                </p>
+              </div>
 
-          <p className="mt-1 text-sm text-slate-500">
-            {selectedTour
-              ? `Đang lọc theo tour: ${getTourName(selectedTour)}`
-              : 'Đang xem: Tất cả lịch khởi hành.'}
+              {assignmentWarningCount > 0 ? (
+                <span className="inline-flex rounded-full bg-rose-50 px-2.5 py-1 text-xs font-black text-rose-700 ring-1 ring-rose-100">
+                  {assignmentWarningCount} lịch chưa phân công HDV
+                </span>
+              ) : null}
+            </div>
 
-            {assignmentWarningCount > 0 ? (
-              <span className="ml-2 inline-flex rounded-full bg-rose-50 px-2 py-0.5 text-xs font-black text-rose-700 ring-1 ring-rose-100">
-                {assignmentWarningCount} lịch sắp tới/đang diễn ra chưa phân công
-              </span>
-            ) : null}
-          </p>
+            <Select
+              inputId="tour-departure-tour-filter"
+              aria-label="Tìm và chọn tour"
+              value={selectedTourOption}
+              options={tourOptions}
+              isSearchable
+              isClearable={Boolean(selectedTourId)}
+              isLoading={tourLoading}
+              placeholder="Nhập tên tour, địa điểm hoặc mã tour..."
+              noOptionsMessage={({ inputValue }) =>
+                inputValue
+                  ? `Không tìm thấy tour phù hợp với “${inputValue}”`
+                  : 'Không có tour để hiển thị'
+              }
+              loadingMessage={() => 'Đang tải danh sách tour...'}
+              maxMenuHeight={320}
+              menuPlacement="auto"
+              captureMenuScroll
+              filterOption={(candidate, inputValue) => {
+                const keyword = normalizeTourSearch(inputValue)
+
+                if (!keyword) return true
+                if (candidate.data.isAllToursOption) return false
+
+                return candidate.data.searchText.includes(keyword)
+              }}
+              formatOptionLabel={(option, meta) => {
+                const showDetail = meta.context === 'menu'
+
+                return (
+                  <div className="flex min-w-0 items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold text-inherit">
+                        {option.tourName}
+                      </p>
+
+                      {showDetail && !option.isAllToursOption ? (
+                        <p
+                          className={`mt-0.5 text-xs ${
+                            meta.selectValue?.some(
+                              (item) => item.value === option.value
+                            )
+                              ? 'text-blue-100'
+                              : 'text-slate-400'
+                          }`}
+                        >
+                          Mã tour: #{option.tourId}
+                        </p>
+                      ) : null}
+                    </div>
+
+                    {option.warningCount > 0 ? (
+                      <span
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-black ${
+                          meta.context === 'menu' &&
+                          meta.selectValue?.some(
+                            (item) => item.value === option.value
+                          )
+                            ? 'bg-white/20 text-white'
+                            : 'bg-rose-50 text-rose-700 ring-1 ring-rose-100'
+                        }`}
+                      >
+                        {option.warningCount} chưa phân công
+                      </span>
+                    ) : null}
+                  </div>
+                )
+              }}
+              onChange={handleSelectTour}
+              styles={{
+                control: (base, state) => ({
+                  ...base,
+                  minHeight: 46,
+                  borderRadius: 12,
+                  borderColor: fieldErrors.selectedTourId
+                    ? '#f43f5e'
+                    : state.isFocused
+                      ? '#3b82f6'
+                      : '#cbd5e1',
+                  backgroundColor: fieldErrors.selectedTourId
+                    ? 'rgba(255, 241, 242, 0.45)'
+                    : '#ffffff',
+                  boxShadow: state.isFocused
+                    ? fieldErrors.selectedTourId
+                      ? '0 0 0 4px rgba(255, 228, 230, 1)'
+                      : '0 0 0 4px rgba(219, 234, 254, 1)'
+                    : 'none',
+                  cursor: 'text',
+                  '&:hover': {
+                    borderColor: fieldErrors.selectedTourId
+                      ? '#f43f5e'
+                      : '#3b82f6',
+                  },
+                }),
+                valueContainer: (base) => ({
+                  ...base,
+                  paddingLeft: 14,
+                  paddingRight: 8,
+                }),
+                input: (base) => ({
+                  ...base,
+                  color: '#1e293b',
+                  fontSize: 14,
+                }),
+                singleValue: (base) => ({
+                  ...base,
+                  color: fieldErrors.selectedTourId ? '#881337' : '#1e293b',
+                  fontSize: 14,
+                }),
+                placeholder: (base) => ({
+                  ...base,
+                  color: '#94a3b8',
+                  fontSize: 14,
+                }),
+                clearIndicator: (base) => ({
+                  ...base,
+                  color: '#94a3b8',
+                  cursor: 'pointer',
+                  '&:hover': { color: '#475569' },
+                }),
+                dropdownIndicator: (base, state) => ({
+                  ...base,
+                  color: state.isFocused ? '#2563eb' : '#64748b',
+                  cursor: 'pointer',
+                }),
+                indicatorSeparator: (base) => ({
+                  ...base,
+                  backgroundColor: '#e2e8f0',
+                }),
+                menu: (base) => ({
+                  ...base,
+                  zIndex: 80,
+                  overflow: 'hidden',
+                  borderRadius: 14,
+                  border: '1px solid #e2e8f0',
+                  boxShadow:
+                    '0 18px 45px -15px rgba(15, 23, 42, 0.30)',
+                }),
+                menuList: (base) => ({
+                  ...base,
+                  paddingTop: 6,
+                  paddingBottom: 6,
+                }),
+                option: (base, state) => ({
+                  ...base,
+                  margin: '2px 6px',
+                  width: 'calc(100% - 12px)',
+                  borderRadius: 10,
+                  padding: '10px 12px',
+                  fontSize: 14,
+                  cursor: 'pointer',
+                  backgroundColor: state.isSelected
+                    ? '#2563eb'
+                    : state.isFocused
+                      ? '#eff6ff'
+                      : '#ffffff',
+                  color: state.isSelected ? '#ffffff' : '#1e293b',
+                  '&:active': {
+                    backgroundColor: state.isSelected ? '#1d4ed8' : '#dbeafe',
+                  },
+                }),
+                noOptionsMessage: (base) => ({
+                  ...base,
+                  padding: 18,
+                  color: '#64748b',
+                  fontSize: 14,
+                }),
+              }}
+            />
+
+            <FieldError message={fieldErrors.selectedTourId} />
+          </div>
+
+          <button
+            type="button"
+            onClick={resetTourFilter}
+            disabled={!selectedTourId}
+            className="inline-flex h-[46px] shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-45 lg:min-w-28"
+          >
+            Đặt lại
+          </button>
         </div>
 
-        <select
-          value={selectedTourId}
-          onChange={(event) => {
-            setSelectedTourId(event.target.value)
-            clearFieldError('selectedTourId')
-            setFocusedDepartureId(null)
-            setActiveTab('departures')
-            setScheduleFilter('upcoming')
-          }}
-          className={`h-11 w-full rounded-lg border bg-white px-3 text-sm outline-none transition focus:ring-2 ${
-            fieldErrors.selectedTourId
-              ? 'border-rose-500 bg-rose-50/40 text-rose-900 focus:border-rose-500 focus:ring-rose-100'
-              : 'border-slate-300 text-slate-800 focus:border-blue-500 focus:ring-blue-100'
-          }`}
-        >
-          <option value="">
-            {assignmentWarningCount > 0
-              ? `-- Tất cả tour -- (${assignmentWarningCount} chưa phân công)`
-              : '-- Tất cả tour --'}
-          </option>
+        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4">
+          <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+            Đang xem
+          </span>
 
-          {tours.map((tour) => {
-            const warningCount = tourAssignmentWarningCounts.get(String(tour.id)) || 0
-
-            return (
-              <option key={tour.id} value={tour.id}>
-                {warningCount > 0
-                  ? `${getTourName(tour)} (${warningCount} chưa phân công)`
-                  : getTourName(tour)}
-              </option>
-            )
-          })}
-        </select>
-        <FieldError message={fieldErrors.selectedTourId} />
+          {selectedTour ? (
+            <button
+              type="button"
+              onClick={resetTourFilter}
+              className="inline-flex max-w-full items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 text-sm font-bold text-blue-700 ring-1 ring-blue-100 transition hover:bg-blue-100"
+              title="Bỏ lọc tour"
+            >
+              <span className="truncate">{getTourName(selectedTour)}</span>
+              <span aria-hidden="true" className="text-base leading-none">
+                ×
+              </span>
+            </button>
+          ) : (
+            <span className="inline-flex rounded-full bg-slate-100 px-3 py-1.5 text-sm font-bold text-slate-600">
+              Tất cả lịch khởi hành
+            </span>
+          )}
+        </div>
       </div>
-
 
 {replacementRequests.length > 0 ? (
   <div className="mb-5 rounded-2xl border border-orange-200 bg-orange-50 text-orange-950 shadow-sm">
