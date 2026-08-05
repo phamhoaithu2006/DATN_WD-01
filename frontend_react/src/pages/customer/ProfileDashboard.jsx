@@ -1488,7 +1488,7 @@ function ProfileDashboard({
 
                         {booking.payment_status === "refund_pending" ? (
                           <p className="vg-booking-action-error">
-                            Thanh toán đã được ghi nhận nhưng lịch vừa hết chỗ. Nhân viên sẽ liên hệ để hỗ trợ hoàn tiền.
+                            Hủy đơn thành công. Vui lòng liên hệ nhân viên hộ trợ để được hoàn toàn
                           </p>
                         ) : null}
 
