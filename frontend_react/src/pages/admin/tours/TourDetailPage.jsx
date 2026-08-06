@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import tourApi from '../../../services/toursApi'
+import { tourDepartureApi } from '../../../services/tourDepartureApi'
+import TourDepartureBookingModal from '../../../components/admin/tourDepartures/TourDepartureBookingModal'
 
 const API_ORIGIN = 'http://127.0.0.1:8000'
 
@@ -266,32 +268,35 @@ function getStatusMeta(status) {
   }
 }
 
-function getDepartureStatusMeta(status, availableSlots, maxSlots) {
+function getDepartureStatusMeta(status) {
   const value = String(status || '').toLowerCase()
-  const available = Number(availableSlots || 0)
-  const max = Number(maxSlots || 0)
-  const ratio = max > 0 ? available / max : 0
-
-  if (value.includes('full') || value.includes('closed') || value.includes('đủ') || ratio >= 1) {
-    return {
-      label: status || 'Đủ đoàn',
-      className: 'bg-rose-50 text-rose-600 ring-rose-100',
+  const statusMap = {
+    open: {
+      label: 'Đang mở',
+      className: 'bg-emerald-50 text-emerald-700 ring-emerald-100',
+      dot: 'bg-emerald-500',
+    },
+    closed: {
+      label: 'Đã đóng',
+      className: 'bg-slate-100 text-slate-700 ring-slate-200',
+      dot: 'bg-slate-500',
+    },
+    completed: {
+      label: 'Hoàn thành',
+      className: 'bg-sky-50 text-sky-700 ring-sky-100',
+      dot: 'bg-sky-500',
+    },
+    cancelled: {
+      label: 'Đã hủy',
+      className: 'bg-rose-50 text-rose-700 ring-rose-100',
       dot: 'bg-rose-500',
-    }
+    },
   }
 
-  if (value.includes('soon') || value.includes('limited') || value.includes('sắp') || ratio >= 0.88) {
-    return {
-      label: status || 'Sắp đầy',
-      className: 'bg-amber-50 text-amber-600 ring-amber-100',
-      dot: 'bg-amber-500',
-    }
-  }
-
-  return {
-    label: status || 'Còn chỗ',
-    className: 'bg-emerald-50 text-emerald-600 ring-emerald-100',
-    dot: 'bg-emerald-500',
+  return statusMap[value] || {
+    label: status || 'Không rõ',
+    className: 'bg-slate-100 text-slate-700 ring-slate-200',
+    dot: 'bg-slate-500',
   }
 }
 
@@ -454,6 +459,47 @@ function TourDetailPage() {
   const [tour, setTour] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [detailOpen, setDetailOpen] = useState(false)
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [detailError, setDetailError] = useState('')
+  const [detailPayload, setDetailPayload] = useState(null)
+  const [detailDeparture, setDetailDeparture] = useState(null)
+
+  const openDepartureDetail = async (departure, page = 1) => {
+    if (!departure?.id) return
+
+    setDetailDeparture({
+      ...departure,
+      total_slots: departure.total_slots ?? departure.max_slots,
+      tour: departure.tour || tour,
+    })
+    setDetailOpen(true)
+    setDetailLoading(true)
+    setDetailError('')
+
+    try {
+      const response = await tourDepartureApi.getBookedCustomers(departure.id, {
+        page,
+        per_page: 10,
+      })
+      setDetailPayload(response?.data?.data || null)
+    } catch (requestError) {
+      console.error('GET DEPARTURE DETAIL ERROR:', requestError)
+      setDetailError(
+        requestError?.response?.data?.message ||
+          'Không thể tải chi tiết lịch khởi hành.',
+      )
+    } finally {
+      setDetailLoading(false)
+    }
+  }
+
+  const closeDepartureDetail = () => {
+    setDetailOpen(false)
+    setDetailPayload(null)
+    setDetailError('')
+    setDetailDeparture(null)
+  }
 
   useEffect(() => {
     let isMounted = true
@@ -845,11 +891,7 @@ function TourDetailPage() {
 
                 <tbody className="divide-y divide-slate-100 bg-white text-center">
                   {departures.map((departure) => {
-                    const departureStatus = getDepartureStatusMeta(
-                      departure.status,
-                      departure.available_slots,
-                      departure.max_slots,
-                    )
+                    const departureStatus = getDepartureStatusMeta(departure.status)
 
                     return (
                       <tr key={departure.id} className="transition hover:bg-slate-50/70">
@@ -894,6 +936,7 @@ function TourDetailPage() {
                         <td className="px-5 py-3.5">
                           <button
                             type="button"
+                            onClick={() => void openDepartureDetail(departure)}
                             className="inline-flex h-8 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#0575f9] shadow-sm transition hover:border-sky-200 hover:bg-sky-50"
                             aria-label="Xem lịch khởi hành"
                           >
@@ -912,6 +955,16 @@ function TourDetailPage() {
             </div>
           )}
         </SectionCard>
+
+        <TourDepartureBookingModal
+          open={detailOpen}
+          loading={detailLoading}
+          error={detailError}
+          payload={detailPayload}
+          departure={detailDeparture}
+          onClose={closeDepartureDetail}
+          onPageChange={(page) => void openDepartureDetail(detailDeparture, page)}
+        />
       </div>
     </div>
   )
