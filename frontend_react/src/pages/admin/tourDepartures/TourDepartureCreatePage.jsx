@@ -131,6 +131,336 @@ function validateTourDepartureForm(formData, selectedTourId) {
   return errors
 }
 
+
+const getObjectFromResponse = (res) => {
+  const payload = res?.data?.data ?? res?.data
+
+  if (!payload || Array.isArray(payload)) return null
+
+  return payload?.tour || payload
+}
+
+const getFirstValue = (...values) => {
+  return values.find(
+    (value) =>
+      value !== null &&
+      value !== undefined &&
+      String(value).trim() !== ''
+  )
+}
+
+const formatCurrency = (value) => {
+  if (value === null || value === undefined || value === '') {
+    return 'Chưa cập nhật'
+  }
+
+  const number = Number(value)
+
+  if (!Number.isFinite(number)) return String(value)
+
+  return `${number.toLocaleString('vi-VN')} VNĐ`
+}
+
+const stripHtml = (value) => {
+  return String(value || '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+const getDestinationNames = (tour) => {
+  const destinations = Array.isArray(tour?.destinations)
+    ? tour.destinations
+        .map((destination) =>
+          typeof destination === 'string'
+            ? destination
+            : destination?.name || destination?.title
+        )
+        .filter(Boolean)
+    : []
+
+  return (
+    destinations.join(', ') ||
+    tour?.destination?.name ||
+    tour?.destination_name ||
+    tour?.location ||
+    'Chưa cập nhật'
+  )
+}
+
+const getTourDuration = (tour) => {
+  const rawDuration = getFirstValue(tour?.duration, tour?.duration_text)
+
+  if (rawDuration) {
+    return /^\d+$/.test(String(rawDuration))
+      ? `${rawDuration} ngày`
+      : String(rawDuration)
+  }
+
+  const days = getFirstValue(
+    tour?.duration_days,
+    tour?.number_of_days,
+    tour?.days
+  )
+  const nights = getFirstValue(
+    tour?.duration_nights,
+    tour?.number_of_nights,
+    tour?.nights
+  )
+
+  if (days && nights) return `${days} ngày ${nights} đêm`
+  if (days) return `${days} ngày`
+  if (nights) return `${nights} đêm`
+
+  return 'Chưa cập nhật'
+}
+
+const getTourStatus = (status) => {
+  const normalizedStatus = String(status || '').toLowerCase()
+
+  const statusMap = {
+    active: {
+      label: 'Đang hoạt động',
+      className: 'bg-emerald-100 text-emerald-700',
+    },
+    published: {
+      label: 'Đã xuất bản',
+      className: 'bg-emerald-100 text-emerald-700',
+    },
+    open: {
+      label: 'Đang mở',
+      className: 'bg-emerald-100 text-emerald-700',
+    },
+    inactive: {
+      label: 'Ngừng hoạt động',
+      className: 'bg-slate-100 text-slate-600',
+    },
+    hidden: {
+      label: 'Đang ẩn',
+      className: 'bg-slate-100 text-slate-600',
+    },
+    draft: {
+      label: 'Bản nháp',
+      className: 'bg-amber-100 text-amber-700',
+    },
+    closed: {
+      label: 'Đã đóng',
+      className: 'bg-rose-100 text-rose-700',
+    },
+  }
+
+  return (
+    statusMap[normalizedStatus] || {
+      label: status ? String(status) : 'Chưa cập nhật',
+      className: 'bg-slate-100 text-slate-600',
+    }
+  )
+}
+
+const resolveTourImage = (tour) => {
+  const image = getFirstValue(
+    tour?.thumbnail_url,
+    tour?.image_url,
+    tour?.cover_image_url,
+    tour?.banner_url,
+    tour?.thumbnail,
+    tour?.image,
+    tour?.cover_image,
+    tour?.banner,
+    tour?.images?.[0]?.url,
+    tour?.images?.[0]?.image_url,
+    tour?.images?.[0]?.path,
+    tour?.images?.[0]?.image,
+    tour?.media?.[0]?.original_url,
+    tour?.media?.[0]?.url,
+    tour?.media?.[0]?.path
+  )
+
+  if (!image) return ''
+
+  const value = String(image).trim()
+
+  if (
+    value.startsWith('http://') ||
+    value.startsWith('https://') ||
+    value.startsWith('data:') ||
+    value.startsWith('blob:')
+  ) {
+    return value
+  }
+
+  const apiOrigin = String(
+    import.meta.env.VITE_API_BASE_URL ||
+      import.meta.env.VITE_API_URL ||
+      'http://127.0.0.1:8000'
+  )
+    .replace(/\/api\/?$/, '')
+    .replace(/\/$/, '')
+
+  if (value.startsWith('/storage/')) return `${apiOrigin}${value}`
+  if (value.startsWith('storage/')) return `${apiOrigin}/${value}`
+  if (value.startsWith('/')) return `${apiOrigin}${value}`
+
+  return `${apiOrigin}/storage/${value}`
+}
+
+function TourDetailCard({ tour, loading = false }) {
+  if (!tour) return null
+
+  const title = getTourName(tour)
+  const imageUrl = resolveTourImage(tour)
+  const categoryName =
+    tour?.category?.name ||
+    tour?.category_name ||
+    tour?.tour_category?.name ||
+    'Chưa cập nhật'
+  const tourCode =
+    tour?.code || tour?.tour_code || tour?.slug || `TOUR-${tour?.id || ''}`
+  const originalPrice = getFirstValue(
+    tour?.base_price,
+    tour?.original_price,
+    tour?.price,
+    tour?.adult_price,
+    tour?.selling_price
+  )
+  const discountPrice = getFirstValue(
+    tour?.discount_price,
+    tour?.sale_price,
+    tour?.promotional_price,
+    tour?.price_after_discount
+  )
+  const description = stripHtml(
+    getFirstValue(
+      tour?.short_description,
+      tour?.summary,
+      tour?.overview,
+      tour?.description
+    )
+  )
+  const status = getTourStatus(tour?.status)
+
+  return (
+    <div className="mt-5 overflow-hidden rounded-xl border border-blue-200 bg-blue-50/60">
+      <div className="flex flex-col lg:flex-row">
+        <div className="h-52 w-full shrink-0 bg-slate-100 lg:h-auto lg:w-72">
+          {imageUrl ? (
+            <img
+              src={imageUrl}
+              alt={title}
+              className="h-full w-full object-cover"
+              onError={(event) => {
+                event.currentTarget.style.display = 'none'
+                event.currentTarget.nextElementSibling?.classList.remove('hidden')
+              }}
+            />
+          ) : null}
+
+          <div
+            className={`flex h-full min-h-52 items-center justify-center px-6 text-center text-sm font-semibold text-slate-400 ${
+              imageUrl ? 'hidden' : ''
+            }`}
+          >
+            Tour chưa có hình ảnh
+          </div>
+        </div>
+
+        <div className="min-w-0 flex-1 p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
+                Thông tin tour đã chọn
+              </p>
+
+              <h3 className="mt-1 break-words text-lg font-black text-slate-900">
+                {title}
+              </h3>
+
+              <p className="mt-1 text-xs text-slate-500">
+                Mã tour: {tourCode}
+              </p>
+            </div>
+
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-bold ${status.className}`}
+            >
+              {status.label}
+            </span>
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="rounded-lg bg-white p-3">
+              <p className="text-xs font-semibold text-slate-500">Danh mục</p>
+              <p className="mt-1 font-bold text-slate-800">{categoryName}</p>
+            </div>
+
+            <div className="rounded-lg bg-white p-3">
+              <p className="text-xs font-semibold text-slate-500">Điểm đến</p>
+              <p className="mt-1 font-bold text-slate-800">
+                {getDestinationNames(tour)}
+              </p>
+            </div>
+
+            <div className="rounded-lg bg-white p-3">
+              <p className="text-xs font-semibold text-slate-500">Thời lượng</p>
+              <p className="mt-1 font-bold text-slate-800">
+                {getTourDuration(tour)}
+              </p>
+            </div>
+
+            <div className="rounded-lg bg-white p-3">
+              <p className="text-xs font-semibold text-slate-500">Giá tour gốc</p>
+              <p className="mt-1 font-bold text-slate-800">
+                {formatCurrency(originalPrice)}
+              </p>
+            </div>
+
+            <div className="rounded-lg bg-white p-3">
+              <p className="text-xs font-semibold text-slate-500">
+                Giá khuyến mãi
+              </p>
+              <p className="mt-1 font-bold text-rose-600">
+                {discountPrice !== undefined && discountPrice !== null
+                  ? formatCurrency(discountPrice)
+                  : 'Không có'}
+              </p>
+            </div>
+
+            <div className="rounded-lg bg-white p-3">
+              <p className="text-xs font-semibold text-slate-500">
+                Điểm khởi hành mặc định
+              </p>
+              <p className="mt-1 font-bold text-slate-800">
+                {getFirstValue(
+                  tour?.departure_location,
+                  tour?.start_location,
+                  tour?.meeting_point
+                ) || 'Chưa cập nhật'}
+              </p>
+            </div>
+          </div>
+
+          {description ? (
+            <div className="mt-4 rounded-lg border border-blue-100 bg-white p-3">
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                Mô tả ngắn
+              </p>
+              <p className="mt-1 max-h-20 overflow-hidden text-sm leading-6 text-slate-600">
+                {description}
+              </p>
+            </div>
+          ) : null}
+
+          {loading ? (
+            <p className="mt-3 text-xs font-semibold text-blue-600">
+              Đang tải thêm thông tin chi tiết của tour...
+            </p>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 const TourDepartureCreatePage = () => {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -159,9 +489,18 @@ const TourDepartureCreatePage = () => {
     )}`
   }, [selectedTourId])
 
-  const selectedTour = tours.find(
-    (tour) => String(tour.id) === String(selectedTourId)
+  const selectedTourFromList = useMemo(
+    () =>
+      tours.find(
+        (tour) => String(tour.id) === String(selectedTourId)
+      ) || null,
+    [tours, selectedTourId]
   )
+
+  const [selectedTourDetail, setSelectedTourDetail] = useState(null)
+  const [loadingTourDetail, setLoadingTourDetail] = useState(false)
+
+  const selectedTour = selectedTourDetail || selectedTourFromList
 
   useEffect(() => {
     const fetchTours = async () => {
@@ -188,6 +527,59 @@ const TourDepartureCreatePage = () => {
 
     fetchTours()
   }, [initialTourId])
+
+  useEffect(() => {
+    let cancelled = false
+
+    if (!selectedTourId) {
+      setSelectedTourDetail(null)
+      setLoadingTourDetail(false)
+      return undefined
+    }
+
+    setSelectedTourDetail(selectedTourFromList)
+
+    const loadTourDetail =
+      tourDepartureApi.getTourDetail ||
+      tourDepartureApi.getTourById ||
+      tourDepartureApi.getTour
+
+    if (typeof loadTourDetail !== 'function') {
+      setLoadingTourDetail(false)
+      return undefined
+    }
+
+    const fetchTourDetail = async () => {
+      try {
+        setLoadingTourDetail(true)
+
+        const response = await loadTourDetail.call(
+          tourDepartureApi,
+          selectedTourId
+        )
+        const detail = getObjectFromResponse(response)
+
+        if (!cancelled && detail) {
+          setSelectedTourDetail({
+            ...selectedTourFromList,
+            ...detail,
+          })
+        }
+      } catch (err) {
+        console.warn('Không tải được chi tiết tour, sử dụng dữ liệu danh sách.', err)
+      } finally {
+        if (!cancelled) {
+          setLoadingTourDetail(false)
+        }
+      }
+    }
+
+    fetchTourDetail()
+
+    return () => {
+      cancelled = true
+    }
+  }, [selectedTourId, selectedTourFromList])
 
   const clearFieldError = (name) => {
     setFieldErrors((current) => {
@@ -394,6 +786,17 @@ const TourDepartureCreatePage = () => {
             Chưa có tour nào trong hệ thống.
           </p>
         ) : null}
+
+        {selectedTour ? (
+          <TourDetailCard
+            tour={selectedTour}
+            loading={loadingTourDetail}
+          />
+        ) : (
+          <div className="mt-4 rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+            Chọn một tour để xem thông tin chi tiết ngay tại đây.
+          </div>
+        )}
       </div>
 
       <div className={submitting ? 'pointer-events-none opacity-60' : ''}>

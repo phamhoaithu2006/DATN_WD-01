@@ -104,16 +104,31 @@ class AdminGuideReplacementRequestController extends Controller
                     'updated_at' => now(),
                 ]);
 
-            DB::table('tour_guide_assignments')->insert([
-                'tour_departure_id' => $departure->id,
-                'guide_id' => $newGuide->id,
+            // Mỗi HDV chỉ có một dòng phân công cho một lịch khởi hành.
+            // Nếu HDV từng bị hủy phân công ở lịch này, kích hoạt lại dòng đó
+            // thay vì insert một dòng mới gây lỗi unique(guide_id, tour_departure_id).
+            $assignmentQuery = DB::table('tour_guide_assignments')
+                ->where('tour_departure_id', $departure->id)
+                ->where('guide_id', $newGuide->id);
+
+            $assignmentPayload = [
                 'role' => 'lead',
                 'status' => 'assigned',
                 'assigned_by' => $request->user()->id,
                 'assigned_at' => now(),
-                'created_at' => now(),
                 'updated_at' => now(),
-            ]);
+            ];
+
+            if ($assignmentQuery->exists()) {
+                $assignmentQuery->update($assignmentPayload);
+            } else {
+                DB::table('tour_guide_assignments')->insert([
+                    'tour_departure_id' => $departure->id,
+                    'guide_id' => $newGuide->id,
+                    ...$assignmentPayload,
+                    'created_at' => now(),
+                ]);
+            }
 
             DB::table('guide_replacement_requests')
                 ->where('id', $replacementRequest->id)

@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import Select from 'react-select'
 import { toast } from 'sonner'
 import { tourDepartureApi } from '../../../services/tourDepartureApi'
-import adminGuideReplacementRequestApi from '../../../services/adminGuideReplacementRequestApi'
+import adminGuideReplacementRequestApi, { normalizeItems } from '../../../services/adminGuideReplacementRequestApi'
 import TourDepartureTable from '../../../components/admin/tourDepartures/TourDepartureTable'
 import { GuideAssignmentPanel } from './GuideAssignmentPage.jsx'
 import TourDepartureBookingModal from '../../../components/admin/tourDepartures/TourDepartureBookingModal.jsx'
 import { confirmAction } from '../../../components/common/AppConfirmDialog.jsx'
+import AdminGuideReplacementRequestsPanel from '../../../components/admin/guides/AdminGuideReplacementRequestsPanel.jsx'
+import '../../../styles/support-staff.css'
 
 function getArrayFromResponse(res) {
   if (Array.isArray(res?.data?.data)) return res.data.data
@@ -16,14 +19,14 @@ function getArrayFromResponse(res) {
   return []
 }
 
-function getReplacementRequestList(response) {
-  const payload = response?.data ?? response
-  const data = payload?.data ?? payload
-
-  if (Array.isArray(data?.data)) return data.data
-  if (Array.isArray(data)) return data
-
-  return []
+function normalizeTourSearch(value) {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase()
+    .trim()
 }
 
 function getTourName(tour) {
@@ -193,44 +196,6 @@ function formatReplacementDate(value) {
   })
 }
 
-function formatReplacementDateTime(value) {
-  if (!value) return '-'
-
-  const date = new Date(String(value).replace(' ', 'T'))
-
-  if (Number.isNaN(date.getTime())) return '-'
-
-  return date.toLocaleString('vi-VN', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
-function getReplacementGuideName(request) {
-  return (
-    request?.current_guide_name ||
-    request?.guide_name ||
-    request?.current_guide?.user?.full_name ||
-    request?.guide?.user?.full_name ||
-    `HDV #${request?.current_guide_id || request?.guide_id || ''}`
-  )
-}
-
-function getReplacementTourTitle(request) {
-  return (
-    request?.tour_title ||
-    request?.tour?.title ||
-    `Tour #${request?.tour_id || request?.tour_departure_id || ''}`
-  )
-}
-
-function getReplacementReason(request) {
-  return request?.reason || request?.request_reason || 'Không có lý do.'
-}
-
 export default function TourDepartureListPage() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -241,9 +206,11 @@ export default function TourDepartureListPage() {
   const [departures, setDepartures] = useState([])
   const [allDepartures, setAllDepartures] = useState([])
   const [loading, setLoading] = useState(false)
+  const [tourLoading, setTourLoading] = useState(false)
   const [replacementRequests, setReplacementRequests] = useState([])
   const [replacementPanelOpen, setReplacementPanelOpen] = useState(false)
-  const [highlightedReplacementDepartureId, setHighlightedReplacementDepartureId] = useState(null)
+  const [replacementBusyId, setReplacementBusyId] = useState(null)
+  const [showInlineReplacementPanel] = useState(false)
 
   const [activeTab, setActiveTab] = useState('departures')
   const [scheduleFilter, setScheduleFilter] = useState('upcoming')
@@ -265,13 +232,6 @@ export default function TourDepartureListPage() {
   const [detailDepartureId, setDetailDepartureId] = useState(null)
   const [detailDeparture, setDetailDeparture] = useState(null)
 
-  // Modal không duyệt yêu cầu đổi HDV
-  const [rejectModalOpen, setRejectModalOpen] = useState(false)
-  const [rejectingRequest, setRejectingRequest] = useState(null)
-  const [rejectNote, setRejectNote] = useState('')
-  const [rejectNoteError, setRejectNoteError] = useState('')
-  const [rejectSubmitting, setRejectSubmitting] = useState(false)
-
   // Card thông báo thay cho alert/prompt của trình duyệt
   const [actionNotice, setActionNotice] = useState(null)
 
@@ -282,6 +242,8 @@ export default function TourDepartureListPage() {
 
   const fetchTours = useCallback(async () => {
     try {
+      setTourLoading(true)
+
       const response = await tourDepartureApi.getTours()
       const list = getArrayFromResponse(response)
 
@@ -289,6 +251,8 @@ export default function TourDepartureListPage() {
     } catch (error) {
       console.error(error)
       toast.error(getRequestErrorMessage(error, 'Không tải được danh sách tour'))
+    } finally {
+      setTourLoading(false)
     }
   }, [])
 
@@ -368,33 +332,15 @@ export default function TourDepartureListPage() {
     }
   }, [tours, normalizeDeparturesForTour, replaceDeparturesForTour])
 
-
-const fetchReplacementRequests = useCallback(async () => {
-  try {
-    const response = await adminGuideReplacementRequestApi.list({
-      status: 'pending',
-      per_page: 100,
-    })
-
-    const list = getReplacementRequestList(response)
-
-    setReplacementRequests(list)
-
-    if (list.length > 0) {
-      setReplacementPanelOpen(true)
+  const fetchReplacementRequests = useCallback(async () => {
+    try {
+      const payload = await adminGuideReplacementRequestApi.list({ status: 'pending', per_page: 100 })
+      setReplacementRequests(normalizeItems(payload))
+    } catch (error) {
+      console.error(error)
     }
+  }, [])
 
-    window.dispatchEvent(
-      new CustomEvent('admin-guide-replacement:changed', {
-        detail: {
-          count: list.length,
-        },
-      })
-    )
-  } catch (error) {
-    console.error(error)
-  }
-}, [])
 
   const loadBookedCustomers = useCallback(async (departureId, page = 1) => {
     if (!departureId) return
@@ -437,6 +383,14 @@ const fetchReplacementRequests = useCallback(async () => {
   useEffect(() => {
     void fetchReplacementRequests()
   }, [fetchReplacementRequests])
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    if (params.get('openReplacementRequests') === '1') {
+      setReplacementPanelOpen(true)
+      void fetchReplacementRequests()
+    }
+  }, [fetchReplacementRequests, location.search])
 
   useEffect(() => {
     const state = location.state || {}
@@ -483,31 +437,6 @@ const fetchReplacementRequests = useCallback(async () => {
     navigate,
   ])
 
-
-useEffect(() => {
-  const params = new URLSearchParams(location.search)
-  const shouldOpenReplacement =
-    params.get('openReplacementRequests') === '1' ||
-    params.get('replacementRequest') === '1'
-
-  if (!shouldOpenReplacement) return
-
-  const departureId =
-    params.get('departureId') ||
-    params.get('tourDepartureId') ||
-    null
-
-  setActiveTab('departures')
-  setScheduleFilter('all')
-  setReplacementPanelOpen(true)
-
-  if (departureId) {
-    setHighlightedReplacementDepartureId(String(departureId))
-    setFocusedDepartureId(null)
-  }
-
-  void fetchReplacementRequests()
-}, [location.search, fetchReplacementRequests])
 
   const handleDelete = (departure) => {
     const item =
@@ -732,126 +661,38 @@ useEffect(() => {
   }
 
 
-const approveReplacementRequest = async (request) => {
-  const requestId = request?.id || request?.request_id
-
-  if (!requestId) return
-
-  const confirmed = await confirmAction(
-    'Hệ thống sẽ tự động tìm HDV khác đang trống lịch và phân công thay thế.',
-    { title: 'Duyệt yêu cầu đổi hướng dẫn viên', confirmLabel: 'Duyệt yêu cầu' }
-  )
-
-  if (!confirmed) return
-
-  try {
-    await adminGuideReplacementRequestApi.approve(requestId)
-    toast.success('Đã duyệt yêu cầu đổi HDV và phân công HDV thay thế.')
-    await fetchReplacementRequests()
-    await fetchDepartures(selectedTourId)
-    window.dispatchEvent(new Event('admin-notification:changed'))
-    window.dispatchEvent(new Event('admin-guide-replacement:changed'))
-    window.dispatchEvent(new Event('tourDepartureNeedAssignmentCountChanged'))
-  } catch (error) {
-    console.error(error)
-    toast.error(
-      getRequestErrorMessage(
-        error,
-        'Duyệt yêu cầu đổi HDV thất bại.'
-      )
-    )
-  }
-}
-
-const rejectReplacementRequest = (request) => {
-  const requestId = request?.id || request?.request_id
-
-  if (!requestId) {
-    setActionNotice({
-      type: 'error',
-      title: 'Không thể thực hiện',
-      message: 'Không xác định được yêu cầu đổi HDV cần xử lý.',
-    })
-    return
-  }
-
-  setRejectingRequest(request)
-  setRejectNote('')
-  setRejectNoteError('')
-  setRejectModalOpen(true)
-}
-
-const closeRejectModal = () => {
-  if (rejectSubmitting) return
-
-  setRejectModalOpen(false)
-  setRejectingRequest(null)
-  setRejectNote('')
-  setRejectNoteError('')
-}
-
-const submitRejectReplacementRequest = async () => {
-  const requestId =
-    rejectingRequest?.id || rejectingRequest?.request_id
-  const normalizedNote = rejectNote.trim()
-
-  if (!requestId) {
-    setRejectNoteError('Không xác định được yêu cầu đổi HDV.')
-    return
-  }
-
-  if (!normalizedNote) {
-    setRejectNoteError('Vui lòng nhập lý do không duyệt.')
-    return
-  }
-
-  if (normalizedNote.length < 3) {
-    setRejectNoteError('Lý do không duyệt phải có ít nhất 3 ký tự.')
-    return
-  }
-
-  try {
-    setRejectSubmitting(true)
-    setRejectNoteError('')
-
-    await adminGuideReplacementRequestApi.reject(requestId, {
-      admin_note: normalizedNote,
-    })
-
-    setRejectModalOpen(false)
-    setRejectingRequest(null)
-    setRejectNote('')
-
-    setActionNotice({
-      type: 'success',
-      title: 'Đã không duyệt yêu cầu',
-      message:
-        'Yêu cầu đổi HDV đã bị từ chối và lý do đã được gửi lại cho hướng dẫn viên.',
-    })
-
-    await fetchReplacementRequests()
-    await fetchDepartures(selectedTourId)
-
-    window.dispatchEvent(new Event('admin-notification:changed'))
-    window.dispatchEvent(new Event('admin-guide-replacement:changed'))
-    window.dispatchEvent(new Event('tourDepartureNeedAssignmentCountChanged'))
-  } catch (error) {
-    console.error(error)
-
-    setRejectNoteError(
-      getRequestErrorMessage(
-        error,
-        'Từ chối yêu cầu đổi HDV thất bại.'
-      )
-    )
-  } finally {
-    setRejectSubmitting(false)
-  }
-}
-
   const selectedTour = tours.find(
     (tour) => String(tour.id) === String(selectedTourId)
   )
+
+  const decideReplacementRequest = async (request, status) => {
+    const requestId = request?.id || request?.request_id
+    if (!requestId) return
+
+    const message = status === 'approved'
+      ? 'Hệ thống sẽ tự tìm và phân công HDV thay thế.'
+      : 'Bạn có chắc muốn không chấp nhận yêu cầu đổi HDV này?'
+    const confirmed = await confirmAction(message, {
+      title: status === 'approved' ? 'Chấp nhận đơn đổi HDV' : 'Không chấp nhận đơn đổi HDV',
+      confirmLabel: status === 'approved' ? 'Chấp nhận' : 'Không chấp nhận',
+      tone: status === 'approved' ? 'primary' : 'danger',
+    })
+    if (!confirmed) return
+
+    setReplacementBusyId(requestId)
+    try {
+      if (status === 'approved') await adminGuideReplacementRequestApi.approve(requestId)
+      else await adminGuideReplacementRequestApi.reject(requestId, { admin_note: 'Yêu cầu không được chấp nhận.' })
+      await fetchReplacementRequests()
+      await fetchDepartures(selectedTourId)
+      window.dispatchEvent(new Event('admin-guide-replacement:changed'))
+      window.dispatchEvent(new Event('admin-notification:changed'))
+    } catch (error) {
+      toast.error(getRequestErrorMessage(error, 'Cập nhật yêu cầu đổi HDV thất bại.'))
+    } finally {
+      setReplacementBusyId(null)
+    }
+  }
 
   const assignmentWarningCount = useMemo(() => {
     return countNeedAssignment(allDepartures)
@@ -876,6 +717,62 @@ const submitRejectReplacementRequest = async () => {
 
     return map
   }, [allDepartures])
+
+
+  const tourOptions = useMemo(() => {
+    const options = tours
+      .map((tour) => {
+        const tourName = getTourName(tour)
+        const warningCount =
+          tourAssignmentWarningCounts.get(String(tour.id)) || 0
+
+        return {
+          value: String(tour.id),
+          label: tourName,
+          tourName,
+          tourId: tour.id,
+          warningCount,
+          searchText: normalizeTourSearch(`${tourName} ${tour.id}`),
+          isAllToursOption: false,
+        }
+      })
+      .sort((first, second) =>
+        first.tourName.localeCompare(second.tourName, 'vi')
+      )
+
+    return [
+      {
+        value: '',
+        label: 'Tất cả tour',
+        tourName: 'Tất cả tour',
+        warningCount: assignmentWarningCount,
+        searchText: 'tat ca tour',
+        isAllToursOption: true,
+      },
+      ...options,
+    ]
+  }, [
+    assignmentWarningCount,
+    tourAssignmentWarningCounts,
+    tours,
+  ])
+
+  const selectedTourOption =
+    tourOptions.find(
+      (option) => option.value === String(selectedTourId)
+    ) || tourOptions[0]
+
+  const handleSelectTour = (option) => {
+    setSelectedTourId(option?.value ?? '')
+    clearFieldError('selectedTourId')
+    setFocusedDepartureId(null)
+    setActiveTab('departures')
+    setScheduleFilter('upcoming')
+  }
+
+  const resetTourFilter = () => {
+    handleSelectTour(tourOptions[0])
+  }
 
   function clearFieldError(fieldName) {
     setFieldErrors((current) => {
@@ -915,10 +812,6 @@ const submitRejectReplacementRequest = async () => {
         'tourDepartureNeedAssignmentOnlyCount',
         String(assignmentWarningCount)
       )
-      window.localStorage.setItem(
-        'tourDepartureReplacementRequestCount',
-        String(replacementRequests.length)
-      )
     } catch (error) {
       console.error(error)
     }
@@ -948,175 +841,294 @@ const submitRejectReplacementRequest = async () => {
           </p>
         </div>
 
-        <Link
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setReplacementPanelOpen(true)}
+            className="relative inline-flex h-10 items-center justify-center rounded-lg border border-orange-200 bg-orange-50 px-4 text-sm font-bold text-orange-700 shadow-sm transition hover:bg-orange-100"
+          >
+            Đơn đổi HDV
+            {replacementRequests.length > 0 ? (
+              <span className="ml-2 rounded-full bg-orange-600 px-1.5 py-0.5 text-[11px] font-black text-white">
+                {replacementRequests.length > 99 ? '99+' : replacementRequests.length}
+              </span>
+            ) : null}
+          </button>
+
+          <Link
           to={`/admin/tour-departures/create?tourId=${selectedTourId}`}
           onClick={(event) => {
             if (!validateBeforeCreateDeparture()) {
               event.preventDefault()
             }
           }}
-          className="inline-flex h-10 items-center justify-center rounded-lg bg-blue-600 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700"
-        >
-          + Thêm lịch khởi hành
-        </Link>
-      </div>
-
-      <div className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="mb-3">
-          <label className="text-sm font-medium text-slate-700">
-            Chọn tour
-          </label>
-
-          <p className="mt-1 text-sm text-slate-500">
-            {selectedTour
-              ? `Đang lọc theo tour: ${getTourName(selectedTour)}`
-              : 'Đang xem: Tất cả lịch khởi hành.'}
-
-            {assignmentWarningCount > 0 ? (
-              <span className="ml-2 inline-flex rounded-full bg-rose-50 px-2 py-0.5 text-xs font-black text-rose-700 ring-1 ring-rose-100">
-                {assignmentWarningCount} lịch sắp tới/đang diễn ra chưa phân công
-              </span>
-            ) : null}
-          </p>
-        </div>
-
-        <select
-          value={selectedTourId}
-          onChange={(event) => {
-            setSelectedTourId(event.target.value)
-            clearFieldError('selectedTourId')
-            setFocusedDepartureId(null)
-            setActiveTab('departures')
-            setScheduleFilter('upcoming')
-          }}
-          className={`h-11 w-full rounded-lg border bg-white px-3 text-sm outline-none transition focus:ring-2 ${
-            fieldErrors.selectedTourId
-              ? 'border-rose-500 bg-rose-50/40 text-rose-900 focus:border-rose-500 focus:ring-rose-100'
-              : 'border-slate-300 text-slate-800 focus:border-blue-500 focus:ring-blue-100'
+          aria-disabled={!selectedTourId}
+          title={
+            selectedTourId
+              ? 'Thêm lịch khởi hành cho tour đã chọn'
+              : 'Vui lòng chọn tour trước khi thêm lịch khởi hành'
+          }
+          className={`inline-flex h-10 items-center justify-center rounded-lg px-4 text-sm font-bold text-white shadow-sm transition ${
+            selectedTourId
+              ? 'bg-blue-600 hover:bg-blue-700'
+              : 'cursor-not-allowed bg-blue-400'
           }`}
         >
-          <option value="">
-            {assignmentWarningCount > 0
-              ? `-- Tất cả tour -- (${assignmentWarningCount} chưa phân công)`
-              : '-- Tất cả tour --'}
-          </option>
-
-          {tours.map((tour) => {
-            const warningCount = tourAssignmentWarningCounts.get(String(tour.id)) || 0
-
-            return (
-              <option key={tour.id} value={tour.id}>
-                {warningCount > 0
-                  ? `${getTourName(tour)} (${warningCount} chưa phân công)`
-                  : getTourName(tour)}
-              </option>
-            )
-          })}
-        </select>
-        <FieldError message={fieldErrors.selectedTourId} />
-      </div>
-
-
-{replacementRequests.length > 0 ? (
-  <div className="mb-5 rounded-2xl border border-orange-200 bg-orange-50 text-orange-950 shadow-sm">
-    <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-      <div>
-        <p className="text-sm font-black uppercase tracking-wide text-orange-700">
-          Yêu cầu đổi HDV
-        </p>
-        <h3 className="mt-1 text-lg font-black">
-          Có {replacementRequests.length} yêu cầu đổi HDV đang chờ duyệt
-        </h3>
-        <p className="mt-1 text-sm text-orange-700">
-          Các yêu cầu được gom vào danh sách bên dưới. Lý do, bằng chứng và nút Duyệt / Không duyệt nằm trong danh sách này.
-        </p>
-      </div>
-
-      <button
-        type="button"
-        onClick={() => {
-          setReplacementPanelOpen((current) => !current)
-          setActiveTab('departures')
-          setScheduleFilter('all')
-        }}
-        className="rounded-xl bg-orange-600 px-4 py-2 text-sm font-black text-white transition hover:bg-orange-700"
-      >
-        {replacementPanelOpen ? 'Ẩn yêu cầu' : 'Xem yêu cầu'}
-      </button>
-    </div>
-
-    {replacementPanelOpen ? (
-      <div className="border-t border-orange-200 bg-white/60 px-5 py-4">
-        <div className="grid gap-3">
-          {replacementRequests.map((request) => (
-            <article
-              key={request.id || request.request_id}
-              className="rounded-2xl border border-orange-200 bg-white p-4 shadow-sm"
-            >
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-full bg-orange-100 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-orange-700 ring-1 ring-orange-200">
-                      Chờ duyệt đổi HDV
-                    </span>
-                    <span className="text-xs font-semibold text-slate-500">
-                      Gửi lúc {formatReplacementDateTime(request.created_at)}
-                    </span>
-                  </div>
-
-                  <h4 className="mt-2 text-base font-black text-slate-950">
-                    {getReplacementTourTitle(request)}
-                  </h4>
-
-                  <p className="mt-1 text-sm font-semibold text-slate-600">
-                    HDV yêu cầu: {getReplacementGuideName(request)} · Ngày đi {formatReplacementDate(request.departure_date)} · Ngày về {formatReplacementDate(request.return_date || request.departure_date)}
-                  </p>
-
-                  <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                    <p className="text-xs font-black uppercase tracking-wide text-slate-500">
-                      Lý do
-                    </p>
-                    <p className="mt-1 whitespace-pre-line text-sm leading-6 text-slate-800">
-                      {getReplacementReason(request)}
-                    </p>
-                  </div>
-
-                  {request.evidence_path ? (
-                    <a
-                      href={`/storage/${request.evidence_path}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-2 inline-flex text-sm font-bold text-blue-700 hover:text-blue-800"
-                    >
-                      Xem bằng chứng
-                    </a>
-                  ) : null}
-                </div>
-
-                <div className="flex shrink-0 flex-wrap gap-2 lg:justify-end">
-                  <button
-                    type="button"
-                    onClick={() => approveReplacementRequest(request)}
-                    className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-black text-white transition hover:bg-emerald-700"
-                  >
-                    Chấp nhận
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => rejectReplacementRequest(request)}
-                    className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-black text-white transition hover:bg-rose-700"
-                  >
-                    Không chấp nhận
-                  </button>
-                </div>
-              </div>
-            </article>
-          ))}
+          + Thêm lịch khởi hành
+          </Link>
         </div>
       </div>
-    ) : null}
-  </div>
-) : null}
+
+      <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
+          <div className="min-w-0 flex-1">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <label
+                  htmlFor="tour-departure-tour-filter"
+                  className="text-sm font-bold text-slate-800"
+                >
+                  Tìm và chọn tour
+                </label>
+                <p className="mt-1 text-xs leading-5 text-slate-500">
+                  Có thể tìm theo tên tour, địa điểm hoặc mã tour. Hỗ trợ tìm không dấu.
+                </p>
+              </div>
+
+              {assignmentWarningCount > 0 ? (
+                <span className="inline-flex rounded-full bg-rose-50 px-2.5 py-1 text-xs font-black text-rose-700 ring-1 ring-rose-100">
+                  {assignmentWarningCount} lịch chưa phân công HDV
+                </span>
+              ) : null}
+            </div>
+
+            <Select
+              inputId="tour-departure-tour-filter"
+              aria-label="Tìm và chọn tour"
+              value={selectedTourOption}
+              options={tourOptions}
+              isSearchable
+              isClearable={Boolean(selectedTourId)}
+              isLoading={tourLoading}
+              placeholder="Nhập tên tour, địa điểm hoặc mã tour..."
+              noOptionsMessage={({ inputValue }) =>
+                inputValue
+                  ? `Không tìm thấy tour phù hợp với “${inputValue}”`
+                  : 'Không có tour để hiển thị'
+              }
+              loadingMessage={() => 'Đang tải danh sách tour...'}
+              maxMenuHeight={320}
+              menuPlacement="auto"
+              captureMenuScroll
+              filterOption={(candidate, inputValue) => {
+                const keyword = normalizeTourSearch(inputValue)
+
+                if (!keyword) return true
+                if (candidate.data.isAllToursOption) return false
+
+                return candidate.data.searchText.includes(keyword)
+              }}
+              formatOptionLabel={(option, meta) => {
+                const showDetail = meta.context === 'menu'
+
+                return (
+                  <div className="flex min-w-0 items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold text-inherit">
+                        {option.tourName}
+                      </p>
+
+                      {showDetail && !option.isAllToursOption ? (
+                        <p
+                          className={`mt-0.5 text-xs ${
+                            meta.selectValue?.some(
+                              (item) => item.value === option.value
+                            )
+                              ? 'text-blue-100'
+                              : 'text-slate-400'
+                          }`}
+                        >
+                          Mã tour: #{option.tourId}
+                        </p>
+                      ) : null}
+                    </div>
+
+                    {option.warningCount > 0 ? (
+                      <span
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-black ${
+                          meta.context === 'menu' &&
+                          meta.selectValue?.some(
+                            (item) => item.value === option.value
+                          )
+                            ? 'bg-white/20 text-white'
+                            : 'bg-rose-50 text-rose-700 ring-1 ring-rose-100'
+                        }`}
+                      >
+                        {option.warningCount} chưa phân công
+                      </span>
+                    ) : null}
+                  </div>
+                )
+              }}
+              onChange={handleSelectTour}
+              styles={{
+                control: (base, state) => ({
+                  ...base,
+                  minHeight: 46,
+                  borderRadius: 12,
+                  borderColor: fieldErrors.selectedTourId
+                    ? '#f43f5e'
+                    : state.isFocused
+                      ? '#3b82f6'
+                      : '#cbd5e1',
+                  backgroundColor: fieldErrors.selectedTourId
+                    ? 'rgba(255, 241, 242, 0.45)'
+                    : '#ffffff',
+                  boxShadow: state.isFocused
+                    ? fieldErrors.selectedTourId
+                      ? '0 0 0 4px rgba(255, 228, 230, 1)'
+                      : '0 0 0 4px rgba(219, 234, 254, 1)'
+                    : 'none',
+                  cursor: 'text',
+                  '&:hover': {
+                    borderColor: fieldErrors.selectedTourId
+                      ? '#f43f5e'
+                      : '#3b82f6',
+                  },
+                }),
+                valueContainer: (base) => ({
+                  ...base,
+                  paddingLeft: 14,
+                  paddingRight: 8,
+                }),
+                input: (base) => ({
+                  ...base,
+                  color: '#1e293b',
+                  fontSize: 14,
+                }),
+                singleValue: (base) => ({
+                  ...base,
+                  color: fieldErrors.selectedTourId ? '#881337' : '#1e293b',
+                  fontSize: 14,
+                }),
+                placeholder: (base) => ({
+                  ...base,
+                  color: '#94a3b8',
+                  fontSize: 14,
+                }),
+                clearIndicator: (base) => ({
+                  ...base,
+                  color: '#94a3b8',
+                  cursor: 'pointer',
+                  '&:hover': { color: '#475569' },
+                }),
+                dropdownIndicator: (base, state) => ({
+                  ...base,
+                  color: state.isFocused ? '#2563eb' : '#64748b',
+                  cursor: 'pointer',
+                }),
+                indicatorSeparator: (base) => ({
+                  ...base,
+                  backgroundColor: '#e2e8f0',
+                }),
+                menu: (base) => ({
+                  ...base,
+                  zIndex: 80,
+                  overflow: 'hidden',
+                  borderRadius: 14,
+                  border: '1px solid #e2e8f0',
+                  boxShadow:
+                    '0 18px 45px -15px rgba(15, 23, 42, 0.30)',
+                }),
+                menuList: (base) => ({
+                  ...base,
+                  paddingTop: 6,
+                  paddingBottom: 6,
+                }),
+                option: (base, state) => ({
+                  ...base,
+                  margin: '2px 6px',
+                  width: 'calc(100% - 12px)',
+                  borderRadius: 10,
+                  padding: '10px 12px',
+                  fontSize: 14,
+                  cursor: 'pointer',
+                  backgroundColor: state.isSelected
+                    ? '#2563eb'
+                    : state.isFocused
+                      ? '#eff6ff'
+                      : '#ffffff',
+                  color: state.isSelected ? '#ffffff' : '#1e293b',
+                  '&:active': {
+                    backgroundColor: state.isSelected ? '#1d4ed8' : '#dbeafe',
+                  },
+                }),
+                noOptionsMessage: (base) => ({
+                  ...base,
+                  padding: 18,
+                  color: '#64748b',
+                  fontSize: 14,
+                }),
+              }}
+            />
+
+            <FieldError message={fieldErrors.selectedTourId} />
+          </div>
+
+          <button
+            type="button"
+            onClick={resetTourFilter}
+            disabled={!selectedTourId}
+            className="inline-flex h-[46px] shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-45 lg:min-w-28"
+          >
+            Đặt lại
+          </button>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4">
+          <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+            Đang xem
+          </span>
+
+          {selectedTour ? (
+            <button
+              type="button"
+              onClick={resetTourFilter}
+              className="inline-flex max-w-full items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 text-sm font-bold text-blue-700 ring-1 ring-blue-100 transition hover:bg-blue-100"
+              title="Bỏ lọc tour"
+            >
+              <span className="truncate">{getTourName(selectedTour)}</span>
+              <span aria-hidden="true" className="text-base leading-none">
+                ×
+              </span>
+            </button>
+          ) : (
+            <span className="inline-flex rounded-full bg-slate-100 px-3 py-1.5 text-sm font-bold text-slate-600">
+              Tất cả lịch khởi hành
+            </span>
+          )}
+        </div>
+      </div>
+
+      {showInlineReplacementPanel && replacementRequests.length > 0 ? (
+        <section className="mb-5 rounded-2xl border border-orange-200 bg-orange-50 text-orange-950 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+            <div>
+              <p className="text-sm font-black uppercase tracking-wide text-orange-700">Yêu cầu đổi HDV</p>
+              <h3 className="mt-1 text-lg font-black">Có {replacementRequests.length} yêu cầu đang chờ duyệt</h3>
+            </div>
+            <button type="button" onClick={() => setReplacementPanelOpen((current) => !current)} className="rounded-xl bg-orange-600 px-4 py-2 text-sm font-black text-white hover:bg-orange-700">
+              {replacementPanelOpen ? 'Ẩn yêu cầu' : 'Xem yêu cầu'}
+            </button>
+          </div>
+          {replacementPanelOpen ? <div className="grid gap-3 border-t border-orange-200 bg-white/60 px-5 py-4">{replacementRequests.map((request) => {
+            const id = request.id || request.request_id
+            const guideName = request.current_guide_name || request.guide_name || request.current_guide?.user?.full_name || request.guide?.user?.full_name || `HDV #${request.current_guide_id || request.guide_id || ''}`
+            const tourTitle = request.tour_title || request.tour?.title || `Tour #${request.tour_id || request.tour_departure_id || ''}`
+            return <article key={id} className="rounded-2xl border border-orange-200 bg-white p-4 shadow-sm"><div className="flex flex-col gap-3 lg:flex-row lg:justify-between"><div><span className="rounded-full bg-orange-100 px-2.5 py-1 text-[11px] font-black uppercase text-orange-700">Chờ duyệt đổi HDV</span><h4 className="mt-3 text-base font-black text-slate-950">{tourTitle}</h4><p className="mt-1 text-sm font-semibold text-slate-600">HDV yêu cầu: {guideName} · Ngày đi {formatReplacementDate(request.departure_date)} · Ngày về {formatReplacementDate(request.return_date || request.departure_date)}</p><div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2"><p className="text-xs font-black uppercase text-slate-500">Lý do</p><p className="mt-1 text-sm text-slate-800">{request.reason || request.request_reason || 'Không có lý do.'}</p></div>{request.evidence_path ? <a href={`/storage/${request.evidence_path}`} target="_blank" rel="noreferrer" className="mt-2 inline-flex text-sm font-bold text-blue-700">Xem bằng chứng</a> : null}</div><div className="flex shrink-0 flex-wrap gap-2"><button type="button" disabled={replacementBusyId === id} onClick={() => decideReplacementRequest(request, 'approved')} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-black text-white disabled:opacity-60">Chấp nhận</button><button type="button" disabled={replacementBusyId === id} onClick={() => decideReplacementRequest(request, 'rejected')} className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-black text-white disabled:opacity-60">Không chấp nhận</button></div></div></article>
+          })}</div> : null}
+        </section>
+      ) : null}
 
       <TourDepartureTable
         departures={departures}
@@ -1133,10 +1145,6 @@ const submitRejectReplacementRequest = async () => {
         assignmentWarningCount={assignmentWarningCount}
         newDepartureIds={newDepartureIds}
         newAssignmentDepartureIds={newAssignmentDepartureIds}
-        replacementRequests={replacementRequests}
-        highlightedReplacementDepartureId={highlightedReplacementDepartureId}
-        onApproveReplacementRequest={approveReplacementRequest}
-        onRejectReplacementRequest={rejectReplacementRequest}
         guideContent={
           <GuideAssignmentPanel
             embedded
@@ -1147,6 +1155,27 @@ const submitRejectReplacementRequest = async () => {
           />
         }
       />
+
+      {replacementPanelOpen ? (
+        <div
+          className="admin-guide-leave-card-backdrop"
+          role="presentation"
+          onMouseDown={() => setReplacementPanelOpen(false)}
+        >
+          <div
+            className="admin-guide-leave-card-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Quản lý đơn đổi HDV"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <AdminGuideReplacementRequestsPanel
+              open={replacementPanelOpen}
+              onClose={() => setReplacementPanelOpen(false)}
+            />
+          </div>
+        </div>
+      ) : null}
 
       {focusedDepartureId ? (
         <div
@@ -1281,7 +1310,7 @@ const submitRejectReplacementRequest = async () => {
         </div>
       ) : null}
 
-      {rejectModalOpen ? (
+      {/*
         <div
           className="fixed inset-0 z-[1200] flex items-center justify-center bg-slate-950/55 px-4 py-8 backdrop-blur-sm"
           onMouseDown={(event) => {
@@ -1411,7 +1440,7 @@ const submitRejectReplacementRequest = async () => {
             </div>
           </section>
         </div>
-      ) : null}
+      */}
 
       {actionNotice ? (
         <div className="fixed inset-0 z-[1300] flex items-center justify-center bg-slate-950/45 px-4 py-8 backdrop-blur-sm">

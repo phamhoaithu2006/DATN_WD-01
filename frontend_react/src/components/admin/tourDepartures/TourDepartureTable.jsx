@@ -368,35 +368,35 @@ function isAssignmentWarningTarget(departure) {
   return ['upcoming', 'ongoing'].includes(getDepartureTimeGroup(departure))
 }
 
-function compareDepartureDateNewestFirst(a, b) {
+function compareDepartureDateNearestFirst(a, b) {
   const aDate = getDateKey(a?.departure_date) || '0000-00-00'
   const bDate = getDateKey(b?.departure_date) || '0000-00-00'
 
-  /* Ngày lớn hơn nằm trên, ngày thấp/cũ hơn tự xuống cuối danh sách. */
+  /* Lịch khởi hành gần hơn được ưu tiên hiển thị ở đầu danh sách. */
   if (aDate !== bDate) {
-    return bDate.localeCompare(aDate)
+    return aDate.localeCompare(bDate)
   }
 
   const aReturnDate = getDateKey(a?.return_date) || aDate
   const bReturnDate = getDateKey(b?.return_date) || bDate
 
   if (aReturnDate !== bReturnDate) {
-    return bReturnDate.localeCompare(aReturnDate)
+    return aReturnDate.localeCompare(bReturnDate)
   }
 
   const aCreatedAt = getDateKey(a?.created_at) || '0000-00-00'
   const bCreatedAt = getDateKey(b?.created_at) || '0000-00-00'
 
   if (aCreatedAt !== bCreatedAt) {
-    return bCreatedAt.localeCompare(aCreatedAt)
+    return aCreatedAt.localeCompare(bCreatedAt)
   }
 
-  return Number(b?.id || 0) - Number(a?.id || 0)
+  return Number(a?.id || 0) - Number(b?.id || 0)
 }
 
 function sortByAssignmentState(items = []) {
   return [...items].sort((a, b) => {
-    const dateCompare = compareDepartureDateNewestFirst(a, b)
+    const dateCompare = compareDepartureDateNearestFirst(a, b)
 
     if (dateCompare !== 0) {
       return dateCompare
