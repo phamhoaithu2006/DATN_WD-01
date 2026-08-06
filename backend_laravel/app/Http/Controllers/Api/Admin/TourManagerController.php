@@ -26,12 +26,43 @@ class TourManagerController extends Controller
 
         //  1. ADMIN TÌM KIẾM: Theo tiêu đề tour (title)
         if ($request->has('search') && $request->search != '') {
-            $query->where('title', 'LIKE', '%'.$request->search.'%');
+            $search = $request->search;
+            $query->where(function ($searchQuery) use ($search) {
+                $searchQuery->where('title', 'LIKE', '%'.$search.'%')
+                    ->orWhere('summary', 'LIKE', '%'.$search.'%')
+                    ->orWhereHas('category', fn ($categoryQuery) =>
+                        $categoryQuery->where('name', 'LIKE', '%'.$search.'%')
+                    )
+                    ->orWhereHas('destination', fn ($destinationQuery) =>
+                        $destinationQuery->where('name', 'LIKE', '%'.$search.'%')
+                    );
+            });
         }
 
         //  2. ADMIN LỌC TRẠNG THÁI: Lọc nhanh theo 'draft', 'published', 'cancelled'
         if ($request->has('status') && $request->status != '') {
             $query->where('status', $request->status);
+        }
+
+        if ($request->filled('category')) {
+            $query->whereHas('category', fn ($categoryQuery) =>
+                $categoryQuery->where('name', $request->string('category')->toString())
+            );
+        }
+
+        if ($request->filled('destination')) {
+            $query->whereHas('destination', fn ($destinationQuery) =>
+                $destinationQuery->where('name', $request->string('destination')->toString())
+            );
+        }
+
+        if ($request->filled('duration')) {
+            match ($request->string('duration')->toString()) {
+                '1-2' => $query->whereBetween('duration_days', [1, 2]),
+                '3-5' => $query->whereBetween('duration_days', [3, 5]),
+                '6+' => $query->where('duration_days', '>=', 6),
+                default => null,
+            };
         }
 
         //  3. ADMIN LỌC KHOẢNG GIÁ: Lọc theo khoảng giá base_price
@@ -47,7 +78,7 @@ class TourManagerController extends Controller
         $perPage = min(max((int) $request->input('per_page', 10), 1), 1000);
 
         // Sắp xếp theo ID tăng dần để STT hiển thị từ bé đến lớn
-        $tours = $query->orderBy('id', 'asc')->paginate($perPage);
+        $tours = $query->latest('created_at')->orderByDesc('id')->paginate($perPage);
         $tours->getCollection()->transform(fn ($tour) => (new TourResource($tour))->resolve($request));
 
         return response()->json([

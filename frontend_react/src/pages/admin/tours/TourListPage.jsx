@@ -216,15 +216,9 @@ const getTourStatusConfig = (status) => {
   )
 }
 
-const normalizeSearchText = (value) => {
-  return String(value || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-}
-
 function TourListPage() {
   const [tours, setTours] = useState([])
+  const [pagination, setPagination] = useState({ currentPage: 1, lastPage: 1, total: 0 })
   const [loading, setLoading] = useState(true)
   const [keyword, setKeyword] = useState('')
   const [searchValue, setSearchValue] = useState('')
@@ -253,34 +247,29 @@ function TourListPage() {
     return []
   }
 
-  const getLastPage = (res) => {
-    const paginator = res?.data
-    const lastPage = Number(paginator?.last_page || 1)
-
-    return Number.isInteger(lastPage) && lastPage > 0 ? lastPage : 1
-  }
-
-  const fetchTours = useCallback(async () => {
+  const fetchTours = useCallback(async (page = 1) => {
     try {
       setLoading(true)
 
-      const firstPageResponse = await tourApi.getAll({ page: 1 })
-      const lastPage = getLastPage(firstPageResponse.data)
-      const remainingPageRequests = Array.from(
-        { length: Math.max(lastPage - 1, 0) },
-        (_, index) => tourApi.getAll({ page: index + 2 }),
-      )
-      const remainingPageResponses = await Promise.all(remainingPageRequests)
-      const data = [firstPageResponse, ...remainingPageResponses]
-        .flatMap((response) => getData(response.data))
-        .filter(
-          (tour, index, allTours) =>
-            allTours.findIndex((item) => item.id === tour.id) === index,
-        )
+      const response = await tourApi.getAll({
+        page,
+        per_page: 10,
+        search: keyword || undefined,
+        ...Object.fromEntries(
+          Object.entries(appliedFilters).filter(([, value]) => value),
+        ),
+      })
+      const paginator = response.data?.data || {}
+      const data = getData(response.data)
 
       console.log('TOURS API:', data)
 
       setTours(data)
+      setPagination({
+        currentPage: Number(paginator.current_page || 1),
+        lastPage: Number(paginator.last_page || 1),
+        total: Number(paginator.total || data.length),
+      })
     } catch (e) {
       console.error('GET TOURS ERROR:', e)
       setTours([])
@@ -291,7 +280,7 @@ function TourListPage() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [keyword, appliedFilters])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -475,41 +464,7 @@ function TourListPage() {
     setAppliedFilters(emptyFilters)
   }
 
-  const filtered = useMemo(() => {
-    const normalizedKeyword = normalizeSearchText(keyword)
-
-    return tours.filter((tour) => {
-      const status = String(tour.status || '').trim().toLowerCase()
-      const category = getCategoryName(tour)
-      const destination = getDestinationName(tour)
-      const days = Number(tour.duration_days || 0)
-      const statusLabel = getTourStatusConfig(status).label
-      const haystack = `${tour.title || ''} ${tour.summary || ''} ${status} ${statusLabel} ${category} ${destination}`
-
-      const matchesKeyword =
-        !normalizedKeyword ||
-        normalizeSearchText(haystack).includes(normalizedKeyword)
-      const matchesStatus =
-        !appliedFilters.status || status === appliedFilters.status
-      const matchesCategory =
-        !appliedFilters.category || category === appliedFilters.category
-      const matchesDestination =
-        !appliedFilters.destination || destination === appliedFilters.destination
-
-      let matchesDuration = true
-      if (appliedFilters.duration === '1-2') matchesDuration = days >= 1 && days <= 2
-      if (appliedFilters.duration === '3-5') matchesDuration = days >= 3 && days <= 5
-      if (appliedFilters.duration === '6+') matchesDuration = days >= 6
-
-      return (
-        matchesKeyword &&
-        matchesStatus &&
-        matchesCategory &&
-        matchesDestination &&
-        matchesDuration
-      )
-    })
-  }, [tours, keyword, appliedFilters])
+  const filtered = tours
 
   return (
     <div className="min-h-full bg-slate-50/70 px-8 py-8">
@@ -706,13 +661,13 @@ function TourListPage() {
             </h2>
 
             <span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-medium text-sky-600">
-              {filtered.length} tour
+              {pagination.total} tour
             </span>
           </div>
 
           <button
             type="button"
-            onClick={fetchTours}
+            onClick={() => fetchTours(pagination.currentPage)}
             className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-sky-100 bg-sky-50 text-sky-600 transition hover:border-sky-200 hover:bg-sky-100"
             title="Tải lại dữ liệu"
           >
@@ -878,6 +833,44 @@ function TourListPage() {
             </tbody>
           </table>
         </div>
+
+        {!loading && pagination.lastPage > 1 && (
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-5">
+            <p className="text-sm text-slate-500">
+              Trang {pagination.currentPage} / {pagination.lastPage} · {pagination.total} tour
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={pagination.currentPage <= 1}
+                onClick={() => fetchTours(pagination.currentPage - 1)}
+                className="h-9 rounded-lg border border-slate-200 px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Trước
+              </button>
+              {Array.from({ length: pagination.lastPage }, (_, index) => index + 1)
+                .filter((page) => Math.abs(page - pagination.currentPage) <= 2)
+                .map((page) => (
+                  <button
+                    key={page}
+                    type="button"
+                    onClick={() => fetchTours(page)}
+                    className={`h-9 min-w-9 rounded-lg px-3 text-sm font-medium transition ${page === pagination.currentPage ? 'bg-sky-500 text-white' : 'border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                  >
+                    {page}
+                  </button>
+                ))}
+              <button
+                type="button"
+                disabled={pagination.currentPage >= pagination.lastPage}
+                onClick={() => fetchTours(pagination.currentPage + 1)}
+                className="h-9 rounded-lg border border-slate-200 px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Sau
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {toast && (
