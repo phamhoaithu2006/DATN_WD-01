@@ -175,16 +175,6 @@ function unwrapList(response) {
 }
 
 
-function unwrapReplacementList(response) {
-  const payload = response?.data ?? response
-  const data = payload?.data ?? payload
-
-  if (Array.isArray(data?.data)) return data.data
-  if (Array.isArray(data)) return data
-
-  return []
-}
-
 function getDateKey(value) {
   if (!value) return ''
 
@@ -325,17 +315,12 @@ function AdminSidebar({
       let replacementRequestCount = 0
 
       try {
-        const replacementResponse = await adminGuideReplacementRequestApi.list({
-          status: 'pending',
-          per_page: 100,
-        })
-
-        replacementRequestCount = unwrapReplacementList(replacementResponse).length
+        replacementRequestCount = await adminGuideReplacementRequestApi.getPendingCount()
       } catch (replacementError) {
         console.error(replacementError)
       }
 
-      setInternalWarningCount(assignmentCount + replacementRequestCount)
+      setInternalWarningCount(assignmentCount + Number(replacementRequestCount || 0))
     } catch (error) {
       console.error(error)
       setInternalWarningCount(0)

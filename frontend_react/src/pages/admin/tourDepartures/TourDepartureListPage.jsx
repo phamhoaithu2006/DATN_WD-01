@@ -3,26 +3,18 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import Select from 'react-select'
 import { toast } from 'sonner'
 import { tourDepartureApi } from '../../../services/tourDepartureApi'
-import adminGuideReplacementRequestApi from '../../../services/adminGuideReplacementRequestApi'
+import adminGuideReplacementRequestApi, { normalizeItems } from '../../../services/adminGuideReplacementRequestApi'
 import TourDepartureTable from '../../../components/admin/tourDepartures/TourDepartureTable'
 import { GuideAssignmentPanel } from './GuideAssignmentPage.jsx'
 import TourDepartureBookingModal from '../../../components/admin/tourDepartures/TourDepartureBookingModal.jsx'
 import { confirmAction } from '../../../components/common/AppConfirmDialog.jsx'
+import AdminGuideReplacementRequestsPanel from '../../../components/admin/guides/AdminGuideReplacementRequestsPanel.jsx'
+import '../../../styles/support-staff.css'
 
 function getArrayFromResponse(res) {
   if (Array.isArray(res?.data?.data)) return res.data.data
   if (Array.isArray(res?.data?.data?.data)) return res.data.data.data
   if (Array.isArray(res?.data)) return res.data
-
-  return []
-}
-
-function getReplacementRequestList(response) {
-  const payload = response?.data ?? response
-  const data = payload?.data ?? payload
-
-  if (Array.isArray(data?.data)) return data.data
-  if (Array.isArray(data)) return data
 
   return []
 }
@@ -204,44 +196,6 @@ function formatReplacementDate(value) {
   })
 }
 
-function formatReplacementDateTime(value) {
-  if (!value) return '-'
-
-  const date = new Date(String(value).replace(' ', 'T'))
-
-  if (Number.isNaN(date.getTime())) return '-'
-
-  return date.toLocaleString('vi-VN', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
-function getReplacementGuideName(request) {
-  return (
-    request?.current_guide_name ||
-    request?.guide_name ||
-    request?.current_guide?.user?.full_name ||
-    request?.guide?.user?.full_name ||
-    `HDV #${request?.current_guide_id || request?.guide_id || ''}`
-  )
-}
-
-function getReplacementTourTitle(request) {
-  return (
-    request?.tour_title ||
-    request?.tour?.title ||
-    `Tour #${request?.tour_id || request?.tour_departure_id || ''}`
-  )
-}
-
-function getReplacementReason(request) {
-  return request?.reason || request?.request_reason || 'Không có lý do.'
-}
-
 export default function TourDepartureListPage() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -255,7 +209,8 @@ export default function TourDepartureListPage() {
   const [tourLoading, setTourLoading] = useState(false)
   const [replacementRequests, setReplacementRequests] = useState([])
   const [replacementPanelOpen, setReplacementPanelOpen] = useState(false)
-  const [highlightedReplacementDepartureId, setHighlightedReplacementDepartureId] = useState(null)
+  const [replacementBusyId, setReplacementBusyId] = useState(null)
+  const [showInlineReplacementPanel] = useState(false)
 
   const [activeTab, setActiveTab] = useState('departures')
   const [scheduleFilter, setScheduleFilter] = useState('upcoming')
@@ -276,13 +231,6 @@ export default function TourDepartureListPage() {
   const [detailPayload, setDetailPayload] = useState(null)
   const [detailDepartureId, setDetailDepartureId] = useState(null)
   const [detailDeparture, setDetailDeparture] = useState(null)
-
-  // Modal không duyệt yêu cầu đổi HDV
-  const [rejectModalOpen, setRejectModalOpen] = useState(false)
-  const [rejectingRequest, setRejectingRequest] = useState(null)
-  const [rejectNote, setRejectNote] = useState('')
-  const [rejectNoteError, setRejectNoteError] = useState('')
-  const [rejectSubmitting, setRejectSubmitting] = useState(false)
 
   // Card thông báo thay cho alert/prompt của trình duyệt
   const [actionNotice, setActionNotice] = useState(null)
@@ -384,33 +332,15 @@ export default function TourDepartureListPage() {
     }
   }, [tours, normalizeDeparturesForTour, replaceDeparturesForTour])
 
-
-const fetchReplacementRequests = useCallback(async () => {
-  try {
-    const response = await adminGuideReplacementRequestApi.list({
-      status: 'pending',
-      per_page: 100,
-    })
-
-    const list = getReplacementRequestList(response)
-
-    setReplacementRequests(list)
-
-    if (list.length > 0) {
-      setReplacementPanelOpen(true)
+  const fetchReplacementRequests = useCallback(async () => {
+    try {
+      const payload = await adminGuideReplacementRequestApi.list({ status: 'pending', per_page: 100 })
+      setReplacementRequests(normalizeItems(payload))
+    } catch (error) {
+      console.error(error)
     }
+  }, [])
 
-    window.dispatchEvent(
-      new CustomEvent('admin-guide-replacement:changed', {
-        detail: {
-          count: list.length,
-        },
-      })
-    )
-  } catch (error) {
-    console.error(error)
-  }
-}, [])
 
   const loadBookedCustomers = useCallback(async (departureId, page = 1) => {
     if (!departureId) return
@@ -453,6 +383,14 @@ const fetchReplacementRequests = useCallback(async () => {
   useEffect(() => {
     void fetchReplacementRequests()
   }, [fetchReplacementRequests])
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    if (params.get('openReplacementRequests') === '1') {
+      setReplacementPanelOpen(true)
+      void fetchReplacementRequests()
+    }
+  }, [fetchReplacementRequests, location.search])
 
   useEffect(() => {
     const state = location.state || {}
@@ -499,31 +437,6 @@ const fetchReplacementRequests = useCallback(async () => {
     navigate,
   ])
 
-
-useEffect(() => {
-  const params = new URLSearchParams(location.search)
-  const shouldOpenReplacement =
-    params.get('openReplacementRequests') === '1' ||
-    params.get('replacementRequest') === '1'
-
-  if (!shouldOpenReplacement) return
-
-  const departureId =
-    params.get('departureId') ||
-    params.get('tourDepartureId') ||
-    null
-
-  setActiveTab('departures')
-  setScheduleFilter('all')
-  setReplacementPanelOpen(true)
-
-  if (departureId) {
-    setHighlightedReplacementDepartureId(String(departureId))
-    setFocusedDepartureId(null)
-  }
-
-  void fetchReplacementRequests()
-}, [location.search, fetchReplacementRequests])
 
   const handleDelete = (departure) => {
     const item =
@@ -748,126 +661,38 @@ useEffect(() => {
   }
 
 
-const approveReplacementRequest = async (request) => {
-  const requestId = request?.id || request?.request_id
-
-  if (!requestId) return
-
-  const confirmed = await confirmAction(
-    'Hệ thống sẽ tự động tìm HDV khác đang trống lịch và phân công thay thế.',
-    { title: 'Duyệt yêu cầu đổi hướng dẫn viên', confirmLabel: 'Duyệt yêu cầu' }
-  )
-
-  if (!confirmed) return
-
-  try {
-    await adminGuideReplacementRequestApi.approve(requestId)
-    toast.success('Đã duyệt yêu cầu đổi HDV và phân công HDV thay thế.')
-    await fetchReplacementRequests()
-    await fetchDepartures(selectedTourId)
-    window.dispatchEvent(new Event('admin-notification:changed'))
-    window.dispatchEvent(new Event('admin-guide-replacement:changed'))
-    window.dispatchEvent(new Event('tourDepartureNeedAssignmentCountChanged'))
-  } catch (error) {
-    console.error(error)
-    toast.error(
-      getRequestErrorMessage(
-        error,
-        'Duyệt yêu cầu đổi HDV thất bại.'
-      )
-    )
-  }
-}
-
-const rejectReplacementRequest = (request) => {
-  const requestId = request?.id || request?.request_id
-
-  if (!requestId) {
-    setActionNotice({
-      type: 'error',
-      title: 'Không thể thực hiện',
-      message: 'Không xác định được yêu cầu đổi HDV cần xử lý.',
-    })
-    return
-  }
-
-  setRejectingRequest(request)
-  setRejectNote('')
-  setRejectNoteError('')
-  setRejectModalOpen(true)
-}
-
-const closeRejectModal = () => {
-  if (rejectSubmitting) return
-
-  setRejectModalOpen(false)
-  setRejectingRequest(null)
-  setRejectNote('')
-  setRejectNoteError('')
-}
-
-const submitRejectReplacementRequest = async () => {
-  const requestId =
-    rejectingRequest?.id || rejectingRequest?.request_id
-  const normalizedNote = rejectNote.trim()
-
-  if (!requestId) {
-    setRejectNoteError('Không xác định được yêu cầu đổi HDV.')
-    return
-  }
-
-  if (!normalizedNote) {
-    setRejectNoteError('Vui lòng nhập lý do không duyệt.')
-    return
-  }
-
-  if (normalizedNote.length < 3) {
-    setRejectNoteError('Lý do không duyệt phải có ít nhất 3 ký tự.')
-    return
-  }
-
-  try {
-    setRejectSubmitting(true)
-    setRejectNoteError('')
-
-    await adminGuideReplacementRequestApi.reject(requestId, {
-      admin_note: normalizedNote,
-    })
-
-    setRejectModalOpen(false)
-    setRejectingRequest(null)
-    setRejectNote('')
-
-    setActionNotice({
-      type: 'success',
-      title: 'Đã không duyệt yêu cầu',
-      message:
-        'Yêu cầu đổi HDV đã bị từ chối và lý do đã được gửi lại cho hướng dẫn viên.',
-    })
-
-    await fetchReplacementRequests()
-    await fetchDepartures(selectedTourId)
-
-    window.dispatchEvent(new Event('admin-notification:changed'))
-    window.dispatchEvent(new Event('admin-guide-replacement:changed'))
-    window.dispatchEvent(new Event('tourDepartureNeedAssignmentCountChanged'))
-  } catch (error) {
-    console.error(error)
-
-    setRejectNoteError(
-      getRequestErrorMessage(
-        error,
-        'Từ chối yêu cầu đổi HDV thất bại.'
-      )
-    )
-  } finally {
-    setRejectSubmitting(false)
-  }
-}
-
   const selectedTour = tours.find(
     (tour) => String(tour.id) === String(selectedTourId)
   )
+
+  const decideReplacementRequest = async (request, status) => {
+    const requestId = request?.id || request?.request_id
+    if (!requestId) return
+
+    const message = status === 'approved'
+      ? 'Hệ thống sẽ tự tìm và phân công HDV thay thế.'
+      : 'Bạn có chắc muốn không chấp nhận yêu cầu đổi HDV này?'
+    const confirmed = await confirmAction(message, {
+      title: status === 'approved' ? 'Chấp nhận đơn đổi HDV' : 'Không chấp nhận đơn đổi HDV',
+      confirmLabel: status === 'approved' ? 'Chấp nhận' : 'Không chấp nhận',
+      tone: status === 'approved' ? 'primary' : 'danger',
+    })
+    if (!confirmed) return
+
+    setReplacementBusyId(requestId)
+    try {
+      if (status === 'approved') await adminGuideReplacementRequestApi.approve(requestId)
+      else await adminGuideReplacementRequestApi.reject(requestId, { admin_note: 'Yêu cầu không được chấp nhận.' })
+      await fetchReplacementRequests()
+      await fetchDepartures(selectedTourId)
+      window.dispatchEvent(new Event('admin-guide-replacement:changed'))
+      window.dispatchEvent(new Event('admin-notification:changed'))
+    } catch (error) {
+      toast.error(getRequestErrorMessage(error, 'Cập nhật yêu cầu đổi HDV thất bại.'))
+    } finally {
+      setReplacementBusyId(null)
+    }
+  }
 
   const assignmentWarningCount = useMemo(() => {
     return countNeedAssignment(allDepartures)
@@ -987,10 +812,6 @@ const submitRejectReplacementRequest = async () => {
         'tourDepartureNeedAssignmentOnlyCount',
         String(assignmentWarningCount)
       )
-      window.localStorage.setItem(
-        'tourDepartureReplacementRequestCount',
-        String(replacementRequests.length)
-      )
     } catch (error) {
       console.error(error)
     }
@@ -1020,7 +841,21 @@ const submitRejectReplacementRequest = async () => {
           </p>
         </div>
 
-        <Link
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setReplacementPanelOpen(true)}
+            className="relative inline-flex h-10 items-center justify-center rounded-lg border border-orange-200 bg-orange-50 px-4 text-sm font-bold text-orange-700 shadow-sm transition hover:bg-orange-100"
+          >
+            Đơn đổi HDV
+            {replacementRequests.length > 0 ? (
+              <span className="ml-2 rounded-full bg-orange-600 px-1.5 py-0.5 text-[11px] font-black text-white">
+                {replacementRequests.length > 99 ? '99+' : replacementRequests.length}
+              </span>
+            ) : null}
+          </button>
+
+          <Link
           to={`/admin/tour-departures/create?tourId=${selectedTourId}`}
           onClick={(event) => {
             if (!validateBeforeCreateDeparture()) {
@@ -1040,7 +875,8 @@ const submitRejectReplacementRequest = async () => {
           }`}
         >
           + Thêm lịch khởi hành
-        </Link>
+          </Link>
+        </div>
       </div>
 
       <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
@@ -1274,106 +1110,25 @@ const submitRejectReplacementRequest = async () => {
         </div>
       </div>
 
-{replacementRequests.length > 0 ? (
-  <div className="mb-5 rounded-2xl border border-orange-200 bg-orange-50 text-orange-950 shadow-sm">
-    <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-      <div>
-        <p className="text-sm font-black uppercase tracking-wide text-orange-700">
-          Yêu cầu đổi HDV
-        </p>
-        <h3 className="mt-1 text-lg font-black">
-          Có {replacementRequests.length} yêu cầu đổi HDV đang chờ duyệt
-        </h3>
-        <p className="mt-1 text-sm text-orange-700">
-          Các yêu cầu được gom vào danh sách bên dưới. Lý do, bằng chứng và nút Duyệt / Không duyệt nằm trong danh sách này.
-        </p>
-      </div>
-
-      <button
-        type="button"
-        onClick={() => {
-          setReplacementPanelOpen((current) => !current)
-          setActiveTab('departures')
-          setScheduleFilter('all')
-        }}
-        className="rounded-xl bg-orange-600 px-4 py-2 text-sm font-black text-white transition hover:bg-orange-700"
-      >
-        {replacementPanelOpen ? 'Ẩn yêu cầu' : 'Xem yêu cầu'}
-      </button>
-    </div>
-
-    {replacementPanelOpen ? (
-      <div className="border-t border-orange-200 bg-white/60 px-5 py-4">
-        <div className="grid gap-3">
-          {replacementRequests.map((request) => (
-            <article
-              key={request.id || request.request_id}
-              className="rounded-2xl border border-orange-200 bg-white p-4 shadow-sm"
-            >
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-full bg-orange-100 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-orange-700 ring-1 ring-orange-200">
-                      Chờ duyệt đổi HDV
-                    </span>
-                    <span className="text-xs font-semibold text-slate-500">
-                      Gửi lúc {formatReplacementDateTime(request.created_at)}
-                    </span>
-                  </div>
-
-                  <h4 className="mt-2 text-base font-black text-slate-950">
-                    {getReplacementTourTitle(request)}
-                  </h4>
-
-                  <p className="mt-1 text-sm font-semibold text-slate-600">
-                    HDV yêu cầu: {getReplacementGuideName(request)} · Ngày đi {formatReplacementDate(request.departure_date)} · Ngày về {formatReplacementDate(request.return_date || request.departure_date)}
-                  </p>
-
-                  <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                    <p className="text-xs font-black uppercase tracking-wide text-slate-500">
-                      Lý do
-                    </p>
-                    <p className="mt-1 whitespace-pre-line text-sm leading-6 text-slate-800">
-                      {getReplacementReason(request)}
-                    </p>
-                  </div>
-
-                  {request.evidence_path ? (
-                    <a
-                      href={`/storage/${request.evidence_path}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-2 inline-flex text-sm font-bold text-blue-700 hover:text-blue-800"
-                    >
-                      Xem bằng chứng
-                    </a>
-                  ) : null}
-                </div>
-
-                <div className="flex shrink-0 flex-wrap gap-2 lg:justify-end">
-                  <button
-                    type="button"
-                    onClick={() => approveReplacementRequest(request)}
-                    className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-black text-white transition hover:bg-emerald-700"
-                  >
-                    Chấp nhận
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => rejectReplacementRequest(request)}
-                    className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-black text-white transition hover:bg-rose-700"
-                  >
-                    Không chấp nhận
-                  </button>
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
-      </div>
-    ) : null}
-  </div>
-) : null}
+      {showInlineReplacementPanel && replacementRequests.length > 0 ? (
+        <section className="mb-5 rounded-2xl border border-orange-200 bg-orange-50 text-orange-950 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+            <div>
+              <p className="text-sm font-black uppercase tracking-wide text-orange-700">Yêu cầu đổi HDV</p>
+              <h3 className="mt-1 text-lg font-black">Có {replacementRequests.length} yêu cầu đang chờ duyệt</h3>
+            </div>
+            <button type="button" onClick={() => setReplacementPanelOpen((current) => !current)} className="rounded-xl bg-orange-600 px-4 py-2 text-sm font-black text-white hover:bg-orange-700">
+              {replacementPanelOpen ? 'Ẩn yêu cầu' : 'Xem yêu cầu'}
+            </button>
+          </div>
+          {replacementPanelOpen ? <div className="grid gap-3 border-t border-orange-200 bg-white/60 px-5 py-4">{replacementRequests.map((request) => {
+            const id = request.id || request.request_id
+            const guideName = request.current_guide_name || request.guide_name || request.current_guide?.user?.full_name || request.guide?.user?.full_name || `HDV #${request.current_guide_id || request.guide_id || ''}`
+            const tourTitle = request.tour_title || request.tour?.title || `Tour #${request.tour_id || request.tour_departure_id || ''}`
+            return <article key={id} className="rounded-2xl border border-orange-200 bg-white p-4 shadow-sm"><div className="flex flex-col gap-3 lg:flex-row lg:justify-between"><div><span className="rounded-full bg-orange-100 px-2.5 py-1 text-[11px] font-black uppercase text-orange-700">Chờ duyệt đổi HDV</span><h4 className="mt-3 text-base font-black text-slate-950">{tourTitle}</h4><p className="mt-1 text-sm font-semibold text-slate-600">HDV yêu cầu: {guideName} · Ngày đi {formatReplacementDate(request.departure_date)} · Ngày về {formatReplacementDate(request.return_date || request.departure_date)}</p><div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2"><p className="text-xs font-black uppercase text-slate-500">Lý do</p><p className="mt-1 text-sm text-slate-800">{request.reason || request.request_reason || 'Không có lý do.'}</p></div>{request.evidence_path ? <a href={`/storage/${request.evidence_path}`} target="_blank" rel="noreferrer" className="mt-2 inline-flex text-sm font-bold text-blue-700">Xem bằng chứng</a> : null}</div><div className="flex shrink-0 flex-wrap gap-2"><button type="button" disabled={replacementBusyId === id} onClick={() => decideReplacementRequest(request, 'approved')} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-black text-white disabled:opacity-60">Chấp nhận</button><button type="button" disabled={replacementBusyId === id} onClick={() => decideReplacementRequest(request, 'rejected')} className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-black text-white disabled:opacity-60">Không chấp nhận</button></div></div></article>
+          })}</div> : null}
+        </section>
+      ) : null}
 
       <TourDepartureTable
         departures={departures}
@@ -1390,10 +1145,6 @@ const submitRejectReplacementRequest = async () => {
         assignmentWarningCount={assignmentWarningCount}
         newDepartureIds={newDepartureIds}
         newAssignmentDepartureIds={newAssignmentDepartureIds}
-        replacementRequests={replacementRequests}
-        highlightedReplacementDepartureId={highlightedReplacementDepartureId}
-        onApproveReplacementRequest={approveReplacementRequest}
-        onRejectReplacementRequest={rejectReplacementRequest}
         guideContent={
           <GuideAssignmentPanel
             embedded
@@ -1404,6 +1155,27 @@ const submitRejectReplacementRequest = async () => {
           />
         }
       />
+
+      {replacementPanelOpen ? (
+        <div
+          className="admin-guide-leave-card-backdrop"
+          role="presentation"
+          onMouseDown={() => setReplacementPanelOpen(false)}
+        >
+          <div
+            className="admin-guide-leave-card-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Quản lý đơn đổi HDV"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <AdminGuideReplacementRequestsPanel
+              open={replacementPanelOpen}
+              onClose={() => setReplacementPanelOpen(false)}
+            />
+          </div>
+        </div>
+      ) : null}
 
       {focusedDepartureId ? (
         <div
@@ -1538,7 +1310,7 @@ const submitRejectReplacementRequest = async () => {
         </div>
       ) : null}
 
-      {rejectModalOpen ? (
+      {/*
         <div
           className="fixed inset-0 z-[1200] flex items-center justify-center bg-slate-950/55 px-4 py-8 backdrop-blur-sm"
           onMouseDown={(event) => {
@@ -1668,7 +1440,7 @@ const submitRejectReplacementRequest = async () => {
             </div>
           </section>
         </div>
-      ) : null}
+      */}
 
       {actionNotice ? (
         <div className="fixed inset-0 z-[1300] flex items-center justify-center bg-slate-950/45 px-4 py-8 backdrop-blur-sm">
