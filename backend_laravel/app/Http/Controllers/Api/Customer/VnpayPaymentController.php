@@ -291,8 +291,18 @@ class VnpayPaymentController extends Controller
 
             if ($hasCommittedSlots) {
                 $payment->booking->update([
+                    'status' => 'confirmed',
                     'payment_status' => 'paid',
                 ]);
+
+                if ($oldBookingStatus !== 'confirmed') {
+                    $payment->booking->statusHistories()->create([
+                        'changed_by' => null,
+                        'old_status' => $oldBookingStatus,
+                        'new_status' => 'confirmed',
+                        'note' => 'Booking được tự động xác nhận sau khi thanh toán đủ.',
+                    ]);
+                }
             } else {
                 $payment->booking->update([
                     'status' => 'cancelled',
