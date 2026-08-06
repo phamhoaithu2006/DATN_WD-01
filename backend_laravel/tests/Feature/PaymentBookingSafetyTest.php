@@ -711,7 +711,7 @@ test('VNPAY IPN marks the matching booking paid', function () {
     ]);
     $this->assertDatabaseHas('bookings', [
         'id' => $booking->id,
-        'status' => 'pending',
+        'status' => 'confirmed',
         'payment_status' => 'paid',
     ]);
     $this->assertDatabaseHas('tour_departures', [
@@ -816,6 +816,7 @@ test('VNPAY return status confirms successful payment without requiring customer
         ->assertOk()
         ->assertJsonPath('data.id', $booking->payment->id)
         ->assertJsonPath('data.status', 'success')
+        ->assertJsonPath('data.booking_status', 'confirmed')
         ->assertJsonPath('data.payment_status', 'paid');
 
     $this->assertDatabaseHas('payments', [
@@ -985,7 +986,7 @@ test('VNPAY failed attempt keeps the booking pending and accepts a later success
     ]);
     $this->assertDatabaseHas('bookings', [
         'id' => $booking->id,
-        'status' => 'pending',
+        'status' => 'confirmed',
         'payment_status' => 'paid',
     ]);
 });
@@ -1170,6 +1171,7 @@ test('admin payment actions synchronize booking payment status', function () {
 
     $this->assertDatabaseHas('bookings', [
         'id' => $booking->id,
+        'status' => 'confirmed',
         'payment_status' => 'paid',
     ]);
 

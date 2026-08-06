@@ -122,8 +122,18 @@ class PaymentController extends Controller
 
                 if ($hasCommittedSlots) {
                     $payment->booking->update([
+                        'status' => 'confirmed',
                         'payment_status' => $bookingPaymentStatus,
                     ]);
+
+                    if ($oldBookingStatus !== 'confirmed') {
+                        $payment->booking->statusHistories()->create([
+                            'changed_by' => auth()->id(),
+                            'old_status' => $oldBookingStatus,
+                            'new_status' => 'confirmed',
+                            'note' => 'Booking được tự động xác nhận sau khi thanh toán đủ.',
+                        ]);
+                    }
                 } else {
                     $payment->booking->update([
                         'status' => 'cancelled',
