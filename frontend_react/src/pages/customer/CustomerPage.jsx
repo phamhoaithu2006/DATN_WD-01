@@ -461,7 +461,7 @@ function CustomerPage() {
   );
 
   const chatUserId = token && user?.id ? user.id : null;
-  const chatFeatureEnabled = String(process.env.REACT_APP_ENABLE_CHAT || '1') === '1';
+  const chatFeatureEnabled = String(import.meta.env.VITE_ENABLE_CHAT || '1') === '1';
   const canRenderChat = chatFeatureEnabled && (!token || chatUserId);
   const pageParams = new URLSearchParams(location.search);
   const isSupportPage =
