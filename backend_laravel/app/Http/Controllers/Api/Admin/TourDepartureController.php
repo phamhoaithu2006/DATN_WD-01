@@ -138,7 +138,81 @@ class TourDepartureController extends Controller
             'status' => 'success',
             'message' => 'Danh sách lịch khởi hành',
             'data' => $departures
-                ->map(fn (TourDeparture $departure) => $this->serializeDeparture($departure))
+                ->map(fn(TourDeparture $departure) => $this->serializeDeparture($departure))
+                ->values(),
+        ], 200, [], JSON_PRESERVE_ZERO_FRACTION);
+    }
+
+    /**
+     * GET /api/admin/tours/departures
+     */
+    public function listAll(Request $request)
+    {
+        $departures = TourDeparture::query()
+            ->with([
+                'tour:id,title,slug,duration_days,duration_nights,base_price,discount_price',
+                'guideAssignments' => function ($query) {
+                    $query
+                        ->where('status', 'assigned')
+                        ->with([
+                            'guide:id,user_id,guide_code',
+                            'guide.user:id,full_name,email,avatar_url',
+                        ]);
+                },
+            ])
+            ->withCount([
+                'bookings as active_bookings_count' => function ($query) {
+                    $query->whereNotIn('status', [
+                        'cancelled',
+                        'canceled',
+                    ]);
+                },
+            ])
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->get();
+
+        $today = now()->startOfDay();
+
+        $departures->each(function (TourDeparture $departure) use ($today) {
+            $assignedGuides = $departure->guideAssignments->values();
+
+            $leadAssignment = $assignedGuides->first(function ($assignment) {
+                return $assignment->status === 'assigned' &&
+                    ($assignment->role === 'lead' || ! $assignment->role);
+            });
+
+            $scheduleGroup = $this->getScheduleGroup($departure, $today);
+            $isLocked = in_array($scheduleGroup, [
+                'past',
+                'completed',
+                'cancelled',
+            ], true);
+
+            $departure->setAttribute('assigned_guides', $assignedGuides);
+            $departure->setAttribute(
+                'assignment_state',
+                $leadAssignment ? 'assigned' : 'available'
+            );
+            $departure->setAttribute('departure_base_price', $departure->price);
+            $departure->setAttribute('departure_discount_price', $departure->discount_price);
+            $departure->setAttribute('schedule_group', $scheduleGroup);
+            $departure->setAttribute('is_locked', $isLocked);
+            $departure->setAttribute(
+                'has_bookings',
+                (int) $departure->active_bookings_count > 0
+            );
+            $departure->setAttribute(
+                'available_slots',
+                max(0, (int) $departure->total_slots - (int) $departure->booked_slots)
+            );
+        });
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Danh sách lịch khởi hành',
+            'data' => $departures
+                ->map(fn(TourDeparture $departure) => $this->serializeDeparture($departure))
                 ->values(),
         ], 200, [], JSON_PRESERVE_ZERO_FRACTION);
     }

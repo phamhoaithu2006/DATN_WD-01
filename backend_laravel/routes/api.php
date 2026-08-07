@@ -536,18 +536,15 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(functi
         Route::get('/', [TourManagerController::class, 'index']);
         Route::get('/hidden-list', [TourManagerController::class, 'hiddenTours']);
         Route::get('/statistics', [TourManagerController::class, 'statistics']);
+        Route::get('/departures', [TourDepartureController::class, 'listAll']);
+        Route::get('/{tourId}/departures', [TourDepartureController::class, 'index']);
+        Route::post('/{tourId}/departures', [TourDepartureController::class, 'store']);
         Route::get('/{id}', [TourManagerController::class, 'show']);
         Route::post('/', [TourManagerController::class, 'store']);
         Route::put('/{id}', [TourManagerController::class, 'update']);
         Route::delete('/{id}', [TourManagerController::class, 'destroy']);
         Route::patch('/{id}/hide', [TourManagerController::class, 'hide']);
         Route::patch('/{id}/unhide', [TourManagerController::class, 'unhide']);
-
-        Route::get('/{tourId}/departures', [TourDepartureController::class, 'index']);
-        Route::post('/{tourId}/departures', [TourDepartureController::class, 'store']);
-        Route::put('/departures/{id}', [TourDepartureController::class, 'update']);
-        Route::post('/departures/{id}/cancel', [TourDepartureController::class, 'cancelConfirmed']);
-        Route::delete('/departures/{id}', [TourDepartureController::class, 'destroy']);
     });
 
     // Cài đặt hệ thống

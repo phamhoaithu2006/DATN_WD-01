@@ -26,6 +26,10 @@ export const tourDepartureApi = {
     return apiClient.get(`/admin/tours/${tourId}/departures`, { params });
   },
 
+  getAllDepartures(params = {}) {
+    return apiClient.get('/admin/tours/departures', { params });
+  },
+
   create(tourId, data) {
     return apiClient.post(`/admin/tours/${tourId}/departures`, data);
   },

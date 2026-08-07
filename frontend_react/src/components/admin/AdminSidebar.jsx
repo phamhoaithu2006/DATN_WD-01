@@ -286,27 +286,8 @@ function AdminSidebar({
     try {
       let departures = []
 
-      if (typeof tourDepartureApi.getAllDepartures === 'function') {
-        const response = await tourDepartureApi.getAllDepartures()
-        departures = unwrapList(response)
-      } else {
-        const toursResponse = await tourDepartureApi.getTours()
-        const tours = unwrapList(toursResponse)
-
-        const responses = await Promise.all(
-          tours.map(async (tour) => {
-            const response = await tourDepartureApi.getByTour(tour.id)
-
-            return unwrapList(response).map((departure) => ({
-              ...departure,
-              tour_id: getTourIdFromDeparture(departure) || tour.id,
-              tour: departure.tour || tour,
-            }))
-          })
-        )
-
-        departures = responses.flat()
-      }
+      const response = await tourDepartureApi.getAllDepartures()
+      departures = unwrapList(response)
 
       const assignmentCount = uniqueDepartures(departures).filter(
         isActionableUnassignedDeparture

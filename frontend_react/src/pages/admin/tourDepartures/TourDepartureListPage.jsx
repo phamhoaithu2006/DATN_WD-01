@@ -295,30 +295,8 @@ export default function TourDepartureListPage() {
         return
       }
 
-      if (typeof tourDepartureApi.getAllDepartures === 'function') {
-        const response = await tourDepartureApi.getAllDepartures()
-        const list = getArrayFromResponse(response)
-
-        setDepartures(list)
-        setAllDepartures(list)
-        return
-      }
-
-      if (!sourceTours.length) {
-        setDepartures([])
-        setAllDepartures([])
-        return
-      }
-
-      const responses = await Promise.all(
-        sourceTours.map(async (tour) => {
-          const response = await tourDepartureApi.getByTour(tour.id)
-
-          return normalizeDeparturesForTour(getArrayFromResponse(response), tour)
-        })
-      )
-
-      const list = responses.flat()
+      const response = await tourDepartureApi.getAllDepartures()
+      const list = getArrayFromResponse(response)
 
       setDepartures(list)
       setAllDepartures(list)
@@ -378,7 +356,11 @@ export default function TourDepartureListPage() {
 
   useEffect(() => {
     void fetchDepartures(selectedTourId)
-  }, [selectedTourId, fetchDepartures])
+    // We intentionally omit fetchDepartures from deps because
+    // fetchDepartures is stable across renders for this usage,
+    // and we only want new fetches when selectedTourId changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTourId])
 
   useEffect(() => {
     void fetchReplacementRequests()
