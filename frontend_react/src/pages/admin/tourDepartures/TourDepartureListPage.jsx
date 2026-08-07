@@ -80,7 +80,7 @@ function FieldError({ message }) {
 function isLockedDeparture(departure) {
   const group = getDepartureTimeGroup(departure)
 
-  if (group === 'past') {
+  if (group === 'completed' || group === 'cancelled') {
     return true
   }
 
@@ -127,21 +127,34 @@ function getTodayKey() {
 }
 
 function getDepartureTimeGroup(departure) {
-  const scheduleGroup = departure?.schedule_group
+  const status = String(departure?.status || '').toLowerCase()
 
-  if (['upcoming', 'ongoing', 'past'].includes(scheduleGroup)) {
-    return scheduleGroup
-  }
+  // Trạng thái kết thúc nghiệp vụ luôn được ưu tiên.
+  if (status === 'cancelled' || status === 'canceled') return 'cancelled'
+  if (status === 'completed') return 'completed'
 
+  // Các lịch còn hoạt động phải được phân loại theo ngày thực tế.
+  // Tránh trường hợp API còn status="open" nhưng ngày đã qua mà UI vẫn hiện "Sắp tới".
   const today = getTodayKey()
   const departureDate = getDateKey(departure?.departure_date)
   const returnDate = getDateKey(departure?.return_date) || departureDate
 
-  if (!departureDate) return 'upcoming'
-  if (today < departureDate) return 'upcoming'
-  if (today >= departureDate && today <= returnDate) return 'ongoing'
+  if (departureDate) {
+    if (today < departureDate) return 'upcoming'
+    if (today >= departureDate && today <= returnDate) return 'ongoing'
+    return 'completed'
+  }
 
-  return 'past'
+  // Chỉ fallback về dữ liệu backend khi không có ngày hợp lệ.
+  const scheduleGroup = String(departure?.schedule_group || '').toLowerCase()
+
+  if (scheduleGroup === 'past') return 'completed'
+  if (['upcoming', 'ongoing', 'completed', 'cancelled'].includes(scheduleGroup)) {
+    return scheduleGroup
+  }
+
+  if (status === 'closed') return 'ongoing'
+  return 'upcoming'
 }
 
 function isAssignmentWarningTarget(departure) {
@@ -196,6 +209,65 @@ function formatReplacementDate(value) {
   })
 }
 
+function getBookedGuestCount(departure) {
+  return Number(
+    departure?.booked_slots ??
+      departure?.booked_guests_count ??
+      departure?.participants_count ??
+      departure?.active_participants_count ??
+      0
+  )
+}
+
+function getDaysUntilDeparture(departure) {
+  const departureDate = getDateKey(departure?.departure_date)
+
+  if (!departureDate) return null
+
+  const today = new Date(`${getTodayKey()}T00:00:00`)
+  const target = new Date(`${departureDate}T00:00:00`)
+
+  if (Number.isNaN(today.getTime()) || Number.isNaN(target.getTime())) {
+    return null
+  }
+
+  return Math.ceil((target.getTime() - today.getTime()) / 86400000)
+}
+
+function hasAssignedGuideForCancellation(departure) {
+  return hasAssignedGuide(departure)
+}
+
+function getCancellationMode(departure) {
+  const bookedGuests = getBookedGuestCount(departure)
+  const hasBookings = hasActiveBookings(departure) || bookedGuests > 0
+  const hasGuide = hasAssignedGuideForCancellation(departure)
+  const daysUntilDeparture = getDaysUntilDeparture(departure)
+
+  if (!hasBookings && !hasGuide) return 'simple'
+
+  if (
+    bookedGuests < 10 &&
+    daysUntilDeparture !== null &&
+    daysUntilDeparture >= 0 &&
+    daysUntilDeparture <= 3
+  ) {
+    return 'minimum_guests'
+  }
+
+  return 'reason_required'
+}
+
+function getCancellationTourTitle(departure) {
+  return (
+    departure?.tour?.title ||
+    departure?.tour?.name ||
+    departure?.tour_title ||
+    departure?.tour_name ||
+    `Tour #${departure?.tour_id || departure?.tour?.id || departure?.id || ''}`
+  )
+}
+
 export default function TourDepartureListPage() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -239,6 +311,12 @@ export default function TourDepartureListPage() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [deletingDeparture, setDeletingDeparture] = useState(null)
   const [deleteSubmitting, setDeleteSubmitting] = useState(false)
+
+  // Modal hủy lịch khởi hành (khác với xóa dữ liệu)
+  const [cancelModalOpen, setCancelModalOpen] = useState(false)
+  const [cancellingDeparture, setCancellingDeparture] = useState(null)
+  const [cancelReason, setCancelReason] = useState('')
+  const [cancelSubmitting, setCancelSubmitting] = useState(false)
 
   const fetchTours = useCallback(async () => {
     try {
@@ -438,6 +516,156 @@ export default function TourDepartureListPage() {
   ])
 
 
+  const handleCancelDeparture = (departure) => {
+    const item =
+      typeof departure === 'object'
+        ? departure
+        : departures.find((row) => String(row.id) === String(departure))
+
+    if (!item?.id) {
+      setActionNotice({
+        type: 'error',
+        title: 'Không thể hủy lịch',
+        message: 'Không xác định được lịch khởi hành cần hủy.',
+      })
+      return
+    }
+
+    const group = getDepartureTimeGroup(item)
+
+    if (group === 'cancelled') {
+      setActionNotice({
+        type: 'error',
+        title: 'Lịch đã hủy',
+        message: 'Lịch khởi hành này đã được hủy trước đó.',
+      })
+      return
+    }
+
+    if (group === 'completed' || group === 'ongoing') {
+      setActionNotice({
+        type: 'error',
+        title: 'Không thể hủy lịch',
+        message: 'Chỉ có thể hủy lịch trước thời điểm tour bắt đầu.',
+      })
+      return
+    }
+
+    const mode = getCancellationMode(item)
+
+    setCancellingDeparture(item)
+    setCancelReason(
+      mode === 'minimum_guests'
+        ? 'Không đủ số lượng khách tối thiểu để triển khai tour (yêu cầu tối thiểu 10 khách).'
+        : ''
+    )
+    setCancelModalOpen(true)
+  }
+
+  const closeCancelModal = () => {
+    if (cancelSubmitting) return
+
+    setCancelModalOpen(false)
+    setCancellingDeparture(null)
+    setCancelReason('')
+  }
+
+  const submitCancelDeparture = async () => {
+    const departure = cancellingDeparture
+
+    if (!departure?.id) return
+
+    const mode = getCancellationMode(departure)
+    const hasBookings = hasActiveBookings(departure) || getBookedGuestCount(departure) > 0
+    const hasGuide = hasAssignedGuideForCancellation(departure)
+    const reason = String(cancelReason || '').trim()
+
+    if (mode === 'reason_required' && !reason) {
+      setActionNotice({
+        type: 'error',
+        title: 'Thiếu lý do hủy',
+        message: 'Vui lòng nhập lý do hủy để gửi thông báo cho khách hàng và HDV.',
+      })
+      return
+    }
+
+    const tourTitle = getCancellationTourTitle(departure)
+    const minimumMessage =
+      `Chúng tôi rất tiếc, tour ${tourTitle} do số lượng khách không đủ để triển khai nên lịch khởi hành đã bị hủy. ` +
+      'Chúng tôi sẽ hoàn lại tiền cho bạn trong vòng 24 giờ.'
+
+    const generalMessage = reason
+      ? `Lịch khởi hành của tour ${tourTitle} đã bị hủy. Lý do: ${reason}`
+      : `Lịch khởi hành của tour ${tourTitle} đã bị hủy.`
+
+    const payload = {
+      reason_code:
+        mode === 'minimum_guests'
+          ? 'minimum_guests_not_met'
+          : mode === 'simple'
+            ? 'admin_cancelled_no_booking'
+            : 'admin_other',
+      reason:
+        mode === 'minimum_guests'
+          ? 'Không đủ số lượng khách tối thiểu để triển khai tour (yêu cầu tối thiểu 10 khách).'
+          : reason || 'Admin hủy lịch chưa có booking và chưa phân công HDV.',
+      notify_customers: hasBookings,
+      notify_guides: hasGuide,
+      customer_message: mode === 'minimum_guests' ? minimumMessage : generalMessage,
+      guide_message: mode === 'minimum_guests' ? minimumMessage : generalMessage,
+      booking_status: hasBookings ? 'cancelled' : null,
+      refund_status: hasBookings ? 'pending' : null,
+    }
+
+    const cancelRequest =
+      tourDepartureApi.cancelDeparture ||
+      tourDepartureApi.cancel
+
+    if (typeof cancelRequest !== 'function') {
+      setActionNotice({
+        type: 'error',
+        title: 'Thiếu API hủy lịch',
+        message:
+          'Frontend đã có luồng hủy nhưng backend chưa có API cancelDeparture/cancel để đồng bộ booking, hoàn tiền và thông báo.',
+      })
+      return
+    }
+
+    try {
+      setCancelSubmitting(true)
+
+      await cancelRequest.call(tourDepartureApi, departure.id, payload)
+
+      setCancelModalOpen(false)
+      setCancellingDeparture(null)
+      setCancelReason('')
+
+      setActionNotice({
+        type: 'success',
+        title: 'Đã hủy lịch khởi hành',
+        message: hasBookings
+          ? 'Lịch đã hủy. Booking của khách được chuyển sang Đã hủy - Chờ hoàn tiền và thông báo đã được gửi.'
+          : 'Lịch khởi hành đã được hủy thành công.',
+      })
+
+      setScheduleFilter('cancelled')
+      await fetchDepartures(selectedTourId)
+      window.dispatchEvent(new Event('admin-notification:changed'))
+    } catch (error) {
+      console.error(error)
+      setActionNotice({
+        type: 'error',
+        title: 'Hủy lịch thất bại',
+        message: getRequestErrorMessage(
+          error,
+          'Không thể hủy lịch khởi hành. Vui lòng thử lại.'
+        ),
+      })
+    } finally {
+      setCancelSubmitting(false)
+    }
+  }
+
   const handleDelete = (departure) => {
     const item =
       typeof departure === 'object'
@@ -461,7 +689,7 @@ export default function TourDepartureListPage() {
       setActionNotice({
         type: 'error',
         title: 'Không thể xóa lịch',
-        message: 'Lịch khởi hành đã bắt đầu hoặc đã qua nên không thể xóa.',
+        message: 'Lịch khởi hành đã hoàn thành hoặc đã hủy nên không thể xóa.',
       })
       return
     }
@@ -556,7 +784,7 @@ export default function TourDepartureListPage() {
 
     if (departure && isLockedDeparture(departure)) {
       toast.warning(
-        'Lịch khởi hành đã bắt đầu hoặc đã qua nên không thể phân công HDV.'
+        'Lịch khởi hành đã hoàn thành hoặc đã hủy nên không thể phân công HDV.'
       )
       return
     }
@@ -570,7 +798,7 @@ export default function TourDepartureListPage() {
 
     if (isLockedDeparture(departure)) {
       toast.warning(
-        'Lịch khởi hành đã bắt đầu hoặc đã qua nên không thể chỉnh sửa.'
+        'Lịch khởi hành đã hoàn thành hoặc đã hủy nên không thể chỉnh sửa.'
       )
       return
     }
@@ -1139,6 +1367,7 @@ export default function TourDepartureListPage() {
         onChangeTab={handleChangeTab}
         onChangeScheduleFilter={setScheduleFilter}
         onDelete={handleDelete}
+        onCancel={handleCancelDeparture}
         onOpenAssignment={openGuideAssignment}
         onRequestEdit={requestEdit}
         onViewDetails={openDepartureDetail}
@@ -1218,6 +1447,165 @@ export default function TourDepartureListPage() {
                 onAssigned={handleAssigned}
               />
             </div>
+          </section>
+        </div>
+      ) : null}
+
+      {cancelModalOpen && cancellingDeparture ? (
+        <div
+          className="fixed inset-0 z-[1260] flex items-center justify-center bg-slate-950/55 px-4 py-8 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeCancelModal()
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cancel-departure-title"
+            className="w-full max-w-2xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            {(() => {
+              const mode = getCancellationMode(cancellingDeparture)
+              const bookedGuests = getBookedGuestCount(cancellingDeparture)
+              const hasBookings =
+                hasActiveBookings(cancellingDeparture) || bookedGuests > 0
+              const hasGuide = hasAssignedGuideForCancellation(cancellingDeparture)
+              const tourTitle = getCancellationTourTitle(cancellingDeparture)
+              const daysUntilDeparture = getDaysUntilDeparture(cancellingDeparture)
+              const isMinimum = mode === 'minimum_guests'
+              const isSimple = mode === 'simple'
+
+              return (
+                <>
+                  <div
+                    className={`border-b px-6 py-5 ${
+                      isMinimum
+                        ? 'border-rose-200 bg-rose-50'
+                        : 'border-amber-200 bg-amber-50'
+                    }`}
+                  >
+                    <div className="flex items-start gap-4">
+                      <div
+                        className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-2xl font-black ${
+                          isMinimum
+                            ? 'bg-rose-100 text-rose-700'
+                            : 'bg-amber-100 text-amber-700'
+                        }`}
+                      >
+                        !
+                      </div>
+
+                      <div>
+                        <p
+                          className={`text-xs font-black uppercase tracking-wide ${
+                            isMinimum ? 'text-rose-600' : 'text-amber-700'
+                          }`}
+                        >
+                          Hủy lịch khởi hành
+                        </p>
+                        <h3
+                          id="cancel-departure-title"
+                          className="mt-1 text-xl font-black text-slate-950"
+                        >
+                          {isMinimum
+                            ? 'Không đủ số lượng khách tối thiểu'
+                            : `Hủy ${tourTitle}?`}
+                        </h3>
+                        <p className="mt-1 text-sm leading-6 text-slate-600">
+                          {isMinimum
+                            ? `Lịch hiện có ${bookedGuests}/10 khách${
+                                daysUntilDeparture !== null
+                                  ? ` và còn ${daysUntilDeparture} ngày trước khởi hành.`
+                                  : '.'
+                              }`
+                            : 'Kiểm tra thông tin trước khi xác nhận hủy lịch.'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 px-6 py-5">
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="font-black text-slate-950">{tourTitle}</p>
+                      <p className="mt-1 text-sm text-slate-600">
+                        Ngày đi: {formatReplacementDate(cancellingDeparture.departure_date)} · Ngày về:{' '}
+                        {formatReplacementDate(
+                          cancellingDeparture.return_date || cancellingDeparture.departure_date
+                        )}
+                      </p>
+                      <p className="mt-1 text-sm text-slate-600">
+                        Khách đã đặt: <strong>{bookedGuests}</strong> · HDV:{' '}
+                        <strong>{hasGuide ? 'Đã phân công' : 'Chưa phân công'}</strong>
+                      </p>
+                    </div>
+
+                    {isSimple ? (
+                      <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm font-semibold leading-6 text-amber-800">
+                        Lịch này chưa có booking và chưa phân công HDV. Bạn có muốn hủy lịch khởi hành này không?
+                      </div>
+                    ) : isMinimum ? (
+                      <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-4 text-sm leading-6 text-rose-800">
+                        <p className="font-black">Thông báo sẽ gửi cho khách hàng:</p>
+                        <p className="mt-2">
+                          Chúng tôi rất tiếc, tour <strong>{tourTitle}</strong> do số lượng khách không đủ để triển khai nên tour đã bị hủy. Chúng tôi sẽ hoàn lại tiền cho bạn trong vòng 24 giờ.
+                        </p>
+                        {hasGuide ? (
+                          <p className="mt-2 font-semibold">
+                            HDV phụ trách cũng sẽ nhận thông báo hủy lịch.
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <div>
+                        <label className="mb-2 block text-sm font-black text-slate-800">
+                          Lý do hủy <span className="text-rose-500">*</span>
+                        </label>
+                        <textarea
+                          value={cancelReason}
+                          onChange={(event) => setCancelReason(event.target.value)}
+                          rows={4}
+                          maxLength={500}
+                          placeholder="Nhập lý do hủy để gửi cho khách hàng và HDV..."
+                          className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        />
+                        <p className="mt-1 text-xs text-slate-500">
+                          {cancelReason.length}/500 ký tự
+                        </p>
+                      </div>
+                    )}
+
+                    {hasBookings ? (
+                      <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold leading-6 text-blue-800">
+                        Sau khi hủy: booking của khách chuyển sang <strong>Đã hủy - Chờ hoàn tiền</strong>. Backend cần tạo yêu cầu hoàn tiền và gửi thông báo cho từng khách.
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="flex flex-col-reverse gap-3 border-t border-slate-100 bg-slate-50 px-6 py-4 sm:flex-row sm:justify-end">
+                    <button
+                      type="button"
+                      onClick={closeCancelModal}
+                      disabled={cancelSubmitting}
+                      className="rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-black text-slate-700 transition hover:bg-slate-100 disabled:opacity-60"
+                    >
+                      Đóng
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void submitCancelDeparture()}
+                      disabled={
+                        cancelSubmitting ||
+                        (mode === 'reason_required' && !String(cancelReason || '').trim())
+                      }
+                      className="rounded-xl bg-rose-600 px-5 py-2.5 text-sm font-black text-white shadow-sm transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {cancelSubmitting ? 'Đang hủy...' : 'Xác nhận hủy lịch'}
+                    </button>
+                  </div>
+                </>
+              )
+            })()}
           </section>
         </div>
       ) : null}

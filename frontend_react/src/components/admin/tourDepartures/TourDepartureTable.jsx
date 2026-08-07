@@ -232,28 +232,94 @@ function sortByReplacementRequests(rows = [], requests = []) {
   })
 }
 
+function getTourTitle(departure) {
+  return (
+    departure?.tour?.title ||
+    departure?.tour?.name ||
+    departure?.tour_title ||
+    departure?.tour_name ||
+    departure?.name_tour ||
+    `Tour #${departure?.tour_id || departure?.tour?.id || ''}`
+  )
+}
+
+function getBookedGuestCount(departure) {
+  return Number(
+    departure?.booked_slots ??
+      departure?.booked_guests_count ??
+      departure?.participants_count ??
+      departure?.active_participants_count ??
+      0
+  )
+}
+
+function getDaysUntilDeparture(departure) {
+  const departureDate = getDateKey(departure?.departure_date)
+
+  if (!departureDate) return null
+
+  const today = new Date(`${getTodayKey()}T00:00:00`)
+  const target = new Date(`${departureDate}T00:00:00`)
+
+  if (Number.isNaN(today.getTime()) || Number.isNaN(target.getTime())) {
+    return null
+  }
+
+  return Math.ceil((target.getTime() - today.getTime()) / 86400000)
+}
+
+function isMinimumGuestWarning(departure) {
+  if (getDepartureTimeGroup(departure) !== 'upcoming') return false
+
+  const daysUntilDeparture = getDaysUntilDeparture(departure)
+
+  if (daysUntilDeparture === null || daysUntilDeparture < 0 || daysUntilDeparture > 3) {
+    return false
+  }
+
+  return getBookedGuestCount(departure) < 10
+}
+
 function getStatusMeta(status) {
+  const normalizedStatus = String(status || '').toLowerCase()
+
   const map = {
     open: {
-      text: 'Đang mở',
-      badge: 'bg-emerald-50 text-emerald-700 ring-emerald-100',
+      text: 'Sắp tới',
+      badge: 'bg-blue-50 text-blue-700 ring-blue-100',
+    },
+    upcoming: {
+      text: 'Sắp tới',
+      badge: 'bg-blue-50 text-blue-700 ring-blue-100',
     },
     closed: {
-      text: 'Đã đóng',
-      badge: 'bg-slate-100 text-slate-700 ring-slate-200',
-    },
-    completed: {
-      text: 'Hoàn thành',
+      text: 'Đang diễn ra',
       badge: 'bg-sky-50 text-sky-700 ring-sky-100',
     },
+    ongoing: {
+      text: 'Đang diễn ra',
+      badge: 'bg-sky-50 text-sky-700 ring-sky-100',
+    },
+    completed: {
+      text: 'Đã hoàn thành',
+      badge: 'bg-emerald-50 text-emerald-700 ring-emerald-100',
+    },
+    past: {
+      text: 'Đã hoàn thành',
+      badge: 'bg-emerald-50 text-emerald-700 ring-emerald-100',
+    },
     cancelled: {
+      text: 'Đã hủy',
+      badge: 'bg-rose-50 text-rose-700 ring-rose-100',
+    },
+    canceled: {
       text: 'Đã hủy',
       badge: 'bg-rose-50 text-rose-700 ring-rose-100',
     },
   }
 
   return (
-    map[status] || {
+    map[normalizedStatus] || {
       text: status || 'Không rõ',
       badge: 'bg-gray-50 text-gray-700 ring-gray-200',
     }
@@ -307,37 +373,42 @@ function getTodayKey() {
 }
 
 function getDepartureTimeGroup(departure) {
-  const scheduleGroup = departure?.schedule_group
+  const status = String(departure?.status || '').toLowerCase()
 
-  if (['upcoming', 'ongoing', 'past'].includes(scheduleGroup)) {
-    return scheduleGroup
-  }
+  // Trạng thái kết thúc nghiệp vụ luôn được ưu tiên.
+  if (status === 'cancelled' || status === 'canceled') return 'cancelled'
+  if (status === 'completed') return 'completed'
 
+  // Các lịch còn hoạt động phải được phân loại theo ngày thực tế.
+  // Tránh trường hợp API còn status="open" nhưng ngày đã qua mà UI vẫn hiện "Sắp tới".
   const today = getTodayKey()
   const departureDate = getDateKey(departure?.departure_date)
   const returnDate = getDateKey(departure?.return_date) || departureDate
 
-  if (!departureDate) {
-    return 'upcoming'
+  if (departureDate) {
+    if (today < departureDate) return 'upcoming'
+    if (today >= departureDate && today <= returnDate) return 'ongoing'
+    return 'completed'
   }
 
-  if (today < departureDate) {
-    return 'upcoming'
+  // Chỉ fallback về dữ liệu backend khi không có ngày hợp lệ.
+  const scheduleGroup = String(departure?.schedule_group || '').toLowerCase()
+
+  if (scheduleGroup === 'past') return 'completed'
+  if (['upcoming', 'ongoing', 'completed', 'cancelled'].includes(scheduleGroup)) {
+    return scheduleGroup
   }
 
-  if (today >= departureDate && today <= returnDate) {
-    return 'ongoing'
-  }
-
-  return 'past'
+  if (status === 'closed') return 'ongoing'
+  return 'upcoming'
 }
 
 function isLockedDeparture(departure) {
-  if (typeof departure?.is_locked === 'boolean') {
-    return departure.is_locked
-  }
+  const group = getDepartureTimeGroup(departure)
 
-  return getDepartureTimeGroup(departure) !== 'upcoming'
+  // Chỉ khóa thao tác khi lịch đã hoàn thành hoặc đã hủy.
+  // Không khóa lịch sắp tới/đang diễn ra chỉ vì backend trả is_locked=true.
+  return group === 'completed' || group === 'cancelled'
 }
 
 function getBookingCount(departure) {
@@ -426,8 +497,12 @@ function getAssignmentFilterEmptyText(scheduleFilter, assignmentFilter) {
     return 'Không có lịch đang diễn ra.'
   }
 
-  if (scheduleFilter === 'past') {
-    return 'Không có lịch đã qua.'
+  if (scheduleFilter === 'completed') {
+    return 'Không có lịch đã hoàn thành.'
+  }
+
+  if (scheduleFilter === 'cancelled') {
+    return 'Không có lịch đã hủy.'
   }
 
   if (scheduleFilter === 'all') {
@@ -719,6 +794,7 @@ export default function TourDepartureTable({
   loading = false,
   selectedTourId,
   onDelete,
+  onCancel,
   onOpenAssignment,
   onViewDetails,
   onRequestEdit,
@@ -769,14 +845,19 @@ export default function TourDepartureTable({
       (item) => getDepartureTimeGroup(item) === 'ongoing'
     )
 
-    const pastRows = departures.filter(
-      (item) => getDepartureTimeGroup(item) === 'past'
+    const completedRows = departures.filter(
+      (item) => getDepartureTimeGroup(item) === 'completed'
+    )
+
+    const cancelledRows = departures.filter(
+      (item) => getDepartureTimeGroup(item) === 'cancelled'
     )
 
     return {
       upcoming: upcomingRows,
       ongoing: ongoingRows,
-      past: pastRows,
+      completed: completedRows,
+      cancelled: cancelledRows,
       all: departures,
     }
   }, [departures])
@@ -785,7 +866,8 @@ export default function TourDepartureTable({
     () => [
       { key: 'upcoming', label: 'Sắp tới', rows: groupedRows.upcoming },
       { key: 'ongoing', label: 'Đang diễn ra', rows: groupedRows.ongoing },
-      { key: 'past', label: 'Đã qua', rows: groupedRows.past },
+      { key: 'completed', label: 'Đã hoàn thành', rows: groupedRows.completed },
+      { key: 'cancelled', label: 'Đã hủy', rows: groupedRows.cancelled },
       { key: 'all', label: 'Tất cả', rows: groupedRows.all },
     ],
     [groupedRows]
@@ -803,11 +885,21 @@ export default function TourDepartureTable({
   }, [scheduleTabs, scheduleFilter, groupedRows.upcoming, replacementRequests])
 
   const assignmentFilterTabs = useMemo(() => {
-    const activeRows = scheduleRows.filter((item) =>
-      isAssignmentWarningTarget(item)
+    /*
+     * Bộ lọc phân công phải áp dụng trên TOÀN BỘ dữ liệu của tab trạng thái
+     * đang chọn (Sắp tới / Đang diễn ra / Đã hoàn thành / Đã hủy / Tất cả).
+     *
+     * Trước đây chỉ lấy upcoming + ongoing nên ở tab "Đã hoàn thành"
+     * dropdown luôn hiển thị Chưa phân công (0) / Đã phân công (0)
+     * dù tab đang có nhiều lịch.
+     */
+    const unassignedRows = scheduleRows.filter(
+      (item) => !hasAssignedGuide(item)
     )
-    const unassignedRows = activeRows.filter((item) => !hasAssignedGuide(item))
-    const assignedRows = activeRows.filter((item) => hasAssignedGuide(item))
+
+    const assignedRows = scheduleRows.filter(
+      (item) => hasAssignedGuide(item)
+    )
 
     return [
       { key: 'all', label: 'Tất cả phân công', rows: scheduleRows },
@@ -837,6 +929,10 @@ export default function TourDepartureTable({
     setCurrentPage(1)
     setOpenActionMenuId(null)
   }, [scheduleFilter, assignmentFilter, pageSize, activeTab])
+
+  useEffect(() => {
+    setAssignmentFilter('all')
+  }, [scheduleFilter])
 
   useEffect(() => {
     setCurrentPage((page) => Math.min(page, totalPages))
@@ -971,10 +1067,11 @@ export default function TourDepartureTable({
             </div>
 
             <div className="overflow-x-auto rounded-xl border border-slate-200">
-              <table className="w-full min-w-[1250px] text-sm">
+              <table className="w-full min-w-[1480px] text-sm">
                 <thead className="bg-slate-50 text-center text-xs font-bold uppercase text-slate-500">
                   <tr>
                     <th className="border-b px-4 py-4">STT</th>
+                    <th className="border-b px-4 py-4 text-left">Tên tour</th>
                     <th className="border-b px-4 py-4 text-left">Ngày đi</th>
                     <th className="border-b px-4 py-4 text-left">Ngày về</th>
                     <th className="border-b px-4 py-4 text-left">Thời điểm tạo</th>
@@ -991,7 +1088,7 @@ export default function TourDepartureTable({
                   {loading ? (
                     <tr>
                       <td
-                        colSpan="10"
+                        colSpan="11"
                         className="px-4 py-14 text-center text-slate-500"
                       >
                         Đang tải lịch khởi hành...
@@ -1000,7 +1097,7 @@ export default function TourDepartureTable({
                   ) : displayedRows.length === 0 ? (
                     <tr>
                       <td
-                        colSpan="10"
+                        colSpan="11"
                         className="px-4 py-14 text-center text-slate-500"
                       >
                         {getAssignmentFilterEmptyText(
@@ -1013,8 +1110,12 @@ export default function TourDepartureTable({
                     paginatedRows.map((item, index) => {
                       const totalSlots = Number(item.total_slots || 0)
                       const bookedSlots = Number(item.booked_slots || 0)
+                      const bookedGuestCount = getBookedGuestCount(item)
+                      const minimumGuestWarning = isMinimumGuestWarning(item)
+                      const daysUntilDeparture = getDaysUntilDeparture(item)
+                      const tourTitle = getTourTitle(item)
                       const assignmentMeta = getAssignmentMeta(item)
-                      const statusMeta = getStatusMeta(item.status)
+                      const statusMeta = getStatusMeta(getDepartureTimeGroup(item))
                       const leadAssignment = getLeadAssignment(item)
 
                       const locked = isLockedDeparture(item)
@@ -1032,15 +1133,40 @@ export default function TourDepartureTable({
                         <tr
                           key={item.id}
                           className={`text-slate-700 transition ${
-                            replacementRequest
-                              ? 'bg-orange-50/80 hover:bg-orange-100/70 border-l-4 border-orange-400'
-                              : `${assignmentMeta.row} ${assignmentMeta.border}`
+                            minimumGuestWarning
+                              ? 'border-l-4 border-rose-500 bg-rose-50/90 hover:bg-rose-100/80'
+                              : replacementRequest
+                                ? 'bg-orange-50/80 hover:bg-orange-100/70 border-l-4 border-orange-400'
+                                : `${assignmentMeta.row} ${assignmentMeta.border}`
                           } ${locked ? 'text-slate-500' : ''} ${
                             isHighlightedReplacement ? 'ring-2 ring-orange-300 ring-inset' : ''
                           }`}
                         >
                           <td className="px-4 py-4 text-center">
                             {pageStartIndex + index + 1}
+                          </td>
+
+                          <td className="min-w-[230px] px-4 py-4 text-left align-top">
+                            <p className="font-black leading-5 text-slate-950">
+                              {tourTitle}
+                            </p>
+
+                            {minimumGuestWarning ? (
+                              <div className="mt-2 rounded-lg border border-rose-200 bg-rose-100 px-2.5 py-2 text-[11px] font-bold leading-4 text-rose-700">
+                                <span className="block font-black">
+                                  Không đủ số lượng tối thiểu
+                                </span>
+                                <span>
+                                  Hiện có {bookedGuestCount}/10 khách
+                                  {daysUntilDeparture !== null
+                                    ? ` · Còn ${daysUntilDeparture} ngày`
+                                    : ''}
+                                </span>
+                                <span className="mt-1 block">
+                                  Cần xử lý hủy lịch và thông báo trước khi tour khởi hành.
+                                </span>
+                              </div>
+                            ) : null}
                           </td>
 
                           <td className="px-4 py-4 font-semibold">
@@ -1246,6 +1372,23 @@ export default function TourDepartureTable({
                                           Sửa
                                         </Link>
                                       )}
+
+                                      {typeof onCancel === 'function' &&
+                                      getDepartureTimeGroup(item) === 'upcoming' ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setOpenActionMenuId(null)
+                                            onCancel(item)
+                                          }}
+                                          className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-black text-rose-700 transition hover:bg-rose-50"
+                                        >
+                                          <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-current text-[11px]">
+                                            ×
+                                          </span>
+                                          Hủy lịch
+                                        </button>
+                                      ) : null}
 
                                       {typeof onDelete === 'function' ? (
                                         <button
