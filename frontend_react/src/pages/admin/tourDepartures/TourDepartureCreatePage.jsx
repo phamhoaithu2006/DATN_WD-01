@@ -5,7 +5,6 @@ import TourDepartureForm from '../../../components/admin/tourDepartures/TourDepa
 
 const emptyForm = {
   departure_date: '',
-  departure_location: '',
   price: '',
   base_price: '',
   discount_price: '',
@@ -102,10 +101,8 @@ function validateTourDepartureForm(formData, selectedTourId) {
 
   if (isBlank(formData.status)) {
     errors.status = 'Vui lòng chọn trạng thái.'
-  }
-
-  if (String(formData.departure_location || '').trim().length > 150) {
-    errors.departure_location = 'Điểm khởi hành không được vượt quá 150 ký tự.'
+  } else if (!['open', 'closed', 'completed', 'cancelled'].includes(formData.status)) {
+    errors.status = 'Trạng thái lịch khởi hành không hợp lệ.'
   }
 
   if (isBlank(formData.base_price)) {
@@ -424,19 +421,6 @@ function TourDetailCard({ tour, loading = false }) {
                   : 'Không có'}
               </p>
             </div>
-
-            <div className="rounded-lg bg-white p-3">
-              <p className="text-xs font-semibold text-slate-500">
-                Điểm khởi hành mặc định
-              </p>
-              <p className="mt-1 font-bold text-slate-800">
-                {getFirstValue(
-                  tour?.departure_location,
-                  tour?.start_location,
-                  tour?.meeting_point
-                ) || 'Chưa cập nhật'}
-              </p>
-            </div>
           </div>
 
           {description ? (
@@ -650,7 +634,6 @@ const TourDepartureCreatePage = () => {
 
     const payload = {
       departure_date: formData.departure_date,
-      departure_location: String(formData.departure_location || '').trim() || null,
       base_price: Number(formData.base_price),
       discount_price:
         formData.discount_price === '' ? null : Number(formData.discount_price),
