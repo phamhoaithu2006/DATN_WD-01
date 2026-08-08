@@ -35,22 +35,24 @@ const participantPreviewFor = (booking) => {
 }
 
 function BookingActions({ booking, busy, onCancel, onComplete, onConfirm, onDelete, onView }) {
+  const isReadOnly = ['departed', 'cancelled', 'cancelled_by_tour', 'completed'].includes(booking.status)
+
   return (
     <div className="booking-row-actions">
       <button type="button" title="Xem chi tiết" onClick={() => onView(booking)} disabled={!!busy}>
         <EyeIcon />
       </button>
-      {booking.status === 'pending' ? (
+      {!isReadOnly && booking.status === 'pending' ? (
         <button className="success" type="button" title="Xác nhận" onClick={() => onConfirm(booking)} disabled={!!busy}>
           <CheckIcon />
         </button>
       ) : null}
-      {booking.status === 'confirmed' ? (
+      {!isReadOnly && booking.status === 'confirmed' ? (
         <button className="success" type="button" title="Hoàn thành" onClick={() => onComplete(booking)} disabled={!!busy}>
           <CheckIcon />
         </button>
       ) : null}
-      {!['cancelled', 'cancelled_by_tour', 'completed'].includes(booking.status) ? (
+      {!isReadOnly ? (
         <button className="danger" type="button" title="Hủy booking" onClick={() => onCancel(booking)} disabled={!!busy}>
           <CloseIcon />
         </button>

@@ -245,12 +245,11 @@ function BookingManagementPage() {
   }
 
   const removeBooking = async (booking) => {
-    if (!await confirmAction('Xóa vĩnh viễn booking này? Hành động này không thể khôi phục.', { title: 'Xóa booking', confirmLabel: 'Xóa', tone: 'danger' })) return
+    if (!await confirmAction('Xóa vĩnh viễn booking đã hủy này? Hành động này không thể khôi phục.', { title: 'Xóa booking', confirmLabel: 'Xóa', tone: 'danger' })) return
 
     setBusy(`delete-${booking.id}`)
     try {
       const response = await deleteBooking(booking.id)
-
       setNotice({ type: 'success', text: response.message || 'Đã xóa booking.' })
       await load()
     } catch (error) {

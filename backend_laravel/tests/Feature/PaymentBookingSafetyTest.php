@@ -1219,7 +1219,7 @@ test('booking update cannot change payment status directly', function () {
     ]);
 });
 
-test('cancel booking releases slots only once', function () {
+test('cancel booking releases slots once then becomes read only', function () {
     Sanctum::actingAs(paymentSafetyUser('admin'));
     $booking = paymentSafetyBooking(['number_of_people' => 2]);
     $departureId = $booking->tour_departure_id;
@@ -1244,7 +1244,8 @@ test('cancel booking releases slots only once', function () {
         ->assertJsonStructure(['data' => ['status_histories', 'disruption_requests']]);
 
     $this->patchJson("/api/admin/bookings/{$booking->id}/cancel")
-        ->assertOk();
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('status');
 
     $this->assertDatabaseHas('tour_departures', [
         'id' => $departureId,
@@ -1252,7 +1253,7 @@ test('cancel booking releases slots only once', function () {
     ]);
 });
 
-test('cannot permanently delete booking before it is cancelled', function () {
+test('only cancelled booking can be permanently deleted with related payment', function () {
     Sanctum::actingAs(paymentSafetyUser('admin'));
     $booking = paymentSafetyBooking();
 
@@ -1262,6 +1263,20 @@ test('cannot permanently delete booking before it is cancelled', function () {
 
     $this->assertDatabaseHas('bookings', [
         'id' => $booking->id,
+    ]);
+
+    $booking->update(['status' => 'cancelled']);
+
+    $this->deleteJson("/api/admin/bookings/{$booking->id}")
+        ->assertOk()
+        ->assertJsonPath('message', 'Đã xóa booking vĩnh viễn.');
+
+    $this->assertDatabaseMissing('bookings', [
+        'id' => $booking->id,
+    ]);
+
+    $this->assertDatabaseMissing('payments', [
+        'booking_id' => $booking->id,
     ]);
 });
 

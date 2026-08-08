@@ -277,6 +277,12 @@ class BookingController extends Controller
                 ->findOrFail($booking->id);
             $requestedStatus = $data['status'] ?? null;
 
+            if (in_array($lockedBooking->status, ['departed', 'completed', 'cancelled', 'cancelled_by_tour'], true)) {
+                throw ValidationException::withMessages([
+                    'status' => 'Booking đang diễn ra, đã hủy hoặc đã hoàn thành chỉ có thể xem chi tiết.',
+                ]);
+            }
+
             if ($lockedBooking->status === 'cancelled_by_tour') {
                 if ($requestedStatus === 'pending') {
                     throw ValidationException::withMessages([
@@ -355,8 +361,10 @@ class BookingController extends Controller
                 ->lockForUpdate()
                 ->findOrFail($id);
 
-            if ($booking->status === 'cancelled') {
-                return;
+            if (in_array($booking->status, ['departed', 'completed', 'cancelled', 'cancelled_by_tour'], true)) {
+                throw ValidationException::withMessages([
+                    'status' => 'Booking đang diễn ra, đã hủy hoặc đã hoàn thành chỉ có thể xem chi tiết.',
+                ]);
             }
 
             $oldStatus = $booking->status;
@@ -381,14 +389,19 @@ class BookingController extends Controller
     {
         $booking = Booking::findOrFail($id);
 
-        if ($booking->status !== 'cancelled') {
+        if (! in_array($booking->status, ['cancelled', 'cancelled_by_tour'], true)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Chỉ có thể xóa vĩnh viễn booking đã hủy.',
             ], 422);
         }
 
-        $booking->delete();
+        DB::transaction(function () use ($booking): void {
+            DB::table('tour_refund_outbox')->where('booking_id', $booking->id)->delete();
+            DB::table('refund_requests')->where('booking_id', $booking->id)->delete();
+            DB::table('payments')->where('booking_id', $booking->id)->delete();
+            $booking->delete();
+        });
 
         return response()->json([
             'success' => true,
