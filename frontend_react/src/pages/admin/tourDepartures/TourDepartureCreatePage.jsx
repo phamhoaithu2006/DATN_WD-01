@@ -57,11 +57,12 @@ const getBackendFieldErrors = (error) => {
   )
 }
 
-function todayKey() {
-  const today = new Date()
-  const year = today.getFullYear()
-  const month = String(today.getMonth() + 1).padStart(2, '0')
-  const day = String(today.getDate()).padStart(2, '0')
+function minimumDepartureDateKey() {
+  const minimumDate = new Date()
+  minimumDate.setDate(minimumDate.getDate() + 4)
+  const year = minimumDate.getFullYear()
+  const month = String(minimumDate.getMonth() + 1).padStart(2, '0')
+  const day = String(minimumDate.getDate()).padStart(2, '0')
 
   return `${year}-${month}-${day}`
 }
@@ -87,8 +88,8 @@ function validateTourDepartureForm(formData, selectedTourId) {
 
   if (isBlank(formData.departure_date)) {
     errors.departure_date = 'Vui lòng chọn ngày khởi hành.'
-  } else if (formData.departure_date < todayKey()) {
-    errors.departure_date = 'Ngày khởi hành không được nhỏ hơn ngày hiện tại.'
+  } else if (formData.departure_date < minimumDepartureDateKey()) {
+    errors.departure_date = 'Ngày khởi hành phải được tạo trước ít nhất 4 ngày.'
   }
 
   const totalSlots = Number(formData.total_slots)

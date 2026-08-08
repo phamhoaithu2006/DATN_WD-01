@@ -533,19 +533,81 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(functi
     // Quản lý tour
     Route::get('tours/public', [TourManagerController::class, 'publicIndex']);
     Route::prefix('tours')->group(function () {
-        Route::get('/', [TourManagerController::class, 'index']);
-        Route::get('/hidden-list', [TourManagerController::class, 'hiddenTours']);
-        Route::get('/statistics', [TourManagerController::class, 'statistics']);
-        Route::get('/departures', [TourDepartureController::class, 'listAll']);
-        Route::get('/{tourId}/departures', [TourDepartureController::class, 'index']);
-        Route::post('/{tourId}/departures', [TourDepartureController::class, 'store']);
-        Route::get('/{id}', [TourManagerController::class, 'show']);
-        Route::post('/', [TourManagerController::class, 'store']);
-        Route::put('/{id}', [TourManagerController::class, 'update']);
-        Route::delete('/{id}', [TourManagerController::class, 'destroy']);
-        Route::patch('/{id}/hide', [TourManagerController::class, 'hide']);
-        Route::patch('/{id}/unhide', [TourManagerController::class, 'unhide']);
-    });
+    Route::get('/', [TourManagerController::class, 'index']);
+    Route::get('/hidden-list', [TourManagerController::class, 'hiddenTours']);
+    Route::get('/statistics', [TourManagerController::class, 'statistics']);
+
+    // ================= LỊCH KHỞI HÀNH =================
+
+    // Lấy tất cả lịch
+    Route::get('/departures', [
+        TourDepartureController::class,
+        'listAll'
+    ]);
+
+    // Lấy lịch theo tour
+    Route::get('/{tourId}/departures', [
+        TourDepartureController::class,
+        'index'
+    ]);
+
+    // Thêm lịch
+    Route::post('/{tourId}/departures', [
+        TourDepartureController::class,
+        'store'
+    ]);
+
+    // Sửa lịch
+    Route::put('/departures/{id}', [
+        TourDepartureController::class,
+        'update'
+    ])->whereNumber('id');
+
+    // Hủy lịch
+    Route::post('/departures/{id}/cancel', [
+        TourDepartureController::class,
+        'cancelConfirmed'
+    ])->whereNumber('id');
+
+    // Xóa lịch
+    Route::delete('/departures/{id}', [
+        TourDepartureController::class,
+        'destroy'
+    ])->whereNumber('id');
+
+
+    // ================= TOUR =================
+
+    Route::get('/{id}', [
+        TourManagerController::class,
+        'show'
+    ]);
+
+    Route::post('/', [
+        TourManagerController::class,
+        'store'
+    ]);
+
+    Route::put('/{id}', [
+        TourManagerController::class,
+        'update'
+    ]);
+
+    Route::delete('/{id}', [
+        TourManagerController::class,
+        'destroy'
+    ]);
+
+    Route::patch('/{id}/hide', [
+        TourManagerController::class,
+        'hide'
+    ]);
+
+    Route::patch('/{id}/unhide', [
+        TourManagerController::class,
+        'unhide'
+    ]);
+});
 
     // Cài đặt hệ thống
     Route::get('/settings', [SettingController::class, 'index']);

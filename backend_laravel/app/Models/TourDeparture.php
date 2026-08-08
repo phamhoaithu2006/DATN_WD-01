@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Cache;
 
 class TourDeparture extends Model
 {
+    public const CUSTOMER_BOOKING_CUTOFF_DAYS = 3;
+
     protected $table = 'tour_departures';
 
     protected $fillable = [
@@ -53,6 +55,12 @@ class TourDeparture extends Model
 
         static::saved($clearFilterOptionsCache);
         static::deleted($clearFilterOptionsCache);
+    }
+
+    /** Ngày cuối cùng không còn được phép nhận booking mới. */
+    public static function customerBookingCutoffDate(): \Carbon\Carbon
+    {
+        return today()->addDays(self::CUSTOMER_BOOKING_CUTOFF_DAYS);
     }
 
     /**

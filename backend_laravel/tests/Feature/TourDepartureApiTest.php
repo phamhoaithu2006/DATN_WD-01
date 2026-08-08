@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Booking;
+use App\Models\Guide;
 use App\Models\Role;
 use App\Models\Tour;
 use App\Models\TourDeparture;
@@ -181,7 +182,7 @@ test('admin can create departure with valid data', function () {
     $tour = createTestTour();
 
     $payload = [
-        'departure_date' => now()->addDays(2)->format('Y-m-d'),
+        'departure_date' => now()->addDays(4)->format('Y-m-d'),
         'return_date' => now()->addDays(10)->format('Y-m-d'),
         'base_price' => 2000000,
         'discount_price' => 1800000,
@@ -193,7 +194,7 @@ test('admin can create departure with valid data', function () {
 
     $response->assertStatus(201)
         ->assertJsonPath('status', 'success')
-        ->assertJsonPath('data.return_date', now()->addDays(3)->format('Y-m-d'))
+        ->assertJsonPath('data.return_date', now()->addDays(5)->format('Y-m-d'))
         ->assertJsonPath('data.price', 1800000.0)
         ->assertJsonPath('data.base_price', 2000000.0)
         ->assertJsonPath('data.discount_price', 1800000.0)
@@ -217,7 +218,7 @@ test('departure without own price inherits tour base and discount price', functi
     ]);
 
     $payload = [
-        'departure_date' => now()->addDays(3)->format('Y-m-d'),
+        'departure_date' => now()->addDays(4)->format('Y-m-d'),
         'total_slots' => 12,
         'status' => 'open',
     ];
@@ -257,6 +258,42 @@ test('create departure validation fails with invalid dates', function () {
 
     $response->assertStatus(422)
         ->assertJsonValidationErrors(['departure_date']);
+});
+
+test('admin must create departure at least four days in advance', function () {
+    $admin = createAdminUser();
+    Sanctum::actingAs($admin);
+    $tour = createTestTour();
+
+    $response = $this->postJson("/api/admin/tours/{$tour->id}/departures", [
+        'departure_date' => today()->addDays(3)->toDateString(),
+        'total_slots' => 10,
+        'status' => 'open',
+    ]);
+
+    $response->assertUnprocessable()
+        ->assertJsonValidationErrors(['departure_date']);
+});
+
+test('departure list flags tours within three days that have no guide', function () {
+    $admin = createAdminUser();
+    Sanctum::actingAs($admin);
+    $tour = createTestTour();
+    $departure = TourDeparture::query()->create([
+        'tour_id' => $tour->id,
+        'departure_date' => today()->addDays(3)->toDateString(),
+        'return_date' => today()->addDays(4)->toDateString(),
+        'total_slots' => 10,
+        'booked_slots' => 0,
+        'status' => 'open',
+    ]);
+
+    $response = $this->getJson("/api/admin/tours/{$tour->id}/departures");
+
+    $response->assertOk()
+        ->assertJsonPath('data.0.id', $departure->id)
+        ->assertJsonPath('data.0.days_until_departure', 3)
+        ->assertJsonPath('data.0.is_missing_guide_warning', true);
 });
 
 /*
@@ -369,6 +406,43 @@ test('cannot delete departure if it has active bookings', function () {
     $response->assertStatus(422)
         ->assertJsonPath('status', 'error')
         ->assertJsonPath('message', 'Không thể xóa lịch khởi hành này vì đã có booking liên kết. Vui lòng hủy hoặc chuyển các booking trước khi xóa.');
+
+    $this->assertDatabaseHas('tour_departures', ['id' => $departure->id]);
+});
+
+test('cannot directly delete departure that has an assigned guide', function () {
+    $admin = createAdminUser();
+    Sanctum::actingAs($admin);
+    $tour = createTestTour();
+    $departure = TourDeparture::query()->create([
+        'tour_id' => $tour->id,
+        'departure_date' => today()->addDays(5)->toDateString(),
+        'return_date' => today()->addDays(6)->toDateString(),
+        'total_slots' => 10,
+        'booked_slots' => 0,
+        'status' => 'open',
+    ]);
+    $guideUser = User::factory()->create();
+    $guide = Guide::query()->create([
+        'user_id' => $guideUser->id,
+        'guide_code' => 'HDV-DELETE-GUARD',
+        'status' => 'active',
+    ]);
+
+    DB::table('tour_guide_assignments')->insert([
+        'tour_departure_id' => $departure->id,
+        'guide_id' => $guide->id,
+        'role' => 'lead',
+        'status' => 'assigned',
+        'assigned_at' => now(),
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    $response = $this->deleteJson("/api/admin/tours/departures/{$departure->id}");
+
+    $response->assertUnprocessable()
+        ->assertJsonPath('message', 'Không thể xóa trực tiếp lịch khởi hành đã phân công HDV. Vui lòng hủy lịch để thông báo và giải phóng HDV.');
 
     $this->assertDatabaseHas('tour_departures', ['id' => $departure->id]);
 });

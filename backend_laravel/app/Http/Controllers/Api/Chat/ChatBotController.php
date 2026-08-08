@@ -7,6 +7,7 @@ use App\Http\Resources\ChatTourRecommendationResource;
 use App\Models\ChatConversation;
 use App\Models\ChatMessage;
 use App\Models\Tour;
+use App\Models\TourDeparture;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\Request;
@@ -415,7 +416,7 @@ class ChatBotController extends Controller
     {
         return $query
             ->where('status', 'open')
-            ->whereDate('departure_date', '>=', today())
+            ->whereDate('departure_date', '>', TourDeparture::customerBookingCutoffDate())
             ->whereRaw('(COALESCE(total_slots, 0) - COALESCE(booked_slots, 0)) > 0');
     }
 
