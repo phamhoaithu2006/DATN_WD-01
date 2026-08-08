@@ -61,18 +61,6 @@ const menuItems = [
     ),
   },
   {
-    label: 'Yêu Cầu Hủy Booking',
-    path: '/admin/booking-cancellation-requests',
-    showBookingDisruptionBadge: true,
-    icon: (
-      <>
-        <path d="M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" />
-        <path d="M8 9h8M8 13h5M8 17h3" />
-        <path d="m16 14 3 3m0-3-3 3" />
-      </>
-    ),
-  },
-  {
     label: 'Người Dùng',
     path: '/admin/users',
     icon: (

@@ -301,7 +301,7 @@ function DecisionModal({
   )
 }
 
-function BookingCancellationRequestsPage() {
+function BookingCancellationRequestsPage({ embedded = false }) {
   const [requests, setRequests] = useState([])
   const [summary, setSummary] = useState({})
   const [meta, setMeta] = useState({ current_page: 1, last_page: 1, total: 0 })
@@ -430,13 +430,13 @@ function BookingCancellationRequestsPage() {
   }
 
   return (
-    <div className="booking-cancellation-page">
-      <AdminPageHeader
+    <div className={`booking-cancellation-page${embedded ? ' booking-cancellation-page--embedded' : ''}`}>
+      {!embedded ? <AdminPageHeader
         breadcrumb={['ViVuGo', 'Yêu cầu hủy booking']}
         title="Quản lý yêu cầu hủy booking"
         description="Tiếp nhận, kiểm tra và xử lý các yêu cầu hoàn tiền, bảo lưu hoặc đổi lịch khởi hành của khách."
         showNotificationBell
-      />
+      /> : null}
 
       {notice ? (
         <div className={`booking-request-notice booking-request-notice--${notice.type}`} role="status">

@@ -8,8 +8,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Tour;
 use App\Models\TourDeparture;
-use App\Services\VnpayPaymentLifecycleService;
 use App\Services\TourPricingService;
+use App\Services\VnpayPaymentLifecycleService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -120,7 +120,10 @@ class BookingController extends Controller
             'contact',
             'participants',
             'payment',
-            'statusHistories' => fn($q) => $q->latest(),
+            'statusHistories' => fn ($q) => $q->with('changedBy:id,full_name')->latest(),
+            'disruptionRequests' => fn ($q) => $q
+                ->with(['requestedDeparture:id,departure_date,return_date', 'processedBy:id,full_name'])
+                ->latest(),
         ])->findOrFail($id);
 
         return response()->json([
@@ -161,7 +164,7 @@ class BookingController extends Controller
         $contact = $data['contact'] ?? null;
         unset($data['participants'], $data['contact']);
 
-        $data['booking_code'] = 'BK' . now()->format('Ymd') . strtoupper(Str::random(4));
+        $data['booking_code'] = 'BK'.now()->format('Ymd').strtoupper(Str::random(4));
         $data['discount_amount'] = $data['discount_amount'] ?? 0;
         $data['status'] = 'pending';
         $data['payment_status'] = 'unpaid';
@@ -306,7 +309,18 @@ class BookingController extends Controller
             $shouldReleaseSlots = ($data['status'] ?? null) === 'cancelled'
                 && $lockedBooking->status !== 'cancelled';
 
+            $oldStatus = $lockedBooking->status;
+
             $lockedBooking->update($data);
+
+            if ($requestedStatus !== null && $requestedStatus !== $oldStatus) {
+                $lockedBooking->statusHistories()->create([
+                    'changed_by' => request()->user()?->id,
+                    'old_status' => $oldStatus,
+                    'new_status' => $requestedStatus,
+                    'note' => $data['cancel_reason'] ?? 'Admin cập nhật trạng thái booking.',
+                ]);
+            }
 
             if ($shouldReleaseSlots) {
                 $this->releaseBookedSlots($lockedBooking);
@@ -345,7 +359,14 @@ class BookingController extends Controller
                 return;
             }
 
+            $oldStatus = $booking->status;
             $booking->update(['status' => 'cancelled', 'cancelled_at' => Carbon::now()]);
+            $booking->statusHistories()->create([
+                'changed_by' => request()->user()?->id,
+                'old_status' => $oldStatus,
+                'new_status' => 'cancelled',
+                'note' => 'Admin hủy booking.',
+            ]);
             $this->releaseBookedSlots($booking);
         });
 
@@ -483,6 +504,16 @@ class BookingController extends Controller
                 $query->whereDate('departure_date', '<=', today())
                     ->whereNotIn('status', ['cancelled', 'canceled']);
             })
-            ->update(['status' => 'departed', 'updated_at' => now()]);
+            ->chunkById(100, function ($bookings): void {
+                foreach ($bookings as $booking) {
+                    $oldStatus = $booking->status;
+                    $booking->update(['status' => 'departed', 'updated_at' => now()]);
+                    $booking->statusHistories()->create([
+                        'old_status' => $oldStatus,
+                        'new_status' => 'departed',
+                        'note' => 'Tự động cập nhật khi đến ngày khởi hành.',
+                    ]);
+                }
+            });
     }
 }

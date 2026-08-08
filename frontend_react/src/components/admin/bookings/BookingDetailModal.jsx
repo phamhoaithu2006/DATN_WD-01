@@ -22,6 +22,28 @@ function cancellationReasonLabel(booking) {
   return booking.cancel_reason || 'Chưa xác định.'
 }
 
+const STATUS_LABELS = {
+  pending: 'Chờ xác nhận',
+  confirmed: 'Đã xác nhận',
+  departed: 'Đã khởi hành',
+  completed: 'Hoàn thành',
+  cancelled: 'Đã hủy',
+  cancelled_by_tour: 'Đã hủy bởi tour',
+  retained: 'Đang bảo lưu',
+}
+
+const REQUEST_TYPE_LABELS = {
+  refund: 'Hoàn tiền / hủy booking',
+  retain: 'Bảo lưu booking',
+  transfer: 'Đổi lịch khởi hành',
+}
+
+const REQUEST_STATUS_LABELS = {
+  pending: 'Chờ xử lý',
+  approved: 'Đã duyệt',
+  rejected: 'Đã từ chối',
+}
+
 function BookingDetailModal({ booking, busy, onClose, onInvoice, onPaymentChange, onStatusChange }) {
   const name = customerName(booking)
   const phone = customerPhone(booking)
@@ -29,6 +51,8 @@ function BookingDetailModal({ booking, busy, onClose, onInvoice, onPaymentChange
   const participants = Array.isArray(booking.participants) ? booking.participants : []
   const contact = booking.contact || {}
   const payment = booking.payment || null
+  const statusHistories = Array.isArray(booking.status_histories) ? booking.status_histories : []
+  const disruptionRequests = Array.isArray(booking.disruption_requests) ? booking.disruption_requests : []
   const departureText = departure
     ? `${formatDate(departure.departure_date)} - ${formatDate(departure.return_date)}`
     : 'Chưa có lịch khởi hành'
@@ -232,6 +256,58 @@ function BookingDetailModal({ booking, busy, onClose, onInvoice, onPaymentChange
                 Booking này chưa có dữ liệu hành khách.
               </div>
             )}
+        </section>
+
+        <section className="booking-detail-panel booking-history-panel">
+          <div className="booking-detail-panel-title">
+            <span>Lịch sử thay đổi trạng thái</span>
+            <strong>{statusHistories.length}</strong>
+          </div>
+          {statusHistories.length ? (
+            <ol className="booking-status-timeline">
+              {statusHistories.map((history) => (
+                <li key={history.id}>
+                  <span className="booking-status-timeline__dot" aria-hidden="true" />
+                  <div>
+                    <strong>
+                      {history.old_status ? `${STATUS_LABELS[history.old_status] || history.old_status} → ` : ''}
+                      {STATUS_LABELS[history.new_status] || history.new_status}
+                    </strong>
+                    <small>{formatDate(history.created_at)} · {history.changed_by?.full_name || 'Hệ thống'}</small>
+                    {history.note ? <p>{history.note}</p> : null}
+                  </div>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <div className="booking-participant-empty">Chưa có lịch sử thay đổi trạng thái.</div>
+          )}
+        </section>
+
+        <section className="booking-detail-panel booking-history-panel">
+          <div className="booking-detail-panel-title">
+            <span>Yêu cầu hủy và xử lý booking</span>
+            <strong>{disruptionRequests.length}</strong>
+          </div>
+          {disruptionRequests.length ? (
+            <div className="booking-disruption-list">
+              {disruptionRequests.map((request) => (
+                <article key={request.id}>
+                  <div>
+                    <strong>{REQUEST_TYPE_LABELS[request.type] || request.type}</strong>
+                    <span className={`booking-request-inline-status ${request.status}`}>
+                      {REQUEST_STATUS_LABELS[request.status] || request.status}
+                    </span>
+                  </div>
+                  <small>Gửi lúc {formatDate(request.created_at)}</small>
+                  <p>{request.reason || 'Không có lý do.'}</p>
+                  {request.admin_note ? <p><b>Phản hồi:</b> {request.admin_note}</p> : null}
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="booking-participant-empty">Booking này chưa có yêu cầu hủy hoặc thay đổi.</div>
+          )}
         </section>
 
         {booking.note || contact.special_request ? (
