@@ -9,6 +9,7 @@ use App\Http\Resources\TourResource;
 use App\Models\Category;
 use App\Models\Destination;
 use App\Models\Tour;
+use App\Models\TourDeparture;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -107,7 +108,11 @@ class TourController extends Controller
                 ->where('tours.status', 'published')
                 ->whereNull('tours.deleted_at')
                 ->where('tour_departures.status', 'open')
-                ->whereDate('tour_departures.departure_date', '>=', today())
+                ->whereDate(
+                    'tour_departures.departure_date',
+                    '>',
+                    TourDeparture::customerBookingCutoffDate()
+                )
                 ->whereNotNull('tour_departures.departure_location')
                 ->where('tour_departures.departure_location', '!=', '')
                 ->select(
@@ -194,7 +199,11 @@ class TourController extends Controller
     {
         return $query
             ->where('status', 'open')
-            ->whereDate('departure_date', '>=', today());
+            ->whereDate(
+                'departure_date',
+                '>',
+                TourDeparture::customerBookingCutoffDate()
+            );
     }
 
     /**

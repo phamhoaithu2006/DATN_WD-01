@@ -5,6 +5,7 @@ import BookingPagination from '../../components/admin/bookings/BookingPagination
 import BookingStats from '../../components/admin/bookings/BookingStats'
 import BookingTable from '../../components/admin/bookings/BookingTable'
 import AdminPageHeader from '../../components/admin/AdminPageHeader'
+import BookingCancellationRequestsPage from './BookingCancellationRequestsPage'
 import { confirmAction, promptAction } from '../../components/common/AppConfirmDialog.jsx'
 import {
   getBookingList,
@@ -39,6 +40,9 @@ function BookingManagementPage() {
   const [busy, setBusy] = useState(null)
   const [detail, setDetail] = useState(null)
   const [notice, setNotice] = useState(null)
+  const [activeSection, setActiveSection] = useState(() => (
+    new URLSearchParams(window.location.search).get('section') === 'requests' ? 'requests' : 'bookings'
+  ))
 
   const params = useMemo(
     () => ({
@@ -278,6 +282,17 @@ function BookingManagementPage() {
         }
       />
 
+      <div className="booking-management-tabs" role="tablist" aria-label="Quản lý booking">
+        <button type="button" role="tab" aria-selected={activeSection === 'bookings'} className={activeSection === 'bookings' ? 'active' : ''} onClick={() => setActiveSection('bookings')}>
+          Danh sách booking
+        </button>
+        <button type="button" role="tab" aria-selected={activeSection === 'requests'} className={activeSection === 'requests' ? 'active' : ''} onClick={() => setActiveSection('requests')}>
+          Yêu cầu hủy / thay đổi
+        </button>
+      </div>
+
+      {activeSection === 'requests' ? <BookingCancellationRequestsPage embedded /> : <>
+
       {notice ? (
         <div className={`booking-notice ${notice.type}`}>
           <span>{notice.text}</span>
@@ -331,6 +346,7 @@ function BookingManagementPage() {
           onStatusChange={updateStatus}
         />
       ) : null}
+      </>}
     </section>
   )
 }

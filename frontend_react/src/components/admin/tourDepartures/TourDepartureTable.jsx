@@ -286,42 +286,42 @@ function getStatusMeta(status) {
   const map = {
     open: {
       text: 'Sắp tới',
-      badge: 'bg-blue-50 text-blue-700 ring-blue-100',
+      badge: 'text-blue-700',
     },
     upcoming: {
       text: 'Sắp tới',
-      badge: 'bg-blue-50 text-blue-700 ring-blue-100',
+      badge: 'text-blue-700',
     },
     closed: {
       text: 'Đang diễn ra',
-      badge: 'bg-sky-50 text-sky-700 ring-sky-100',
+      badge: 'text-sky-700',
     },
     ongoing: {
       text: 'Đang diễn ra',
-      badge: 'bg-sky-50 text-sky-700 ring-sky-100',
+      badge: 'text-sky-700',
     },
     completed: {
       text: 'Đã hoàn thành',
-      badge: 'bg-emerald-50 text-emerald-700 ring-emerald-100',
+      badge: 'text-emerald-700',
     },
     past: {
       text: 'Đã hoàn thành',
-      badge: 'bg-emerald-50 text-emerald-700 ring-emerald-100',
+      badge: 'text-emerald-700',
     },
     cancelled: {
       text: 'Đã hủy',
-      badge: 'bg-rose-50 text-rose-700 ring-rose-100',
+      badge: 'text-rose-700',
     },
     canceled: {
       text: 'Đã hủy',
-      badge: 'bg-rose-50 text-rose-700 ring-rose-100',
+      badge: 'text-rose-700',
     },
   }
 
   return (
     map[normalizedStatus] || {
       text: status || 'Không rõ',
-      badge: 'bg-gray-50 text-gray-700 ring-gray-200',
+      badge: 'text-gray-700',
     }
   )
 }
@@ -332,26 +332,20 @@ function getAssignmentMeta(departure) {
   if (leadAssignment || departure.assignment_state === 'assigned') {
     return {
       text: 'Đã phân công',
-      badge: 'bg-emerald-100 text-emerald-700 ring-emerald-200',
-      row: 'bg-emerald-50/70 hover:bg-emerald-100/60',
-      border: 'border-l-4 border-emerald-300',
+      badge: 'text-emerald-700',
     }
   }
 
   if (departure.assignment_state === 'blocked') {
     return {
       text: 'Hết HDV phù hợp',
-      badge: 'bg-rose-100 text-rose-700 ring-rose-200',
-      row: 'bg-rose-50/80 hover:bg-rose-100/60',
-      border: 'border-l-4 border-rose-300',
+      badge: 'text-rose-700',
     }
   }
 
   return {
     text: 'Chưa phân công',
-    badge: 'bg-rose-100 text-rose-700 ring-rose-200',
-    row: 'bg-rose-50/80 hover:bg-rose-100/60',
-    border: 'border-l-4 border-rose-300',
+    badge: 'text-rose-700',
   }
 }
 
@@ -406,9 +400,7 @@ function getDepartureTimeGroup(departure) {
 function isLockedDeparture(departure) {
   const group = getDepartureTimeGroup(departure)
 
-  // Chỉ khóa thao tác khi lịch đã hoàn thành hoặc đã hủy.
-  // Không khóa lịch sắp tới/đang diễn ra chỉ vì backend trả is_locked=true.
-  return group === 'completed' || group === 'cancelled'
+  return group === 'ongoing' || group === 'completed' || group === 'cancelled'
 }
 
 function getBookingCount(departure) {
@@ -436,7 +428,16 @@ function hasAssignedGuide(departure) {
 }
 
 function isAssignmentWarningTarget(departure) {
-  return ['upcoming', 'ongoing'].includes(getDepartureTimeGroup(departure))
+  if (typeof departure?.is_missing_guide_warning === 'boolean') {
+    return departure.is_missing_guide_warning
+  }
+
+  const daysUntilDeparture = getDaysUntilDeparture(departure)
+
+  return getDepartureTimeGroup(departure) === 'upcoming'
+    && daysUntilDeparture !== null
+    && daysUntilDeparture >= 1
+    && daysUntilDeparture <= 3
 }
 
 function compareDepartureDateNearestFirst(a, b) {
@@ -481,6 +482,15 @@ function sortByAssignmentState(items = []) {
     }
 
     return Number(b?.id || 0) - Number(a?.id || 0)
+  })
+}
+
+function sortMinimumGuestWarningsFirst(items = []) {
+  return [...items].sort((a, b) => {
+    const aWarning = isMinimumGuestWarning(a) ? 1 : 0
+    const bWarning = isMinimumGuestWarning(b) ? 1 : 0
+
+    return bWarning - aWarning
   })
 }
 
@@ -878,9 +888,11 @@ export default function TourDepartureTable({
       scheduleTabs.find((tab) => tab.key === scheduleFilter)?.rows ||
       groupedRows.upcoming
 
-    return sortByReplacementRequests(
-      sortByAssignmentState(rows),
-      replacementRequests
+    return sortMinimumGuestWarningsFirst(
+      sortByReplacementRequests(
+        sortByAssignmentState(rows),
+        replacementRequests
+      )
     )
   }, [scheduleTabs, scheduleFilter, groupedRows.upcoming, replacementRequests])
 
@@ -1067,14 +1079,13 @@ export default function TourDepartureTable({
             </div>
 
             <div className="overflow-x-auto rounded-xl border border-slate-200">
-              <table className="w-full min-w-[1480px] text-sm">
+              <table className="w-full min-w-[1320px] text-sm">
                 <thead className="bg-slate-50 text-center text-xs font-bold uppercase text-slate-500">
                   <tr>
                     <th className="border-b px-4 py-4">STT</th>
                     <th className="border-b px-4 py-4 text-left">Tên tour</th>
                     <th className="border-b px-4 py-4 text-left">Ngày đi</th>
                     <th className="border-b px-4 py-4 text-left">Ngày về</th>
-                    <th className="border-b px-4 py-4 text-left">Thời điểm tạo</th>
                     <th className="border-b px-4 py-4 text-right">Giá</th>
                     <th className="border-b px-4 py-4">Đặt</th>
                     <th className="border-b px-4 py-4 text-left">HDV phụ trách</th>
@@ -1088,7 +1099,7 @@ export default function TourDepartureTable({
                   {loading ? (
                     <tr>
                       <td
-                        colSpan="11"
+                        colSpan="10"
                         className="px-4 py-14 text-center text-slate-500"
                       >
                         Đang tải lịch khởi hành...
@@ -1097,7 +1108,7 @@ export default function TourDepartureTable({
                   ) : displayedRows.length === 0 ? (
                     <tr>
                       <td
-                        colSpan="11"
+                        colSpan="10"
                         className="px-4 py-14 text-center text-slate-500"
                       >
                         {getAssignmentFilterEmptyText(
@@ -1115,6 +1126,7 @@ export default function TourDepartureTable({
                       const daysUntilDeparture = getDaysUntilDeparture(item)
                       const tourTitle = getTourTitle(item)
                       const assignmentMeta = getAssignmentMeta(item)
+                      const missingGuideWarning = isAssignmentWarningTarget(item) && !hasAssignedGuide(item)
                       const statusMeta = getStatusMeta(getDepartureTimeGroup(item))
                       const leadAssignment = getLeadAssignment(item)
 
@@ -1133,11 +1145,11 @@ export default function TourDepartureTable({
                         <tr
                           key={item.id}
                           className={`text-slate-700 transition ${
-                            minimumGuestWarning
+                            missingGuideWarning || minimumGuestWarning
                               ? 'border-l-4 border-rose-500 bg-rose-50/90 hover:bg-rose-100/80'
                               : replacementRequest
                                 ? 'bg-orange-50/80 hover:bg-orange-100/70 border-l-4 border-orange-400'
-                                : `${assignmentMeta.row} ${assignmentMeta.border}`
+                                : 'bg-white hover:bg-slate-50'
                           } ${locked ? 'text-slate-500' : ''} ${
                             isHighlightedReplacement ? 'ring-2 ring-orange-300 ring-inset' : ''
                           }`}
@@ -1167,6 +1179,15 @@ export default function TourDepartureTable({
                                 </span>
                               </div>
                             ) : null}
+
+                            {missingGuideWarning ? (
+                              <div className="mt-2 rounded-lg border border-rose-300 bg-rose-100 px-2.5 py-2 text-[11px] font-bold leading-4 text-rose-800">
+                                <span className="block font-black">Thiếu HDV</span>
+                                <span>
+                                  Lịch còn {daysUntilDeparture} ngày nhưng chưa được phân công hướng dẫn viên.
+                                </span>
+                              </div>
+                            ) : null}
                           </td>
 
                           <td className="px-4 py-4 font-semibold">
@@ -1177,10 +1198,6 @@ export default function TourDepartureTable({
                             {formatDate(
                               item.return_date || item.departure_date
                             )}
-                          </td>
-
-                          <td className="px-4 py-4">
-                            {formatDateTime(item.created_at)}
                           </td>
 
                           <td className="px-4 py-4 text-right font-bold">
@@ -1216,7 +1233,7 @@ export default function TourDepartureTable({
                               </div>
                             ) : (
                               <span className="font-bold text-rose-700">
-                                Chưa có HDV
+                                {missingGuideWarning ? 'Thiếu HDV' : 'Chưa có HDV'}
                               </span>
                             )}
 
@@ -1232,7 +1249,7 @@ export default function TourDepartureTable({
 
                           <td className="px-4 py-4 text-center">
                             <span
-                              className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ring-1 ${assignmentMeta.badge}`}
+                              className={`inline-flex px-1 py-1 text-xs font-bold ${assignmentMeta.badge}`}
                             >
                               {assignmentMeta.text}
                             </span>
@@ -1246,7 +1263,7 @@ export default function TourDepartureTable({
 
                           <td className="px-4 py-4 text-center">
                             <span
-                              className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ring-1 ${statusMeta.badge}`}
+                              className={`inline-flex px-1 py-1 text-xs font-bold ${statusMeta.badge}`}
                             >
                               {statusMeta.text}
                             </span>

@@ -20,16 +20,65 @@ use Illuminate\Validation\ValidationException;
 
 class TourDepartureController extends Controller
 {
-    public function cancelConfirmed(Request $request, int $id, TourFinalizationService $finalizer)
-    {
-        $data = $request->validate([
-            'cancellation_reason' => ['required', 'in:insufficient_participants,weather_disaster,other'],
-        ]);
-        $outbox = $finalizer->cancelConfirmed(TourDeparture::findOrFail($id), $data['cancellation_reason'], $request->user()->id);
-        DeliverTourFinalizationOutbox::dispatch($outbox->id);
+    public function cancelConfirmed(
+    Request $request,
+    int $id,
+    TourFinalizationService $finalizer,
+    AdminNotificationService $adminNotificationService
+) {
+    $data = $request->validate([
+        'cancellation_reason' => [
+            'required',
+            'in:insufficient_participants,weather_disaster,other',
+        ],
+        'customer_message' => ['nullable', 'string', 'max:1000'],
+        'guide_message' => ['nullable', 'string', 'max:1000'],
+    ]);
 
-        return response()->json(['status' => 'success', 'data' => $outbox->departure()->first()]);
-    }
+    $departure = TourDeparture::query()
+        ->with('tour:id,title')
+        ->findOrFail($id);
+
+    $outbox = $finalizer->cancelConfirmed(
+        $departure,
+        $data['cancellation_reason'],
+        $request->user()->id,
+        $data['customer_message'] ?? null,
+        $data['guide_message'] ?? null
+    );
+
+    $cancelledDeparture = TourDeparture::query()
+        ->with('tour:id,title')
+        ->findOrFail($id);
+
+    /*
+     * Ghi vào Lịch sử thao tác của Admin.
+     */
+    $adminNotificationService->notifyTourDepartureCancelled(
+        $cancelledDeparture,
+        $request->user(),
+        $data['cancellation_reason']
+    );
+
+    /*
+     * Gửi thông báo cho khách / HDV qua outbox.
+     */
+    /*
+     * Hủy lịch là thao tác cần phản ánh ngay trên tài khoản khách và HDV.
+     * Không đẩy sang queue database ở đây vì khi queue worker chưa chạy,
+     * API vẫn báo thành công nhưng người liên quan không nhận được thông báo.
+     * Job có khóa outbox + processed_at nên dispatch đồng bộ vẫn an toàn khi retry.
+     */
+    DeliverTourFinalizationOutbox::dispatchSync(
+        $outbox->id
+    );
+
+    return response()->json([
+        'status' => 'success',
+        'message' => 'Đã hủy lịch khởi hành thành công.',
+        'data' => $cancelledDeparture,
+    ]);
+}
 
     /**
      * GET /api/admin/tours/{tourId}/departures
@@ -132,6 +181,8 @@ class TourDepartureController extends Controller
                         (int) $departure->booked_slots
                 )
             );
+
+            $this->setGuideWarningAttributes($departure, $today, $leadAssignment !== null);
         });
 
         return response()->json([
@@ -206,6 +257,7 @@ class TourDepartureController extends Controller
                 'available_slots',
                 max(0, (int) $departure->total_slots - (int) $departure->booked_slots)
             );
+            $this->setGuideWarningAttributes($departure, $today, $leadAssignment !== null);
         });
 
         return response()->json([
@@ -228,7 +280,7 @@ class TourDepartureController extends Controller
             'departure_date' => [
                 'required',
                 'date',
-                'after_or_equal:today',
+                'after_or_equal:'.today()->addDays(4)->toDateString(),
             ],
             'departure_at' => ['nullable', 'date'],
             'departure_location' => [
@@ -533,6 +585,13 @@ class TourDepartureController extends Controller
             ], 422);
         }
 
+        if ($departure->guideAssignments()->whereIn('status', ['assigned', 'confirmed'])->exists()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Không thể xóa trực tiếp lịch khởi hành đã phân công HDV. Vui lòng hủy lịch để thông báo và giải phóng HDV.',
+            ], 422);
+        }
+
         DB::transaction(function () use ($departure, $request) {
             $departure->loadMissing('tour:id,title');
 
@@ -701,6 +760,22 @@ class TourDepartureController extends Controller
     private function serializeDeparture(TourDeparture $departure): array
     {
         return TourDepartureResource::make($departure)->resolve();
+    }
+
+    private function setGuideWarningAttributes(
+        TourDeparture $departure,
+        Carbon $today,
+        bool $hasAssignedGuide
+    ): void {
+        $departureDate = Carbon::parse($departure->departure_date)->startOfDay();
+        $daysUntilDeparture = (int) $today->diffInDays($departureDate, false);
+        $isMissingGuideWarning = $daysUntilDeparture >= 1
+            && $daysUntilDeparture <= 3
+            && ! $hasAssignedGuide
+            && $this->getScheduleGroup($departure, $today) === 'upcoming';
+
+        $departure->setAttribute('days_until_departure', $daysUntilDeparture);
+        $departure->setAttribute('is_missing_guide_warning', $isMissingGuideWarning);
     }
 
     private function dateOnly(mixed $value): ?string

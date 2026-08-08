@@ -1232,6 +1232,17 @@ test('cancel booking releases slots only once', function () {
         'booked_slots' => 0,
     ]);
 
+    $this->assertDatabaseHas('booking_status_histories', [
+        'booking_id' => $booking->id,
+        'old_status' => 'pending',
+        'new_status' => 'cancelled',
+    ]);
+
+    $this->getJson("/api/admin/bookings/{$booking->id}")
+        ->assertOk()
+        ->assertJsonPath('data.status_histories.0.new_status', 'cancelled')
+        ->assertJsonStructure(['data' => ['status_histories', 'disruption_requests']]);
+
     $this->patchJson("/api/admin/bookings/{$booking->id}/cancel")
         ->assertOk();
 

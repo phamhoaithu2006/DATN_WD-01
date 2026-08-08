@@ -27,11 +27,12 @@ function HomeSkeleton() {
   );
 }
 
-function getTodayInputValue() {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, "0");
-  const day = String(today.getDate()).padStart(2, "0");
+function getEarliestBookableDepartureDate() {
+  const earliestDate = new Date();
+  earliestDate.setDate(earliestDate.getDate() + 4);
+  const year = earliestDate.getFullYear();
+  const month = String(earliestDate.getMonth() + 1).padStart(2, "0");
+  const day = String(earliestDate.getDate()).padStart(2, "0");
 
   return `${year}-${month}-${day}`;
 }
@@ -291,7 +292,7 @@ function HomePage({
     departure_date: "",
     category_id: "",
   });
-  const todayInputValue = getTodayInputValue();
+  const earliestDepartureInputValue = getEarliestBookableDepartureDate();
 
   const safeTours = Array.isArray(tours) ? tours : [];
   const safeInternationalTours = Array.isArray(internationalTours)
@@ -529,7 +530,7 @@ function HomePage({
                         id="hero-date-input"
                         type="date"
                         value={heroSearch.departure_date}
-                        min={todayInputValue}
+                        min={earliestDepartureInputValue}
                         onChange={(event) => updateHeroSearch("departure_date", event.target.value)}
                       />
                     </div>
