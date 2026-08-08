@@ -80,11 +80,11 @@ function FieldError({ message }) {
 function isLockedDeparture(departure) {
   const group = getDepartureTimeGroup(departure)
 
-  if (group === 'completed' || group === 'cancelled') {
+  if (group === 'ongoing' || group === 'completed' || group === 'cancelled') {
     return true
   }
 
-  if (group === 'upcoming' || group === 'ongoing') {
+  if (group === 'upcoming') {
     return false
   }
 
@@ -158,7 +158,16 @@ function getDepartureTimeGroup(departure) {
 }
 
 function isAssignmentWarningTarget(departure) {
-  return ['upcoming', 'ongoing'].includes(getDepartureTimeGroup(departure))
+  if (typeof departure?.is_missing_guide_warning === 'boolean') {
+    return departure.is_missing_guide_warning
+  }
+
+  const daysUntilDeparture = getDaysUntilDeparture(departure)
+
+  return getDepartureTimeGroup(departure) === 'upcoming'
+    && daysUntilDeparture !== null
+    && daysUntilDeparture >= 1
+    && daysUntilDeparture <= 3
 }
 
 function getAssignments(departure) {
@@ -315,7 +324,8 @@ export default function TourDepartureListPage() {
   // Modal hủy lịch khởi hành (khác với xóa dữ liệu)
   const [cancelModalOpen, setCancelModalOpen] = useState(false)
   const [cancellingDeparture, setCancellingDeparture] = useState(null)
-  const [cancelReason, setCancelReason] = useState('')
+  const [customerCancelMessage, setCustomerCancelMessage] = useState('')
+  const [guideCancelMessage, setGuideCancelMessage] = useState('')
   const [cancelSubmitting, setCancelSubmitting] = useState(false)
 
   const fetchTours = useCallback(async () => {
@@ -534,12 +544,18 @@ export default function TourDepartureListPage() {
     }
 
     const mode = getCancellationMode(item)
-
-    setCancellingDeparture(item)
-    setCancelReason(
+    const tourTitle = getCancellationTourTitle(item)
+    const defaultReason =
       mode === 'minimum_guests'
         ? 'Không đủ số lượng khách tối thiểu để triển khai tour (yêu cầu tối thiểu 10 khách).'
         : ''
+
+    setCancellingDeparture(item)
+    setCustomerCancelMessage(
+      `Chúng tôi rất tiếc, tour ${tourTitle} do số lượng khách không đủ để triển khai nên lịch khởi hành đã bị hủy. Chúng tôi sẽ hoàn lại tiền cho bạn trong vòng 24 giờ.`
+    )
+    setGuideCancelMessage(
+      `Lịch khởi hành của tour ${tourTitle} đã bị hủy. Lý do: ${defaultReason || 'Theo quyết định của quản trị viên.'}`
     )
     setCancelModalOpen(true)
   }
@@ -549,7 +565,8 @@ export default function TourDepartureListPage() {
 
     setCancelModalOpen(false)
     setCancellingDeparture(null)
-    setCancelReason('')
+    setCustomerCancelMessage('')
+    setGuideCancelMessage('')
   }
 
   const submitCancelDeparture = async () => {
@@ -560,25 +577,24 @@ export default function TourDepartureListPage() {
     const mode = getCancellationMode(departure)
     const hasBookings = hasActiveBookings(departure) || getBookedGuestCount(departure) > 0
     const hasGuide = hasAssignedGuideForCancellation(departure)
-    const reason = String(cancelReason || '').trim()
 
-    if (mode === 'reason_required' && !reason) {
+    if (hasBookings && !String(customerCancelMessage || '').trim()) {
       setActionNotice({
         type: 'error',
-        title: 'Thiếu lý do hủy',
-        message: 'Vui lòng nhập lý do hủy để gửi thông báo cho khách hàng và HDV.',
+        title: 'Thiếu thông báo cho khách hàng',
+        message: 'Vui lòng nhập nội dung thông báo gửi cho khách hàng.',
       })
       return
     }
 
-    const tourTitle = getCancellationTourTitle(departure)
-    const minimumMessage =
-      `Chúng tôi rất tiếc, tour ${tourTitle} do số lượng khách không đủ để triển khai nên lịch khởi hành đã bị hủy. ` +
-      'Chúng tôi sẽ hoàn lại tiền cho bạn trong vòng 24 giờ.'
-
-    const generalMessage = reason
-      ? `Lịch khởi hành của tour ${tourTitle} đã bị hủy. Lý do: ${reason}`
-      : `Lịch khởi hành của tour ${tourTitle} đã bị hủy.`
+    if (hasGuide && !String(guideCancelMessage || '').trim()) {
+      setActionNotice({
+        type: 'error',
+        title: 'Thiếu thông báo cho HDV',
+        message: 'Vui lòng nhập nội dung thông báo gửi cho hướng dẫn viên.',
+      })
+      return
+    }
 
     const payload = {
       reason_code:
@@ -590,11 +606,11 @@ export default function TourDepartureListPage() {
       reason:
         mode === 'minimum_guests'
           ? 'Không đủ số lượng khách tối thiểu để triển khai tour (yêu cầu tối thiểu 10 khách).'
-          : reason || 'Admin hủy lịch chưa có booking và chưa phân công HDV.',
+          : 'Lịch khởi hành bị hủy theo quyết định của quản trị viên.',
       notify_customers: hasBookings,
       notify_guides: hasGuide,
-      customer_message: mode === 'minimum_guests' ? minimumMessage : generalMessage,
-      guide_message: mode === 'minimum_guests' ? minimumMessage : generalMessage,
+      customer_message: hasBookings ? customerCancelMessage.trim() : null,
+      guide_message: hasGuide ? guideCancelMessage.trim() : null,
       booking_status: hasBookings ? 'cancelled' : null,
       refund_status: hasBookings ? 'pending' : null,
     }
@@ -620,7 +636,6 @@ export default function TourDepartureListPage() {
 
       setCancelModalOpen(false)
       setCancellingDeparture(null)
-      setCancelReason('')
 
       setActionNotice({
         type: 'success',
@@ -671,7 +686,7 @@ export default function TourDepartureListPage() {
       setActionNotice({
         type: 'error',
         title: 'Không thể xóa lịch',
-        message: 'Lịch khởi hành đã hoàn thành hoặc đã hủy nên không thể xóa.',
+        message: 'Lịch khởi hành đã bắt đầu, đã hoàn thành hoặc đã hủy nên không thể xóa.',
       })
       return
     }
@@ -681,6 +696,15 @@ export default function TourDepartureListPage() {
         type: 'error',
         title: 'Không thể xóa lịch',
         message: 'Lịch này đã có khách đặt tour nên không thể xóa trực tiếp.',
+      })
+      return
+    }
+
+    if (item && hasAssignedGuide(item)) {
+      setActionNotice({
+        type: 'error',
+        title: 'Không thể xóa lịch',
+        message: 'Lịch này đã phân công HDV nên không thể xóa trực tiếp. Vui lòng dùng thao tác hủy lịch để thông báo và giải phóng HDV.',
       })
       return
     }
@@ -1526,36 +1550,39 @@ export default function TourDepartureListPage() {
                       <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm font-semibold leading-6 text-amber-800">
                         Lịch này chưa có booking và chưa phân công HDV. Bạn có muốn hủy lịch khởi hành này không?
                       </div>
-                    ) : isMinimum ? (
-                      <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-4 text-sm leading-6 text-rose-800">
-                        <p className="font-black">Thông báo sẽ gửi cho khách hàng:</p>
-                        <p className="mt-2">
-                          Chúng tôi rất tiếc, tour <strong>{tourTitle}</strong> do số lượng khách không đủ để triển khai nên tour đã bị hủy. Chúng tôi sẽ hoàn lại tiền cho bạn trong vòng 24 giờ.
-                        </p>
-                        {hasGuide ? (
-                          <p className="mt-2 font-semibold">
-                            HDV phụ trách cũng sẽ nhận thông báo hủy lịch.
-                          </p>
-                        ) : null}
-                      </div>
-                    ) : (
-                      <div>
-                        <label className="mb-2 block text-sm font-black text-slate-800">
-                          Lý do hủy <span className="text-rose-500">*</span>
+                    ) : null}
+
+                    {!isSimple && hasBookings ? (
+                      <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-4">
+                        <label className="mb-2 block text-sm font-black text-rose-800">
+                          Thông báo gửi cho khách hàng <span className="text-rose-600">*</span>
                         </label>
                         <textarea
-                          value={cancelReason}
-                          onChange={(event) => setCancelReason(event.target.value)}
+                          value={customerCancelMessage}
+                          onChange={(event) => setCustomerCancelMessage(event.target.value)}
                           rows={4}
-                          maxLength={500}
-                          placeholder="Nhập lý do hủy để gửi cho khách hàng và HDV..."
-                          className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                          maxLength={1000}
+                          className="w-full rounded-xl border border-rose-200 bg-white px-3 py-2 text-sm leading-6 text-slate-800 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100"
                         />
-                        <p className="mt-1 text-xs text-slate-500">
-                          {cancelReason.length}/500 ký tự
-                        </p>
+                        <p className="mt-1 text-right text-xs text-rose-600">{customerCancelMessage.length}/1000 ký tự</p>
                       </div>
-                    )}
+                    ) : null}
+
+                    {!isSimple && hasGuide ? (
+                      <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4">
+                        <label className="mb-2 block text-sm font-black text-amber-800">
+                          Thông báo gửi cho hướng dẫn viên <span className="text-rose-600">*</span>
+                        </label>
+                        <textarea
+                          value={guideCancelMessage}
+                          onChange={(event) => setGuideCancelMessage(event.target.value)}
+                          rows={4}
+                          maxLength={1000}
+                          className="w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm leading-6 text-slate-800 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100"
+                        />
+                        <p className="mt-1 text-right text-xs text-amber-700">{guideCancelMessage.length}/1000 ký tự</p>
+                      </div>
+                    ) : null}
 
                     {hasBookings ? (
                       <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold leading-6 text-blue-800">
@@ -1578,7 +1605,8 @@ export default function TourDepartureListPage() {
                       onClick={() => void submitCancelDeparture()}
                       disabled={
                         cancelSubmitting ||
-                        (mode === 'reason_required' && !String(cancelReason || '').trim())
+                        (hasBookings && !String(customerCancelMessage || '').trim()) ||
+                        (hasGuide && !String(guideCancelMessage || '').trim())
                       }
                       className="rounded-xl bg-rose-600 px-5 py-2.5 text-sm font-black text-white shadow-sm transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
                     >

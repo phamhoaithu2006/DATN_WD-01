@@ -173,268 +173,350 @@ class AdminNotificationService
     }
 
     public function notifyGuideAssignmentCancelled(
-        TourDeparture $departure,
-        $guide,
-        ?User $actor = null
-    ): void {
-        $this->notifyGuideAssignmentChanged(
-            departure: $departure,
-            actor: $actor,
-            title: 'Phân công HDV đã được hoàn tác',
-            action: 'guide_assignment_cancelled',
-            guide: $guide
-        );
-    }
-
-    private function notifyGuideAssignmentChanged(
-        TourDeparture $departure,
-        ?User $actor,
-        string $title,
-        string $action,
-        $guide = null
-    ): void {
-        $departure->loadMissing([
-            'tour:id,title',
-        ]);
-
-        $tourTitle = $departure->tour?->title ?? 'tour';
-        $departureDate = $this->formatDate($departure->departure_date);
-        $returnDate = $this->formatDate(
-            $departure->return_date ?: $departure->departure_date
-        );
-        $actorLabel = $this->getActorLabel($actor);
-        $guideName = $this->getGuideName($guide);
-
-        $this->notifyAdmins(
-            title: $title,
-            message: "{$actorLabel} vừa thực hiện thao tác phân công HDV cho {$tourTitle}.\nNgày đi: {$departureDate}.\nNgày về: {$returnDate}.\nHDV: {$guideName}.",
-            data: [
-                'source' => 'guide_assignment',
-                'action' => $action,
-                'tour_id' => $departure->tour_id,
-                'tour_departure_id' => $departure->id,
-                'guide_id' => $guide?->id ?? null,
-            ]
-        );
-    }
-
-    private function notifyAdmins(
-        string $title,
-        string $message,
-        array $data = []
-    ): void {
-        $adminIds = $this->getAdminUserIds();
-
-        if ($adminIds->isEmpty()) {
-            return;
+            TourDeparture $departure,
+            $guide,
+            ?User $actor = null
+        ): void {
+            $this->notifyGuideAssignmentChanged(
+                departure: $departure,
+                actor: $actor,
+                title: 'Phân công HDV đã được hoàn tác',
+                action: 'guide_assignment_cancelled',
+                guide: $guide
+            );
         }
 
-        $now = now();
-        $hasDraftId = Schema::hasColumn('notifications', 'draft_id');
-        $hasData = Schema::hasColumn('notifications', 'data');
-
-        $rows = $adminIds
-            ->map(function ($userId) use (
-                $title,
-                $message,
-                $data,
-                $now,
-                $hasDraftId,
-                $hasData
-            ) {
-                $row = [
-                    'user_id' => $userId,
-                    'title' => $title,
-                    'message' => $message,
-                    'type' => 'system',
-                    'status' => 'unread',
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ];
-
-                if ($hasDraftId) {
-                    $row['draft_id'] = null;
-                }
-
-                if ($hasData) {
-                    $row['data'] = json_encode($data, JSON_UNESCAPED_UNICODE);
-                }
-
-                return $row;
-            })
-            ->values()
-            ->all();
-
-        Notification::insert($rows);
-    }
-
-    private function getAdminUserIds()
-    {
-        if (Schema::hasColumn('users', 'role')) {
-            $query = DB::table('users')
-                ->whereRaw('LOWER(role) = ?', ['admin']);
-
-            if (Schema::hasColumn('users', 'deleted_at')) {
-                $query->whereNull('deleted_at');
-            }
-
-            return $query->pluck('id');
-        }
-
-        if (
-            Schema::hasTable('roles') &&
-            Schema::hasColumn('users', 'role_id') &&
-            Schema::hasColumn('roles', 'name')
-        ) {
-            $query = DB::table('users')
-                ->join('roles', 'roles.id', '=', 'users.role_id')
-                ->whereRaw('LOWER(roles.name) = ?', ['admin']);
-
-            if (Schema::hasColumn('users', 'deleted_at')) {
-                $query->whereNull('users.deleted_at');
-            }
-
-            return $query->pluck('users.id');
-        }
-
-        return collect();
-    }
-
-    private function getActorLabel(?User $user): string
-    {
-        $name = $this->getUserName($user);
-        $roleName = $this->getRoleName($user);
-
-        return "{$name} ({$roleName})";
-    }
-
-    private function getUserName(?User $user): string
-    {
-        return $user?->username
-            ?? $user?->full_name
-            ?? $user?->name
-            ?? $user?->email
-            ?? 'Admin';
-    }
-
-    private function getRoleName(?User $user): string
-    {
-        if (!$user) {
-            return 'admin';
-        }
-
-        if (Schema::hasColumn('users', 'role')) {
-            return strtolower((string) ($user->role ?? 'admin'));
-        }
-
-        try {
-            $user->loadMissing([
-                'role',
+        private function notifyGuideAssignmentChanged(
+            TourDeparture $departure,
+            ?User $actor,
+            string $title,
+            string $action,
+            $guide = null
+        ): void {
+            $departure->loadMissing([
+                'tour:id,title',
             ]);
 
-            return strtolower(
-                (string) (
-                    $user->role?->name
-                    ?? $user->role?->slug
-                    ?? $user->role?->code
-                    ?? 'admin'
-                )
+            $tourTitle = $departure->tour?->title ?? 'tour';
+            $departureDate = $this->formatDate($departure->departure_date);
+            $returnDate = $this->formatDate(
+                $departure->return_date ?: $departure->departure_date
+            );
+            $actorLabel = $this->getActorLabel($actor);
+            $guideName = $this->getGuideName($guide);
+
+            $this->notifyAdmins(
+                title: $title,
+                message: "{$actorLabel} vừa thực hiện thao tác phân công HDV cho {$tourTitle}.\nNgày đi: {$departureDate}.\nNgày về: {$returnDate}.\nHDV: {$guideName}.",
+                data: [
+                    'source' => 'guide_assignment',
+                    'action' => $action,
+                    'tour_id' => $departure->tour_id,
+                    'tour_departure_id' => $departure->id,
+                    'guide_id' => $guide?->id ?? null,
+                ]
+            );
+        }
+
+        private function notifyAdmins(
+            string $title,
+            string $message,
+            array $data = []
+        ): void {
+            $adminIds = $this->getAdminUserIds();
+
+            if ($adminIds->isEmpty()) {
+                return;
+            }
+
+            $now = now();
+            $hasDraftId = Schema::hasColumn('notifications', 'draft_id');
+            $hasData = Schema::hasColumn('notifications', 'data');
+
+            $rows = $adminIds
+                ->map(function ($userId) use (
+                    $title,
+                    $message,
+                    $data,
+                    $now,
+                    $hasDraftId,
+                    $hasData
+                ) {
+                    $row = [
+                        'user_id' => $userId,
+                        'title' => $title,
+                        'message' => $message,
+                        'type' => 'system',
+                        'status' => 'unread',
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+
+                    if ($hasDraftId) {
+                        $row['draft_id'] = null;
+                    }
+
+                    if ($hasData) {
+                        $row['data'] = json_encode($data, JSON_UNESCAPED_UNICODE);
+                    }
+
+                    return $row;
+                })
+                ->values()
+                ->all();
+
+            Notification::insert($rows);
+        }
+
+        private function getAdminUserIds()
+        {
+            if (Schema::hasColumn('users', 'role')) {
+                $query = DB::table('users')
+                    ->whereRaw('LOWER(role) = ?', ['admin']);
+
+                if (Schema::hasColumn('users', 'deleted_at')) {
+                    $query->whereNull('deleted_at');
+                }
+
+                return $query->pluck('id');
+            }
+
+            if (
+                Schema::hasTable('roles') &&
+                Schema::hasColumn('users', 'role_id') &&
+                Schema::hasColumn('roles', 'name')
+            ) {
+                $query = DB::table('users')
+                    ->join('roles', 'roles.id', '=', 'users.role_id')
+                    ->whereRaw('LOWER(roles.name) = ?', ['admin']);
+
+                if (Schema::hasColumn('users', 'deleted_at')) {
+                    $query->whereNull('users.deleted_at');
+                }
+
+                return $query->pluck('users.id');
+            }
+
+            return collect();
+        }
+
+        private function getActorLabel(?User $user): string
+        {
+            $name = $this->getUserName($user);
+            $roleName = $this->getRoleName($user);
+
+            return "{$name} ({$roleName})";
+        }
+
+        private function getUserName(?User $user): string
+        {
+            return $user?->username
+                ?? $user?->full_name
+                ?? $user?->name
+                ?? $user?->email
+                ?? 'Admin';
+        }
+
+        private function getRoleName(?User $user): string
+        {
+            if (!$user) {
+                return 'admin';
+            }
+
+            if (Schema::hasColumn('users', 'role')) {
+                return strtolower((string) ($user->role ?? 'admin'));
+            }
+
+            try {
+                $user->loadMissing([
+                    'role',
+                ]);
+
+                return strtolower(
+                    (string) (
+                        $user->role?->name
+                        ?? $user->role?->slug
+                        ?? $user->role?->code
+                        ?? 'admin'
+                    )
+                );
+            } catch (\Throwable $e) {
+                return 'admin';
+            }
+        }
+
+        private function getGuideName($guide): string
+        {
+            if (!$guide) {
+                return 'Chưa xác định';
+            }
+
+            try {
+                $guide->loadMissing([
+                    'user:id,full_name,name,email',
+                ]);
+            } catch (\Throwable $e) {
+                // Bỏ qua nếu object truyền vào không phải Eloquent model đầy đủ.
+            }
+
+            return $guide->user?->full_name
+                ?? $guide->user?->name
+                ?? $guide->guide_code
+                ?? "HDV #{$guide->id}";
+        }
+
+        private function formatChangeLines(array $changes): string
+        {
+            return collect($changes)
+                ->map(function ($change) {
+                    $field = $change['field'] ?? null;
+
+                    if (!$field) {
+                        return null;
+                    }
+
+                    $label = $this->fieldLabel($field);
+                    $oldValue = $this->formatFieldValue(
+                        $field,
+                        $change['old'] ?? null
+                    );
+                    $newValue = $this->formatFieldValue(
+                        $field,
+                        $change['new'] ?? null
+                    );
+
+                    return "- {$label}: {$oldValue} → {$newValue}";
+                })
+                ->filter()
+                ->implode("\n");
+        }
+
+        private function fieldLabel(string $field): string
+        {
+            return [
+                'departure_date' => 'Ngày đi',
+                'return_date' => 'Ngày về',
+                'price' => 'Giá',
+                'discount_price' => 'Giá giảm',
+                'total_slots' => 'Tổng số chỗ',
+                'status' => 'Trạng thái',
+            ][$field] ?? $field;
+        }
+
+        private function formatFieldValue(string $field, $value): string
+        {
+            if ($value === null || $value === '') {
+                return 'trống';
+            }
+
+            if (in_array($field, ['departure_date', 'return_date'], true)) {
+                return $this->formatDate($value);
+            }
+
+            if (in_array($field, ['price', 'discount_price'], true)) {
+                return number_format((float) $value, 0, ',', '.') . 'đ';
+            }
+
+            if ($field === 'status') {
+                return [
+                    'open' => 'Đang mở',
+                    'closed' => 'Đã đóng',
+                    'completed' => 'Hoàn thành',
+                    'cancelled' => 'Đã hủy',
+                ][$value] ?? (string) $value;
+            }
+
+            return (string) $value;
+        }
+
+        private function formatDate($value): string
+        {
+            if (!$value) {
+                return 'chưa xác định';
+            }
+
+            return Carbon::parse($value)->format('d/m/Y');
+        }
+
+        public function notifyTourDepartureCancelled(
+        TourDeparture $departure,
+        $actor,
+        string $reason
+    ): void {
+        try {
+            $departure->loadMissing([
+                'tour:id,title',
+            ]);
+
+            $tourTitle =
+                $departure->tour?->title
+                ?? "Tour #{$departure->tour_id}";
+
+            $departureDate = $departure->departure_date
+                ? \Carbon\Carbon::parse(
+                    $departure->departure_date
+                )->format('d/m/Y')
+                : 'chưa xác định';
+
+            $reasonLabel = match ($reason) {
+                'insufficient_participants'
+                    => 'Không đủ số lượng khách tối thiểu',
+
+                'weather_disaster'
+                    => 'Thời tiết / thiên tai',
+
+                default
+                    => 'Admin hủy lịch',
+            };
+
+            $actorName =
+                $actor?->full_name
+                ?? $actor?->name
+                ?? $actor?->email
+                ?? 'Quản trị viên';
+
+            /*
+            * Dùng helper/hàm tạo notification hiện có
+            * trong AdminNotificationService của bạn.
+            *
+            * Nếu service hiện có hàm createForAdmins(),
+            * notifyAdmins(), createNotification()...
+            * thì truyền dữ liệu dưới đây vào hàm đó.
+            */
+            $this->notifyAdmins(
+                title: 'Đã hủy lịch khởi hành',
+                message:
+                    "{$actorName} đã hủy lịch khởi hành "
+                    . "{$tourTitle} ngày {$departureDate}. "
+                    . "Lý do: {$reasonLabel}.",
+                data: [
+                    'source' => 'tour_departure',
+                    'action' => 'cancelled',
+
+                    'tour_departure_id' =>
+                        $departure->id,
+
+                    'tour_id' =>
+                        $departure->tour_id,
+
+                    'tour_title' =>
+                        $tourTitle,
+
+                    'departure_date' =>
+                        $departure->departure_date,
+
+                    'cancellation_reason' =>
+                        $reason,
+
+                    'actor_id' =>
+                        $actor?->id,
+
+                    'actor_name' =>
+                        $actorName,
+                ],
             );
         } catch (\Throwable $e) {
-            return 'admin';
+            report($e);
         }
-    }
-
-    private function getGuideName($guide): string
-    {
-        if (!$guide) {
-            return 'Chưa xác định';
-        }
-
-        try {
-            $guide->loadMissing([
-                'user:id,full_name,name,email',
-            ]);
-        } catch (\Throwable $e) {
-            // Bỏ qua nếu object truyền vào không phải Eloquent model đầy đủ.
-        }
-
-        return $guide->user?->full_name
-            ?? $guide->user?->name
-            ?? $guide->guide_code
-            ?? "HDV #{$guide->id}";
-    }
-
-    private function formatChangeLines(array $changes): string
-    {
-        return collect($changes)
-            ->map(function ($change) {
-                $field = $change['field'] ?? null;
-
-                if (!$field) {
-                    return null;
-                }
-
-                $label = $this->fieldLabel($field);
-                $oldValue = $this->formatFieldValue(
-                    $field,
-                    $change['old'] ?? null
-                );
-                $newValue = $this->formatFieldValue(
-                    $field,
-                    $change['new'] ?? null
-                );
-
-                return "- {$label}: {$oldValue} → {$newValue}";
-            })
-            ->filter()
-            ->implode("\n");
-    }
-
-    private function fieldLabel(string $field): string
-    {
-        return [
-            'departure_date' => 'Ngày đi',
-            'return_date' => 'Ngày về',
-            'price' => 'Giá',
-            'discount_price' => 'Giá giảm',
-            'total_slots' => 'Tổng số chỗ',
-            'status' => 'Trạng thái',
-        ][$field] ?? $field;
-    }
-
-    private function formatFieldValue(string $field, $value): string
-    {
-        if ($value === null || $value === '') {
-            return 'trống';
-        }
-
-        if (in_array($field, ['departure_date', 'return_date'], true)) {
-            return $this->formatDate($value);
-        }
-
-        if (in_array($field, ['price', 'discount_price'], true)) {
-            return number_format((float) $value, 0, ',', '.') . 'đ';
-        }
-
-        if ($field === 'status') {
-            return [
-                'open' => 'Đang mở',
-                'closed' => 'Đã đóng',
-                'completed' => 'Hoàn thành',
-                'cancelled' => 'Đã hủy',
-            ][$value] ?? (string) $value;
-        }
-
-        return (string) $value;
-    }
-
-    private function formatDate($value): string
-    {
-        if (!$value) {
-            return 'chưa xác định';
-        }
-
-        return Carbon::parse($value)->format('d/m/Y');
     }
 }

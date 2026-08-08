@@ -273,6 +273,15 @@ export default function TourDepartureForm({
   const inheritedBasePrice = tour?.base_price ?? tour?.price ?? null
   const inheritedDiscountPrice = tour?.discount_price ?? null
   const getError = (name) => fieldErrors?.[name] || ''
+  const minimumDepartureDate = (() => {
+    const minimumDate = new Date()
+    minimumDate.setDate(minimumDate.getDate() + 4)
+    const year = minimumDate.getFullYear()
+    const month = String(minimumDate.getMonth() + 1).padStart(2, '0')
+    const day = String(minimumDate.getDate()).padStart(2, '0')
+
+    return `${year}-${month}-${day}`
+  })()
 
   const formFields = (
     <>
@@ -291,6 +300,7 @@ export default function TourDepartureForm({
               type="date"
               name="departure_date"
               value={departureDate}
+              min={minimumDepartureDate}
               onChange={onChange}
               disabled={disabled}
               className={getInputClass(getError('departure_date'))}
