@@ -7,6 +7,7 @@ use App\Http\Resources\TourResource;
 use App\Models\Category;
 use App\Models\Destination;
 use App\Models\Tour;
+use App\Models\TourDeparture;
 use App\Models\TourReview;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -177,7 +178,7 @@ class PublicCatalogController extends Controller
     {
         return $query
             ->where('status', 'open')
-            ->whereDate('departure_date', '>=', today())
+            ->whereDate('departure_date', '>', TourDeparture::customerBookingCutoffDate())
             ->whereRaw('(COALESCE(total_slots, 0) - COALESCE(booked_slots, 0)) > 0');
     }
 

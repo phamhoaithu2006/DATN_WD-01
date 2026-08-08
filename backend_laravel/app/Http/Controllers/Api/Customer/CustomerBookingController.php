@@ -903,9 +903,11 @@ class CustomerBookingController extends Controller
             ]);
         }
 
-        if ($departure->departure_date->isBefore(today())) {
+        if ($departure->departure_date->lte(TourDeparture::customerBookingCutoffDate())) {
             throw ValidationException::withMessages([
-                'tour_departure_id' => ['Lịch khởi hành này đã qua.'],
+                'tour_departure_id' => [
+                    'Chỉ có thể đặt tour trước ngày khởi hành trên 3 ngày.',
+                ],
             ]);
         }
     }

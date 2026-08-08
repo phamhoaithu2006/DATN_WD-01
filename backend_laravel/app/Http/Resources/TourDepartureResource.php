@@ -44,6 +44,8 @@ class TourDepartureResource extends JsonResource
             'status' => $this->status,
             'assigned_guides' => $assignedGuides ?? [],
             'assignment_state' => $this->getAttribute('assignment_state'),
+            'days_until_departure' => $this->getAttribute('days_until_departure'),
+            'is_missing_guide_warning' => (bool) $this->getAttribute('is_missing_guide_warning'),
             'schedule_group' => $this->getAttribute('schedule_group'),
             'is_locked' => $this->getAttribute('is_locked'),
             'has_bookings' => $this->getAttribute('has_bookings'),
