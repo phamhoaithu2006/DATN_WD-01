@@ -84,6 +84,21 @@ function BookingManagementPage() {
   }, [load])
 
   useEffect(() => {
+    const refreshLatestBookings = () => {
+      if (activeSection === 'bookings') {
+        if (page === 1) {
+          void load()
+        } else {
+          setPage(1)
+        }
+      }
+    }
+
+    window.addEventListener('focus', refreshLatestBookings)
+    return () => window.removeEventListener('focus', refreshLatestBookings)
+  }, [activeSection, load, page])
+
+  useEffect(() => {
     if (!notice) return undefined
 
     const timer = setTimeout(() => {

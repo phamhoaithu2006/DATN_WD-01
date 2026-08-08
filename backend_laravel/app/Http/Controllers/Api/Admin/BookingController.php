@@ -57,6 +57,7 @@ class BookingController extends Controller
             ->filterPaymentStatus($request->payment_status)
             ->filterDate($request->from_date, $request->to_date)
             ->orderBy($request->sort_by ?? 'created_at', $request->sort_dir ?? 'desc')
+            ->orderByDesc('id')
             ->paginate($request->per_page ?? 15);
 
         return response()->json([

@@ -1158,6 +1158,18 @@ test('admin booking list includes participant summary for table display', functi
         ->assertJsonPath('data.0.participants.1.full_name', 'Trần Thị Bình');
 });
 
+test('admin booking list shows newest booking first when timestamps are equal', function () {
+    Sanctum::actingAs(paymentSafetyUser('admin'));
+    $createdAt = now()->subHour()->startOfSecond();
+    $olderId = paymentSafetyBooking(['created_at' => $createdAt, 'updated_at' => $createdAt]);
+    $newerId = paymentSafetyBooking(['created_at' => $createdAt, 'updated_at' => $createdAt]);
+
+    $this->getJson('/api/admin/bookings')
+        ->assertOk()
+        ->assertJsonPath('data.0.id', $newerId->id)
+        ->assertJsonPath('data.1.id', $olderId->id);
+});
+
 test('admin payment actions synchronize booking payment status', function () {
     Sanctum::actingAs(paymentSafetyUser('admin'));
     $booking = paymentSafetyBooking();
