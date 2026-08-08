@@ -123,7 +123,9 @@ function formatDateInput(date) {
 function toDateInputValue(value) {
   if (!value) return ''
 
-  return String(value).slice(0, 10)
+  const matchedDate = String(value).trim().match(/^(\d{4}-\d{2}-\d{2})/)
+
+  return matchedDate ? matchedDate[1] : ''
 }
 
 function addDaysToDate(dateString, days) {

@@ -451,15 +451,15 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(functi
     Route::get('guides/filter', [GuideController::class, 'filter']);
     Route::get('guides/statistics', [GuideController::class, 'statistics']);
     Route::get('guides/available-users', [GuideController::class, 'availableUsers']);
-    Route::patch('guides/{id}/restore', [GuideController::class, 'restore']);
-    Route::delete('guides/{id}/force', [GuideController::class, 'forceDelete']);
+    Route::patch('guides/{id}/restore', [GuideController::class, 'restore'])->whereNumber('id');
+    Route::delete('guides/{id}/force', [GuideController::class, 'forceDelete'])->whereNumber('id');
     Route::get('guides', [GuideController::class, 'index']);
     Route::post('guides', [GuideController::class, 'store']);
-    Route::get('guides/{id}', [GuideController::class, 'show']);
-    Route::put('guides/{id}', [GuideController::class, 'update']);
-    Route::delete('guides/{id}', [GuideController::class, 'destroy']);
-    Route::post('guides/{id}/avatar', [GuideController::class, 'uploadAvatar']);
-    Route::delete('guides/{id}/avatar', [GuideController::class, 'deleteAvatar']);
+    Route::get('guides/{id}', [GuideController::class, 'show'])->whereNumber('id');
+    Route::put('guides/{id}', [GuideController::class, 'update'])->whereNumber('id');
+    Route::delete('guides/{id}', [GuideController::class, 'destroy'])->whereNumber('id');
+    Route::post('guides/{id}/avatar', [GuideController::class, 'uploadAvatar'])->whereNumber('id');
+    Route::delete('guides/{id}/avatar', [GuideController::class, 'deleteAvatar'])->whereNumber('id');
 
     // Dropdown dùng chung (ngôn ngữ, chứng chỉ, chuyên môn)
     Route::get('languages', [LanguageController::class, 'index']);
