@@ -1269,6 +1269,7 @@ function SupportStaffManagementPage() {
             <table className="support-table">
               <thead>
                 <tr>
+                  <th>STT</th>
                   <th>Avatar</th>
                   <th>Mã NV</th>
                   <th>Họ tên</th>
@@ -1283,7 +1284,7 @@ function SupportStaffManagementPage() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td className="support-empty-row" colSpan="8">
+                    <td className="support-empty-row" colSpan="9">
                       <div className="support-loading">
                         <span />
                         <p>Đang tải danh sách nhân viên hỗ trợ...</p>
@@ -1292,7 +1293,7 @@ function SupportStaffManagementPage() {
                   </tr>
                 ) : staffList.length === 0 ? (
                   <tr>
-                    <td className="support-empty-row" colSpan="8">
+                    <td className="support-empty-row" colSpan="9">
                       <div className="support-empty-state">
                         <strong>Không tìm thấy nhân viên phù hợp</strong>
                         <span>Hãy thử đổi bộ lọc hoặc từ khóa tìm kiếm.</span>
@@ -1302,6 +1303,7 @@ function SupportStaffManagementPage() {
                 ) : (
                   staffList.map((staff, index) => (
                     <tr key={staff.id}>
+                      <td>{(pagination.currentPage - 1) * pagination.perPage + index + 1}</td>
                       <td>
                         <SupportAvatar avatarUrl={staff.avatar_url} name={staff.name} tone={index} />
                       </td>

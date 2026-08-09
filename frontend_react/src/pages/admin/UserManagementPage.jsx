@@ -126,6 +126,23 @@ const withResolvedRoles = (accounts, roles) =>
     role: roleForAccount(account, roles),
   }));
 
+function buildPageNumbers(currentPage, totalPages) {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  const pages = new Set([1, totalPages, currentPage]);
+  if (currentPage > 1) pages.add(currentPage - 1);
+  if (currentPage < totalPages) pages.add(currentPage + 1);
+
+  if (currentPage <= 3) [2, 3, 4].forEach((page) => pages.add(page));
+  if (currentPage >= totalPages - 2) {
+    [totalPages - 1, totalPages - 2, totalPages - 3].forEach((page) => pages.add(page));
+  }
+
+  return [...pages].filter((page) => page >= 1 && page <= totalPages).sort((a, b) => a - b);
+}
+
 function UserManagementPage({ roleName = "customer" }) {
   const rolePage = useMemo(
     () =>
@@ -150,6 +167,17 @@ function UserManagementPage({ roleName = "customer" }) {
   const [activityData, setActivityData] = useState(null);
   const [activityLoading, setActivityLoading] = useState(false);
   const [presenceMap, setPresenceMap] = useState({});
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(5);
+
+  const totalRows = customers.length;
+  const totalPages = Math.max(Math.ceil(totalRows / pageSize), 1);
+  const safePage = Math.min(currentPage, totalPages);
+  const pageStartIndex = (safePage - 1) * pageSize;
+  const paginatedCustomers = customers.slice(pageStartIndex, pageStartIndex + pageSize);
+  const visibleStart = totalRows > 0 ? pageStartIndex + 1 : 0;
+  const visibleEnd = Math.min(pageStartIndex + pageSize, totalRows);
+  const pageNumbers = buildPageNumbers(safePage, totalPages);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -195,6 +223,14 @@ function UserManagementPage({ roleName = "customer" }) {
     const timer = setTimeout(load, 300);
     return () => clearTimeout(timer);
   }, [load]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [rolePage.name, search, status, pageSize]);
+
+  useEffect(() => {
+    setCurrentPage((page) => Math.min(page, totalPages));
+  }, [totalPages]);
 
   useEffect(() => {
     if (!notice) return undefined;
@@ -333,7 +369,7 @@ function UserManagementPage({ roleName = "customer" }) {
         onStatusChange={setStatus}
       />
       <UserTable
-        customers={customers}
+        customers={paginatedCustomers}
         loading={loading}
         showBookings={rolePage.showBookings}
         onView={view}
@@ -341,7 +377,32 @@ function UserManagementPage({ roleName = "customer" }) {
         onToggleLock={toggleLock}
         onHistory={rolePage.name === "customer" ? openActivityHistory : undefined}
         presenceMap={rolePage.name === "customer" ? presenceMap : null}
+        startIndex={pageStartIndex}
       />
+
+      <div className="mt-4 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap items-center gap-3">
+          <span>Hiển thị <strong className="text-slate-900">{visibleStart}-{visibleEnd}</strong> trên <strong className="text-slate-900">{totalRows}</strong> người dùng</span>
+          <label className="flex items-center gap-2">
+            <span>Số dòng:</span>
+            <select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))} className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100">
+              {[5, 10, 20, 50].map((size) => <option key={size} value={size}>{size}</option>)}
+            </select>
+          </label>
+        </div>
+        <div className="flex flex-wrap items-center gap-1">
+          <button type="button" disabled={safePage <= 1} onClick={() => setCurrentPage(1)} className="rounded-lg border border-slate-200 px-3 py-2 font-medium transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">Đầu</button>
+          <button type="button" disabled={safePage <= 1} onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))} className="rounded-lg border border-slate-200 px-3 py-2 font-medium transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">Trước</button>
+          {pageNumbers.map((page, index) => (
+            <span key={page} className="inline-flex items-center gap-1">
+              {pageNumbers[index - 1] && page - pageNumbers[index - 1] > 1 ? <span className="px-2 text-slate-400">...</span> : null}
+              <button type="button" onClick={() => setCurrentPage(page)} className={`rounded-lg border px-3 py-2 font-bold transition ${safePage === page ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>{page}</button>
+            </span>
+          ))}
+          <button type="button" disabled={safePage >= totalPages} onClick={() => setCurrentPage((page) => Math.min(page + 1, totalPages))} className="rounded-lg border border-slate-200 px-3 py-2 font-medium transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">Sau</button>
+          <button type="button" disabled={safePage >= totalPages} onClick={() => setCurrentPage(totalPages)} className="rounded-lg border border-slate-200 px-3 py-2 font-medium transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">Cuối</button>
+        </div>
+      </div>
 
       {activityCustomer ? (
         <CustomerActivityModal

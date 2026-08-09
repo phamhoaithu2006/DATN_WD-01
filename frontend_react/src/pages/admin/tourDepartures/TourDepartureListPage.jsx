@@ -9,6 +9,8 @@ import { GuideAssignmentPanel } from './GuideAssignmentPage.jsx'
 import TourDepartureBookingModal from '../../../components/admin/tourDepartures/TourDepartureBookingModal.jsx'
 import { confirmAction } from '../../../components/common/AppConfirmDialog.jsx'
 import AdminGuideReplacementRequestsPanel from '../../../components/admin/guides/AdminGuideReplacementRequestsPanel.jsx'
+import TourDepartureEditPage from './TourDepartureEditPage.jsx'
+import { TourDetailCard } from './TourDepartureCreatePage.jsx'
 import '../../../styles/support-staff.css'
 
 function getArrayFromResponse(res) {
@@ -157,6 +159,24 @@ function getDepartureTimeGroup(departure) {
   return 'upcoming'
 }
 
+function getLockedActionMessage(departure, actionLabel) {
+  const group = getDepartureTimeGroup(departure)
+
+  if (group === 'ongoing') {
+    return `Lịch khởi hành đang diễn ra nên không thể ${actionLabel}.`
+  }
+
+  if (group === 'completed') {
+    return `Lịch khởi hành đã hoàn thành nên không thể ${actionLabel}.`
+  }
+
+  if (group === 'cancelled') {
+    return `Lịch khởi hành đã hủy nên không thể ${actionLabel}.`
+  }
+
+  return `Trạng thái lịch khởi hành hiện tại không cho phép ${actionLabel}.`
+}
+
 function isAssignmentWarningTarget(departure) {
   if (typeof departure?.is_missing_guide_warning === 'boolean') {
     return departure.is_missing_guide_warning
@@ -283,6 +303,8 @@ export default function TourDepartureListPage() {
 
   const [tours, setTours] = useState([])
   const [selectedTourId, setSelectedTourId] = useState('')
+  const [selectedTourDetail, setSelectedTourDetail] = useState(null)
+  const [selectedTourDetailLoading, setSelectedTourDetailLoading] = useState(false)
   const [fieldErrors, setFieldErrors] = useState({})
   const [departures, setDepartures] = useState([])
   const [allDepartures, setAllDepartures] = useState([])
@@ -327,6 +349,7 @@ export default function TourDepartureListPage() {
   const [customerCancelMessage, setCustomerCancelMessage] = useState('')
   const [guideCancelMessage, setGuideCancelMessage] = useState('')
   const [cancelSubmitting, setCancelSubmitting] = useState(false)
+  const [editingDeparture, setEditingDeparture] = useState(null)
 
   const fetchTours = useCallback(async () => {
     try {
@@ -789,9 +812,10 @@ export default function TourDepartureListPage() {
     )
 
     if (departure && isLockedDeparture(departure)) {
-      toast.warning(
-        'Lịch khởi hành đã hoàn thành hoặc đã hủy nên không thể phân công HDV.'
-      )
+      toast.warning(getLockedActionMessage(
+        departure,
+        hasAssignedGuide(departure) ? 'đổi HDV' : 'phân công HDV'
+      ))
       return
     }
 
@@ -803,9 +827,7 @@ export default function TourDepartureListPage() {
     if (!departure?.id) return
 
     if (isLockedDeparture(departure)) {
-      toast.warning(
-        'Lịch khởi hành đã hoàn thành hoặc đã hủy nên không thể chỉnh sửa.'
-      )
+      toast.warning(getLockedActionMessage(departure, 'chỉnh sửa'))
       return
     }
 
@@ -827,16 +849,12 @@ export default function TourDepartureListPage() {
 
       if (!confirmed) return
 
-      navigate(
-        `/admin/tour-departures/${tourId}/edit/${departure.id}?confirmBookedChange=1`
-      )
+      setEditingDeparture({ departureId: departure.id, tourId, confirmBookedChange: true })
 
       return
     }
 
-    navigate(
-      `/admin/tour-departures/${tourId}/edit/${departure.id}`
-    )
+    setEditingDeparture({ departureId: departure.id, tourId, confirmBookedChange: false })
   }
 
   const openDepartureDetail = async (departureId) => {
@@ -899,6 +917,41 @@ export default function TourDepartureListPage() {
     (tour) => String(tour.id) === String(selectedTourId)
   )
 
+  useEffect(() => {
+    let cancelled = false
+
+    if (!selectedTourId) {
+      setSelectedTourDetail(null)
+      setSelectedTourDetailLoading(false)
+      return undefined
+    }
+
+    setSelectedTourDetail(selectedTour || null)
+    setSelectedTourDetailLoading(true)
+
+    tourDepartureApi.getTourDetail(selectedTourId)
+      .then((response) => {
+        const detail = response?.data?.data?.tour || response?.data?.data || response?.data
+
+        if (!cancelled && detail && !Array.isArray(detail)) {
+          setSelectedTourDetail({
+            ...selectedTour,
+            ...detail,
+          })
+        }
+      })
+      .catch((error) => {
+        console.warn('Không tải được chi tiết tour, sử dụng dữ liệu danh sách.', error)
+      })
+      .finally(() => {
+        if (!cancelled) setSelectedTourDetailLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [selectedTourId, selectedTour])
+
   const decideReplacementRequest = async (request, status) => {
     const requestId = request?.id || request?.request_id
     if (!requestId) return
@@ -930,6 +983,14 @@ export default function TourDepartureListPage() {
 
   const assignmentWarningCount = useMemo(() => {
     return countNeedAssignment(allDepartures)
+  }, [allDepartures])
+
+  const unassignedUpcomingCount = useMemo(() => {
+    return allDepartures.filter(
+      (departure) =>
+        getDepartureTimeGroup(departure) === 'upcoming' &&
+        !hasAssignedGuide(departure)
+    ).length
   }, [allDepartures])
 
   const tourAssignmentWarningCounts = useMemo(() => {
@@ -1034,13 +1095,12 @@ export default function TourDepartureListPage() {
   }
 
   useEffect(() => {
-    const urgentCount = assignmentWarningCount + replacementRequests.length
-    const label = getMenuBadgeLabel(urgentCount)
+    const label = getMenuBadgeLabel(unassignedUpcomingCount)
 
     try {
       window.localStorage.setItem(
         'tourDepartureNeedAssignmentCount',
-        String(urgentCount)
+        String(unassignedUpcomingCount)
       )
       window.localStorage.setItem(
         'tourDepartureNeedAssignmentOnlyCount',
@@ -1053,14 +1113,15 @@ export default function TourDepartureListPage() {
     window.dispatchEvent(
       new CustomEvent('tourDepartureNeedAssignmentCountChanged', {
         detail: {
-          count: urgentCount,
-          assignmentCount: assignmentWarningCount,
+          count: unassignedUpcomingCount,
+          assignmentCount: unassignedUpcomingCount,
+          urgentAssignmentCount: assignmentWarningCount,
           replacementRequestCount: replacementRequests.length,
           label,
         },
       })
     )
-  }, [assignmentWarningCount, replacementRequests.length])
+  }, [assignmentWarningCount, replacementRequests.length, unassignedUpcomingCount])
 
   return (
     <div className="p-6">
@@ -1342,6 +1403,13 @@ export default function TourDepartureListPage() {
             </span>
           )}
         </div>
+
+        {selectedTourId && (selectedTourDetail || selectedTour) ? (
+          <TourDetailCard
+            tour={selectedTourDetail || selectedTour}
+            loading={selectedTourDetailLoading}
+          />
+        ) : null}
       </div>
 
       {showInlineReplacementPanel && replacementRequests.length > 0 ? (
@@ -1897,6 +1965,30 @@ export default function TourDepartureListPage() {
           }
         }}
       />
+
+      {editingDeparture ? (
+        <div
+          className="fixed inset-0 z-[1250] flex items-center justify-center overflow-y-auto bg-slate-950/55 px-4 py-8 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setEditingDeparture(null)
+          }}
+        >
+          <div className="w-full max-w-6xl" onMouseDown={(event) => event.stopPropagation()}>
+            <TourDepartureEditPage
+              embedded
+              tourId={editingDeparture.tourId}
+              departureId={editingDeparture.departureId}
+              confirmBookedChange={editingDeparture.confirmBookedChange}
+              onClose={() => setEditingDeparture(null)}
+              onSaved={async () => {
+                setEditingDeparture(null)
+                await fetchDepartures(selectedTourId)
+                window.dispatchEvent(new Event('admin-notification:changed'))
+              }}
+            />
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { tourDepartureApi } from '../../services/tourDepartureApi'
 import adminBookingDisruptionApi from '../../services/adminBookingDisruptionApi'
-import adminGuideReplacementRequestApi from '../../services/adminGuideReplacementRequestApi'
 import adminGuideLeaveRequestApi from '../../services/adminGuideLeaveRequestApi'
 import { getAdminReceivedUnreadCount } from '../../services/supportWorkflowApi'
 
@@ -181,6 +180,11 @@ function getTodayKey() {
 }
 
 function getDepartureTimeGroup(departure) {
+  const status = String(departure?.status || '').toLowerCase()
+
+  if (status === 'cancelled' || status === 'canceled') return 'cancelled'
+  if (status === 'completed') return 'past'
+
   const departureDate = getDateKey(departure?.departure_date)
   const returnDate = getDateKey(departure?.return_date) || departureDate
 
@@ -220,9 +224,7 @@ function hasAssignedGuide(departure) {
 }
 
 function isActionableUnassignedDeparture(departure) {
-  const group = getDepartureTimeGroup(departure)
-
-  return ['upcoming', 'ongoing'].includes(group) && !hasAssignedGuide(departure)
+  return getDepartureTimeGroup(departure) === 'upcoming' && !hasAssignedGuide(departure)
 }
 
 function getTourIdFromDeparture(departure) {
@@ -281,15 +283,7 @@ function AdminSidebar({
         isActionableUnassignedDeparture
       ).length
 
-      let replacementRequestCount = 0
-
-      try {
-        replacementRequestCount = await adminGuideReplacementRequestApi.getPendingCount()
-      } catch (replacementError) {
-        console.error(replacementError)
-      }
-
-      setInternalWarningCount(assignmentCount + Number(replacementRequestCount || 0))
+      setInternalWarningCount(assignmentCount)
     } catch (error) {
       console.error(error)
       setInternalWarningCount(0)

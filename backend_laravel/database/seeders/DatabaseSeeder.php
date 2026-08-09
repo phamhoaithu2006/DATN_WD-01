@@ -23,6 +23,7 @@ class DatabaseSeeder extends Seeder
             CertificateSeeder::class,
 
             GuideSeeder::class,
+            AdditionalGuideSeeder::class,
             TourSeeder::class,
             PromotionSeeder::class,
             TourGuideAssignmentSeeder::class,

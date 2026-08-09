@@ -302,7 +302,7 @@ const resolveTourImage = (tour) => {
   return `${apiOrigin}/storage/${value}`
 }
 
-function TourDetailCard({ tour, loading = false }) {
+export function TourDetailCard({ tour, loading = false }) {
   if (!tour) return null
 
   const title = getTourName(tour)

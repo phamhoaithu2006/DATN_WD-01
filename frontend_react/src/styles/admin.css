@@ -890,49 +890,57 @@
 
 .guide-table th:nth-child(1),
 .guide-table td:nth-child(1) {
-  width: 52px;
+  width: 54px;
+  text-align: center;
 }
 
 .guide-table th:nth-child(2),
 .guide-table td:nth-child(2) {
-  width: 76px;
+  width: 64px;
 }
 
 .guide-table th:nth-child(3),
 .guide-table td:nth-child(3) {
-  width: 180px;
+  width: 100px;
 }
 
 .guide-table th:nth-child(4),
 .guide-table td:nth-child(4) {
-  width: 100px;
+  width: 180px;
 }
 
 .guide-table th:nth-child(5),
 .guide-table td:nth-child(5) {
-  width: 140px;
+  width: 100px;
 }
 
 .guide-table th:nth-child(6),
 .guide-table td:nth-child(6) {
-  width: 96px;
+  width: 150px;
 }
 
 .guide-table th:nth-child(7),
 .guide-table td:nth-child(7) {
-  width: 150px;
+  width: 110px;
   text-align: center;
 }
 
 .guide-table th:nth-child(8),
 .guide-table td:nth-child(8) {
-  width: 175px;
+  width: 135px;
 }
 
 .guide-table th:nth-child(9),
 .guide-table td:nth-child(9) {
-  width: 160px;
+  width: 190px;
+  text-align: left;
+}
+
+.guide-table th:nth-child(10),
+.guide-table td:nth-child(10) {
+  width: 150px;
   text-align: center;
+  white-space: nowrap;
 }
 
 .guide-table th {
@@ -960,8 +968,8 @@
 }
 
 /* Tiêu đề và nội dung cột Trực tuyến cùng căn trái. */
-.guide-table th:nth-child(8),
-.guide-table td:nth-child(8) {
+.guide-table th:nth-child(9),
+.guide-table td:nth-child(9) {
   text-align: left;
 }
 
