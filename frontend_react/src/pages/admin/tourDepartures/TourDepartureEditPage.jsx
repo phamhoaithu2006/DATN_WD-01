@@ -7,6 +7,7 @@ import {
 import { tourDepartureApi } from '../../../services/tourDepartureApi'
 import TourDepartureForm from '../../../components/admin/tourDepartures/TourDepartureForm'
 import { confirmAction } from '../../../components/common/AppConfirmDialog.jsx'
+import { TourDetailCard } from './TourDepartureCreatePage.jsx'
 
 const emptyForm = {
   departure_date: '',
@@ -187,14 +188,23 @@ function validateTourDepartureEditForm(formData, changeReason) {
   return errors
 }
 
-export default function TourDepartureEditPage() {
+export default function TourDepartureEditPage({
+  embedded = false,
+  tourId: tourIdProp = null,
+  departureId: departureIdProp = null,
+  confirmBookedChange = false,
+  onClose,
+  onSaved,
+}) {
   const navigate = useNavigate()
   const reasonRef = useRef(null)
-  const { tourId, departureId } = useParams()
+  const routeParams = useParams()
+  const tourId = tourIdProp || routeParams.tourId
+  const departureId = departureIdProp || routeParams.departureId
   const [searchParams] = useSearchParams()
 
   const confirmedFromQuery =
-    searchParams.get('confirmBookedChange') === '1'
+    confirmBookedChange || searchParams.get('confirmBookedChange') === '1'
 
   const [formData, setFormData] = useState(emptyForm)
   const [tour, setTour] = useState(null)
@@ -221,6 +231,12 @@ export default function TourDepartureEditPage() {
     setNotification(null)
 
     if (redirectTo) {
+      if (embedded) {
+        if (notification?.type === 'success') onSaved?.()
+        else onClose?.()
+        return
+      }
+
       navigate(redirectTo)
     }
   }
@@ -301,6 +317,17 @@ export default function TourDepartureEditPage() {
           duration_nights: departure.duration_nights ?? null,
         }
       )
+
+      try {
+        const tourResponse = await tourDepartureApi.getTourDetail(tourId)
+        const tourDetail = tourResponse?.data?.data?.tour || tourResponse?.data?.data || tourResponse?.data
+
+        if (tourDetail && !Array.isArray(tourDetail)) {
+          setTour(tourDetail)
+        }
+      } catch (tourError) {
+        console.warn('Không tải được chi tiết tour, sử dụng thông tin từ lịch khởi hành.', tourError)
+      }
     } catch (error) {
       console.error(error)
 
@@ -511,7 +538,7 @@ export default function TourDepartureEditPage() {
   }
 
   return (
-    <div className="p-6">
+    <div className={embedded ? 'p-0' : 'p-6'}>
       {notification ? (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/45 px-4 backdrop-blur-[1px]">
           <div
@@ -571,15 +598,26 @@ export default function TourDepartureEditPage() {
         </div>
       ) : null}
 
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">
-          Sửa lịch khởi hành
-        </h1>
+      <form
+        onSubmit={handleSubmit}
+        noValidate
+        className={`mx-auto w-full max-w-6xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl ${
+          embedded ? 'max-h-[90vh] overflow-y-auto' : ''
+        }`}
+      >
+        <div className="border-b border-slate-200 bg-slate-50/70 px-6 py-5 sm:px-8">
+          <p className="text-xs font-black uppercase tracking-wide text-blue-600">
+            Chỉnh sửa lịch khởi hành
+          </p>
+          <h1 className="mt-1 text-2xl font-black text-slate-950">
+            {tour?.title || `Tour #${tourId}`}
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Cập nhật ngày khởi hành, giá, số chỗ và trạng thái lịch trong cùng một card.
+          </p>
+        </div>
 
-        <p className="mt-1 text-slate-500">
-          Cập nhật ngày khởi hành, giá, số chỗ và trạng thái lịch.
-        </p>
-      </div>
+        <div className="space-y-5 px-6 py-6 sm:px-8">
 
       {hasBookings ? (
         <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-900">
@@ -593,6 +631,8 @@ export default function TourDepartureEditPage() {
           </p>
         </div>
       ) : null}
+
+      {tour ? <TourDetailCard tour={tour} /> : null}
 
       {formError ? (
         <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
@@ -643,8 +683,11 @@ export default function TourDepartureEditPage() {
         submitText={saving ? 'Đang cập nhật...' : 'Cập nhật'}
         disabled={saving}
         fieldErrors={fieldErrors}
-        onCancel={() => navigate('/admin/tour-departures')}
+        onCancel={() => embedded ? onClose?.() : navigate('/admin/tour-departures')}
+        hideWrapper
       />
+        </div>
+      </form>
     </div>
   )
 }

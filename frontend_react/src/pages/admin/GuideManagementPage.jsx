@@ -55,6 +55,20 @@ function unwrapPagination(response) {
   }
 }
 
+function buildPageNumbers(currentPage, totalPages) {
+  if (totalPages <= 7) return Array.from({ length: totalPages }, (_, index) => index + 1)
+
+  const pages = new Set([1, totalPages, currentPage])
+  if (currentPage > 1) pages.add(currentPage - 1)
+  if (currentPage < totalPages) pages.add(currentPage + 1)
+  if (currentPage <= 3) [2, 3, 4].forEach((page) => pages.add(page))
+  if (currentPage >= totalPages - 2) {
+    [totalPages - 1, totalPages - 2, totalPages - 3].forEach((page) => pages.add(page))
+  }
+
+  return [...pages].filter((page) => page >= 1 && page <= totalPages).sort((a, b) => a - b)
+}
+
 function getErrorMessage(error, fallback) {
   const errors = error?.response?.data?.errors
 
@@ -338,6 +352,7 @@ function GuideManagementPage() {
     lastPage: 1,
     total: 0,
   })
+  const [pageSize, setPageSize] = useState(5)
 
   const [languages, setLanguages] = useState([])
   const [certificates, setCertificates] = useState([])
@@ -488,7 +503,7 @@ function GuideManagementPage() {
       setError('')
 
       try {
-        const params = { page, per_page: 10 }
+        const params = { page, per_page: pageSize }
 
         let endpoint = '/admin/guides'
 
@@ -529,7 +544,7 @@ function GuideManagementPage() {
         setIsLoading(false)
       }
     },
-    [destinationFilter, hasFilter, keyword, leaveStatusFilter, statusFilter],
+    [destinationFilter, hasFilter, keyword, leaveStatusFilter, pageSize, statusFilter],
   )
 
   const loadGuidePresence = useCallback(
@@ -1044,6 +1059,12 @@ function GuideManagementPage() {
     }))
   }
 
+  const visibleStart = pagination.total > 0
+    ? (pagination.currentPage - 1) * pageSize + 1
+    : 0
+  const visibleEnd = Math.min(pagination.currentPage * pageSize, pagination.total)
+  const pageNumbers = buildPageNumbers(pagination.currentPage, pagination.lastPage)
+
   return (
     <section className="guide-page">
       <AdminPageHeader
@@ -1249,6 +1270,7 @@ function GuideManagementPage() {
             <table className="guide-table">
               <thead>
                 <tr>
+                  <th>STT</th>
                   <th>Avatar</th>
                   <th>Mã HDV</th>
                   <th>Họ và tên</th>
@@ -1264,7 +1286,7 @@ function GuideManagementPage() {
               <tbody>
                 {isLoading ? (
                   <tr>
-                    <td className="support-empty-row" colSpan="9">
+                    <td className="support-empty-row" colSpan="10">
                       <div className="support-loading">
                         <span />
                         <p>Đang tải danh sách HDV...</p>
@@ -1275,13 +1297,14 @@ function GuideManagementPage() {
 
                 {!isLoading && guides.length === 0 ? (
                   <tr>
-                    <td colSpan="9">Chưa có hướng dẫn viên.</td>
+                    <td colSpan="10">Chưa có hướng dẫn viên.</td>
                   </tr>
                 ) : null}
 
                 {!isLoading
-                  ? guides.map((guide) => (
+                  ? guides.map((guide, index) => (
                       <tr key={guide.id}>
+                        <td>{visibleStart + index}</td>
                         <td>
                           {guide.user?.avatar_url ? (
                             <img
@@ -1402,35 +1425,29 @@ function GuideManagementPage() {
             </table>
           </div>
 
-          <div className="guide-pagination">
-            <button
-              disabled={pagination.currentPage <= 1 || isLoading}
-              type="button"
-              onClick={() =>
-                void loadGuides(pagination.currentPage - 1)
-              }
-              aria-label="Trang trước"
-            >
-              ←
-            </button>
+          <div className="mt-4 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-wrap items-center gap-3">
+              <span>Hiển thị <strong className="text-slate-900">{visibleStart}-{visibleEnd}</strong> trên <strong className="text-slate-900">{pagination.total}</strong> HDV</span>
+              <label className="flex items-center gap-2">
+                <span>Số dòng:</span>
+                <select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))} className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100">
+                  {[5, 10, 20, 50].map((size) => <option key={size} value={size}>{size}</option>)}
+                </select>
+              </label>
+            </div>
 
-            <span>
-              {pagination.currentPage} / {pagination.lastPage}
-            </span>
-
-            <button
-              disabled={
-                pagination.currentPage >= pagination.lastPage ||
-                isLoading
-              }
-              type="button"
-              onClick={() =>
-                void loadGuides(pagination.currentPage + 1)
-              }
-              aria-label="Trang sau"
-            >
-              →
-            </button>
+            <div className="flex flex-wrap items-center gap-1">
+              <button type="button" disabled={pagination.currentPage <= 1 || isLoading} onClick={() => void loadGuides(1)} className="rounded-lg border border-slate-200 px-3 py-2 font-medium transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">Đầu</button>
+              <button type="button" disabled={pagination.currentPage <= 1 || isLoading} onClick={() => void loadGuides(pagination.currentPage - 1)} className="rounded-lg border border-slate-200 px-3 py-2 font-medium transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">Trước</button>
+              {pageNumbers.map((page, index) => (
+                <span key={page} className="inline-flex items-center gap-1">
+                  {pageNumbers[index - 1] && page - pageNumbers[index - 1] > 1 ? <span className="px-2 text-slate-400">...</span> : null}
+                  <button type="button" disabled={isLoading} onClick={() => void loadGuides(page)} className={`rounded-lg border px-3 py-2 font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${pagination.currentPage === page ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>{page}</button>
+                </span>
+              ))}
+              <button type="button" disabled={pagination.currentPage >= pagination.lastPage || isLoading} onClick={() => void loadGuides(pagination.currentPage + 1)} className="rounded-lg border border-slate-200 px-3 py-2 font-medium transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">Sau</button>
+              <button type="button" disabled={pagination.currentPage >= pagination.lastPage || isLoading} onClick={() => void loadGuides(pagination.lastPage)} className="rounded-lg border border-slate-200 px-3 py-2 font-medium transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">Cuối</button>
+            </div>
           </div>
         </div>
       </div>

@@ -326,29 +326,6 @@ function getStatusMeta(status) {
   )
 }
 
-function getAssignmentMeta(departure) {
-  const leadAssignment = getLeadAssignment(departure)
-
-  if (leadAssignment || departure.assignment_state === 'assigned') {
-    return {
-      text: 'Đã phân công',
-      badge: 'text-emerald-700',
-    }
-  }
-
-  if (departure.assignment_state === 'blocked') {
-    return {
-      text: 'Hết HDV phù hợp',
-      badge: 'text-rose-700',
-    }
-  }
-
-  return {
-    text: 'Chưa phân công',
-    badge: 'text-rose-700',
-  }
-}
-
 function getDateKey(value) {
   if (!value) return ''
 
@@ -575,7 +552,25 @@ function getNotificationList(response) {
 
 function isDepartureHistoryNotification(item) {
   const data = parseNotificationData(item?.data)
-  const source = data?.source
+  const source = String(data?.source || '').toLowerCase()
+  const type = String(data?.type || '').toLowerCase()
+  const action = String(data?.action || '').toLowerCase()
+
+  if (
+    source === 'guide_leave_request' ||
+    type === 'guide_leave_request' ||
+    data?.guide_leave_request_id ||
+    data?.leave_request_id
+  ) {
+    return false
+  }
+
+  if (
+    source === 'guide_replacement_request' ||
+    type === 'guide_replacement_request'
+  ) {
+    return ['approved', 'rejected'].includes(action)
+  }
 
   if (['tour_departure', 'guide_assignment'].includes(source)) {
     return true
@@ -629,8 +624,10 @@ function DepartureHistoryButton() {
         .slice(0, 30)
 
       setItems(list)
+      return list
     } catch (error) {
       console.error(error)
+      return []
     } finally {
       setLoading(false)
     }
@@ -668,8 +665,9 @@ function DepartureHistoryButton() {
     }
   }, [open, unreadItems])
 
-  async function markUnreadAsRead() {
-    const ids = unreadItems
+  async function markUnreadAsRead(sourceItems = unreadItems) {
+    const ids = sourceItems
+      .filter((item) => item.status === 'unread')
       .map((item) => item.id)
       .filter(Boolean)
 
@@ -705,7 +703,8 @@ function DepartureHistoryButton() {
     }
 
     setOpen(true)
-    await fetchHistory()
+    const latestItems = await fetchHistory()
+    await markUnreadAsRead(latestItems)
   }
 
   return (
@@ -1078,8 +1077,12 @@ export default function TourDepartureTable({
               </div>
             </div>
 
-            <div className="overflow-x-auto rounded-xl border border-slate-200">
-              <table className="w-full min-w-[1320px] text-sm">
+            <div
+              className={`overflow-x-auto rounded-xl border border-slate-200 transition-[padding] duration-200 ${
+                openActionMenuId ? 'pb-72' : ''
+              }`}
+            >
+              <table className="w-full min-w-[1120px] text-sm">
                 <thead className="bg-slate-50 text-center text-xs font-bold uppercase text-slate-500">
                   <tr>
                     <th className="border-b px-4 py-4">STT</th>
@@ -1088,8 +1091,7 @@ export default function TourDepartureTable({
                     <th className="border-b px-4 py-4 text-left">Ngày về</th>
                     <th className="border-b px-4 py-4 text-right">Giá</th>
                     <th className="border-b px-4 py-4">Đặt</th>
-                    <th className="border-b px-4 py-4 text-left">HDV phụ trách</th>
-                    <th className="border-b px-4 py-4">Phân công</th>
+                    <th className="border-b px-4 py-4">HDV phụ trách</th>
                     <th className="border-b px-4 py-4">Trạng thái</th>
                     <th className="border-b px-4 py-4">Hành động</th>
                   </tr>
@@ -1099,7 +1101,7 @@ export default function TourDepartureTable({
                   {loading ? (
                     <tr>
                       <td
-                        colSpan="10"
+                        colSpan="9"
                         className="px-4 py-14 text-center text-slate-500"
                       >
                         Đang tải lịch khởi hành...
@@ -1108,7 +1110,7 @@ export default function TourDepartureTable({
                   ) : displayedRows.length === 0 ? (
                     <tr>
                       <td
-                        colSpan="10"
+                        colSpan="9"
                         className="px-4 py-14 text-center text-slate-500"
                       >
                         {getAssignmentFilterEmptyText(
@@ -1125,14 +1127,12 @@ export default function TourDepartureTable({
                       const minimumGuestWarning = isMinimumGuestWarning(item)
                       const daysUntilDeparture = getDaysUntilDeparture(item)
                       const tourTitle = getTourTitle(item)
-                      const assignmentMeta = getAssignmentMeta(item)
                       const missingGuideWarning = isAssignmentWarningTarget(item) && !hasAssignedGuide(item)
                       const statusMeta = getStatusMeta(getDepartureTimeGroup(item))
                       const leadAssignment = getLeadAssignment(item)
 
                       const locked = isLockedDeparture(item)
                       const booked = hasActiveBookings(item)
-                      const bookingCount = getBookingCount(item)
                       const replacementRequest = getPendingReplacementRequestForDeparture(
                         item,
                         replacementRequests
@@ -1219,46 +1219,16 @@ export default function TourDepartureTable({
                             </div>
                           </td>
 
-                          <td className="px-4 py-4">
-                            {leadAssignment ? (
-                              <div>
-                                <p className="font-bold text-slate-900">
-                                  {getGuideName(leadAssignment)}
-                                </p>
-
-                                <p className="text-xs text-slate-500">
-                                  {leadAssignment.guide?.guide_code ||
-                                    'HDV chính'}
-                                </p>
-                              </div>
-                            ) : (
-                              <span className="font-bold text-rose-700">
-                                {missingGuideWarning ? 'Thiếu HDV' : 'Chưa có HDV'}
-                              </span>
-                            )}
-
-                            {replacementRequest ? (
-                              <div className="mt-2 rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-800">
-                                <p className="font-black">Yêu cầu đổi HDV</p>
-                                <p className="mt-1 line-clamp-2">
-                                  {getReplacementGuideName(replacementRequest)}: {replacementRequest.reason || 'Không có lý do.'}
-                                </p>
-                              </div>
-                            ) : null}
-                          </td>
-
                           <td className="px-4 py-4 text-center">
                             <span
-                              className={`inline-flex px-1 py-1 text-xs font-bold ${assignmentMeta.badge}`}
+                              className={`text-xs font-bold ${
+                                leadAssignment ? 'text-emerald-700' : 'text-rose-600'
+                              }`}
                             >
-                              {assignmentMeta.text}
+                              {leadAssignment
+                                ? getGuideName(leadAssignment)
+                                : 'Chưa có HDV'}
                             </span>
-
-                            {booked ? (
-                              <p className="mt-1 text-[11px] font-medium text-slate-500">
-                                {bookingCount} khách/đơn đặt
-                              </p>
-                            ) : null}
                           </td>
 
                           <td className="px-4 py-4 text-center">

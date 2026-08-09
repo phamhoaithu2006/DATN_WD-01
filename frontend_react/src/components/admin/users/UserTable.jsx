@@ -90,15 +90,17 @@ function UserTable({
   onToggleLock,
   onHistory,
   presenceMap = null,
+  startIndex = 0,
 }) {
   const showPresence = presenceMap !== null;
-  const emptyColSpan = (showBookings ? 9 : 8) + (showPresence ? 1 : 0);
+  const emptyColSpan = (showBookings ? 10 : 9) + (showPresence ? 1 : 0);
 
   return (
     <div className="user-table-wrap">
       <table className="user-table">
         <thead>
           <tr>
+            <th>STT</th>
             <th>Avatar</th>
             <th>Họ tên</th>
             <th>Email</th>
@@ -114,6 +116,7 @@ function UserTable({
         <tbody>
           {customers.map((customer, index) => (
             <tr key={customer.id}>
+              <td>{startIndex + index + 1}</td>
               <td>
                 <UserAvatar customer={customer} color={colors[index % colors.length]} />
               </td>

@@ -1,4 +1,6 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { tourDepartureApi } from '../../../services/tourDepartureApi'
+import { TourDetailCard } from '../../../pages/admin/tourDepartures/TourDepartureCreatePage.jsx'
 
 function formatDate(value) {
   if (!value) return '—'
@@ -241,6 +243,33 @@ function TourDepartureBookingModal({
   const customers = useMemo(() => normalizeCustomers(payload), [payload])
   const meta = useMemo(() => getMeta(payload), [payload])
   const leadAssignment = getLeadAssignment(departure || {})
+  const [tourDetail, setTourDetail] = useState(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const tourId = departure?.tour_id || departure?.tour?.id || payload?.tour_id || payload?.tour?.id
+
+    if (!open || !tourId) {
+      setTourDetail(null)
+      return undefined
+    }
+
+    setTourDetail(departure?.tour || payload?.tour || null)
+
+    tourDepartureApi.getTourDetail(tourId)
+      .then((response) => {
+        const detail = response?.data?.data?.tour || response?.data?.data || response?.data
+
+        if (!cancelled && detail && !Array.isArray(detail)) setTourDetail(detail)
+      })
+      .catch((requestError) => {
+        console.warn('Không tải được chi tiết tour của lịch khởi hành.', requestError)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [departure, open, payload])
 
   const departureId = getDepartureId(departure, payload)
   const totalSlots = Number(departure?.total_slots || payload?.total_slots || 0)
@@ -321,7 +350,9 @@ function TourDepartureBookingModal({
             </div>
           ) : null}
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {tourDetail ? <TourDetailCard tour={tourDetail} /> : null}
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <DetailStat label="Tổng chỗ" value={totalSlots || '—'} tone="blue" />
             <DetailStat label="Đã đặt" value={bookedSlots} tone="emerald" />
             <DetailStat label="Còn lại" value={remainingSlots} tone="amber" />

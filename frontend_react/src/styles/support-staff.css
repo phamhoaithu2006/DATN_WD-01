@@ -756,25 +756,27 @@
 /* Bảng quản lý NVHT có cột online và bốn nút thao tác: giữ đủ khoảng
    cách, màn hình hẹp sẽ cuộn ngang thay vì ép/chồng nội dung. */
 .support-page .support-table {
-  min-width: 1420px;
+  min-width: 1260px;
 }
 
 .support-page .support-table th:nth-child(1),
-.support-page .support-table td:nth-child(1) { width: 7%; }
+.support-page .support-table td:nth-child(1) { width: 5%; text-align: center; }
 .support-page .support-table th:nth-child(2),
-.support-page .support-table td:nth-child(2) { width: 10%; }
+.support-page .support-table td:nth-child(2) { width: 7%; }
 .support-page .support-table th:nth-child(3),
-.support-page .support-table td:nth-child(3) { width: 16%; }
+.support-page .support-table td:nth-child(3) { width: 10%; }
 .support-page .support-table th:nth-child(4),
-.support-page .support-table td:nth-child(4) { width: 10%; white-space: nowrap; }
+.support-page .support-table td:nth-child(4) { width: 17%; }
 .support-page .support-table th:nth-child(5),
-.support-page .support-table td:nth-child(5) { width: 10%; }
+.support-page .support-table td:nth-child(5) { width: 11%; white-space: nowrap; }
 .support-page .support-table th:nth-child(6),
-.support-page .support-table td:nth-child(6) { width: 12%; }
+.support-page .support-table td:nth-child(6) { width: 10%; }
 .support-page .support-table th:nth-child(7),
-.support-page .support-table td:nth-child(7) { width: 14%; text-align: left; }
+.support-page .support-table td:nth-child(7) { width: 12%; }
 .support-page .support-table th:nth-child(8),
-.support-page .support-table td:nth-child(8) { width: 21%; text-align: center; }
+.support-page .support-table td:nth-child(8) { width: 14%; text-align: left; }
+.support-page .support-table th:nth-child(9),
+.support-page .support-table td:nth-child(9) { width: 14%; min-width: 184px; text-align: center; white-space: nowrap; }
 
 .support-trash-page .support-table th:nth-child(1),
 .support-trash-page .support-table td:nth-child(1) {

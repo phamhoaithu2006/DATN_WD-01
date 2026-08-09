@@ -150,9 +150,14 @@ function getMonthNumberKey(value) {
 }
 
 function getDepartureScheduleGroup(item) {
+  const status = String(item?.status || '').toLowerCase()
+
+  if (status === 'cancelled' || status === 'canceled') return 'cancelled'
+  if (status === 'completed') return 'past'
+
   const scheduleGroup = item?.schedule_group
 
-  if (['upcoming', 'ongoing', 'past'].includes(scheduleGroup)) {
+  if (['upcoming', 'ongoing', 'past', 'cancelled'].includes(scheduleGroup)) {
     return scheduleGroup
   }
 
@@ -177,7 +182,21 @@ function getDepartureScheduleGroup(item) {
 }
 
 function isDepartureActionable(item) {
-  return ['upcoming', 'ongoing'].includes(getDepartureScheduleGroup(item))
+  return getDepartureScheduleGroup(item) === 'upcoming'
+}
+
+function getUnavailableActionMessage(item, actionLabel) {
+  const group = getDepartureScheduleGroup(item)
+
+  if (group === 'ongoing') {
+    return `Lịch khởi hành đang diễn ra nên chỉ được xem, không thể ${actionLabel}.`
+  }
+
+  if (group === 'cancelled') {
+    return `Lịch khởi hành đã hủy nên chỉ được xem, không thể ${actionLabel}.`
+  }
+
+  return `Lịch khởi hành đã hoàn thành nên chỉ được xem, không thể ${actionLabel}.`
 }
 
 function getAssignmentRowClass(item) {
@@ -1971,7 +1990,7 @@ export function GuideAssignmentPanel({
     const departure = rows.find((item) => String(item.id) === String(departureId))
 
     if (departure && !isDepartureActionable(departure)) {
-      setError('Lịch khởi hành đã qua nên chỉ được xem, không thể phân công HDV.')
+      setError(getUnavailableActionMessage(departure, 'phân công HDV'))
       return
     }
 
@@ -1997,7 +2016,7 @@ export function GuideAssignmentPanel({
 
   async function undoAssignment(item) {
     if (!isDepartureActionable(item)) {
-      setError('Lịch khởi hành đã qua nên chỉ được xem, không thể hoàn tác phân công.')
+      setError(getUnavailableActionMessage(item, 'hoàn tác phân công HDV'))
       return
     }
 
@@ -2037,7 +2056,7 @@ export function GuideAssignmentPanel({
 
   function openDirectAssignment(item) {
     if (!isDepartureActionable(item)) {
-      setMessage('Lịch khởi hành đã qua nên chỉ được xem, không thể phân công HDV.')
+      setMessage(getUnavailableActionMessage(item, 'phân công HDV'))
       return
     }
 
