@@ -7853,6 +7853,51 @@
   color: #94a3b8;
 }
 
+.vg-birth-date-control {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  min-width: 0;
+}
+
+.vg-birth-date-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.vg-birth-date-picker {
+  position: relative;
+  display: inline-flex;
+  width: 44px;
+  min-width: 44px;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: #0b84f3;
+  background: #f8fbff;
+  border: 1px solid #cbd9e8;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.vg-birth-date-picker:hover,
+.vg-birth-date-picker:focus-within {
+  color: #006fd6;
+  background: #eff7ff;
+  border-color: #0b84f3;
+  box-shadow: 0 0 0 3px rgb(11 132 243 / 12%);
+}
+
+.vg-birth-date-native {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
 textarea.vg-checkout-input {
   resize: vertical;
   min-height: 80px;

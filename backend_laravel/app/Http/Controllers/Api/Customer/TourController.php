@@ -221,6 +221,21 @@ class TourController extends Controller
 
                 $this->applyDepartureConditions($query, $filters, false);
             }, 'min_departure_price')
+            ->selectSub(function ($query) {
+                $effectiveBasePrice = 'COALESCE(tour_departures.base_price, tours.base_price)';
+                $effectiveDiscountPrice = 'COALESCE(tour_departures.discount_price, tours.discount_price)';
+
+                $query->from('tour_departures')
+                    ->selectRaw(
+                        "MAX(({$effectiveBasePrice} - {$effectiveDiscountPrice}) / NULLIF({$effectiveBasePrice}, 0))"
+                    )
+                    ->whereColumn('tour_departures.tour_id', 'tours.id');
+
+                $this->applyVisibleDepartures($query);
+                $query
+                    ->whereRaw("{$effectiveDiscountPrice} > 0")
+                    ->whereRaw("{$effectiveDiscountPrice} < {$effectiveBasePrice}");
+            }, 'discount_rate')
             ->with([
                 'category',
                 'destination',
@@ -349,6 +364,30 @@ class TourController extends Controller
     private function applySort(Builder $query, string $sort): void
     {
         switch ($sort) {
+            case 'discount':
+                $query
+                    ->where(function (Builder $discountQuery) {
+                        $discountQuery
+                            ->where(function (Builder $tourDiscountQuery) {
+                                $tourDiscountQuery
+                                    ->whereNotNull('tours.discount_price')
+                                    ->where('tours.discount_price', '>', 0)
+                                    ->whereColumn('tours.discount_price', '<', 'tours.base_price');
+                            })
+                            ->orWhereHas('departures', function ($departureQuery) {
+                                $effectiveBasePrice = 'COALESCE(tour_departures.base_price, tours.base_price)';
+                                $effectiveDiscountPrice = 'COALESCE(tour_departures.discount_price, tours.discount_price)';
+
+                                $this->applyVisibleDepartures($departureQuery);
+                                $departureQuery
+                                    ->whereRaw("{$effectiveDiscountPrice} > 0")
+                                    ->whereRaw("{$effectiveDiscountPrice} < {$effectiveBasePrice}");
+                            });
+                    })
+                    ->orderByDesc('discount_rate')
+                    ->orderByDesc('tours.id');
+                break;
+
             case 'price_asc':
                 $query->orderByRaw('min_departure_price IS NULL, min_departure_price ASC');
                 break;

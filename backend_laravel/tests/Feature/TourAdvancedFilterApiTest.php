@@ -14,7 +14,7 @@ function tourFilterCategory(string $name): Category
 {
     return Category::query()->create([
         'name' => $name,
-        'slug' => Str::slug($name) . '-' . Str::random(5),
+        'slug' => Str::slug($name).'-'.Str::random(5),
         'status' => 'active',
     ]);
 }
@@ -23,24 +23,24 @@ function tourFilterDestination(string $name): Destination
 {
     return Destination::query()->create([
         'name' => $name,
-        'slug' => Str::slug($name) . '-' . Str::random(5),
+        'slug' => Str::slug($name).'-'.Str::random(5),
         'country' => 'Việt Nam',
         'status' => 'active',
     ]);
 }
 
 /**
- * @param array<string, mixed> $attributes
+ * @param  array<string, mixed>  $attributes
  */
 function tourFilterTour(Category $category, Destination $destination, array $attributes = []): Tour
 {
-    $title = $attributes['title'] ?? 'Tour ' . Str::random(8);
+    $title = $attributes['title'] ?? 'Tour '.Str::random(8);
 
     $tour = Tour::query()->create(array_merge([
         'category_id' => $category->id,
         'destination_id' => $destination->id,
         'title' => $title,
-        'slug' => Str::slug($title) . '-' . Str::random(5),
+        'slug' => Str::slug($title).'-'.Str::random(5),
         'duration_days' => 3,
         'duration_nights' => 2,
         'base_price' => 5000000,
@@ -95,7 +95,7 @@ test('filters tours by multiple destinations including pivot table', function ()
     // Tour Sa Pa có thêm điểm đến phụ Hạ Long qua pivot.
     $tourSapa->destinations()->attach($haLong->id);
 
-    $response = $this->getJson('/api/tours?destinations[]=' . $haLong->id . '&destinations[]=' . $daNang->id)
+    $response = $this->getJson('/api/tours?destinations[]='.$haLong->id.'&destinations[]='.$daNang->id)
         ->assertOk();
 
     expect(tourFilterIds($response))
@@ -112,7 +112,7 @@ test('filters tours by multiple categories', function () {
     tourFilterTour($mountain, $destination);
     $tourCulture = tourFilterTour($culture, $destination);
 
-    $response = $this->getJson('/api/tours?categories[]=' . $sea->id . '&categories[]=' . $culture->id)
+    $response = $this->getJson('/api/tours?categories[]='.$sea->id.'&categories[]='.$culture->id)
         ->assertOk();
 
     expect(tourFilterIds($response))->toHaveCount(2)
@@ -183,7 +183,7 @@ test('combines price, destination and rating filters', function () {
     tourFilterTour($category, $haLong, ['base_price' => 20000000, 'average_rating' => 4.9]);
 
     $response = $this->getJson(
-        '/api/tours?price_min=1000000&price_max=9000000&destinations[]=' . $haLong->id . '&rating_min=4',
+        '/api/tours?price_min=1000000&price_max=9000000&destinations[]='.$haLong->id.'&rating_min=4',
     )->assertOk();
 
     expect(tourFilterIds($response))->toBe([$match->id]);
@@ -201,6 +201,26 @@ test('sorts by popularity using review count', function () {
     expect(tourFilterIds($response))->toBe([$popular->id, $quiet->id]);
 });
 
+test('discount sort returns only discounted tours ordered by effective discount rate', function () {
+    $category = tourFilterCategory('Nghỉ dưỡng');
+    $destination = tourFilterDestination('Đà Nẵng');
+
+    $regular = tourFilterTour($category, $destination, ['base_price' => 5000000]);
+    $smallDiscount = tourFilterTour($category, $destination, [
+        'base_price' => 5000000,
+        'discount_price' => 4500000,
+    ]);
+    $largeDiscount = tourFilterTour($category, $destination, [
+        'base_price' => 5000000,
+        'discount_price' => 3500000,
+    ]);
+
+    $response = $this->getJson('/api/tours?sort=discount')->assertOk();
+
+    expect(tourFilterIds($response))->toBe([$largeDiscount->id, $smallDiscount->id])
+        ->not->toContain($regular->id);
+});
+
 test('legacy single-value parameters keep working', function () {
     $category = tourFilterCategory('Biển');
     $other = tourFilterCategory('Núi');
@@ -211,7 +231,7 @@ test('legacy single-value parameters keep working', function () {
     tourFilterTour($category, $destination, ['duration_days' => 9]);
 
     $response = $this->getJson(
-        '/api/tours?category_id=' . $category->id . '&destination_id=' . $destination->id . '&duration_days=4',
+        '/api/tours?category_id='.$category->id.'&destination_id='.$destination->id.'&duration_days=4',
     )->assertOk();
 
     expect(tourFilterIds($response))->toBe([$match->id]);

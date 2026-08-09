@@ -863,7 +863,7 @@ class GuideTourOperationService
             ]);
         }
 
-        if ($departure->status !== 'confirmed') {
+        if (! in_array($departure->status, ['confirmed', 'in_progress'], true)) {
             throw ValidationException::withMessages([
                 'tour_departure_id' => 'Chỉ có thể bắt đầu tour khi tour đã được xác nhận.',
             ]);

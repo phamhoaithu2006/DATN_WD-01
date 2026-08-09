@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import Icon from '../../components/customer/Icon'
 import { fetchVnpayReturnStatus } from '../../services/customerApi'
+import { formatVndCurrency } from '../../utils/currencyFormat'
 
 function VnpayPaymentResultPage() {
   const [searchParams] = useSearchParams()
@@ -134,8 +135,7 @@ function VnpayPaymentResultPage() {
   }, [isSuccessful])
 
   const formatVND = (value) => {
-    if (!value) return '0 ₫'
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value)
+    return formatVndCurrency(value || 0)
   }
 
   const formatDate = (dateString) => {

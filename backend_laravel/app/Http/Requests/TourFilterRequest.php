@@ -57,7 +57,7 @@ class TourFilterRequest extends FormRequest
 
             'sort' => [
                 'nullable',
-                'in:latest,newest,price_asc,price_desc,departure_soon,rating_desc,duration_asc,duration_desc,popular',
+                'in:latest,newest,discount,price_asc,price_desc,departure_soon,rating_desc,duration_asc,duration_desc,popular',
             ],
         ];
     }

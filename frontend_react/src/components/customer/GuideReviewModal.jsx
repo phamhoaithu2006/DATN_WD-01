@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { submitCustomerGuideReview } from '../../services/customerReviewApi'
+import { formatVndCurrency } from '../../utils/currencyFormat'
 import { mediaUrl } from '../../utils/mediaUrl'
 
 const RATING_LABELS = {
@@ -105,11 +106,7 @@ function formatCurrency(value) {
   const number = Number(value)
   if (!Number.isFinite(number)) return 'Chưa cập nhật'
 
-  return new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
-    currency: 'VND',
-    maximumFractionDigits: 0,
-  }).format(number)
+  return formatVndCurrency(number)
 }
 
 function getValidationMessage(error) {

@@ -2,6 +2,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import apiClient from '../services/apiClient'
+import { formatVndCurrency, normalizeCurrency } from '../utils/currencyFormat'
 import { formatDateDdMmYyyy, formatDateTimeDdMmYyyy } from '../utils/dateFormat'
 
 const LocaleContext = createContext(null)
@@ -38,7 +39,7 @@ function readStoredSettings() {
       default_language: typeof parsed.default_language === 'string' ? parsed.default_language : defaultLocaleSettings.default_language,
       timezone: typeof parsed.timezone === 'string' ? parsed.timezone : defaultLocaleSettings.timezone,
       date_format: typeof parsed.date_format === 'string' ? parsed.date_format : defaultLocaleSettings.date_format,
-      currency: typeof parsed.currency === 'string' ? parsed.currency : defaultLocaleSettings.currency,
+      currency: normalizeCurrency(parsed.currency),
       site_name: typeof parsed.site_name === 'string' ? parsed.site_name : defaultLocaleSettings.site_name,
       logo_url: typeof parsed.logo_url === 'string' ? parsed.logo_url : defaultLocaleSettings.logo_url,
       contact_email: typeof parsed.contact_email === 'string' ? parsed.contact_email : defaultLocaleSettings.contact_email,
@@ -67,6 +68,7 @@ export function LocaleProvider({ children }) {
       const nextSettings = {
         ...defaultLocaleSettings,
         ...publicSettings,
+        currency: normalizeCurrency(publicSettings?.currency),
       }
 
       setSettings(nextSettings)
@@ -140,12 +142,16 @@ export function LocaleProvider({ children }) {
         const numAmount = Number(amount)
         if (isNaN(numAmount)) return String(amount)
 
-        const locale = settings.currency === 'VND' ? 'vi-VN' : 'en-US'
+        const currency = normalizeCurrency(settings.currency)
 
-        return new Intl.NumberFormat(locale, {
+        if (currency === 'VND') {
+          return formatVndCurrency(numAmount)
+        }
+
+        return new Intl.NumberFormat('en-US', {
           style: 'currency',
-          currency: settings.currency,
-          maximumFractionDigits: settings.currency === 'VND' ? 0 : 2,
+          currency,
+          maximumFractionDigits: 2,
         }).format(numAmount)
       } catch {
         return String(amount)

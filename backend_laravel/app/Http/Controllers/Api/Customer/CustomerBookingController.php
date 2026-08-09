@@ -1029,11 +1029,20 @@ class CustomerBookingController extends Controller
 
     private function participantTypeFromPricingRule($rule): string
     {
-        if (! $rule || $rule->max_age === null) {
+        if (! $rule) {
             return 'adult';
         }
 
-        return (int) $rule->max_age <= 4 ? 'infant' : 'child';
+        $minAge = (int) ($rule->min_age ?? 0);
+        $maxAge = $rule->max_age === null
+            ? null
+            : (int) $rule->max_age;
+
+        if ($maxAge === null || ($minAge >= 12 && $maxAge >= 120)) {
+            return 'adult';
+        }
+
+        return $maxAge <= 4 ? 'infant' : 'child';
     }
 
     private function expireCustomerPendingBookings(int $userId): void
