@@ -120,6 +120,8 @@ const normalizeItineraryForForm = (itinerary = []) => {
         source.activityType ??
         source.kind ??
         'sightseeing',
+      destination_place_id:
+        source.destination_place_id ?? source.destinationPlaceId ?? source.destination_place?.id ?? '',
       title:
         source.title ??
         source.name ??
@@ -160,6 +162,9 @@ const normalizeItineraryForSubmit = (itinerary = []) => {
       ...step,
       day_number: Number(step.day_number || stepIndex + 1),
       sort_order: step.sort_order ?? stepIndex,
+      destination_place_id: step.destination_place_id
+        ? Number(step.destination_place_id)
+        : null,
       start_time: normalizeTimeForBackend(step.start_time),
       end_time: normalizeTimeForBackend(step.end_time),
       images: cleanedImages,
@@ -1398,6 +1403,8 @@ function TourForm({
 
   const [categories, setCategories] = useState([])
   const [destinations, setDestinations] = useState([])
+  const [destinationPlaces, setDestinationPlaces] = useState([])
+  const [loadingDestinationPlaces, setLoadingDestinationPlaces] = useState(false)
   const [loadingOptions, setLoadingOptions] = useState(false)
   const [optionError, setOptionError] = useState('')
   const [thumbnailImage, setThumbnailImage] = useState(null)
@@ -1552,6 +1559,38 @@ function TourForm({
     }
   }, [])
 
+  useEffect(() => {
+    let cancelled = false
+
+    if (!formData.destination_id) {
+      setDestinationPlaces([])
+      return undefined
+    }
+
+    const loadDestinationPlaces = async () => {
+      try {
+        setLoadingDestinationPlaces(true)
+        const response = await fetch(
+          `${API_BASE_URL}/admin/destination-places?destination_id=${formData.destination_id}&status=active&per_page=100`,
+          { headers: getAuthHeaders() },
+        )
+        if (!response.ok) throw new Error(`Không tải được điểm đến chi tiết: ${response.status}`)
+        const payload = await response.json()
+        if (!cancelled) setDestinationPlaces(payload?.data?.data || [])
+      } catch (error) {
+        console.error('LOAD DESTINATION PLACES ERROR:', error)
+        if (!cancelled) setDestinationPlaces([])
+      } finally {
+        if (!cancelled) setLoadingDestinationPlaces(false)
+      }
+    }
+
+    void loadDestinationPlaces()
+    return () => {
+      cancelled = true
+    }
+  }, [formData.destination_id])
+
   const inputClass =
     'mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 hover:border-slate-300'
 
@@ -1583,6 +1622,20 @@ function TourForm({
         ...prev,
         duration_days: value,
         duration_nights: getDurationNightsFromDays(value),
+      }))
+      return
+    }
+
+    if (name === 'destination_id') {
+      const hasSelectedPlaces = formData.itinerary.some((step) => step.destination_place_id)
+      if (hasSelectedPlaces && !window.confirm('Đổi điểm đến chính sẽ bỏ các địa điểm chi tiết đã chọn trong lịch trình. Bạn có muốn tiếp tục?')) {
+        return
+      }
+
+      setFormData((prev) => ({
+        ...prev,
+        destination_id: value,
+        itinerary: prev.itinerary.map((step) => ({ ...step, destination_place_id: '' })),
       }))
       return
     }
@@ -1776,6 +1829,7 @@ function TourForm({
       day_number: Number(dayNumber),
       sort_order: daySteps.length,
       type: 'sightseeing',
+      destination_place_id: '',
       title: '',
       start_time: '',
       end_time: '',
@@ -1814,6 +1868,18 @@ function TourForm({
       return step
     })
 
+    updateItinerary(nextItinerary)
+  }
+
+  const handleDestinationPlaceChange = (indexToUpdate, placeId) => {
+    const nextItinerary = formData.itinerary.map((step, idx) => {
+      if (idx !== indexToUpdate) return step
+
+      return {
+        ...step,
+        destination_place_id: placeId,
+      }
+    })
     updateItinerary(nextItinerary)
   }
 
@@ -2228,6 +2294,39 @@ function TourForm({
                               </div>
 
                               <div className="grid grid-cols-1 gap-3.5 md:grid-cols-3">
+                                <div className="md:col-span-3">
+                                  <FieldLabel>Điểm đến chi tiết</FieldLabel>
+                                  <select
+                                    value={step.destination_place_id || ''}
+                                    onChange={(e) =>
+                                      handleDestinationPlaceChange(
+                                        originalIdx,
+                                        e.target.value,
+                                      )
+                                    }
+                                    disabled={!formData.destination_id || loadingDestinationPlaces}
+                                    className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-800 outline-none transition focus:border-blue-500 disabled:cursor-not-allowed disabled:bg-slate-100"
+                                  >
+                                    <option value="">
+                                      {!formData.destination_id
+                                        ? 'Chọn điểm đến chính trước'
+                                        : loadingDestinationPlaces
+                                          ? 'Đang tải địa điểm...'
+                                          : 'Không gắn địa điểm cụ thể'}
+                                    </option>
+                                    {destinationPlaces.map((place) => (
+                                      <option key={place.id} value={place.id}>
+                                        {place.name}{place.address ? ` – ${place.address}` : ''}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  {formData.destination_id && !loadingDestinationPlaces && destinationPlaces.length === 0 ? (
+                                    <p className="mt-1.5 text-[11px] font-semibold text-amber-600">
+                                      Điểm đến này chưa có địa điểm chi tiết. Bạn có thể thêm tại trang Quản lý điểm đến chi tiết.
+                                    </p>
+                                  ) : null}
+                                </div>
+
                                 <div>
                                   <FieldLabel>Loại hoạt động</FieldLabel>
                                   <select

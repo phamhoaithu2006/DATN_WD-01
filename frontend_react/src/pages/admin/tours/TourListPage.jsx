@@ -491,6 +491,14 @@ function TourListPage() {
             </Link>
 
             <Link
+              to="/admin/destination-places"
+              className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+            >
+              <MapPinIcon className="h-4 w-4 text-indigo-600" />
+              Điểm đến chi tiết
+            </Link>
+
+            <Link
               to="/admin/tours/hidden"
               className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-amber-200 hover:bg-amber-50 hover:text-amber-700"
             >

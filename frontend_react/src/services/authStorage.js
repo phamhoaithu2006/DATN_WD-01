@@ -25,8 +25,16 @@ export function normalizeSessionUser(user) {
 
 export function readSession() {
   try {
+    const storedSession =
+      localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY)
+
+    // Migrate sessions created by older builds so newly opened tabs can use them.
+    if (!localStorage.getItem(SESSION_KEY) && storedSession) {
+      localStorage.setItem(SESSION_KEY, storedSession)
+    }
+
     return normalizeSessionUser(
-      JSON.parse(localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY)),
+      JSON.parse(storedSession),
     )
   } catch {
     return null
@@ -34,27 +42,27 @@ export function readSession() {
 }
 
 export function saveSession(user, remember = true) {
-  const storage = remember ? localStorage : sessionStorage
-  const otherStorage = remember ? sessionStorage : localStorage
-
-  otherStorage.removeItem(SESSION_KEY)
-  storage.setItem(SESSION_KEY, JSON.stringify(normalizeSessionUser(user)))
+  void remember
+  sessionStorage.removeItem(SESSION_KEY)
+  localStorage.setItem(SESSION_KEY, JSON.stringify(normalizeSessionUser(user)))
 }
 
 export function readToken() {
-  return (
-    localStorage.getItem(TOKEN_KEY) ||
-    sessionStorage.getItem(TOKEN_KEY) ||
-    null
-  )
+  const token =
+    localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY) || null
+
+  // Migrate the current tab's legacy session token for cross-tab authentication.
+  if (!localStorage.getItem(TOKEN_KEY) && token) {
+    localStorage.setItem(TOKEN_KEY, token)
+  }
+
+  return token
 }
 
 export function saveToken(token, remember = true) {
-  const storage = remember ? localStorage : sessionStorage
-  const otherStorage = remember ? sessionStorage : localStorage
-
-  otherStorage.removeItem(TOKEN_KEY)
-  storage.setItem(TOKEN_KEY, token)
+  void remember
+  sessionStorage.removeItem(TOKEN_KEY)
+  localStorage.setItem(TOKEN_KEY, token)
 }
 
 export function clearSession() {

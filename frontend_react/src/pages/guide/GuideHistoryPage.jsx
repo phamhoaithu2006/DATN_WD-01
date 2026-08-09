@@ -296,6 +296,9 @@ function TourHistoryModal({ open, item, detailLoading, extras, onClose }) {
                 <article key={step.id} className="guide-tour-modal-step">
                   <span>Ngày {step.day_number}</span>
                   <strong>{step.title || 'Hành trình'}</strong>
+                  {step.destination_place?.name ? (
+                    <p><strong>Điểm đến:</strong> {step.destination_place.name}</p>
+                  ) : null}
                   <p>{step.description || 'Chưa có mô tả chi tiết.'}</p>
                 </article>
               ))}

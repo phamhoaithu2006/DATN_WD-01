@@ -2,17 +2,20 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes; // Nếu có dùng xóa mềm
-use App\Models\Guide;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany; // Nếu có dùng xóa mềm
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Destination extends Model
 {
+    use HasFactory;
     use SoftDeletes; // Kích hoạt xóa mềm (nếu bạn có cột deleted_at)
 
     // 1. Chỉ định bảng (Nếu tên bảng không phải là dạng số nhiều của model)
     protected $table = 'destinations';
+
     protected $guarded = ['id']; // Mọi cột trừ 'id' đều được phép gán
 
     // 2. Định nghĩa các cột được phép gán dữ liệu (Mass Assignment)
@@ -24,7 +27,7 @@ class Destination extends Model
         'country',
         'description',
         'thumbnail_url',
-        'status'
+        'status',
     ];
 
     // 3. Khai báo các cột ngày tháng (nếu cần xử lý định dạng)
@@ -46,12 +49,17 @@ class Destination extends Model
     }
 
     public function guides(): BelongsToMany
-{
-    return $this->belongsToMany(
-        Guide::class,
-        'guide_destinations',
-        'destination_id',
-        'guide_id'
-    )->withTimestamps();
-}
+    {
+        return $this->belongsToMany(
+            Guide::class,
+            'guide_destinations',
+            'destination_id',
+            'guide_id'
+        )->withTimestamps();
+    }
+
+    public function places(): HasMany
+    {
+        return $this->hasMany(DestinationPlace::class)->orderBy('name');
+    }
 }

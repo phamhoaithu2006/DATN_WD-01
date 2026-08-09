@@ -13,6 +13,7 @@ class TourItinerary extends Model
         'day_number',
         'sort_order',
         'type',
+        'destination_place_id',
         'title',
         'start_time',
         'end_time',
@@ -24,11 +25,17 @@ class TourItinerary extends Model
     protected $casts = [
         'day_number' => 'integer',
         'sort_order' => 'integer',
+        'destination_place_id' => 'integer',
     ];
 
     public function tour(): BelongsTo
     {
         return $this->belongsTo(Tour::class);
+    }
+
+    public function destinationPlace(): BelongsTo
+    {
+        return $this->belongsTo(DestinationPlace::class);
     }
 
     public function images(): HasMany

@@ -438,6 +438,12 @@ function TimelineDayCard({ day, items }) {
                   )}
                 </p>
 
+                {item.destination_place?.name && (
+                  <p className="text-[10.5px] font-bold leading-[17px] text-sky-700">
+                    Điểm đến: {item.destination_place.name}
+                  </p>
+                )}
+
                 {item.description && (
                   <p className="line-clamp-2 text-[10.5px] font-medium leading-[17px] text-slate-500">
                     {item.description}
