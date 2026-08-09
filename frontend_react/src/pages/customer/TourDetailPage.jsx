@@ -13,6 +13,7 @@ import { getTourReviews } from "../../services/customerReviewApi";
 import { readSession, readToken } from "../../services/authStorage";
 import Icon from "../../components/customer/Icon";
 import LoadingState from "../../components/common/LoadingState";
+import { formatVndCurrency } from "../../utils/currencyFormat";
 import { mediaUrl } from "../../utils/mediaUrl";
 
 function normalizeTourDetail(tour, fallback = {}) {
@@ -52,7 +53,7 @@ function getRuleAgeHint(rule) {
 
 function getPricingRuleText(rule) {
   if (rule.pricing_type === "free") return "miễn phí";
-  if (rule.pricing_type === "fixed") return `${Number(rule.price_value || 0).toLocaleString("vi-VN")}đ`;
+  if (rule.pricing_type === "fixed") return formatVndCurrency(rule.price_value || 0);
   return `${rule.price_value}% giá người lớn`;
 }
 
@@ -100,6 +101,15 @@ function parseBirthDateInput(value) {
   }
 
   return `${year.toString().padStart(4, "0")}-${digits.slice(2, 4)}-${digits.slice(0, 2)}`;
+}
+
+function getTodayDateInputValue() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
 }
 
 function getAgeFromBirthDate(birthDate, referenceDate) {
@@ -462,17 +472,23 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
   const adultBookingGroup = {
     id: "adult_default",
     label: "Người lớn",
-    min_age: 11,
-    max_age: null,
+    min_age: 12,
+    max_age: 120,
     pricing_type: "percentage",
     price_value: 100,
     is_active: true,
   };
   const isDefaultAdultRule = (rule) => rule.id === adultBookingGroup.id;
-  const isAdultPricingRule = (rule) => isDefaultAdultRule(rule) || (
-    (rule.max_age === null || rule.max_age === undefined)
-    && rule.pricing_type !== "free"
-  );
+  const isAdultPricingRule = (rule) => {
+    if (isDefaultAdultRule(rule) || rule.pricing_type === "free") return isDefaultAdultRule(rule);
+
+    const minAge = Number(rule.min_age ?? 0);
+    const maxAge = rule.max_age === null || rule.max_age === undefined
+      ? null
+      : Number(rule.max_age);
+
+    return minAge >= 12 && (maxAge === null || maxAge >= 120);
+  };
   const adultPricingRule = activePricingRules.find(isAdultPricingRule) || adultBookingGroup;
   const bookingGroups = activePricingRules.some(isAdultPricingRule)
     ? activePricingRules
@@ -1511,18 +1527,32 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                             </div>
                             <div className="vg-input-group">
                               <label>Ngày sinh *</label>
-                              <input
-                                className="vg-checkout-input"
-                                style={errorInputStyle(Boolean(fieldErrors.participants?.[index]?.birth_date))}
-                                data-validation-error={fieldErrors.participants?.[index]?.birth_date ? "true" : undefined}
-                                type="text"
-                                inputMode="numeric"
-                                placeholder="dd/mm/yyyy"
-                                maxLength={10}
-                                value={formatBirthDateForDisplay(p.birth_date)}
-                                onChange={(e) => updateParticipantField(index, "birth_date", parseBirthDateInput(e.target.value))}
-                                required
-                              />
+                              <div className="vg-birth-date-control">
+                                <input
+                                  className="vg-checkout-input vg-birth-date-text"
+                                  style={errorInputStyle(Boolean(fieldErrors.participants?.[index]?.birth_date))}
+                                  data-validation-error={fieldErrors.participants?.[index]?.birth_date ? "true" : undefined}
+                                  type="text"
+                                  inputMode="numeric"
+                                  autoComplete="bday"
+                                  placeholder="dd/mm/yyyy"
+                                  maxLength={10}
+                                  value={formatBirthDateForDisplay(p.birth_date)}
+                                  onChange={(e) => updateParticipantField(index, "birth_date", parseBirthDateInput(e.target.value))}
+                                  required
+                                />
+                                <span className="vg-birth-date-picker" title="Chọn ngày sinh">
+                                  <Icon name="calendar" size={18} />
+                                  <input
+                                    className="vg-birth-date-native"
+                                    type="date"
+                                    aria-label={`Chọn ngày sinh hành khách ${index + 1}`}
+                                    max={getTodayDateInputValue()}
+                                    value={/^\d{4}-\d{2}-\d{2}$/.test(p.birth_date) ? p.birth_date : ""}
+                                    onChange={(e) => updateParticipantField(index, "birth_date", e.target.value)}
+                                  />
+                                </span>
+                              </div>
                               {fieldErrors.participants?.[index]?.birth_date && <small style={fieldErrorStyle}>{fieldErrors.participants[index].birth_date}</small>}
                             </div>
                             <div className="vg-input-group">

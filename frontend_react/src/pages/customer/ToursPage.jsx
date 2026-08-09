@@ -12,6 +12,7 @@ import { isDomesticTour, normalizeTour } from "../../utils/tourNormalizer";
 
 const SORT_OPTIONS = [
   { value: "latest", label: "Mới nhất" },
+  { value: "discount", label: "Ưu đãi tốt nhất" },
   { value: "popular", label: "Phổ biến nhất" },
   { value: "price_asc", label: "Giá thấp đến cao" },
   { value: "price_desc", label: "Giá cao đến thấp" },
