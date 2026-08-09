@@ -25,6 +25,7 @@ const DestinationCreatePage = lazy(() => import('../pages/admin/destinations/Des
 const DestinationEditPage = lazy(() => import('../pages/admin/destinations/DestinationEditPage'))
 const DestinationListPage = lazy(() => import('../pages/admin/destinations/DestinationListPage'))
 const DestinationTrashPage = lazy(() => import('../pages/admin/destinations/DestinationTrashPage'))
+const DestinationPlaceManagementPage = lazy(() => import('../pages/admin/destinations/DestinationPlaceManagementPage'))
 const BackupSettingsPage = lazy(() => import('../pages/admin/settings/BackupSettingsPage'))
 const LocaleSettingsPage = lazy(() => import('../pages/admin/settings/LocaleSettingsPage'))
 const NotificationSettingsPage = lazy(() => import('../pages/admin/settings/NotificationSettingsPage'))
@@ -596,6 +597,13 @@ function AppRoutes() {
         path="/admin/destinations"
         element={adminPage(
           <DestinationListPage />,
+        )}
+      />
+
+      <Route
+        path="/admin/destination-places"
+        element={adminPage(
+          <DestinationPlaceManagementPage />,
         )}
       />
 

@@ -98,9 +98,9 @@ class TourController extends Controller
                 ->all();
 
             $durationCounts = (clone $published)
-                ->selectRaw("SUM(CASE WHEN duration_days BETWEEN 1 AND 3 THEN 1 ELSE 0 END) as bucket_1_3")
-                ->selectRaw("SUM(CASE WHEN duration_days BETWEEN 4 AND 7 THEN 1 ELSE 0 END) as bucket_4_7")
-                ->selectRaw("SUM(CASE WHEN duration_days >= 8 THEN 1 ELSE 0 END) as bucket_8_plus")
+                ->selectRaw('SUM(CASE WHEN duration_days BETWEEN 1 AND 3 THEN 1 ELSE 0 END) as bucket_1_3')
+                ->selectRaw('SUM(CASE WHEN duration_days BETWEEN 4 AND 7 THEN 1 ELSE 0 END) as bucket_4_7')
+                ->selectRaw('SUM(CASE WHEN duration_days >= 8 THEN 1 ELSE 0 END) as bucket_8_plus')
                 ->first();
 
             $departureLocations = DB::table('tour_departures')
@@ -216,7 +216,7 @@ class TourController extends Controller
             ->where('tours.status', 'published')
             ->selectSub(function ($query) use ($filters) {
                 $query->from('tour_departures')
-                    ->selectRaw('MIN(' . $this->departureSalePriceExpression() . ')')
+                    ->selectRaw('MIN('.$this->departureSalePriceExpression().')')
                     ->whereColumn('tour_departures.tour_id', 'tours.id');
 
                 $this->applyDepartureConditions($query, $filters, false);
@@ -228,6 +228,7 @@ class TourController extends Controller
                 'thumbnail',
                 'images',
                 'itineraries.images',
+                'itineraries.destinationPlace',
 
                 'agePricingRules' => function ($query) {
                     $query->where('is_active', true)
@@ -281,32 +282,31 @@ class TourController extends Controller
     /**
      * Điều kiện chung của một lịch khởi hành được phép hiển thị/đặt.
      */
-
     private function applyDepartureConditions($query, array $filters, bool $includePriceFilters = true)
     {
         $this->applyVisibleDepartures($query);
 
-        if (!empty($filters['departure_date'])) {
+        if (! empty($filters['departure_date'])) {
             $query->whereDate('departure_date', $filters['departure_date']);
         }
 
-        if (!empty($filters['date_from'])) {
+        if (! empty($filters['date_from'])) {
             $query->whereDate('departure_date', '>=', $filters['date_from']);
         }
 
-        if (!empty($filters['date_to'])) {
+        if (! empty($filters['date_to'])) {
             $query->whereDate('departure_date', '<=', $filters['date_to']);
         }
 
-        if (!empty($filters['departure_location'])) {
+        if (! empty($filters['departure_location'])) {
             $query->where(
                 'departure_location',
                 'like',
-                '%' . $filters['departure_location'] . '%'
+                '%'.$filters['departure_location'].'%'
             );
         }
 
-        if (!empty($filters['guests'])) {
+        if (! empty($filters['guests'])) {
             $query->whereRaw(
                 '(COALESCE(total_slots, 0) - COALESCE(booked_slots, 0)) >= ?',
                 [$filters['guests']]
@@ -314,11 +314,11 @@ class TourController extends Controller
         }
 
         if ($includePriceFilters && ($filters['min_price'] ?? null) !== null) {
-            $query->whereRaw($this->departureSalePriceExpression() . ' >= ?', [$filters['min_price']]);
+            $query->whereRaw($this->departureSalePriceExpression().' >= ?', [$filters['min_price']]);
         }
 
         if ($includePriceFilters && ($filters['max_price'] ?? null) !== null) {
-            $query->whereRaw($this->departureSalePriceExpression() . ' <= ?', [$filters['max_price']]);
+            $query->whereRaw($this->departureSalePriceExpression().' <= ?', [$filters['max_price']]);
         }
 
         return $query;
@@ -337,11 +337,11 @@ class TourController extends Controller
 
     private function hasDepartureFilters(array $filters): bool
     {
-        return !empty($filters['departure_date'])
-            || !empty($filters['date_from'])
-            || !empty($filters['date_to'])
-            || !empty($filters['departure_location'])
-            || !empty($filters['guests'])
+        return ! empty($filters['departure_date'])
+            || ! empty($filters['date_from'])
+            || ! empty($filters['date_to'])
+            || ! empty($filters['departure_location'])
+            || ! empty($filters['guests'])
             || $filters['min_price'] !== null
             || $filters['max_price'] !== null;
     }
@@ -384,5 +384,4 @@ class TourController extends Controller
                 break;
         }
     }
-
 }

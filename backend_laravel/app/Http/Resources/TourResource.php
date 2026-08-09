@@ -42,7 +42,7 @@ class TourResource extends JsonResource
         $pricingRules = $this->relationLoaded('agePricingRules')
             ? $this->agePricingRules
             : collect();
-        $pricingService = new TourPricingService();
+        $pricingService = new TourPricingService;
 
         $itineraries = $this->relationLoaded('itineraries')
             ? $this->itineraries
@@ -73,6 +73,14 @@ class TourResource extends JsonResource
                     'day_number' => (int) $itinerary->day_number,
                     'sort_order' => (int) $itinerary->sort_order,
                     'type' => $itinerary->type,
+                    'destination_place_id' => $itinerary->destination_place_id,
+                    'destination_place' => $itinerary->relationLoaded('destinationPlace') && $itinerary->destinationPlace ? [
+                        'id' => $itinerary->destinationPlace->id,
+                        'name' => $itinerary->destinationPlace->name,
+                        'address' => $itinerary->destinationPlace->address,
+                        'description' => $itinerary->destinationPlace->description,
+                        'thumbnail_url' => $itinerary->destinationPlace->thumbnail_url,
+                    ] : null,
                     'title' => $itinerary->title,
                     'start_time' => $itinerary->start_time,
                     'end_time' => $itinerary->end_time,

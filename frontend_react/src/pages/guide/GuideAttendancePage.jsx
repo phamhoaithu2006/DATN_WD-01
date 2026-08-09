@@ -148,6 +148,9 @@ function AttendanceTourDetailModal({ item, onClose }) {
                 <article key={step.id || index}>
                   <span>Ngày {step.day_number || index + 1}</span>
                   <strong>{step.title || "Hành trình"}</strong>
+                  {step.destination_place?.name ? (
+                    <p><strong>Điểm đến:</strong> {step.destination_place.name}</p>
+                  ) : null}
                   <p>{stripHtml(step.description) || "Chưa có mô tả."}</p>
                 </article>
               ))}

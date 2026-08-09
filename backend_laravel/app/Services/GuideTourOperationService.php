@@ -479,7 +479,9 @@ class GuideTourOperationService
             $this->ensureStagesForDeparture($departure);
         }
 
-        return $departure->fresh()->stages()->get();
+        return $departure->fresh()->stages()
+            ->with('itinerary.destinationPlace:id,name,address')
+            ->get();
     }
 
     /**

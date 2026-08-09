@@ -555,6 +555,7 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
         time: [item.start_time, item.end_time].filter(Boolean).join(" - ") || `Ngày ${item.day_number || ""}`.trim(),
         title: item.title || `Ngày ${item.day_number || index + 1}`,
         desc: item.description || item.content || item.duration || "Chưa cập nhật mô tả lịch trình.",
+        destinationPlace: item.destination_place || item.destinationPlace || null,
         transport: item.transport || "",
         images: Array.isArray(item.images)
           ? item.images.map((image) => mediaUrl(image?.image_url || image?.url || image)).filter(Boolean)
@@ -1725,6 +1726,11 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                             {step.time}
                           </span>
                           <span className="vg-step-title-traveloka">{step.title}</span>
+                          {step.destinationPlace?.name ? (
+                            <span className="vg-step-desc-traveloka">
+                              Điểm đến: {step.destinationPlace.name}
+                            </span>
+                          ) : null}
                           <span className="vg-step-desc-traveloka">{step.desc}</span>
                           {step.transport ? <span className="vg-step-desc-traveloka">Phương tiện: {step.transport}</span> : null}
                           {step.images.length ? (
@@ -2340,6 +2346,9 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                       </div>
                       <div className="day-body-wrapper">
                         <div className="day-body-content">
+                          {item.destinationPlace?.name ? (
+                            <p><strong>Điểm đến:</strong> {item.destinationPlace.name}</p>
+                          ) : null}
                           <p>{item.desc}</p>
                           {item.transport ? <p>Phương tiện: {item.transport}</p> : null}
                           {item.images.length ? (
