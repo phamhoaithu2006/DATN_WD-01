@@ -93,6 +93,12 @@ function isLockedDeparture(departure) {
   return false
 }
 
+function isGuideAssignmentLocked(departure) {
+  const group = getDepartureTimeGroup(departure)
+
+  return group === 'completed' || group === 'cancelled'
+}
+
 function getBookingCount(departure) {
   return Number(
     departure?.active_bookings_count ??
@@ -811,7 +817,7 @@ export default function TourDepartureListPage() {
       (item) => String(item.id) === String(departureId)
     )
 
-    if (departure && isLockedDeparture(departure)) {
+    if (departure && isGuideAssignmentLocked(departure)) {
       toast.warning(getLockedActionMessage(
         departure,
         hasAssignedGuide(departure) ? 'đổi HDV' : 'phân công HDV'

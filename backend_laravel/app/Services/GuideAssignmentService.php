@@ -3,12 +3,10 @@
 namespace App\Services;
 
 use App\Models\Guide;
-use App\Models\Tour;
 use App\Models\TourDeparture;
 use App\Models\TourGuideAssignment;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
@@ -20,148 +18,35 @@ class GuideAssignmentService
     ) {}
 
     /**
-     * Số ngày HDV phải nghỉ giữa hai tour.
-     * Mặc định: 1 ngày.
-     */
-    private function restDays(): int
-    {
-        return (int) config('tour.guide_rest_days', 1);
-    }
-
-    /**
-     * Đảm bảo lấy đủ dữ liệu Tour:
-     * - destination_id trong bảng tours
-     * - destinations trong bảng pivot tour_destinations
-     *
-     * Có xử lý trường hợp controller chỉ load tour:id,title
-     * nên thiếu destination_id.
-     */
-    private function getTourForDeparture(
-        TourDeparture $departure
-    ): ?Tour {
-        $tour = $departure->relationLoaded('tour')
-            ? $departure->getRelation('tour')
-            : null;
-
-        $needsReload =
-            ! $tour ||
-            ! $tour->relationLoaded('destinations') ||
-            ! array_key_exists(
-                'destination_id',
-                $tour->getAttributes()
-            );
-
-        if ($needsReload) {
-            $tour = Tour::query()
-                ->with('destinations')
-                ->find($departure->tour_id);
-
-            if ($tour) {
-                $departure->setRelation('tour', $tour);
-            }
-        }
-
-        return $tour;
-    }
-
-    /**
-     * Lấy toàn bộ ID điểm đến của tour.
-     *
-     * Nguồn dữ liệu:
-     * 1. Pivot tour_destinations
-     * 2. destination_id trong bảng tours
-     */
-    private function getDestinationIds(
-        TourDeparture $departure
-    ): Collection {
-        $tour = $this->getTourForDeparture($departure);
-
-        if (! $tour) {
-            return collect();
-        }
-
-        $destinationIds = $tour->destinations
-            ->pluck('id')
-            ->push($tour->destination_id)
-            ->filter()
-            ->map(fn ($id) => (int) $id)
-            ->unique()
-            ->values();
-
-        return $destinationIds;
-    }
-
-    /**
      * Query HDV đủ điều kiện cho lịch khởi hành.
      *
      * HDV phải:
-     * - Đang active
      * - Có tài khoản user
-     * - Phụ trách toàn bộ điểm đến của tour
      * - Không trùng lịch
-     * - Có đủ ngày nghỉ giữa hai tour
      */
     public function eligibleGuidesQuery(
         TourDeparture $departure
     ): Builder {
-        $destinationIds = $this->getDestinationIds($departure);
-
-        if ($destinationIds->isEmpty()) {
-            return Guide::query()->whereRaw('1 = 0');
-        }
-
         [$startDate, $endDate] = $this->dateRange($departure);
-
-        $blockedStart = $startDate
-            ->copy()
-            ->subDays($this->restDays());
-
-        $blockedEnd = $endDate
-            ->copy()
-            ->addDays($this->restDays());
 
         $query = Guide::query()
             ->with([
                 'user:id,full_name,email,avatar_url',
                 'destinations:id,name,province_city',
             ])
-            ->where('status', 'active')
             ->whereHas('user');
-
-        /*
-        | HDV phải phụ trách tất cả điểm đến.
-        |
-        | Ví dụ tour có Đà Lạt + Nha Trang:
-        | HDV phải có cả Đà Lạt và Nha Trang.
-        */
-        foreach ($destinationIds as $destinationId) {
-            $query->whereHas(
-                'destinations',
-                function (Builder $destinationQuery) use (
-                    $destinationId
-                ) {
-                    $destinationQuery->where(
-                        'destinations.id',
-                        $destinationId
-                    );
-                }
-            );
-        }
 
         /*
         | Loại HDV bị trùng lịch.
         |
-        | Ví dụ:
-        | Tour cũ: 08/07 - 11/07
-        | HDV nghỉ: 12/07
-        | Tour mới từ 13/07 mới hợp lệ.
+        | Chỉ chặn khi khoảng ngày của hai lịch thực sự giao nhau.
         */
         $query->whereDoesntHave(
             'assignments',
             function (Builder $assignmentQuery) use (
                 $departure,
-                $blockedStart,
-                $blockedEnd
+                $startDate,
+                $endDate
             ) {
                 $assignmentQuery
                     ->whereIn('status', ['assigned', 'confirmed'])
@@ -169,8 +54,8 @@ class GuideAssignmentService
                         'departure',
                         function (Builder $departureQuery) use (
                             $departure,
-                            $blockedStart,
-                            $blockedEnd
+                            $startDate,
+                            $endDate
                         ) {
                             $departureQuery
                                 ->where(
@@ -181,11 +66,11 @@ class GuideAssignmentService
                                 ->whereDate(
                                     'departure_date',
                                     '<=',
-                                    $blockedEnd->toDateString()
+                                    $endDate->toDateString()
                                 )
                                 ->whereRaw(
                                     'COALESCE(return_date, departure_date) >= ?',
-                                    [$blockedStart->toDateString()]
+                                    [$startDate->toDateString()]
                                 );
                         }
                     );
@@ -272,13 +157,17 @@ class GuideAssignmentService
         | Tính tổng số ngày tour HDV đã nhận trong năm.
         | Tour dài ngày sẽ được tính nặng hơn tour ngắn ngày.
         */
+        $tourDurationDaysSql = DB::connection()->getDriverName() === 'sqlite'
+            ? 'CAST(julianday(DATE(COALESCE(td_days.return_date, td_days.departure_date))) - julianday(DATE(td_days.departure_date)) AS INTEGER) + 1'
+            : 'DATEDIFF(
+                    DATE(COALESCE(td_days.return_date, td_days.departure_date)),
+                    DATE(td_days.departure_date)
+                ) + 1';
+
         $workloadDaysSql = "
             SELECT COALESCE(
                 SUM(
-                    DATEDIFF(
-                        DATE(COALESCE(td_days.return_date, td_days.departure_date)),
-                        DATE(td_days.departure_date)
-                    ) + 1
+                    {$tourDurationDaysSql}
                 ),
                 0
             )
@@ -339,33 +228,25 @@ class GuideAssignmentService
     ): bool {
         [$startDate, $endDate] = $this->dateRange($departure);
 
-        $blockedStart = $startDate
-            ->copy()
-            ->subDays($this->restDays());
-
-        $blockedEnd = $endDate
-            ->copy()
-            ->addDays($this->restDays());
-
         return $guide->assignments()
             ->whereIn('status', ['assigned', 'confirmed'])
             ->whereHas(
                 'departure',
                 function (Builder $departureQuery) use (
                     $departure,
-                    $blockedStart,
-                    $blockedEnd
+                    $startDate,
+                    $endDate
                 ) {
                     $departureQuery
                         ->where('id', '!=', $departure->id)
                         ->whereDate(
                             'departure_date',
                             '<=',
-                            $blockedEnd->toDateString()
+                            $endDate->toDateString()
                         )
                         ->whereRaw(
                             'COALESCE(return_date, departure_date) >= ?',
-                            [$blockedStart->toDateString()]
+                            [$startDate->toDateString()]
                         );
                 }
             )
@@ -388,7 +269,7 @@ class GuideAssignmentService
                 ->lockForUpdate()
                 ->findOrFail($departureId);
 
-            $this->mutationGuard->assertCanMutate($departure);
+            $this->mutationGuard->assertCanManageGuideAssignment($departure);
 
             $currentAssignment = $departure->guideAssignments()
                 ->whereIn('status', ['assigned', 'confirmed'])
@@ -416,7 +297,7 @@ class GuideAssignmentService
             ) {
                 throw ValidationException::withMessages([
                     'guide' => [
-                        'Không còn hướng dẫn viên phù hợp và trống lịch cho lịch khởi hành này.',
+                        'Không còn hướng dẫn viên trống lịch cho lịch khởi hành này.',
                     ],
                 ]);
             }
@@ -453,7 +334,7 @@ class GuideAssignmentService
                 ->lockForUpdate()
                 ->findOrFail($departure->id);
 
-            $this->mutationGuard->assertCanMutate($departure);
+            $this->mutationGuard->assertCanManageGuideAssignment($departure);
 
             $alreadyHasLeadGuide = $departure->guideAssignments()
                 ->whereIn('status', ['assigned', 'confirmed'])
@@ -479,7 +360,7 @@ class GuideAssignmentService
             ) {
                 throw ValidationException::withMessages([
                     'guide_id' => [
-                        'HDV không phụ trách đúng khu vực hoặc không còn trống lịch.',
+                        'HDV này đã có lịch trong khoảng thời gian tour.',
                     ],
                 ]);
             }

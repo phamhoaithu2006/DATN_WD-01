@@ -68,10 +68,8 @@ class PublicCatalogController extends Controller
             ->withMin([
                 'departures as next_departure_date' => fn (Builder|HasMany $query) => $this->applyAvailableDepartureConstraints($query),
             ], 'departure_date')
-            ->orderByDesc('average_rating')
-            ->orderByDesc('review_count')
-            ->orderByDesc('bookings_count')
-            ->orderBy('next_departure_date')
+            ->orderByDesc('tours.created_at')
+            ->orderByDesc('tours.id')
             ->limit(6)
             ->get();
 

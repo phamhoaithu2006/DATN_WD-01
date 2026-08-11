@@ -170,10 +170,10 @@ test('guide cập nhật thông tin cá nhân nhưng không thể tự thay đ�
     expect($guide->fresh()->status)->toBe('active');
 });
 
-test('mọi API phân công đều chặn lịch khởi hành bắt đầu hôm nay', function () {
+test('admin phân công mọi HDV không trùng lịch khi lịch đang diễn ra', function () {
     $admin = guideAuditUser('admin');
     $guideUser = guideAuditUser('tour guide');
-    $guide = guideAuditProfile($guideUser);
+    $guide = guideAuditProfile($guideUser, ['status' => 'inactive']);
     ['departure' => $departure] = guideAuditDeparture(now()->toDateString());
 
     $assignment = TourGuideAssignment::query()->create([
@@ -187,29 +187,26 @@ test('mọi API phân công đều chặn lịch khởi hành bắt đầu hôm 
 
     Sanctum::actingAs($admin);
 
-    $responses = [
-        $this->getJson("/api/admin/tour-departures/{$departure->id}/guide-candidates"),
-        $this->postJson("/api/admin/tour-departures/{$departure->id}/auto-assign-guide"),
-        $this->postJson("/api/admin/tour-departures/{$departure->id}/assign-guide", [
-            'guide_id' => $guide->id,
-        ]),
-        $this->patchJson(
-            "/api/admin/tour-departures/{$departure->id}/guide-assignments/{$assignment->id}/cancel"
-        ),
-        $this->getJson("/api/admin/tour-departures/{$departure->id}/direct-guide-candidates"),
-        $this->postJson("/api/admin/tour-departures/{$departure->id}/direct-assign-guide", [
-            'guide_id' => $guide->id,
-            'force_area_mismatch' => true,
-        ]),
-    ];
+    $this->getJson("/api/admin/tour-departures/{$departure->id}/guide-candidates")
+        ->assertOk();
 
-    foreach ($responses as $response) {
-        $response->assertUnprocessable()
-            ->assertJsonValidationErrors('departure');
-    }
+    $this->patchJson(
+        "/api/admin/tour-departures/{$departure->id}/guide-assignments/{$assignment->id}/cancel"
+    )->assertOk();
+
+    $this->getJson("/api/admin/tour-departures/{$departure->id}/direct-guide-candidates")
+        ->assertOk()
+        ->assertJsonPath('data.data.0.id', $guide->id)
+        ->assertJsonPath('data.data.0.is_eligible', true);
+
+    $this->postJson("/api/admin/tour-departures/{$departure->id}/direct-assign-guide", [
+        'guide_id' => $guide->id,
+    ])->assertCreated();
 
     $this->assertDatabaseHas('tour_guide_assignments', [
-        'id' => $assignment->id,
+        'tour_departure_id' => $departure->id,
+        'guide_id' => $guide->id,
+        'status' => 'assigned',
     ]);
 });
 

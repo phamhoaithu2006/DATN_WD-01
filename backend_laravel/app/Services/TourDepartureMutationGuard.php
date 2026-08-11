@@ -38,4 +38,22 @@ class TourDepartureMutationGuard
             ]);
         }
     }
+
+    public function assertCanManageGuideAssignment(TourDeparture $departure): void
+    {
+        $status = strtolower((string) $departure->status);
+        $returnDate = Carbon::parse($departure->return_date ?: $departure->departure_date)->endOfDay();
+
+        if (! in_array($status, ['completed', 'cancelled', 'canceled'], true) && now()->lessThanOrEqualTo($returnDate)) {
+            return;
+        }
+
+        $message = in_array($status, ['cancelled', 'canceled'], true)
+            ? 'Lịch khởi hành đã hủy nên không thể phân công HDV.'
+            : 'Lịch khởi hành đã hoàn thành nên không thể phân công HDV.';
+
+        throw ValidationException::withMessages([
+            'departure' => [$message],
+        ]);
+    }
 }

@@ -157,14 +157,11 @@ export const tourDepartureApi = {
     );
   },
 
-  directAssignGuide(departureId, guideId, options = {}) {
+  directAssignGuide(departureId, guideId) {
     return apiClient.post(
       `/admin/tour-departures/${departureId}/direct-assign-guide`,
       {
         guide_id: Number(guideId),
-        force_area_mismatch: Boolean(
-          options.forceAreaMismatch
-        ),
       }
     );
   },
