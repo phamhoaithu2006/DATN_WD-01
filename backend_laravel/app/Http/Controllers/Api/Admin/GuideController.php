@@ -159,7 +159,7 @@ class GuideController extends Controller
     public function index(Request $request)
     {
         $guides = $this->guideQuery()
-            ->orderByDesc('guides.created_at')
+            ->orderByDesc('guides.updated_at')
             ->orderByDesc('guides.id')
             ->paginate($this->perPage($request));
 
@@ -192,7 +192,7 @@ class GuideController extends Controller
         return response()->json([
             'message' => 'Kết quả tìm kiếm hướng dẫn viên',
             'data' => $query
-                ->orderByDesc('guides.created_at')
+                ->orderByDesc('guides.updated_at')
                 ->orderByDesc('guides.id')
                 ->paginate($this->perPage($request)),
         ]);
@@ -310,7 +310,7 @@ class GuideController extends Controller
         return response()->json([
             'message' => 'Kết quả lọc hướng dẫn viên',
             'data' => $query
-                ->orderByDesc('guides.created_at')
+                ->orderByDesc('guides.updated_at')
                 ->orderByDesc('guides.id')
                 ->paginate($this->perPage($request)),
         ]);

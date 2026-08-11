@@ -75,7 +75,7 @@ class TourManagerController extends Controller
         $perPage = min(max((int) $request->input('per_page', 10), 1), 1000);
 
         // Sắp xếp theo ID tăng dần để STT hiển thị từ bé đến lớn
-        $tours = $query->latest('created_at')->orderByDesc('id')->paginate($perPage);
+        $tours = $query->latest('updated_at')->orderByDesc('id')->paginate($perPage);
         $tours->getCollection()->transform(fn ($tour) => (new TourResource($tour))->resolve($request));
 
         return response()->json([
