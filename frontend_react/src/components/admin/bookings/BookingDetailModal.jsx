@@ -7,6 +7,7 @@ import {
   formatDate,
   formatMoney,
 } from './bookingFormatters'
+import { isBookingReadOnly } from './bookingPermissions'
 
 function cancellationReasonLabel(booking) {
   const reason = String(booking.cancellation_reason || '').toLowerCase()
@@ -53,6 +54,7 @@ function BookingDetailModal({ booking, busy, onClose, onInvoice, onPaymentChange
   const payment = booking.payment || null
   const statusHistories = Array.isArray(booking.status_histories) ? booking.status_histories : []
   const disruptionRequests = Array.isArray(booking.disruption_requests) ? booking.disruption_requests : []
+  const isReadOnly = isBookingReadOnly(booking)
   const departureText = departure
     ? `${formatDate(departure.departure_date)} - ${formatDate(departure.return_date)}`
     : 'Chưa có lịch khởi hành'
@@ -144,7 +146,7 @@ function BookingDetailModal({ booking, busy, onClose, onInvoice, onPaymentChange
                 Trạng thái
                 <select
                   value={statusValue}
-                  disabled={busy}
+                  disabled={busy || isReadOnly}
                   onChange={(event) => onStatusChange(booking, event.target.value)}
                 >
                   {detailStatusOptions.map((item) => (
@@ -164,21 +166,21 @@ function BookingDetailModal({ booking, busy, onClose, onInvoice, onPaymentChange
                   <div>
                     <button
                       type="button"
-                      disabled={busy || isCancelledByTour || payment.status === 'success' || payment.status === 'refunded'}
+                      disabled={busy || isReadOnly || payment.status === 'success' || payment.status === 'refunded'}
                       onClick={() => onPaymentChange(booking, 'confirm')}
                     >
                       Xác nhận
                     </button>
                     <button
                       type="button"
-                      disabled={busy || isCancelledByTour || payment.status === 'failed' || payment.status === 'success' || payment.status === 'refunded'}
+                      disabled={busy || isReadOnly || payment.status === 'failed' || payment.status === 'success' || payment.status === 'refunded'}
                       onClick={() => onPaymentChange(booking, 'fail')}
                     >
                       Thất bại
                     </button>
                     <button
                       type="button"
-                      disabled={busy || payment.status !== 'success'}
+                      disabled={busy || isReadOnly || payment.status !== 'success'}
                       onClick={() => onPaymentChange(booking, 'refund')}
                     >
                       Hoàn tiền

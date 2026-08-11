@@ -7,6 +7,7 @@ import {
   formatMoney,
   initialsFor,
 } from './bookingFormatters'
+import { canDeleteBooking, isBookingReadOnly } from './bookingPermissions'
 
 const avatarClasses = ['blue', 'violet', 'green', 'amber', 'red', 'pink']
 
@@ -35,7 +36,7 @@ const participantPreviewFor = (booking) => {
 }
 
 function BookingActions({ booking, busy, onCancel, onComplete, onConfirm, onDelete, onView }) {
-  const isReadOnly = ['departed', 'cancelled', 'cancelled_by_tour', 'completed'].includes(booking.status)
+  const isReadOnly = isBookingReadOnly(booking)
 
   return (
     <div className="booking-row-actions">
@@ -57,7 +58,7 @@ function BookingActions({ booking, busy, onCancel, onComplete, onConfirm, onDele
           <CloseIcon />
         </button>
       ) : null}
-      {['cancelled', 'cancelled_by_tour'].includes(booking.status) ? (
+      {canDeleteBooking(booking) ? (
         <button className="danger" type="button" title="Xóa vĩnh viễn" onClick={() => onDelete(booking)} disabled={!!busy}>
           <TrashIcon />
         </button>
