@@ -11020,6 +11020,81 @@
   font-weight: 750;
 }
 
+.guide-attendance-day-picker {
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  align-items: end;
+  margin-bottom: 18px;
+}
+
+.guide-attendance-day-picker label {
+  display: grid;
+  gap: 7px;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.guide-attendance-day-picker select,
+.guide-attendance-photo-upload {
+  min-height: 42px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #fff;
+  padding: 9px 12px;
+}
+
+.guide-attendance-photo-upload {
+  cursor: pointer;
+  color: #fff !important;
+  background: #2563eb;
+  border-color: #2563eb;
+}
+
+.guide-attendance-photo-upload.is-disabled {
+  cursor: not-allowed;
+  opacity: .55;
+}
+
+.guide-attendance-photo-upload input {
+  display: none;
+}
+
+.guide-attendance-photo-gallery,
+.guide-tour-history-photo-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 10px;
+  margin: 0 0 18px;
+}
+
+.guide-attendance-photo-gallery img,
+.guide-tour-history-photo-gallery img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+}
+
+.guide-tour-history-sessions article {
+  display: grid;
+  gap: 10px;
+}
+
+.guide-tour-history-photo-gallery {
+  width: 100%;
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  .guide-attendance-day-picker {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
 @media (max-width: 640px) {
   .guide-tour-history-customer { grid-template-columns: 1fr; }
   .guide-tour-history-attendance { justify-items: start; }

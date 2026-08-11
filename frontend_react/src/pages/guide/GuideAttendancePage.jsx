@@ -10,7 +10,9 @@ import {
   getGuideTourOngoing,
   undoGuideCustomerCheckIn,
   updateGuideAttendanceNote,
+  uploadGuideAttendancePhotos,
 } from "../../services/guideTourApi";
+import { mediaUrl } from "../../utils/mediaUrl";
 import {
   formatDate,
   formatNumber,
@@ -392,6 +394,29 @@ function GuideAttendancePage() {
       setBusy(false);
     }
   }
+  async function uploadPhotos(event) {
+    const photos = Array.from(event.target.files || []);
+    event.target.value = "";
+    if (!photos.length || busy || !selectedSession) return;
+
+    setBusy(true);
+    setError("");
+    try {
+      const updatedSession = await uploadGuideAttendancePhotos(
+        selectedTour.id,
+        selectedSession.id,
+        photos,
+      );
+      setAttendanceSessions((current) => current.map((session) => (
+        session.id === updatedSession.id ? updatedSession : session
+      )));
+      setMessage(`Đã tải lên ${photos.length} ảnh cho ${selectedSession.name}.`);
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Không thể tải ảnh điểm danh."));
+    } finally {
+      setBusy(false);
+    }
+  }
   function openNote(customer) {
     setNoteTarget(customer);
     setNoteText(getAttendance(customer)?.note || customer?.note || "");
@@ -438,7 +463,8 @@ function GuideAttendancePage() {
   const canOperateSession =
     canOperate &&
     Boolean(selectedSession) &&
-    selectedSession?.status !== "closed";
+    selectedSession?.status !== "closed" &&
+    selectedSession?.can_take_attendance === true;
   const isReadOnlySession = Boolean(selectedSession) && !canOperateSession;
   const firstCustomer = customers.length ? (page - 1) * Number(customerMeta.per_page || 10) + 1 : 0;
   const totalPages = Math.max(1, Number(customerMeta.last_page || Math.ceil(totalRows / 10) || 1));
@@ -520,6 +546,43 @@ function GuideAttendancePage() {
             </article>
           </section>
           <section className="guide-attendance-card">
+            <div className="guide-attendance-day-picker">
+              <label>
+                Ngày điểm danh
+                <select
+                  value={sessionId || ""}
+                  onChange={(event) => {
+                    setSessionId(event.target.value);
+                    setPage(1);
+                  }}
+                >
+                  {attendanceSessions.map((session, index) => (
+                    <option key={session.id} value={session.id}>
+                      {session.name || `Ngày ${index + 1}`} - {formatDate(session.scheduled_date)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className={`guide-attendance-photo-upload ${!canOperateSession ? "is-disabled" : ""}`}>
+                Tải ảnh trong ngày
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  multiple
+                  disabled={busy || !canOperateSession}
+                  onChange={uploadPhotos}
+                />
+              </label>
+            </div>
+            {Array.isArray(selectedSession?.photos) && selectedSession.photos.length ? (
+              <div className="guide-attendance-photo-gallery">
+                {selectedSession.photos.map((photo) => (
+                  <a key={photo.id} href={mediaUrl(photo.url)} target="_blank" rel="noreferrer">
+                    <img src={mediaUrl(photo.url)} alt={photo.original_name || "Ảnh điểm danh"} />
+                  </a>
+                ))}
+              </div>
+            ) : null}
             {isReadOnlySession ? (
               <div className="guide-attendance-readonly-notice" role="status">
                 Mốc này không diễn ra hôm nay nên chỉ có thể xem lịch sử điểm danh.

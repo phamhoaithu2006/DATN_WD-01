@@ -277,11 +277,26 @@ function TourHistoryModal({ open, item, detailLoading, extras, onClose }) {
 
           {!detailLoading && sessions.length ? (
             <div className="guide-tour-history-sessions">
-              {sessions.map((session) => (
-                <span key={session.id}>
-                  {session.name || 'Điểm danh'}: {formatNumber(session.checked_in_count || 0)}/{formatNumber(session.attendance_count || 0)} đã check-in
-                </span>
-              ))}
+              {sessions.map((session) => {
+                const photos = Array.isArray(session.photos) ? session.photos : []
+
+                return (
+                  <article key={session.id}>
+                    <span>
+                      {session.name || 'Điểm danh'} · {formatDate(session.scheduled_date)}: {formatNumber(session.checked_in_count || 0)}/{formatNumber(session.attendance_count || 0)} đã check-in
+                    </span>
+                    {photos.length ? (
+                      <div className="guide-tour-history-photo-gallery">
+                        {photos.map((photo) => (
+                          <a key={photo.id} href={mediaUrl(photo.url)} target="_blank" rel="noreferrer">
+                            <img src={mediaUrl(photo.url)} alt={photo.original_name || `Ảnh ${session.name}`} />
+                          </a>
+                        ))}
+                      </div>
+                    ) : null}
+                  </article>
+                )
+              })}
             </div>
           ) : null}
         </div>

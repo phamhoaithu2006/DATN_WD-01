@@ -44,6 +44,18 @@ export const getGuideAttendanceSessions = async (departureId) =>
 export const createGuideAttendanceSession = async (departureId, payload) =>
   unwrap(await apiClient.post(`/guide/tours/${departureId}/attendance-sessions`, payload)).data
 
+export const uploadGuideAttendancePhotos = async (departureId, sessionId, photos) => {
+  const formData = new FormData()
+  photos.forEach((photo) => formData.append('photos[]', photo))
+
+  return unwrap(
+    await apiClient.post(
+      `/guide/tours/${departureId}/attendance-sessions/${sessionId}/photos`,
+      formData,
+    ),
+  ).data
+}
+
 export const checkInGuideCustomer = async (departureId, sessionId, participantId) =>
   unwrap(
     await apiClient.post(

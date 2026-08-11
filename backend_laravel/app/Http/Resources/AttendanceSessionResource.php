@@ -40,6 +40,12 @@ class AttendanceSessionResource extends JsonResource
             'checked_in_count' => $this->whenNotNull($this->resource->getAttribute('checked_in_count')),
             'checked_out_count' => $this->whenNotNull($this->resource->getAttribute('checked_out_count')),
             'absent_count' => $this->whenNotNull($this->resource->getAttribute('absent_count')),
+            'photos' => $this->whenLoaded('photos', fn () => $this->photos->map(fn ($photo) => [
+                'id' => $photo->id,
+                'url' => $photo->url,
+                'original_name' => $photo->original_name,
+                'created_at' => $photo->created_at?->toDateTimeString(),
+            ])),
             'created_at' => $this->created_at?->toDateTimeString(),
             'updated_at' => $this->updated_at?->toDateTimeString(),
         ];

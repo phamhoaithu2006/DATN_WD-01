@@ -113,6 +113,29 @@ class GuideAttendanceController extends Controller
         ], 201);
     }
 
+    public function uploadPhotos(
+        Request $request,
+        TourDeparture $tourDeparture,
+        AttendanceSession $attendanceSession
+    ): JsonResponse {
+        $validated = $request->validate([
+            'photos' => ['required', 'array', 'min:1', 'max:6'],
+            'photos.*' => ['required', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120'],
+        ]);
+        $session = $this->service->uploadAttendancePhotos(
+            $request->user(),
+            $tourDeparture,
+            $attendanceSession,
+            $validated['photos']
+        );
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Đã tải ảnh điểm danh lên.',
+            'data' => new AttendanceSessionResource($session),
+        ], 201);
+    }
+
     public function checkIn(
         AttendanceActionRequest $request,
         TourDeparture $tourDeparture,

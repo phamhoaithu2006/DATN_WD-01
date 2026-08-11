@@ -14,6 +14,7 @@ use Carbon\Carbon;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -104,16 +105,15 @@ class GuideTourOperationService
     {
         $departure = $this->assignedDepartureForUser($user, $tourDeparture);
         if ($this->isDepartureOngoing($departure)) {
-            $this->ensureDepartureAttendanceSession($departure, $user);
+            $this->ensureDailyAttendanceSessions($departure, $user);
         }
 
         $sessions = AttendanceSession::query()
             ->where('tour_departure_id', $departure->id)
-            ->where('boundary', 'departure')
-            ->whereNull('tour_itinerary_id')
             ->with([
                 'creator:id,full_name,email',
                 'itinerary:id,day_number,sort_order,type,title,start_time,end_time',
+                'photos:id,attendance_session_id,file_path,original_name,uploaded_by,created_at',
             ])
             ->withCount([
                 'attendances',
@@ -136,6 +136,7 @@ class GuideTourOperationService
                 'can_take_attendance',
                 $session->status === 'active'
                     && $this->isDepartureOngoing($departure)
+                    && $session->scheduled_date?->isToday()
             );
         });
     }
@@ -203,14 +204,40 @@ class GuideTourOperationService
     {
         $departure = $this->assignedDepartureForUser($user, $tourDeparture);
         $this->assertDepartureCanTakeAttendance($departure);
-        $this->ensureDepartureAttendanceSession($departure, $user);
+        $this->ensureDailyAttendanceSessions($departure, $user);
 
         return AttendanceSession::query()
             ->where('tour_departure_id', $departure->id)
-            ->where('boundary', 'departure')
-            ->whereNull('tour_itinerary_id')
+            ->whereDate('scheduled_date', now()->toDateString())
             ->firstOrFail()
-            ->load('creator:id,full_name,email');
+            ->load(['creator:id,full_name,email', 'photos']);
+    }
+
+    /**
+     * @param  array<int, UploadedFile>  $photos
+     */
+    public function uploadAttendancePhotos(
+        User $user,
+        TourDeparture $tourDeparture,
+        AttendanceSession $session,
+        array $photos
+    ): AttendanceSession {
+        $departure = $this->assignedDepartureForUser($user, $tourDeparture);
+        $this->assertDepartureCanTakeAttendance($departure);
+        $this->assertSessionBelongsToDeparture($session, $departure);
+        $this->assertSessionCanTakeAttendance($session, $departure);
+
+        foreach ($photos as $photo) {
+            $path = $photo->store("attendance/tour-departures/{$departure->id}", 'public');
+
+            $session->photos()->create([
+                'file_path' => $path,
+                'original_name' => $photo->getClientOriginalName(),
+                'uploaded_by' => $user->id,
+            ]);
+        }
+
+        return $session->fresh(['creator:id,full_name,email', 'itinerary', 'photos']);
     }
 
     /**
@@ -730,22 +757,47 @@ class GuideTourOperationService
                 'attendance_session_id' => 'Attendance session is closed.',
             ]);
         }
+
+        if (! $session->scheduled_date?->isToday()) {
+            throw ValidationException::withMessages([
+                'attendance_session_id' => 'Chỉ có thể điểm danh và tải ảnh cho ngày đang diễn ra.',
+            ]);
+        }
     }
 
-    private function ensureDepartureAttendanceSession(TourDeparture $departure, User $user): AttendanceSession
+    private function ensureDailyAttendanceSessions(TourDeparture $departure, User $user): void
     {
-        return AttendanceSession::query()->updateOrCreate(
-            [
+        $itinerariesByDay = TourItinerary::query()
+            ->where('tour_id', $departure->tour_id)
+            ->orderBy('day_number')
+            ->orderBy('sort_order')
+            ->get()
+            ->groupBy('day_number');
+        $dayNumbers = $itinerariesByDay->keys()
+            ->map(fn ($dayNumber): int => (int) $dayNumber)
+            ->push(1)
+            ->unique()
+            ->sort()
+            ->values();
+
+        foreach ($dayNumbers as $dayNumber) {
+            $representativeItinerary = $dayNumber === 1 ? null : $itinerariesByDay->get($dayNumber)?->first();
+            $attributes = [
                 'tour_departure_id' => $departure->id,
-                'boundary' => 'departure',
-                'tour_itinerary_id' => null,
-            ],
-            [
-                'scheduled_date' => Carbon::parse($departure->departure_date)->startOfDay(),
-                'name' => 'Điểm danh ngày khởi hành',
+                'tour_itinerary_id' => $representativeItinerary?->id,
+            ];
+
+            if ($dayNumber === 1) {
+                $attributes['boundary'] = 'departure';
+            }
+
+            AttendanceSession::query()->updateOrCreate($attributes, [
+                'boundary' => $dayNumber === 1 ? 'departure' : null,
+                'scheduled_date' => Carbon::parse($departure->departure_date)->startOfDay()->addDays($dayNumber - 1),
+                'name' => "Điểm danh ngày {$dayNumber}",
                 'created_by' => $user->id,
-            ]
-        );
+            ]);
+        }
     }
 
     private function itineraryDate(TourDeparture $departure, TourItinerary $itinerary): Carbon
