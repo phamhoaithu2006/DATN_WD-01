@@ -418,8 +418,8 @@ function isAssignmentWarningTarget(departure) {
 }
 
 function compareDepartureDateNearestFirst(a, b) {
-  const parsedACreatedAt = new Date(a?.created_at || 0).getTime()
-  const parsedBCreatedAt = new Date(b?.created_at || 0).getTime()
+  const parsedACreatedAt = new Date(a?.updated_at || a?.created_at || 0).getTime()
+  const parsedBCreatedAt = new Date(b?.updated_at || b?.created_at || 0).getTime()
   const aCreatedAt = Number.isFinite(parsedACreatedAt) ? parsedACreatedAt : 0
   const bCreatedAt = Number.isFinite(parsedBCreatedAt) ? parsedBCreatedAt : 0
 

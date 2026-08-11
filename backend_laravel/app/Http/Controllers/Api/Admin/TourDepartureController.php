@@ -108,7 +108,7 @@ class TourDepartureController extends Controller
                     ]);
                 },
             ])
-            ->orderByDesc('created_at')
+            ->orderByDesc('updated_at')
             ->orderByDesc('id')
             ->get();
 
@@ -219,7 +219,7 @@ class TourDepartureController extends Controller
                     ]);
                 },
             ])
-            ->orderByDesc('created_at')
+            ->orderByDesc('updated_at')
             ->orderByDesc('id')
             ->get();
 

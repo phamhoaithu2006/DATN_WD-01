@@ -37,7 +37,7 @@ class BookingController extends Controller
             'from_date' => 'nullable|date',
             'to_date' => 'nullable|date|after_or_equal:from_date',
             'per_page' => 'nullable|integer|min:5|max:100',
-            'sort_by' => ['nullable', Rule::in(['created_at', 'total_amount', 'booking_code'])],
+            'sort_by' => ['nullable', Rule::in(['updated_at', 'created_at', 'total_amount', 'booking_code'])],
             'sort_dir' => ['nullable', Rule::in(['asc', 'desc'])],
         ]);
 
@@ -56,7 +56,7 @@ class BookingController extends Controller
             ->filterStatus($request->status)
             ->filterPaymentStatus($request->payment_status)
             ->filterDate($request->from_date, $request->to_date)
-            ->orderBy($request->sort_by ?? 'created_at', $request->sort_dir ?? 'desc')
+            ->orderBy($request->sort_by ?? 'updated_at', $request->sort_dir ?? 'desc')
             ->orderByDesc('id')
             ->paginate($request->per_page ?? 15);
 

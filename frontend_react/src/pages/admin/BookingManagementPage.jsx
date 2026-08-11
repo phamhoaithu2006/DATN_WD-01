@@ -33,7 +33,7 @@ function BookingManagementPage() {
   const [paymentStatus, setPaymentStatus] = useState('')
   const [date, setDate] = useState('')
   const [advancedOpen, setAdvancedOpen] = useState(false)
-  const [sortBy, setSortBy] = useState('created_at')
+  const [sortBy, setSortBy] = useState('updated_at')
   const [sortDir, setSortDir] = useState('desc')
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
@@ -122,7 +122,7 @@ function BookingManagementPage() {
     setStatus('')
     setPaymentStatus('')
     setDate('')
-    setSortBy('created_at')
+    setSortBy('updated_at')
     setSortDir('desc')
     setPage(1)
   }

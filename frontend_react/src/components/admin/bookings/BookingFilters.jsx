@@ -54,6 +54,7 @@ function BookingFilters({
           <label>
             Sắp xếp
             <select value={sortBy} onChange={(event) => onSortByChange(event.target.value)}>
+              <option value="updated_at">Cập nhật gần nhất</option>
               <option value="created_at">Ngày đặt</option>
               <option value="total_amount">Tổng tiền</option>
             </select>
