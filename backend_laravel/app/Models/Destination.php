@@ -62,4 +62,9 @@ class Destination extends Model
     {
         return $this->hasMany(DestinationPlace::class)->orderBy('name');
     }
+
+    public function provinces(): BelongsToMany
+    {
+        return $this->belongsToMany(Province::class)->withTimestamps();
+    }
 }

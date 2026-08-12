@@ -11,6 +11,14 @@ export const destinationApi = {
     return apiClient.get(`${API_URL}/destinations/${id}`)
   },
 
+  getProvinces() {
+    return apiClient.get(`${API_URL}/administrative/provinces`)
+  },
+
+  getDistricts(id) {
+    return apiClient.get(`${API_URL}/destinations/${id}/districts`)
+  },
+
   search(params) {
     return apiClient.get(`${API_URL}/destinations/search`, {
       params,

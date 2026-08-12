@@ -243,7 +243,8 @@ class TourController extends Controller
                 'thumbnail',
                 'images',
                 'itineraries.images',
-                'itineraries.destinationPlace',
+                'itineraries.destinationPlace.destination',
+                'itineraries.destinationPlace.district.province',
 
                 'agePricingRules' => function ($query) {
                     $query->where('is_active', true)

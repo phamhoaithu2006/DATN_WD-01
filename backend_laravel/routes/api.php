@@ -516,6 +516,8 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(functi
 
     // Quản lý địa điểm/điểm đến
     Route::get('destinations/search', [DestinationController::class, 'search']);
+    Route::get('administrative/provinces', [DestinationController::class, 'provinces']);
+    Route::get('destinations/{destination}/districts', [DestinationController::class, 'districts']);
     Route::apiResource('destinations', DestinationController::class);
     Route::get('destinations/trash/list', [DestinationController::class, 'trashed']);
     Route::post('destinations/{id}/restore', [DestinationController::class, 'restore']);

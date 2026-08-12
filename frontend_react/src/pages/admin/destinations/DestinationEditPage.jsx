@@ -12,6 +12,7 @@ const defaultForm = {
   description: '',
   thumbnail_url: '',
   status: 'active',
+  province_ids: [],
 }
 
 function DestinationEditPage() {
@@ -19,10 +20,13 @@ function DestinationEditPage() {
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [provinces, setProvinces] = useState([])
 
   const { id } = useParams()
   const location = useLocation()
   const navigate = useNavigate()
+
+  useEffect(() => { destinationApi.getProvinces().then((response) => setProvinces(response?.data?.data || [])).catch(() => setProvinces([])) }, [])
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -37,6 +41,7 @@ function DestinationEditPage() {
         description: destinationFromState.description || '',
         thumbnail_url: destinationFromState.thumbnail_url || '',
         status: destinationFromState.status || 'active',
+        province_ids: (destinationFromState.provinces || []).map((province) => province.id),
       })
       return
     }
@@ -57,6 +62,7 @@ function DestinationEditPage() {
           description: destination.description || '',
           thumbnail_url: destination.thumbnail_url || '',
           status: destination.status || 'active',
+          province_ids: (destination.provinces || []).map((province) => province.id),
         })
       } catch (err) {
         console.error(err)
@@ -116,6 +122,7 @@ function DestinationEditPage() {
         description: formData.description.trim(),
         thumbnail_url: formData.thumbnail_url.trim(),
         status: formData.status,
+        province_ids: formData.province_ids,
       })
 
       navigate('/admin/destinations')
@@ -160,6 +167,8 @@ function DestinationEditPage() {
             onChange={handleChange}
             onSubmit={handleSubmit}
             onCancel={() => navigate('/admin/destinations')}
+            provinces={provinces}
+            onProvinceToggle={(provinceId) => setFormData((prev) => ({ ...prev, province_ids: prev.province_ids.includes(provinceId) ? prev.province_ids.filter((item) => item !== provinceId) : [...prev.province_ids, provinceId] }))}
           />
         )}
       </div>

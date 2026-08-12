@@ -7,6 +7,7 @@ import {
 } from '../../services/guideTourApi'
 import { mediaUrl } from '../../utils/mediaUrl'
 import { formatDateDdMmYyyy, formatDateTimeDdMmYyyy } from '../../utils/dateFormat'
+import { formatDestinationPlace, formatDestinationPlaceAddress } from '../../utils/destinationPlaceFormat'
 
 const INITIAL_META = {
   current_page: 1,
@@ -297,8 +298,9 @@ function TourHistoryModal({ open, item, detailLoading, extras, onClose }) {
                   <span>Ngày {step.day_number}</span>
                   <strong>{step.title || 'Hành trình'}</strong>
                   {step.destination_place?.name ? (
-                    <p><strong>Điểm đến:</strong> {step.destination_place.name}</p>
+                    <p><strong>Điểm đến:</strong> {formatDestinationPlace(step.destination_place)}</p>
                   ) : null}
+                  {formatDestinationPlaceAddress(step.destination_place) ? <p><strong>Địa chỉ:</strong> {formatDestinationPlaceAddress(step.destination_place)}</p> : null}
                   <p>{step.description || 'Chưa có mô tả chi tiết.'}</p>
                 </article>
               ))}

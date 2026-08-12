@@ -76,7 +76,16 @@ class TourResource extends JsonResource
                     'destination_place_id' => $itinerary->destination_place_id,
                     'destination_place' => $itinerary->relationLoaded('destinationPlace') && $itinerary->destinationPlace ? [
                         'id' => $itinerary->destinationPlace->id,
+                        'destination_id' => $itinerary->destinationPlace->destination_id,
                         'name' => $itinerary->destinationPlace->name,
+                        'district_name' => $itinerary->destinationPlace->district?->name ?? $itinerary->destinationPlace->district_name,
+                        'province_city' => $itinerary->destinationPlace->district?->province?->name
+                            ?? ($itinerary->destinationPlace->relationLoaded('destination') ? $itinerary->destinationPlace->destination?->province_city : null),
+                        'district' => $itinerary->destinationPlace->district ? [
+                            'id' => $itinerary->destinationPlace->district->id,
+                            'name' => $itinerary->destinationPlace->district->name,
+                            'province' => $itinerary->destinationPlace->district->province ? ['id' => $itinerary->destinationPlace->district->province->id, 'name' => $itinerary->destinationPlace->district->province->name] : null,
+                        ] : null,
                         'address' => $itinerary->destinationPlace->address,
                         'description' => $itinerary->destinationPlace->description,
                         'thumbnail_url' => $itinerary->destinationPlace->thumbnail_url,
