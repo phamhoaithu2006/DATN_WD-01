@@ -3177,7 +3177,7 @@
   }
 }
 
-/* ========================================================================== 
+/* ==========================================================================
    GUIDE TOURS PAGE
    ========================================================================== */
 
@@ -11020,46 +11020,116 @@
   font-weight: 750;
 }
 
-.guide-attendance-day-picker {
+.guide-attendance-media-panel {
+  margin-bottom: 22px;
+  padding: 22px;
+  border: 1px solid #dce8f7;
+  border-radius: 18px;
+  background: linear-gradient(145deg, #f8fbff 0%, #fff 62%);
+  box-shadow: 0 12px 30px rgba(15, 71, 128, .07);
+}
+
+.guide-attendance-media-heading,
+.guide-attendance-photo-section > div:first-child {
   display: flex;
-  gap: 16px;
+  align-items: center;
   justify-content: space-between;
-  align-items: end;
-  margin-bottom: 18px;
+  gap: 18px;
 }
 
-.guide-attendance-day-picker label {
+.guide-attendance-media-heading span {
+  color: #1677d2;
+  font-size: .76rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.guide-attendance-media-heading h2 {
+  margin: 4px 0 3px;
+  color: #102a43;
+  font-size: 1.16rem;
+}
+
+.guide-attendance-media-heading p {
+  margin: 0;
+  color: #718096;
+  font-size: .86rem;
+}
+
+.guide-attendance-media-heading > strong {
+  flex: 0 0 auto;
+  padding: 7px 12px;
+  border-radius: 999px;
+  color: #1769aa;
+  background: #e8f4ff;
+  font-size: .8rem;
+}
+
+.guide-attendance-day-list {
   display: grid;
-  gap: 7px;
-  color: #334155;
-  font-size: 13px;
-  font-weight: 700;
+  grid-template-columns: repeat(auto-fit, minmax(138px, 1fr));
+  gap: 10px;
+  margin: 18px 0;
 }
 
-.guide-attendance-day-picker select,
-.guide-attendance-photo-upload {
-  min-height: 42px;
-  border: 1px solid #cbd5e1;
-  border-radius: 10px;
+.guide-attendance-day-card {
+  position: relative;
+  display: grid;
+  gap: 3px;
+  min-height: 94px;
+  padding: 14px;
+  border: 1px solid #dce7f2;
+  border-radius: 14px;
+  text-align: left;
   background: #fff;
-  padding: 9px 12px;
-}
-
-.guide-attendance-photo-upload {
+  color: #526579;
   cursor: pointer;
-  color: #fff !important;
-  background: #2563eb;
-  border-color: #2563eb;
+  transition: .18s ease;
 }
 
-.guide-attendance-photo-upload.is-disabled {
-  cursor: not-allowed;
-  opacity: .55;
+.guide-attendance-day-card:hover {
+  border-color: #81bbed;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px rgba(33, 108, 174, .1);
 }
 
-.guide-attendance-photo-upload input {
-  display: none;
+.guide-attendance-day-card > span { font-size: .75rem; font-weight: 750; }
+.guide-attendance-day-card > strong { color: #17324d; font-size: .96rem; }
+.guide-attendance-day-card > small { width: max-content; margin-top: 4px; padding: 3px 8px; border-radius: 999px; background: #f0f4f8; font-weight: 750; }
+.guide-attendance-day-card.is-today > small { color: #087c55; background: #dcf8ec; }
+.guide-attendance-day-card.is-past > small { color: #68798a; background: #edf2f7; }
+.guide-attendance-day-card.is-upcoming > small { color: #9a6500; background: #fff3d6; }
+.guide-attendance-day-card.is-active { border-color: #1989e6; background: linear-gradient(145deg, #eef8ff, #fff); box-shadow: 0 0 0 2px rgba(25, 137, 230, .13); }
+.guide-attendance-day-card.is-active::after { content: "✓"; position: absolute; top: 10px; right: 11px; display: grid; place-items: center; width: 21px; height: 21px; border-radius: 50%; color: #fff; background: #1989e6; font-size: .72rem; font-weight: 900; }
+
+.guide-attendance-photo-dropzone {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 16px;
+  min-height: 126px;
+  padding: 20px;
+  border: 2px dashed #a9c9e8;
+  border-radius: 16px;
+  background: #f4faff;
+  transition: .18s ease;
 }
+
+.guide-attendance-photo-dropzone.is-dragging { border-color: #1487e5; background: #e9f6ff; transform: scale(1.005); }
+.guide-attendance-photo-dropzone.is-disabled { opacity: .62; background: #f5f7fa; }
+.guide-attendance-photo-dropzone > input { display: none; }
+.guide-attendance-upload-icon { display: grid; place-items: center; width: 50px; height: 50px; border-radius: 15px; color: #167ed0; background: #dcefff; }
+.guide-attendance-upload-icon svg { width: 25px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.guide-attendance-photo-dropzone strong { display: block; color: #17324d; font-size: .96rem; }
+.guide-attendance-photo-dropzone p { margin: 4px 0; color: #60758a; font-size: .84rem; }
+.guide-attendance-photo-dropzone small { color: #8b9bab; font-size: .74rem; }
+.guide-attendance-photo-dropzone > button { min-height: 42px; padding: 0 17px; border: 0; border-radius: 11px; color: #fff; background: linear-gradient(135deg, #188be8, #0867bd); font-weight: 800; cursor: pointer; box-shadow: 0 7px 16px rgba(17, 119, 204, .22); }
+.guide-attendance-photo-dropzone > button:disabled { cursor: not-allowed; box-shadow: none; opacity: .55; }
+
+.guide-attendance-photo-section { margin: 0 0 20px; }
+.guide-attendance-photo-section > div:first-child { margin-bottom: 10px; color: #17324d; }
+.guide-attendance-photo-section > div:first-child span { padding: 4px 9px; border-radius: 999px; color: #1769aa; background: #eaf5ff; font-size: .76rem; font-weight: 800; }
 
 .guide-attendance-photo-gallery,
 .guide-tour-history-photo-gallery {
@@ -11078,6 +11148,11 @@
   border: 1px solid #e2e8f0;
 }
 
+.guide-attendance-photo-gallery a { position: relative; overflow: hidden; border-radius: 12px; background: #eaf1f7; }
+.guide-attendance-photo-gallery a > span { position: absolute; right: 7px; bottom: 7px; padding: 4px 7px; border-radius: 7px; color: #fff; background: rgba(10, 31, 52, .72); font-size: .7rem; font-weight: 750; backdrop-filter: blur(5px); }
+.guide-attendance-photo-gallery a:hover img { transform: scale(1.04); }
+.guide-attendance-photo-gallery img { transition: transform .2s ease; }
+
 .guide-tour-history-sessions article {
   display: grid;
   gap: 10px;
@@ -11089,10 +11164,12 @@
 }
 
 @media (max-width: 640px) {
-  .guide-attendance-day-picker {
-    align-items: stretch;
-    flex-direction: column;
-  }
+  .guide-attendance-media-panel { padding: 16px; }
+  .guide-attendance-media-heading { align-items: flex-start; }
+  .guide-attendance-day-list { display: flex; overflow-x: auto; padding: 2px 2px 8px; scroll-snap-type: x mandatory; }
+  .guide-attendance-day-card { flex: 0 0 142px; scroll-snap-align: start; }
+  .guide-attendance-photo-dropzone { grid-template-columns: auto 1fr; }
+  .guide-attendance-photo-dropzone > button { grid-column: 1 / -1; width: 100%; }
 }
 
 @media (max-width: 640px) {

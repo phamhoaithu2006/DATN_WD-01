@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   checkInGuideCustomer,
   checkInAllGuideCustomers,
@@ -88,6 +88,20 @@ function isSameLocalDate(value) {
     date.getMonth() === today.getMonth() &&
     date.getDate() === today.getDate()
   );
+}
+function formatDestinationPlace(place) {
+  return place?.name || place?.title || "Chưa xác định";
+}
+function formatDestinationPlaceAddress(place) {
+  return place?.address || place?.full_address || "";
+}
+function getSessionDateState(value) {
+  if (!value) return "upcoming";
+  const sessionDate = new Date(`${String(value).slice(0, 10)}T00:00:00`);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (sessionDate.getTime() === today.getTime()) return "today";
+  return sessionDate < today ? "past" : "upcoming";
 }
 function getSessionScheduledDate(session, tour) {
   const providedDate = session?.scheduled_date || session?.scheduledDate;
@@ -186,6 +200,8 @@ function GuideAttendancePage() {
   const [customerDetail, setCustomerDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [isDraggingPhotos, setIsDraggingPhotos] = useState(false);
+  const photoInputRef = useRef(null);
   useEffect(() => {
     let mounted = true;
     async function loadTours() {
@@ -395,9 +411,7 @@ function GuideAttendancePage() {
       setBusy(false);
     }
   }
-  async function uploadPhotos(event) {
-    const photos = Array.from(event.target.files || []);
-    event.target.value = "";
+  async function uploadPhotos(photos) {
     if (!photos.length || busy || !selectedSession) return;
 
     setBusy(true);
@@ -417,6 +431,18 @@ function GuideAttendancePage() {
     } finally {
       setBusy(false);
     }
+  }
+  function choosePhotos(event) {
+    const photos = Array.from(event.target.files || []);
+    event.target.value = "";
+    void uploadPhotos(photos);
+  }
+  function dropPhotos(event) {
+    event.preventDefault();
+    setIsDraggingPhotos(false);
+    if (!canOperateSession || busy) return;
+    const photos = Array.from(event.dataTransfer.files || []).filter((file) => file.type.startsWith("image/"));
+    void uploadPhotos(photos);
   }
   function openNote(customer) {
     setNoteTarget(customer);
@@ -547,41 +573,75 @@ function GuideAttendancePage() {
             </article>
           </section>
           <section className="guide-attendance-card">
-            <div className="guide-attendance-day-picker">
-              <label>
-                Ngày điểm danh
-                <select
-                  value={sessionId || ""}
-                  onChange={(event) => {
-                    setSessionId(event.target.value);
-                    setPage(1);
-                  }}
-                >
-                  {attendanceSessions.map((session, index) => (
-                    <option key={session.id} value={session.id}>
-                      {session.name || `Ngày ${index + 1}`} - {formatDate(session.scheduled_date)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className={`guide-attendance-photo-upload ${!canOperateSession ? "is-disabled" : ""}`}>
-                Tải ảnh trong ngày
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  multiple
-                  disabled={busy || !canOperateSession}
-                  onChange={uploadPhotos}
-                />
-              </label>
+            <div className="guide-attendance-media-panel">
+              <div className="guide-attendance-media-heading">
+                <div>
+                  <span>Lịch điểm danh</span>
+                  <h2>Chọn ngày của hành trình</h2>
+                  <p>Mỗi ngày lưu danh sách điểm danh và hình ảnh riêng.</p>
+                </div>
+                <strong>{attendanceSessions.length} ngày</strong>
+              </div>
+              <div className="guide-attendance-day-list" role="tablist" aria-label="Chọn ngày điểm danh">
+                {attendanceSessions.map((session, index) => {
+                  const dateState = getSessionDateState(session.scheduled_date);
+                  const isActive = String(session.id) === String(sessionId);
+                  const stateLabel = dateState === "today" ? "Hôm nay" : dateState === "past" ? "Đã qua" : "Sắp tới";
+
+                  return (
+                    <button
+                      key={session.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={isActive}
+                      className={`guide-attendance-day-card is-${dateState} ${isActive ? "is-active" : ""}`}
+                      onClick={() => {
+                        setSessionId(session.id);
+                        setPage(1);
+                      }}
+                    >
+                      <span>Ngày {index + 1}</span>
+                      <strong>{formatDate(session.scheduled_date)}</strong>
+                      <small>{stateLabel}</small>
+                    </button>
+                  );
+                })}
+              </div>
+              <div
+                className={`guide-attendance-photo-dropzone ${isDraggingPhotos ? "is-dragging" : ""} ${!canOperateSession ? "is-disabled" : ""}`}
+                onDragEnter={(event) => {
+                  event.preventDefault();
+                  if (canOperateSession) setIsDraggingPhotos(true);
+                }}
+                onDragOver={(event) => event.preventDefault()}
+                onDragLeave={() => setIsDraggingPhotos(false)}
+                onDrop={dropPhotos}
+              >
+                <div className="guide-attendance-upload-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M12 16V4m0 0L7 9m5-5 5 5"/><path d="M5 15v4h14v-4"/></svg>
+                </div>
+                <div>
+                  <strong>{busy ? "Đang tải ảnh lên..." : "Thêm ảnh cho ngày điểm danh"}</strong>
+                  <p>Kéo thả ảnh vào đây hoặc bấm nút để chọn ảnh từ thiết bị.</p>
+                  <small>JPG, PNG hoặc WEBP · tối đa 6 ảnh · 5 MB/ảnh</small>
+                </div>
+                <button type="button" disabled={busy || !canOperateSession} onClick={() => photoInputRef.current?.click()}>
+                  Chọn ảnh
+                </button>
+                <input ref={photoInputRef} type="file" accept="image/jpeg,image/png,image/webp" multiple disabled={busy || !canOperateSession} onChange={choosePhotos} />
+              </div>
             </div>
             {Array.isArray(selectedSession?.photos) && selectedSession.photos.length ? (
-              <div className="guide-attendance-photo-gallery">
-                {selectedSession.photos.map((photo) => (
-                  <a key={photo.id} href={mediaUrl(photo.url)} target="_blank" rel="noreferrer">
+              <div className="guide-attendance-photo-section">
+                <div><strong>Ảnh đã đăng</strong><span>{selectedSession.photos.length} ảnh</span></div>
+                <div className="guide-attendance-photo-gallery">
+                {selectedSession.photos.map((photo, index) => (
+                  <a key={photo.id} href={mediaUrl(photo.url)} target="_blank" rel="noreferrer" title={photo.original_name || `Ảnh ${index + 1}`}>
                     <img src={mediaUrl(photo.url)} alt={photo.original_name || "Ảnh điểm danh"} />
+                    <span>Ảnh {index + 1}</span>
                   </a>
                 ))}
+                </div>
               </div>
             ) : null}
             {isReadOnlySession ? (
