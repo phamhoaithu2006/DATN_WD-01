@@ -4,13 +4,17 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
+use App\Models\AttendanceSession;
 use App\Models\TourDeparture;
 use App\Services\TourPricingService;
+use App\Services\GuideTourOperationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class AdminTourDepartureBookingController extends Controller
 {
+    public function __construct(private readonly GuideTourOperationService $guideTourOperationService) {}
+
     public function index(Request $request, TourDeparture $tourDeparture): JsonResponse
     {
         $validated = $request->validate([
@@ -32,6 +36,9 @@ class AdminTourDepartureBookingController extends Controller
                 'contact:id,booking_id,contact_name,contact_email,contact_phone,address,special_request',
 
                 'participants:id,booking_id,full_name,phone,birth_date,gender,participant_type,unit_price,pricing_rule_label,pricing_type,pricing_value',
+                'participants.attendances' => fn ($query) => $query
+                    ->select('id', 'attendance_session_id', 'booking_participant_id', 'status', 'checked_in_at', 'checked_out_at', 'note')
+                    ->orderBy('attendance_session_id'),
             ])
             ->withCount('participants')
 
@@ -107,6 +114,14 @@ class AdminTourDepartureBookingController extends Controller
                         'pricing_rule_label' => $participant->pricing_rule_label,
                         'pricing_type' => $participant->pricing_type,
                         'pricing_value' => $participant->pricing_value,
+                        'attendances' => $participant->attendances->map(fn ($attendance) => [
+                            'id' => $attendance->id,
+                            'attendance_session_id' => $attendance->attendance_session_id,
+                            'status' => $attendance->status,
+                            'checked_in_at' => $attendance->checked_in_at?->toDateTimeString(),
+                            'checked_out_at' => $attendance->checked_out_at?->toDateTimeString(),
+                            'note' => $attendance->note,
+                        ])->values(),
                     ];
                 })->values(),
 
@@ -124,6 +139,49 @@ class AdminTourDepartureBookingController extends Controller
         $pricingService = new TourPricingService();
         $basePrice = $pricingService->resolveBasePrice($tourDeparture->tour, $tourDeparture);
         $discountPrice = $pricingService->resolveDiscountPrice($tourDeparture->tour, $tourDeparture);
+        $this->guideTourOperationService->synchronizeDailyAttendanceSessions($tourDeparture, $request->user());
+
+        $attendanceSessions = AttendanceSession::query()
+            ->where('tour_departure_id', $tourDeparture->id)
+            ->with([
+                'photos',
+                'itinerary:id,day_number,title,start_time,end_time',
+                'activityLogs.actor:id,full_name,email',
+                'activityLogs.participant:id,full_name',
+            ])
+            ->withCount([
+                'attendances',
+                'attendances as checked_in_count' => fn ($query) => $query->whereIn('status', ['checked_in', 'checked_out']),
+                'attendances as absent_count' => fn ($query) => $query->where('status', 'absent'),
+            ])
+            ->orderBy('scheduled_date')
+            ->orderBy('id')
+            ->get()
+            ->map(fn (AttendanceSession $session) => [
+                'id' => $session->id,
+                'name' => $session->name,
+                'scheduled_date' => $session->scheduled_date?->toDateString(),
+                'status' => $session->status,
+                'itinerary' => $session->itinerary?->only(['id', 'day_number', 'title', 'start_time', 'end_time']),
+                'attendance_count' => $session->attendances_count,
+                'checked_in_count' => $session->checked_in_count,
+                'absent_count' => $session->absent_count,
+                'photos' => $session->photos->map(fn ($photo) => [
+                    'id' => $photo->id,
+                    'url' => $photo->url,
+                    'original_name' => $photo->original_name,
+                    'created_at' => $photo->created_at?->toDateTimeString(),
+                ])->values(),
+                'timeline' => $session->activityLogs->map(fn ($log) => [
+                    'id' => $log->id,
+                    'action' => $log->action,
+                    'description' => $log->description,
+                    'actor' => $log->actor?->only(['id', 'full_name', 'email']),
+                    'participant' => $log->participant?->only(['id', 'full_name']),
+                    'metadata' => $log->metadata,
+                    'created_at' => $log->created_at?->toDateTimeString(),
+                ])->values(),
+            ])->values();
 
         return response()->json([
             'success' => true,
@@ -152,6 +210,11 @@ class AdminTourDepartureBookingController extends Controller
                 ],
 
                 'bookings' => $bookings,
+                'summary' => [
+                    'booking_count' => $bookings->total(),
+                    'guest_count' => (int) $tourDeparture->booked_slots,
+                ],
+                'attendance_sessions' => $attendanceSessions,
             ],
         ]);
     }

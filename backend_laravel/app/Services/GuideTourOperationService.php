@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Attendance;
+use App\Models\AttendanceActivityLog;
 use App\Models\AttendanceSession;
 use App\Models\AttendanceSessionPhoto;
 use App\Models\BookingParticipant;
@@ -107,7 +108,7 @@ class GuideTourOperationService
     {
         $departure = $this->assignedDepartureForUser($user, $tourDeparture);
         if ($this->isDepartureOngoing($departure)) {
-            $this->ensureDailyAttendanceSessions($departure, $user);
+            $this->synchronizeDailyAttendanceSessions($departure, $user);
         }
 
         $sessions = AttendanceSession::query()
@@ -206,7 +207,7 @@ class GuideTourOperationService
     {
         $departure = $this->assignedDepartureForUser($user, $tourDeparture);
         $this->assertDepartureCanTakeAttendance($departure);
-        $this->ensureDailyAttendanceSessions($departure, $user);
+        $this->synchronizeDailyAttendanceSessions($departure, $user);
 
         return AttendanceSession::query()
             ->where('tour_departure_id', $departure->id)
@@ -245,6 +246,11 @@ class GuideTourOperationService
             ]);
         }
 
+        $this->logAttendanceActivity($session, $user, 'photos_uploaded', 'Đã thêm '.count($photos).' ảnh check-in.', null, [
+            'count' => count($photos),
+            'files' => collect($photos)->map(fn (UploadedFile $photo) => $photo->getClientOriginalName())->values()->all(),
+        ]);
+
         return $session->fresh(['creator:id,full_name,email', 'itinerary', 'photos']);
     }
 
@@ -266,8 +272,12 @@ class GuideTourOperationService
         }
 
         $filePath = $photo->file_path;
+        $originalName = $photo->original_name;
         $photo->delete();
         Storage::disk('public')->delete($filePath);
+        $this->logAttendanceActivity($session, $user, 'photo_deleted', "Đã xóa ảnh {$originalName}.", null, [
+            'file' => $originalName,
+        ]);
 
         return $session->fresh(['creator:id,full_name,email', 'itinerary', 'photos']);
     }
@@ -310,6 +320,8 @@ class GuideTourOperationService
             ]);
             $attendance->save();
 
+            $this->logAttendanceActivity($session, $user, 'checked_in', "Đã điểm danh {$participant->full_name}.", $participant);
+
             return $attendance->load([
                 'bookingParticipant',
                 'checkedInBy:id,full_name,email',
@@ -351,6 +363,11 @@ class GuideTourOperationService
                     ['checked_in_at', 'checked_in_by', 'status', 'updated_at']
                 );
             }
+
+
+            $this->logAttendanceActivity($session, $user, 'checked_in_all', 'Đã điểm danh tất cả '.$participantIds->count().' khách.', null, [
+                'count' => $participantIds->count(),
+            ]);
         });
 
         return [
@@ -370,7 +387,7 @@ class GuideTourOperationService
         $this->assertSessionCanTakeAttendance($session, $departure);
         $participant = $this->assertParticipantBelongsToDeparture($participantId, $departure);
 
-        return DB::transaction(function () use ($session, $participant): Attendance {
+        return DB::transaction(function () use ($user, $session, $participant): Attendance {
             AttendanceSession::query()->whereKey($session->id)->lockForUpdate()->firstOrFail();
 
             $attendance = Attendance::query()
@@ -393,6 +410,8 @@ class GuideTourOperationService
                 'status' => 'not_checked_in',
             ]);
             $attendance->save();
+
+            $this->logAttendanceActivity($session, $user, 'check_in_undone', "Đã hoàn tác điểm danh {$participant->full_name}.", $participant);
 
             return $attendance->load([
                 'bookingParticipant',
@@ -438,6 +457,8 @@ class GuideTourOperationService
                 'checked_out_by' => $user->id,
                 'status' => 'checked_out',
             ]);
+
+            $this->logAttendanceActivity($session, $user, 'checked_out', "Đã trả khách {$participant->full_name}.", $participant);
 
             return $attendance->load([
                 'bookingParticipant',
@@ -495,6 +516,14 @@ class GuideTourOperationService
 
             $attendance->fill($updateData);
             $attendance->save();
+
+            $description = array_key_exists('status', $data) && $data['status'] !== null
+                ? "Đã cập nhật trạng thái {$participant->full_name} thành {$data['status']}."
+                : "Đã sửa ghi chú điểm danh của {$participant->full_name}.";
+            $this->logAttendanceActivity($session, $user, 'attendance_updated', $description, $participant, [
+                'status' => $data['status'] ?? null,
+                'note' => $data['note'] ?? null,
+            ]);
 
             return $attendance->load([
                 'bookingParticipant',
@@ -801,7 +830,11 @@ class GuideTourOperationService
         }
     }
 
-    private function ensureDailyAttendanceSessions(TourDeparture $departure, User $user): void
+    /**
+     * Đồng bộ các ngày điểm danh từ lịch trình tour.
+     * Dùng chung cho màn HDV và màn quản trị để hai bên luôn đọc cùng một bộ phiên.
+     */
+    public function synchronizeDailyAttendanceSessions(TourDeparture $departure, User $user): void
     {
         $itinerariesByDay = TourItinerary::query()
             ->where('tour_id', $departure->tour_id)
@@ -834,6 +867,24 @@ class GuideTourOperationService
                 'created_by' => $user->id,
             ]);
         }
+    }
+
+    private function logAttendanceActivity(
+        AttendanceSession $session,
+        User $user,
+        string $action,
+        string $description,
+        ?BookingParticipant $participant = null,
+        ?array $metadata = null
+    ): void {
+        AttendanceActivityLog::query()->create([
+            'attendance_session_id' => $session->id,
+            'booking_participant_id' => $participant?->id,
+            'actor_id' => $user->id,
+            'action' => $action,
+            'description' => $description,
+            'metadata' => $metadata,
+        ]);
     }
 
     private function itineraryDate(TourDeparture $departure, TourItinerary $itinerary): Carbon

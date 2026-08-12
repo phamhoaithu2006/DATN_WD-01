@@ -34,6 +34,11 @@ class AttendanceSession extends Model
         return $this->hasMany(AttendanceSessionPhoto::class)->latest();
     }
 
+    public function activityLogs(): HasMany
+    {
+        return $this->hasMany(AttendanceActivityLog::class)->latest();
+    }
+
     public function itinerary(): BelongsTo
     {
         return $this->belongsTo(TourItinerary::class, 'tour_itinerary_id');
