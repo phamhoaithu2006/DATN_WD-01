@@ -9,7 +9,7 @@ composer install
 php artisan key:generate
 php artisan migrate:fresh --seed
 php artisan storage:link
-php artisan serve
+composer serve:fast
 ```
 
 Mở thêm một terminal riêng để đơn VNPay chờ thanh toán tự hết hạn sau 15 phút:

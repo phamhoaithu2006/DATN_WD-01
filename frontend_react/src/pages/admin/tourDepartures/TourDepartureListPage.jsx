@@ -448,7 +448,7 @@ export default function TourDepartureListPage() {
         departureId,
         {
           page,
-          per_page: 10,
+          per_page: 100,
         }
       )
 

@@ -487,7 +487,7 @@ function TourDetailPage() {
     try {
       const response = await tourDepartureApi.getBookedCustomers(departure.id, {
         page,
-        per_page: 10,
+        per_page: 100,
       })
       setDetailPayload(response?.data?.data || null)
     } catch (requestError) {
