@@ -11029,8 +11029,7 @@
   box-shadow: 0 12px 30px rgba(15, 71, 128, .07);
 }
 
-.guide-attendance-media-heading,
-.guide-attendance-photo-section > div:first-child {
+.guide-attendance-media-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -11128,8 +11127,60 @@
 .guide-attendance-photo-dropzone > button:disabled { cursor: not-allowed; box-shadow: none; opacity: .55; }
 
 .guide-attendance-photo-section { margin: 0 0 20px; }
-.guide-attendance-photo-section > div:first-child { margin-bottom: 10px; color: #17324d; }
-.guide-attendance-photo-section > div:first-child span { padding: 4px 9px; border-radius: 999px; color: #1769aa; background: #eaf5ff; font-size: .76rem; font-weight: 800; }
+.guide-attendance-photo-stack {
+  display: grid;
+  place-items: center;
+  width: 174px;
+  height: 126px;
+  margin: 4px auto 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 18px;
+  background: transparent;
+  cursor: pointer;
+  transition: .18s ease;
+}
+
+.guide-attendance-photo-stack:hover,
+.guide-attendance-photo-stack.is-open {
+  background: rgba(232, 245, 255, .55);
+}
+
+.guide-attendance-photo-stack:hover .guide-attendance-photo-stack-cards img:nth-child(1) {
+  transform: translate(-7px, 3px) rotate(-9deg);
+}
+
+.guide-attendance-photo-stack:hover .guide-attendance-photo-stack-cards img:nth-child(2) {
+  transform: translate(8px, -3px) rotate(0deg);
+}
+
+.guide-attendance-photo-stack:hover .guide-attendance-photo-stack-cards img:nth-child(3) {
+  transform: translate(22px, 3px) rotate(9deg);
+}
+
+.guide-attendance-photo-stack-cards {
+  position: relative;
+  display: block;
+  width: 132px;
+  height: 94px;
+}
+
+.guide-attendance-photo-stack-cards img {
+  position: absolute;
+  inset: 0;
+  width: 118px;
+  height: 82px;
+  border: 4px solid #fff;
+  border-radius: 13px;
+  object-fit: cover;
+  transform: translate(calc(var(--stack-index) * 7px), calc(var(--stack-index) * 3px)) rotate(calc((var(--stack-index) - 1) * 3deg));
+  box-shadow: 0 5px 12px rgba(15, 50, 79, .16);
+  transition: transform .22s ease, box-shadow .22s ease;
+}
+
+.guide-attendance-photo-stack:hover .guide-attendance-photo-stack-cards img {
+  box-shadow: 0 9px 18px rgba(15, 50, 79, .2);
+}
 
 .guide-attendance-photo-gallery,
 .guide-tour-history-photo-gallery {
@@ -11148,9 +11199,33 @@
   border: 1px solid #e2e8f0;
 }
 
-.guide-attendance-photo-gallery a { position: relative; overflow: hidden; border-radius: 12px; background: #eaf1f7; }
-.guide-attendance-photo-gallery a > span { position: absolute; right: 7px; bottom: 7px; padding: 4px 7px; border-radius: 7px; color: #fff; background: rgba(10, 31, 52, .72); font-size: .7rem; font-weight: 750; backdrop-filter: blur(5px); }
+.guide-attendance-photo-gallery {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 240px));
+  justify-content: center;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid #e1ebf4;
+  border-radius: 18px;
+  background: linear-gradient(145deg, #f8fbfe, #fff);
+  animation: guide-attendance-album-open .2s ease both;
+}
+
+@keyframes guide-attendance-album-open {
+  from { opacity: 0; transform: translateY(-7px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.guide-attendance-photo-item { position: relative; min-width: 0; }
+.guide-attendance-photo-item a { position: relative; display: block; overflow: hidden; aspect-ratio: 4 / 3; border-radius: 15px; background: #eaf1f7; box-shadow: 0 6px 16px rgba(21, 67, 106, .1); }
+.guide-attendance-photo-item a img { height: 100%; aspect-ratio: 4 / 3; }
+.guide-attendance-photo-item > button { position: absolute; z-index: 2; top: -6px; right: -6px; display: grid; place-items: center; width: 25px; height: 25px; padding: 0; border: 2px solid #fff; border-radius: 50%; color: #fff; background: #dc3b4b; cursor: pointer; font-size: 1rem; font-weight: 800; box-shadow: 0 4px 10px rgba(143, 24, 37, .25); }
+.guide-attendance-photo-item > button:hover { background: #b91c2c; transform: scale(1.06); }
+.guide-attendance-photo-item > button:disabled { cursor: wait; opacity: .55; }
+.guide-attendance-photo-gallery a > span { position: absolute; right: 10px; bottom: 10px; padding: 5px 9px; border-radius: 8px; color: #fff; background: rgba(10, 31, 52, .68); font-size: .73rem; font-weight: 750; backdrop-filter: blur(6px); }
 .guide-attendance-photo-gallery a:hover img { transform: scale(1.04); }
+.guide-attendance-photo-item:hover { z-index: 1; }
+.guide-attendance-photo-item:hover a { box-shadow: 0 8px 18px rgba(20, 75, 122, .2); transform: translateY(-3px); }
+.guide-attendance-photo-item a { transition: transform .18s ease, box-shadow .18s ease; }
 .guide-attendance-photo-gallery img { transition: transform .2s ease; }
 
 .guide-tour-history-sessions article {
@@ -11170,6 +11245,8 @@
   .guide-attendance-day-card { flex: 0 0 142px; scroll-snap-align: start; }
   .guide-attendance-photo-dropzone { grid-template-columns: auto 1fr; }
   .guide-attendance-photo-dropzone > button { grid-column: 1 / -1; width: 100%; }
+  .guide-attendance-photo-stack { width: 154px; height: 116px; }
+  .guide-attendance-photo-gallery { grid-template-columns: 1fr; padding: 12px; }
 }
 
 @media (max-width: 640px) {

@@ -56,6 +56,13 @@ export const uploadGuideAttendancePhotos = async (departureId, sessionId, photos
   ).data
 }
 
+export const deleteGuideAttendancePhoto = async (departureId, sessionId, photoId) =>
+  unwrap(
+    await apiClient.delete(
+      `/guide/tours/${departureId}/attendance-sessions/${sessionId}/photos/${photoId}`,
+    ),
+  ).data
+
 export const checkInGuideCustomer = async (departureId, sessionId, participantId) =>
   unwrap(
     await apiClient.post(

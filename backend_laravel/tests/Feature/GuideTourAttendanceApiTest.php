@@ -12,8 +12,10 @@ use App\Models\TourGuideAssignment;
 use App\Models\TourItinerary;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 
 uses(RefreshDatabase::class);
@@ -280,20 +282,22 @@ test('only ongoing tours can create attendance sessions', function () {
         ->assertCreated()
         ->assertJsonPath('data.tour_itinerary_id', null)
         ->assertJsonPath('data.boundary', 'departure')
-        ->assertJsonPath('data.name', 'Điểm danh ngày khởi hành');
+        ->assertJsonPath('data.name', 'Điểm danh ngày 1');
 });
 
-test('only one attendance session is generated on the departure date', function () {
+test('one attendance session is generated for every itinerary day', function () {
     Carbon::setTestNow('2026-07-20 09:00:00');
     $scenario = guideAttendanceScenario();
     Sanctum::actingAs($scenario['guideUser']);
 
     $this->getJson("/api/guide/tours/{$scenario['ongoing']->id}/attendance-sessions")
         ->assertOk()
-        ->assertJsonCount(1, 'data')
+        ->assertJsonCount(2, 'data')
         ->assertJsonPath('data.0.tour_itinerary_id', null)
         ->assertJsonPath('data.0.boundary', 'departure')
-        ->assertJsonPath('data.0.can_take_attendance', true);
+        ->assertJsonPath('data.0.can_take_attendance', true)
+        ->assertJsonPath('data.1.itinerary.day_number', 2)
+        ->assertJsonPath('data.1.can_take_attendance', false);
 
     Carbon::setTestNow();
 });
@@ -361,16 +365,14 @@ test('departure attendance remains available throughout the departure date', fun
     Carbon::setTestNow();
 });
 
-test('attendance actions are allowed at any time while the tour is ongoing', function () {
-    Carbon::setTestNow('2026-07-19 09:00:00');
+test('attendance actions are restricted to the selected tour day', function () {
+    Carbon::setTestNow('2026-07-20 09:00:00');
     $scenario = guideAttendanceScenario();
     Sanctum::actingAs($scenario['guideUser']);
 
     $departureSessionId = $this->postJson("/api/guide/tours/{$scenario['ongoing']->id}/attendance-sessions", [
         'tour_itinerary_id' => $scenario['dayOneMorning']->id,
     ])->assertCreated()->json('data.id');
-
-    Carbon::setTestNow('2026-07-20 16:00:00');
 
     $this->postJson("/api/guide/tours/{$scenario['ongoing']->id}/attendance-sessions/{$departureSessionId}/check-in", [
         'participant_id' => $scenario['participant']->id,
@@ -427,6 +429,31 @@ test('guide can undo an accidental customer check in', function () {
         ->assertOk()
         ->assertJsonPath('data.0.attendance_status', 'not_checked_in')
         ->assertJsonPath('data.0.attendance.note', null);
+
+    Carbon::setTestNow();
+});
+
+test('guide can delete an attendance photo from the current day album', function () {
+    Carbon::setTestNow('2026-07-20 09:00:00');
+    Storage::fake('public');
+    $scenario = guideAttendanceScenario();
+    Sanctum::actingAs($scenario['guideUser']);
+    $sessionId = $this->getJson("/api/guide/tours/{$scenario['ongoing']->id}/attendance-sessions")
+        ->assertOk()
+        ->json('data.0.id');
+    $uploadResponse = $this->post("/api/guide/tours/{$scenario['ongoing']->id}/attendance-sessions/{$sessionId}/photos", [
+        'photos' => [UploadedFile::fake()->image('album-photo.jpg')],
+    ], ['Accept' => 'application/json'])->assertCreated();
+    $photoId = $uploadResponse->json('data.photos.0.id');
+
+    expect(Storage::disk('public')->allFiles("attendance/tour-departures/{$scenario['ongoing']->id}"))->toHaveCount(1);
+
+    $this->deleteJson("/api/guide/tours/{$scenario['ongoing']->id}/attendance-sessions/{$sessionId}/photos/{$photoId}")
+        ->assertOk()
+        ->assertJsonCount(0, 'data.photos');
+
+    expect(Storage::disk('public')->allFiles("attendance/tour-departures/{$scenario['ongoing']->id}"))->toBeEmpty();
+    $this->assertDatabaseMissing('attendance_session_photos', ['id' => $photoId]);
 
     Carbon::setTestNow();
 });

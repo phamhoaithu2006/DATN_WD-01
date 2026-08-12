@@ -15,6 +15,7 @@ use App\Http\Resources\GuideTourOverviewResource;
 use App\Http\Resources\TourDepartureStageResource;
 use App\Models\Attendance;
 use App\Models\AttendanceSession;
+use App\Models\AttendanceSessionPhoto;
 use App\Models\BookingParticipant;
 use App\Models\TourDeparture;
 use App\Services\GuideTourOperationService;
@@ -134,6 +135,26 @@ class GuideAttendanceController extends Controller
             'message' => 'Đã tải ảnh điểm danh lên.',
             'data' => new AttendanceSessionResource($session),
         ], 201);
+    }
+
+    public function deletePhoto(
+        Request $request,
+        TourDeparture $tourDeparture,
+        AttendanceSession $attendanceSession,
+        AttendanceSessionPhoto $attendanceSessionPhoto
+    ): JsonResponse {
+        $session = $this->service->deleteAttendancePhoto(
+            $request->user(),
+            $tourDeparture,
+            $attendanceSession,
+            $attendanceSessionPhoto
+        );
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Đã xóa ảnh điểm danh.',
+            'data' => new AttendanceSessionResource($session),
+        ]);
     }
 
     public function checkIn(

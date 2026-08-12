@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   checkInGuideCustomer,
   checkInAllGuideCustomers,
+  deleteGuideAttendancePhoto,
   getGuideAttendanceSessions,
   getGuideAttendanceStatistics,
   getGuideTourCustomerDetail,
@@ -42,6 +43,7 @@ const genderLabels = {
   female: "Nữ",
   other: "Khác",
 };
+const MAX_ATTENDANCE_PHOTOS = 6;
 function getVietnameseLabel(value, labels) {
   if (!value) return "Chưa có";
   return labels[String(value).trim().toLowerCase()] || value;
@@ -201,6 +203,7 @@ function GuideAttendancePage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [isDraggingPhotos, setIsDraggingPhotos] = useState(false);
+  const [photoAlbumOpen, setPhotoAlbumOpen] = useState(false);
   const photoInputRef = useRef(null);
   useEffect(() => {
     let mounted = true;
@@ -414,6 +417,19 @@ function GuideAttendancePage() {
   async function uploadPhotos(photos) {
     if (!photos.length || busy || !selectedSession) return;
 
+    const uploadedPhotoCount = Array.isArray(selectedSession.photos) ? selectedSession.photos.length : 0;
+    const remainingPhotoCount = Math.max(MAX_ATTENDANCE_PHOTOS - uploadedPhotoCount, 0);
+
+    if (photos.length > remainingPhotoCount) {
+      setMessage("");
+      setError(
+        remainingPhotoCount > 0
+          ? `Ngày này đã có ${uploadedPhotoCount} ảnh. Bạn chỉ có thể tải thêm ${remainingPhotoCount} ảnh (tối đa ${MAX_ATTENDANCE_PHOTOS} ảnh).`
+          : `Ngày này đã đủ ${MAX_ATTENDANCE_PHOTOS} ảnh. Không thể tải thêm ảnh.`,
+      );
+      return;
+    }
+
     setBusy(true);
     setError("");
     try {
@@ -440,9 +456,31 @@ function GuideAttendancePage() {
   function dropPhotos(event) {
     event.preventDefault();
     setIsDraggingPhotos(false);
-    if (!canOperateSession || busy) return;
+    if (!canUploadPhotos || busy) return;
     const photos = Array.from(event.dataTransfer.files || []).filter((file) => file.type.startsWith("image/"));
     void uploadPhotos(photos);
+  }
+  async function deletePhoto(photo) {
+    if (busy || !selectedSession || !canOperateSession) return;
+    if (!window.confirm(`Xóa ảnh “${photo.original_name || "Ảnh điểm danh"}”?`)) return;
+
+    setBusy(true);
+    setError("");
+    try {
+      const updatedSession = await deleteGuideAttendancePhoto(
+        selectedTour.id,
+        selectedSession.id,
+        photo.id,
+      );
+      setAttendanceSessions((current) => current.map((session) => (
+        session.id === updatedSession.id ? updatedSession : session
+      )));
+      setMessage("Đã xóa ảnh điểm danh.");
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Không thể xóa ảnh điểm danh."));
+    } finally {
+      setBusy(false);
+    }
   }
   function openNote(customer) {
     setNoteTarget(customer);
@@ -493,6 +531,9 @@ function GuideAttendancePage() {
     selectedSession?.status !== "closed" &&
     selectedSession?.can_take_attendance === true;
   const isReadOnlySession = Boolean(selectedSession) && !canOperateSession;
+  const uploadedPhotoCount = Array.isArray(selectedSession?.photos) ? selectedSession.photos.length : 0;
+  const remainingPhotoCount = Math.max(MAX_ATTENDANCE_PHOTOS - uploadedPhotoCount, 0);
+  const canUploadPhotos = canOperateSession && remainingPhotoCount > 0;
   const firstCustomer = customers.length ? (page - 1) * Number(customerMeta.per_page || 10) + 1 : 0;
   const totalPages = Math.max(1, Number(customerMeta.last_page || Math.ceil(totalRows / 10) || 1));
 
@@ -598,6 +639,7 @@ function GuideAttendancePage() {
                       onClick={() => {
                         setSessionId(session.id);
                         setPage(1);
+                        setPhotoAlbumOpen(false);
                       }}
                     >
                       <span>Ngày {index + 1}</span>
@@ -608,10 +650,10 @@ function GuideAttendancePage() {
                 })}
               </div>
               <div
-                className={`guide-attendance-photo-dropzone ${isDraggingPhotos ? "is-dragging" : ""} ${!canOperateSession ? "is-disabled" : ""}`}
+                className={`guide-attendance-photo-dropzone ${isDraggingPhotos ? "is-dragging" : ""} ${!canUploadPhotos ? "is-disabled" : ""}`}
                 onDragEnter={(event) => {
                   event.preventDefault();
-                  if (canOperateSession) setIsDraggingPhotos(true);
+                  if (canUploadPhotos) setIsDraggingPhotos(true);
                 }}
                 onDragOver={(event) => event.preventDefault()}
                 onDragLeave={() => setIsDraggingPhotos(false)}
@@ -621,28 +663,50 @@ function GuideAttendancePage() {
                   <svg viewBox="0 0 24 24"><path d="M12 16V4m0 0L7 9m5-5 5 5"/><path d="M5 15v4h14v-4"/></svg>
                 </div>
                 <div>
-                  <strong>{busy ? "Đang tải ảnh lên..." : "Thêm ảnh cho ngày điểm danh"}</strong>
+                  <strong>{busy ? "Đang tải ảnh lên..." : remainingPhotoCount > 0 ? "Thêm ảnh cho ngày điểm danh" : "Đã đủ 6 ảnh cho ngày này"}</strong>
                   <p>Kéo thả ảnh vào đây hoặc bấm nút để chọn ảnh từ thiết bị.</p>
-                  <small>JPG, PNG hoặc WEBP · tối đa 6 ảnh · 5 MB/ảnh</small>
+                  <small>JPG, PNG hoặc WEBP · còn {remainingPhotoCount}/{MAX_ATTENDANCE_PHOTOS} ảnh · 5 MB/ảnh</small>
                 </div>
-                <button type="button" disabled={busy || !canOperateSession} onClick={() => photoInputRef.current?.click()}>
+                <button type="button" disabled={busy || !canUploadPhotos} onClick={() => photoInputRef.current?.click()}>
                   Chọn ảnh
                 </button>
-                <input ref={photoInputRef} type="file" accept="image/jpeg,image/png,image/webp" multiple disabled={busy || !canOperateSession} onChange={choosePhotos} />
+                <input ref={photoInputRef} type="file" accept="image/jpeg,image/png,image/webp" multiple disabled={busy || !canUploadPhotos} onChange={choosePhotos} />
               </div>
             </div>
             {Array.isArray(selectedSession?.photos) && selectedSession.photos.length ? (
               <div className="guide-attendance-photo-section">
-                <div><strong>Ảnh đã đăng</strong><span>{selectedSession.photos.length} ảnh</span></div>
-                <div className="guide-attendance-photo-gallery">
-                {selectedSession.photos.map((photo, index) => (
-                  <a key={photo.id} href={mediaUrl(photo.url)} target="_blank" rel="noreferrer" title={photo.original_name || `Ảnh ${index + 1}`}>
-                    <img src={mediaUrl(photo.url)} alt={photo.original_name || "Ảnh điểm danh"} />
-                    <span>Ảnh {index + 1}</span>
-                  </a>
-                ))}
+                <button
+                  type="button"
+                  className={`guide-attendance-photo-stack ${photoAlbumOpen ? "is-open" : ""}`}
+                  onClick={() => setPhotoAlbumOpen((open) => !open)}
+                  aria-expanded={photoAlbumOpen}
+                  aria-label={photoAlbumOpen ? "Thu gọn tập ảnh" : `Mở tập ${selectedSession.photos.length} ảnh điểm danh`}
+                  title={photoAlbumOpen ? "Thu gọn tập ảnh" : "Xem tất cả ảnh"}
+                >
+                  <span className="guide-attendance-photo-stack-cards">
+                    {selectedSession.photos.slice(0, 3).map((photo, index) => (
+                      <img key={photo.id} src={mediaUrl(photo.url)} alt="" style={{ "--stack-index": index }} />
+                    ))}
+                  </span>
+                </button>
+                {photoAlbumOpen ? (
+                  <div className="guide-attendance-photo-gallery">
+                  {selectedSession.photos.map((photo, index) => (
+                    <article key={photo.id} className="guide-attendance-photo-item">
+                      <a href={mediaUrl(photo.url)} target="_blank" rel="noreferrer" title={photo.original_name || `Ảnh ${index + 1}`}>
+                        <img src={mediaUrl(photo.url)} alt={photo.original_name || "Ảnh điểm danh"} />
+                        <span>Ảnh {index + 1}</span>
+                      </a>
+                      {canOperateSession ? (
+                        <button type="button" disabled={busy} onClick={() => deletePhoto(photo)} aria-label={`Xóa ${photo.original_name || `ảnh ${index + 1}`}`} title="Xóa ảnh">
+                          ×
+                        </button>
+                      ) : null}
+                    </article>
+                  ))}
+                  </div>
+                ) : null}
                 </div>
-              </div>
             ) : null}
             {isReadOnlySession ? (
               <div className="guide-attendance-readonly-notice" role="status">

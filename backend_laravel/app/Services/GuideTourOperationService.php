@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Attendance;
 use App\Models\AttendanceSession;
+use App\Models\AttendanceSessionPhoto;
 use App\Models\BookingParticipant;
 use App\Models\Guide;
 use App\Models\TourDeparture;
@@ -17,6 +18,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class GuideTourOperationService
@@ -227,6 +229,12 @@ class GuideTourOperationService
         $this->assertSessionBelongsToDeparture($session, $departure);
         $this->assertSessionCanTakeAttendance($session, $departure);
 
+        if ($session->photos()->count() + count($photos) > 6) {
+            throw ValidationException::withMessages([
+                'photos' => 'Mỗi ngày điểm danh chỉ được lưu tối đa 6 ảnh.',
+            ]);
+        }
+
         foreach ($photos as $photo) {
             $path = $photo->store("attendance/tour-departures/{$departure->id}", 'public');
 
@@ -236,6 +244,30 @@ class GuideTourOperationService
                 'uploaded_by' => $user->id,
             ]);
         }
+
+        return $session->fresh(['creator:id,full_name,email', 'itinerary', 'photos']);
+    }
+
+    public function deleteAttendancePhoto(
+        User $user,
+        TourDeparture $tourDeparture,
+        AttendanceSession $session,
+        AttendanceSessionPhoto $photo
+    ): AttendanceSession {
+        $departure = $this->assignedDepartureForUser($user, $tourDeparture);
+        $this->assertDepartureCanTakeAttendance($departure);
+        $this->assertSessionBelongsToDeparture($session, $departure);
+        $this->assertSessionCanTakeAttendance($session, $departure);
+
+        if ((int) $photo->attendance_session_id !== (int) $session->id) {
+            throw ValidationException::withMessages([
+                'photo' => 'Ảnh không thuộc ngày điểm danh đã chọn.',
+            ]);
+        }
+
+        $filePath = $photo->file_path;
+        $photo->delete();
+        Storage::disk('public')->delete($filePath);
 
         return $session->fresh(['creator:id,full_name,email', 'itinerary', 'photos']);
     }
