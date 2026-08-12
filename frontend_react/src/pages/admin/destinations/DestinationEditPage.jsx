@@ -3,6 +3,8 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom'
 
 import DestinationForm from '../../../components/admin/destinations/DestinationForm'
 import { destinationApi } from '../../../services/destinationApi'
+import { toSlug } from '../../../utils/slug'
+import { validateDestinationImage } from '../../../utils/imageUpload'
 
 const defaultForm = {
   name: '',
@@ -11,6 +13,8 @@ const defaultForm = {
   country: '',
   description: '',
   thumbnail_url: '',
+  thumbnail_image: null,
+  remove_thumbnail: false,
   status: 'active',
   province_ids: [],
 }
@@ -20,13 +24,16 @@ function DestinationEditPage() {
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [slugManuallyEdited, setSlugManuallyEdited] = useState(false)
   const [provinces, setProvinces] = useState([])
 
   const { id } = useParams()
   const location = useLocation()
   const navigate = useNavigate()
 
-  useEffect(() => { destinationApi.getProvinces().then((response) => setProvinces(response?.data?.data || [])).catch(() => setProvinces([])) }, [])
+  useEffect(() => {
+    destinationApi.getProvinces().then((response) => setProvinces(response?.data?.data || [])).catch(() => setProvinces([]))
+  }, [])
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -37,12 +44,15 @@ function DestinationEditPage() {
         name: destinationFromState.name || '',
         slug: destinationFromState.slug || '',
         province_city: destinationFromState.province_city || '',
-        country: destinationFromState.country || '',
+        country: destinationFromState.country || 'Việt Nam',
         description: destinationFromState.description || '',
         thumbnail_url: destinationFromState.thumbnail_url || '',
+        thumbnail_image: null,
+        remove_thumbnail: false,
         status: destinationFromState.status || 'active',
-        province_ids: (destinationFromState.provinces || []).map((province) => province.id),
+        province_ids: (destinationFromState.provinces || []).slice(0, 1).map((province) => province.id),
       })
+      setSlugManuallyEdited(false)
       return
     }
 
@@ -58,12 +68,15 @@ function DestinationEditPage() {
           name: destination.name || '',
           slug: destination.slug || '',
           province_city: destination.province_city || '',
-          country: destination.country || '',
+          country: destination.country || 'Việt Nam',
           description: destination.description || '',
           thumbnail_url: destination.thumbnail_url || '',
+          thumbnail_image: null,
+          remove_thumbnail: false,
           status: destination.status || 'active',
-          province_ids: (destination.provinces || []).map((province) => province.id),
+          province_ids: (destination.provinces || []).slice(0, 1).map((province) => province.id),
         })
+        setSlugManuallyEdited(false)
       } catch (err) {
         console.error(err)
         setError('Không thể tải thông tin địa chỉ tour')
@@ -80,6 +93,43 @@ function DestinationEditPage() {
 
   const handleChange = (event) => {
     const { name, value } = event.target
+
+    if (name === 'name') {
+      setFormData((prev) => ({
+        ...prev,
+        name: value,
+        slug: slugManuallyEdited ? prev.slug : toSlug(value),
+      }))
+      return
+    }
+
+    if (name === 'slug') {
+      setSlugManuallyEdited(true)
+      setFormData((prev) => ({
+        ...prev,
+        slug: toSlug(value),
+      }))
+      return
+    }
+
+    if (name === 'thumbnail_image') {
+      const file = event.target.files?.[0] || null
+      const imageError = validateDestinationImage(file)
+
+      if (imageError) {
+        event.target.value = ''
+        setError(imageError)
+        return
+      }
+
+      setFormData((prev) => ({
+        ...prev,
+        thumbnail_image: file,
+        remove_thumbnail: false,
+      }))
+      setError('')
+      return
+    }
 
     setFormData((prev) => ({
       ...prev,
@@ -100,6 +150,11 @@ function DestinationEditPage() {
       return
     }
 
+    if (!formData.province_ids?.[0]) {
+      setError('Vui lòng chọn Tỉnh / Thành phố thuộc hệ thống')
+      return
+    }
+
     if (!formData.province_city.trim()) {
       setError('Vui lòng nhập tỉnh / thành phố')
       return
@@ -107,6 +162,13 @@ function DestinationEditPage() {
 
     if (!formData.country.trim()) {
       setError('Vui lòng nhập quốc gia')
+      return
+    }
+
+    const imageError = validateDestinationImage(formData.thumbnail_image)
+
+    if (imageError) {
+      setError(imageError)
       return
     }
 
@@ -120,7 +182,8 @@ function DestinationEditPage() {
         province_city: formData.province_city.trim(),
         country: formData.country.trim(),
         description: formData.description.trim(),
-        thumbnail_url: formData.thumbnail_url.trim(),
+        thumbnail_image: formData.thumbnail_image,
+        remove_thumbnail: formData.remove_thumbnail,
         status: formData.status,
         province_ids: formData.province_ids,
       })
@@ -132,6 +195,15 @@ function DestinationEditPage() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const handleRemoveThumbnail = () => {
+    setFormData((prev) => ({
+      ...prev,
+      thumbnail_image: null,
+      thumbnail_url: '',
+      remove_thumbnail: true,
+    }))
   }
 
   return (
@@ -165,10 +237,15 @@ function DestinationEditPage() {
             submitting={submitting}
             submitLabel="Cập nhật"
             onChange={handleChange}
+            onRemoveThumbnail={handleRemoveThumbnail}
             onSubmit={handleSubmit}
             onCancel={() => navigate('/admin/destinations')}
             provinces={provinces}
-            onProvinceToggle={(provinceId) => setFormData((prev) => ({ ...prev, province_ids: prev.province_ids.includes(provinceId) ? prev.province_ids.filter((item) => item !== provinceId) : [...prev.province_ids, provinceId] }))}
+            onProvinceSelect={(selectedOption) => setFormData((prev) => ({
+              ...prev,
+              province_ids: selectedOption ? [selectedOption.value] : [],
+              province_city: selectedOption?.label || '',
+            }))}
           />
         )}
       </div>

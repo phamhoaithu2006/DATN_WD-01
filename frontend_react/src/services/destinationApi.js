@@ -2,6 +2,35 @@ import apiClient from './apiClient'
 
 const API_URL = '/admin'
 
+const buildDestinationFormData = (data, method = 'POST') => {
+  const formData = new FormData()
+
+  if (method !== 'POST') {
+    formData.append('_method', method)
+  }
+
+  formData.append('name', data.name || '')
+  formData.append('slug', data.slug || '')
+  formData.append('province_city', data.province_city || '')
+  formData.append('country', data.country || '')
+  formData.append('description', data.description || '')
+  formData.append('status', data.status || 'active')
+
+  for (const provinceId of data.province_ids || []) {
+    formData.append('province_ids[]', String(provinceId))
+  }
+
+  if (data.thumbnail_image instanceof File) {
+    formData.append('thumbnail_image', data.thumbnail_image)
+  }
+
+  if (data.remove_thumbnail) {
+    formData.append('remove_thumbnail', '1')
+  }
+
+  return formData
+}
+
 export const destinationApi = {
   getAll() {
     return apiClient.get(`${API_URL}/destinations`)
@@ -26,11 +55,19 @@ export const destinationApi = {
   },
 
   create(data) {
-    return apiClient.post(`${API_URL}/destinations`, data)
+    return apiClient.post(
+      `${API_URL}/destinations`,
+      buildDestinationFormData(data),
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    )
   },
 
   update(id, data) {
-    return apiClient.put(`${API_URL}/destinations/${id}`, data)
+    return apiClient.post(
+      `${API_URL}/destinations/${id}`,
+      buildDestinationFormData(data, 'PUT'),
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    )
   },
 
   remove(id) {
