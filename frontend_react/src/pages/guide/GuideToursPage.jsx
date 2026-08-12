@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from 'sonner'
 import { readSession } from "../../services/authStorage";
+import { formatDestinationPlace, formatDestinationPlaceAddress } from '../../utils/destinationPlaceFormat'
 import {
   getGuideTourCompleted,
   getGuideTourCancelled,
@@ -311,8 +312,9 @@ function TourDetailModal({
                   <span>Ngày {step.day_number || index + 1}</span>
                   <strong>{step.title || "Hành trình"}</strong>
                   {step.destination_place?.name ? (
-                    <p><strong>Điểm đến:</strong> {step.destination_place.name}</p>
+                    <p><strong>Điểm đến:</strong> {formatDestinationPlace(step.destination_place)}</p>
                   ) : null}
+                  {formatDestinationPlaceAddress(step.destination_place) ? <p><strong>Địa chỉ:</strong> {formatDestinationPlaceAddress(step.destination_place)}</p> : null}
                   <p>{stripHtml(step.description) || "Chưa có mô tả."}</p>
                 </article>
               ))}

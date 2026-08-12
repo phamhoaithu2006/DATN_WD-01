@@ -182,7 +182,7 @@ function getDepartureScheduleGroup(item) {
 }
 
 function isDepartureActionable(item) {
-  return getDepartureScheduleGroup(item) === 'upcoming'
+  return ['upcoming', 'ongoing'].includes(getDepartureScheduleGroup(item))
 }
 
 function getUnavailableActionMessage(item, actionLabel) {
@@ -370,13 +370,6 @@ function sortGuidesByAvailability(items = []) {
 
     if (aEligible !== bEligible) {
       return bEligible - aEligible
-    }
-
-    const aAreaMatch = a?.is_area_match ? 1 : 0
-    const bAreaMatch = b?.is_area_match ? 1 : 0
-
-    if (aAreaMatch !== bAreaMatch) {
-      return bAreaMatch - aAreaMatch
     }
 
     return getGuideDisplayName(a).localeCompare(getGuideDisplayName(b), 'vi')
@@ -1101,11 +1094,7 @@ function DirectGuideAssignmentPanel({
 
       const response = await tourDepartureApi.directAssignGuide(
         departureId,
-        guide.id,
-        {
-          // Không chia HDV theo khu vực nữa, nên cho phép phân công khác khu vực.
-          forceAreaMismatch: true,
-        }
+        guide.id
       )
 
       setMessage(response.data?.message || 'Đã phân công HDV.')
@@ -1118,13 +1107,6 @@ function DirectGuideAssignmentPanel({
       await onAssigned?.({ departureId, type: 'assigned' })
       await fetchGuides([guide.id])
     } catch (err) {
-      const code = err?.response?.data?.code
-
-      if (code === 'AREA_MISMATCH_CONFIRM_REQUIRED') {
-        setError('Backend vẫn đang chặn theo khu vực. Hãy kiểm tra hàm directAssignGuide để gửi force_area_mismatch = true.')
-        return
-      }
-
       setError(getError(err, 'Không thể phân công HDV.'))
     } finally {
       setBusyGuideId(null)
@@ -2223,7 +2205,7 @@ export function GuideAssignmentPanel({
                       ) : item.assignment_state === 'blocked' ? (
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="text-sm text-red-600">
-                            Kiểm tra khu vực HDV hoặc lịch đang kín.
+                            HDV đang có lịch trùng trong khoảng thời gian này.
                           </span>
 
                           <button

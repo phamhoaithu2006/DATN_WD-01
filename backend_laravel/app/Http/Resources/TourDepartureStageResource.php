@@ -28,6 +28,8 @@ class TourDepartureStageResource extends JsonResource
                 return $place ? [
                     'id' => $place->id,
                     'name' => $place->name,
+                    'district_name' => $place->district?->name ?? $place->district_name,
+                    'province_city' => $place->district?->province?->name ?? ($place->relationLoaded('destination') ? $place->destination?->province_city : null),
                     'address' => $place->address,
                 ] : null;
             }),

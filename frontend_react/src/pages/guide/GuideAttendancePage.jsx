@@ -151,8 +151,9 @@ function AttendanceTourDetailModal({ item, onClose }) {
                   <span>Ngày {step.day_number || index + 1}</span>
                   <strong>{step.title || "Hành trình"}</strong>
                   {step.destination_place?.name ? (
-                    <p><strong>Điểm đến:</strong> {step.destination_place.name}</p>
+                    <p><strong>Điểm đến:</strong> {formatDestinationPlace(step.destination_place)}</p>
                   ) : null}
+                  {formatDestinationPlaceAddress(step.destination_place) ? <p><strong>Địa chỉ:</strong> {formatDestinationPlaceAddress(step.destination_place)}</p> : null}
                   <p>{stripHtml(step.description) || "Chưa có mô tả."}</p>
                 </article>
               ))}

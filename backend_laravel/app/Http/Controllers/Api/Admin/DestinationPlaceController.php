@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\DestinationPlace;
+use App\Models\Destination;
+use App\Models\District;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -20,13 +22,14 @@ class DestinationPlaceController extends Controller
         ]);
 
         $query = DestinationPlace::query()
-            ->with('destination:id,name,province_city,country')
+            ->with(['destination:id,name,province_city,country', 'district.province:id,name'])
             ->where('destination_id', $validated['destination_id']);
 
         if (! empty($validated['search'])) {
             $search = $validated['search'];
             $query->where(function ($searchQuery) use ($search) {
                 $searchQuery->where('name', 'like', '%'.$search.'%')
+                    ->orWhere('district_name', 'like', '%'.$search.'%')
                     ->orWhere('address', 'like', '%'.$search.'%')
                     ->orWhere('description', 'like', '%'.$search.'%');
             });
@@ -49,14 +52,14 @@ class DestinationPlaceController extends Controller
 
         return response()->json([
             'message' => 'Thêm điểm đến chi tiết thành công.',
-            'data' => $place->load('destination:id,name,province_city,country'),
+            'data' => $place->load(['destination:id,name,province_city,country', 'district.province:id,name']),
         ], 201);
     }
 
     public function show(DestinationPlace $destinationPlace): JsonResponse
     {
         return response()->json([
-            'data' => $destinationPlace->load('destination:id,name,province_city,country'),
+            'data' => $destinationPlace->load(['destination:id,name,province_city,country', 'district.province:id,name']),
         ]);
     }
 
@@ -66,7 +69,7 @@ class DestinationPlaceController extends Controller
 
         return response()->json([
             'message' => 'Cập nhật điểm đến chi tiết thành công.',
-            'data' => $destinationPlace->fresh()->load('destination:id,name,province_city,country'),
+            'data' => $destinationPlace->fresh()->load(['destination:id,name,province_city,country', 'district.province:id,name']),
         ]);
     }
 
@@ -79,7 +82,7 @@ class DestinationPlaceController extends Controller
 
     private function validatedData(Request $request, ?DestinationPlace $destinationPlace = null): array
     {
-        return $request->validate([
+        $data = $request->validate([
             'destination_id' => ['required', 'integer', 'exists:destinations,id'],
             'name' => [
                 'required',
@@ -90,10 +93,23 @@ class DestinationPlaceController extends Controller
                     ->ignore($destinationPlace?->id),
             ],
             'slug' => ['nullable', 'string', 'max:220', Rule::unique('destination_places', 'slug')->ignore($destinationPlace?->id)],
+            'district_name' => ['nullable', 'string', 'max:150'],
+            'district_id' => ['nullable', 'integer', 'exists:districts,id'],
             'address' => ['nullable', 'string', 'max:500'],
             'description' => ['nullable', 'string'],
             'thumbnail_url' => ['nullable', 'url', 'max:500'],
             'status' => ['required', Rule::in(['active', 'inactive'])],
         ]);
+
+        if (! empty($data['district_id'])) {
+            $allowedProvinceIds = Destination::query()->findOrFail($data['destination_id'])->provinces()->pluck('provinces.id');
+            $district = District::query()->whereKey($data['district_id'])->whereIn('province_id', $allowedProvinceIds)->first();
+            if (! $district) {
+                abort(422, 'Quận/huyện không thuộc các tỉnh của điểm đến đã chọn.');
+            }
+            $data['district_name'] = $district->name;
+        }
+
+        return $data;
     }
 }

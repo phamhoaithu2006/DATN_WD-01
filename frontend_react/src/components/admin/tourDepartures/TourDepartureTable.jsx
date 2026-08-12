@@ -418,6 +418,21 @@ function isAssignmentWarningTarget(departure) {
 }
 
 function compareDepartureDateNearestFirst(a, b) {
+  const parsedACreatedAt = new Date(a?.updated_at || a?.created_at || 0).getTime()
+  const parsedBCreatedAt = new Date(b?.updated_at || b?.created_at || 0).getTime()
+  const aCreatedAt = Number.isFinite(parsedACreatedAt) ? parsedACreatedAt : 0
+  const bCreatedAt = Number.isFinite(parsedBCreatedAt) ? parsedBCreatedAt : 0
+
+  if (aCreatedAt !== bCreatedAt) {
+    return bCreatedAt - aCreatedAt
+  }
+
+  const idCompare = Number(b?.id || 0) - Number(a?.id || 0)
+
+  if (idCompare !== 0) {
+    return idCompare
+  }
+
   const aDate = getDateKey(a?.departure_date) || '0000-00-00'
   const bDate = getDateKey(b?.departure_date) || '0000-00-00'
 
@@ -433,14 +448,7 @@ function compareDepartureDateNearestFirst(a, b) {
     return aReturnDate.localeCompare(bReturnDate)
   }
 
-  const aCreatedAt = getDateKey(a?.created_at) || '0000-00-00'
-  const bCreatedAt = getDateKey(b?.created_at) || '0000-00-00'
-
-  if (aCreatedAt !== bCreatedAt) {
-    return aCreatedAt.localeCompare(bCreatedAt)
-  }
-
-  return Number(a?.id || 0) - Number(b?.id || 0)
+  return 0
 }
 
 function sortByAssignmentState(items = []) {
@@ -887,10 +895,9 @@ export default function TourDepartureTable({
       scheduleTabs.find((tab) => tab.key === scheduleFilter)?.rows ||
       groupedRows.upcoming
 
-    return sortMinimumGuestWarningsFirst(
-      sortByReplacementRequests(
-        sortByAssignmentState(rows),
-        replacementRequests
+    return sortByAssignmentState(
+      sortMinimumGuestWarningsFirst(
+        sortByReplacementRequests(rows, replacementRequests)
       )
     )
   }, [scheduleTabs, scheduleFilter, groupedRows.upcoming, replacementRequests])
@@ -1300,6 +1307,20 @@ export default function TourDepartureTable({
                                     >
                                       <DetailIcon />
                                       Chi tiết
+                                    </button>
+                                  ) : null}
+
+                                  {locked && getDepartureTimeGroup(item) === 'ongoing' && typeof onOpenAssignment === 'function' ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setOpenActionMenuId(null)
+                                        onOpenAssignment(item.id)
+                                      }}
+                                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-sky-700 transition hover:bg-sky-50"
+                                    >
+                                      <GuideIcon />
+                                      {leadAssignment ? 'Đổi HDV' : 'Phân công HDV'}
                                     </button>
                                   ) : null}
 

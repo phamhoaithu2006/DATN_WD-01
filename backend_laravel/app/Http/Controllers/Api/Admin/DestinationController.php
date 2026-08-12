@@ -4,7 +4,10 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Destination;
+use App\Models\Province;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
+use Illuminate\Validation\Rule;
 
 class DestinationController extends Controller
 {
@@ -15,7 +18,7 @@ class DestinationController extends Controller
     public function index()
     {
         // Lấy toàn bộ bản ghi từ bảng destinations
-        return response()->json(Destination::all(), 200);
+        return response()->json(Destination::with('provinces:id,name')->get(), 200);
     }
 
 
@@ -27,7 +30,7 @@ class DestinationController extends Controller
     public function show($id)
     {
         // Tìm địa điểm theo ID, nếu không thấy sẽ tự động bắn ra ModelNotFoundException (lỗi 404)
-        $destination = Destination::findOrFail($id);
+        $destination = Destination::with('provinces:id,name')->findOrFail($id);
 
         // Trả về dữ liệu dưới dạng JSON với cấu trúc rõ ràng
         return response()->json([
@@ -50,10 +53,19 @@ class DestinationController extends Controller
             'slug'          => 'required|unique:destinations', // Đảm bảo slug là duy nhất
             'province_city' => 'required',
             'country'       => 'required',
+            'description' => ['nullable', 'string'],
+            'thumbnail_url' => ['nullable', 'string', 'max:500'],
+            'status' => ['nullable', Rule::in(['active', 'inactive'])],
+            'province_ids' => ['nullable', 'array', 'min:1'],
+            'province_ids.*' => ['integer', 'distinct', 'exists:provinces,id'],
         ]);
 
         // Tạo mới và trả về dữ liệu vừa tạo với mã trạng thái 201 (Created)
-        return response()->json(Destination::create($data), 201);
+        $provinceIds = Arr::pull($data, 'province_ids', []);
+        $destination = Destination::create($data);
+        $this->syncProvinces($destination, (array) $provinceIds);
+
+        return response()->json($destination->load('provinces:id,name'), 201);
     }
 
 
@@ -69,9 +81,22 @@ class DestinationController extends Controller
         $destination = Destination::findOrFail($id);
 
         // Cập nhật thông tin với toàn bộ dữ liệu từ request
-        $destination->update($request->all());
+        $data = $request->validate([
+            'name' => ['sometimes', 'required', 'string', 'max:255'],
+            'slug' => ['sometimes', 'required', 'string', Rule::unique('destinations', 'slug')->ignore($destination->id)],
+            'province_city' => ['sometimes', 'required', 'string', 'max:120'],
+            'country' => ['sometimes', 'required', 'string', 'max:120'],
+            'description' => ['nullable', 'string'],
+            'thumbnail_url' => ['nullable', 'string', 'max:500'],
+            'status' => ['sometimes', Rule::in(['active', 'inactive'])],
+            'province_ids' => ['nullable', 'array', 'min:1'],
+            'province_ids.*' => ['integer', 'distinct', 'exists:provinces,id'],
+        ]);
+        $provinceIds = Arr::pull($data, 'province_ids', null);
+        $destination->update($data);
+        if ($provinceIds !== null) $this->syncProvinces($destination, $provinceIds);
 
-        return response()->json($destination, 200);
+        return response()->json($destination->fresh()->load('provinces:id,name'), 200);
     }
 
 
@@ -201,6 +226,39 @@ class DestinationController extends Controller
         return response()->json([
             'data' => $items,
         ]);
+    }
+
+    public function provinces()
+    {
+        return response()->json(['data' => Province::query()->orderBy('name')->get(['id', 'name'])]);
+    }
+
+    public function districts(Destination $destination)
+    {
+        $provinces = $destination->provinces()
+            ->with(['districts:id,province_id,name'])
+            ->orderBy('name')
+            ->get(['provinces.id', 'provinces.name']);
+
+        // Tương thích điểm đến cũ chưa có dòng pivot: tự nhận tỉnh từ province_city.
+        if ($provinces->isEmpty() && $destination->province_city) {
+            $legacyProvince = Province::query()
+                ->with(['districts:id,province_id,name'])
+                ->where('name', $destination->province_city)
+                ->first(['id', 'name']);
+            $provinces = $legacyProvince ? collect([$legacyProvince]) : collect();
+        }
+
+        return response()->json(['data' => $provinces]);
+    }
+
+    private function syncProvinces(Destination $destination, array $provinceIds): void
+    {
+        if ($provinceIds === []) {
+            $matchedId = Province::query()->where('name', $destination->province_city)->value('id');
+            $provinceIds = $matchedId ? [$matchedId] : [];
+        }
+        $destination->provinces()->sync($provinceIds);
     }
 
     

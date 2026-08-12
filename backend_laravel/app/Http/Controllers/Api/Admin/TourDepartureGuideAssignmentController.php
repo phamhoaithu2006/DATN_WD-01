@@ -82,7 +82,7 @@ class TourDepartureGuideAssignmentController extends Controller
         GuideAssignmentService $service,
         TourDepartureMutationGuard $guard
     ) {
-        $guard->assertCanMutate($departure);
+        $guard->assertCanManageGuideAssignment($departure);
 
         $guides = $service
             ->eligibleGuidesQuery($departure)
@@ -99,7 +99,7 @@ class TourDepartureGuideAssignmentController extends Controller
         GuideAssignmentService $service,
         TourDepartureMutationGuard $guard
     ) {
-        $guard->assertCanMutate($departure);
+        $guard->assertCanManageGuideAssignment($departure);
 
         $assignment = $service->autoAssign(
             $departure->id,
@@ -121,7 +121,7 @@ class TourDepartureGuideAssignmentController extends Controller
         GuideAssignmentService $service,
         TourDepartureMutationGuard $guard
     ) {
-        $guard->assertCanMutate($departure);
+        $guard->assertCanManageGuideAssignment($departure);
 
         $validated = $request->validate([
             'guide_id' => ['required', 'integer', 'exists:guides,id'],
@@ -152,7 +152,7 @@ class TourDepartureGuideAssignmentController extends Controller
             404
         );
 
-        $guard->assertCanMutate($departure);
+        $guard->assertCanManageGuideAssignment($departure);
 
         $assignment->loadMissing([
             'guide.user:id,full_name,email',
@@ -168,7 +168,7 @@ class TourDepartureGuideAssignmentController extends Controller
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            $guard->assertCanMutate($lockedDeparture);
+            $guard->assertCanManageGuideAssignment($lockedDeparture);
 
             $lockedAssignment = TourGuideAssignment::query()
                 ->whereKey($assignment->id)
@@ -422,7 +422,7 @@ class TourDepartureGuideAssignmentController extends Controller
         TourDeparture $departure,
         TourDepartureMutationGuard $guard
     ) {
-        $guard->assertCanMutate($departure);
+        $guard->assertCanManageGuideAssignment($departure);
 
         $validated = $request->validate([
             'mode' => ['nullable', 'in:eligible,all'],
@@ -470,18 +470,6 @@ class TourDepartureGuideAssignmentController extends Controller
             ->unique()
             ->values();
 
-        $tourDestinations = $departure->tour?->destinations?->pluck('id') ?? collect();
-
-        if ($tourDestinations->isEmpty() && $departure->tour?->destination_id) {
-            $tourDestinations = collect([
-                $departure->tour->destination_id,
-            ]);
-        }
-
-        $tourDestinationIds = $tourDestinations
-            ->map(fn ($id) => (int) $id)
-            ->values();
-
         $query = Guide::query()
             ->with([
                 'user:id,full_name,email,phone,avatar_url',
@@ -505,10 +493,6 @@ class TourDepartureGuideAssignmentController extends Controller
             }
         });
 
-        if (Schema::hasColumn('guides', 'status')) {
-            $query->where('guides.status', 'active');
-        }
-
         if (! empty($validated['keyword'])) {
             $keyword = trim($validated['keyword']);
 
@@ -528,12 +512,6 @@ class TourDepartureGuideAssignmentController extends Controller
 
             $query->whereHas('destinations', function ($q) use ($destinationId) {
                 $q->where('destinations.id', $destinationId);
-            });
-        }
-
-        if ($mode === 'eligible' && $tourDestinationIds->isNotEmpty()) {
-            $query->whereHas('destinations', function ($q) use ($tourDestinationIds) {
-                $q->whereIn('destinations.id', $tourDestinationIds);
             });
         }
 
@@ -574,25 +552,7 @@ class TourDepartureGuideAssignmentController extends Controller
             $conflictCountQuery->whereNull('tour_guide_assignments.deleted_at');
         }
 
-        $leaveConflictCountQuery = null;
-
-        if ($hasGuideLeaveRequests) {
-            $leaveConflictCountQuery = DB::table('guide_leave_requests')
-                ->selectRaw('COUNT(*)')
-                ->whereColumn('guide_leave_requests.guide_id', 'guides.id')
-                ->whereIn('guide_leave_requests.status', ['pending', 'approved'])
-                ->whereDate('guide_leave_requests.start_date', '<=', $to)
-                ->whereDate('guide_leave_requests.end_date', '>=', $from);
-
-            if ($leaveRequestHasDeletedAt) {
-                $leaveConflictCountQuery->whereNull('guide_leave_requests.deleted_at');
-            }
-        }
-
         $guides = $query
-            ->when($leaveConflictCountQuery, function ($candidateQuery) use ($leaveConflictCountQuery) {
-                $candidateQuery->orderBy($leaveConflictCountQuery, 'asc');
-            })
             ->orderBy($conflictCountQuery, 'asc')
             ->orderByDesc('guides.id')
             ->paginate($validated['per_page'] ?? 20);
@@ -612,23 +572,12 @@ class TourDepartureGuideAssignmentController extends Controller
                 $departure,
                 $from,
                 $to,
-                $tourDestinationIds,
                 $assignmentHasDeletedAt,
                 $guideLanguageHasDeletedAt,
                 $languageColumns,
                 $hasGuideLeaveRequests,
                 $leaveRequestHasDeletedAt
             ) {
-                $guideDestinationIds = $guide->destinations
-                    ?->pluck('id')
-                    ->map(fn ($id) => (int) $id)
-                    ->values() ?? collect();
-
-                $isAreaMatch = $tourDestinationIds->isNotEmpty()
-                    && $guideDestinationIds
-                        ->intersect($tourDestinationIds)
-                        ->isNotEmpty();
-
                 $conflictingAssignmentsQuery = TourGuideAssignment::query()
                     ->where('guide_id', $guide->id)
                     ->whereIn('status', ['assigned', 'confirmed'])
@@ -701,22 +650,13 @@ class TourDepartureGuideAssignmentController extends Controller
 
                 $guideLanguages = $guideLanguagesQuery->get();
 
-                $hasLeaveConflict = $leaveRequests->isNotEmpty();
                 $hasTourConflict = $conflictingAssignments->isNotEmpty();
-                $isAvailable = ! $hasTourConflict && ! $hasLeaveConflict;
+                $isAvailable = ! $hasTourConflict;
 
                 $blockingReasons = [];
 
                 if ($hasTourConflict) {
                     $blockingReasons[] = 'HDV đã có lịch trong khoảng thời gian này.';
-                }
-
-                if ($hasLeaveConflict) {
-                    $blockingReasons[] = 'HDV có đơn xin nghỉ đang chờ duyệt hoặc đã duyệt trong khoảng thời gian này.';
-                }
-
-                if (! $isAreaMatch) {
-                    $blockingReasons[] = 'HDV không phụ trách khu vực của tour.';
                 }
 
                 $avatarUrl =
@@ -731,9 +671,8 @@ class TourDepartureGuideAssignmentController extends Controller
                     'user' => $guide->user,
                     'destinations' => $guide->destinations,
                     'languages' => $guideLanguages,
-                    'is_area_match' => $isAreaMatch,
                     'is_available' => $isAvailable,
-                    'is_eligible' => $isAvailable && $isAreaMatch,
+                    'is_eligible' => $isAvailable,
                     'blocking_reasons' => $blockingReasons,
                     'conflicting_assignments' => $conflictingAssignments,
                     'leave_requests' => $leaveRequests,
@@ -753,11 +692,10 @@ class TourDepartureGuideAssignmentController extends Controller
         TourDeparture $departure,
         TourDepartureMutationGuard $guard
     ) {
-        $guard->assertCanMutate($departure);
+        $guard->assertCanManageGuideAssignment($departure);
 
         $validated = $request->validate([
             'guide_id' => ['required', 'integer', 'exists:guides,id'],
-            'force_area_mismatch' => ['nullable', 'boolean'],
         ]);
 
         $departure->loadMissing([
@@ -814,55 +752,6 @@ class TourDepartureGuideAssignmentController extends Controller
             ], 422);
         }
 
-        if (Schema::hasTable('guide_leave_requests')) {
-            $leaveConflictQuery = DB::table('guide_leave_requests')
-                ->where('guide_id', $guide->id)
-                ->whereIn('status', ['pending', 'approved'])
-                ->whereDate('start_date', '<=', $to)
-                ->whereDate('end_date', '>=', $from);
-
-            if (Schema::hasColumn('guide_leave_requests', 'deleted_at')) {
-                $leaveConflictQuery->whereNull('deleted_at');
-            }
-
-            if ($leaveConflictQuery->exists()) {
-                return response()->json([
-                    'message' => 'HDV này đang có đơn xin nghỉ trong khoảng thời gian tour.',
-                    'code' => 'GUIDE_LEAVE_CONFLICT',
-                ], 422);
-            }
-        }
-
-        $tourDestinations = $departure->tour?->destinations?->pluck('id') ?? collect();
-
-        if ($tourDestinations->isEmpty() && $departure->tour?->destination_id) {
-            $tourDestinations = collect([
-                $departure->tour->destination_id,
-            ]);
-        }
-
-        $guideDestinationIds = $guide->destinations
-            ?->pluck('id')
-            ->map(fn ($id) => (int) $id)
-            ->values() ?? collect();
-
-        $isAreaMatch = $tourDestinations->isNotEmpty() &&
-            $guideDestinationIds
-                ->intersect($tourDestinations->map(fn ($id) => (int) $id))
-                ->isNotEmpty();
-
-        $forceAreaMismatch = filter_var(
-            $validated['force_area_mismatch'] ?? false,
-            FILTER_VALIDATE_BOOLEAN
-        );
-
-        if (! $isAreaMatch && ! $forceAreaMismatch) {
-            return response()->json([
-                'message' => 'HDV này không phụ trách khu vực của tour. Bạn có chắc muốn phân công không?',
-                'code' => 'AREA_MISMATCH_CONFIRM_REQUIRED',
-            ], 409);
-        }
-
         $assignment = null;
         $isReplacing = false;
 
@@ -883,7 +772,7 @@ class TourDepartureGuideAssignmentController extends Controller
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            $guard->assertCanMutate($departure);
+            $guard->assertCanManageGuideAssignment($departure);
 
             /*
          * Lấy HDV cũ đang được phân công cho lịch này.
@@ -962,12 +851,8 @@ class TourDepartureGuideAssignmentController extends Controller
 
         return response()->json([
             'message' => $isReplacing
-                ? ($isAreaMatch
-                    ? 'Đã đổi HDV trực tiếp.'
-                    : 'Đã đổi sang HDV ngoài khu vực phụ trách.')
-                : ($isAreaMatch
-                    ? 'Đã phân công HDV.'
-                    : 'Đã phân công HDV ngoài khu vực phụ trách.'),
+                ? 'Đã đổi HDV trực tiếp.'
+                : 'Đã phân công HDV.',
             'data' => $assignment?->load([
                 'guide.user:id,full_name,email,phone',
             ]),
