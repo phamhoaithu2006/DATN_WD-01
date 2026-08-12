@@ -607,7 +607,9 @@ class GuideTourController extends Controller
                 'tour.itineraries' => fn ($it) => $it
                     ->orderBy('day_number')
                     ->orderBy('sort_order'),
-                'tour.itineraries.destinationPlace:id,name,address',
+                'tour.itineraries.destinationPlace:id,destination_id,district_id,name,district_name,address',
+                'tour.itineraries.destinationPlace.destination:id,name,province_city',
+                'tour.itineraries.destinationPlace.district.province:id,name',
             ])
             ->addSelect([
                 'tour_departures.*',

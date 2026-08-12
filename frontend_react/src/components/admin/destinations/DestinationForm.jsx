@@ -5,6 +5,8 @@ function DestinationForm({
   onChange,
   onSubmit,
   onCancel,
+  provinces = [],
+  onProvinceToggle,
 }) {
   return (
     <form
@@ -24,6 +26,14 @@ function DestinationForm({
             onChange={onChange}
             className="h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
           />
+        </div>
+
+        <div className="md:col-span-2">
+          <label className="mb-2 block text-sm font-semibold text-slate-700">Các tỉnh/thành thuộc điểm đến <span className="text-red-500">*</span></label>
+          <p className="mb-3 text-xs text-slate-500">Có thể chọn nhiều tỉnh, ví dụ tour Đà Nẵng – Hội An chọn cả Đà Nẵng và Quảng Nam.</p>
+          <div className="grid max-h-52 gap-2 overflow-y-auto rounded-xl border border-slate-300 bg-slate-50 p-4 sm:grid-cols-2 lg:grid-cols-3">
+            {provinces.map((province) => <label key={province.id} className="flex cursor-pointer items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm text-slate-700"><input type="checkbox" checked={(formData.province_ids || []).map(String).includes(String(province.id))} onChange={() => onProvinceToggle?.(province.id)} /><span>{province.name}</span></label>)}
+          </div>
         </div>
 
         <div>

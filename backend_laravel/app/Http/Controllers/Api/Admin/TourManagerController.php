@@ -22,7 +22,7 @@ class TourManagerController extends Controller
     public function index(Request $request)
     {
         // Loại trừ tour bị ẩn
-        $query = Tour::with(['category', 'destination', 'thumbnail', 'images', 'itineraries.images', 'itineraries.destinationPlace', 'agePricingRules'])
+        $query = Tour::with(['category', 'destination', 'thumbnail', 'images', 'itineraries.images', 'itineraries.destinationPlace.destination', 'itineraries.destinationPlace.district.province', 'agePricingRules'])
             ->where('status', '!=', 'hidden');
 
         //  1. ADMIN TÌM KIẾM: Theo tiêu đề tour (title)
@@ -94,7 +94,7 @@ class TourManagerController extends Controller
      */
     public function show($id)
     {
-        $tour = Tour::with(['category', 'destination', 'thumbnail', 'images', 'itineraries.images', 'itineraries.destinationPlace', 'departures', 'agePricingRules'])
+        $tour = Tour::with(['category', 'destination', 'thumbnail', 'images', 'itineraries.images', 'itineraries.destinationPlace.destination', 'itineraries.destinationPlace.district.province', 'departures', 'agePricingRules'])
             ->findOrFail($id);
 
         return response()->json([
@@ -107,7 +107,7 @@ class TourManagerController extends Controller
     public function publicIndex(Request $request)
     {
         //  Chỉ lấy các tour đã xuất bản (published)
-        $query = Tour::with(['category', 'destination', 'thumbnail', 'images', 'itineraries.images', 'itineraries.destinationPlace', 'agePricingRules'])
+        $query = Tour::with(['category', 'destination', 'thumbnail', 'images', 'itineraries.images', 'itineraries.destinationPlace.destination', 'itineraries.destinationPlace.district.province', 'agePricingRules'])
             ->where('status', 'published');
 
         //  1. USER TÌM KIẾM: Tìm theo tiêu đề tour
@@ -160,9 +160,7 @@ class TourManagerController extends Controller
             'itinerary.*.destination_place_id' => [
                 'nullable',
                 'integer',
-                Rule::exists('destination_places', 'id')->where(
-                    fn ($query) => $query->where('destination_id', $request->integer('destination_id'))
-                ),
+                Rule::exists('destination_places', 'id')->whereNull('deleted_at'),
             ],
             'itinerary.*.title' => 'required|string|max:255',
             'itinerary.*.start_time' => 'nullable|date_format:H:i',
@@ -282,7 +280,7 @@ class TourManagerController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Thêm tour thành công',
-            'data' => new TourResource($tour->load(['category', 'destination', 'thumbnail', 'images', 'itineraries.images', 'itineraries.destinationPlace', 'agePricingRules'])),
+            'data' => new TourResource($tour->load(['category', 'destination', 'thumbnail', 'images', 'itineraries.images', 'itineraries.destinationPlace.destination', 'itineraries.destinationPlace.district.province', 'agePricingRules'])),
         ], 201, [], JSON_PRESERVE_ZERO_FRACTION);
     }
 
@@ -312,9 +310,7 @@ class TourManagerController extends Controller
             'itinerary.*.destination_place_id' => [
                 'nullable',
                 'integer',
-                Rule::exists('destination_places', 'id')->where(
-                    fn ($query) => $query->where('destination_id', $request->integer('destination_id'))
-                ),
+                Rule::exists('destination_places', 'id')->whereNull('deleted_at'),
             ],
             'itinerary.*.title' => 'required|string|max:255',
             'itinerary.*.start_time' => 'nullable|date_format:H:i',
@@ -459,12 +455,13 @@ class TourManagerController extends Controller
             if ($shouldSyncAgePricingRules) {
                 $this->syncAgePricingRules($tour, $agePricingRules);
             }
+
         });
 
         return response()->json([
             'status' => 'success',
             'message' => 'Cập nhật tour thành công',
-            'data' => new TourResource($tour->fresh(['category', 'destination', 'thumbnail', 'images', 'itineraries.images', 'itineraries.destinationPlace', 'agePricingRules'])),
+            'data' => new TourResource($tour->fresh(['category', 'destination', 'thumbnail', 'images', 'itineraries.images', 'itineraries.destinationPlace.destination', 'itineraries.destinationPlace.district.province', 'agePricingRules'])),
         ], 200, [], JSON_PRESERVE_ZERO_FRACTION);
     }
 
@@ -494,7 +491,7 @@ class TourManagerController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Đã ẩn tour thành công',
-            'data' => new TourResource($tour->fresh(['category', 'destination', 'thumbnail', 'images', 'itineraries.images', 'itineraries.destinationPlace', 'agePricingRules'])),
+            'data' => new TourResource($tour->fresh(['category', 'destination', 'thumbnail', 'images', 'itineraries.images', 'itineraries.destinationPlace.destination', 'itineraries.destinationPlace.district.province', 'agePricingRules'])),
         ]);
     }
 
@@ -518,7 +515,7 @@ class TourManagerController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Đã bỏ ẩn tour thành công',
-            'data' => new TourResource($tour->fresh(['category', 'destination', 'thumbnail', 'images', 'itineraries.images', 'itineraries.destinationPlace', 'agePricingRules'])),
+            'data' => new TourResource($tour->fresh(['category', 'destination', 'thumbnail', 'images', 'itineraries.images', 'itineraries.destinationPlace.destination', 'itineraries.destinationPlace.district.province', 'agePricingRules'])),
         ]);
     }
 
@@ -527,7 +524,7 @@ class TourManagerController extends Controller
      */
     public function hiddenTours()
     {
-        $tours = Tour::with(['category', 'destination', 'thumbnail', 'images', 'itineraries.images', 'itineraries.destinationPlace', 'agePricingRules'])
+        $tours = Tour::with(['category', 'destination', 'thumbnail', 'images', 'itineraries.images', 'itineraries.destinationPlace.destination', 'itineraries.destinationPlace.district.province', 'agePricingRules'])
             ->where('status', 'hidden')
             ->orderBy('id', 'asc')
             ->paginate(10);

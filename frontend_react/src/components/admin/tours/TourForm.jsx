@@ -122,6 +122,12 @@ const normalizeItineraryForForm = (itinerary = []) => {
         'sightseeing',
       destination_place_id:
         source.destination_place_id ?? source.destinationPlaceId ?? source.destination_place?.id ?? '',
+      itinerary_destination_id:
+        source.itinerary_destination_id ??
+        source.destination_place?.destination_id ??
+        source.destinationPlace?.destination_id ??
+        source.destination_place?.destination?.id ??
+        '',
       title:
         source.title ??
         source.name ??
@@ -158,7 +164,7 @@ const normalizeItineraryForSubmit = (itinerary = []) => {
         sort_order: image.sort_order ?? imageIndex,
       }))
 
-    return {
+    const normalizedStep = {
       ...step,
       day_number: Number(step.day_number || stepIndex + 1),
       sort_order: step.sort_order ?? stepIndex,
@@ -169,6 +175,9 @@ const normalizeItineraryForSubmit = (itinerary = []) => {
       end_time: normalizeTimeForBackend(step.end_time),
       images: cleanedImages,
     }
+
+    delete normalizedStep.itinerary_destination_id
+    return normalizedStep
   })
 }
 
@@ -1404,6 +1413,8 @@ function TourForm({
   const [categories, setCategories] = useState([])
   const [destinations, setDestinations] = useState([])
   const [destinationPlaces, setDestinationPlaces] = useState([])
+  const [itineraryDestinationPlaces, setItineraryDestinationPlaces] = useState({})
+  const [loadingItineraryDestinationIds, setLoadingItineraryDestinationIds] = useState([])
   const [loadingDestinationPlaces, setLoadingDestinationPlaces] = useState(false)
   const [loadingOptions, setLoadingOptions] = useState(false)
   const [optionError, setOptionError] = useState('')
@@ -1591,6 +1602,35 @@ function TourForm({
     }
   }, [formData.destination_id])
 
+  useEffect(() => {
+    const destinationIds = Array.from(new Set(
+      formData.itinerary
+        .map((step) => String(step.itinerary_destination_id || ''))
+        .filter(Boolean),
+    ))
+    const missingIds = destinationIds.filter((id) => !itineraryDestinationPlaces[id])
+    if (missingIds.length === 0) return undefined
+
+    let cancelled = false
+    setLoadingItineraryDestinationIds((current) => Array.from(new Set([...current, ...missingIds])))
+
+    Promise.all(missingIds.map(async (destinationId) => {
+      const response = await fetch(`${API_BASE_URL}/admin/destination-places?destination_id=${destinationId}&status=active&per_page=100`, { headers: getAuthHeaders() })
+      if (!response.ok) throw new Error(`Không tải được địa điểm của điểm đến #${destinationId}`)
+      const payload = await response.json()
+      return [destinationId, payload?.data?.data || []]
+    }))
+      .then((entries) => {
+        if (!cancelled) setItineraryDestinationPlaces((current) => ({ ...current, ...Object.fromEntries(entries) }))
+      })
+      .catch((error) => console.error('LOAD ITINERARY DESTINATION PLACES ERROR:', error))
+      .finally(() => {
+        if (!cancelled) setLoadingItineraryDestinationIds((current) => current.filter((id) => !missingIds.includes(id)))
+      })
+
+    return () => { cancelled = true }
+  }, [formData.itinerary, itineraryDestinationPlaces])
+
   const inputClass =
     'mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 hover:border-slate-300'
 
@@ -1627,15 +1667,9 @@ function TourForm({
     }
 
     if (name === 'destination_id') {
-      const hasSelectedPlaces = formData.itinerary.some((step) => step.destination_place_id)
-      if (hasSelectedPlaces && !window.confirm('Đổi điểm đến chính sẽ bỏ các địa điểm chi tiết đã chọn trong lịch trình. Bạn có muốn tiếp tục?')) {
-        return
-      }
-
       setFormData((prev) => ({
         ...prev,
         destination_id: value,
-        itinerary: prev.itinerary.map((step) => ({ ...step, destination_place_id: '' })),
       }))
       return
     }
@@ -1829,6 +1863,7 @@ function TourForm({
       day_number: Number(dayNumber),
       sort_order: daySteps.length,
       type: 'sightseeing',
+      itinerary_destination_id: formData.destination_id || '',
       destination_place_id: '',
       title: '',
       start_time: '',
@@ -1880,6 +1915,13 @@ function TourForm({
         destination_place_id: placeId,
       }
     })
+    updateItinerary(nextItinerary)
+  }
+
+  const handleItineraryDestinationChange = (indexToUpdate, destinationId) => {
+    const nextItinerary = formData.itinerary.map((step, idx) => idx === indexToUpdate
+      ? { ...step, itinerary_destination_id: destinationId, destination_place_id: '' }
+      : step)
     updateItinerary(nextItinerary)
   }
 
@@ -2265,6 +2307,22 @@ function TourForm({
                         {daySteps.map((step, stepIdx) => {
                           const originalIdx = step.originalIdx
                           const currentType = step.type || 'sightseeing'
+                          const stepDestinationId = String(step.itinerary_destination_id || formData.destination_id || '')
+                          const stepDestinationPlaces = itineraryDestinationPlaces[stepDestinationId]
+                            || (stepDestinationId === String(formData.destination_id) ? destinationPlaces : [])
+                          const stepPlacesLoading = loadingItineraryDestinationIds.includes(stepDestinationId)
+                            || (stepDestinationId === String(formData.destination_id) && loadingDestinationPlaces)
+                          const selectedDestinationPlace = stepDestinationPlaces.find(
+                            (place) => String(place.id) === String(step.destination_place_id),
+                          )
+                          const destinationPlaceLabel = {
+                            departure: 'Điểm đón khách',
+                            return: 'Điểm trả khách',
+                            sightseeing: 'Địa điểm tham quan',
+                            hotel: 'Nơi lưu trú',
+                            meal: 'Địa điểm ăn uống',
+                            activity: 'Địa điểm hoạt động',
+                          }[currentType] || 'Điểm đến chi tiết'
 
                           return (
                             <div
@@ -2294,8 +2352,26 @@ function TourForm({
                               </div>
 
                               <div className="grid grid-cols-1 gap-3.5 md:grid-cols-3">
-                                <div className="md:col-span-3">
-                                  <FieldLabel>Điểm đến chi tiết</FieldLabel>
+                                <div>
+                                  <FieldLabel>Điểm đến của chặng</FieldLabel>
+                                  <select
+                                    value={stepDestinationId}
+                                    onChange={(event) => handleItineraryDestinationChange(originalIdx, event.target.value)}
+                                    disabled={loadingOptions}
+                                    className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-800 outline-none transition focus:border-blue-500 disabled:cursor-not-allowed disabled:bg-slate-100"
+                                  >
+                                    <option value="">Chọn tỉnh / điểm đến</option>
+                                    {destinations.map((destination) => (
+                                      <option key={getOptionId(destination)} value={getOptionId(destination)}>
+                                        {getOptionName(destination, `Điểm đến #${getOptionId(destination)}`)}
+                                        {destination.province_city && destination.province_city !== getOptionName(destination) ? ` — ${destination.province_city}` : ''}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+
+                                <div className="md:col-span-2">
+                                  <FieldLabel>{destinationPlaceLabel}</FieldLabel>
                                   <select
                                     value={step.destination_place_id || ''}
                                     onChange={(e) =>
@@ -2304,25 +2380,39 @@ function TourForm({
                                         e.target.value,
                                       )
                                     }
-                                    disabled={!formData.destination_id || loadingDestinationPlaces}
+                                    disabled={!stepDestinationId || stepPlacesLoading}
                                     className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-800 outline-none transition focus:border-blue-500 disabled:cursor-not-allowed disabled:bg-slate-100"
                                   >
                                     <option value="">
-                                      {!formData.destination_id
-                                        ? 'Chọn điểm đến chính trước'
-                                        : loadingDestinationPlaces
+                                      {!stepDestinationId
+                                        ? 'Chọn điểm đến của chặng trước'
+                                        : stepPlacesLoading
                                           ? 'Đang tải địa điểm...'
                                           : 'Không gắn địa điểm cụ thể'}
                                     </option>
-                                    {destinationPlaces.map((place) => (
+                                    {stepDestinationPlaces.map((place) => (
                                       <option key={place.id} value={place.id}>
-                                        {place.name}{place.address ? ` – ${place.address}` : ''}
+                                        {place.name}
+                                        {place.district?.name || place.district_name || place.district?.province?.name || place.destination?.province_city
+                                          ? ` — ${[place.district?.name || place.district_name, place.district?.province?.name || place.destination?.province_city].filter(Boolean).join(', ')}`
+                                          : place.address ? ` — ${place.address}` : ''}
                                       </option>
                                     ))}
                                   </select>
-                                  {formData.destination_id && !loadingDestinationPlaces && destinationPlaces.length === 0 ? (
+                                  {selectedDestinationPlace ? (
+                                    <div className="mt-2 rounded-lg border border-sky-100 bg-sky-50 px-3 py-2">
+                                      <p className="text-xs font-black text-sky-900">
+                                        {selectedDestinationPlace.name}
+                                        {selectedDestinationPlace.district?.name || selectedDestinationPlace.district_name || selectedDestinationPlace.district?.province?.name || selectedDestinationPlace.destination?.province_city
+                                          ? ` — ${[selectedDestinationPlace.district?.name || selectedDestinationPlace.district_name, selectedDestinationPlace.district?.province?.name || selectedDestinationPlace.destination?.province_city].filter(Boolean).join(', ')}`
+                                          : ''}
+                                      </p>
+                                      {selectedDestinationPlace.address ? <p className="mt-1 text-[11px] font-medium text-sky-700">{selectedDestinationPlace.address}</p> : null}
+                                    </div>
+                                  ) : null}
+                                  {stepDestinationId && !stepPlacesLoading && stepDestinationPlaces.length === 0 ? (
                                     <p className="mt-1.5 text-[11px] font-semibold text-amber-600">
-                                      Điểm đến này chưa có địa điểm chi tiết. Bạn có thể thêm tại trang Quản lý điểm đến chi tiết.
+                                      Điểm đến của chặng chưa có địa điểm chi tiết. Hãy thêm tại trang Quản lý điểm đến chi tiết.
                                     </p>
                                   ) : null}
                                 </div>

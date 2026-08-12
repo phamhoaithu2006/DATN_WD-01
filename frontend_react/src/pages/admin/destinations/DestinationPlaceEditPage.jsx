@@ -1,0 +1,18 @@
+import { useEffect, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { toast } from 'sonner'
+import AdminPageHeader from '../../../components/admin/AdminPageHeader'
+import DestinationPlaceForm from '../../../components/admin/destinations/DestinationPlaceForm'
+import { destinationApi } from '../../../services/destinationApi'
+import destinationPlaceApi from '../../../services/destinationPlaceApi'
+const unwrapList = (r) => r?.data?.data?.data || r?.data?.data || r?.data || []
+function DestinationPlaceEditPage() {
+  const { id } = useParams(); const navigate = useNavigate(); const [destinations, setDestinations] = useState([]); const [districtGroups, setDistrictGroups] = useState([])
+  const [form, setForm] = useState({ destination_id: '', district_id: '', name: '', address: '', description: '', thumbnail_url: '', status: 'active' }); const [loading, setLoading] = useState(true); const [saving, setSaving] = useState(false); const [districtsLoading, setDistrictsLoading] = useState(false); const [errors, setErrors] = useState({}); const [notice, setNotice] = useState('')
+  useEffect(() => { Promise.all([destinationApi.getAll(), destinationPlaceApi.getById(id)]).then(([dr, pr]) => { const p = pr?.data?.data || {}; setDestinations(unwrapList(dr)); setForm({ destination_id: String(p.destination_id || ''), district_id: String(p.district_id || ''), name: p.name || '', address: p.address || '', description: p.description || '', thumbnail_url: p.thumbnail_url || '', status: p.status || 'active' }) }).catch((e) => setNotice(e?.response?.data?.message || 'Không tải được điểm đến chi tiết.')).finally(() => setLoading(false)) }, [id])
+  useEffect(() => { if (!form.destination_id) { setDistrictGroups([]); return } setDistrictsLoading(true); destinationApi.getDistricts(form.destination_id).then((r) => setDistrictGroups(r?.data?.data || [])).catch(() => setDistrictGroups([])).finally(() => setDistrictsLoading(false)) }, [form.destination_id])
+  const back = () => navigate(`/admin/destination-places${form.destination_id ? `?destination_id=${form.destination_id}` : ''}`)
+  const submit = async (event) => { event.preventDefault(); try { setSaving(true); setErrors({}); setNotice(''); await destinationPlaceApi.update(id, { ...form, destination_id: Number(form.destination_id), district_id: form.district_id ? Number(form.district_id) : null, name: form.name.trim(), address: form.address.trim(), description: form.description.trim(), thumbnail_url: form.thumbnail_url.trim() || null }); toast.success('Cập nhật điểm đến chi tiết thành công.'); back() } catch (e) { setErrors(e?.response?.data?.errors || {}); setNotice(e?.response?.data?.message || 'Không thể cập nhật điểm đến chi tiết.') } finally { setSaving(false) } }
+  return <div className="min-h-full bg-slate-50/70 px-8 py-8"><div className="mx-auto max-w-5xl"><AdminPageHeader breadcrumb={['ViVuGo', 'Quản lý Tour', 'Điểm đến chi tiết', 'Chỉnh sửa']} title="Chỉnh sửa điểm đến chi tiết" description="Cập nhật địa danh đang dùng trong lịch trình tour." />{notice && <div className="mb-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{notice}</div>}{loading ? <div className="rounded-2xl border bg-white px-6 py-20 text-center">Đang tải dữ liệu...</div> : <DestinationPlaceForm form={form} destinations={destinations} districtGroups={districtGroups} districtsLoading={districtsLoading} errors={errors} saving={saving} submitLabel="Lưu thay đổi" onChange={(e) => setForm((v) => ({ ...v, [e.target.name]: e.target.value }))} onSubmit={submit} onCancel={back} />}</div></div>
+}
+export default DestinationPlaceEditPage

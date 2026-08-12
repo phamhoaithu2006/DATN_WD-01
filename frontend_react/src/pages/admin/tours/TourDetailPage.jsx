@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import tourApi from '../../../services/toursApi'
 import { tourDepartureApi } from '../../../services/tourDepartureApi'
 import TourDepartureBookingModal from '../../../components/admin/tourDepartures/TourDepartureBookingModal'
+import { formatDestinationPlace, formatDestinationPlaceAddress } from '../../../utils/destinationPlaceFormat'
 
 const API_ORIGIN = 'http://127.0.0.1:8000'
 
@@ -402,59 +403,59 @@ function TimelineDayCard({ day, items }) {
     items[0]?.day_name ||
     `Lịch trình ngày ${day}`
 
-  return (
-    <div className="rounded-[12px] border border-slate-200 bg-white p-3.5 shadow-[0_8px_24px_rgba(15,23,42,0.035)]">
-      <div className="mb-3 flex items-start gap-3">
-        <span className="inline-flex h-10 w-8 shrink-0 flex-col items-center justify-center rounded-lg bg-sky-50 text-center text-[9px] font-black leading-tight text-[#0575f9] ring-1 ring-sky-200">
-          Ngày
-          <span className="text-[14px] leading-none">{day}</span>
-        </span>
+  const typeLabels = {
+    departure: 'Đón khách',
+    sightseeing: 'Tham quan',
+    activity: 'Hoạt động',
+    meal: 'Ăn uống',
+    hotel: 'Lưu trú',
+    transport: 'Di chuyển',
+    return: 'Trả khách',
+  }
 
-        <h3 className="pt-0.5 text-[12.5px] font-black leading-[18px] text-slate-900">
-          {title}
-        </h3>
+  return (
+    <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_26px_rgba(15,23,42,0.045)]">
+      <div className="flex items-center gap-4 border-b border-sky-100 bg-gradient-to-r from-sky-50 via-blue-50/60 to-white px-5 py-4">
+        <span className="inline-flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl bg-sky-600 text-center text-[9px] font-black uppercase leading-tight text-white shadow-md shadow-sky-100">
+          Ngày
+          <span className="text-lg leading-none">{day}</span>
+        </span>
+        <div className="min-w-0">
+          <h3 className="truncate text-base font-black text-slate-950">{title}</h3>
+          <p className="mt-1 text-xs font-semibold text-slate-500">{items.length} hoạt động trong ngày</p>
+        </div>
       </div>
 
-      <div>
+      <div className="divide-y divide-slate-100 px-5">
         {items.map((item, index) => {
           const time = [item.start_time, item.end_time].filter(Boolean).join(' - ') || item.duration || ''
+          const placeAddress = formatDestinationPlaceAddress(item.destination_place)
 
           return (
-            <div key={item.id || `${day}-${index}`} className="relative grid grid-cols-[48px_13px_minmax(0,1fr)] gap-2.5 pb-2.5 last:pb-0">
-              {index < items.length - 1 && <span className="absolute left-[54px] top-4 h-full w-px bg-sky-200" />}
+            <div key={item.id || `${day}-${index}`} className="relative grid gap-4 py-5 sm:grid-cols-[112px_minmax(0,1fr)]">
+              <div className="relative pl-5">
+                {index < items.length - 1 && <span className="absolute left-[5px] top-5 h-[calc(100%+20px)] w-px bg-sky-200" />}
+                <span className="absolute left-0 top-1.5 h-3 w-3 rounded-full border-[3px] border-white bg-sky-500 shadow-[0_0_0_2px_rgba(14,165,233,0.22)]" />
+                <p className="text-sm font-black text-slate-950">{time || 'Chưa đặt giờ'}</p>
+                <span className="mt-2 inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-slate-500">{typeLabels[item.type] || item.type || 'Hoạt động'}</span>
+              </div>
 
-              <p className="pt-0.5 text-[11px] font-black text-slate-800">{time}</p>
+              <div className="min-w-0 rounded-xl border border-slate-100 bg-slate-50/70 p-4 transition hover:border-sky-100 hover:bg-sky-50/40">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                  <h4 className="text-[15px] font-black text-slate-950">{item.title || `Hoạt động ${index + 1}`}</h4>
+                  {item.transport && <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-slate-600 ring-1 ring-slate-200"><BusIcon /> {item.transport}</span>}
+                </div>
 
-              <span className="relative z-10 mt-1.5 h-2 w-2 rounded-full border-2 border-white bg-[#0575f9] shadow-[0_0_0_2px_rgba(5,117,249,0.18)]" />
-
-              <div className="min-w-0">
-                <p className="truncate text-[11.5px] font-black leading-5 text-slate-900">
-                  {item.title || `Hoạt động ${index + 1}`}
-                  {item.transport && (
-                    <span className="ml-1.5 inline-flex items-center gap-1 text-[10.5px] font-semibold text-slate-500">
-                      <BusIcon />
-                      {item.transport}
-                    </span>
-                  )}
-                </p>
-
-                {item.destination_place?.name && (
-                  <p className="text-[10.5px] font-bold leading-[17px] text-sky-700">
-                    Điểm đến: {item.destination_place.name}
-                  </p>
-                )}
-
-                {item.description && (
-                  <p className="line-clamp-2 text-[10.5px] font-medium leading-[17px] text-slate-500">
-                    {item.description}
-                  </p>
-                )}
+                {item.destination_place?.name && <p className="mt-2 text-sm font-extrabold text-sky-700">⌖ {formatDestinationPlace(item.destination_place)}</p>}
+                {placeAddress && <p className="mt-1 text-xs font-semibold text-slate-500">Địa chỉ: {placeAddress}</p>}
+                {item.duration && <p className="mt-1 text-xs font-semibold text-slate-500">Thời lượng: {item.duration}</p>}
+                {item.description && <p className="mt-3 whitespace-pre-line text-[13px] font-medium leading-5 text-slate-600">{item.description}</p>}
               </div>
             </div>
           )
         })}
       </div>
-    </div>
+    </article>
   )
 }
 
@@ -752,8 +753,8 @@ function TourDetailPage() {
               <SectionTitle icon={CalendarIcon} title="Lịch trình tour" />
 
               {itineraryDays.length > 0 ? (
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-                  {itineraryDays.slice(0, 3).map(([day, items]) => (
+                <div className="space-y-5">
+                  {itineraryDays.map(([day, items]) => (
                     <TimelineDayCard key={day} day={day} items={items} />
                   ))}
                 </div>

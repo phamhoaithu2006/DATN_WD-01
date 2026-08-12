@@ -16,6 +16,8 @@ class DestinationPlace extends Model
         'destination_id',
         'name',
         'slug',
+        'district_name',
+        'district_id',
         'address',
         'description',
         'thumbnail_url',
@@ -25,6 +27,11 @@ class DestinationPlace extends Model
     public function destination(): BelongsTo
     {
         return $this->belongsTo(Destination::class);
+    }
+
+    public function district(): BelongsTo
+    {
+        return $this->belongsTo(District::class);
     }
 
     public function itineraries(): HasMany

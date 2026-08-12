@@ -15,6 +15,7 @@ import Icon from "../../components/customer/Icon";
 import LoadingState from "../../components/common/LoadingState";
 import { formatVndCurrency } from "../../utils/currencyFormat";
 import { mediaUrl } from "../../utils/mediaUrl";
+import { formatDestinationPlace, formatDestinationPlaceAddress } from '../../utils/destinationPlaceFormat'
 
 function normalizeTourDetail(tour, fallback = {}) {
   if (!tour) return fallback;
@@ -63,6 +64,7 @@ function isValidPhone(value) {
 }
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const IDENTITY_REGEX = /^[A-Za-z0-9-]{6,20}$/;
+const MAX_BOOKING_GUESTS = 20;
 
 function normalizePhone(value) {
   return String(value || "").trim().replace(/\D/g, "");
@@ -303,6 +305,23 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
 
   useEffect(() => {
     window.scrollTo(0, 0);
+  }, [tourId]);
+
+  useEffect(() => {
+    // React giữ nguyên component khi chuyển trực tiếp giữa hai URL chi tiết tour.
+    // Xóa dữ liệu checkout của tour trước để ID nhóm giá/lịch khởi hành cũ
+    // không làm sai tổng số khách hoặc payload của tour vừa mở.
+    setCheckoutStep(1);
+    setSelectedDepartureId("");
+    setQuantities({});
+    setBookingPreview(null);
+    setBookingError("");
+    setBookingConfirmationModal(null);
+    setCreatedBooking(null);
+    setParticipants([]);
+    setFieldErrors({ contact: {}, participants: {} });
+    setContact((current) => ({ ...current, special_request: "" }));
+    bookingIdempotencyKeyRef.current = "";
   }, [tourId]);
 
   useEffect(() => {
@@ -739,6 +758,11 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
 
     const nextTotal = totalGuests - Number(effectiveQuantities[ruleId] || 0) + safeQuantity;
 
+    if (nextTotal > MAX_BOOKING_GUESTS) {
+      notifyValidationError(`Mỗi booking được đặt tối đa ${MAX_BOOKING_GUESTS} hành khách.`);
+      return;
+    }
+
     if (availableSlots > 0 && nextTotal > availableSlots) {
       notifyValidationError(`Lịch này chỉ còn ${availableSlots} chỗ trống.`);
       return;
@@ -941,6 +965,11 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
 
       if (totalGuests < 1) {
         notifyValidationError("Vui lòng chọn ít nhất 1 khách đặt tour.");
+        return;
+      }
+
+      if (totalGuests > MAX_BOOKING_GUESTS) {
+        notifyValidationError(`Mỗi booking được đặt tối đa ${MAX_BOOKING_GUESTS} hành khách.`);
         return;
       }
 
@@ -1382,7 +1411,10 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                               <button
                                 type="button"
                                 className="vg-counter-btn"
-                                disabled={availableSlots > 0 && totalGuests >= availableSlots}
+                                disabled={
+                                  totalGuests >= MAX_BOOKING_GUESTS
+                                  || (availableSlots > 0 && totalGuests >= availableSlots)
+                                }
                                 onClick={() => updateQuantity(rule.id, quantity + 1)}
                               >
                                 +
@@ -1758,9 +1790,10 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                           <span className="vg-step-title-traveloka">{step.title}</span>
                           {step.destinationPlace?.name ? (
                             <span className="vg-step-desc-traveloka">
-                              Điểm đến: {step.destinationPlace.name}
+                              Điểm đến: {formatDestinationPlace(step.destinationPlace)}
                             </span>
                           ) : null}
+                          {formatDestinationPlaceAddress(step.destinationPlace) ? <span className="vg-step-desc-traveloka">Địa chỉ: {formatDestinationPlaceAddress(step.destinationPlace)}</span> : null}
                           <span className="vg-step-desc-traveloka">{step.desc}</span>
                           {step.transport ? <span className="vg-step-desc-traveloka">Phương tiện: {step.transport}</span> : null}
                           {step.images.length ? (
@@ -2377,8 +2410,9 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                       <div className="day-body-wrapper">
                         <div className="day-body-content">
                           {item.destinationPlace?.name ? (
-                            <p><strong>Điểm đến:</strong> {item.destinationPlace.name}</p>
+                            <p><strong>Điểm đến:</strong> {formatDestinationPlace(item.destinationPlace)}</p>
                           ) : null}
+                          {formatDestinationPlaceAddress(item.destinationPlace) ? <p><strong>Địa chỉ:</strong> {formatDestinationPlaceAddress(item.destinationPlace)}</p> : null}
                           <p>{item.desc}</p>
                           {item.transport ? <p>Phương tiện: {item.transport}</p> : null}
                           {item.images.length ? (

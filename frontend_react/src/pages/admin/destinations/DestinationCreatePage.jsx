@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import DestinationForm from '../../../components/admin/destinations/DestinationForm'
@@ -12,6 +12,7 @@ const defaultForm = {
   description: '',
   thumbnail_url: '',
   status: 'active',
+  province_ids: [],
 }
 
 const toSlug = (value) =>
@@ -30,8 +31,11 @@ function DestinationCreatePage() {
   const [formData, setFormData] = useState(defaultForm)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [provinces, setProvinces] = useState([])
 
   const navigate = useNavigate()
+
+  useEffect(() => { destinationApi.getProvinces().then((response) => setProvinces(response?.data?.data || [])).catch(() => setProvinces([])) }, [])
 
   const handleChange = (event) => {
     const { name, value } = event.target
@@ -86,6 +90,7 @@ function DestinationCreatePage() {
         description: formData.description.trim(),
         thumbnail_url: formData.thumbnail_url.trim(),
         status: formData.status,
+        province_ids: formData.province_ids,
       })
 
       navigate('/admin/destinations')
@@ -125,6 +130,8 @@ function DestinationCreatePage() {
           onChange={handleChange}
           onSubmit={handleSubmit}
           onCancel={() => navigate('/admin/destinations')}
+          provinces={provinces}
+          onProvinceToggle={(id) => setFormData((prev) => ({ ...prev, province_ids: prev.province_ids.includes(id) ? prev.province_ids.filter((item) => item !== id) : [...prev.province_ids, id] }))}
         />
       </div>
     </section>

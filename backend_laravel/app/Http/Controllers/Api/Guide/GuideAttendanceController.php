@@ -227,8 +227,16 @@ class GuideAttendanceController extends Controller
     public function advanceStage(Request $request, TourDeparture $tourDeparture): JsonResponse
     {
         $result = $this->service->advanceStage($request->user(), $tourDeparture);
-        $result['current_stage']->load('itinerary.destinationPlace:id,name,address');
-        $result['stages']->load('itinerary.destinationPlace:id,name,address');
+        $result['current_stage']->load([
+            'itinerary.destinationPlace:id,destination_id,district_id,name,district_name,address',
+            'itinerary.destinationPlace.destination:id,name,province_city',
+            'itinerary.destinationPlace.district.province:id,name',
+        ]);
+        $result['stages']->load([
+            'itinerary.destinationPlace:id,destination_id,district_id,name,district_name,address',
+            'itinerary.destinationPlace.destination:id,name,province_city',
+            'itinerary.destinationPlace.district.province:id,name',
+        ]);
 
         return response()->json([
             'status' => 'success',
