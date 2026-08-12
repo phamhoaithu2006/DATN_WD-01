@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 
 import DestinationForm from '../../../components/admin/destinations/DestinationForm'
 import { destinationApi } from '../../../services/destinationApi'
+import { toSlug } from '../../../utils/slug'
+import { validateDestinationImage } from '../../../utils/imageUpload'
 
 const defaultForm = {
   name: '',
@@ -11,31 +13,24 @@ const defaultForm = {
   country: 'Việt Nam',
   description: '',
   thumbnail_url: '',
+  thumbnail_image: null,
+  remove_thumbnail: false,
   status: 'active',
   province_ids: [],
 }
-
-const toSlug = (value) =>
-  value
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/đ/g, 'd')
-    .replace(/Đ/g, 'd')
-    .replace(/[^a-z0-9\s-]/g, '')
-    .trim()
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
 
 function DestinationCreatePage() {
   const [formData, setFormData] = useState(defaultForm)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [slugManuallyEdited, setSlugManuallyEdited] = useState(false)
   const [provinces, setProvinces] = useState([])
 
   const navigate = useNavigate()
 
-  useEffect(() => { destinationApi.getProvinces().then((response) => setProvinces(response?.data?.data || [])).catch(() => setProvinces([])) }, [])
+  useEffect(() => {
+    destinationApi.getProvinces().then((response) => setProvinces(response?.data?.data || [])).catch(() => setProvinces([]))
+  }, [])
 
   const handleChange = (event) => {
     const { name, value } = event.target
@@ -44,8 +39,36 @@ function DestinationCreatePage() {
       setFormData((prev) => ({
         ...prev,
         name: value,
-        slug: prev.slug ? prev.slug : toSlug(value),
+        slug: slugManuallyEdited ? prev.slug : toSlug(value),
       }))
+      return
+    }
+
+    if (name === 'slug') {
+      setSlugManuallyEdited(true)
+      setFormData((prev) => ({
+        ...prev,
+        slug: toSlug(value),
+      }))
+      return
+    }
+
+    if (name === 'thumbnail_image') {
+      const file = event.target.files?.[0] || null
+      const imageError = validateDestinationImage(file)
+
+      if (imageError) {
+        event.target.value = ''
+        setError(imageError)
+        return
+      }
+
+      setFormData((prev) => ({
+        ...prev,
+        thumbnail_image: file,
+        remove_thumbnail: false,
+      }))
+      setError('')
       return
     }
 
@@ -68,6 +91,11 @@ function DestinationCreatePage() {
       return
     }
 
+    if (!formData.province_ids?.[0]) {
+      setError('Vui lòng chọn Tỉnh / Thành phố thuộc hệ thống')
+      return
+    }
+
     if (!formData.province_city.trim()) {
       setError('Vui lòng nhập tỉnh / thành phố')
       return
@@ -75,6 +103,13 @@ function DestinationCreatePage() {
 
     if (!formData.country.trim()) {
       setError('Vui lòng nhập quốc gia')
+      return
+    }
+
+    const imageError = validateDestinationImage(formData.thumbnail_image)
+
+    if (imageError) {
+      setError(imageError)
       return
     }
 
@@ -88,7 +123,7 @@ function DestinationCreatePage() {
         province_city: formData.province_city.trim(),
         country: formData.country.trim(),
         description: formData.description.trim(),
-        thumbnail_url: formData.thumbnail_url.trim(),
+        thumbnail_image: formData.thumbnail_image,
         status: formData.status,
         province_ids: formData.province_ids,
       })
@@ -100,6 +135,15 @@ function DestinationCreatePage() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const handleRemoveThumbnail = () => {
+    setFormData((prev) => ({
+      ...prev,
+      thumbnail_image: null,
+      thumbnail_url: '',
+      remove_thumbnail: false,
+    }))
   }
 
   return (
@@ -128,10 +172,15 @@ function DestinationCreatePage() {
           submitting={submitting}
           submitLabel="Thêm mới"
           onChange={handleChange}
+          onRemoveThumbnail={handleRemoveThumbnail}
           onSubmit={handleSubmit}
           onCancel={() => navigate('/admin/destinations')}
           provinces={provinces}
-          onProvinceToggle={(id) => setFormData((prev) => ({ ...prev, province_ids: prev.province_ids.includes(id) ? prev.province_ids.filter((item) => item !== id) : [...prev.province_ids, id] }))}
+          onProvinceSelect={(selectedOption) => setFormData((prev) => ({
+            ...prev,
+            province_ids: selectedOption ? [selectedOption.value] : [],
+            province_city: selectedOption?.label || '',
+          }))}
         />
       </div>
     </section>
