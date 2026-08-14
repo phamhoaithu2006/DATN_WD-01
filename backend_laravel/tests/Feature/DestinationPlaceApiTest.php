@@ -1,7 +1,7 @@
 <?php
 
-use App\Models\Destination;
 use App\Models\DestinationPlace;
+use App\Models\Province;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -10,13 +10,13 @@ use Laravel\Sanctum\Sanctum;
 
 uses(RefreshDatabase::class);
 
-test('admin manages destination places within a selected destination', function () {
+test('admin manages destination places within a selected province', function () {
     Sanctum::actingAs(createDestinationPlaceAdmin());
-    $destination = Destination::factory()->create(['name' => 'Đà Nẵng']);
-    $otherDestination = Destination::factory()->create(['name' => 'Thanh Hóa']);
+    $province = Province::query()->where('name', 'Đà Nẵng')->firstOrFail();
+    $otherProvince = Province::query()->where('name', 'Thanh Hóa')->firstOrFail();
 
     $createResponse = $this->postJson('/api/admin/destination-places', [
-        'destination_id' => $destination->id,
+        'province_id' => $province->id,
         'name' => 'Bà Nà Hills',
         'address' => 'Hòa Vang, Đà Nẵng',
         'description' => 'Khu du lịch trên núi.',
@@ -25,15 +25,15 @@ test('admin manages destination places within a selected destination', function 
 
     $createResponse
         ->assertCreated()
-        ->assertJsonPath('data.destination_id', $destination->id)
+        ->assertJsonPath('data.province_id', $province->id)
         ->assertJsonPath('data.name', 'Bà Nà Hills');
 
     DestinationPlace::factory()->create([
-        'destination_id' => $otherDestination->id,
+        'province_id' => $otherProvince->id,
         'name' => 'Pù Luông',
     ]);
 
-    $this->getJson('/api/admin/destination-places?destination_id='.$destination->id)
+    $this->getJson('/api/admin/destination-places?province_id='.$province->id)
         ->assertOk()
         ->assertJsonCount(1, 'data.data')
         ->assertJsonPath('data.data.0.name', 'Bà Nà Hills');
@@ -41,7 +41,7 @@ test('admin manages destination places within a selected destination', function 
     $place = DestinationPlace::query()->where('name', 'Bà Nà Hills')->firstOrFail();
 
     $this->putJson('/api/admin/destination-places/'.$place->id, [
-        'destination_id' => $destination->id,
+        'province_id' => $province->id,
         'name' => 'Sun World Bà Nà Hills',
         'status' => 'inactive',
     ])->assertOk()
@@ -55,28 +55,67 @@ test('admin manages destination places within a selected destination', function 
     expect(DestinationPlace::withTrashed()->find($place->id))->not->toBeNull();
 });
 
-test('destination place names are unique inside the same destination only', function () {
+test('destination place names are unique inside the same province only', function () {
     Sanctum::actingAs(createDestinationPlaceAdmin());
-    $destination = Destination::factory()->create();
-    $otherDestination = Destination::factory()->create();
+    $province = Province::query()->where('name', 'Đà Nẵng')->firstOrFail();
+    $otherProvince = Province::query()->where('name', 'Hà Nội')->firstOrFail();
 
     DestinationPlace::factory()->create([
-        'destination_id' => $destination->id,
+        'province_id' => $province->id,
         'name' => 'Biển Mỹ Khê',
     ]);
 
     $this->postJson('/api/admin/destination-places', [
-        'destination_id' => $destination->id,
+        'province_id' => $province->id,
         'name' => 'Biển Mỹ Khê',
         'status' => 'active',
     ])->assertUnprocessable()
         ->assertJsonValidationErrors('name');
 
     $this->postJson('/api/admin/destination-places', [
-        'destination_id' => $otherDestination->id,
+        'province_id' => $otherProvince->id,
         'name' => 'Biển Mỹ Khê',
         'status' => 'active',
     ])->assertCreated();
+});
+
+test('admin manages a place directly under a synced province and filters by activity type', function () {
+    Sanctum::actingAs(createDestinationPlaceAdmin());
+    $province = Province::query()->where('name', 'Đà Nẵng')->firstOrFail();
+    $otherProvince = Province::query()->where('name', 'Hà Nội')->firstOrFail();
+
+    $this->postJson('/api/admin/destination-places', [
+        'province_id' => $province->id,
+        'name' => 'Nhà hàng ven sông',
+        'activity_types' => ['meal', 'sightseeing'],
+        'status' => 'active',
+    ])->assertCreated()
+        ->assertJsonPath('data.province_id', $province->id)
+        ->assertJsonPath('data.activity_types.0', 'meal')
+        ->assertJsonPath('data.activity_types.1', 'sightseeing');
+
+    $this->postJson('/api/admin/destination-places', [
+        'province_id' => $otherProvince->id,
+        'name' => 'Nhà hàng ven sông',
+        'activity_types' => ['meal'],
+        'status' => 'active',
+    ])->assertCreated();
+
+    $this->getJson('/api/admin/destination-places?province_id='.$province->id.'&activity_type=meal')
+        ->assertOk()
+        ->assertJsonCount(1, 'data.data')
+        ->assertJsonPath('data.data.0.name', 'Nhà hàng ven sông');
+
+    $this->getJson('/api/admin/destination-places?province_id='.$province->id.'&activity_type=departure')
+        ->assertOk()
+        ->assertJsonCount(0, 'data.data');
+
+    $this->postJson('/api/admin/destination-places', [
+        'province_id' => $province->id,
+        'name' => 'Nhà hàng ven sông',
+        'status' => 'active',
+    ])->assertUnprocessable()
+        ->assertJsonValidationErrors('name');
 });
 
 function createDestinationPlaceAdmin(): User

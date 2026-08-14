@@ -21,10 +21,6 @@ const TourTypeCreatePage = lazy(() => import('../pages/admin/categories/TourType
 const TourTypeEditPage = lazy(() => import('../pages/admin/categories/TourTypeEditPage'))
 const TourTypeListPage = lazy(() => import('../pages/admin/categories/TourTypeListPage'))
 const TourTypeTrashPage = lazy(() => import('../pages/admin/categories/TourTypeTrashPage'))
-const DestinationCreatePage = lazy(() => import('../pages/admin/destinations/DestinationCreatePage'))
-const DestinationEditPage = lazy(() => import('../pages/admin/destinations/DestinationEditPage'))
-const DestinationListPage = lazy(() => import('../pages/admin/destinations/DestinationListPage'))
-const DestinationTrashPage = lazy(() => import('../pages/admin/destinations/DestinationTrashPage'))
 const DestinationPlaceManagementPage = lazy(() => import('../pages/admin/destinations/DestinationPlaceManagementPage'))
 const DestinationPlaceCreatePage = lazy(() => import('../pages/admin/destinations/DestinationPlaceCreatePage'))
 const DestinationPlaceEditPage = lazy(() => import('../pages/admin/destinations/DestinationPlaceEditPage'))
@@ -593,14 +589,7 @@ function AppRoutes() {
         )}
       />
 
-      {/* ================= ADMIN: ĐIỂM ĐẾN ================= */}
-
-      <Route
-        path="/admin/destinations"
-        element={adminPage(
-          <DestinationListPage />,
-        )}
-      />
+      {/* ================= ADMIN: TỈNH/THÀNH VÀ ĐỊA ĐIỂM CHI TIẾT ================= */}
 
       <Route
         path="/admin/destination-places"
@@ -620,27 +609,6 @@ function AppRoutes() {
         path="/admin/destination-places/:id/edit"
         element={adminPage(
           <DestinationPlaceEditPage />,
-        )}
-      />
-
-      <Route
-        path="/admin/destinations/create"
-        element={adminPage(
-          <DestinationCreatePage />,
-        )}
-      />
-
-      <Route
-        path="/admin/destinations/:id/edit"
-        element={adminPage(
-          <DestinationEditPage />,
-        )}
-      />
-
-      <Route
-        path="/admin/destinations/trash"
-        element={adminPage(
-          <DestinationTrashPage />,
         )}
       />
 

@@ -73,11 +73,16 @@ class Guide extends Model
     public function destinations(): BelongsToMany
     {
         return $this->belongsToMany(
-            Destination::class,
-            'guide_destinations',
+            Province::class,
+            'guide_provinces',
             'guide_id',
-            'destination_id'
+            'province_id'
         )->withTimestamps();
+    }
+
+    public function provinces(): BelongsToMany
+    {
+        return $this->destinations();
     }
 
     public function assignments(): HasMany

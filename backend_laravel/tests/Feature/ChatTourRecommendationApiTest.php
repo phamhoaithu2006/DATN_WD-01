@@ -1,7 +1,7 @@
 <?php
 
 use App\Models\Category;
-use App\Models\Destination;
+use App\Models\Province;
 use App\Models\Tour;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -26,16 +26,13 @@ test('travel assistant returns real tour identifiers in a normalized recommendat
         'status' => 'active',
     ]);
 
-    $destination = Destination::query()->create([
+    $destination = Province::query()->create([
         'name' => 'Phú Quốc',
-        'slug' => 'phu-quoc-chat',
-        'country' => 'Việt Nam',
-        'status' => 'active',
     ]);
 
     $tour = Tour::query()->create([
         'category_id' => $category->id,
-        'destination_id' => $destination->id,
+        'province_id' => $destination->id,
         'title' => 'Khám phá Phú Quốc',
         'slug' => 'kham-pha-phu-quoc-chat',
         'duration_days' => 3,
@@ -110,16 +107,13 @@ test('travel assistant defaults to six unique active tours and caps requests at 
         'status' => 'active',
     ]);
 
-    $destination = Destination::query()->create([
+    $destination = Province::query()->create([
         'name' => 'Việt Nam',
-        'slug' => 'viet-nam-chat-limit',
-        'country' => 'Việt Nam',
-        'status' => 'active',
     ]);
 
     $inactiveTour = Tour::query()->create([
         'category_id' => $category->id,
-        'destination_id' => $destination->id,
+        'province_id' => $destination->id,
         'title' => 'Tour đã ẩn',
         'slug' => 'tour-da-an-chat-limit',
         'duration_days' => 2,
@@ -142,7 +136,7 @@ test('travel assistant defaults to six unique active tours and caps requests at 
 
     $fullTour = Tour::query()->create([
         'category_id' => $category->id,
-        'destination_id' => $destination->id,
+        'province_id' => $destination->id,
         'title' => 'Tour đã hết chỗ',
         'slug' => 'tour-da-het-cho-chat-limit',
         'duration_days' => 2,
@@ -165,7 +159,7 @@ test('travel assistant defaults to six unique active tours and caps requests at 
 
     $expiredTour = Tour::query()->create([
         'category_id' => $category->id,
-        'destination_id' => $destination->id,
+        'province_id' => $destination->id,
         'title' => 'Tour đã khởi hành',
         'slug' => 'tour-da-khoi-hanh-chat-limit',
         'duration_days' => 2,
@@ -189,7 +183,7 @@ test('travel assistant defaults to six unique active tours and caps requests at 
     foreach (range(1, 12) as $index) {
         $tour = Tour::query()->create([
             'category_id' => $category->id,
-            'destination_id' => $destination->id,
+            'province_id' => $destination->id,
             'title' => "Tour đang mở {$index}",
             'slug' => "tour-dang-mo-{$index}",
             'duration_days' => 3,

@@ -272,14 +272,16 @@ class GuideAttendanceController extends Controller
     {
         $result = $this->service->advanceStage($request->user(), $tourDeparture);
         $result['current_stage']->load([
-            'itinerary.destinationPlace:id,destination_id,district_id,name,district_name,address',
-            'itinerary.destinationPlace.destination:id,name,province_city',
+            'itinerary.destinationPlace:id,province_id,district_id,name,district_name,address',
+            'itinerary.destinationPlace.province:id,name',
             'itinerary.destinationPlace.district.province:id,name',
+            'itinerary.destinationPlace.activityTypeLinks:id,destination_place_id,activity_type',
         ]);
         $result['stages']->load([
-            'itinerary.destinationPlace:id,destination_id,district_id,name,district_name,address',
-            'itinerary.destinationPlace.destination:id,name,province_city',
+            'itinerary.destinationPlace:id,province_id,district_id,name,district_name,address',
+            'itinerary.destinationPlace.province:id,name',
             'itinerary.destinationPlace.district.province:id,name',
+            'itinerary.destinationPlace.activityTypeLinks:id,destination_place_id,activity_type',
         ]);
 
         return response()->json([

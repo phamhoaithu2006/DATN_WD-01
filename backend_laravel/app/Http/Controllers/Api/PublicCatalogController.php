@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\TourResource;
 use App\Models\Category;
-use App\Models\Destination;
+use App\Models\Province;
 use App\Models\Tour;
 use App\Models\TourDeparture;
 use App\Models\TourReview;
@@ -30,8 +30,7 @@ class PublicCatalogController extends Controller
             ->limit(5)
             ->get(['id', 'name', 'slug', 'description', 'thumbnail_url']);
 
-        $destinations = Destination::query()
-            ->where('status', 'active')
+        $destinations = Province::query()
             ->whereHas('tours', fn (Builder $query) => $this->applyAvailableTourConstraints($query))
             ->withCount([
                 'tours as tour_count' => fn (Builder $query) => $this->applyAvailableTourConstraints($query),
@@ -39,12 +38,22 @@ class PublicCatalogController extends Controller
             ->orderByDesc('tour_count')
             ->orderBy('name')
             ->limit(6)
-            ->get(['id', 'name', 'slug', 'province_city', 'country', 'thumbnail_url']);
+            ->get(['id', 'name', 'code'])
+            ->map(fn (Province $province): array => [
+                'id' => $province->id,
+                'name' => $province->name,
+                'slug' => $province->slug,
+                'province_city' => $province->name,
+                'country' => 'Việt Nam',
+                'thumbnail_url' => null,
+                'tour_count' => (int) $province->tour_count,
+            ])
+            ->values();
 
         $featuredTours = $this->availableToursQuery()
             ->with([
                 'category:id,name,slug',
-                'destination:id,name,slug,province_city,country,description,thumbnail_url,status',
+                'province:id,name,code',
                 'thumbnail:id,tour_id,image_url,alt_text,is_thumbnail,sort_order',
                 'departures' => fn (Builder|HasMany $query) => $this->applyAvailableDepartureConstraints($query)
                     ->select([
@@ -102,8 +111,7 @@ class PublicCatalogController extends Controller
             ->where('status', 'active')
             ->whereHas('tours', fn (Builder $query) => $this->applyAvailableTourConstraints($query))
             ->count();
-        $availableDestinations = Destination::query()
-            ->where('status', 'active')
+        $availableDestinations = Province::query()
             ->whereHas('tours', fn (Builder $query) => $this->applyAvailableTourConstraints($query))
             ->count();
 
@@ -138,20 +146,20 @@ class PublicCatalogController extends Controller
 
     public function destinations(): JsonResponse
     {
-        $destinations = Destination::query()
-            ->where('status', 'active')
-            ->orderBy('country')
-            ->orderBy('province_city')
+        $destinations = Province::query()
             ->orderBy('name')
-            ->get([
-                'id',
-                'name',
-                'slug',
-                'province_city',
-                'country',
-                'thumbnail_url',
-                'status',
-            ]);
+            ->orderBy('name')
+            ->get(['id', 'name', 'code'])
+            ->map(fn (Province $province): array => [
+                'id' => $province->id,
+                'name' => $province->name,
+                'slug' => $province->slug,
+                'province_city' => $province->name,
+                'country' => 'Việt Nam',
+                'thumbnail_url' => null,
+                'status' => 'active',
+            ])
+            ->values();
 
         return response()->json([
             'status' => 'success',

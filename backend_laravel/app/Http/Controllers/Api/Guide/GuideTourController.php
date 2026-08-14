@@ -55,8 +55,9 @@ class GuideTourController extends Controller
             ->where('tga.status', '!=', 'cancelled')
             ->when(! $includeCancelled, fn ($query) => $query->whereNotIn('tour_departures.status', ['cancelled', 'canceled']))
             ->with([
-                'tour:id,title,slug,summary,duration_days,duration_nights,base_price,discount_price,average_rating,review_count,destination_id,category_id',
-                'tour.destination:id,name,province_city',
+                'tour:id,title,slug,summary,duration_days,duration_nights,base_price,discount_price,average_rating,review_count,province_id,category_id',
+                'tour.province:id,name,code',
+                'tour.destination:id,name,code',
                 'tour.category:id,name,slug',
                 'tour.thumbnail:id,tour_id,image_url,alt_text,is_thumbnail',
             ])
@@ -99,12 +100,12 @@ class GuideTourController extends Controller
             $query->whereHas('tour', function ($q) use ($keyword) {
                 $q->where('title', 'like', "%{$keyword}%")
                     ->orWhere('summary', 'like', "%{$keyword}%")
-                    ->orWhereHas('destination', fn ($d) => $d->where('name', 'like', "%{$keyword}%"));
+                    ->orWhereHas('province', fn ($d) => $d->where('name', 'like', "%{$keyword}%"));
             });
         }
 
-        if ($destinationId = $request->input('destination_id')) {
-            $query->whereHas('tour', fn ($q) => $q->where('destination_id', $destinationId));
+        if ($provinceId = $request->input('province_id', $request->input('destination_id'))) {
+            $query->whereHas('tour', fn ($q) => $q->where('province_id', $provinceId));
         }
 
         if ($fromDate = $request->input('from_date')) {
@@ -368,19 +369,18 @@ class GuideTourController extends Controller
             return response()->json(['data' => []]);
         }
 
-        $destinations = DB::table('tour_departures')
+        $provinces = DB::table('tour_departures')
             ->join('tour_guide_assignments as tga', 'tga.tour_departure_id', '=', 'tour_departures.id')
             ->join('tours', 'tours.id', '=', 'tour_departures.tour_id')
-            ->join('destinations', 'destinations.id', '=', 'tours.destination_id')
+            ->join('provinces', 'provinces.id', '=', 'tours.province_id')
             ->where('tga.guide_id', $guide->id)
             ->where('tga.status', '!=', 'cancelled')
-            ->select('destinations.id', 'destinations.name', 'destinations.province_city')
+            ->select('provinces.id', 'provinces.name', DB::raw('provinces.name as province_city'))
             ->distinct()
-            ->orderBy('destinations.province_city')
-            ->orderBy('destinations.name')
+            ->orderBy('provinces.name')
             ->get();
 
-        return response()->json(['data' => $destinations]);
+        return response()->json(['data' => $provinces]);
     }
 
     public function summary(Request $request)
@@ -600,16 +600,18 @@ class GuideTourController extends Controller
             ->where('tga.status', '!=', 'cancelled')
             ->where('tour_departures.id', $departureId)
             ->with([
-                'tour:id,title,slug,summary,duration_days,duration_nights,base_price,discount_price,average_rating,review_count,destination_id,category_id',
+                'tour:id,title,slug,summary,duration_days,duration_nights,base_price,discount_price,average_rating,review_count,province_id,category_id',
                 'tour.category:id,name,slug',
-                'tour.destination:id,name,slug,province_city,country,description',
+                'tour.province:id,name,code',
+                'tour.destination:id,name,code',
                 'tour.thumbnail:id,tour_id,image_url,alt_text,is_thumbnail',
                 'tour.itineraries' => fn ($it) => $it
                     ->orderBy('day_number')
                     ->orderBy('sort_order'),
-                'tour.itineraries.destinationPlace:id,destination_id,district_id,name,district_name,address',
-                'tour.itineraries.destinationPlace.destination:id,name,province_city',
+                'tour.itineraries.destinationPlace:id,province_id,district_id,name,district_name,address',
+                'tour.itineraries.destinationPlace.province:id,name',
                 'tour.itineraries.destinationPlace.district.province:id,name',
+                'tour.itineraries.destinationPlace.activityTypeLinks:id,destination_place_id,activity_type',
             ])
             ->addSelect([
                 'tour_departures.*',

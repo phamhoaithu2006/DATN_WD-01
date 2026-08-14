@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Destination;
 use App\Models\Guide;
+use App\Models\Province;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -20,6 +20,9 @@ class GuideController extends Controller
     {
         return [
             'user',
+            'provinces',
+            // Giữ tên quan hệ cũ trong response để frontend cũ vẫn đọc được,
+            // nhưng dữ liệu thực tế vẫn lấy từ guide_provinces.
             'destinations',
             'languages.language',
             'languages.level',
@@ -206,7 +209,7 @@ class GuideController extends Controller
      * - status
      * - experience_years
      * - language
-     * - destination_id
+     * - province_id (destination_id là khóa tương thích tạm thời)
      */
     public function filter(Request $request)
     {
@@ -298,12 +301,14 @@ class GuideController extends Controller
             });
         }
 
-        // Lọc theo khu vực / điểm đến phụ trách.
-        if ($request->filled('destination_id')) {
-            $destinationId = (int) $request->input('destination_id');
+        // Lọc theo tỉnh/thành phụ trách.
+        $provinceId = $request->input('province_id', $request->input('destination_id'));
 
-            $query->whereHas('destinations', function ($q) use ($destinationId) {
-                $q->where('destinations.id', $destinationId);
+        if ($provinceId !== null && $provinceId !== '') {
+            $provinceId = (int) $provinceId;
+
+            $query->whereHas('provinces', function ($q) use ($provinceId) {
+                $q->where('provinces.id', $provinceId);
             });
         }
 
@@ -336,11 +341,11 @@ class GuideController extends Controller
     }
 
     /**
-     * Danh sách khu vực để dùng trong form HDV.
+     * Danh sách tỉnh/thành để dùng trong form HDV.
      */
     public function destinationOptions()
     {
-        $destinations = Destination::query()
+        $provinces = Province::query()
             ->orderBy('name')
             ->get([
                 'id',
@@ -348,8 +353,8 @@ class GuideController extends Controller
             ]);
 
         return response()->json([
-            'message' => 'Danh sách khu vực phụ trách',
-            'data' => $destinations,
+            'message' => 'Danh sách tỉnh/thành phụ trách',
+            'data' => $provinces,
         ]);
     }
 
@@ -358,6 +363,13 @@ class GuideController extends Controller
      */
     public function store(Request $request)
     {
+        // Nhận tên province_ids mới, đồng thời giữ tương thích với frontend cũ.
+        if (!$request->has('destination_ids') && $request->has('province_ids')) {
+            $request->merge([
+                'destination_ids' => $request->input('province_ids'),
+            ]);
+        }
+
         $validated = $request->validate([
             'user_id' => [
                 'required',
@@ -378,7 +390,7 @@ class GuideController extends Controller
                 Rule::in(['active', 'inactive', 'locked']),
             ],
 
-            // Khu vực phụ trách thay cho specialization_ids.
+            // Tỉnh/thành phụ trách; destination_ids là tên khóa tương thích tạm thời.
             'destination_ids' => [
                 'required',
                 'array',
@@ -388,7 +400,7 @@ class GuideController extends Controller
             'destination_ids.*' => [
                 'integer',
                 'distinct',
-                'exists:destinations,id',
+                'exists:provinces,id',
             ],
 
             'languages' => [
@@ -442,8 +454,8 @@ class GuideController extends Controller
                     'status' => $validated['status'] ?? 'active',
                 ]);
 
-                // Gán các khu vực / điểm đến phụ trách.
-                $guide->destinations()->sync(
+                // Gán các tỉnh/thành phụ trách.
+                $guide->provinces()->sync(
                     $validated['destination_ids']
                 );
 
@@ -488,6 +500,13 @@ class GuideController extends Controller
             ], 404);
         }
 
+        // Nhận tên province_ids mới, đồng thời giữ tương thích với frontend cũ.
+        if (!$request->has('destination_ids') && $request->has('province_ids')) {
+            $request->merge([
+                'destination_ids' => $request->input('province_ids'),
+            ]);
+        }
+
         $validated = $request->validate([
             'experience_years' => [
                 'sometimes',
@@ -510,7 +529,7 @@ class GuideController extends Controller
             'destination_ids.*' => [
                 'integer',
                 'distinct',
-                'exists:destinations,id',
+                'exists:provinces,id',
             ],
 
             'languages' => [
@@ -559,9 +578,9 @@ class GuideController extends Controller
                     $guide->update($guideData);
                 }
 
-                // Cập nhật khu vực phụ trách.
+                // Cập nhật tỉnh/thành phụ trách.
                 if ($request->has('destination_ids')) {
-                    $guide->destinations()->sync(
+                    $guide->provinces()->sync(
                         $validated['destination_ids']
                     );
                 }
@@ -671,7 +690,7 @@ class GuideController extends Controller
 
         try {
             DB::transaction(function () use ($guide) {
-                $guide->destinations()->detach();
+                $guide->provinces()->detach();
                 $guide->languages()->delete();
                 $guide->experiences()->delete();
 

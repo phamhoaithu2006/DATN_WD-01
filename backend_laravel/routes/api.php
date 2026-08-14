@@ -406,7 +406,6 @@ Route::get('/widgets', [PublicWidgetController::class, 'index']);
 |--------------------------------------------------------------------------
 */
 Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(function () {
-    Route::get('guides/destination-options', [DestinationController::class, 'options']);
     Route::get('/settings/public', [PublicSettingController::class, 'show']);
     Route::get('/widgets', [PublicWidgetController::class, 'index']);
     Route::get('/roles', [CustomerManagerController::class, 'index_role']);
@@ -517,14 +516,12 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(functi
     Route::patch('/support-staff/{id}/restore', [SupportStaffController::class, 'restore']);
     Route::delete('/support-staff/{id}/force-delete', [SupportStaffController::class, 'forceDestroy']);
 
-    // Quản lý địa điểm/điểm đến
-    Route::get('destinations/search', [DestinationController::class, 'search']);
+    // Danh mục tỉnh/thành đã đồng bộ và quận/huyện trực thuộc
+    Route::get('guides/province-options', [DestinationController::class, 'options']);
+    // Alias cũ cho màn hình hướng dẫn viên trong giai đoạn chuyển đổi.
     Route::get('administrative/provinces', [DestinationController::class, 'provinces']);
-    Route::get('destinations/{destination}/districts', [DestinationController::class, 'districts']);
-    Route::apiResource('destinations', DestinationController::class);
-    Route::get('destinations/trash/list', [DestinationController::class, 'trashed']);
-    Route::post('destinations/{id}/restore', [DestinationController::class, 'restore']);
-    Route::delete('destinations/{id}/force-delete', [DestinationController::class, 'forceDelete']);
+    Route::get('administrative/provinces/{province}/districts', [DestinationController::class, 'provinceDistricts']);
+    Route::get('guides/destination-options', [DestinationController::class, 'options']);
     Route::apiResource('destination-places', DestinationPlaceController::class);
 
     // Quản lý danh mục tour

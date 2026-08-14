@@ -361,7 +361,8 @@ class ChatBotController extends Controller
         $query = Tour::query()
             ->with([
                 'category:id,name,slug',
-                'destination:id,name,slug',
+                'province:id,name,code',
+                'destination:id,name,code',
                 'thumbnail:id,tour_id,image_url,alt_text,is_thumbnail,sort_order',
                 'departures' => fn (Builder|HasMany $query): Builder|HasMany => $this
                     ->applyActiveDepartureConstraints($query)
@@ -395,8 +396,7 @@ class ChatBotController extends Controller
             $keyword = $filters['terrain'];
             $query->where(function ($q) use ($keyword) {
                 $q->whereHas('category', fn ($c) => $c->where('name', 'like', "%{$keyword}%"))
-                    ->orWhereHas('destination', fn ($d) => $d->where('description', 'like', "%{$keyword}%")
-                        ->orWhere('name', 'like', "%{$keyword}%"))
+                    ->orWhereHas('province', fn ($d) => $d->where('name', 'like', "%{$keyword}%"))
                     ->orWhere('summary', 'like', "%{$keyword}%")
                     ->orWhere('description', 'like', "%{$keyword}%");
             });
@@ -431,7 +431,7 @@ class ChatBotController extends Controller
             $price = $hasDiscount
                 ? number_format($t->discount_price).'đ (giảm từ '.number_format($t->base_price).'đ)'
                 : number_format($t->base_price).'đ';
-            $destName = $t->destination->name ?? 'chưa rõ điểm đến';
+            $destName = $t->province->name ?? 'chưa rõ tỉnh/thành';
             $catName = $t->category->name ?? '';
 
             return "- {$t->title} ({$catName}, {$destName}): {$t->duration_days} ngày {$t->duration_nights} đêm, giá {$price}. Mô tả: {$t->summary}";

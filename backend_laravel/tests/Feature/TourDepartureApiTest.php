@@ -1,7 +1,9 @@
 <?php
 
 use App\Models\Booking;
+use App\Models\DestinationPlace;
 use App\Models\Guide;
+use App\Models\Province;
 use App\Models\Role;
 use App\Models\Tour;
 use App\Models\TourDeparture;
@@ -9,6 +11,7 @@ use App\Models\User;
 use App\Services\TourPricingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Laravel\Sanctum\Sanctum;
 
 uses(RefreshDatabase::class);
@@ -33,7 +36,7 @@ function createTestTour(array $attributes = []): Tour
 
     return Tour::create(array_merge([
         'category_id' => 1,
-        'destination_id' => 1,
+        'province_id' => 1,
         'title' => 'Tour Hà Nội Hạ Long 2 Ngày 1 Đêm',
         'slug' => 'tour-ha-noi-ha-long-2-ngay-1-dem',
         'base_price' => 2500000,
@@ -62,15 +65,10 @@ function ensureTourReferenceData(): void
         ]
     );
 
-    DB::table('destinations')->updateOrInsert(
+    DB::table('provinces')->updateOrInsert(
         ['id' => 1],
         [
-            'name' => 'Điểm đến test',
-            'slug' => 'diem-den-test',
-            'province_city' => 'Hà Nội',
-            'country' => 'Việt Nam',
-            'description' => 'Điểm đến dùng cho feature test.',
-            'status' => 'active',
+            'name' => 'Tỉnh test',
             'created_at' => $now,
             'updated_at' => $now,
         ]
@@ -154,7 +152,7 @@ test('admin can create tour without duration_nights and backend calculates it', 
 
     $payload = [
         'category_id' => 1,
-        'destination_id' => 1,
+        'province_id' => 1,
         'title' => 'Tour Auto Duration Nights',
         'duration_days' => 4,
         'base_price' => 1000000,
@@ -458,7 +456,7 @@ test('admin can create tour with detailed itinerary records and images', functio
 
     $payload = [
         'category_id' => 1,
-        'destination_id' => 1,
+        'province_id' => 1,
         'created_by' => $admin->id,
         'title' => 'Tour Test Lịch Trình',
         'duration_days' => 2,
@@ -510,6 +508,50 @@ test('admin can create tour with detailed itinerary records and images', functio
     $this->assertDatabaseHas('tour_itinerary_images', [
         'image_url' => 'https://example.com/lich-trinh-1.jpg',
         'alt_text' => 'Điểm khởi hành',
+    ]);
+});
+
+test('admin can type a new itinerary place and link it to the selected province and activity', function () {
+    $admin = createAdminUser();
+    Sanctum::actingAs($admin);
+    $province = Province::query()->where('name', 'Hà Nội')->firstOrFail();
+
+    $response = $this->postJson('/api/admin/tours', [
+        'category_id' => 1,
+        'province_id' => 1,
+        'created_by' => $admin->id,
+        'title' => 'Tour Tạo Địa Điểm Từ Lịch Trình',
+        'duration_days' => 1,
+        'base_price' => 1200000,
+        'max_slots' => 10,
+        'status' => 'draft',
+        'itinerary' => [
+            [
+                'day_number' => 1,
+                'sort_order' => 0,
+                'type' => 'meal',
+                'province_id' => $province->id,
+                'destination_place_name' => 'Quán ăn mới trong lịch trình',
+                'destination_place_address' => 'Hoàn Kiếm, Hà Nội',
+                'title' => 'Ăn trưa',
+            ],
+        ],
+    ]);
+
+    $response->assertCreated()
+        ->assertJsonPath('data.itinerary.0.type', 'meal')
+        ->assertJsonPath('data.itinerary.0.destination_place.province_id', $province->id)
+        ->assertJsonPath('data.itinerary.0.destination_place.name', 'Quán ăn mới trong lịch trình');
+
+    $place = DestinationPlace::query()
+        ->where('name', 'Quán ăn mới trong lịch trình')
+        ->firstOrFail();
+
+        expect($place->province_id)->toBe($province->id);
+        expect(Schema::hasColumn('destination_places', 'destination_id'))->toBeFalse();
+    $this->assertDatabaseHas('destination_place_activity_types', [
+        'destination_place_id' => $place->id,
+        'activity_type' => 'meal',
     ]);
 });
 
@@ -570,7 +612,7 @@ test('admin stores percentage age pricing rules from base price', function () {
 
     $response = $this->postJson('/api/admin/tours', [
         'category_id' => 1,
-        'destination_id' => 1,
+        'province_id' => 1,
         'title' => 'Tour tự tính giá theo phần trăm',
         'summary' => 'Tour kiểm tra quy tắc giá theo phần trăm.',
         'description' => 'Nội dung dùng để kiểm tra giá tự tính cho người lớn và trẻ em.',
@@ -638,7 +680,7 @@ test('store tour validates detailed itinerary structure', function () {
 
     $payload = [
         'category_id' => 1,
-        'destination_id' => 1,
+        'province_id' => 1,
         'created_by' => $admin->id,
         'title' => 'Tour Test Itinerary',
         'duration_days' => 2,

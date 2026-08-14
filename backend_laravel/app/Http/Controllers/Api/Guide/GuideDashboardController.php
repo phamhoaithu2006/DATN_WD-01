@@ -28,8 +28,9 @@ class GuideDashboardController extends Controller
             ->where('tga.guide_id', $guide->id)
             ->where('tga.status', '!=', 'cancelled')
             ->with([
-                'tour:id,title,slug,summary,duration_days,duration_nights,base_price,discount_price,average_rating,review_count,destination_id,category_id',
-                'tour.destination:id,name,province_city',
+                'tour:id,title,slug,summary,duration_days,duration_nights,base_price,discount_price,average_rating,review_count,province_id,category_id',
+                'tour.province:id,name,code',
+                'tour.destination:id,name,code',
                 'tour.category:id,name,slug',
                 'tour.thumbnail:id,tour_id,image_url,alt_text,is_thumbnail',
             ])
@@ -93,10 +94,15 @@ class GuideDashboardController extends Controller
                 'discount_price' => (float) ($tour->discount_price ?? 0),
                 'average_rating' => (float) ($tour->average_rating ?? 0),
                 'review_count' => (int) ($tour->review_count ?? 0),
-                'destination' => $tour->destination ? [
-                    'id' => $tour->destination->id,
-                    'name' => $tour->destination->name,
-                    'province_city' => $tour->destination->province_city,
+                'province' => $tour->province ? [
+                    'id' => $tour->province->id,
+                    'name' => $tour->province->name,
+                ] : null,
+                // Alias tạm thời cho giao diện cũ.
+                'destination' => $tour->province ? [
+                    'id' => $tour->province->id,
+                    'name' => $tour->province->name,
+                    'province_city' => $tour->province->name,
                 ] : null,
                 'category' => $tour->category ? [
                     'id' => $tour->category->id,

@@ -13,6 +13,7 @@ beforeEach(function () {
 
 test('admin customer APIs require authentication', function () {
     $this->getJson('/api/admin/customers')->assertUnauthorized();
+    $this->get('/api/admin/customers')->assertUnauthorized();
 });
 
 test('customer cannot access admin customer APIs', function () {
@@ -75,7 +76,7 @@ function createRbacFeatureSchema(): void
 {
     Schema::dropIfExists('banners');
     Schema::dropIfExists('tours');
-    Schema::dropIfExists('destinations');
+    Schema::dropIfExists('provinces');
     Schema::dropIfExists('categories');
     Schema::dropIfExists('settings');
     Schema::dropIfExists('support_staff');
@@ -136,19 +137,17 @@ function createRbacFeatureSchema(): void
         $table->softDeletes();
     });
 
-    Schema::create('destinations', function (Blueprint $table) {
+    Schema::create('provinces', function (Blueprint $table) {
         $table->id();
         $table->string('name');
-        $table->string('slug')->unique();
-        $table->string('status')->default('active');
+        $table->string('code')->nullable()->unique();
         $table->timestamps();
-        $table->softDeletes();
     });
 
     Schema::create('tours', function (Blueprint $table) {
         $table->id();
         $table->foreignId('category_id');
-        $table->foreignId('destination_id');
+        $table->foreignId('province_id');
         $table->string('title');
         $table->string('slug')->unique();
         $table->string('summary')->nullable();
