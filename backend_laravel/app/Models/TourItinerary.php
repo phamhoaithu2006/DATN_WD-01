@@ -8,6 +8,27 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class TourItinerary extends Model
 {
+    public const ACTIVITY_DEPARTURE = 'departure';
+
+    public const ACTIVITY_TRANSPORT = 'transport';
+
+    public const ACTIVITY_SIGHTSEEING = 'sightseeing';
+
+    public const ACTIVITY_MEAL = 'meal';
+
+    public const ACTIVITY_FREE_TIME = 'free_time';
+
+    public const ACTIVITY_RETURN = 'return';
+
+    public const ACTIVITY_TYPES = [
+        self::ACTIVITY_DEPARTURE,
+        self::ACTIVITY_TRANSPORT,
+        self::ACTIVITY_SIGHTSEEING,
+        self::ACTIVITY_MEAL,
+        self::ACTIVITY_FREE_TIME,
+        self::ACTIVITY_RETURN,
+    ];
+
     protected $fillable = [
         'tour_id',
         'day_number',

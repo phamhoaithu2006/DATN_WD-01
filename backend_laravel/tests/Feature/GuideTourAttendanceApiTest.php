@@ -54,15 +54,9 @@ function guideAttendanceTour(): Tour
         ]
     );
 
-    DB::table('destinations')->updateOrInsert(
+    DB::table('provinces')->updateOrInsert(
         ['id' => 1],
         [
-            'name' => 'Guide attendance destination',
-            'slug' => 'guide-attendance-destination',
-            'province_city' => 'Ha Noi',
-            'country' => 'Viet Nam',
-            'description' => 'Destination for guide attendance tests.',
-            'status' => 'active',
             'created_at' => $now,
             'updated_at' => $now,
         ]
@@ -70,7 +64,7 @@ function guideAttendanceTour(): Tour
 
     return Tour::query()->create([
         'category_id' => 1,
-        'destination_id' => 1,
+        'province_id' => 1,
         'title' => 'Tour diem danh HDV',
         'slug' => 'tour-diem-danh-hdv-'.fake()->unique()->numberBetween(1000, 9999),
         'summary' => 'Tour dung cho feature test diem danh HDV.',

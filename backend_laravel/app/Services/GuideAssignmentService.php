@@ -32,7 +32,7 @@ class GuideAssignmentService
         $query = Guide::query()
             ->with([
                 'user:id,full_name,email,avatar_url',
-                'destinations:id,name,province_city',
+                'provinces:id,name',
             ])
             ->whereHas('user');
 
@@ -265,7 +265,7 @@ class GuideAssignmentService
             $assignedBy
         ) {
             $departure = TourDeparture::query()
-                ->with('tour.destinations')
+                ->with('tour.province')
                 ->lockForUpdate()
                 ->findOrFail($departureId);
 
@@ -283,7 +283,7 @@ class GuideAssignmentService
             if ($currentAssignment) {
                 return $currentAssignment->load([
                     'guide.user',
-                    'guide.destinations',
+                    'guide.provinces',
                 ]);
             }
 
@@ -311,7 +311,7 @@ class GuideAssignmentService
                 'assigned_at' => now(),
             ])->load([
                 'guide.user',
-                'guide.destinations',
+                'guide.provinces',
             ]);
         }, 3);
     }
@@ -330,7 +330,7 @@ class GuideAssignmentService
             $assignedBy
         ) {
             $departure = TourDeparture::query()
-                ->with('tour.destinations')
+                ->with('tour.province')
                 ->lockForUpdate()
                 ->findOrFail($departure->id);
 
@@ -374,7 +374,7 @@ class GuideAssignmentService
                 'assigned_at' => now(),
             ])->load([
                 'guide.user',
-                'guide.destinations',
+                'guide.provinces',
             ]);
         }, 3);
     }

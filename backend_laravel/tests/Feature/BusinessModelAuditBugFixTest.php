@@ -50,20 +50,15 @@ function auditBugBookingScenario(User $user): array
         'updated_at' => $now,
     ]);
 
-    $destinationId = DB::table('destinations')->insertGetId([
-        'name' => "Điểm đến audit {$suffix}",
-        'slug' => "diem-den-audit-{$suffix}",
-        'province_city' => 'Hà Nội',
-        'country' => 'Việt Nam',
-        'description' => 'Dữ liệu kiểm thử lỗi hoàn chỗ.',
-        'status' => 'active',
+    $provinceId = DB::table('provinces')->insertGetId([
+        'name' => "Tỉnh audit {$suffix}",
         'created_at' => $now,
         'updated_at' => $now,
     ]);
 
     $tour = Tour::query()->create([
         'category_id' => $categoryId,
-        'destination_id' => $destinationId,
+        'province_id' => $provinceId,
         'created_by' => $user->id,
         'title' => "Tour audit {$suffix}",
         'slug' => "tour-audit-{$suffix}",

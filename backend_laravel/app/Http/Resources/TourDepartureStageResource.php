@@ -29,7 +29,10 @@ class TourDepartureStageResource extends JsonResource
                     'id' => $place->id,
                     'name' => $place->name,
                     'district_name' => $place->district?->name ?? $place->district_name,
-                    'province_city' => $place->district?->province?->name ?? ($place->relationLoaded('destination') ? $place->destination?->province_city : null),
+                    'province_id' => $place->province_id ?? $place->district?->province_id,
+                    'province_city' => $place->province?->name
+                        ?? $place->district?->province?->name,
+                    'activity_types' => $place->activity_types,
                     'address' => $place->address,
                 ] : null;
             }),

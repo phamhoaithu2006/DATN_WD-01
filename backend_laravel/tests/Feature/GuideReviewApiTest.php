@@ -49,15 +49,9 @@ function guideReviewTour(): Tour
         ]
     );
 
-    DB::table('destinations')->updateOrInsert(
+    DB::table('provinces')->updateOrInsert(
         ['id' => 1],
         [
-            'name' => 'Guide review destination',
-            'slug' => 'guide-review-destination',
-            'province_city' => 'Ha Noi',
-            'country' => 'Viet Nam',
-            'description' => 'Destination for guide review tests.',
-            'status' => 'active',
             'created_at' => $now,
             'updated_at' => $now,
         ]
@@ -65,7 +59,7 @@ function guideReviewTour(): Tour
 
     return Tour::query()->create([
         'category_id' => 1,
-        'destination_id' => 1,
+        'province_id' => 1,
         'title' => 'Tour danh gia HDV',
         'slug' => 'tour-danh-gia-hdv-'.fake()->unique()->numberBetween(1000, 9999),
         'summary' => 'Tour dung cho feature test danh gia HDV.',

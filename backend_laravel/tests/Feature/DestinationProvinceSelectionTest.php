@@ -9,36 +9,65 @@ use Laravel\Sanctum\Sanctum;
 
 uses(RefreshDatabase::class);
 
-test('destination accepts exactly one province', function () {
+test('admin can load provinces synced into the administrative catalog', function () {
     Sanctum::actingAs(destinationProvinceSelectionAdmin());
     $provinceId = Province::query()->value('id');
 
-    $this->postJson('/api/admin/destinations', destinationPayload([$provinceId]))
-        ->assertCreated();
-
-    $this->assertDatabaseCount('destination_province', 1);
-    $this->assertDatabaseHas('destination_province', ['province_id' => $provinceId]);
+    $this->getJson('/api/admin/administrative/provinces')
+        ->assertOk()
+        ->assertJsonFragment(['id' => $provinceId]);
 });
 
-test('destination rejects multiple provinces', function () {
+test('province place counts follow the selected activity and only include active places', function () {
     Sanctum::actingAs(destinationProvinceSelectionAdmin());
-    $provinceIds = Province::query()->limit(2)->pluck('id')->all();
+    $province = Province::query()->where('name', 'Đà Nẵng')->firstOrFail();
 
-    $this->postJson('/api/admin/destinations', destinationPayload($provinceIds))
-        ->assertUnprocessable()
-        ->assertJsonValidationErrors('province_ids');
+    $this->postJson('/api/admin/destination-places', [
+        'province_id' => $province->id,
+        'name' => 'Địa điểm tham quan đang hoạt động',
+        'activity_types' => ['sightseeing'],
+        'status' => 'active',
+    ])->assertCreated();
 
-    $this->assertDatabaseCount('destinations', 0);
+    $this->postJson('/api/admin/destination-places', [
+        'province_id' => $province->id,
+        'name' => 'Nhà hàng đang hoạt động',
+        'activity_types' => ['meal'],
+        'status' => 'active',
+    ])->assertCreated();
+
+    $this->postJson('/api/admin/destination-places', [
+        'province_id' => $province->id,
+        'name' => 'Nhà hàng đang tạm ẩn',
+        'activity_types' => ['meal'],
+        'status' => 'inactive',
+    ])->assertCreated();
+
+    $mealResponse = $this->getJson('/api/admin/administrative/provinces?activity_type=meal')
+        ->assertOk();
+    $mealProvince = collect($mealResponse->json('data'))->firstWhere('id', $province->id);
+
+    expect($mealProvince['places_count'])->toBe(1);
+
+    $sightseeingResponse = $this->getJson('/api/admin/administrative/provinces?activity_type=sightseeing')
+        ->assertOk();
+    $sightseeingProvince = collect($sightseeingResponse->json('data'))->firstWhere('id', $province->id);
+
+    expect($sightseeingProvince['places_count'])->toBe(1);
 });
 
-test('destination requires a province', function () {
+test('legacy destination catalog endpoint is no longer available', function () {
     Sanctum::actingAs(destinationProvinceSelectionAdmin());
 
-    $this->postJson('/api/admin/destinations', destinationPayload([]))
-        ->assertUnprocessable()
-        ->assertJsonValidationErrors('province_ids');
+    $this->getJson('/api/admin/destinations')->assertNotFound();
+});
 
-    $this->assertDatabaseCount('destinations', 0);
+test('province options expose the synced province as the only geographic catalog', function () {
+    Sanctum::actingAs(destinationProvinceSelectionAdmin());
+
+    $this->getJson('/api/admin/guides/province-options')
+        ->assertOk()
+        ->assertJsonStructure(['data' => [['id', 'name']]]);
 });
 
 function destinationProvinceSelectionAdmin(): User
@@ -55,20 +84,4 @@ function destinationProvinceSelectionAdmin(): User
         'password' => Hash::make('password'),
         'status' => 'active',
     ]);
-}
-
-/**
- * @param  list<int>  $provinceIds
- * @return array<string, mixed>
- */
-function destinationPayload(array $provinceIds): array
-{
-    return [
-        'name' => 'Điểm đến kiểm thử',
-        'slug' => 'diem-den-kiem-thu',
-        'province_city' => 'Hà Nội',
-        'country' => 'Việt Nam',
-        'status' => 'active',
-        'province_ids' => $provinceIds,
-    ];
 }

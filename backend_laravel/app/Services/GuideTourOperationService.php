@@ -540,9 +540,10 @@ class GuideTourOperationService
 
         return $departure->fresh()->stages()
             ->with([
-                'itinerary.destinationPlace:id,destination_id,district_id,name,district_name,address',
-                'itinerary.destinationPlace.destination:id,name,province_city',
+                'itinerary.destinationPlace:id,province_id,district_id,name,district_name,address',
+                'itinerary.destinationPlace.province:id,name',
                 'itinerary.destinationPlace.district.province:id,name',
+                'itinerary.destinationPlace.activityTypeLinks:id,destination_place_id,activity_type',
             ])
             ->get();
     }

@@ -45,8 +45,9 @@ class GuideReviewController extends Controller
                     });
             })
             ->with([
-                'tour:id,title,slug,summary,duration_days,duration_nights,destination_id,category_id,average_rating,review_count',
-                'tour.destination:id,name,province_city',
+                'tour:id,title,slug,summary,duration_days,duration_nights,province_id,category_id,average_rating,review_count',
+                'tour.province:id,name,code',
+                'tour.destination:id,name,code',
                 'tour.category:id,name,slug',
                 'tour.thumbnail:id,tour_id,image_url,alt_text,is_thumbnail',
                 'tourDeparture:id,tour_id,departure_date,return_date,status,total_slots,booked_slots',
@@ -242,8 +243,9 @@ class GuideReviewController extends Controller
             ->join('tour_departures as td', 'td.id', '=', 'tour_guide_assignments.tour_departure_id')
             ->select('tour_guide_assignments.*')
             ->with([
-                'departure.tour:id,title,slug,summary,duration_days,duration_nights,destination_id,category_id,average_rating,review_count',
-                'departure.tour.destination:id,name,province_city',
+                'departure.tour:id,title,slug,summary,duration_days,duration_nights,province_id,category_id,average_rating,review_count',
+                'departure.tour.province:id,name,code',
+                'departure.tour.destination:id,name,code',
                 'departure.tour.category:id,name,slug',
                 'departure.tour.thumbnail:id,tour_id,image_url,alt_text,is_thumbnail',
                 'departure.reviews' => function ($reviewQuery) use ($guide): void {
@@ -258,9 +260,8 @@ class GuideReviewController extends Controller
 
             $query->whereHas('departure.tour', function ($tourQuery) use ($keyword): void {
                 $tourQuery->where('title', 'like', "%{$keyword}%")
-                    ->orWhereHas('destination', function ($destinationQuery) use ($keyword): void {
-                        $destinationQuery->where('name', 'like', "%{$keyword}%")
-                            ->orWhere('province_city', 'like', "%{$keyword}%");
+                    ->orWhereHas('province', function ($provinceQuery) use ($keyword): void {
+                        $provinceQuery->where('name', 'like', "%{$keyword}%");
                     });
             });
         }
@@ -316,10 +317,14 @@ class GuideReviewController extends Controller
                 'duration_nights' => $tour->duration_nights,
                 'average_rating' => (float) ($tour->average_rating ?? 0),
                 'review_count' => (int) ($tour->review_count ?? 0),
-                'destination' => $tour->destination ? [
-                    'id' => $tour->destination->id,
-                    'name' => $tour->destination->name,
-                    'province_city' => $tour->destination->province_city,
+                'province' => $tour->province ? [
+                    'id' => $tour->province->id,
+                    'name' => $tour->province->name,
+                ] : null,
+                'destination' => $tour->province ? [
+                    'id' => $tour->province->id,
+                    'name' => $tour->province->name,
+                    'province_city' => $tour->province->name,
                 ] : null,
                 'category' => $tour->category ? [
                     'id' => $tour->category->id,
@@ -385,10 +390,14 @@ class GuideReviewController extends Controller
                 'duration_nights' => $tour->duration_nights,
                 'average_rating' => (float) ($tour->average_rating ?? 0),
                 'review_count' => (int) ($tour->review_count ?? 0),
-                'destination' => $tour->destination ? [
-                    'id' => $tour->destination->id,
-                    'name' => $tour->destination->name,
-                    'province_city' => $tour->destination->province_city,
+                'province' => $tour->province ? [
+                    'id' => $tour->province->id,
+                    'name' => $tour->province->name,
+                ] : null,
+                'destination' => $tour->province ? [
+                    'id' => $tour->province->id,
+                    'name' => $tour->province->name,
+                    'province_city' => $tour->province->name,
                 ] : null,
                 'category' => $tour->category ? [
                     'id' => $tour->category->id,

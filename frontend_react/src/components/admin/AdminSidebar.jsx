@@ -227,10 +227,6 @@ function isActionableUnassignedDeparture(departure) {
   return getDepartureTimeGroup(departure) === 'upcoming' && !hasAssignedGuide(departure)
 }
 
-function getTourIdFromDeparture(departure) {
-  return departure?.tour_id || departure?.tour?.id || departure?.tourId || null
-}
-
 function uniqueDepartures(items = []) {
   const map = new Map()
 
@@ -435,7 +431,7 @@ function AdminSidebar({
             item.path === '/admin/tours' &&
             (location.pathname.startsWith('/admin/tours') ||
               location.pathname.startsWith('/admin/categories') ||
-              location.pathname.startsWith('/admin/destinations'))
+              location.pathname.startsWith('/admin/destination-places'))
 
           return (
             <NavLink

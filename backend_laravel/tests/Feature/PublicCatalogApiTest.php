@@ -1,7 +1,7 @@
 <?php
 
 use App\Models\Category;
-use App\Models\Destination;
+use App\Models\Province;
 use App\Models\Tour;
 use App\Models\TourReview;
 use Illuminate\Database\Schema\Blueprint;
@@ -17,7 +17,7 @@ beforeEach(function () {
     Schema::dropIfExists('tours');
     Schema::dropIfExists('users');
     Schema::dropIfExists('categories');
-    Schema::dropIfExists('destinations');
+    Schema::dropIfExists('provinces');
 
     Schema::create('categories', function (Blueprint $table) {
         $table->id();
@@ -30,16 +30,11 @@ beforeEach(function () {
         $table->softDeletes();
     });
 
-    Schema::create('destinations', function (Blueprint $table) {
+    Schema::create('provinces', function (Blueprint $table) {
         $table->id();
         $table->string('name');
-        $table->string('slug')->unique();
-        $table->string('province_city')->nullable();
-        $table->string('country')->nullable();
-        $table->string('thumbnail_url')->nullable();
-        $table->string('status')->default('active');
+        $table->string('code')->nullable()->unique();
         $table->timestamps();
-        $table->softDeletes();
     });
 
     Schema::create('users', function (Blueprint $table) {
@@ -52,7 +47,7 @@ beforeEach(function () {
     Schema::create('tours', function (Blueprint $table) {
         $table->id();
         $table->unsignedBigInteger('category_id');
-        $table->unsignedBigInteger('destination_id');
+        $table->unsignedBigInteger('province_id');
         $table->string('title');
         $table->string('slug')->unique();
         $table->string('summary')->nullable();
@@ -139,18 +134,11 @@ test('public catalog returns only active categories and destinations', function 
         'slug' => 'tam-an',
         'status' => 'inactive',
     ]);
-    Destination::query()->create([
+    Province::query()->create([
         'name' => 'Đà Nẵng',
-        'slug' => 'da-nang',
-        'province_city' => 'Đà Nẵng',
-        'country' => 'Việt Nam',
-        'status' => 'active',
     ]);
-    Destination::query()->create([
+    Province::query()->create([
         'name' => 'Nội bộ',
-        'slug' => 'noi-bo',
-        'country' => 'Việt Nam',
-        'status' => 'inactive',
     ]);
 
     $this->getJson('/api/catalog/categories')
@@ -162,8 +150,9 @@ test('public catalog returns only active categories and destinations', function 
     $this->getJson('/api/catalog/destinations')
         ->assertOk()
         ->assertJsonPath('status', 'success')
-        ->assertJsonCount(1, 'data')
-        ->assertJsonPath('data.0.slug', 'da-nang');
+        ->assertJsonCount(2, 'data')
+        ->assertJsonFragment(['slug' => 'da-nang'])
+        ->assertJsonFragment(['slug' => 'noi-bo']);
 });
 
 test('home returns only bookable content and visible customer reviews', function () {
@@ -172,16 +161,12 @@ test('home returns only bookable content and visible customer reviews', function
         'slug' => 'nghi-duong',
         'status' => 'active',
     ]);
-    $destination = Destination::query()->create([
+    $destination = Province::query()->create([
         'name' => 'Đà Nẵng',
-        'slug' => 'da-nang-home',
-        'province_city' => 'Đà Nẵng',
-        'country' => 'Việt Nam',
-        'status' => 'active',
     ]);
     $tour = Tour::query()->create([
         'category_id' => $category->id,
-        'destination_id' => $destination->id,
+        'province_id' => $destination->id,
         'title' => 'Đà Nẵng cuối tuần',
         'slug' => 'da-nang-cuoi-tuan',
         'duration_days' => 3,
@@ -241,12 +226,8 @@ test('home returns only bookable content and visible customer reviews', function
 });
 
 test('home returns the five categories with the most bookable tours', function () {
-    $destination = Destination::query()->create([
+    $destination = Province::query()->create([
         'name' => 'Đà Nẵng',
-        'slug' => 'da-nang-top-categories',
-        'province_city' => 'Đà Nẵng',
-        'country' => 'Việt Nam',
-        'status' => 'active',
     ]);
 
     for ($categoryIndex = 1; $categoryIndex <= 6; $categoryIndex++) {
@@ -261,7 +242,7 @@ test('home returns the five categories with the most bookable tours', function (
         for ($tourIndex = 1; $tourIndex <= $tourCount; $tourIndex++) {
             $tour = Tour::query()->create([
                 'category_id' => $category->id,
-                'destination_id' => $destination->id,
+                'province_id' => $destination->id,
                 'title' => "Tour {$categoryIndex}-{$tourIndex}",
                 'slug' => "tour-{$categoryIndex}-{$tourIndex}",
                 'duration_days' => 3,

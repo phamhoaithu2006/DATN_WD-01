@@ -483,19 +483,11 @@ function TourListPage() {
             </Link>
 
             <Link
-              to="/admin/destinations"
-              className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
-            >
-              <MapPinIcon className="h-4 w-4 text-emerald-600" />
-              Địa chỉ tour
-            </Link>
-
-            <Link
               to="/admin/destination-places"
               className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
             >
               <MapPinIcon className="h-4 w-4 text-indigo-600" />
-              Điểm đến chi tiết
+              Địa điểm trong tỉnh
             </Link>
 
             <Link

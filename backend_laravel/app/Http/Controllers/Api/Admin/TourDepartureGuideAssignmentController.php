@@ -34,20 +34,15 @@ class TourDepartureGuideAssignmentController extends Controller
 
         $departures = TourDeparture::query()
             ->with([
-                'tour:id,title,destination_id',
-
-                // Điểm đến chính lưu trong tours.destination_id
-                'tour.destination:id,name,province_city,country',
-
-                // Nhiều điểm đến lưu trong pivot tour_destinations
-                'tour.destinations:id,name,province_city,country',
+                'tour:id,title,province_id',
+                'tour.province:id,name,code',
 
                 'guideAssignments' => function ($query) {
                     $query
                         ->whereIn('status', ['assigned', 'confirmed'])
                         ->with([
                             'guide.user:id,full_name,email,avatar_url',
-                            'guide.destinations:id,name,province_city',
+                            'guide.provinces:id,name,code',
                         ]);
                 },
             ])
@@ -255,6 +250,8 @@ class TourDepartureGuideAssignmentController extends Controller
             ),
             'status' => $departure->status,
 
+            'provinces' => $destinations->values(),
+            // Alias tạm thời để các màn hình phân công cũ tiếp tục hoạt động.
             'destinations' => $destinations->values(),
 
             'assigned_guides' => $assignedGuides,
@@ -266,8 +263,7 @@ class TourDepartureGuideAssignmentController extends Controller
     }
 
     /**
-     * Ưu tiên điểm đến từ pivot tour_destinations.
-     * Nếu tour cũ chưa có pivot thì lấy destination_id trong bảng tours.
+     * Lấy tỉnh/thành chính của tour.
      */
     private function getTourDestinations(
         TourDeparture $departure
@@ -278,19 +274,7 @@ class TourDepartureGuideAssignmentController extends Controller
             return collect();
         }
 
-        $destinations = $tour->destinations
-            ?->values() ?? collect();
-
-        if (
-            $destinations->isEmpty() &&
-            $tour->destination
-        ) {
-            $destinations = collect([
-                $tour->destination,
-            ]);
-        }
-
-        return $destinations;
+        return $tour->province ? collect([$tour->province]) : collect();
     }
 
     //
@@ -424,21 +408,27 @@ class TourDepartureGuideAssignmentController extends Controller
     ) {
         $guard->assertCanManageGuideAssignment($departure);
 
+        // Nhận province_id mới, đồng thời giữ tương thích với bộ lọc cũ.
+        if (!$request->has('province_id') && $request->has('destination_id')) {
+            $request->merge([
+                'province_id' => $request->input('destination_id'),
+            ]);
+        }
+
         $validated = $request->validate([
             'mode' => ['nullable', 'in:eligible,all'],
             'keyword' => ['nullable', 'string', 'max:255'],
             'from' => ['nullable', 'date'],
             'to' => ['nullable', 'date', 'after_or_equal:from'],
-            'destination_id' => ['nullable', 'integer', 'exists:destinations,id'],
+            'province_id' => ['nullable', 'integer', 'exists:provinces,id'],
             'language_ids' => ['nullable', 'array'],
             'language_ids.*' => ['integer', 'exists:languages,id'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
 
         $departure->loadMissing([
-            'tour:id,title,destination_id',
-            'tour.destination:id,name,province_city,country',
-            'tour.destinations:id,name,province_city,country',
+            'tour:id,title,province_id',
+            'tour.province:id,name,code',
         ]);
 
         $fromRaw = $validated['from']
@@ -473,7 +463,7 @@ class TourDepartureGuideAssignmentController extends Controller
         $query = Guide::query()
             ->with([
                 'user:id,full_name,email,phone,avatar_url',
-                'destinations:id,name,province_city,country',
+                'provinces:id,name,code',
             ]);
 
         /*
@@ -507,11 +497,11 @@ class TourDepartureGuideAssignmentController extends Controller
             });
         }
 
-        if (! empty($validated['destination_id'])) {
-            $destinationId = (int) $validated['destination_id'];
+        if (! empty($validated['province_id'])) {
+            $provinceId = (int) $validated['province_id'];
 
-            $query->whereHas('destinations', function ($q) use ($destinationId) {
-                $q->where('destinations.id', $destinationId);
+            $query->whereHas('provinces', function ($q) use ($provinceId) {
+                $q->where('provinces.id', $provinceId);
             });
         }
 
@@ -669,7 +659,9 @@ class TourDepartureGuideAssignmentController extends Controller
                     'guide_code' => $guide->guide_code ?? null,
                     'avatar_url' => $avatarUrl,
                     'user' => $guide->user,
-                    'destinations' => $guide->destinations,
+                    'provinces' => $guide->provinces,
+                    // Alias tạm thời cho frontend cũ.
+                    'destinations' => $guide->provinces,
                     'languages' => $guideLanguages,
                     'is_available' => $isAvailable,
                     'is_eligible' => $isAvailable,
@@ -699,15 +691,14 @@ class TourDepartureGuideAssignmentController extends Controller
         ]);
 
         $departure->loadMissing([
-            'tour:id,title,destination_id',
-            'tour.destination:id,name,province_city,country',
-            'tour.destinations:id,name,province_city,country',
+            'tour:id,title,province_id',
+            'tour.province:id,name,code',
         ]);
 
         $guide = Guide::query()
             ->with([
                 'user:id,full_name,email,phone',
-                'destinations:id,name,province_city,country',
+                'provinces:id,name,code',
             ])
             ->findOrFail($validated['guide_id']);
 
@@ -764,9 +755,8 @@ class TourDepartureGuideAssignmentController extends Controller
         ) {
             $departure = TourDeparture::query()
                 ->with([
-                    'tour:id,title,destination_id',
-                    'tour.destination:id,name,province_city,country',
-                    'tour.destinations:id,name,province_city,country',
+                    'tour:id,title,province_id',
+                    'tour.province:id,name,code',
                 ])
                 ->whereKey($departure->id)
                 ->lockForUpdate()
