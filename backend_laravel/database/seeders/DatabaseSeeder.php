@@ -6,10 +6,10 @@ use App\Models\Booking;
 use App\Models\BookingContact;
 use App\Models\BookingParticipant;
 use App\Models\Category;
-use App\Models\Destination;
 use App\Models\DestinationPlace;
 use App\Models\Guide;
 use App\Models\Payment;
+use App\Models\Province;
 use App\Models\Role;
 use App\Models\SupportStaff;
 use App\Models\Tour;
@@ -149,26 +149,20 @@ class DatabaseSeeder extends Seeder
             ['name' => 'Phú Quốc', 'slug' => 'phu-quoc', 'province_city' => 'Kiên Giang', 'place' => 'Bãi Sao', 'place_slug' => 'bai-sao-phu-quoc', 'address' => 'An Thới, Phú Quốc, Kiên Giang', 'image' => 'https://ik.imagekit.io/tvlk/blog/2023/09/bai-sao-17.jpg?tr=dpr-2%2Cw-675'],
         ];
 
-        $destinations = collect();
+        $provinces = collect();
         $places = collect();
 
         foreach ($destinationData as $data) {
-            $destination = Destination::updateOrCreate(
-                ['slug' => $data['slug']],
-                [
-                    'name' => $data['name'],
-                    'province_city' => $data['province_city'],
-                    'country' => 'Việt Nam',
-                    'description' => "Điểm đến {$data['name']} nổi tiếng với cảnh quan và văn hóa đặc sắc.",
-                    'thumbnail_url' => $data['image'],
-                    'status' => 'active',
-                ]
-            );
+            // Tỉnh/thành đã được đồng bộ từ provinces.open-api.vn; chỉ tạo bổ sung
+            // khi môi trường seed chưa có bản ghi tương ứng.
+            $province = Province::firstOrCreate([
+                'name' => $data['province_city'],
+            ]);
 
             $place = DestinationPlace::updateOrCreate(
                 ['slug' => $data['place_slug']],
                 [
-                    'destination_id' => $destination->id,
+                    'province_id' => $province->id,
                     'name' => $data['place'],
                     'address' => $data['address'],
                     'description' => "Tham quan {$data['place']}, địa danh tiêu biểu của {$data['name']}.",
@@ -177,7 +171,7 @@ class DatabaseSeeder extends Seeder
                 ]
             );
 
-            $destinations->put($data['slug'], $destination);
+            $provinces->put($data['slug'], $province);
             $places->put($data['slug'], $place);
         }
 
@@ -197,18 +191,18 @@ class DatabaseSeeder extends Seeder
         $seededTours = collect();
 
         foreach ($tourData as $data) {
-            $destination = $destinations[$data['destination']];
+            $province = $provinces[$data['destination']];
             $place = $places[$data['destination']];
             $tour = Tour::updateOrCreate(
                 ['slug' => $data['slug']],
                 [
                     'category_id' => $categories[$data['category']]->id,
-                    'destination_id' => $destination->id,
+                    'province_id' => $province->id,
                     'created_by' => $admin->id,
                     'title' => $data['title'],
-                    'summary' => "Khám phá {$destination->name} và tham quan {$place->name} trong hành trình {$data['days']} ngày.",
-                    'description' => "Hành trình đưa du khách đến {$destination->name}, trải nghiệm văn hóa địa phương, thưởng thức ẩm thực và khám phá {$place->name}.",
-                    'itinerary' => "Ngày 1: Khởi hành và tham quan {$place->name}. Các ngày tiếp theo: trải nghiệm, nghỉ dưỡng và khám phá {$destination->name}.",
+                    'summary' => "Khám phá {$province->name} và tham quan {$place->name} trong hành trình {$data['days']} ngày.",
+                    'description' => "Hành trình đưa du khách đến {$province->name}, trải nghiệm văn hóa địa phương, thưởng thức ẩm thực và khám phá {$place->name}.",
+                    'itinerary' => "Ngày 1: Khởi hành và tham quan {$place->name}. Các ngày tiếp theo: trải nghiệm, nghỉ dưỡng và khám phá {$province->name}.",
                     'duration_days' => $data['days'],
                     'duration_nights' => $data['nights'],
                     'base_price' => $data['price'],
@@ -221,18 +215,16 @@ class DatabaseSeeder extends Seeder
                 ]
             );
 
-            $tour->destinations()->sync([$destination->id => ['sort_order' => 1]]);
-
             TourImage::updateOrCreate(
                 ['tour_id' => $tour->id, 'is_thumbnail' => true],
                 [
-                    'image_url' => $destination->thumbnail_url,
+                    'image_url' => $place->thumbnail_url,
                     'alt_text' => "Ảnh {$data['title']}",
                     'sort_order' => 1,
                 ]
             );
 
-            $this->seedTourItinerary($tour, $destination, $place, $data['days']);
+            $this->seedTourItinerary($tour, $province, $place, $data['days']);
             $seededTours->push($tour);
         }
 
@@ -514,7 +506,7 @@ class DatabaseSeeder extends Seeder
             }
 
             $guideAvailableFrom[$guide->id] = $returnDate->copy()->addDay()->startOfDay();
-            $guide->destinations()->syncWithoutDetaching([$tour->destination_id]);
+            $guide->provinces()->syncWithoutDetaching([$tour->province_id]);
 
             TourGuideAssignment::updateOrCreate(
                 [
@@ -559,7 +551,7 @@ class DatabaseSeeder extends Seeder
 
     private function seedTourItinerary(
         Tour $tour,
-        Destination $destination,
+        Province $province,
         DestinationPlace $place,
         int $totalDays
     ): void {
@@ -571,12 +563,12 @@ class DatabaseSeeder extends Seeder
                 $steps = [
                     [
                         'type' => 'departure',
-                        'title' => "Đón khách và khởi hành đến {$destination->name}",
+                        'title' => "Đón khách và khởi hành đến {$province->name}",
                         'start_time' => '06:30:00',
                         'end_time' => '08:00:00',
                         'duration' => '1 giờ 30 phút',
                         'transport' => 'Xe du lịch',
-                        'description' => "Hướng dẫn viên đón đoàn, phổ biến lịch trình và khởi hành chuyến tham quan {$destination->name}.",
+                        'description' => "Hướng dẫn viên đón đoàn, phổ biến lịch trình và khởi hành chuyến tham quan {$province->name}.",
                     ],
                     [
                         'type' => 'sightseeing',
@@ -589,7 +581,7 @@ class DatabaseSeeder extends Seeder
                     ],
                     [
                         'type' => 'meal',
-                        'title' => "Thưởng thức ẩm thực {$destination->name}",
+                        'title' => "Thưởng thức ẩm thực {$province->name}",
                         'start_time' => '11:30:00',
                         'end_time' => '13:00:00',
                         'duration' => '1 giờ 30 phút',
@@ -598,7 +590,7 @@ class DatabaseSeeder extends Seeder
                     ],
                     [
                         'type' => 'free_time',
-                        'title' => "Tự do khám phá {$destination->name}",
+                        'title' => "Tự do khám phá {$province->name}",
                         'start_time' => '14:00:00',
                         'end_time' => '17:00:00',
                         'duration' => '3 giờ',
@@ -624,7 +616,7 @@ class DatabaseSeeder extends Seeder
                         'end_time' => '12:30:00',
                         'duration' => '1 giờ 30 phút',
                         'transport' => null,
-                        'description' => "Đoàn dùng bữa trưa, nghỉ ngơi và chuẩn bị kết thúc hành trình tại {$destination->name}.",
+                        'description' => "Đoàn dùng bữa trưa, nghỉ ngơi và chuẩn bị kết thúc hành trình tại {$province->name}.",
                     ],
                     [
                         'type' => 'return',
@@ -633,7 +625,7 @@ class DatabaseSeeder extends Seeder
                         'end_time' => '17:00:00',
                         'duration' => '4 giờ',
                         'transport' => 'Xe du lịch',
-                        'description' => "Tạm biệt {$destination->name}, đưa du khách về điểm đón và kết thúc chương trình.",
+                        'description' => "Tạm biệt {$province->name}, đưa du khách về điểm đón và kết thúc chương trình.",
                     ],
                 ];
             } else {
@@ -654,11 +646,11 @@ class DatabaseSeeder extends Seeder
                         'end_time' => '13:00:00',
                         'duration' => '1 giờ 30 phút',
                         'transport' => null,
-                        'description' => "Thưởng thức thực đơn địa phương và nghỉ trưa tại {$destination->name}.",
+                        'description' => "Thưởng thức thực đơn địa phương và nghỉ trưa tại {$province->name}.",
                     ],
                     [
                         'type' => 'free_time',
-                        'title' => "Trải nghiệm tự do tại {$destination->name}",
+                        'title' => "Trải nghiệm tự do tại {$province->name}",
                         'start_time' => '14:00:00',
                         'end_time' => '17:00:00',
                         'duration' => '3 giờ',

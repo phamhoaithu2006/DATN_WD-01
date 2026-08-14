@@ -66,19 +66,15 @@ function guideAuditDeparture(string $departureDate, ?string $returnDate = null):
         'updated_at' => $now,
     ]);
 
-    $destinationId = DB::table('destinations')->insertGetId([
-        'name' => "Điểm đến HDV {$suffix}",
-        'slug' => "diem-den-hdv-{$suffix}",
-        'province_city' => 'Hà Nội',
-        'country' => 'Việt Nam',
-        'status' => 'active',
+    $provinceId = DB::table('provinces')->insertGetId([
+        'name' => "Tỉnh HDV {$suffix}",
         'created_at' => $now,
         'updated_at' => $now,
     ]);
 
     $tour = Tour::query()->create([
         'category_id' => $categoryId,
-        'destination_id' => $destinationId,
+        'province_id' => $provinceId,
         'title' => "Tour kiểm thử HDV {$suffix}",
         'slug' => "tour-kiem-thu-hdv-{$suffix}",
         'duration_days' => 2,

@@ -41,14 +41,10 @@ function tourReviewTour(): Tour
         ]
     );
 
-    DB::table('destinations')->updateOrInsert(
+    DB::table('provinces')->updateOrInsert(
         ['id' => 91],
         [
-            'name' => 'Điểm đến đánh giá tour',
-            'slug' => 'diem-den-danh-gia-tour',
-            'province_city' => 'Hà Nội',
-            'country' => 'Việt Nam',
-            'status' => 'active',
+            'name' => 'Tỉnh đánh giá tour',
             'created_at' => $now,
             'updated_at' => $now,
         ]
@@ -56,7 +52,7 @@ function tourReviewTour(): Tour
 
     return Tour::query()->create([
         'category_id' => 91,
-        'destination_id' => 91,
+        'province_id' => 91,
         'title' => 'Tour kiểm thử đánh giá',
         'slug' => 'tour-kiem-thu-danh-gia-'.fake()->unique()->numberBetween(1000, 9999),
         'summary' => 'Tour dùng cho kiểm thử đánh giá của khách hàng.',

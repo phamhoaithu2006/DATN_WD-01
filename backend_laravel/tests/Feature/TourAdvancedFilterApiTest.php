@@ -1,7 +1,7 @@
 <?php
 
 use App\Models\Category;
-use App\Models\Destination;
+use App\Models\Province;
 use App\Models\Tour;
 use App\Models\TourDeparture;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -19,26 +19,23 @@ function tourFilterCategory(string $name): Category
     ]);
 }
 
-function tourFilterDestination(string $name): Destination
+function tourFilterDestination(string $name): Province
 {
-    return Destination::query()->create([
+    return Province::query()->firstOrCreate([
         'name' => $name,
-        'slug' => Str::slug($name).'-'.Str::random(5),
-        'country' => 'Việt Nam',
-        'status' => 'active',
     ]);
 }
 
 /**
  * @param  array<string, mixed>  $attributes
  */
-function tourFilterTour(Category $category, Destination $destination, array $attributes = []): Tour
+function tourFilterTour(Category $category, Province $destination, array $attributes = []): Tour
 {
     $title = $attributes['title'] ?? 'Tour '.Str::random(8);
 
     $tour = Tour::query()->create(array_merge([
         'category_id' => $category->id,
-        'destination_id' => $destination->id,
+        'province_id' => $destination->id,
         'title' => $title,
         'slug' => Str::slug($title).'-'.Str::random(5),
         'duration_days' => 3,
@@ -82,7 +79,7 @@ test('filters tours by price range using effective departure price', function ()
         ->and(tourFilterIds($response))->not->toContain($cheap->id, $expensive->id);
 });
 
-test('filters tours by multiple destinations including pivot table', function () {
+test('filters tours by multiple provinces', function () {
     $category = tourFilterCategory('Biển');
     $haLong = tourFilterDestination('Hạ Long');
     $daNang = tourFilterDestination('Đà Nẵng');
@@ -92,14 +89,13 @@ test('filters tours by multiple destinations including pivot table', function ()
     $tourDaNang = tourFilterTour($category, $daNang);
     $tourSapa = tourFilterTour($category, $sapa);
 
-    // Tour Sa Pa có thêm điểm đến phụ Hạ Long qua pivot.
-    $tourSapa->destinations()->attach($haLong->id);
-
-    $response = $this->getJson('/api/tours?destinations[]='.$haLong->id.'&destinations[]='.$daNang->id)
+    $response = $this->getJson('/api/tours?provinces[]='.$haLong->id.'&provinces[]='.$daNang->id)
         ->assertOk();
 
     expect(tourFilterIds($response))
-        ->toContain($tourHaLong->id, $tourDaNang->id, $tourSapa->id);
+        ->toHaveCount(2)
+        ->toContain($tourHaLong->id, $tourDaNang->id)
+        ->not->toContain($tourSapa->id);
 });
 
 test('filters tours by multiple categories', function () {
@@ -322,7 +318,7 @@ test('filter options endpoint returns price range, option counts and caches resu
         ->and($options['price']['max'])->toEqual(12000000)
         ->and(collect($options['categories'])->firstWhere('id', $sea->id)['tours_count'])->toBe(2)
         ->and(collect($options['categories'])->firstWhere('id', $mountain->id)['tours_count'])->toBe(1)
-        ->and(collect($options['destinations'])->firstWhere('id', $haLong->id)['tours_count'])->toBe(2)
+        ->and(collect($options['provinces'])->firstWhere('id', $haLong->id)['tours_count'])->toBe(2)
         ->and(collect($options['durations'])->firstWhere('value', '1-3')['tours_count'])->toBe(1)
         ->and(collect($options['durations'])->firstWhere('value', '4-7')['tours_count'])->toBe(1)
         ->and(collect($options['durations'])->firstWhere('value', '8+')['tours_count'])->toBe(1);

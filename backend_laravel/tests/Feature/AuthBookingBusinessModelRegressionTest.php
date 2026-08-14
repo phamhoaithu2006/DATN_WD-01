@@ -46,15 +46,9 @@ function abRegressionTour(): Tour
         ]
     );
 
-    DB::table('destinations')->updateOrInsert(
+    DB::table('provinces')->updateOrInsert(
         ['id' => 1],
         [
-            'name' => 'Điểm đến kiểm thử nghiệp vụ',
-            'slug' => 'diem-den-kiem-thu-nghiep-vu',
-            'province_city' => 'Hà Nội',
-            'country' => 'Việt Nam',
-            'description' => 'Điểm đến dùng cho test hồi quy nghiệp vụ.',
-            'status' => 'active',
             'created_at' => $now,
             'updated_at' => $now,
         ]
@@ -62,7 +56,7 @@ function abRegressionTour(): Tour
 
     return Tour::query()->create([
         'category_id' => 1,
-        'destination_id' => 1,
+        'province_id' => 1,
         'title' => 'Tour kiểm thử nghiệp vụ',
         'slug' => 'tour-kiem-thu-nghiep-vu-'.fake()->unique()->numberBetween(1000, 9999),
         'duration_days' => 2,

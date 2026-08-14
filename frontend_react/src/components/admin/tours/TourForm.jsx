@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import Select from 'react-select'
+import CreatableSelect from 'react-select/creatable'
 import { toast } from 'sonner'
 import { readToken } from '../../../services/authStorage'
+import {
+  TOUR_ACTIVITY_OPTIONS,
+  TOUR_ACTIVITY_TYPE_LABELS,
+} from '../../../constants/tourActivityTypes'
 
 const API_BASE_URL = (
   import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api'
@@ -91,6 +97,11 @@ const normalizeItineraryForForm = (itinerary = []) => {
 
   return itinerary.map((step, index) => {
     const source = step && typeof step === 'object' ? step : {}
+    const destinationPlaceId =
+      source.destination_place_id ??
+      source.destinationPlaceId ??
+      source.destination_place?.id ??
+      ''
     const rawImages =
       source.images ??
       source.itinerary_images ??
@@ -121,7 +132,23 @@ const normalizeItineraryForForm = (itinerary = []) => {
         source.kind ??
         'sightseeing',
       destination_place_id:
-        source.destination_place_id ?? source.destinationPlaceId ?? source.destination_place?.id ?? '',
+        destinationPlaceId,
+      province_id:
+        source.province_id ??
+        source.provinceId ??
+        source.destination_place?.province_id ??
+        source.destination_place?.province?.id ??
+        source.destination_place?.district?.province?.id ??
+        '',
+      destination_place_name:
+        source.destination_place_name ??
+        source.destinationPlaceName ??
+        (destinationPlaceId ? '' : source.destination_place?.name ?? ''),
+      destination_place_address:
+        source.destination_place_address ??
+        source.destinationPlaceAddress ??
+        source.destination_place?.address ??
+        '',
       itinerary_destination_id:
         source.itinerary_destination_id ??
         source.destination_place?.destination_id ??
@@ -231,6 +258,10 @@ const getTourCandidateScore = (value) => {
   ) score += 6
   if (
     getDirectValue(value, [
+      'province_id',
+      'provinceId',
+      'provinceID',
+      'tour_province_id',
       'destination_id',
       'destinationId',
       'destinationID',
@@ -395,23 +426,37 @@ const getOptionId = (item = {}) => {
     item.id ??
     item.value ??
     item.category_id ??
+    item.province_id ??
     item.destination_id ??
     item.categoryId ??
+    item.provinceId ??
     item.destinationId ??
     ''
   )
 }
 
 const getRelationId = (source = {}, type) => {
-  const relation = type === 'category' ? 'category' : 'destination'
+  const relation = type === 'category' ? 'category' : 'province'
   const directAliases = type === 'category'
     ? ['category_id', 'categoryId', 'categoryID', 'tour_category_id']
-    : ['destination_id', 'destinationId', 'destinationID', 'tour_destination_id']
+    : [
+        'province_id',
+        'provinceId',
+        'provinceID',
+        'tour_province_id',
+        'destination_id',
+        'destinationId',
+        'destinationID',
+        'tour_destination_id',
+      ]
   const objectAliases = [
     relation,
     `${relation}_data`,
     `${relation}Data`,
     `${relation}Info`,
+    ...(type === 'category'
+      ? []
+      : ['destination', 'destination_data', 'destinationData', 'destinationInfo']),
   ]
 
   const directValue = getDirectValue(source, directAliases)
@@ -436,7 +481,7 @@ const getRelationId = (source = {}, type) => {
 }
 
 const getRelationName = (source = {}, type) => {
-  const relation = type === 'category' ? 'category' : 'destination'
+  const relation = type === 'category' ? 'category' : 'province'
   const aliases = [
     `${relation}_name`,
     `${relation}Name`,
@@ -444,6 +489,9 @@ const getRelationName = (source = {}, type) => {
     `${relation}_data`,
     `${relation}Data`,
     `${relation}Info`,
+    ...(type === 'category'
+      ? []
+      : ['destination_name', 'destination', 'destination_data', 'destinationData', 'destinationInfo']),
   ]
 
   for (const key of aliases) {
@@ -458,6 +506,7 @@ const getRelationName = (source = {}, type) => {
         value.name ??
         value.title ??
         value.category_name ??
+        value.province_name ??
         value.destination_name ??
         value.label
 
@@ -475,6 +524,17 @@ const normalizeTextForOptionMatch = (value) => {
     .toLowerCase()
     .replace(/\s+/g, ' ')
     .trim()
+}
+
+const provinceOptionFilter = (option, rawInput) => {
+  const query = normalizeTextForOptionMatch(rawInput)
+
+  if (!query) return true
+
+  return normalizeTextForOptionMatch([
+    option.data?.name,
+    option.data?.code,
+  ].filter(Boolean).join(' ')).includes(query)
 }
 
 const findOptionIdByName = (options = [], name = '') => {
@@ -1086,8 +1146,8 @@ const validateTourForm = ({
     errors.category_id = 'Vui lòng chọn danh mục.'
   }
 
-  if (!formData.destination_id) {
-    errors.destination_id = 'Vui lòng chọn điểm đến.'
+  if (!formData.province_id) {
+    errors.province_id = 'Vui lòng chọn tỉnh/thành.'
   }
 
   if (!title) {
@@ -1186,7 +1246,7 @@ const getInitialFormData = (initialData = {}) => {
 
   return {
     category_id: getRelationId(source, 'category'),
-    destination_id: getRelationId(source, 'destination'),
+    province_id: getRelationId(source, 'province'),
     title: source.title ?? source.name ?? '',
     summary: source.summary ?? source.short_description ?? '',
     description: source.description ?? source.detail ?? '',
@@ -1407,6 +1467,10 @@ function TourForm({
     [initialData],
   )
   const initialDataKey = JSON.stringify(initialData ?? null)
+  const resolvedInitialData = useMemo(
+    () => resolveTourInitialData(parseJsonValue(initialDataKey)),
+    [initialDataKey],
+  )
   const lastAppliedInitialDataKeyRef = useRef(null)
 
   const [formData, setFormData] = useState(() =>
@@ -1414,11 +1478,11 @@ function TourForm({
   )
 
   const [categories, setCategories] = useState([])
-  const [destinations, setDestinations] = useState([])
-  const [destinationPlaces, setDestinationPlaces] = useState([])
-  const [itineraryDestinationPlaces, setItineraryDestinationPlaces] = useState({})
-  const [loadingItineraryDestinationIds, setLoadingItineraryDestinationIds] = useState([])
-  const [loadingDestinationPlaces, setLoadingDestinationPlaces] = useState(false)
+  const [provinces, setProvinces] = useState([])
+  const [itineraryPlaces, setItineraryPlaces] = useState({})
+  const [provincePlacesByActivity, setProvincePlacesByActivity] = useState({})
+  const [loadingItineraryPlaces, setLoadingItineraryPlaces] = useState([])
+  const [loadingProvinceCounts, setLoadingProvinceCounts] = useState([])
   const [loadingOptions, setLoadingOptions] = useState(false)
   const [optionError, setOptionError] = useState('')
   const [thumbnailImage, setThumbnailImage] = useState(null)
@@ -1477,31 +1541,31 @@ function TourForm({
   }, [initialDataKey, resolvedInitialData])
 
   useEffect(() => {
-    if (categories.length === 0 && destinations.length === 0) return
+    if (categories.length === 0 && provinces.length === 0) return
 
     const categoryIdFromData = getRelationId(resolvedInitialData, 'category')
-    const destinationIdFromData = getRelationId(resolvedInitialData, 'destination')
+    const provinceIdFromData = getRelationId(resolvedInitialData, 'province')
     const categoryIdFromName = findOptionIdByName(
       categories,
       getRelationName(resolvedInitialData, 'category'),
     )
-    const destinationIdFromName = findOptionIdByName(
-      destinations,
-      getRelationName(resolvedInitialData, 'destination'),
+    const provinceIdFromName = findOptionIdByName(
+      provinces,
+      getRelationName(resolvedInitialData, 'province'),
     )
 
     setFormData((prev) => {
       const nextCategoryId =
         prev.category_id || categoryIdFromData || categoryIdFromName || ''
-      const nextDestinationId =
-        prev.destination_id ||
-        destinationIdFromData ||
-        destinationIdFromName ||
+      const nextProvinceId =
+        prev.province_id ||
+        provinceIdFromData ||
+        provinceIdFromName ||
         ''
 
       if (
         String(nextCategoryId) === String(prev.category_id) &&
-        String(nextDestinationId) === String(prev.destination_id)
+        String(nextProvinceId) === String(prev.province_id)
       ) {
         return prev
       }
@@ -1509,10 +1573,11 @@ function TourForm({
       return {
         ...prev,
         category_id: nextCategoryId,
-        destination_id: nextDestinationId,
+        province_id: nextProvinceId,
       }
     })
   }, [categories, destinations, initialDataKey, resolvedInitialData])
+
 
   useEffect(() => {
     let cancelled = false
@@ -1522,16 +1587,19 @@ function TourForm({
         setLoadingOptions(true)
         setOptionError('')
 
-        const [categoryRes, destinationRes] = await Promise.all([
+        const [categoryRes, provinceRes] = await Promise.all([
           fetch(`${API_BASE_URL}/admin/categories`, {
             headers: getAuthHeaders(),
           }),
-          fetch(`${API_BASE_URL}/admin/destinations`, {
+          fetch(`${API_BASE_URL}/admin/administrative/provinces`, {
             headers: getAuthHeaders(),
           }),
         ])
 
-        if (categoryRes.status === 401 || destinationRes.status === 401) {
+        if (
+          categoryRes.status === 401 ||
+          provinceRes.status === 401
+        ) {
           throw new Error('Bạn chưa đăng nhập hoặc token đã hết hạn.')
         }
 
@@ -1539,16 +1607,16 @@ function TourForm({
           throw new Error(`Không tải được danh mục: ${categoryRes.status}`)
         }
 
-        if (!destinationRes.ok) {
-          throw new Error(`Không tải được điểm đến: ${destinationRes.status}`)
+        if (!provinceRes.ok) {
+          throw new Error(`Không tải được tỉnh/thành: ${provinceRes.status}`)
         }
 
         const categoryData = await categoryRes.json()
-        const destinationData = await destinationRes.json()
+        const provinceData = await provinceRes.json()
 
         if (!cancelled) {
           setCategories(normalizeList(categoryData))
-          setDestinations(normalizeList(destinationData))
+          setProvinces(normalizeList(provinceData))
         }
       } catch (error) {
         console.error('LOAD TOUR OPTIONS ERROR:', error)
@@ -1556,7 +1624,7 @@ function TourForm({
         if (!cancelled) {
           setOptionError(
             error.message ||
-              'Không tải được danh mục hoặc điểm đến. Kiểm tra API backend.',
+              'Không tải được danh mục hoặc tỉnh/thành. Kiểm tra API backend.',
           )
         }
       } finally {
@@ -1574,65 +1642,100 @@ function TourForm({
   }, [])
 
   useEffect(() => {
+    const activityTypes = Array.from(new Set(
+      formData.itinerary
+        .map((step) => String(step.type || 'sightseeing'))
+        .filter(Boolean),
+    ))
+    const missingActivityTypes = activityTypes.filter(
+      (activityType) => !provincePlacesByActivity[activityType],
+    )
+
+    if (missingActivityTypes.length === 0) return undefined
+
     let cancelled = false
+    setLoadingProvinceCounts((current) => Array.from(new Set([
+      ...current,
+      ...missingActivityTypes,
+    ])))
 
-    if (!formData.destination_id) {
-      setDestinationPlaces([])
-      return undefined
-    }
+    Promise.all(missingActivityTypes.map(async (activityType) => {
+      const query = new URLSearchParams({ activity_type: activityType })
+      const response = await fetch(
+        `${API_BASE_URL}/admin/administrative/provinces?${query.toString()}`,
+        { headers: getAuthHeaders() },
+      )
 
-    const loadDestinationPlaces = async () => {
-      try {
-        setLoadingDestinationPlaces(true)
-        const response = await fetch(
-          `${API_BASE_URL}/admin/destination-places?destination_id=${formData.destination_id}&status=active&per_page=100`,
-          { headers: getAuthHeaders() },
-        )
-        if (!response.ok) throw new Error(`Không tải được điểm đến chi tiết: ${response.status}`)
-        const payload = await response.json()
-        if (!cancelled) setDestinationPlaces(payload?.data?.data || [])
-      } catch (error) {
-        console.error('LOAD DESTINATION PLACES ERROR:', error)
-        if (!cancelled) setDestinationPlaces([])
-      } finally {
-        if (!cancelled) setLoadingDestinationPlaces(false)
+      if (!response.ok) {
+        throw new Error('Không tải được số lượng địa điểm theo loại hoạt động.')
       }
-    }
 
-    void loadDestinationPlaces()
+      const payload = await response.json()
+      return [activityType, normalizeList(payload)]
+    }))
+      .then((entries) => {
+        if (!cancelled) {
+          setProvincePlacesByActivity((current) => ({
+            ...current,
+            ...Object.fromEntries(entries),
+          }))
+        }
+      })
+      .catch((error) => console.error('LOAD PROVINCE PLACE COUNTS ERROR:', error))
+      .finally(() => {
+        if (!cancelled) {
+          setLoadingProvinceCounts((current) => current.filter(
+            (activityType) => !missingActivityTypes.includes(activityType),
+          ))
+        }
+      })
+
     return () => {
       cancelled = true
     }
-  }, [formData.destination_id])
+  }, [formData.itinerary, provincePlacesByActivity])
 
   useEffect(() => {
-    const destinationIds = Array.from(new Set(
+    const placeKeys = Array.from(new Set(
       formData.itinerary
-        .map((step) => String(step.itinerary_destination_id || ''))
+        .map((step) => {
+          const provinceId = String(step.province_id || '')
+          const activityType = String(step.type || 'sightseeing')
+          return provinceId ? provinceId + ':' + activityType : ''
+        })
         .filter(Boolean),
     ))
-    const missingIds = destinationIds.filter((id) => !itineraryDestinationPlaces[id])
-    if (missingIds.length === 0) return undefined
+    const missingKeys = placeKeys.filter((key) => !itineraryPlaces[key])
+    if (missingKeys.length === 0) return undefined
 
     let cancelled = false
-    setLoadingItineraryDestinationIds((current) => Array.from(new Set([...current, ...missingIds])))
+    setLoadingItineraryPlaces((current) => Array.from(new Set([...current, ...missingKeys])))
 
-    Promise.all(missingIds.map(async (destinationId) => {
-      const response = await fetch(`${API_BASE_URL}/admin/destination-places?destination_id=${destinationId}&status=active&per_page=100`, { headers: getAuthHeaders() })
-      if (!response.ok) throw new Error(`Không tải được địa điểm của điểm đến #${destinationId}`)
+    Promise.all(missingKeys.map(async (key) => {
+      const [provinceId, activityType] = key.split(':')
+      const response = await fetch(
+        API_BASE_URL +
+          '/admin/destination-places?province_id=' +
+          provinceId +
+          '&activity_type=' +
+          activityType +
+          '&status=active&per_page=100',
+        { headers: getAuthHeaders() },
+      )
+      if (!response.ok) throw new Error('Không tải được địa điểm theo tỉnh và loại hoạt động.')
       const payload = await response.json()
-      return [destinationId, payload?.data?.data || []]
+      return [key, payload?.data?.data || []]
     }))
       .then((entries) => {
-        if (!cancelled) setItineraryDestinationPlaces((current) => ({ ...current, ...Object.fromEntries(entries) }))
+        if (!cancelled) setItineraryPlaces((current) => ({ ...current, ...Object.fromEntries(entries) }))
       })
-      .catch((error) => console.error('LOAD ITINERARY DESTINATION PLACES ERROR:', error))
+      .catch((error) => console.error('LOAD ITINERARY PLACES ERROR:', error))
       .finally(() => {
-        if (!cancelled) setLoadingItineraryDestinationIds((current) => current.filter((id) => !missingIds.includes(id)))
+        if (!cancelled) setLoadingItineraryPlaces((current) => current.filter((key) => !missingKeys.includes(key)))
       })
 
     return () => { cancelled = true }
-  }, [formData.itinerary, itineraryDestinationPlaces])
+  }, [formData.itinerary, itineraryPlaces])
 
   const inputClass =
     'mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 hover:border-slate-300'
@@ -1669,10 +1772,10 @@ function TourForm({
       return
     }
 
-    if (name === 'destination_id') {
+    if (name === 'province_id') {
       setFormData((prev) => ({
         ...prev,
-        destination_id: value,
+        province_id: value,
       }))
       return
     }
@@ -1866,7 +1969,8 @@ function TourForm({
       day_number: Number(dayNumber),
       sort_order: daySteps.length,
       type: 'sightseeing',
-      itinerary_destination_id: formData.destination_id || '',
+      province_id: '',
+      destination_place_name: '',
       destination_place_id: '',
       title: '',
       start_time: '',
@@ -1909,21 +2013,43 @@ function TourForm({
     updateItinerary(nextItinerary)
   }
 
-  const handleDestinationPlaceChange = (indexToUpdate, placeId) => {
+  const handleDestinationPlaceChange = (indexToUpdate, selectedOption) => {
     const nextItinerary = formData.itinerary.map((step, idx) => {
       if (idx !== indexToUpdate) return step
 
       return {
         ...step,
-        destination_place_id: placeId,
+        destination_place_id: selectedOption?.__isNew__
+          ? ''
+          : selectedOption?.value || '',
+        destination_place_name: selectedOption?.__isNew__
+          ? selectedOption.label
+          : '',
       }
     })
     updateItinerary(nextItinerary)
   }
 
-  const handleItineraryDestinationChange = (indexToUpdate, destinationId) => {
+  const handleItineraryProvinceChange = (indexToUpdate, provinceId) => {
     const nextItinerary = formData.itinerary.map((step, idx) => idx === indexToUpdate
-      ? { ...step, itinerary_destination_id: destinationId, destination_place_id: '' }
+      ? {
+          ...step,
+          province_id: provinceId,
+          destination_place_id: '',
+          destination_place_name: '',
+        }
+      : step)
+    updateItinerary(nextItinerary)
+  }
+
+  const handleItineraryActivityChange = (indexToUpdate, activityType) => {
+    const nextItinerary = formData.itinerary.map((step, idx) => idx === indexToUpdate
+      ? {
+          ...step,
+          type: activityType,
+          destination_place_id: '',
+          destination_place_name: '',
+        }
       : step)
     updateItinerary(nextItinerary)
   }
@@ -2020,7 +2146,7 @@ function TourForm({
     const payload = new FormData()
 
     payload.append('category_id', formData.category_id)
-    payload.append('destination_id', formData.destination_id)
+    payload.append('province_id', formData.province_id)
     payload.append('title', formData.title.trim())
     payload.append('summary', formData.summary || '')
     payload.append('description', formData.description || '')
@@ -2070,10 +2196,10 @@ function TourForm({
     formData.category_id &&
     !categories.some((item) => String(getOptionId(item)) === String(formData.category_id))
 
-  const currentDestinationMissing =
-    formData.destination_id &&
-    !destinations.some(
-      (item) => String(getOptionId(item)) === String(formData.destination_id),
+  const currentProvinceMissing =
+    formData.province_id &&
+    !provinces.some(
+      (item) => String(getOptionId(item)) === String(formData.province_id),
     )
 
   const selectedCategory =
@@ -2310,22 +2436,54 @@ function TourForm({
                         {daySteps.map((step, stepIdx) => {
                           const originalIdx = step.originalIdx
                           const currentType = step.type || 'sightseeing'
-                          const stepDestinationId = String(step.itinerary_destination_id || formData.destination_id || '')
-                          const stepDestinationPlaces = itineraryDestinationPlaces[stepDestinationId]
-                            || (stepDestinationId === String(formData.destination_id) ? destinationPlaces : [])
-                          const stepPlacesLoading = loadingItineraryDestinationIds.includes(stepDestinationId)
-                            || (stepDestinationId === String(formData.destination_id) && loadingDestinationPlaces)
-                          const selectedDestinationPlace = stepDestinationPlaces.find(
-                            (place) => String(place.id) === String(step.destination_place_id),
-                          )
-                          const destinationPlaceLabel = {
-                            departure: 'Điểm đón khách',
-                            return: 'Điểm trả khách',
-                            sightseeing: 'Địa điểm tham quan',
-                            hotel: 'Nơi lưu trú',
-                            meal: 'Địa điểm ăn uống',
-                            activity: 'Địa điểm hoạt động',
-                          }[currentType] || 'Điểm đến chi tiết'
+                          const stepProvinceId = String(step.province_id || '')
+                          const stepPlaceKey = stepProvinceId + ':' + currentType
+                          const stepDestinationPlaces = itineraryPlaces[stepPlaceKey] || []
+                          const stepPlacesLoading = loadingItineraryPlaces.includes(stepPlaceKey)
+                          const selectedDestinationPlace =
+                            stepDestinationPlaces.find(
+                              (place) => String(place.id) === String(step.destination_place_id),
+                            ) ||
+                            step.destination_place ||
+                            step.destinationPlace ||
+                            null
+                          const selectedPlaceOption = selectedDestinationPlace
+                            ? {
+                                value: selectedDestinationPlace.id,
+                                label: selectedDestinationPlace.name,
+                              }
+                            : step.destination_place_name
+                              ? {
+                                  value: 'new:' + step.destination_place_name,
+                                  label: step.destination_place_name,
+                                  __isNew__: true,
+                                }
+                              : null
+                          const provinceOptionsForActivity = provincePlacesByActivity[currentType] || provinces.map((province) => ({
+                            ...province,
+                            places_count: null,
+                          }))
+                          const provinceSelectOptions = provinceOptionsForActivity.map((province) => {
+                            const provinceName = getOptionName(
+                              province,
+                              `Tỉnh/thành #${getOptionId(province)}`,
+                            )
+                            const placesCount = province.places_count == null
+                              ? null
+                              : Number(province.places_count)
+
+                            return {
+                              value: String(getOptionId(province)),
+                              label: provinceName,
+                              name: provinceName,
+                              code: province.code,
+                              placesCount: Number.isFinite(placesCount) ? placesCount : null,
+                            }
+                          })
+                          const selectedProvinceOption = provinceSelectOptions.find(
+                            (option) => option.value === stepProvinceId,
+                          ) || null
+                          const provinceCountsLoading = loadingProvinceCounts.includes(currentType)
 
                           return (
                             <div
@@ -2341,7 +2499,7 @@ function TourForm({
                                   <div className="flex items-center gap-1 rounded-lg bg-slate-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-slate-500">
                                     {TYPE_ICONS[currentType] ||
                                       TYPE_ICONS.sightseeing}
-                                    <span>{currentType}</span>
+                                    <span>{TOUR_ACTIVITY_TYPE_LABELS[currentType] || currentType}</span>
                                   </div>
                                 </div>
 
@@ -2356,100 +2514,115 @@ function TourForm({
 
                               <div className="grid grid-cols-1 gap-3.5 md:grid-cols-3">
                                 <div>
-                                  <FieldLabel>Điểm đến của chặng</FieldLabel>
-                                  <select
-                                    value={stepDestinationId}
-                                    onChange={(event) => handleItineraryDestinationChange(originalIdx, event.target.value)}
-                                    disabled={loadingOptions}
-                                    className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-800 outline-none transition focus:border-blue-500 disabled:cursor-not-allowed disabled:bg-slate-100"
-                                  >
-                                    <option value="">Chọn tỉnh / điểm đến</option>
-                                    {destinations.map((destination) => (
-                                      <option key={getOptionId(destination)} value={getOptionId(destination)}>
-                                        {getOptionName(destination, `Điểm đến #${getOptionId(destination)}`)}
-                                        {destination.province_city && destination.province_city !== getOptionName(destination) ? ` — ${destination.province_city}` : ''}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </div>
-
-                                <div className="md:col-span-2">
-                                  <FieldLabel>{destinationPlaceLabel}</FieldLabel>
-                                  <select
-                                    value={step.destination_place_id || ''}
-                                    onChange={(e) =>
-                                      handleDestinationPlaceChange(
-                                        originalIdx,
-                                        e.target.value,
-                                      )
-                                    }
-                                    disabled={!stepDestinationId || stepPlacesLoading}
-                                    className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-800 outline-none transition focus:border-blue-500 disabled:cursor-not-allowed disabled:bg-slate-100"
-                                  >
-                                    <option value="">
-                                      {!stepDestinationId
-                                        ? 'Chọn điểm đến của chặng trước'
-                                        : stepPlacesLoading
-                                          ? 'Đang tải địa điểm...'
-                                          : 'Không gắn địa điểm cụ thể'}
-                                    </option>
-                                    {stepDestinationPlaces.map((place) => (
-                                      <option key={place.id} value={place.id}>
-                                        {place.name}
-                                        {place.district?.name || place.district_name || place.district?.province?.name || place.destination?.province_city
-                                          ? ` — ${[place.district?.name || place.district_name, place.district?.province?.name || place.destination?.province_city].filter(Boolean).join(', ')}`
-                                          : place.address ? ` — ${place.address}` : ''}
-                                      </option>
-                                    ))}
-                                  </select>
-                                  {selectedDestinationPlace ? (
-                                    <div className="mt-2 rounded-lg border border-sky-100 bg-sky-50 px-3 py-2">
-                                      <p className="text-xs font-black text-sky-900">
-                                        {selectedDestinationPlace.name}
-                                        {selectedDestinationPlace.district?.name || selectedDestinationPlace.district_name || selectedDestinationPlace.district?.province?.name || selectedDestinationPlace.destination?.province_city
-                                          ? ` — ${[selectedDestinationPlace.district?.name || selectedDestinationPlace.district_name, selectedDestinationPlace.district?.province?.name || selectedDestinationPlace.destination?.province_city].filter(Boolean).join(', ')}`
-                                          : ''}
-                                      </p>
-                                      {selectedDestinationPlace.address ? <p className="mt-1 text-[11px] font-medium text-sky-700">{selectedDestinationPlace.address}</p> : null}
-                                    </div>
-                                  ) : null}
-                                  {stepDestinationId && !stepPlacesLoading && stepDestinationPlaces.length === 0 ? (
-                                    <p className="mt-1.5 text-[11px] font-semibold text-amber-600">
-                                      Điểm đến của chặng chưa có địa điểm chi tiết. Hãy thêm tại trang Quản lý điểm đến chi tiết.
-                                    </p>
-                                  ) : null}
-                                </div>
-
-                                <div>
                                   <FieldLabel>Loại hoạt động</FieldLabel>
                                   <select
                                     value={currentType}
-                                    onChange={(e) =>
-                                      handleUpdateStep(
-                                        originalIdx,
-                                        'type',
-                                        e.target.value,
-                                      )
-                                    }
+                                    onChange={(event) => handleItineraryActivityChange(originalIdx, event.target.value)}
                                     className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-800 outline-none transition focus:border-blue-500"
                                   >
-                                    <option value="departure">
-                                      Điểm xuất phát (Departure)
-                                    </option>
-                                    <option value="transport">
-                                      Di chuyển (Transport)
-                                    </option>
-                                    <option value="sightseeing">
-                                      Điểm tham quan (Sightseeing)
-                                    </option>
-                                    <option value="meal">Ăn uống (Meal)</option>
-                                    <option value="free_time">
-                                      Tự do (Free time)
-                                    </option>
-                                    <option value="return">
-                                      Trở về (Return)
-                                    </option>
+                                    {TOUR_ACTIVITY_OPTIONS.map((option) => (
+                                      <option key={option.value} value={option.value}>{option.label}</option>
+                                    ))}
                                   </select>
+                                </div>
+
+                                <div>
+                                  <FieldLabel>Tỉnh / Thành phố</FieldLabel>
+                                  <Select
+                                    inputId={`itinerary-province-${originalIdx}`}
+                                    value={selectedProvinceOption}
+                                    options={provinceSelectOptions}
+                                    onChange={(option) => handleItineraryProvinceChange(originalIdx, option?.value || '')}
+                                    isClearable
+                                    isSearchable
+                                    isLoading={loadingOptions || provinceCountsLoading}
+                                    isDisabled={loadingOptions || provinceCountsLoading}
+                                    filterOption={provinceOptionFilter}
+                                    getOptionValue={(option) => option.value}
+                                    formatOptionLabel={(option) => (
+                                      <div className="flex min-w-0 items-center justify-between gap-3">
+                                        <span className="truncate">{option.name}</span>
+                                        <span className="shrink-0 text-[11px] font-bold text-slate-400">
+                                          {option.placesCount == null
+                                            ? 'Đang tải...'
+                                            : `${option.placesCount} địa điểm`}
+                                        </span>
+                                      </div>
+                                    )}
+                                    noOptionsMessage={({ inputValue }) => inputValue
+                                      ? 'Không tìm thấy tỉnh/thành phù hợp.'
+                                      : 'Không có tỉnh/thành phù hợp.'}
+                                    placeholder={provinceCountsLoading
+                                      ? 'Đang tải số lượng địa điểm...'
+                                      : 'Tìm và chọn tỉnh/thành...'}
+                                    className="mt-1.5 text-xs"
+                                    classNamePrefix="tour-province-select"
+                                    styles={{
+                                      control: (baseStyles, state) => ({
+                                        ...baseStyles,
+                                        minHeight: '2.5rem',
+                                        borderRadius: '0.75rem',
+                                        borderColor: state.isFocused ? '#3b82f6' : '#e2e8f0',
+                                        boxShadow: state.isFocused ? '0 0 0 3px #dbeafe' : 'none',
+                                      }),
+                                      valueContainer: (baseStyles) => ({
+                                        ...baseStyles,
+                                        padding: '0.125rem 0.75rem',
+                                      }),
+                                      input: (baseStyles) => ({
+                                        ...baseStyles,
+                                        color: '#1e293b',
+                                      }),
+                                      singleValue: (baseStyles) => ({
+                                        ...baseStyles,
+                                        color: '#1e293b',
+                                        fontWeight: 600,
+                                      }),
+                                      option: (baseStyles, state) => ({
+                                        ...baseStyles,
+                                        backgroundColor: state.isFocused ? '#eff6ff' : '#fff',
+                                        color: '#1e293b',
+                                      }),
+                                    }}
+                                  />
+                                </div>
+
+                                <div className="md:col-span-3">
+                                  <FieldLabel>Địa điểm trong tỉnh</FieldLabel>
+                                  <CreatableSelect
+                                    value={selectedPlaceOption}
+                                    options={stepDestinationPlaces.map((place) => ({
+                                      value: place.id,
+                                      label: [place.name, place.district_name || place.district?.name, place.address].filter(Boolean).join(' — '),
+                                    }))}
+                                    onChange={(option) => handleDestinationPlaceChange(originalIdx, option)}
+                                    isClearable
+                                    isDisabled={!stepProvinceId || stepPlacesLoading}
+                                    isValidNewOption={(inputValue) => Boolean(inputValue.trim())}
+                                    formatCreateLabel={(inputValue) => 'Thêm địa điểm mới: ' + inputValue}
+                                    noOptionsMessage={() => stepProvinceId ? 'Chưa có địa điểm phù hợp; hãy nhập để thêm mới.' : 'Chọn tỉnh/thành trước'}
+                                    placeholder={stepPlacesLoading ? 'Đang tải địa điểm...' : 'Chọn hoặc nhập địa điểm trong tỉnh...'}
+                                    className="mt-1.5 text-xs"
+                                    styles={{
+                                      control: (baseStyles, state) => ({
+                                        ...baseStyles,
+                                        minHeight: '2.5rem',
+                                        borderRadius: '0.5rem',
+                                        borderColor: state.isFocused ? '#3b82f6' : '#e2e8f0',
+                                        boxShadow: state.isFocused ? '0 0 0 3px #dbeafe' : 'none',
+                                      }),
+                                    }}
+                                  />
+                                  {step.destination_place_name ? (
+                                    <p className="mt-1.5 text-[11px] font-semibold text-amber-600">
+                                      Địa điểm mới sẽ được thêm vào danh mục sau khi lưu tour thành công.
+                                    </p>
+                                  ) : null}
+                                  {stepProvinceId && !stepPlacesLoading && stepDestinationPlaces.length === 0 && !step.destination_place_name ? (
+                                    <p className="mt-1.5 text-[11px] font-semibold text-amber-600">
+                                      Chưa có địa điểm được gán loại “{TOUR_ACTIVITY_TYPE_LABELS[currentType] || currentType}”; hãy nhập để thêm mới.
+                                    </p>
+                                  ) : null}
                                 </div>
 
                                 <div className="md:col-span-2">
@@ -2823,30 +2996,30 @@ function TourForm({
               </div>
 
               <div>
-                <FieldLabel required>Điểm đến</FieldLabel>
+                <FieldLabel required>Tỉnh / Thành phố thuộc hệ thống</FieldLabel>
                 <div className="relative">
                   <select
-                    name="destination_id"
-                    value={formData.destination_id}
+                    name="province_id"
+                    value={formData.province_id}
                     onChange={handleChange}
                     disabled={loadingOptions}
-                    className={fieldClass(selectClass, 'destination_id')}
-                    data-invalid={hasError('destination_id')}
-                    aria-invalid={hasError('destination_id')}
+                    className={fieldClass(selectClass, 'province_id')}
+                    data-invalid={hasError('province_id')}
+                    aria-invalid={hasError('province_id')}
                   >
                     <option value="">
-                      {loadingOptions ? 'Đang tải...' : 'Chọn điểm đến'}
+                      {loadingOptions ? 'Đang tải...' : 'Chọn tỉnh/thành đã đồng bộ'}
                     </option>
 
-                    {currentDestinationMissing && (
-                      <option value={formData.destination_id}>
-                        Điểm đến #{formData.destination_id}
+                    {currentProvinceMissing && (
+                      <option value={formData.province_id}>
+                        Tỉnh/thành #{formData.province_id}
                       </option>
                     )}
 
-                    {destinations.map((item) => (
+                    {provinces.map((item) => (
                       <option key={getOptionId(item)} value={getOptionId(item)}>
-                        {getOptionName(item, `Điểm đến #${getOptionId(item)}`)}
+                        {getOptionName(item, `Tỉnh/thành #${getOptionId(item)}`)} ({item.places_count ?? 0} địa điểm)
                       </option>
                     ))}
                   </select>
@@ -2866,7 +3039,7 @@ function TourForm({
                     </svg>
                   </div>
                 </div>
-                {errorText('destination_id')}
+                {errorText('province_id')}
               </div>
 
               <div className="grid grid-cols-2 gap-3">

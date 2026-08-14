@@ -23,6 +23,8 @@ class Tour extends Model
 
     protected $fillable = [
         'category_id',
+        'province_id',
+        // Alias tạm thời cho payload cũ; mutator chuyển thẳng sang province_id.
         'destination_id',
         'created_by',
         'title',
@@ -71,40 +73,30 @@ class Tour extends Model
     }
 
     /**
-     * Điểm đến chính cũ của tour.
-     * Dùng cột destination_id trong bảng tours.
+     * Tỉnh/thành chính của tour.
+     */
+    public function province(): BelongsTo
+    {
+        return $this->belongsTo(Province::class, 'province_id');
+    }
+
+    /**
+     * Alias đọc dữ liệu cũ để các màn hình chưa nâng cấp không bị gãy.
+     * Quan hệ thực tế vẫn truy vấn bảng provinces.
      */
     public function destination(): BelongsTo
     {
-        return $this->belongsTo(Destination::class, 'destination_id');
+        return $this->province();
     }
-    /**
-     * Nhiều điểm đến mới của tour.
-     * Dùng bảng trung gian tour_destinations.
-     */
-    // public function destinations(): BelongsToMany
-    // {
-    //     return $this->belongsToMany(
-    //         Destination::class,
-    //         'tour_destinations',
-    //         'tour_id',
-    //         'destination_id',
-    //     )
-    //         ->withPivot('sort_order')
-    //         ->orderBy('tour_destinations.sort_order');
-    // }
 
-    public function destinations(): BelongsToMany
+    public function setDestinationIdAttribute($value): void
     {
-        return $this->belongsToMany(
-            Destination::class,
-            'tour_destinations',
-            'tour_id',
-            'destination_id'
-        )
-            ->withPivot('sort_order')
-            ->withTimestamps()
-            ->orderBy('tour_destinations.sort_order');
+        $this->attributes['province_id'] = $value;
+    }
+
+    public function getDestinationIdAttribute(): ?int
+    {
+        return $this->province_id === null ? null : (int) $this->province_id;
     }
 
     /**

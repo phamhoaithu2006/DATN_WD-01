@@ -4,8 +4,11 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\TourResource;
+use App\Models\DestinationPlace;
 use App\Models\Tour;
 use App\Models\TourActivityLog;
+use App\Models\TourItinerary;
+
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -51,7 +54,7 @@ class TourManagerController extends Controller
     public function index(Request $request)
     {
         // Loại trừ tour bị ẩn
-        $query = Tour::with(['category', 'destination', 'thumbnail', 'images', 'itineraries.images', 'itineraries.destinationPlace.destination', 'itineraries.destinationPlace.district.province', 'agePricingRules'])
+        $query = Tour::with(['category', 'province', 'thumbnail', 'images', 'itineraries.images', 'itineraries.destinationPlace.province', 'itineraries.destinationPlace.district.province', 'itineraries.destinationPlace.activityTypeLinks', 'agePricingRules'])
             ->where('status', '!=', 'hidden');
 
         //  1. ADMIN TÌM KIẾM: Theo tiêu đề tour (title)
@@ -62,7 +65,7 @@ class TourManagerController extends Controller
                     ->orWhere('summary', 'LIKE', '%'.$search.'%')
                     ->orWhereHas('category', fn ($categoryQuery) => $categoryQuery->where('name', 'LIKE', '%'.$search.'%')
                     )
-                    ->orWhereHas('destination', fn ($destinationQuery) => $destinationQuery->where('name', 'LIKE', '%'.$search.'%')
+                    ->orWhereHas('province', fn ($provinceQuery) => $provinceQuery->where('name', 'LIKE', '%'.$search.'%')
                     );
             });
         }
@@ -77,8 +80,8 @@ class TourManagerController extends Controller
             );
         }
 
-        if ($request->filled('destination')) {
-            $query->whereHas('destination', fn ($destinationQuery) => $destinationQuery->where('name', $request->string('destination')->toString())
+        if ($request->filled('province')) {
+            $query->whereHas('province', fn ($provinceQuery) => $provinceQuery->where('name', $request->string('province')->toString())
             );
         }
 
@@ -123,7 +126,7 @@ class TourManagerController extends Controller
      */
     public function show($id)
     {
-        $tour = Tour::with(['category', 'destination', 'thumbnail', 'images', 'itineraries.images', 'itineraries.destinationPlace.destination', 'itineraries.destinationPlace.district.province', 'departures', 'agePricingRules'])
+        $tour = Tour::with(['category', 'province', 'thumbnail', 'images', 'itineraries.images', 'itineraries.destinationPlace.province', 'itineraries.destinationPlace.district.province', 'itineraries.destinationPlace.activityTypeLinks', 'departures', 'agePricingRules'])
             ->findOrFail($id);
 
         return response()->json([
@@ -136,7 +139,7 @@ class TourManagerController extends Controller
     public function publicIndex(Request $request)
     {
         //  Chỉ lấy các tour đã xuất bản (published)
-        $query = Tour::with(['category', 'destination', 'thumbnail', 'images', 'itineraries.images', 'itineraries.destinationPlace.destination', 'itineraries.destinationPlace.district.province', 'agePricingRules'])
+        $query = Tour::with(['category', 'province', 'thumbnail', 'images', 'itineraries.images', 'itineraries.destinationPlace.province', 'itineraries.destinationPlace.district.province', 'itineraries.destinationPlace.activityTypeLinks', 'agePricingRules'])
             ->where('status', 'published');
 
         //  1. USER TÌM KIẾM: Tìm theo tiêu đề tour
@@ -169,6 +172,7 @@ class TourManagerController extends Controller
     public function store(Request $request)
     {
         $this->normalizeItineraryRequest($request);
+        $this->normalizeProvinceRequest($request);
         $this->normalizeAgePricingRulesRequest($request);
 
         $validatedData = $request->validate([
@@ -177,7 +181,7 @@ class TourManagerController extends Controller
             'gallery_images.*' => 'image|mimes:jpg,jpeg,png,webp|max:5120',
             'thumbnail_alt_text' => 'nullable|string|max:255',
             'category_id' => 'required|integer',
-            'destination_id' => 'required|integer',
+            'province_id' => 'required|integer|exists:provinces,id',
             'title' => 'required|string|max:255',
             'summary' => 'nullable|string|max:500',
             'description' => 'nullable|string',
@@ -185,12 +189,15 @@ class TourManagerController extends Controller
             'itinerary' => 'nullable|array',
             'itinerary.*.day_number' => 'required|integer|min:1',
             'itinerary.*.sort_order' => 'nullable|integer|min:0',
-            'itinerary.*.type' => 'required|string|in:departure,transport,sightseeing,meal,free_time,return',
+            'itinerary.*.type' => ['required', 'string', Rule::in(TourItinerary::ACTIVITY_TYPES)],
+            'itinerary.*.province_id' => ['nullable', 'integer', 'exists:provinces,id'],
             'itinerary.*.destination_place_id' => [
                 'nullable',
                 'integer',
                 Rule::exists('destination_places', 'id')->whereNull('deleted_at'),
             ],
+            'itinerary.*.destination_place_name' => 'nullable|string|max:180',
+            'itinerary.*.destination_place_address' => 'nullable|string|max:500',
             'itinerary.*.title' => 'required|string|max:255',
             'itinerary.*.start_time' => 'nullable|date_format:H:i',
             'itinerary.*.end_time' => 'nullable|date_format:H:i',
@@ -317,7 +324,7 @@ class TourManagerController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Thêm tour thành công',
-            'data' => new TourResource($tour->load(['category', 'destination', 'thumbnail', 'images', 'itineraries.images', 'itineraries.destinationPlace.destination', 'itineraries.destinationPlace.district.province', 'agePricingRules'])),
+            'data' => new TourResource($tour->load(['category', 'province', 'thumbnail', 'images', 'itineraries.images', 'itineraries.destinationPlace.province', 'itineraries.destinationPlace.district.province', 'itineraries.destinationPlace.activityTypeLinks', 'agePricingRules'])),
         ], 201, [], JSON_PRESERVE_ZERO_FRACTION);
     }
 
@@ -328,6 +335,7 @@ class TourManagerController extends Controller
     {
         $tour = Tour::findOrFail($id);
         $this->normalizeItineraryRequest($request);
+        $this->normalizeProvinceRequest($request);
         $this->normalizeAgePricingRulesRequest($request);
 
         $validatedData = $request->validate([
@@ -336,19 +344,22 @@ class TourManagerController extends Controller
             'gallery_images.*' => 'image|mimes:jpg,jpeg,png,webp|max:5120',
             'thumbnail_alt_text' => 'nullable|string|max:255',
             'category_id' => 'sometimes|required|integer',
-            'destination_id' => 'sometimes|required|integer',
+            'province_id' => 'sometimes|required|integer|exists:provinces,id',
             'title' => 'sometimes|required|string|max:255',
             'summary' => 'nullable|string|max:500',
             'description' => 'nullable|string',
             'itinerary' => 'nullable|array',
             'itinerary.*.day_number' => 'required|integer|min:1',
             'itinerary.*.sort_order' => 'nullable|integer|min:0',
-            'itinerary.*.type' => 'required|string|in:departure,transport,sightseeing,meal,free_time,return',
+            'itinerary.*.type' => ['required', 'string', Rule::in(TourItinerary::ACTIVITY_TYPES)],
+            'itinerary.*.province_id' => ['nullable', 'integer', 'exists:provinces,id'],
             'itinerary.*.destination_place_id' => [
                 'nullable',
                 'integer',
                 Rule::exists('destination_places', 'id')->whereNull('deleted_at'),
             ],
+            'itinerary.*.destination_place_name' => 'nullable|string|max:180',
+            'itinerary.*.destination_place_address' => 'nullable|string|max:500',
             'itinerary.*.title' => 'required|string|max:255',
             'itinerary.*.start_time' => 'nullable|date_format:H:i',
             'itinerary.*.end_time' => 'nullable|date_format:H:i',
@@ -506,7 +517,7 @@ class TourManagerController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Cập nhật tour thành công',
-            'data' => new TourResource($tour->fresh(['category', 'destination', 'thumbnail', 'images', 'itineraries.images', 'itineraries.destinationPlace.destination', 'itineraries.destinationPlace.district.province', 'agePricingRules'])),
+            'data' => new TourResource($tour->fresh(['category', 'province', 'thumbnail', 'images', 'itineraries.images', 'itineraries.destinationPlace.province', 'itineraries.destinationPlace.district.province', 'itineraries.destinationPlace.activityTypeLinks', 'agePricingRules'])),
         ], 200, [], JSON_PRESERVE_ZERO_FRACTION);
     }
 
@@ -538,7 +549,7 @@ class TourManagerController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Đã ẩn tour thành công',
-            'data' => new TourResource($tour->fresh(['category', 'destination', 'thumbnail', 'images', 'itineraries.images', 'itineraries.destinationPlace.destination', 'itineraries.destinationPlace.district.province', 'agePricingRules'])),
+            'data' => new TourResource($tour->fresh(['category', 'province', 'thumbnail', 'images', 'itineraries.images', 'itineraries.destinationPlace.province', 'itineraries.destinationPlace.district.province', 'itineraries.destinationPlace.activityTypeLinks', 'agePricingRules'])),
         ]);
     }
 
@@ -563,7 +574,7 @@ class TourManagerController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Đã bỏ ẩn tour thành công',
-            'data' => new TourResource($tour->fresh(['category', 'destination', 'thumbnail', 'images', 'itineraries.images', 'itineraries.destinationPlace.destination', 'itineraries.destinationPlace.district.province', 'agePricingRules'])),
+            'data' => new TourResource($tour->fresh(['category', 'province', 'thumbnail', 'images', 'itineraries.images', 'itineraries.destinationPlace.province', 'itineraries.destinationPlace.district.province', 'itineraries.destinationPlace.activityTypeLinks', 'agePricingRules'])),
         ]);
     }
 
@@ -572,7 +583,7 @@ class TourManagerController extends Controller
      */
     public function hiddenTours()
     {
-        $tours = Tour::with(['category', 'destination', 'thumbnail', 'images', 'itineraries.images', 'itineraries.destinationPlace.destination', 'itineraries.destinationPlace.district.province', 'agePricingRules'])
+        $tours = Tour::with(['category', 'province', 'thumbnail', 'images', 'itineraries.images', 'itineraries.destinationPlace.province', 'itineraries.destinationPlace.district.province', 'itineraries.destinationPlace.activityTypeLinks', 'agePricingRules'])
             ->where('status', 'hidden')
             ->orderBy('id', 'asc')
             ->paginate(10);
@@ -602,7 +613,7 @@ class TourManagerController extends Controller
 
         $topTours = DB::table('bookings')
             ->join('tours', 'bookings.tour_id', '=', 'tours.id')
-            ->leftJoin('destinations', 'tours.destination_id', '=', 'destinations.id')
+            ->leftJoin('provinces', 'tours.province_id', '=', 'provinces.id')
             ->select(
                 'tours.id',
                 'tours.title',
@@ -611,8 +622,7 @@ class TourManagerController extends Controller
                 'tours.base_price',
                 'tours.average_rating',
                 'tours.review_count',
-                'destinations.name as destination_name',
-                'destinations.province_city',
+                'provinces.name as province_name',
                 DB::raw('COUNT(bookings.id) as total_bookings'),
                 DB::raw('SUM(bookings.total_amount) as total_revenue'),
                 DB::raw('SUM(bookings.number_of_people) as total_guests')
@@ -627,15 +637,14 @@ class TourManagerController extends Controller
                 'tours.base_price',
                 'tours.average_rating',
                 'tours.review_count',
-                'destinations.name',
-                'destinations.province_city'
+                'provinces.name'
             )
             ->orderByDesc('total_bookings')
             ->limit(5)
             ->get();
 
         $recentTours = (clone $baseQuery)
-            ->with(['category:id,name', 'destination:id,name,province_city'])
+            ->with(['category:id,name', 'province:id,name'])
             ->orderByDesc('created_at')
             ->limit(5)
             ->get([
@@ -647,7 +656,7 @@ class TourManagerController extends Controller
                 'average_rating',
                 'review_count',
                 'category_id',
-                'destination_id',
+                'province_id',
                 'created_at',
             ]);
 
@@ -703,6 +712,20 @@ class TourManagerController extends Controller
                     : null;
             }
 
+            if (array_key_exists('province_id', $item)) {
+                $item['province_id'] = filled($item['province_id'])
+                    ? (int) $item['province_id']
+                    : null;
+            }
+
+            if (array_key_exists('destination_place_name', $item)) {
+                $item['destination_place_name'] = trim((string) $item['destination_place_name']);
+            }
+
+            if (array_key_exists('destination_place_address', $item)) {
+                $item['destination_place_address'] = trim((string) $item['destination_place_address']);
+            }
+
             if (isset($item['images']) && is_array($item['images'])) {
                 $item['images'] = collect($item['images'])
                     ->map(function ($image, $imageIndex) {
@@ -736,19 +759,35 @@ class TourManagerController extends Controller
         $request->merge(['itinerary' => $normalized]);
     }
 
+    private function normalizeProvinceRequest(Request $request): void
+    {
+        if (! $request->filled('province_id') && $request->filled('destination_id')) {
+            $request->merge(['province_id' => $request->input('destination_id')]);
+        }
+    }
+
     private function syncItineraries(Tour $tour, array $itineraries): void
     {
         $tour->itineraries()->delete();
 
         foreach ($itineraries as $index => $item) {
             $images = $item['images'] ?? [];
-            unset($item['images'], $item['day']);
+            $destinationPlace = $this->resolveItineraryDestinationPlace($tour, $item);
+
+            unset(
+                $item['images'],
+                $item['day'],
+                $item['province_id'],
+                $item['destination_place_name'],
+                $item['destination_place_address'],
+                $item['itinerary_destination_id'],
+            );
 
             $itinerary = $tour->itineraries()->create([
                 'day_number' => $item['day_number'],
                 'sort_order' => $item['sort_order'] ?? $index,
                 'type' => $item['type'],
-                'destination_place_id' => $item['destination_place_id'] ?? null,
+                'destination_place_id' => $destinationPlace?->id,
                 'title' => $item['title'],
                 'start_time' => $item['start_time'] ?? null,
                 'end_time' => $item['end_time'] ?? null,
@@ -765,6 +804,85 @@ class TourManagerController extends Controller
                 ]);
             }
         }
+    }
+
+    private function resolveItineraryDestinationPlace(Tour $tour, array $item): ?DestinationPlace
+    {
+        $activityType = $item['type'];
+        $provinceId = $item['province_id'] ?? null;
+        $destinationPlace = null;
+
+        if (! empty($item['destination_place_id'])) {
+            $destinationPlace = DestinationPlace::query()
+                ->with(['province'])
+                ->findOrFail($item['destination_place_id']);
+
+            $provinceId = $provinceId ?: $destinationPlace->province_id;
+
+            if ($provinceId && $destinationPlace->province_id && (int) $provinceId !== (int) $destinationPlace->province_id) {
+                throw ValidationException::withMessages([
+                    'itinerary' => 'Địa điểm chi tiết không thuộc tỉnh/thành đã chọn.',
+                ]);
+            }
+        } elseif (filled($item['destination_place_name'] ?? null)) {
+            $provinceId = $provinceId ?: $this->resolveTourProvinceId($tour);
+
+            if (! $provinceId) {
+                throw ValidationException::withMessages([
+                    'itinerary' => 'Vui lòng chọn tỉnh/thành trước khi nhập địa điểm mới.',
+                ]);
+            }
+
+            $placeName = trim((string) $item['destination_place_name']);
+            $destinationPlace = DestinationPlace::query()
+                ->where('province_id', $provinceId)
+                ->where('name', $placeName)
+                ->first();
+
+            if (! $destinationPlace) {
+                $destinationPlace = DestinationPlace::query()->create([
+                    'province_id' => $provinceId,
+                    'name' => $placeName,
+                    'slug' => $this->generateUniqueDestinationPlaceSlug($placeName, (int) $provinceId),
+                    'address' => filled($item['destination_place_address'] ?? null)
+                        ? trim((string) $item['destination_place_address'])
+                        : null,
+                    'status' => 'active',
+                ]);
+            }
+        }
+
+        if (! $destinationPlace) {
+            return null;
+        }
+
+        if (! $destinationPlace->activityTypeLinks()
+            ->where('activity_type', $activityType)
+            ->exists()) {
+            $destinationPlace->activityTypeLinks()->create([
+                'activity_type' => $activityType,
+            ]);
+        }
+
+        return $destinationPlace;
+    }
+
+    private function resolveTourProvinceId(Tour $tour): ?int
+    {
+        return $tour->province_id ? (int) $tour->province_id : null;
+    }
+
+    private function generateUniqueDestinationPlaceSlug(string $name, int $provinceId): string
+    {
+        $baseSlug = Str::slug($name) ?: 'dia-diem';
+        $slug = $baseSlug.'-'.$provinceId;
+        $index = 1;
+
+        while (DestinationPlace::withTrashed()->where('slug', $slug)->exists()) {
+            $slug = $baseSlug.'-'.$provinceId.'-'.$index++;
+        }
+
+        return $slug;
     }
 
     private function normalizeAgePricingRulesRequest(Request $request): void

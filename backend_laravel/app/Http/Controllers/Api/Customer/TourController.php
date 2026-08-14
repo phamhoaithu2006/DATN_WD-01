@@ -7,7 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\TourFilterRequest;
 use App\Http\Resources\TourResource;
 use App\Models\Category;
-use App\Models\Destination;
+use App\Models\Province;
 use App\Models\Tour;
 use App\Models\TourDeparture;
 use Illuminate\Database\Eloquent\Builder;
@@ -69,31 +69,20 @@ class TourController extends Controller
                 ->values()
                 ->all();
 
-            // Đếm tour theo điểm đến: gộp cả cột destination_id cũ và pivot tour_destinations.
-            $directCounts = (clone $published)
-                ->select('destination_id', DB::raw('COUNT(*) as total'))
-                ->groupBy('destination_id')
-                ->pluck('total', 'destination_id');
+            $provinceCounts = (clone $published)
+                ->select('province_id', DB::raw('COUNT(*) as total'))
+                ->groupBy('province_id')
+                ->pluck('total', 'province_id');
 
-            $pivotCounts = DB::table('tour_destinations')
-                ->join('tours', 'tours.id', '=', 'tour_destinations.tour_id')
-                ->where('tours.status', 'published')
-                ->whereNull('tours.deleted_at')
-                ->whereRaw('tour_destinations.destination_id != tours.destination_id')
-                ->select('tour_destinations.destination_id', DB::raw('COUNT(DISTINCT tour_destinations.tour_id) as total'))
-                ->groupBy('tour_destinations.destination_id')
-                ->pluck('total', 'destination_id');
-
-            $destinations = Destination::query()
+            $provinces = Province::query()
                 ->orderBy('name')
                 ->get(['id', 'name'])
-                ->map(fn ($destination) => [
-                    'id' => $destination->id,
-                    'name' => $destination->name,
-                    'tours_count' => (int) ($directCounts[$destination->id] ?? 0)
-                        + (int) ($pivotCounts[$destination->id] ?? 0),
+                ->map(fn ($province) => [
+                    'id' => $province->id,
+                    'name' => $province->name,
+                    'tours_count' => (int) ($provinceCounts[$province->id] ?? 0),
                 ])
-                ->filter(fn ($destination) => $destination['tours_count'] > 0)
+                ->filter(fn ($province) => $province['tours_count'] > 0)
                 ->values()
                 ->all();
 
@@ -136,7 +125,9 @@ class TourController extends Controller
                 ],
                 'departure_locations' => $departureLocations,
                 'categories' => $categories,
-                'destinations' => $destinations,
+                'provinces' => $provinces,
+                // Alias cho frontend cũ; dữ liệu bên trong là tỉnh/thành.
+                'destinations' => $provinces,
                 'durations' => [
                     ['value' => '1-3', 'label' => '1–3 ngày', 'tours_count' => (int) ($durationCounts?->bucket_1_3 ?? 0)],
                     ['value' => '4-7', 'label' => '4–7 ngày', 'tours_count' => (int) ($durationCounts?->bucket_4_7 ?? 0)],
@@ -239,13 +230,13 @@ class TourController extends Controller
             }, 'discount_rate')
             ->with([
                 'category',
-                'destination',
-                'destinations',
+                'province',
                 'thumbnail',
                 'images',
                 'itineraries.images',
-                'itineraries.destinationPlace.destination',
+                'itineraries.destinationPlace.province',
                 'itineraries.destinationPlace.district.province',
+                'itineraries.destinationPlace.activityTypeLinks',
 
                 'agePricingRules' => function ($query) {
                     $query->where('is_active', true)

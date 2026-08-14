@@ -19,13 +19,9 @@ class TourResource extends JsonResource
             ? $this->category
             : null;
 
-        $destination = $this->relationLoaded('destination')
-            ? $this->destination
-            : null;
-
-        $multiDestinations = $this->relationLoaded('destinations')
-            ? $this->destinations
-            : collect();
+        $province = $this->relationLoaded('province')
+            ? $this->province
+            : ($this->relationLoaded('destination') ? $this->destination : null);
 
         $thumbnail = $this->relationLoaded('thumbnail')
             ? $this->thumbnail
@@ -68,27 +64,47 @@ class TourResource extends JsonResource
                     ? $itinerary->images
                     : collect();
 
+                $destinationPlace = $itinerary->relationLoaded('destinationPlace')
+                    ? $itinerary->destinationPlace
+                    : null;
+                $destinationPlaceProvince = $destinationPlace?->relationLoaded('province')
+                    ? $destinationPlace->province
+                    : null;
+                $destinationPlaceDistrict = $destinationPlace?->relationLoaded('district')
+                    ? $destinationPlace->district
+                    : null;
                 return [
                     'id' => $itinerary->id,
                     'day_number' => (int) $itinerary->day_number,
                     'sort_order' => (int) $itinerary->sort_order,
                     'type' => $itinerary->type,
                     'destination_place_id' => $itinerary->destination_place_id,
-                    'destination_place' => $itinerary->relationLoaded('destinationPlace') && $itinerary->destinationPlace ? [
-                        'id' => $itinerary->destinationPlace->id,
-                        'destination_id' => $itinerary->destinationPlace->destination_id,
-                        'name' => $itinerary->destinationPlace->name,
-                        'district_name' => $itinerary->destinationPlace->district?->name ?? $itinerary->destinationPlace->district_name,
-                        'province_city' => $itinerary->destinationPlace->district?->province?->name
-                            ?? ($itinerary->destinationPlace->relationLoaded('destination') ? $itinerary->destinationPlace->destination?->province_city : null),
-                        'district' => $itinerary->destinationPlace->district ? [
-                            'id' => $itinerary->destinationPlace->district->id,
-                            'name' => $itinerary->destinationPlace->district->name,
-                            'province' => $itinerary->destinationPlace->district->province ? ['id' => $itinerary->destinationPlace->district->province->id, 'name' => $itinerary->destinationPlace->district->province->name] : null,
+                    'destination_place' => $destinationPlace ? [
+                        'id' => $destinationPlace->id,
+                        'destination_id' => $destinationPlace->province_id,
+                        'province_id' => $destinationPlace->province_id
+                            ?? $destinationPlaceDistrict?->province_id,
+                        'province' => $destinationPlaceProvince ? [
+                            'id' => $destinationPlaceProvince->id,
+                            'name' => $destinationPlaceProvince->name,
+                        ] : ($destinationPlaceDistrict?->province ? [
+                            'id' => $destinationPlaceDistrict->province->id,
+                            'name' => $destinationPlaceDistrict->province->name,
+                        ] : null),
+                        'activity_types' => $destinationPlace->activity_types,
+                        'name' => $destinationPlace->name,
+                        'district_name' => $destinationPlaceDistrict?->name ?? $destinationPlace->district_name,
+                        'province_city' => $destinationPlaceProvince?->name
+                            ?? $destinationPlaceDistrict?->province?->name
+                            ?? null,
+                        'district' => $destinationPlaceDistrict ? [
+                            'id' => $destinationPlaceDistrict->id,
+                            'name' => $destinationPlaceDistrict->name,
+                            'province' => $destinationPlaceDistrict->province ? ['id' => $destinationPlaceDistrict->province->id, 'name' => $destinationPlaceDistrict->province->name] : null,
                         ] : null,
-                        'address' => $itinerary->destinationPlace->address,
-                        'description' => $itinerary->destinationPlace->description,
-                        'thumbnail_url' => $itinerary->destinationPlace->thumbnail_url,
+                        'address' => $destinationPlace->address,
+                        'description' => $destinationPlace->description,
+                        'thumbnail_url' => $destinationPlace->thumbnail_url,
                     ] : null,
                     'title' => $itinerary->title,
                     'start_time' => $itinerary->start_time,
@@ -142,31 +158,40 @@ class TourResource extends JsonResource
                 'slug' => $category->slug,
             ] : null,
 
-            'destination' => $destination?->name,
-            'destination_name' => $destination?->name,
-            'destination_info' => $destination ? [
-                'id' => $destination->id,
-                'name' => $destination->name,
-                'slug' => $destination->slug,
-                'province_city' => $destination->province_city,
-                'country' => $destination->country,
-                'description' => $destination->description,
-                'thumbnail_url' => $destination->thumbnail_url,
-                'status' => $destination->status,
+            'province_id' => $this->province_id,
+            'province' => $province ? [
+                'id' => $province->id,
+                'name' => $province->name,
+                'slug' => $province->slug,
+                'code' => $province->code,
             ] : null,
 
-            'destinations' => $multiDestinations
-                ->map(fn ($item) => [
-                    'id' => $item->id,
-                    'name' => $item->name,
-                    'slug' => $item->slug,
-                    'province_city' => $item->province_city,
-                    'country' => $item->country,
-                    'thumbnail_url' => $item->thumbnail_url,
-                    'sort_order' => (int) ($item->pivot?->sort_order ?? 0),
-                ])
-                ->values()
-                ->all(),
+            // Alias response cũ để các consumer đang hiển thị "điểm đến"
+            // vẫn hoạt động trong giai đoạn chuyển sang tỉnh/thành.
+            'destination_id' => $this->province_id,
+            'destination' => $province?->name,
+            'destination_name' => $province?->name,
+            'destination_info' => $province ? [
+                'id' => $province->id,
+                'name' => $province->name,
+                'slug' => $province->slug,
+                'province_city' => $province->name,
+                'country' => 'Việt Nam',
+                'description' => null,
+                'thumbnail_url' => null,
+                'status' => 'active',
+            ] : null,
+
+            // Alias mảng cũ; tour hiện chỉ gắn một tỉnh/thành.
+            'destinations' => $province ? [[
+                'id' => $province->id,
+                'name' => $province->name,
+                'slug' => $province->slug,
+                'province_city' => $province->name,
+                'country' => 'Việt Nam',
+                'thumbnail_url' => null,
+                'sort_order' => 0,
+            ]] : [],
 
             'thumbnail_url' => $thumbnailUrl,
             'image' => $thumbnailUrl,
