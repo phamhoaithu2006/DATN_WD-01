@@ -2,7 +2,7 @@
 
 use App\Models\Booking;
 use App\Models\Category;
-use App\Models\Destination;
+use App\Models\Province;
 use App\Models\Guide;
 use App\Models\Notification;
 use App\Models\Role;
@@ -23,11 +23,11 @@ test('finalization demo seeder adds cancelled, confirmed and departed departures
     $guideUser = User::factory()->create(['role_id' => $guideRole->id, 'email' => 'hung.tv@vivugo.vn']);
     Guide::query()->create(['user_id' => $guideUser->id, 'guide_code' => 'HDV001', 'status' => 'active']);
     $category = Category::query()->create(['name' => 'Danh mục', 'slug' => 'danh-muc', 'status' => 'active']);
-    $destination = Destination::query()->create(['name' => 'Hà Nội', 'slug' => 'ha-noi', 'province_city' => 'Hà Nội', 'country' => 'Việt Nam', 'status' => 'active']);
+    $destination = Province::query()->firstOrCreate(['name' => 'Hà Nội']);
     foreach (['ha-long-5-sao-2n1d', 'sa-pa-ban-lang-4n3d'] as $slug) {
         Tour::query()->create([
             'category_id' => $category->id,
-            'destination_id' => $destination->id,
+            'province_id' => $destination->id,
             'title' => $slug,
             'slug' => $slug,
             'base_price' => 1000000,

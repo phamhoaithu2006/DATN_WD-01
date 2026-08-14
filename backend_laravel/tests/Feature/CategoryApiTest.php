@@ -1,7 +1,7 @@
 <?php
 
 use App\Models\Category;
-use App\Models\Destination;
+use App\Models\Province;
 use App\Models\Role;
 use App\Models\Tour;
 use App\Models\User;
@@ -68,15 +68,13 @@ test('admin cannot delete a category that has tours', function () {
         'slug' => 'mao-hiem-category-test',
         'status' => 'active',
     ]);
-    $destination = Destination::query()->create([
+    $destination = Province::query()->firstOrCreate([
         'name' => 'Đà Nẵng',
-        'slug' => 'da-nang-category-test',
-        'status' => 'active',
     ]);
 
     Tour::query()->create([
         'category_id' => $category->id,
-        'destination_id' => $destination->id,
+        'province_id' => $destination->id,
         'title' => 'Tour mạo hiểm test',
         'slug' => 'tour-mao-hiem-category-test',
         'duration_days' => 2,

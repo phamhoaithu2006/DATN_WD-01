@@ -47,15 +47,9 @@ function paymentSafetyTour(): Tour
         ]
     );
 
-    DB::table('destinations')->updateOrInsert(
+    DB::table('provinces')->updateOrInsert(
         ['id' => 1],
         [
-            'name' => 'Điểm đến thanh toán',
-            'slug' => 'diem-den-thanh-toan',
-            'province_city' => 'Hà Nội',
-            'country' => 'Việt Nam',
-            'description' => 'Điểm đến dùng cho test thanh toán.',
-            'status' => 'active',
             'created_at' => $now,
             'updated_at' => $now,
         ]
@@ -63,7 +57,7 @@ function paymentSafetyTour(): Tour
 
     return Tour::query()->create([
         'category_id' => 1,
-        'destination_id' => 1,
+        'province_id' => 1,
         'title' => 'Tour thanh toán an toàn',
         'slug' => 'tour-thanh-toan-an-toan-'.fake()->unique()->numberBetween(1000, 9999),
         'duration_days' => 2,

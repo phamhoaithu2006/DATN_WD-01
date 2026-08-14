@@ -47,8 +47,7 @@ class TourFilter
                 ->orWhere('tours.summary', 'like', $like)
                 ->orWhere('tours.description', 'like', $like)
                 ->orWhereHas('category', fn (Builder $q) => $q->where('name', 'like', $like))
-                ->orWhereHas('destination', fn (Builder $q) => $q->where('name', 'like', $like))
-                ->orWhereHas('destinations', fn (Builder $q) => $q->where('name', 'like', $like));
+                ->orWhereHas('province', fn (Builder $q) => $q->where('name', 'like', $like));
         });
     }
 
@@ -61,17 +60,24 @@ class TourFilter
     }
 
     /**
-     * Hỗ trợ cả destination_id cũ trong bảng tours và bảng tour_destinations mới.
+     * Lọc theo tỉnh/thành đã đồng bộ.
+     *
+     * @param array<int, int> $ids
+     */
+    protected function provinceIds(Builder $query, array $ids): void
+    {
+        $query->whereIn('tours.province_id', $ids);
+    }
+
+    /**
+     * Alias tham số cũ để các liên kết đã phát hành không bị gãy ngay lập tức.
+     * Giá trị vẫn được hiểu là ID tỉnh/thành.
      *
      * @param array<int, int> $ids
      */
     protected function destinationIds(Builder $query, array $ids): void
     {
-        $query->where(function (Builder $subQuery) use ($ids) {
-            $subQuery
-                ->whereIn('tours.destination_id', $ids)
-                ->orWhereHas('destinations', fn (Builder $q) => $q->whereKey($ids));
-        });
+        $this->provinceIds($query, $ids);
     }
 
     protected function durationDays(Builder $query, int $days): void

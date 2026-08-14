@@ -13,9 +13,9 @@ class ChatTourRecommendationResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        $destination = $this->relationLoaded('destination')
-            ? $this->destination
-            : null;
+        $province = $this->relationLoaded('province')
+            ? $this->province
+            : ($this->relationLoaded('destination') ? $this->destination : null);
         $thumbnail = $this->relationLoaded('thumbnail')
             ? $this->thumbnail
             : null;
@@ -33,7 +33,9 @@ class ChatTourRecommendationResource extends JsonResource
             'title' => (string) $this->title,
             'thumbnail_url' => $thumbnail?->image_url,
             'thumbnail_alt' => $thumbnail?->alt_text,
-            'destination' => $destination?->name,
+            'province' => $province?->name,
+            // Alias tạm thời cho các client cũ.
+            'destination' => $province?->name,
             'duration_days' => (int) $this->duration_days,
             'duration_nights' => (int) $this->duration_nights,
             'duration' => "{$this->duration_days} ngày {$this->duration_nights} đêm",

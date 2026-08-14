@@ -111,7 +111,7 @@ class CustomerManagerController extends Controller
         return (int) $guide->experience_years === 0
             && (float) $guide->average_rating === 0.0
             && (int) $guide->review_count === 0
-            && ! $guide->destinations()->exists()
+            && ! $guide->provinces()->exists()
             && ! $guide->languages()->exists()
             && ! $guide->experiences()->exists();
     }

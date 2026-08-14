@@ -71,19 +71,15 @@ function mysqlAuditDeparture(int $daysUntilDeparture = 10, int $bookedSlots = 0)
         'updated_at' => $now,
     ]);
 
-    $destinationId = DB::table('destinations')->insertGetId([
-        'name' => "Điểm đến concurrency {$suffix}",
-        'slug' => "diem-den-concurrency-{$suffix}",
-        'province_city' => 'Hà Nội',
-        'country' => 'Việt Nam',
-        'status' => 'active',
+    $provinceId = DB::table('provinces')->insertGetId([
+        'name' => "Tỉnh concurrency {$suffix}",
         'created_at' => $now,
         'updated_at' => $now,
     ]);
 
     $tour = Tour::query()->create([
         'category_id' => $categoryId,
-        'destination_id' => $destinationId,
+        'province_id' => $provinceId,
         'title' => "Tour concurrency {$suffix}",
         'slug' => "tour-concurrency-{$suffix}",
         'duration_days' => 2,

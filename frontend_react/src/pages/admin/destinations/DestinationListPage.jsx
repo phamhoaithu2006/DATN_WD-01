@@ -269,6 +269,13 @@ function DestinationListPage() {
               </Link>
 
               <Link
+                to="/admin/destination-places"
+                className="inline-flex h-12 whitespace-nowrap items-center justify-center rounded-xl border border-indigo-200 bg-white px-5 text-sm font-bold text-indigo-700 shadow-sm transition hover:border-indigo-300 hover:bg-indigo-50"
+              >
+                Địa điểm theo tỉnh
+              </Link>
+
+              <Link
                 to="/admin/tours"
                 className="inline-flex h-12 whitespace-nowrap items-center justify-center rounded-xl border border-sky-200 bg-white px-5 text-sm font-bold text-sky-700 shadow-sm transition hover:border-sky-300 hover:bg-sky-50"
               >

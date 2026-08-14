@@ -12,9 +12,9 @@ class TourFilterRequest extends FormRequest
     }
 
     /**
-     * Tham số cũ (keyword, category_id, destination_id, duration_days, min_price, max_price,
-     * departure_date, start_date) được giữ nguyên để frontend hiện tại không gãy.
-     * Tham số mới phục vụ bộ lọc nâng cao: q, price_min/price_max, categories[], destinations[],
+     * Tham số province_id/provinces là chuẩn mới; các alias destination cũ vẫn
+     * được nhận tạm thời nhưng giá trị được hiểu là ID tỉnh/thành.
+     * Tham số mới phục vụ bộ lọc nâng cao: q, price_min/price_max, categories[], provinces[],
      * duration[] (bucket), date_from/date_to, rating_min.
      *
      * @return array<string, array<int, mixed>>
@@ -34,6 +34,9 @@ class TourFilterRequest extends FormRequest
             'categories' => ['nullable', 'array'],
             'categories.*' => ['integer', 'min:1'],
 
+            'province_id' => ['nullable', 'integer', 'min:1'],
+            'provinces' => ['nullable', 'array'],
+            'provinces.*' => ['integer', 'min:1'],
             'destination_id' => ['nullable', 'integer', 'min:1'],
             'destinations' => ['nullable', 'array'],
             'destinations.*' => ['integer', 'min:1'],
@@ -89,7 +92,8 @@ class TourFilterRequest extends FormRequest
             ->values()
             ->all();
 
-        $destinationIds = collect($data['destinations'] ?? [])
+        $provinceIds = collect($data['provinces'] ?? $data['destinations'] ?? [])
+            ->when(isset($data['province_id']), fn ($ids) => $ids->push($data['province_id']))
             ->when(isset($data['destination_id']), fn ($ids) => $ids->push($data['destination_id']))
             ->map(fn ($id) => (int) $id)
             ->unique()
@@ -99,7 +103,9 @@ class TourFilterRequest extends FormRequest
         return [
             'keyword' => $keyword !== null ? trim($keyword) : null,
             'category_ids' => $categoryIds,
-            'destination_ids' => $destinationIds,
+            'province_ids' => $provinceIds,
+            // Alias đọc cho các consumer cũ; backend query dùng province_ids.
+            'destination_ids' => $provinceIds,
 
             'duration_days' => $data['duration_days'] ?? null,
             'duration_buckets' => array_values(array_unique($data['duration'] ?? [])),

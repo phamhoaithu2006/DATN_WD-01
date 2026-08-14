@@ -42,6 +42,7 @@ class CustomerDashboardController extends Controller
             ->where('user_id', $userId)
             ->with([
                 'tour.category',
+                'tour.province',
                 'tour.destination',
                 'tourDeparture',
                 'payment',
@@ -101,7 +102,7 @@ class CustomerDashboardController extends Controller
 
         $query = Tour::query()
             ->where('status', 'published')
-            ->with(['category', 'destination'])
+            ->with(['category', 'province', 'destination'])
             ->orderByDesc('average_rating')
             ->orderByDesc('review_count')
             ->limit(3);
@@ -110,7 +111,7 @@ class CustomerDashboardController extends Controller
             $query->where(function ($q) {
                 $q->where('title', 'like', '%biển%')
                     ->orWhere('summary', 'like', '%biển%')
-                    ->orWhereHas('destination', function ($dq) {
+                    ->orWhereHas('province', function ($dq) {
                         $dq->where('name', 'like', '%biển%');
                     });
             });
@@ -123,7 +124,7 @@ class CustomerDashboardController extends Controller
             $query->where(function ($q) {
                 $q->where('title', 'like', '%sapa%')
                     ->orWhere('title', 'like', '%hà nội%')
-                    ->orWhereHas('destination', function ($dq) {
+                    ->orWhereHas('province', function ($dq) {
                         $dq->where('name', 'like', '%sapa%')
                             ->orWhere('name', 'like', '%hà nội%');
                     });
@@ -143,7 +144,7 @@ class CustomerDashboardController extends Controller
 
         $lines = $tours->map(function ($tour) {
             $price = $tour->discount_price ?: $tour->base_price;
-            $destination = $tour->destination->name ?? 'Việt Nam';
+            $destination = $tour->province->name ?? 'Việt Nam';
 
             return sprintf(
                 '- %s tại %s, giá từ %s',

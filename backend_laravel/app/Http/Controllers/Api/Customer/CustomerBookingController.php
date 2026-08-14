@@ -441,6 +441,7 @@ class CustomerBookingController extends Controller
             'message' => 'Đã cập nhật thông tin booking.',
             'data' => $updatedBooking->fresh([
                 'tour.category',
+                'tour.province',
                 'tour.destination',
                 'tour.thumbnail',
                 'tourDeparture',

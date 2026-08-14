@@ -17,8 +17,8 @@ uses(RefreshDatabase::class);
 function finalizationDeparture(): TourDeparture
 {
     DB::table('categories')->insert(['id' => 1, 'name' => 'Category', 'slug' => 'category', 'status' => 'active', 'created_at' => now(), 'updated_at' => now()]);
-    DB::table('destinations')->insert(['id' => 1, 'name' => 'Destination', 'slug' => 'destination', 'province_city' => 'Ha Noi', 'country' => 'VN', 'status' => 'active', 'created_at' => now(), 'updated_at' => now()]);
-    $tour = Tour::query()->create(['category_id' => 1, 'destination_id' => 1, 'title' => 'Minimum guest tour', 'slug' => 'minimum-guest-tour', 'base_price' => 100, 'max_slots' => 30, 'available_slots' => 30, 'duration_days' => 1, 'status' => 'published']);
+    $provinceId = DB::table('provinces')->value('id');
+    $tour = Tour::query()->create(['category_id' => 1, 'province_id' => $provinceId, 'title' => 'Minimum guest tour', 'slug' => 'minimum-guest-tour', 'base_price' => 100, 'max_slots' => 30, 'available_slots' => 30, 'duration_days' => 1, 'status' => 'published']);
 
     return TourDeparture::query()->create(['tour_id' => $tour->id, 'departure_date' => now()->addDays(3)->toDateString(), 'departure_at' => now()->addHours(71), 'price' => 100, 'total_slots' => 30, 'booked_slots' => 9, 'status' => 'open']);
 }

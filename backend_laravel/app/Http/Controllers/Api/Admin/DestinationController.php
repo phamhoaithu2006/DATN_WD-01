@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Destination;
 use App\Models\Province;
+use App\Models\TourItinerary;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -239,15 +240,15 @@ class DestinationController extends Controller
 
     public function options()
     {
-        $items = Destination::query()
-            ->where('status', 'active')
-            ->orderBy('province_city')
+        $items = Province::query()
             ->orderBy('name')
-            ->get([
-                'id',
-                'name',
-                'province_city',
-                'country',
+            ->get(['id', 'name', 'code'])
+            ->map(fn (Province $province): array => [
+                'id' => $province->id,
+                'name' => $province->name,
+                'province_city' => $province->name,
+                'country' => 'Việt Nam',
+                'code' => $province->code,
             ]);
 
         return response()->json([
@@ -255,9 +256,47 @@ class DestinationController extends Controller
         ]);
     }
 
-    public function provinces()
+    public function provinces(Request $request)
     {
-        return response()->json(['data' => Province::query()->orderBy('name')->get(['id', 'name'])]);
+        $validated = $request->validate([
+            'activity_type' => ['nullable', Rule::in(TourItinerary::ACTIVITY_TYPES)],
+        ]);
+        $activityType = $validated['activity_type'] ?? null;
+
+        $placesCount = $activityType
+            ? [
+                'places as places_count' => function ($placeQuery) use ($activityType): void {
+                    $placeQuery
+                        ->where('status', 'active')
+                        ->whereHas(
+                            'activityTypeLinks',
+                            fn ($activityQuery) => $activityQuery->where('activity_type', $activityType),
+                        );
+                },
+            ]
+            : 'places';
+
+        return response()->json([
+            'data' => Province::query()
+                ->withCount($placesCount)
+                ->orderBy('name')
+                ->get(['id', 'name', 'code'])
+                ->map(fn (Province $province): array => [
+                    'id' => $province->id,
+                    'name' => $province->name,
+                    'code' => $province->code,
+                    'places_count' => (int) $province->places_count,
+                ]),
+        ]);
+    }
+
+    public function provinceDistricts(Province $province)
+    {
+        return response()->json([
+            'data' => $province->districts()
+                ->orderBy('name')
+                ->get(['id', 'province_id', 'name']),
+        ]);
     }
 
     public function districts(Destination $destination)

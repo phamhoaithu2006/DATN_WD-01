@@ -44,6 +44,10 @@ export const destinationApi = {
     return apiClient.get(`${API_URL}/administrative/provinces`)
   },
 
+  getProvinceDistricts(id) {
+    return apiClient.get(`${API_URL}/administrative/provinces/${id}/districts`)
+  },
+
   getDistricts(id) {
     return apiClient.get(`${API_URL}/destinations/${id}/districts`)
   },

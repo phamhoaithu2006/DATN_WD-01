@@ -131,19 +131,19 @@ class ReportController extends Controller
             ];
         }
 
-        $topDestinations = DB::table('bookings')
+        $topProvinces = DB::table('bookings')
             ->join('tours', 'bookings.tour_id', '=', 'tours.id')
-            ->join('destinations', 'tours.destination_id', '=', 'destinations.id')
+            ->join('provinces', 'tours.province_id', '=', 'provinces.id')
             ->select(
-                'destinations.id',
-                'destinations.name',
-                'destinations.province_city',
+                'provinces.id',
+                'provinces.name',
+                DB::raw('provinces.name as province_city'),
                 DB::raw('COUNT(bookings.id) as total_bookings'),
                 DB::raw('SUM(bookings.number_of_people) as total_tourists')
             )
             ->whereYear('bookings.created_at', $year)
             ->where('bookings.status', '!=', 'cancelled')
-            ->groupBy('destinations.id', 'destinations.name', 'destinations.province_city')
+            ->groupBy('provinces.id', 'provinces.name')
             ->orderByDesc('total_bookings')
             ->limit(5)
             ->get();
@@ -156,7 +156,9 @@ class ReportController extends Controller
                 'revenue_by_month_chart' => $revenueChart,
                 'booking_by_month_chart' => $bookingChart,
                 'customer_by_month_chart' => $customerChart,
-                'top_destinations' => $topDestinations,
+                'top_provinces' => $topProvinces,
+                // Alias tạm thời để các màn hình báo cáo cũ tiếp tục hiển thị.
+                'top_destinations' => $topProvinces,
             ],
         ], 200);
     }
