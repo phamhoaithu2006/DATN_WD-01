@@ -32,6 +32,50 @@ class VnpayPaymentController extends Controller
         return $this->paymentStatusResponse($payment);
     }
 
+    public function cancel(Request $request, Payment $payment): JsonResponse
+    {
+        $payment->loadMissing('booking');
+
+        if (
+            $payment->payment_method !== 'vnpay'
+            || $payment->booking?->user_id !== $request->user()->id
+        ) {
+            abort(404);
+        }
+
+        $cancelledPayment = DB::transaction(function () use ($payment, $request) {
+            $lockedPayment = Payment::query()
+                ->with('booking')
+                ->lockForUpdate()
+                ->findOrFail($payment->id);
+
+            if (
+                $lockedPayment->status !== 'pending'
+                || ! $lockedPayment->booking
+                || $lockedPayment->booking->status !== 'pending'
+            ) {
+                return null;
+            }
+
+            $this->paymentLifecycleService->failPendingPayment(
+                $lockedPayment,
+                'Khách hàng chủ động hủy thanh toán.',
+                null,
+                $request->user()->id,
+            );
+
+            return $lockedPayment->fresh(['booking']);
+        });
+
+        if (! $cancelledPayment) {
+            return response()->json([
+                'message' => 'Chỉ có thể hủy đơn đang chờ thanh toán.',
+            ], 422);
+        }
+
+        return $this->paymentStatusResponse($cancelledPayment);
+    }
+
     public function callback(Request $request): RedirectResponse|JsonResponse
     {
         if (! $this->vnpayService->isConfigured()) {
@@ -170,6 +214,10 @@ class VnpayPaymentController extends Controller
             return null;
         }
 
+        if (($payment->gateway_response['vnp_ResponseCode'] ?? null) === '24') {
+            return 'returned';
+        }
+
         return ($payment->gateway_response['vnp_ResponseCode'] ?? null) === '00'
             && ($payment->gateway_response['vnp_TransactionStatus'] ?? null) === '00'
                 ? 'success'
@@ -257,7 +305,6 @@ class VnpayPaymentController extends Controller
             if (! $isSuccessful) {
                 $failureReason = match ($payload['vnp_ResponseCode'] ?? null) {
                     '11' => 'Giao dịch VNPAY đã hết hạn thanh toán.',
-                    '24' => 'Khách hàng hủy thanh toán trên VNPAY.',
                     default => null,
                 };
 

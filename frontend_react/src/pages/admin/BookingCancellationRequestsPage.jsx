@@ -164,6 +164,10 @@ function RequestDetail({ request }) {
 
   const booking = request.booking
   const currentDeparture = booking?.tour_departure
+  const contact = booking?.contact
+  const participants = Array.isArray(booking?.participants) ? booking.participants : []
+  const genderLabel = { male: 'Nam', female: 'Nữ', other: 'Khác' }
+  const participantTypeLabel = { adult: 'Người lớn', child: 'Trẻ em', infant: 'Em bé' }
 
   return (
     <div className="booking-request-detail">
@@ -192,6 +196,42 @@ function RequestDetail({ request }) {
           <span>Số khách</span>
           <strong>{booking?.number_of_people || 0} khách</strong>
         </div>
+      </div>
+
+      <div className="booking-request-detail-block">
+        <span>Thông tin người đặt và liên hệ</span>
+        <div className="booking-request-person-grid">
+          <div><small>Người đặt</small><strong>{booking?.user?.full_name || '—'}</strong></div>
+          <div><small>Email tài khoản</small><strong>{booking?.user?.email || '—'}</strong></div>
+          <div><small>Số điện thoại tài khoản</small><strong>{booking?.user?.phone || '—'}</strong></div>
+          <div><small>Người liên hệ</small><strong>{contact?.contact_name || '—'}</strong></div>
+          <div><small>Email liên hệ</small><strong>{contact?.contact_email || '—'}</strong></div>
+          <div><small>Số điện thoại liên hệ</small><strong>{contact?.contact_phone || '—'}</strong></div>
+        </div>
+      </div>
+
+      <div className="booking-request-detail-block">
+        <span>Danh sách hành khách ({participants.length})</span>
+        {participants.length ? (
+          <div className="booking-request-participant-list">
+            {participants.map((participant, index) => (
+              <div className="booking-request-participant" key={participant.id || index}>
+                <b>{index + 1}</b>
+                <div>
+                  <strong>{participant.full_name || `Hành khách ${index + 1}`}</strong>
+                  <small>
+                    {participantTypeLabel[participant.participant_type] || 'Hành khách'}
+                    {' · '}{genderLabel[participant.gender] || 'Chưa rõ giới tính'}
+                    {' · '}{participant.birth_date ? formatDate(participant.birth_date) : 'Chưa có ngày sinh'}
+                  </small>
+                  <small>
+                    SĐT: {participant.phone || '—'} · CCCD/Hộ chiếu: {participant.identity_number || '—'}
+                  </small>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : <p>Booking chưa có thông tin hành khách.</p>}
       </div>
 
       <div className="booking-request-detail-block">
@@ -304,6 +344,8 @@ function DecisionModal({
 function BookingCancellationRequestsPage({ embedded = false }) {
   const [requests, setRequests] = useState([])
   const [summary, setSummary] = useState({})
+  const [timeline, setTimeline] = useState([])
+  const [timelineOpen, setTimelineOpen] = useState(false)
   const [meta, setMeta] = useState({ current_page: 1, last_page: 1, total: 0 })
   const [filters, setFilters] = useState({ search: '', status: 'pending', type: '' })
   const [page, setPage] = useState(1)
@@ -332,9 +374,11 @@ function BookingCancellationRequestsPage({ embedded = false }) {
       setRequests(Array.isArray(response?.data) ? response.data : [])
       setMeta(response?.meta || { current_page: 1, last_page: 1, total: 0 })
       setSummary(response?.summary || {})
+      setTimeline(Array.isArray(response?.timeline) ? response.timeline : [])
     } catch (error) {
       setNotice({ type: 'error', text: getErrorMessage(error) })
       setRequests([])
+      setTimeline([])
     } finally {
       setLoading(false)
     }
@@ -488,6 +532,13 @@ function BookingCancellationRequestsPage({ embedded = false }) {
             </svg>
             Đặt lại
           </button>
+          <button type="button" className="booking-request-button booking-request-button--timeline" onClick={() => setTimelineOpen(true)}>
+            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Timeline
+            <span>{timeline.length}</span>
+          </button>
         </div>
 
         <div className="booking-request-table-wrap">
@@ -592,6 +643,49 @@ function BookingCancellationRequestsPage({ embedded = false }) {
           </div>
         </div>
       </section>
+
+      {timelineOpen ? (
+        <div className="booking-request-modal-backdrop" role="presentation" onMouseDown={(event) => {
+          if (event.target === event.currentTarget) setTimelineOpen(false)
+        }}>
+          <section className="booking-request-timeline-card" role="dialog" aria-modal="true" aria-labelledby="booking-request-timeline-title">
+            <div className="booking-request-timeline-header">
+              <div>
+                <span>Lịch sử thao tác</span>
+                <h3 id="booking-request-timeline-title">Timeline yêu cầu hủy tour</h3>
+              </div>
+              <div className="booking-request-timeline-header-actions">
+                <strong>{timeline.length} hoạt động gần nhất</strong>
+                <button type="button" className="booking-request-icon-button" onClick={() => setTimelineOpen(false)} aria-label="Đóng">✕</button>
+              </div>
+            </div>
+
+            {timeline.length ? (
+              <div className="booking-request-timeline">
+                {timeline.map((event, index) => (
+                  <article className={`booking-request-timeline-item is-${event.action}`} key={event.id}>
+                    {index < timeline.length - 1 ? <i aria-hidden="true" /> : null}
+                    <span className="booking-request-timeline-dot" aria-hidden="true" />
+                    <div>
+                      <div className="booking-request-timeline-title">
+                        <strong>{event.title}</strong>
+                        <em>{event.booking_code}</em>
+                      </div>
+                      <p>{event.detail}</p>
+                      <small>{event.actor} · {formatDate(event.created_at, true)}</small>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <p className="booking-request-timeline-empty">Chưa có thao tác hủy tour nào được ghi nhận.</p>
+            )}
+            <div className="booking-request-modal__actions">
+              <button type="button" className="booking-request-button booking-request-button--primary" onClick={() => setTimelineOpen(false)}>Đóng</button>
+            </div>
+          </section>
+        </div>
+      ) : null}
 
       {selectedRequest && !decision ? (
         <div className="booking-request-modal-backdrop" role="presentation" onMouseDown={(event) => {

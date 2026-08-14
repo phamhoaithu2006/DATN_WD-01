@@ -8,6 +8,8 @@ use App\Models\TourDeparture;
 use App\Models\TourDepartureStatusHistory;
 use App\Models\TourFinalizationOutbox;
 use App\Models\TourGuideAssignment;
+use App\Models\Notification;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -38,7 +40,39 @@ class TourFinalizationService
                 ->get();
             $participantCount = (int) $eligibleBookings->sum('number_of_people');
             $isConfirmed = $participantCount >= self::MINIMUM_PARTICIPANTS;
-            $newStatus = $isConfirmed ? 'confirmed' : 'cancelled';
+
+            if (! $isConfirmed) {
+                $lockedDeparture->update(['status' => 'closed']);
+                TourDepartureStatusHistory::query()->create([
+                    'tour_departure_id' => $lockedDeparture->id,
+                    'old_status' => 'open',
+                    'new_status' => 'closed',
+                    'reason' => 'awaiting_admin_decision_insufficient_participants',
+                ]);
+
+                User::query()
+                    ->whereHas('role', fn ($query) => $query->where('name', 'admin'))
+                    ->each(function (User $admin) use ($lockedDeparture, $participantCount): void {
+                        Notification::query()->create([
+                            'user_id' => $admin->id,
+                            'title' => 'Lịch khởi hành cần quyết định',
+                            'message' => "Tour \"{$lockedDeparture->tour->title}\" chỉ có {$participantCount}/".self::MINIMUM_PARTICIPANTS.' khách tối thiểu. Lịch đã đóng nhận khách và đang chờ admin quyết định.',
+                            'type' => 'system',
+                            'status' => 'unread',
+                            'data' => json_encode([
+                                'source' => 'tour_departure',
+                                'action' => 'awaiting_admin_decision',
+                                'tour_departure_id' => $lockedDeparture->id,
+                                'tour_id' => $lockedDeparture->tour_id,
+                                'participant_count' => $participantCount,
+                            ], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+                        ]);
+                    });
+
+                return null;
+            }
+
+            $newStatus = 'confirmed';
 
             $lockedDeparture->update([
                 'status' => $newStatus,

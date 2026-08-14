@@ -286,10 +286,13 @@ Route::middleware(['auth:sanctum', 'role:customer'])->group(function () {
     Route::patch('customer/bookings/{booking}/participants', [CustomerBookingController::class, 'updateParticipants'])->whereNumber('booking');
     Route::post('customer/bookings/{booking}/tour-cancellation-resolution', [CustomerBookingController::class, 'selectTourCancellationResolution'])->whereNumber('booking');
     Route::get('customer/payments/vnpay/{payment}', [VnpayPaymentController::class, 'status'])->whereNumber('payment');
+    Route::patch('customer/payments/vnpay/{payment}/cancel', [VnpayPaymentController::class, 'cancel'])->whereNumber('payment');
 
     // Xử lý sự cố mưa bão (hoàn tiền / bảo lưu / chuyển tour)
     Route::get('customer/disruption-requests', [CustomerBookingDisruptionController::class, 'index']);
     Route::post('customer/bookings/{booking}/disruption-requests', [CustomerBookingDisruptionController::class, 'store'])->whereNumber('booking');
+    Route::delete('customer/booking-disruption-requests/{bookingDisruptionRequest}', [CustomerBookingDisruptionController::class, 'withdraw'])
+        ->whereNumber('bookingDisruptionRequest');
 
     // Đánh giá HDV
     Route::get('customer/guide-reviewable-bookings', [CustomerGuideReviewController::class, 'reviewableBookings']);
@@ -537,6 +540,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(functi
         Route::get('/', [TourManagerController::class, 'index']);
         Route::get('/hidden-list', [TourManagerController::class, 'hiddenTours']);
         Route::get('/statistics', [TourManagerController::class, 'statistics']);
+        Route::get('/timeline', [TourManagerController::class, 'timeline']);
 
         // ================= LỊCH KHỞI HÀNH =================
 

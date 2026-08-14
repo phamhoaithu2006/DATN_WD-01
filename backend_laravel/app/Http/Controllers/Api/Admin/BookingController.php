@@ -41,7 +41,7 @@ class BookingController extends Controller
             'sort_dir' => ['nullable', Rule::in(['asc', 'desc'])],
         ]);
 
-        $this->markBookingsAsDeparted();
+        $this->synchronizeBookingStatusesWithDepartures();
 
         $bookings = Booking::with([
             'user:id,full_name,email',
@@ -79,7 +79,7 @@ class BookingController extends Controller
     public function statistics(Request $request)
     {
         $year = $request->integer('year');
-        $this->markBookingsAsDeparted();
+        $this->synchronizeBookingStatusesWithDepartures();
         $query = Booking::query();
 
         if ($year) {
@@ -277,6 +277,8 @@ class BookingController extends Controller
                 ->lockForUpdate()
                 ->findOrFail($booking->id);
             $requestedStatus = $data['status'] ?? null;
+            $originalNumberOfPeople = (int) $lockedBooking->number_of_people;
+            $updatedNumberOfPeople = (int) ($data['number_of_people'] ?? $originalNumberOfPeople);
 
             if (in_array($lockedBooking->status, ['departed', 'completed', 'cancelled', 'cancelled_by_tour'], true)) {
                 throw ValidationException::withMessages([
@@ -317,6 +319,24 @@ class BookingController extends Controller
                 && $lockedBooking->status !== 'cancelled';
 
             $oldStatus = $lockedBooking->status;
+
+            if ($lockedBooking->slot_committed_at && $updatedNumberOfPeople !== $originalNumberOfPeople) {
+                $lockedDeparture = TourDeparture::query()
+                    ->lockForUpdate()
+                    ->findOrFail($lockedBooking->tour_departure_id);
+                $slotDifference = $updatedNumberOfPeople - $originalNumberOfPeople;
+                $updatedBookedSlots = (int) $lockedDeparture->booked_slots + $slotDifference;
+
+                if ($updatedBookedSlots > (int) $lockedDeparture->total_slots) {
+                    throw ValidationException::withMessages([
+                        'number_of_people' => 'Số khách vượt quá số chỗ còn lại của lịch khởi hành.',
+                    ]);
+                }
+
+                $lockedDeparture->update([
+                    'booked_slots' => max(0, $updatedBookedSlots),
+                ]);
+            }
 
             $lockedBooking->update($data);
 
@@ -510,22 +530,54 @@ class BookingController extends Controller
         $this->paymentLifecycleService->releaseCommittedSlots($booking);
     }
 
-    private function markBookingsAsDeparted(): void
+    private function synchronizeBookingStatusesWithDepartures(): void
     {
         Booking::query()
-            ->whereIn('status', ['pending', 'confirmed'])
-            ->whereHas('tourDeparture', function ($query): void {
-                $query->whereDate('departure_date', '<=', today())
-                    ->whereNotIn('status', ['cancelled', 'canceled']);
-            })
+            ->with('tourDeparture:id,status,departure_date,return_date')
+            ->where('payment_status', 'paid')
+            ->whereIn('status', ['pending', 'confirmed', 'departed', 'completed'])
+            ->whereHas('tourDeparture')
             ->chunkById(100, function ($bookings): void {
                 foreach ($bookings as $booking) {
+                    $departureStatus = strtolower((string) $booking->tourDeparture?->status);
+                    $departureDate = $booking->tourDeparture?->departure_date?->startOfDay();
+                    $returnDate = ($booking->tourDeparture?->return_date ?? $departureDate)?->startOfDay();
+                    $today = today();
+
+                    if (in_array($departureStatus, ['cancelled', 'canceled'], true)) {
+                        $newStatus = 'cancelled_by_tour';
+                    } elseif ($departureStatus === 'completed' || ($returnDate && $returnDate->lt($today))) {
+                        $newStatus = 'completed';
+                    } elseif ($departureDate && $departureDate->lte($today) && $returnDate?->gte($today)) {
+                        $newStatus = 'departed';
+                    } elseif ($departureDate?->gt($today)) {
+                        $newStatus = 'confirmed';
+                    } else {
+                        $newStatus = null;
+                    }
+
+                    if (! $newStatus || $booking->status === $newStatus) {
+                        continue;
+                    }
+
                     $oldStatus = $booking->status;
-                    $booking->update(['status' => 'departed', 'updated_at' => now()]);
+                    $updates = ['status' => $newStatus];
+
+                    if ($newStatus === 'cancelled_by_tour') {
+                        $updates += [
+                            'payment_status' => 'refund_pending',
+                            'cancel_reason' => 'Lịch khởi hành đã bị hủy.',
+                            'cancellation_reason' => 'tour_departure_cancelled',
+                            'resolution_status' => 'pending_selection',
+                            'cancelled_at' => $booking->cancelled_at ?? now(),
+                        ];
+                    }
+
+                    $booking->update($updates);
                     $booking->statusHistories()->create([
                         'old_status' => $oldStatus,
-                        'new_status' => 'departed',
-                        'note' => 'Tự động cập nhật khi đến ngày khởi hành.',
+                        'new_status' => $newStatus,
+                        'note' => 'Tự động đồng bộ theo trạng thái lịch khởi hành.',
                     ]);
                 }
             });

@@ -185,25 +185,21 @@ class DeliverTourFinalizationOutbox implements ShouldQueue
                     continue;
                 }
 
-                /*
-                 * Tour được xác nhận.
-                 */
                 $message =
-                    "Tour \"{$departure->tour->title}\" "
-                    . "dự kiến khởi hành vào {$departureAt} "
-                    . "đã được xác nhận.";
+                    "Tour \"{$departure->tour->title}\" sắp đến ngày khởi hành {$departureAt}. "
+                    . "Lịch đã đủ điều kiện vận hành, quý khách vui lòng chuẩn bị cho chuyến đi.";
 
                 $this->notify(
                     (int) $booking->user_id,
 
-                    'Tour đã được xác nhận',
+                    'Tour sắp đến ngày khởi hành',
 
                     $message,
 
                     [
                         'source' => 'tour_departure',
 
-                        'action' => 'tour_confirmed',
+                        'action' => 'tour_departure_upcoming',
 
                         'tour_departure_id' =>
                             $departure->id,

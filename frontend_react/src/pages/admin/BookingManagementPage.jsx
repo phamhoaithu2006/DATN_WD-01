@@ -232,9 +232,9 @@ function BookingManagementPage() {
     }[booking.payment_status] || '--'
     const bookingStatus = {
       pending: 'Chờ xác nhận',
-      confirmed: 'Đã xác nhận',
-      departed: 'Đã khởi hành',
-      completed: 'Hoàn thành',
+      confirmed: 'Sắp diễn ra',
+      departed: 'Đang diễn ra',
+      completed: 'Đã kết thúc',
       cancelled: 'Đã hủy',
       cancelled_by_tour: 'Đã hủy',
     }[booking.status] || '--'
@@ -276,9 +276,9 @@ function BookingManagementPage() {
 
   const cards = [
     { key: 'total', label: 'Tổng', value: statistics.total || meta.total || bookings.length, className: 'total' },
-    { key: 'pending', label: 'Chờ xác nhận', value: statistics.pending || 0, className: 'pending' },
-    { key: 'confirmed', label: 'Đã xác nhận', value: statistics.confirmed || 0, className: 'confirmed' },
-    { key: 'completed', label: 'Hoàn thành', value: statistics.completed || 0, className: 'completed' },
+    { key: 'confirmed', label: 'Sắp diễn ra', value: statistics.confirmed || 0, className: 'confirmed' },
+    { key: 'departed', label: 'Đang diễn ra', value: statistics.departed || 0, className: 'pending' },
+    { key: 'completed', label: 'Đã kết thúc', value: statistics.completed || 0, className: 'completed' },
   ]
 
   return (

@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\TourResource;
 use App\Models\DestinationPlace;
 use App\Models\Tour;
+use App\Models\TourActivityLog;
 use App\Models\TourItinerary;
+
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +19,34 @@ use Illuminate\Validation\ValidationException;
 
 class TourManagerController extends Controller
 {
+    public function timeline()
+    {
+        $activities = TourActivityLog::query()
+            ->with('actor:id,full_name,email')
+            ->latest()
+            ->limit(100)
+            ->get()
+            ->map(fn (TourActivityLog $activity) => [
+                'id' => $activity->id,
+                'tour_id' => $activity->tour_id,
+                'tour_title' => $activity->tour_title,
+                'action' => $activity->action,
+                'description' => $activity->description,
+                'metadata' => $activity->metadata,
+                'actor' => $activity->actor ? [
+                    'id' => $activity->actor->id,
+                    'name' => $activity->actor->full_name,
+                    'email' => $activity->actor->email,
+                ] : null,
+                'created_at' => $activity->created_at?->toIso8601String(),
+            ]);
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $activities,
+        ]);
+    }
+
     /**
      * 1. API Quản lý danh sách tour (Admin)
      * Yêu cầu: Không hiển thị tour bị ẩn + Tích hợp Lọc & Tìm kiếm
@@ -283,6 +313,14 @@ class TourManagerController extends Controller
             return $tour;
         });
 
+        $this->logActivity(
+            $request,
+            $tour,
+            'created',
+            'Đã tạo tour mới.',
+            ['status' => $tour->status]
+        );
+
         return response()->json([
             'status' => 'success',
             'message' => 'Thêm tour thành công',
@@ -468,6 +506,14 @@ class TourManagerController extends Controller
 
         });
 
+        $this->logActivity(
+            $request,
+            $tour->fresh(),
+            'updated',
+            'Đã cập nhật thông tin tour.',
+            ['fields' => array_values(array_keys($validatedData))]
+        );
+
         return response()->json([
             'status' => 'success',
             'message' => 'Cập nhật tour thành công',
@@ -478,9 +524,10 @@ class TourManagerController extends Controller
     /**
      * 5. API Xóa tour (Soft Delete)
      */
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
         $tour = Tour::findOrFail($id);
+        $this->logActivity($request, $tour, 'deleted', 'Đã chuyển tour vào thùng rác.');
         $tour->delete(); // Chạy soft delete do Model có cấu hình SoftDeletes
 
         return response()->json([
@@ -493,10 +540,11 @@ class TourManagerController extends Controller
      * 6. API Ẩn tour
      * Cập nhật trạng thái thành 'hidden'. Sẽ không hiện trong danh sách Admin (index) và User (publicIndex).
      */
-    public function hide($id)
+    public function hide(Request $request, $id)
     {
         $tour = Tour::findOrFail($id);
         $tour->update(['status' => 'hidden']);
+        $this->logActivity($request, $tour, 'hidden', 'Đã ẩn tour khỏi danh sách hiển thị.');
 
         return response()->json([
             'status' => 'success',
@@ -509,7 +557,7 @@ class TourManagerController extends Controller
      * 7. API Hiển thị lại tour bị ẩn
      * Cập nhật trạng thái từ 'hidden' sang 'published' (hoặc 'draft' tùy logic của bạn).
      */
-    public function unhide($id)
+    public function unhide(Request $request, $id)
     {
         $tour = Tour::findOrFail($id);
 
@@ -521,6 +569,7 @@ class TourManagerController extends Controller
         }
 
         $tour->update(['status' => 'published']); // Hoặc 'draft'
+        $this->logActivity($request, $tour, 'published', 'Đã hiển thị lại tour.');
 
         return response()->json([
             'status' => 'success',
@@ -930,6 +979,26 @@ class TourManagerController extends Controller
                 'is_active' => $rule['is_active'] ?? true,
             ]);
         }
+    }
+
+    private function logActivity(
+        Request $request,
+        Tour $tour,
+        string $action,
+        string $description,
+        array $metadata = []
+    ): void {
+        TourActivityLog::create([
+            'tour_id' => $tour->id,
+            'actor_id' => $request->user()?->id,
+            'action' => $action,
+            'tour_title' => $tour->title,
+            'description' => $description,
+            'metadata' => array_merge($metadata, [
+                'entity_type' => 'tour',
+                'entity_id' => $tour->id,
+            ]),
+        ]);
     }
 
     private function validateAgePricingRules(array $rules): void

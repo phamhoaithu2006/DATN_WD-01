@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import Icon from '../../components/customer/Icon'
-import { fetchVnpayReturnStatus } from '../../services/customerApi'
+import { cancelVnpayPayment, fetchVnpayReturnStatus } from '../../services/customerApi'
 import { formatVndCurrency } from '../../utils/currencyFormat'
 
 function VnpayPaymentResultPage() {
@@ -9,6 +9,8 @@ function VnpayPaymentResultPage() {
   const [payment, setPayment] = useState(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  const [cancelBusy, setCancelBusy] = useState(false)
+  const [cancelError, setCancelError] = useState('')
   const canvasRef = useRef(null)
 
   const paymentId = searchParams.get('vnp_TxnRef')
@@ -50,8 +52,11 @@ function VnpayPaymentResultPage() {
   const isFailed = payment?.status === 'failed'
     || (payment?.booking_status === 'cancelled' && !isRefundPending)
   const isAttemptFailed = !isFailed && payment?.last_attempt_status === 'failed'
-  const isCancelledByCustomer = payment?.cancel_reason === 'Khách hàng hủy thanh toán trên VNPAY.'
+  const didReturnFromGateway = !isFailed && payment?.last_attempt_status === 'returned'
+  const isCancelledByCustomer = payment?.cancel_reason === 'Khách hàng chủ động hủy thanh toán.'
+    || payment?.cancel_reason === 'Khách hàng hủy thanh toán trên VNPAY.'
   const isExpired = payment?.cancel_reason?.toLowerCase().includes('hết hạn')
+  const canCancelPayment = payment?.status === 'pending' && payment?.booking_status === 'pending'
   const displayError = missingPaymentId ? 'Không tìm thấy mã thanh toán VNPAY.' : error
   const isLoading = !missingPaymentId && loading
 
@@ -148,6 +153,26 @@ function VnpayPaymentResultPage() {
     }).format(date)
   }
 
+  const handleCancelPayment = async () => {
+    const confirmed = window.confirm(
+      'Bạn có chắc muốn hủy thanh toán và đơn đặt tour này? Nút này khác với thao tác Quay lại từ VNPAY.',
+    )
+
+    if (!confirmed) return
+
+    setCancelBusy(true)
+    setCancelError('')
+
+    try {
+      const result = await cancelVnpayPayment(payment.id)
+      setPayment(result)
+    } catch (requestError) {
+      setCancelError(requestError.response?.data?.message || 'Không thể hủy thanh toán. Vui lòng thử lại.')
+    } finally {
+      setCancelBusy(false)
+    }
+  }
+
   return (
     <>
       <style>{`
@@ -205,6 +230,7 @@ function VnpayPaymentResultPage() {
                  isRefundPending ? 'Đã nhận thanh toán, chờ hoàn tiền' :
                  isCancelledByCustomer ? 'Đã hủy đơn đặt tour' :
                  isExpired ? 'Giao dịch đã hết hạn' :
+                 didReturnFromGateway ? 'Đã quay lại từ VNPAY' :
                  isFailed || isAttemptFailed ? 'Thanh toán chưa hoàn tất' :
                  'Đang chờ xác nhận'}
               </h1>
@@ -213,8 +239,9 @@ function VnpayPaymentResultPage() {
                 {displayError || (
                   isSuccessful ? `Cảm ơn quý khách! Đơn hàng của bạn đã được thanh toán an toàn.` :
                   isRefundPending ? 'Thanh toán đã được ghi nhận nhưng lịch khởi hành vừa hết chỗ. Nhân viên ViVuGo sẽ liên hệ để hỗ trợ hoàn tiền.' :
-                  isCancelledByCustomer ? 'Bạn đã hủy thanh toán trên VNPAY. Đơn đặt tour đã được hủy.' :
+                  isCancelledByCustomer ? 'Bạn đã chủ động hủy thanh toán. Đơn đặt tour đã được hủy.' :
                   isExpired ? 'Thời gian thanh toán trên VNPAY đã hết. Đơn đặt tour đã được hủy.' :
+                  didReturnFromGateway ? 'Nút Quay lại chỉ đưa bạn về hệ thống. Đơn vẫn đang chờ thanh toán và chưa bị hủy.' :
                   isAttemptFailed ? 'Lần thanh toán này chưa hoàn thành. Đơn vẫn còn hiệu lực, bạn có thể thanh toán lại từ hồ sơ chuyến đi.' :
                   isFailed ? 'Giao dịch chưa hoàn thành. Quý khách vui lòng kiểm tra lại.' :
                   'Hệ thống đang kiểm tra kết quả giao dịch từ VNPAY.'
@@ -282,6 +309,7 @@ function VnpayPaymentResultPage() {
                    isRefundPending ? 'Chờ hoàn tiền' :
                    isCancelledByCustomer ? 'Đã hủy' :
                    isExpired ? 'Hết hạn' :
+                   didReturnFromGateway ? 'Chờ thanh toán' :
                    isFailed || isAttemptFailed || displayError ? 'Thất bại' :
                    'Chờ xác nhận'}
                 </span>
@@ -308,6 +336,20 @@ function VnpayPaymentResultPage() {
             </p>
 
             {/* Navigation Links */}
+            {canCancelPayment && (
+              <div className="mb-3">
+                <button
+                  className="w-full text-center font-bold px-5 py-3.5 bg-white hover:bg-rose-50 text-rose-700 border border-rose-300 transition-all duration-200 rounded-xl text-sm disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={cancelBusy}
+                  onClick={handleCancelPayment}
+                  type="button"
+                >
+                  {cancelBusy ? 'Đang hủy thanh toán...' : 'Hủy thanh toán'}
+                </button>
+                {cancelError && <p className="mt-2 text-center text-xs text-rose-600">{cancelError}</p>}
+              </div>
+            )}
+
             <div className="flex gap-3">
               <Link 
                 className="flex-1 text-center font-bold px-5 py-3.5 bg-slate-900 hover:bg-slate-800 !text-white transition-all duration-200 rounded-xl text-sm shadow-sm hover:shadow shadow-slate-900/10" 

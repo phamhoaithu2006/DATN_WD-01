@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import Icon from "../../components/customer/Icon";
+import AvatarCropModal from "../../components/customer/AvatarCropModal";
 import { changePassword, updateProfile } from "../../services/customerApi";
 import { readSession, saveSession } from "../../services/authStorage";
 import { mediaUrl } from "../../utils/mediaUrl";
@@ -9,6 +10,7 @@ function ProfileForm({ profile, setProfile, password = false }) {
   const [notice, setNotice] = useState("");
   const [avatarName, setAvatarName] = useState("");
   const [avatarPreview, setAvatarPreview] = useState(() => mediaUrl(profile.avatar_url));
+  const [pendingAvatar, setPendingAvatar] = useState(null);
   const [form, setForm] = useState(
     password
       ? {
@@ -25,10 +27,18 @@ function ProfileForm({ profile, setProfile, password = false }) {
 
   function changeAvatar(event) {
     const file = event.target.files?.[0] || null;
+    event.target.value = "";
+    if (file) setPendingAvatar(file);
+  }
 
+  function applyCroppedAvatar(file) {
     setForm((current) => ({ ...current, avatar: file }));
-    setAvatarPreview(file ? URL.createObjectURL(file) : mediaUrl(profile.avatar_url));
-    setAvatarName(file?.name || "");
+    setAvatarPreview((current) => {
+      if (current?.startsWith("blob:")) URL.revokeObjectURL(current);
+      return URL.createObjectURL(file);
+    });
+    setAvatarName(file.name);
+    setPendingAvatar(null);
   }
 
   async function submit(event) {
@@ -64,6 +74,11 @@ function ProfileForm({ profile, setProfile, password = false }) {
 
   return (
     <main className="vg-form-page">
+      <AvatarCropModal
+        file={pendingAvatar}
+        onCancel={() => setPendingAvatar(null)}
+        onConfirm={applyCroppedAvatar}
+      />
       <form onSubmit={submit}>
         <Link className="vg-form-back" to="/customer/profile">
           ← Quay lại hồ sơ

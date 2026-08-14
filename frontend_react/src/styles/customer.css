@@ -1506,6 +1506,13 @@
   box-shadow: 0 2px 8px rgba(234, 88, 12, 0.15);
 }
 
+.vg-status-badge.is-refund-pending {
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  color: #a16207;
+  border-color: #fcd34d;
+  box-shadow: 0 2px 8px rgba(202, 138, 4, 0.14);
+}
+
 .vg-status-badge.is-paid {
   background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
   color: #15803d;
@@ -8444,6 +8451,11 @@ textarea.vg-checkout-input {
   color: #9a3412;
 }
 
+.vg-filter-btn:not(.active) .vg-filter-count.is-refund {
+  background: #fde68a;
+  color: #854d0e;
+}
+
 .vg-booking-search-sort {
   display: flex;
   align-items: center;
@@ -11806,7 +11818,9 @@ textarea.vg-checkout-input {
 
 .vg-profile-hero-shell { min-height: 300px; }
 .vg-profile-user { gap: 28px; }
-.vg-avatar { width: 132px; height: 132px; border-width: 5px; box-shadow: 0 20px 40px rgba(3, 28, 52, .32); }
+.vg-avatar { width: 132px; height: 132px; min-width: 132px; min-height: 132px; max-width: 132px; max-height: 132px; flex: 0 0 132px; aspect-ratio: 1; overflow: visible; border-width: 5px; box-shadow: 0 20px 40px rgba(3, 28, 52, .32); }
+.vg-avatar img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center; }
+.vg-avatar a { z-index: 2; }
 .vg-profile-kicker { padding: 7px 11px; border: 1px solid rgba(167, 243, 208, .4); border-radius: 999px; background: rgba(5, 70, 88, .24); justify-content: center; text-align: center; }
 .vg-brand-word-primary { color: #1454f0; }
 .vg-brand-word-accent { color: #ff6a00; }
@@ -11834,8 +11848,26 @@ textarea.vg-checkout-input {
   .vg-profile-hero, .vg-profile-hero-shell { min-height: auto; }
   .vg-profile-hero-shell { padding-block: 42px 64px; }
   .vg-profile-tabs { margin-top: -28px; }
-  .vg-avatar { width: 108px; height: 108px; }
+  .vg-avatar { width: 108px; height: 108px; min-width: 108px; min-height: 108px; max-width: 108px; max-height: 108px; flex-basis: 108px; }
 }
+
+.vg-avatar-crop-overlay { position: fixed; z-index: 10000; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(2, 18, 36, .72); backdrop-filter: blur(7px); }
+.vg-avatar-crop-modal { width: min(520px, 100%); padding: 24px; border-radius: 24px; background: #fff; box-shadow: 0 30px 80px rgba(2, 18, 36, .35); }
+.vg-avatar-crop-modal header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+.vg-avatar-crop-modal header span { color: #0284c7; font-size: .72rem; font-weight: 900; letter-spacing: .12em; }
+.vg-avatar-crop-modal h2 { margin: 4px 0 0; color: #0f172a; }
+.vg-avatar-crop-modal header > button { width: 38px; height: 38px; border: 0; border-radius: 50%; background: #eef5fb; color: #334155; cursor: pointer; font-size: 1.6rem; }
+.vg-avatar-crop-modal > p { margin: 12px 0 18px; color: #64748b; line-height: 1.55; }
+.vg-avatar-crop-viewport { position: relative; width: min(360px, 78vw); aspect-ratio: 1; margin: 0 auto; overflow: hidden; cursor: grab; touch-action: none; user-select: none; background: #dbeafe; }
+.vg-avatar-crop-viewport:active { cursor: grabbing; }
+.vg-avatar-crop-viewport img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; transform-origin: center; pointer-events: none; }
+.vg-avatar-crop-guide { position: absolute; z-index: 2; inset: 0; border: 3px solid #fff; border-radius: 50%; box-shadow: 0 0 0 999px rgba(2, 18, 36, .48), inset 0 0 0 1px rgba(15, 23, 42, .15); pointer-events: none; }
+.vg-avatar-crop-zoom { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; margin: 22px 0; color: #64748b; font-size: .78rem; font-weight: 800; }
+.vg-avatar-crop-zoom input { width: 100%; accent-color: #0284c7; }
+.vg-avatar-crop-modal footer { display: flex; justify-content: flex-end; gap: 10px; }
+.vg-avatar-crop-modal footer button { min-height: 44px; padding: 0 18px; border: 0; border-radius: 12px; background: #0284c7; color: #fff; cursor: pointer; font-weight: 850; }
+.vg-avatar-crop-modal footer button.secondary { background: #eef5fb; color: #334155; }
+.vg-avatar-crop-modal footer button:disabled { cursor: wait; opacity: .65; }
 
 /* Content inside the four customer account tabs */
 .vg-profile-grid { margin-top: 32px; }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\DestinationPlace;
 use App\Models\District;
+use App\Models\TourActivityLog;
 use App\Models\TourItinerary;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -108,9 +109,10 @@ class DestinationPlaceController extends Controller
         ]);
     }
 
-    public function destroy(DestinationPlace $destinationPlace): JsonResponse
+    public function destroy(Request $request, DestinationPlace $destinationPlace): JsonResponse
     {
         $destinationPlace->delete();
+        TourActivityLog::record($request->user()?->id, 'place_deleted', $destinationPlace->name, 'Đã xóa điểm đến chi tiết.', 'destination_place', $destinationPlace->id);
 
         return response()->json(['message' => 'Xóa điểm đến chi tiết thành công.']);
     }

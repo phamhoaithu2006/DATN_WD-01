@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import adminNotificationApi from '../../../services/adminNotificationApi'
 
@@ -641,6 +641,8 @@ function DepartureHistoryButton() {
     }
   }, [])
 
+  const closeHistoryForEffect = useEffectEvent(closeHistory)
+
   useEffect(() => {
     void fetchHistory()
 
@@ -660,7 +662,7 @@ function DepartureHistoryButton() {
   useEffect(() => {
     function handleClickOutside(event) {
       if (panelRef.current && !panelRef.current.contains(event.target)) {
-        void closeHistory()
+        void closeHistoryForEffect()
       }
     }
 

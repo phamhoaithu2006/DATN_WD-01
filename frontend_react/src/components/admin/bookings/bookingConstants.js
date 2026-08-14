@@ -1,9 +1,9 @@
 export const statusOptions = [
   { value: '', label: 'Tất cả trạng thái' },
   { value: 'pending', label: 'Chờ xác nhận' },
-  { value: 'confirmed', label: 'Đã xác nhận' },
-  { value: 'departed', label: 'Đã khởi hành' },
-  { value: 'completed', label: 'Hoàn thành' },
+  { value: 'confirmed', label: 'Sắp diễn ra' },
+  { value: 'departed', label: 'Đang diễn ra' },
+  { value: 'completed', label: 'Đã kết thúc' },
   { value: 'cancelled_all', label: 'Đã hủy' },
 ]
 
@@ -18,9 +18,9 @@ export const paymentOptions = [
 
 export const statusMeta = {
   pending: { label: 'Chờ xác nhận', className: 'waiting' },
-  confirmed: { label: 'Đã xác nhận', className: 'confirmed' },
-  departed: { label: 'Đã khởi hành', className: 'departed' },
-  completed: { label: 'Hoàn thành', className: 'completed' },
+  confirmed: { label: 'Sắp diễn ra', className: 'confirmed' },
+  departed: { label: 'Đang diễn ra', className: 'departed' },
+  completed: { label: 'Đã kết thúc', className: 'completed' },
   cancelled: { label: 'Đã hủy', className: 'cancelled' },
   cancelled_by_tour: { label: 'Đã hủy', className: 'cancelled' },
 }

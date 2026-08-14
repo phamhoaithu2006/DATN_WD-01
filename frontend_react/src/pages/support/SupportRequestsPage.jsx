@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import AdminPageHeader from '../../components/admin/AdminPageHeader'
 import SupportPresenceHeartbeat from '../../components/support/SupportPresenceHeartbeat'
@@ -548,6 +548,9 @@ export default function SupportRequestsPage() {
     }
   }
 
+  const loadRequestsForEffect = useEffectEvent(loadRequests)
+  const openDetailForEffect = useEffectEvent(openDetail)
+
   async function refreshSelected(id) {
     try {
       const detail =
@@ -597,7 +600,7 @@ export default function SupportRequestsPage() {
     } else {
       setOwnershipScope('all')
     }
-  }, [status])
+  }, [showOwnershipTabs, status])
 
   useEffect(() => {
     if (!showAssigneeFilter) {
@@ -608,7 +611,7 @@ export default function SupportRequestsPage() {
   useEffect(() => {
     const timer =
       window.setTimeout(() => {
-        void loadRequests()
+        void loadRequestsForEffect()
       }, 250)
 
     return () => {
@@ -641,7 +644,7 @@ export default function SupportRequestsPage() {
 
   useEffect(() => {
     function handleSupportNotificationChanged() {
-      void loadRequests()
+      void loadRequestsForEffect()
     }
 
     window.addEventListener(
@@ -681,7 +684,7 @@ export default function SupportRequestsPage() {
     openedTicketRef.current =
       openKey
 
-    void openDetail({
+    void openDetailForEffect({
       id:
         supportRequestIdFromNotification,
     })
@@ -732,7 +735,7 @@ export default function SupportRequestsPage() {
     openedTicketRef.current =
       ticketFromNotification
 
-    void openDetail(target)
+    void openDetailForEffect(target)
   }, [
     requests,
     ticketFromNotification,

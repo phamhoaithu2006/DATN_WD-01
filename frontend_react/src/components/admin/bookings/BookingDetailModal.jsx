@@ -25,9 +25,9 @@ function cancellationReasonLabel(booking) {
 
 const STATUS_LABELS = {
   pending: 'Chờ xác nhận',
-  confirmed: 'Đã xác nhận',
-  departed: 'Đã khởi hành',
-  completed: 'Hoàn thành',
+  confirmed: 'Sắp diễn ra',
+  departed: 'Đang diễn ra',
+  completed: 'Đã kết thúc',
   cancelled: 'Đã hủy',
   cancelled_by_tour: 'Đã hủy bởi tour',
   retained: 'Đang bảo lưu',
@@ -69,9 +69,9 @@ function BookingDetailModal({ booking, busy, onClose, onInvoice, onPaymentChange
   const statusValue = isCancelledByTour ? 'confirmed' : (booking.status || '')
   const detailStatusOptions = [
     { value: 'pending', label: 'Chờ xác nhận' },
-    { value: 'confirmed', label: 'Đã xác nhận' },
-    { value: 'departed', label: 'Đã khởi hành' },
-    { value: 'completed', label: 'Hoàn thành' },
+    { value: 'confirmed', label: 'Sắp diễn ra' },
+    { value: 'departed', label: 'Đang diễn ra' },
+    { value: 'completed', label: 'Đã kết thúc' },
     { value: 'cancelled', label: 'Đã hủy' },
   ]
 

@@ -397,3 +397,18 @@ test('replacement request đã duyệt không bị action từ chối sau đó g
             ->value('status'))->toBe('assigned')
         ->and(DB::table('notifications')->count())->toBe($notificationCount);
 });
+test('guide cancel leave request validates cancellation reason before writing', function () {
+    $guideUser = guideAuditUser('tour guide');
+    $guide = guideAuditProfile($guideUser);
+    $leaveRequest = guideAuditLeaveRequest($guide);
+
+    Sanctum::actingAs($guideUser);
+
+    $this->patchJson("/api/guide/leave-requests/{$leaveRequest->id}/cancel", [
+        'cancel_reason' => ['invalid'],
+    ])->assertUnprocessable()
+        ->assertJsonValidationErrors('cancel_reason');
+
+    expect($leaveRequest->fresh()->status)->toBe('pending')
+        ->and($leaveRequest->fresh()->cancel_reason)->toBeNull();
+});

@@ -8,6 +8,13 @@ const formatDateTime = (value) => value
 const initials = (name = "") => name.split(" ").filter(Boolean).slice(-2)
   .map((word) => word[0]).join("").toUpperCase() || "KH";
 
+const activityStatusLabel = (status) => ({
+  pending: "Chờ xử lý",
+  withdrawn: "Đã rút",
+  confirmed: "Đã xác nhận",
+  success: "Thành công",
+}[status] || status);
+
 function CustomerActivityModal({ customer, data, loading, onClose }) {
   const [avatarFailed, setAvatarFailed] = useState(false);
   const profile = data?.customer || customer || {};
@@ -55,7 +62,7 @@ function CustomerActivityModal({ customer, data, loading, onClose }) {
                       <div>
                         <div>
                           <strong>{item.description}</strong>
-                          {item.status ? <em>{item.status}</em> : null}
+                          {item.status ? <em>{activityStatusLabel(item.status)}</em> : null}
                         </div>
                         <p>{item.detail || "Thao tác của khách hàng"}</p>
                         <time>{formatDateTime(item.created_at)}</time>

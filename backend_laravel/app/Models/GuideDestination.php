@@ -5,34 +5,22 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class TourGuideAssignment extends Model
+class GuideDestination extends Model
 {
+    protected $table = 'guide_destinations';
+
     protected $fillable = [
-        'tour_departure_id',
         'guide_id',
-        'role',
-        'status',
-        'assigned_by',
-        'assigned_at',
-        'notes',
+        'destination_id',
     ];
 
-    protected $casts = [
-        'assigned_at' => 'datetime',
-    ];
-
-    public function departure(): BelongsTo
+    public function destination(): BelongsTo
     {
-        return $this->belongsTo(TourDeparture::class, 'tour_departure_id');
+        return $this->belongsTo(Destination::class);
     }
 
     public function guide(): BelongsTo
     {
         return $this->belongsTo(Guide::class);
-    }
-
-    public function assignedBy(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'assigned_by');
     }
 }

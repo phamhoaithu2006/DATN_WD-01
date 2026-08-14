@@ -177,7 +177,7 @@ export default function TourReviewModal({ target, onClose, onSubmitted }) {
       document.body.style.overflow = previousOverflow
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [target])
+  }, [onClose, target])
 
   if (!target) return null
 
