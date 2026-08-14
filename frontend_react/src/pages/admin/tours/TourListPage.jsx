@@ -156,36 +156,6 @@ function ChevronDownIcon({ className = 'h-4 w-4' }) {
   )
 }
 
-function TagIcon({ className = 'h-5 w-5' }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
-      <path d="M20.59 13.41 12 22l-8.59-8.59A2 2 0 0 1 3 12V4a1 1 0 0 1 1-1h8a2 2 0 0 1 1.41.59l7.18 7.18a2 2 0 0 1 0 2.82Z" />
-      <path d="M7 7h.01" />
-    </svg>
-  )
-}
-
-function MapPinIcon({ className = 'h-5 w-5' }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
-      <path d="M12 21s7-4.35 7-11a7 7 0 1 0-14 0c0 6.65 7 11 7 11Z" />
-      <circle cx="12" cy="10" r="2.5" />
-    </svg>
-  )
-}
-
 function CheckIcon({ className = 'h-5 w-5' }) {
   return (
     <svg
@@ -544,27 +514,11 @@ function TourListPage() {
   return (
     <div className="min-h-full bg-slate-50/70 px-8 py-8">
       <AdminPageHeader
-        breadcrumb={['ViVuGo', 'Quản Lý Tour']}
+        breadcrumb={['ViVuGo', 'Tour', 'Quản Lý Tour']}
         title="Quản Lý Tour"
         description="Quản lý danh sách tour, loại tour, điểm đến và trạng thái hiển thị."
         actions={
           <div className="flex flex-wrap items-center gap-3">
-            <Link
-              to="/admin/categories"
-              className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700"
-            >
-              <TagIcon className="h-4 w-4 text-sky-600" />
-              Loại tour
-            </Link>
-
-            <Link
-              to="/admin/destination-places"
-              className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
-            >
-              <MapPinIcon className="h-4 w-4 text-indigo-600" />
-              Địa điểm trong tỉnh
-            </Link>
-
             <Link
               to="/admin/tours/hidden"
               className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-amber-200 hover:bg-amber-50 hover:text-amber-700"

@@ -24,6 +24,11 @@ const menuItems = [
   {
     label: 'Tour',
     path: '/admin/tours',
+    children: [
+      { label: 'Quản lý điểm đến theo tỉnh', path: '/admin/destination-places' },
+      { label: 'Quản lý danh mục tour', path: '/admin/categories' },
+      { label: 'Quản lý tour', path: '/admin/tours' },
+    ],
     icon: (
       <>
         <path d="M9 18l-5 2V6l5-2 6 2 5-2v14l-5 2-6-2Z" />
@@ -258,10 +263,19 @@ function AdminSidebar({
   const [guideLeavePendingCount, setGuideLeavePendingCount] = useState(0)
   const [receivedNotificationUnreadCount, setReceivedNotificationUnreadCount] = useState(0)
   const [bookingDisruptionPendingCount, setBookingDisruptionPendingCount] = useState(0)
+  const isTourSuiteActive =
+    location.pathname.startsWith('/admin/tours') ||
+    location.pathname.startsWith('/admin/categories') ||
+    location.pathname.startsWith('/admin/destination-places')
+  const [isTourMenuOpen, setIsTourMenuOpen] = useState(isTourSuiteActive)
 
   const visibleMenuItems = useMemo(() => {
     return role === 'admin' ? menuItems : []
   }, [role])
+
+  useEffect(() => {
+    if (isTourSuiteActive) setIsTourMenuOpen(true)
+  }, [isTourSuiteActive])
 
   const loadTourDepartureWarningCount = useCallback(async () => {
     if (role !== 'admin') {
@@ -427,16 +441,53 @@ function AdminSidebar({
                 ? bookingDisruptionPendingCount
               : 0
 
-          const isTourSuiteActive =
-            item.path === '/admin/tours' &&
-            (location.pathname.startsWith('/admin/tours') ||
-              location.pathname.startsWith('/admin/categories') ||
-              location.pathname.startsWith('/admin/destination-places'))
+          if (item.children) {
+            return (
+              <div className="admin-nav-group" key={item.path}>
+                <button
+                  type="button"
+                  className={`admin-nav-link admin-nav-parent${isTourSuiteActive ? ' active' : ''}`}
+                  aria-expanded={isTourMenuOpen}
+                  aria-controls="admin-tour-submenu"
+                  title={collapsed ? item.label : undefined}
+                  onClick={() => {
+                    if (collapsed) onToggle()
+                    setIsTourMenuOpen((open) => !open)
+                  }}
+                >
+                  <svg className="admin-nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+                    {item.icon}
+                  </svg>
+                  <span className="admin-nav-label">{item.label}</span>
+                  <svg className={`admin-nav-chevron${isTourMenuOpen ? ' open' : ''}`} viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="m9 18 6-6-6-6" />
+                  </svg>
+                </button>
+
+                {isTourMenuOpen && !collapsed ? (
+                  <div className="admin-nav-submenu" id="admin-tour-submenu">
+                    {item.children.map((child) => (
+                      <NavLink
+                        key={child.path}
+                        to={child.path}
+                        end={child.path === '/admin/tours'}
+                        className={({ isActive }) =>
+                          isActive ? 'admin-nav-sublink active' : 'admin-nav-sublink'
+                        }
+                      >
+                        <span>{child.label}</span>
+                      </NavLink>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            )
+          }
 
           return (
             <NavLink
               className={({ isActive }) =>
-                isActive || isTourSuiteActive ? 'admin-nav-link active' : 'admin-nav-link'
+                isActive ? 'admin-nav-link active' : 'admin-nav-link'
               }
               end={item.path === '/admin' || item.path === '/admin/notifications'}
               key={item.path}

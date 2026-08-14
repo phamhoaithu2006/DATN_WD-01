@@ -1235,7 +1235,7 @@ function AdminReceivedNotificationsPage() {
   ])
 
   useEffect(() => {
-    let target = null
+    let target
 
     if (queryNotificationId) {
       target =

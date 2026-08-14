@@ -286,9 +286,10 @@ class DestinationController extends Controller
 
         return response()->json([
             'data' => Province::query()
+                ->select(['id', 'name', 'code'])
                 ->withCount($placesCount)
                 ->orderBy('name')
-                ->get(['id', 'name', 'code'])
+                ->get()
                 ->map(fn (Province $province): array => [
                     'id' => $province->id,
                     'name' => $province->name,

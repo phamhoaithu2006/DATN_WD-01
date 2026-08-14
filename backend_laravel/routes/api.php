@@ -522,6 +522,9 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(functi
     Route::get('administrative/provinces', [DestinationController::class, 'provinces']);
     Route::get('administrative/provinces/{province}/districts', [DestinationController::class, 'provinceDistricts']);
     Route::get('guides/destination-options', [DestinationController::class, 'options']);
+    Route::get('destination-places/trashed', [DestinationPlaceController::class, 'trashed']);
+    Route::patch('destination-places/{id}/restore', [DestinationPlaceController::class, 'restore'])->whereNumber('id');
+    Route::delete('destination-places/{id}/force-delete', [DestinationPlaceController::class, 'forceDestroy'])->whereNumber('id');
     Route::apiResource('destination-places', DestinationPlaceController::class);
 
     // Quản lý danh mục tour

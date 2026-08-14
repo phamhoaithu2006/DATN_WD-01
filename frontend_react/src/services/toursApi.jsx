@@ -12,8 +12,8 @@ const tourApi = {
     return apiClient.get('/admin/tours/hidden-list')
   },
 
-  getTimeline() {
-    return apiClient.get('/admin/tours/timeline')
+  getTimeline(params = {}) {
+    return apiClient.get('/admin/tours/timeline', { params })
   },
 
   create(data) {
