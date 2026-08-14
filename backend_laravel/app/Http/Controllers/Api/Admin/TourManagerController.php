@@ -8,7 +8,6 @@ use App\Models\DestinationPlace;
 use App\Models\Tour;
 use App\Models\TourActivityLog;
 use App\Models\TourItinerary;
-
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -19,10 +18,18 @@ use Illuminate\Validation\ValidationException;
 
 class TourManagerController extends Controller
 {
-    public function timeline()
+    public function timeline(Request $request)
     {
+        $validated = $request->validate([
+            'entity_type' => ['nullable', Rule::in(['tour', 'category', 'destination', 'destination_place'])],
+        ]);
+
         $activities = TourActivityLog::query()
             ->with('actor:id,full_name,email')
+            ->when(
+                $validated['entity_type'] ?? null,
+                fn ($query, $entityType) => $query->where('metadata->entity_type', $entityType)
+            )
             ->latest()
             ->limit(100)
             ->get()

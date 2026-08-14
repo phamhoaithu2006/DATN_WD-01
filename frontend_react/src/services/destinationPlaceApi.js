@@ -18,6 +18,15 @@ export const destinationPlaceApi = {
   remove(id) {
     return apiClient.delete(`${BASE_URL}/${id}`)
   },
+  getTrashed(params) {
+    return apiClient.get(`${BASE_URL}/trashed`, { params })
+  },
+  restore(id) {
+    return apiClient.patch(`${BASE_URL}/${id}/restore`)
+  },
+  forceDelete(id) {
+    return apiClient.delete(`${BASE_URL}/${id}/force-delete`)
+  },
 }
 
 export default destinationPlaceApi

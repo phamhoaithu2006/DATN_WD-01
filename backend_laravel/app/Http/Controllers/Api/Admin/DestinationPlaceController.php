@@ -73,6 +73,16 @@ class DestinationPlaceController extends Controller
 
             return $place;
         });
+        $place->load($this->relations());
+        TourActivityLog::record(
+            $request->user()?->id,
+            'place_created',
+            $place->name,
+            'Đã tạo điểm đến chi tiết mới.',
+            'destination_place',
+            $place->id,
+            ['data' => $this->timelineSnapshot($place)]
+        );
 
         return response()->json([
             'message' => 'Thêm điểm đến chi tiết thành công.',
@@ -87,8 +97,35 @@ class DestinationPlaceController extends Controller
         ]);
     }
 
+    public function trashed(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'province_id' => ['required', 'integer', 'exists:provinces,id'],
+            'search' => ['nullable', 'string', 'max:255'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:500'],
+        ]);
+
+        $query = DestinationPlace::onlyTrashed()
+            ->with($this->relations())
+            ->where('province_id', $validated['province_id']);
+
+        if (! empty($validated['search'])) {
+            $search = $validated['search'];
+            $query->where(function ($searchQuery) use ($search): void {
+                $searchQuery->where('name', 'like', '%'.$search.'%')
+                    ->orWhere('district_name', 'like', '%'.$search.'%')
+                    ->orWhere('address', 'like', '%'.$search.'%');
+            });
+        }
+
+        return response()->json([
+            'data' => $query->latest('deleted_at')->paginate($validated['per_page'] ?? 10),
+        ]);
+    }
+
     public function update(Request $request, DestinationPlace $destinationPlace): JsonResponse
     {
+        $before = $this->timelineSnapshot($destinationPlace->load($this->relations()));
         $data = $this->validatedData($request, $destinationPlace);
         $activityTypes = array_key_exists('activity_types', $data)
             ? $data['activity_types']
@@ -102,6 +139,17 @@ class DestinationPlaceController extends Controller
                 $this->syncActivityTypes($destinationPlace, $activityTypes);
             }
         });
+        $destinationPlace = $destinationPlace->fresh()->load($this->relations());
+        $after = $this->timelineSnapshot($destinationPlace);
+        TourActivityLog::record(
+            $request->user()?->id,
+            'place_updated',
+            $destinationPlace->name,
+            'Đã cập nhật điểm đến chi tiết.',
+            'destination_place',
+            $destinationPlace->id,
+            ['changes' => $this->timelineChanges($before, $after), 'data' => $after]
+        );
 
         return response()->json([
             'message' => 'Cập nhật điểm đến chi tiết thành công.',
@@ -111,10 +159,65 @@ class DestinationPlaceController extends Controller
 
     public function destroy(Request $request, DestinationPlace $destinationPlace): JsonResponse
     {
+        $snapshot = $this->timelineSnapshot($destinationPlace->load($this->relations()));
         $destinationPlace->delete();
-        TourActivityLog::record($request->user()?->id, 'place_deleted', $destinationPlace->name, 'Đã xóa điểm đến chi tiết.', 'destination_place', $destinationPlace->id);
+        TourActivityLog::record(
+            $request->user()?->id,
+            'place_deleted',
+            $destinationPlace->name,
+            'Đã xóa mềm điểm đến chi tiết.',
+            'destination_place',
+            $destinationPlace->id,
+            ['data' => $snapshot, 'deleted_at' => now()->toIso8601String()]
+        );
 
         return response()->json(['message' => 'Xóa điểm đến chi tiết thành công.']);
+    }
+
+    public function restore(Request $request, int $id): JsonResponse
+    {
+        $place = DestinationPlace::onlyTrashed()->findOrFail($id);
+        $place->restore();
+        $place->load($this->relations());
+        TourActivityLog::record(
+            $request->user()?->id,
+            'place_restored',
+            $place->name,
+            'Đã khôi phục điểm đến chi tiết.',
+            'destination_place',
+            $place->id,
+            ['data' => $this->timelineSnapshot($place), 'restored_at' => now()->toIso8601String()]
+        );
+
+        return response()->json([
+            'message' => 'Khôi phục điểm đến chi tiết thành công.',
+            'data' => $place->load($this->relations()),
+        ]);
+    }
+
+    public function forceDestroy(Request $request, int $id): JsonResponse
+    {
+        $place = DestinationPlace::onlyTrashed()->findOrFail($id);
+        $placeId = $place->id;
+        $placeName = $place->name;
+        $snapshot = $this->timelineSnapshot($place->load($this->relations()));
+
+        DB::transaction(function () use ($place): void {
+            $place->activityTypeLinks()->delete();
+            $place->forceDelete();
+        });
+
+        TourActivityLog::record(
+            $request->user()?->id,
+            'place_force_deleted',
+            $placeName,
+            'Đã xóa vĩnh viễn điểm đến chi tiết.',
+            'destination_place',
+            $placeId,
+            ['data' => $snapshot, 'force_deleted_at' => now()->toIso8601String()]
+        );
+
+        return response()->json(['message' => 'Đã xóa vĩnh viễn điểm đến chi tiết.']);
     }
 
     private function validatedData(Request $request, ?DestinationPlace $destinationPlace = null): array
@@ -202,5 +305,35 @@ class DestinationPlaceController extends Controller
             'district.province:id,name',
             'activityTypeLinks:id,destination_place_id,activity_type',
         ];
+    }
+
+    private function timelineSnapshot(DestinationPlace $place): array
+    {
+        return [
+            'name' => $place->name,
+            'province' => $place->province?->name,
+            'district' => $place->district_name,
+            'address' => $place->address,
+            'description' => $place->description,
+            'thumbnail_url' => $place->thumbnail_url,
+            'status' => $place->status,
+            'activity_types' => $place->activity_types,
+        ];
+    }
+
+    private function timelineChanges(array $before, array $after): array
+    {
+        $changes = [];
+
+        foreach ($after as $field => $value) {
+            if (json_encode($before[$field] ?? null) !== json_encode($value)) {
+                $changes[$field] = [
+                    'from' => $before[$field] ?? null,
+                    'to' => $value,
+                ];
+            }
+        }
+
+        return $changes;
     }
 }

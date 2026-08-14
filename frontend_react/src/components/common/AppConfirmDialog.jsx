@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- dialog actions intentionally share this singleton module */
 import { useEffect, useState } from 'react'
 
 let openConfirmDialog = null

@@ -175,6 +175,9 @@ class DatabaseSeeder extends Seeder
             $places->put($data['slug'], $place);
         }
 
+        // Bảo đảm toàn bộ tỉnh/thành đều có ít nhất một địa điểm mẫu để quản trị.
+        $this->call(ProvinceDestinationPlaceSeeder::class);
+
         $tourData = [
             ['title' => 'Hạ Long kỳ quan biển đảo', 'slug' => 'ha-long-ky-quan-bien-dao', 'category' => 'tour-bien-dao', 'destination' => 'ha-long', 'days' => 3, 'nights' => 2, 'price' => 4290000],
             ['title' => 'Hà Nội nghìn năm văn hiến', 'slug' => 'ha-noi-nghin-nam-van-hien', 'category' => 'tour-van-hoa', 'destination' => 'ha-noi', 'days' => 2, 'nights' => 1, 'price' => 2390000],

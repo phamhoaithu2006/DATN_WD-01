@@ -7,7 +7,6 @@ use App\Models\Destination;
 use App\Models\Province;
 use App\Models\TourActivityLog;
 use App\Models\TourItinerary;
-
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -287,9 +286,10 @@ class DestinationController extends Controller
 
         return response()->json([
             'data' => Province::query()
+                ->select(['id', 'name', 'code'])
                 ->withCount($placesCount)
                 ->orderBy('name')
-                ->get(['id', 'name', 'code'])
+                ->get()
                 ->map(fn (Province $province): array => [
                     'id' => $province->id,
                     'name' => $province->name,

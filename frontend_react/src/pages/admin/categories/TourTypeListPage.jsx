@@ -305,9 +305,9 @@ function TourTypeListPage() {
   return (
     <div className="min-h-full bg-slate-50/70 px-8 py-8">
       <AdminPageHeader
-        breadcrumb={['ViVuGo', 'Quản Lý Tour', 'Loại Tour']}
-        title="Quản Lý Loại Tour"
-        description="Quản lý nhóm tour du lịch, tìm kiếm nhanh, chỉnh sửa thông tin và khôi phục các loại tour đã xóa mềm."
+        breadcrumb={['ViVuGo', 'Tour', 'Danh mục tour']}
+        title="Quản Lý Danh Mục Tour"
+        description="Quản lý danh mục tour du lịch, tìm kiếm nhanh, chỉnh sửa thông tin và khôi phục các danh mục tour đã xóa mềm."
         actions={
           <div className="flex flex-wrap items-center gap-3">
             <Link
@@ -331,7 +331,7 @@ function TourTypeListPage() {
               className="inline-flex h-11 items-center gap-2 rounded-xl bg-sky-500 px-5 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(14,165,233,0.25)] transition hover:bg-sky-600"
             >
               <PlusIcon className="h-4 w-4" />
-              Thêm loại tour
+              Thêm danh mục tour
             </Link>
           </div>
         }
@@ -340,9 +340,9 @@ function TourTypeListPage() {
       <div className="mb-7 grid gap-5 md:grid-cols-3">
         <StatCard
           icon={<FolderIcon />}
-          title="Tổng loại tour"
+          title="Tổng danh mục tour"
           value={statistics.total}
-          description="Tất cả loại tour trong hệ thống"
+          description="Tất cả danh mục tour trong hệ thống"
           tone="blue"
         />
 
@@ -350,7 +350,7 @@ function TourTypeListPage() {
           icon={<CheckIcon />}
           title="Đang hoạt động"
           value={statistics.active}
-          description="Loại tour đang hiển thị"
+          description="Danh mục tour đang hiển thị"
           tone="green"
         />
 
@@ -358,7 +358,7 @@ function TourTypeListPage() {
           icon={<EyeOffIcon />}
           title="Tạm ẩn"
           value={statistics.inactive}
-          description="Loại tour đang tạm ẩn"
+          description="Danh mục tour đang tạm ẩn"
           tone="orange"
         />
       </div>
@@ -370,7 +370,7 @@ function TourTypeListPage() {
 
             <input
               type="text"
-              placeholder="Tìm kiếm theo tên loại tour..."
+              placeholder="Tìm kiếm theo tên danh mục tour..."
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
               className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-11 pr-4 text-sm font-normal text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-sky-400 focus:ring-3 focus:ring-sky-50"
