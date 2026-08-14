@@ -534,6 +534,33 @@ class CustomerManagerController extends Controller
             );
         }
 
+        if (Schema::hasTable('booking_status_histories') && Schema::hasTable('bookings')) {
+            $activities = $activities->merge(
+                DB::table('booking_status_histories as history')
+                    ->join('bookings', 'bookings.id', '=', 'history.booking_id')
+                    ->where('bookings.user_id', $customer->id)
+                    ->where(function ($query): void {
+                        $query->where('history.note', 'like', '[customer_cancellation_requested]%')
+                            ->orWhere('history.note', 'like', '[customer_cancellation_withdrawn]%');
+                    })
+                    ->select('history.id', 'history.note', 'history.created_at', 'bookings.booking_code')
+                    ->get()
+                    ->map(function ($item): array {
+                        $isWithdrawn = str_starts_with($item->note, '[customer_cancellation_withdrawn]');
+                        $detail = trim((string) preg_replace('/^\[[^]]+\]\s*/', '', $item->note));
+
+                        return [
+                            'id' => "booking-cancellation-{$item->id}",
+                            'action' => $isWithdrawn ? 'booking_cancellation_withdrawn' : 'booking_cancellation_requested',
+                            'description' => $isWithdrawn ? 'Rút yêu cầu hủy tour' : 'Yêu cầu hủy tour',
+                            'detail' => "Booking {$item->booking_code} · {$detail}",
+                            'status' => $isWithdrawn ? 'withdrawn' : 'pending',
+                            'created_at' => Carbon::parse($item->created_at)->toIso8601String(),
+                        ];
+                    })
+            );
+        }
+
         if (Schema::hasTable('support_requests')) {
             $activities = $activities->merge(
                 DB::table('support_requests')->where('user_id', $customer->id)

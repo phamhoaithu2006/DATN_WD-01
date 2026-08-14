@@ -40,7 +40,7 @@ class VnpayPaymentLifecycleService
         if (
             ! $departure
             || ! $tourIsBookable
-            || $departure->status !== 'open'
+            || ! in_array($departure->status, ['open', 'confirmed'], true)
             || $departure->departure_date->isBefore(today())
             || ((int) $departure->total_slots - (int) $departure->booked_slots) < (int) $lockedBooking->number_of_people
         ) {

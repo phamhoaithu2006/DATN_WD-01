@@ -49,7 +49,7 @@ export default function AppConfirmDialog() {
           {dialog.type === 'prompt' ? <input className="vg-confirm-dialog__input" autoFocus value={value} onChange={(event) => setValue(event.target.value)} placeholder={dialog.placeholder || ''} /> : null}
         </div>
         <div className="vg-confirm-dialog__actions">
-          <button type="button" onClick={() => close(false)}>Hủy</button>
+          <button type="button" onClick={() => close(false)}>{dialog.cancelLabel || 'Hủy'}</button>
           <button type="button" className={dialog.tone === 'danger' ? 'is-danger' : ''} onClick={() => close(dialog.type === 'prompt' ? value : true)}>{dialog.confirmLabel || 'Xác nhận'}</button>
         </div>
       </section>

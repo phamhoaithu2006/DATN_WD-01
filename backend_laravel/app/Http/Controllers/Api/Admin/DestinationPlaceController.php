@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\DestinationPlace;
 use App\Models\Destination;
 use App\Models\District;
+use App\Models\TourActivityLog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -49,6 +50,7 @@ class DestinationPlaceController extends Controller
         $data = $this->validatedData($request);
         $data['slug'] = $data['slug'] ?? str($data['name'])->slug().'-'.$data['destination_id'];
         $place = DestinationPlace::query()->create($data);
+        TourActivityLog::record($request->user()?->id, 'place_created', $place->name, 'Đã tạo điểm đến chi tiết mới.', 'destination_place', $place->id);
 
         return response()->json([
             'message' => 'Thêm điểm đến chi tiết thành công.',
@@ -66,6 +68,7 @@ class DestinationPlaceController extends Controller
     public function update(Request $request, DestinationPlace $destinationPlace): JsonResponse
     {
         $destinationPlace->update($this->validatedData($request, $destinationPlace));
+        TourActivityLog::record($request->user()?->id, 'place_updated', $destinationPlace->name, 'Đã cập nhật điểm đến chi tiết.', 'destination_place', $destinationPlace->id);
 
         return response()->json([
             'message' => 'Cập nhật điểm đến chi tiết thành công.',
@@ -73,9 +76,10 @@ class DestinationPlaceController extends Controller
         ]);
     }
 
-    public function destroy(DestinationPlace $destinationPlace): JsonResponse
+    public function destroy(Request $request, DestinationPlace $destinationPlace): JsonResponse
     {
         $destinationPlace->delete();
+        TourActivityLog::record($request->user()?->id, 'place_deleted', $destinationPlace->name, 'Đã xóa điểm đến chi tiết.', 'destination_place', $destinationPlace->id);
 
         return response()->json(['message' => 'Xóa điểm đến chi tiết thành công.']);
     }

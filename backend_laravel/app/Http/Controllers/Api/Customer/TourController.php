@@ -198,12 +198,13 @@ class TourController extends Controller
     private function applyVisibleDepartures($query)
     {
         return $query
-            ->where('status', 'open')
+            ->whereIn('status', ['open', 'confirmed'])
             ->whereDate(
                 'departure_date',
                 '>',
                 TourDeparture::customerBookingCutoffDate()
-            );
+            )
+            ->whereRaw('(COALESCE(total_slots, 0) - COALESCE(booked_slots, 0)) > 0');
     }
 
     /**

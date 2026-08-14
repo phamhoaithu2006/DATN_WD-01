@@ -77,6 +77,21 @@ function RefreshIcon({ className = 'h-5 w-5' }) {
   )
 }
 
+function TimelineIcon({ className = 'h-5 w-5' }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  )
+}
+
 function EyeOffIcon({ className = 'h-5 w-5' }) {
   return (
     <svg
@@ -226,6 +241,9 @@ function TourListPage() {
   const [pendingAction, setPendingAction] = useState(null)
   const [toast, setToast] = useState(null)
   const [isFilterOpen, setIsFilterOpen] = useState(false)
+  const [isTimelineOpen, setIsTimelineOpen] = useState(false)
+  const [timelineLoading, setTimelineLoading] = useState(false)
+  const [timelineActivities, setTimelineActivities] = useState([])
   const [filters, setFilters] = useState({
     status: '',
     category: '',
@@ -302,6 +320,63 @@ function TourListPage() {
 
   const handleSearch = () => {
     setKeyword(searchValue.trim())
+  }
+
+  const openTimeline = async () => {
+    setIsTimelineOpen(true)
+    setTimelineLoading(true)
+
+    try {
+      const response = await tourApi.getTimeline()
+      setTimelineActivities(response.data?.data || [])
+    } catch (error) {
+      setTimelineActivities([])
+      setToast({
+        type: 'error',
+        message: getRequestErrorMessage(error, 'Không tải được lịch sử thao tác tour.'),
+      })
+    } finally {
+      setTimelineLoading(false)
+    }
+  }
+
+  const formatTimelineDate = (value) => {
+    if (!value) return '-'
+
+    return new Intl.DateTimeFormat('vi-VN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    }).format(new Date(value))
+  }
+
+  const timelineActionConfig = {
+    created: { label: 'Tạo tour', color: 'bg-sky-500', badge: 'bg-sky-50 text-sky-700' },
+    updated: { label: 'Cập nhật', color: 'bg-indigo-500', badge: 'bg-indigo-50 text-indigo-700' },
+    hidden: { label: 'Ẩn tour', color: 'bg-amber-500', badge: 'bg-amber-50 text-amber-700' },
+    published: { label: 'Hiển thị lại', color: 'bg-emerald-500', badge: 'bg-emerald-50 text-emerald-700' },
+    deleted: { label: 'Xóa tour', color: 'bg-rose-500', badge: 'bg-rose-50 text-rose-700' },
+    category_created: { label: 'Tạo loại tour', color: 'bg-sky-500', badge: 'bg-sky-50 text-sky-700' },
+    category_updated: { label: 'Sửa loại tour', color: 'bg-indigo-500', badge: 'bg-indigo-50 text-indigo-700' },
+    category_deleted: { label: 'Xóa loại tour', color: 'bg-rose-500', badge: 'bg-rose-50 text-rose-700' },
+    category_restored: { label: 'Khôi phục loại tour', color: 'bg-emerald-500', badge: 'bg-emerald-50 text-emerald-700' },
+    destination_created: { label: 'Tạo địa chỉ tour', color: 'bg-sky-500', badge: 'bg-sky-50 text-sky-700' },
+    destination_updated: { label: 'Sửa địa chỉ tour', color: 'bg-indigo-500', badge: 'bg-indigo-50 text-indigo-700' },
+    destination_deleted: { label: 'Xóa địa chỉ tour', color: 'bg-rose-500', badge: 'bg-rose-50 text-rose-700' },
+    destination_restored: { label: 'Khôi phục địa chỉ', color: 'bg-emerald-500', badge: 'bg-emerald-50 text-emerald-700' },
+    destination_force_deleted: { label: 'Xóa vĩnh viễn địa chỉ', color: 'bg-rose-700', badge: 'bg-rose-100 text-rose-800' },
+    place_created: { label: 'Tạo điểm đến chi tiết', color: 'bg-sky-500', badge: 'bg-sky-50 text-sky-700' },
+    place_updated: { label: 'Sửa điểm đến chi tiết', color: 'bg-indigo-500', badge: 'bg-indigo-50 text-indigo-700' },
+    place_deleted: { label: 'Xóa điểm đến chi tiết', color: 'bg-rose-500', badge: 'bg-rose-50 text-rose-700' },
+  }
+
+  const timelineEntityLabels = {
+    tour: 'Tour',
+    category: 'Loại tour',
+    destination: 'Địa chỉ tour',
+    destination_place: 'Điểm đến chi tiết',
   }
 
   const openActionModal = (type, tour) => {
@@ -558,6 +633,15 @@ function TourListPage() {
             <ChevronDownIcon
               className={`h-4 w-4 transition-transform ${isFilterOpen ? 'rotate-180' : ''}`}
             />
+          </button>
+
+          <button
+            type="button"
+            onClick={openTimeline}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-sky-100 bg-sky-50 px-4 text-sm font-medium text-sky-700 transition hover:border-sky-200 hover:bg-sky-100"
+          >
+            <TimelineIcon className="h-4 w-4" />
+            Timeline
           </button>
         </div>
 
@@ -880,6 +964,104 @@ function TourListPage() {
           </div>
         )}
       </div>
+
+      {isTimelineOpen && (
+        <div
+          className="fixed inset-0 z-[1000] grid place-items-center bg-slate-950/45 p-4"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setIsTimelineOpen(false)
+          }}
+        >
+          <section className="flex max-h-[86vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+            <header className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-sky-600">
+                  Lịch sử thao tác
+                </p>
+                <h2 className="mt-1 text-xl font-semibold text-slate-900">
+                  Timeline quản lý tour
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Theo dõi thao tác Tour, Loại tour, Địa chỉ tour và Điểm đến chi tiết.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsTimelineOpen(false)}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xl text-slate-500 transition hover:bg-slate-200 hover:text-slate-700"
+                aria-label="Đóng timeline"
+              >
+                ×
+              </button>
+            </header>
+
+            <div className="overflow-y-auto px-6 py-5">
+              {timelineLoading ? (
+                <div className="flex min-h-48 flex-col items-center justify-center gap-3 text-sm text-slate-500">
+                  <div className="h-8 w-8 animate-spin rounded-full border-4 border-sky-100 border-t-sky-500" />
+                  Đang tải lịch sử thao tác...
+                </div>
+              ) : timelineActivities.length === 0 ? (
+                <div className="flex min-h-48 flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-center">
+                  <TimelineIcon className="h-9 w-9 text-slate-300" />
+                  <p className="mt-3 text-sm font-medium text-slate-700">Chưa có lịch sử thao tác</p>
+                  <p className="mt-1 text-xs text-slate-500">Các thao tác tour mới sẽ được ghi lại tại đây.</p>
+                </div>
+              ) : (
+                <ol className="relative ml-2 border-l border-slate-200">
+                  {timelineActivities.map((activity) => {
+                    const config = timelineActionConfig[activity.action] || {
+                      label: activity.action,
+                      color: 'bg-slate-400',
+                      badge: 'bg-slate-100 text-slate-700',
+                    }
+
+                    return (
+                      <li key={activity.id} className="relative pb-6 pl-7 last:pb-0">
+                        <span className={`absolute -left-2 top-1.5 h-4 w-4 rounded-full border-4 border-white ${config.color}`} />
+                        <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-4">
+                          <div className="flex flex-wrap items-start justify-between gap-2">
+                            <div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${config.badge}`}>
+                                  {config.label}
+                                </span>
+                                <span className="text-sm font-semibold text-slate-800">
+                                  {timelineEntityLabels[activity.metadata?.entity_type] || 'Tour'} #{activity.metadata?.entity_id || activity.tour_id || '-'} · {activity.tour_title}
+                                </span>
+                              </div>
+                              <p className="mt-2 text-sm leading-6 text-slate-600">
+                                {activity.description}
+                              </p>
+                            </div>
+                            <time className="whitespace-nowrap text-xs text-slate-400">
+                              {formatTimelineDate(activity.created_at)}
+                            </time>
+                          </div>
+                          <p className="mt-2 text-xs text-slate-500">
+                            Thực hiện bởi: <span className="font-medium text-slate-700">{activity.actor?.name || activity.actor?.email || 'Hệ thống'}</span>
+                          </p>
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ol>
+              )}
+            </div>
+
+            <footer className="flex justify-end border-t border-slate-100 px-6 py-4">
+              <button
+                type="button"
+                onClick={() => setIsTimelineOpen(false)}
+                className="h-10 rounded-lg bg-sky-500 px-5 text-sm font-semibold text-white transition hover:bg-sky-600"
+              >
+                Đóng
+              </button>
+            </footer>
+          </section>
+        </div>
+      )}
 
       {toast && (
         <div className="fixed right-6 top-6 z-50 w-full max-w-sm">

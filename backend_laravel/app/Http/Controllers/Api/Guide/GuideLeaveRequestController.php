@@ -245,6 +245,10 @@ class GuideLeaveRequestController extends Controller
 
     public function cancel(Request $request, GuideLeaveRequest $leaveRequest): JsonResponse
     {
+        $validated = $request->validate([
+            'cancel_reason' => ['nullable', 'string', 'max:2000'],
+        ]);
+
         if (! $this->leaveTablesReady()) {
             return response()->json([
                 'message' => 'Chưa tạo bảng guide_leave_requests.',
@@ -258,7 +262,7 @@ class GuideLeaveRequestController extends Controller
             404
         );
 
-        $cancelledLeaveRequest = DB::transaction(function () use ($request, $leaveRequest, $guide) {
+        $cancelledLeaveRequest = DB::transaction(function () use ($validated, $leaveRequest, $guide) {
             $lockedLeaveRequest = GuideLeaveRequest::query()
                 ->whereKey($leaveRequest->id)
                 ->lockForUpdate()
@@ -275,7 +279,7 @@ class GuideLeaveRequestController extends Controller
 
             $lockedLeaveRequest->update([
                 'status' => 'cancelled',
-                'cancel_reason' => $request->input('cancel_reason'),
+                'cancel_reason' => $validated['cancel_reason'] ?? null,
                 'cancelled_at' => now(),
             ]);
 

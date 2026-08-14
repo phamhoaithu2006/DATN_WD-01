@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Category;
+use App\Models\TourActivityLog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -106,6 +107,8 @@ class CategoryController extends Controller
             'status' => $validated['status'] ?? 'active',
         ]);
 
+        TourActivityLog::record($request->user()?->id, 'category_created', $category->name, 'Đã tạo loại tour mới.', 'category', $category->id);
+
         return response()->json([
             'status' => 'success',
             'message' => 'Thêm loại tour thành công',
@@ -167,6 +170,8 @@ class CategoryController extends Controller
 
         $category->save();
 
+        TourActivityLog::record($request->user()?->id, 'category_updated', $category->name, 'Đã cập nhật loại tour.', 'category', $category->id);
+
         return response()->json([
             'status' => 'success',
             'message' => 'Cập nhật loại tour thành công',
@@ -174,7 +179,7 @@ class CategoryController extends Controller
         ]);
     }
 
-    public function destroy(int $id): JsonResponse
+    public function destroy(Request $request, int $id): JsonResponse
     {
         $category = Category::query()->find($id);
 
@@ -202,6 +207,8 @@ class CategoryController extends Controller
 
         $category->delete();
 
+        TourActivityLog::record($request->user()?->id, 'category_deleted', $category->name, 'Đã chuyển loại tour vào thùng rác.', 'category', $category->id);
+
         return response()->json([
             'status' => 'success',
             'message' => 'Xóa mềm loại tour thành công',
@@ -222,7 +229,7 @@ class CategoryController extends Controller
         ]);
     }
 
-    public function restore(int $id): JsonResponse
+    public function restore(Request $request, int $id): JsonResponse
     {
         $category = Category::onlyTrashed()->find($id);
 
@@ -249,6 +256,8 @@ class CategoryController extends Controller
         }
 
         $category->restore();
+
+        TourActivityLog::record($request->user()?->id, 'category_restored', $category->name, 'Đã khôi phục loại tour.', 'category', $category->id);
 
         return response()->json([
             'status' => 'success',

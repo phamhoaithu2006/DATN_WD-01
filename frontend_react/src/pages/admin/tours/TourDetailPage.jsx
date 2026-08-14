@@ -890,7 +890,7 @@ function TourDetailPage() {
                     <th className="px-5 py-3.5">Ngày khởi hành</th>
                     <th className="px-5 py-3.5">Ngày kết thúc</th>
                     <th className="px-5 py-3.5">Giá</th>
-                    <th className="px-5 py-3.5">Số chỗ</th>
+                    <th className="px-5 py-3.5">Tổng chỗ / Đã đặt</th>
                     <th className="px-5 py-3.5">Trạng thái</th>
                     <th className="px-5 py-3.5">Thao tác</th>
                   </tr>
@@ -930,7 +930,8 @@ function TourDetailPage() {
                         </td>
 
                         <td className="px-5 py-3.5 font-medium text-slate-700">
-                          {departure.available_slots || 0}/{departure.max_slots || 0}
+                          {Number(departure.total_slots ?? departure.max_slots ?? 0)}/
+                          {Number(departure.booked_slots ?? 0)}
                         </td>
 
                         <td className="px-5 py-3.5">

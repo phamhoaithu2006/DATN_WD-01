@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\BookingDisruptionRequest;
 use App\Services\BookingDisruptionResolutionService;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class BookingDisruptionController extends Controller
@@ -59,6 +61,7 @@ class BookingDisruptionController extends Controller
                 'total' => $paginator->total(),
             ],
             'summary' => $this->summaryData(),
+            'timeline' => $this->timelineData(),
         ]);
     }
 
@@ -148,6 +151,60 @@ class BookingDisruptionController extends Controller
         ];
     }
 
+    private function timelineData(): array
+    {
+        $customerEvents = DB::table('booking_status_histories as history')
+            ->join('bookings', 'bookings.id', '=', 'history.booking_id')
+            ->leftJoin('users', 'users.id', '=', 'history.changed_by')
+            ->where(function ($query): void {
+                $query->where('history.note', 'like', '[customer_cancellation_requested]%')
+                    ->orWhere('history.note', 'like', '[customer_cancellation_withdrawn]%');
+            })
+            ->select('history.id', 'history.note', 'history.created_at', 'bookings.booking_code', 'users.full_name')
+            ->latest('history.created_at')
+            ->limit(50)
+            ->get()
+            ->map(function ($item): array {
+                $withdrawn = str_starts_with($item->note, '[customer_cancellation_withdrawn]');
+
+                return [
+                    'id' => "customer-{$item->id}",
+                    'action' => $withdrawn ? 'withdrawn' : 'requested',
+                    'title' => $withdrawn ? 'Khách rút yêu cầu hủy' : 'Khách gửi yêu cầu hủy',
+                    'detail' => trim((string) preg_replace('/^\[[^]]+\]\s*/', '', $item->note)),
+                    'booking_code' => $item->booking_code,
+                    'actor' => $item->full_name ?: 'Khách hàng',
+                    'created_at' => Carbon::parse($item->created_at)->toIso8601String(),
+                ];
+            });
+
+        $adminEvents = DB::table('booking_disruption_requests as requests')
+            ->join('bookings', 'bookings.id', '=', 'requests.booking_id')
+            ->leftJoin('users', 'users.id', '=', 'requests.processed_by')
+            ->whereIn('requests.status', ['approved', 'rejected'])
+            ->whereNotNull('requests.processed_at')
+            ->select('requests.id', 'requests.status', 'requests.admin_note', 'requests.processed_at', 'bookings.booking_code', 'users.full_name')
+            ->latest('requests.processed_at')
+            ->limit(50)
+            ->get()
+            ->map(fn ($item): array => [
+                'id' => "admin-{$item->id}",
+                'action' => $item->status,
+                'title' => $item->status === 'approved' ? 'Admin duyệt yêu cầu hủy' : 'Admin từ chối yêu cầu hủy',
+                'detail' => $item->admin_note ?: 'Không có ghi chú xử lý.',
+                'booking_code' => $item->booking_code,
+                'actor' => $item->full_name ?: 'Quản trị viên',
+                'created_at' => Carbon::parse($item->processed_at)->toIso8601String(),
+            ]);
+
+        return $customerEvents
+            ->merge($adminEvents)
+            ->sortByDesc('created_at')
+            ->take(50)
+            ->values()
+            ->all();
+    }
+
     private function relations(): array
     {
         return [
@@ -155,6 +212,8 @@ class BookingDisruptionController extends Controller
             'booking.tour:id,title,slug',
             'booking.tourDeparture:id,tour_id,departure_date,return_date,status,total_slots,booked_slots',
             'booking.payment',
+            'booking.contact',
+            'booking.participants:id,booking_id,full_name,phone,birth_date,gender,identity_number,participant_type,unit_price',
             'requestedDeparture:id,tour_id,departure_date,return_date,status,total_slots,booked_slots',
             'processedBy:id,full_name,email',
         ];
@@ -187,6 +246,8 @@ class BookingDisruptionController extends Controller
                 'tour' => $booking->tour,
                 'tour_departure' => $booking->tourDeparture,
                 'payment' => $booking->payment,
+                'contact' => $booking->contact,
+                'participants' => $booking->participants,
             ] : null,
             'requested_departure' => $item->requestedDeparture,
             'processed_by' => $item->processedBy,

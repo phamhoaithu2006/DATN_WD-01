@@ -862,7 +862,7 @@ test('VNPAY return status keeps a failed attempt available for retry', function 
     ]);
 });
 
-test('VNPAY return status cancels booking when customer cancels payment', function () {
+test('VNPAY return status keeps booking pending when customer goes back', function () {
     configureVnpayForTest();
     $booking = paymentSafetyBooking(['number_of_people' => 2]);
     $payload = vnpayIpnPayload($booking->payment, [
@@ -872,10 +872,11 @@ test('VNPAY return status cancels booking when customer cancels payment', functi
 
     $this->getJson('/api/vnpay/return-status?'.http_build_query($payload))
         ->assertOk()
-        ->assertJsonPath('data.status', 'failed')
-        ->assertJsonPath('data.booking_status', 'cancelled')
-        ->assertJsonPath('data.payment_status', 'failed')
-        ->assertJsonPath('data.cancel_reason', 'Khách hàng hủy thanh toán trên VNPAY.');
+        ->assertJsonPath('data.status', 'pending')
+        ->assertJsonPath('data.booking_status', 'pending')
+        ->assertJsonPath('data.payment_status', 'unpaid')
+        ->assertJsonPath('data.cancel_reason', null)
+        ->assertJsonPath('data.last_attempt_status', 'returned');
 
     $this->assertDatabaseHas('tour_departures', [
         'id' => $booking->tour_departure_id,
@@ -887,6 +888,27 @@ test('VNPAY return status cancels booking when customer cancels payment', functi
     $this->assertDatabaseHas('tour_departures', [
         'id' => $booking->tour_departure_id,
         'booked_slots' => 0,
+    ]);
+});
+
+test('customer can explicitly cancel their pending VNPAY payment', function () {
+    configureVnpayForTest();
+    $customer = paymentSafetyUser('customer');
+    $booking = paymentSafetyBooking(['user_id' => $customer->id]);
+    Sanctum::actingAs($customer);
+
+    $this->patchJson("/api/customer/payments/vnpay/{$booking->payment->id}/cancel")
+        ->assertOk()
+        ->assertJsonPath('data.status', 'failed')
+        ->assertJsonPath('data.booking_status', 'cancelled')
+        ->assertJsonPath('data.payment_status', 'failed')
+        ->assertJsonPath('data.cancel_reason', 'Khách hàng chủ động hủy thanh toán.');
+
+    $this->assertDatabaseHas('bookings', [
+        'id' => $booking->id,
+        'status' => 'cancelled',
+        'payment_status' => 'failed',
+        'cancel_reason' => 'Khách hàng chủ động hủy thanh toán.',
     ]);
 });
 
@@ -1229,6 +1251,44 @@ test('booking update cannot change payment status directly', function () {
         'id' => $booking->id,
         'payment_status' => 'unpaid',
     ]);
+});
+
+test('admin booking update keeps committed departure slots in sync', function () {
+    Sanctum::actingAs(paymentSafetyUser('admin'));
+    $booking = paymentSafetyBooking([
+        'number_of_people' => 2,
+        'payment_status' => 'paid',
+    ]);
+
+    $this->putJson("/api/admin/bookings/{$booking->id}", [
+        'number_of_people' => 4,
+    ])->assertOk();
+
+    expect($booking->fresh()->number_of_people)->toBe(4)
+        ->and($booking->tourDeparture->fresh()->booked_slots)->toBe(4);
+
+    $this->putJson("/api/admin/bookings/{$booking->id}", [
+        'number_of_people' => 1,
+    ])->assertOk();
+
+    expect($booking->fresh()->number_of_people)->toBe(1)
+        ->and($booking->tourDeparture->fresh()->booked_slots)->toBe(1);
+});
+
+test('admin booking update rejects committed guests beyond departure capacity', function () {
+    Sanctum::actingAs(paymentSafetyUser('admin'));
+    $booking = paymentSafetyBooking([
+        'number_of_people' => 2,
+        'payment_status' => 'paid',
+    ]);
+
+    $this->putJson("/api/admin/bookings/{$booking->id}", [
+        'number_of_people' => 11,
+    ])->assertUnprocessable()
+        ->assertJsonValidationErrors('number_of_people');
+
+    expect($booking->fresh()->number_of_people)->toBe(2)
+        ->and($booking->tourDeparture->fresh()->booked_slots)->toBe(2);
 });
 
 test('cancel booking releases slots once then becomes read only', function () {

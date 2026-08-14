@@ -5,6 +5,7 @@ import LoadingState from "../../components/common/LoadingState";
 import TourCard from "../../components/customer/TourCard";
 import BookingCountdown from "../../components/customer/BookingCountdown";
 import BookingInformationModal from "../../components/customer/BookingInformationModal";
+import { confirmAction } from "../../components/common/AppConfirmDialog.jsx";
 import GuideReviewModal from "../../components/customer/GuideReviewModal";
 import TourReviewModal from "../../components/customer/TourReviewModal";
 import { useLocale } from "../../contexts/LocaleContext";
@@ -16,6 +17,7 @@ import {
   updateBookingContact,
   updateBookingParticipants,
   updateCustomerBookingInformation,
+  withdrawDisruptionRequest,
 } from "../../services/customerApi";
 import { mediaUrl } from "../../utils/mediaUrl";
 
@@ -201,16 +203,6 @@ const DISRUPTION_TYPE_OPTIONS = [
     value: "refund",
     label: "Hoàn tiền",
     description: "Hủy tour và hoàn lại tiền đã thanh toán.",
-  },
-  {
-    value: "retain",
-    label: "Bảo lưu",
-    description: "Giữ lại giá trị đơn để đặt tour khác trong tương lai.",
-  },
-  {
-    value: "transfer",
-    label: "Đổi lịch khởi hành",
-    description: "Chuyển sang một lịch khởi hành khác của cùng tour.",
   },
 ];
 
@@ -566,7 +558,6 @@ function ParticipantsEditModal({ booking, onClose, onUpdated, readOnly = false }
 }
 
 function DisruptionRequestModal({ booking, onClose, onSubmitted }) {
-  const [type, setType] = useState("refund");
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -587,7 +578,7 @@ function DisruptionRequestModal({ booking, onClose, onSubmitted }) {
 
     try {
       const result = await createDisruptionRequest(booking.id, {
-        type,
+        type: "refund",
         reason: reason.trim(),
       });
       setSuccess(true);
@@ -625,21 +616,21 @@ function DisruptionRequestModal({ booking, onClose, onSubmitted }) {
         ) : (
           <form onSubmit={handleSubmit} className="vg-simple-modal-body">
             <p className="vg-simple-modal-hint">
-              Áp dụng cho đơn <strong>{booking.booking_code}</strong> khi bạn muốn gửi yêu cầu hủy đơn, hoàn tiền, bảo lưu hoặc đổi lịch.
+              Áp dụng cho đơn <strong>{booking.booking_code}</strong> khi bạn muốn gửi yêu cầu hủy đơn và hoàn lại khoản tiền đã thanh toán.
             </p>
 
             <div className="vg-disruption-type-list">
               {DISRUPTION_TYPE_OPTIONS.map((option) => (
                 <label
                   key={option.value}
-                  className={`vg-disruption-type-item ${type === option.value ? "is-selected" : ""}`}
+                  className="vg-disruption-type-item is-selected"
                 >
                   <input
                     type="radio"
                     name="disruption-type"
                     value={option.value}
-                    checked={type === option.value}
-                    onChange={() => setType(option.value)}
+                    checked
+                    readOnly
                   />
                   <span>
                     <strong>{option.label}</strong>
@@ -661,12 +652,6 @@ function DisruptionRequestModal({ booking, onClose, onSubmitted }) {
                 placeholder="Ví dụ: Tôi có việc bận đột xuất không thể tham gia chuyến đi..."
               />
             </label>
-
-            {type === "transfer" ? (
-              <p className="vg-simple-modal-hint">
-                Bạn chưa cần chọn lịch khởi hành mới — nhân viên hỗ trợ sẽ liên hệ để chọn lịch phù hợp còn chỗ trống.
-              </p>
-            ) : null}
 
             {error ? <p className="vg-booking-action-error">{error}</p> : null}
 
@@ -822,17 +807,14 @@ function ProfileDashboard({
     return Date.now() <= deadline.getTime();
   }, []);
 
-  // Dùng cho bộ lọc/trạng thái: chỉ cần booking đang chờ và chưa thanh toán.
-  // Không phụ thuộc payment object đã được backend tạo đầy đủ hay chưa.
-  const isAwaitingPayment = useCallback((booking) => (
-    booking.status === "pending"
-    && booking.payment_status === "unpaid"
-  ), []);
-
   const getBookingTripState = useCallback((booking) => {
-    if (booking.status === "cancelled" && booking.payment_status === "failed") {
-      return "expired";
-    }
+    if (booking.payment_status === "refund_pending") return "refund_pending";
+
+    const hasPendingCancellation = booking.has_pending_disruption
+      || booking.pending_disruption_request
+      || booking.disruption_requests?.some((request) => request.status === "pending");
+
+    if (hasPendingCancellation) return "cancellation_pending";
 
     if (["cancelled", "cancelled_by_tour"].includes(booking.status)) return "cancelled";
 
@@ -852,54 +834,39 @@ function ProfileDashboard({
       return "completed";
     }
 
-    // Booking vừa tạo, đang pending và chưa thanh toán phải hiện ở "Chờ thanh toán",
-    // kể cả payment object chưa có hoặc chưa đủ trường.
-    if (isAwaitingPayment(booking)) {
-      const expiresAt = paymentExpiresAt(booking);
+    if (departureAt > now) return "upcoming";
 
-      if (expiresAt > 0 && expiresAt <= now) {
-        return "expired";
-      }
-
-      return "pending";
+    if (
+      departureAt > 0
+      && departureAt <= now
+      && (!returnAt || returnAt > now)
+    ) {
+      return "ongoing";
     }
 
-    // Chỉ booking đã thanh toán mới được xếp theo lịch chuyến đi.
-    if (booking.payment_status === "paid") {
-      if (departureAt > now) return "upcoming";
-
-      if (
-        departureAt > 0
-        && departureAt <= now
-        && (!returnAt || returnAt > now)
-      ) {
-        return "ongoing";
-      }
-    }
-
-    return "other";
-  }, [canPayBooking, now, paymentExpiresAt]);
+    return booking.status === "completed" ? "completed" : "upcoming";
+  }, [now]);
 
   const stats = useMemo(() => {
     const result = {
       all: bookings.length,
-      pending: 0,
       upcoming: 0,
+      ongoing: 0,
       completed: 0,
+      cancellation_pending: 0,
+      refund_pending: 0,
       cancelled: 0,
-      expired: 0,
-      other: 0,
     };
 
     bookings.forEach((booking) => {
       const state = getBookingTripState(booking);
 
-      if (state === "pending") result.pending++;
-      if (state === "upcoming" || state === "ongoing") result.upcoming++;
+      if (state === "upcoming") result.upcoming++;
+      if (state === "ongoing") result.ongoing++;
       if (state === "completed") result.completed++;
+      if (state === "cancellation_pending") result.cancellation_pending++;
+      if (state === "refund_pending") result.refund_pending++;
       if (state === "cancelled") result.cancelled++;
-      if (state === "expired") result.expired++;
-      if (state === "other") result.other++;
     });
 
     return result;
@@ -909,12 +876,7 @@ function ProfileDashboard({
     return bookings.filter((booking) => {
       const state = getBookingTripState(booking);
 
-      if (bookingFilter !== "all" && state !== bookingFilter) {
-        // Tab "Sắp khởi hành" hiển thị cả tour đang diễn ra.
-        if (!(bookingFilter === "upcoming" && state === "ongoing")) {
-          return false;
-        }
-      }
+      if (bookingFilter !== "all" && state !== bookingFilter) return false;
 
       if (bookingSearch.trim()) {
         const q = bookingSearch.trim().toLowerCase();
@@ -928,13 +890,12 @@ function ProfileDashboard({
     }).sort((a, b) => {
       if (bookingFilter === "all") {
         const stateOrder = {
-          pending: 0,
-          upcoming: 1,
-          ongoing: 1,
-          completed: 2,
-          cancelled: 3,
-          expired: 4,
-          other: 5,
+          cancellation_pending: 0,
+          refund_pending: 1,
+          upcoming: 2,
+          ongoing: 3,
+          completed: 4,
+          cancelled: 5,
         };
         const priorityDifference =
           (stateOrder[getBookingTripState(a)] ?? 5) -
@@ -954,15 +915,23 @@ function ProfileDashboard({
       }
       return b.id - a.id;
     });
-  }, [bookings, bookingFilter, bookingSearch, bookingSort, canPayBooking, now]);
+  }, [bookings, bookingFilter, bookingSearch, bookingSort, getBookingTripState]);
 
   const renderStatusBadge = (booking) => {
     const state = getBookingTripState(booking);
 
-    if (booking.payment_status === "refund_pending") {
+    if (state === "refund_pending") {
+      return (
+        <span className="vg-status-badge is-refund-pending">
+          <Icon name="clock" size={13} /> Chờ hoàn tiền
+        </span>
+      );
+    }
+
+    if (state === "cancellation_pending") {
       return (
         <span className="vg-status-badge is-pending-payment">
-          <Icon name="clock" size={13} /> Chờ hoàn tiền
+          <Icon name="clock" size={13} /> Chờ hủy
         </span>
       );
     }
@@ -1088,6 +1057,48 @@ function ProfileDashboard({
     // Modal tự hiển thị trạng thái thành công, không cần đóng ngay.
   };
 
+  const handleWithdrawCancellation = async (booking) => {
+    const requestId = booking.pending_disruption_request?.id
+      || booking.disruption_requests?.find((request) => request.status === "pending")?.id;
+
+    if (!requestId) return;
+
+    const confirmed = await confirmAction(
+      "Đơn sẽ tiếp tục theo lịch khởi hành hiện tại nếu bạn rút yêu cầu này.",
+      {
+        title: "Rút yêu cầu hủy đơn?",
+        confirmLabel: "Rút yêu cầu hủy",
+        cancelLabel: "Giữ yêu cầu",
+        tone: "danger",
+      },
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setBookingActionId(booking.id);
+    setBookingActionError("");
+
+    try {
+      await withdrawDisruptionRequest(requestId);
+      onBookingUpdated?.({
+        ...booking,
+        has_pending_disruption: false,
+        pending_disruption_request: null,
+        disruption_requests: booking.disruption_requests?.filter(
+          (request) => Number(request.id) !== Number(requestId),
+        ) || [],
+      });
+    } catch (error) {
+      setBookingActionError(
+        error.response?.data?.message || "Không thể rút yêu cầu hủy đơn. Vui lòng tải lại trang.",
+      );
+    } finally {
+      setBookingActionId(null);
+    }
+  };
+
   const handleBookingInformationSaved = async (payload) => {
     const updatedBooking = await updateCustomerBookingInformation(editingBooking.id, payload);
     onBookingUpdated?.(updatedBooking);
@@ -1210,13 +1221,6 @@ function ProfileDashboard({
                 </button>
                 <button
                   type="button"
-                  className={`vg-filter-btn ${bookingFilter === "pending" ? "active" : ""}`}
-                  onClick={() => selectBookingFilter("pending")}
-                >
-                  Chờ thanh toán <span className="vg-filter-count is-warn">{stats.pending}</span>
-                </button>
-                <button
-                  type="button"
                   className={`vg-filter-btn ${bookingFilter === "upcoming" ? "active" : ""}`}
                   onClick={() => selectBookingFilter("upcoming")}
                 >
@@ -1224,10 +1228,31 @@ function ProfileDashboard({
                 </button>
                 <button
                   type="button"
+                  className={`vg-filter-btn ${bookingFilter === "ongoing" ? "active" : ""}`}
+                  onClick={() => selectBookingFilter("ongoing")}
+                >
+                  Đang diễn ra <span className="vg-filter-count">{stats.ongoing}</span>
+                </button>
+                <button
+                  type="button"
                   className={`vg-filter-btn ${bookingFilter === "completed" ? "active" : ""}`}
                   onClick={() => selectBookingFilter("completed")}
                 >
-                  Hoàn thành <span className="vg-filter-count">{stats.completed}</span>
+                  Hoàn thành (Đã kết thúc) <span className="vg-filter-count">{stats.completed}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`vg-filter-btn ${bookingFilter === "cancellation_pending" ? "active" : ""}`}
+                  onClick={() => selectBookingFilter("cancellation_pending")}
+                >
+                  Chờ hủy <span className="vg-filter-count is-warn">{stats.cancellation_pending}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`vg-filter-btn ${bookingFilter === "refund_pending" ? "active" : ""}`}
+                  onClick={() => selectBookingFilter("refund_pending")}
+                >
+                  Chờ hoàn tiền <span className="vg-filter-count is-refund">{stats.refund_pending}</span>
                 </button>
                 <button
                   type="button"
@@ -1236,22 +1261,6 @@ function ProfileDashboard({
                 >
                   Đã hủy <span className="vg-filter-count">{stats.cancelled}</span>
                 </button>
-                <button
-                  type="button"
-                  className={`vg-filter-btn ${bookingFilter === "expired" ? "active" : ""}`}
-                  onClick={() => selectBookingFilter("expired")}
-                >
-                  Đã hết hạn <span className="vg-filter-count is-warn">{stats.expired}</span>
-                </button>
-                {stats.other > 0 ? (
-                  <button
-                    type="button"
-                    className={`vg-filter-btn ${bookingFilter === "other" ? "active" : ""}`}
-                    onClick={() => selectBookingFilter("other")}
-                  >
-                    Khác <span className="vg-filter-count">{stats.other}</span>
-                  </button>
-                ) : null}
               </div>
 
               <div className="vg-booking-search-sort">
@@ -1488,7 +1497,7 @@ function ProfileDashboard({
 
                         {booking.payment_status === "refund_pending" ? (
                           <p className="vg-booking-action-error">
-                            Hủy đơn thành công. Vui lòng liên hệ nhân viên hộ trợ để được hoàn toàn
+                            Hủy đơn thành công. Khoản thanh toán đang chờ nhân viên xử lý hoàn tiền.
                           </p>
                         ) : null}
 
@@ -1546,6 +1555,17 @@ function ProfileDashboard({
                             </div>
                           ) : (
                             <div className="vg-booking-actions-group">
+                              {hasPendingDisruption ? (
+                                <button
+                                  type="button"
+                                  className="is-cancel"
+                                  disabled={bookingActionId === booking.id}
+                                  onClick={() => handleWithdrawCancellation(booking)}
+                                >
+                                  {bookingActionId === booking.id ? "Đang rút yêu cầu..." : "Rút yêu cầu hủy"}
+                                </button>
+                              ) : null}
+
                               {booking.status !== "cancelled" && bookingTripState !== "expired" && (
                                 <button
                                   type="button"

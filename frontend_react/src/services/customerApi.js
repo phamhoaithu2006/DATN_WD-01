@@ -177,7 +177,7 @@ export async function fetchDisruptionRequests(params = {}) {
   return response.data?.data || null
 }
 
-// payload: { type: 'refund' | 'retain' | 'transfer', reason, requested_tour_departure_id? }
+// payload: { type: 'refund', reason }
 export async function createDisruptionRequest(bookingId, payload) {
   const response = await api.post(`/customer/bookings/${bookingId}/disruption-requests`, payload)
 
@@ -192,6 +192,18 @@ export async function updateCustomerBookingInformation(bookingId, payload) {
 
 export async function fetchVnpayPaymentStatus(paymentId) {
   const response = await api.get(`/customer/payments/vnpay/${paymentId}`)
+
+  return response.data?.data || response.data
+}
+
+export async function withdrawDisruptionRequest(requestId) {
+  const response = await api.delete(`/customer/booking-disruption-requests/${requestId}`)
+
+  return response.data?.data || response.data
+}
+
+export async function cancelVnpayPayment(paymentId) {
+  const response = await api.patch(`/customer/payments/vnpay/${paymentId}/cancel`)
 
   return response.data?.data || response.data
 }

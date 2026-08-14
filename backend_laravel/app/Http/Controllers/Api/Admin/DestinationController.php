@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Destination;
 use App\Models\Province;
+use App\Models\TourActivityLog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -73,6 +74,7 @@ class DestinationController extends Controller
         unset($data['thumbnail_image']);
         $destination = Destination::create($data);
         $this->syncProvinces($destination, (array) $provinceIds);
+        TourActivityLog::record($request->user()?->id, 'destination_created', $destination->name, 'Đã tạo địa chỉ tour mới.', 'destination', $destination->id);
 
         return response()->json($destination->load('provinces:id,name'), 201);
     }
@@ -124,6 +126,7 @@ class DestinationController extends Controller
         if ($provinceIds !== null) {
             $this->syncProvinces($destination, $provinceIds);
         }
+        TourActivityLog::record($request->user()?->id, 'destination_updated', $destination->name, 'Đã cập nhật địa chỉ tour.', 'destination', $destination->id);
 
         return response()->json($destination->fresh()->load('provinces:id,name'), 200);
     }
@@ -133,13 +136,14 @@ class DestinationController extends Controller
      * Đánh dấu bản ghi là đã xóa bằng cách điền thời gian hiện tại vào cột 'deleted_at'.
      * Bản ghi vẫn tồn tại trong DB nhưng sẽ bị ẩn khỏi các truy vấn thông thường.
      */
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
         // Tìm bản ghi cần xóa; nếu không thấy sẽ tự động trả về lỗi 404
         $destination = Destination::findOrFail($id);
 
         // Thực hiện xóa mềm
         $destination->delete();
+        TourActivityLog::record($request->user()?->id, 'destination_deleted', $destination->name, 'Đã chuyển địa chỉ tour vào thùng rác.', 'destination', $destination->id);
 
         return response()->json(['message' => 'Đã chuyển vào thùng rác'], 200);
     }
@@ -160,13 +164,14 @@ class DestinationController extends Controller
      * 7. Khôi phục bản ghi đã xóa
      * Tìm bản ghi trong thùng rác và set lại cột 'deleted_at' về NULL.
      */
-    public function restore($id)
+    public function restore(Request $request, $id)
     {
         // Phải tìm trong phạm vi các bản ghi đã xóa (onlyTrashed)
         $destination = Destination::onlyTrashed()->findOrFail($id);
 
         // Khôi phục bản ghi
         $destination->restore();
+        TourActivityLog::record($request->user()?->id, 'destination_restored', $destination->name, 'Đã khôi phục địa chỉ tour.', 'destination', $destination->id);
 
         return response()->json(['message' => 'Đã khôi phục thành công'], 200);
     }
@@ -175,13 +180,16 @@ class DestinationController extends Controller
      * 8. Xóa vĩnh viễn (Force Delete)
      * Loại bỏ hoàn toàn dòng dữ liệu đó ra khỏi bảng (không thể khôi phục).
      */
-    public function forceDelete($id)
+    public function forceDelete(Request $request, $id)
     {
         // Phải tìm trong phạm vi các bản ghi đã xóa trước khi xóa vĩnh viễn
         $destination = Destination::onlyTrashed()->findOrFail($id);
 
         // Xóa vật lý khỏi database
+        $destinationId = $destination->id;
+        $destinationName = $destination->name;
         $destination->forceDelete();
+        TourActivityLog::record($request->user()?->id, 'destination_force_deleted', $destinationName, 'Đã xóa vĩnh viễn địa chỉ tour.', 'destination', $destinationId);
 
         return response()->json(['message' => 'Đã xóa vĩnh viễn khỏi hệ thống'], 200);
     }

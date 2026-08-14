@@ -1071,7 +1071,7 @@ function DirectGuideAssignmentPanel({
     } finally {
       setLoading(false)
     }
-  }, [departureId, mode, keyword, from, to, languageIds])
+  }, [departureId, keyword, from, to, languageIds])
 
   useEffect(() => {
     void fetchGuides()

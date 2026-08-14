@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { readToken } from '../../../services/authStorage'
 
@@ -1402,7 +1402,10 @@ function TourForm({
   // Form thêm và form sửa dùng chung component này.
   // Tính key trực tiếp ở mỗi lần render để vẫn phát hiện trường hợp object
   // initialData bị cập nhật tại chỗ nhưng không đổi reference.
-  const resolvedInitialData = resolveTourInitialData(initialData || {})
+  const resolvedInitialData = useMemo(
+    () => resolveTourInitialData(initialData || {}),
+    [initialData],
+  )
   const initialDataKey = JSON.stringify(initialData ?? null)
   const lastAppliedInitialDataKeyRef = useRef(null)
 
@@ -1471,7 +1474,7 @@ function TourForm({
     setGalleryImages([])
     setGalleryPreviews(getInitialImagePreviews(resolvedInitialData))
     setClientErrors({})
-  }, [initialDataKey])
+  }, [initialDataKey, resolvedInitialData])
 
   useEffect(() => {
     if (categories.length === 0 && destinations.length === 0) return
@@ -1509,7 +1512,7 @@ function TourForm({
         destination_id: nextDestinationId,
       }
     })
-  }, [categories, destinations, initialDataKey])
+  }, [categories, destinations, initialDataKey, resolvedInitialData])
 
   useEffect(() => {
     let cancelled = false
