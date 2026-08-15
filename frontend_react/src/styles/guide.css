@@ -9869,9 +9869,11 @@
 }
 .guide-attendance-tabs {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  width: 100%;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
   padding: 24px;
+  box-sizing: border-box;
 }
 .guide-attendance-readonly-notice {
   margin: 0 24px 18px;
@@ -9926,7 +9928,7 @@
 }
 .guide-attendance-toolbar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 190px 170px 190px;
+  grid-template-columns: minmax(0, 1fr) 240px;
   gap: 14px;
   padding: 0 24px 18px;
 }
@@ -10783,7 +10785,7 @@
   grid-template-columns: minmax(0, 1fr);
 }
 .guide-attendance-toolbar {
-  grid-template-columns: minmax(0, 1fr) 190px 170px;
+  grid-template-columns: minmax(0, 1fr) 240px;
 }
 .guide-replacement-modal small {
   color: #64748b;

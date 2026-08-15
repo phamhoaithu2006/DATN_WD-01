@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   checkInGuideCustomer,
-  checkInAllGuideCustomers,
   deleteGuideAttendancePhoto,
   getGuideAttendanceSessions,
   getGuideAttendanceStatistics,
@@ -31,7 +30,6 @@ const filters = [
   { key: "all", label: "Tất cả" },
   { key: "checked", label: "Đã điểm danh" },
   { key: "unchecked", label: "Chưa điểm danh" },
-  { key: "absent", label: "Vắng mặt" },
 ];
 const participantTypeLabels = {
   adult: "Người lớn",
@@ -253,7 +251,7 @@ function GuideAttendancePage() {
           || sessions.find((session) => isSameLocalDate(session.scheduled_date))
           || sessions[0]
           || null;
-        const status = activeFilter === "checked" ? "checked_in" : activeFilter === "unchecked" ? "not_checked_in" : activeFilter === "absent" ? "absent" : undefined;
+        const status = activeFilter === "checked" ? "checked_in" : activeFilter === "unchecked" ? "not_checked_in" : undefined;
         const [detail, customerPayload, statistics] = await Promise.all([
           getGuideTourDetail(selectedTourId).catch(() => null),
           getGuideTourCustomers(selectedTourId, {
@@ -300,7 +298,6 @@ function GuideAttendancePage() {
     return customers.filter((customer) => {
       if (activeFilter === "checked" && !isChecked(customer)) return false;
       if (activeFilter === "unchecked" && !isUnchecked(customer)) return false;
-      if (activeFilter === "absent" && !isAbsent(customer)) return false;
       if (customerType !== "all" && getCustomerType(customer) !== customerType)
         return false;
       if (!normalizedKeyword) return true;
@@ -383,37 +380,6 @@ function GuideAttendancePage() {
       setDetailLoading(false);
     }
   }
-  async function markAll() {
-    if (busy) return;
-    setBusy(true);
-    setError("");
-    try {
-      const activeSession = await ensureSession();
-      await checkInAllGuideCustomers(selectedTour.id, activeSession);
-      const [customerPayload, statistics] = await Promise.all([
-        getGuideTourCustomers(selectedTour.id, {
-          page,
-          per_page: 10,
-          keyword: keyword.trim() || undefined,
-          attendance_session_id: activeSession,
-        }),
-        getGuideAttendanceStatistics(selectedTour.id, {
-          attendance_session_id: activeSession,
-        }),
-      ]);
-      const customerPage = normalizePaginator(customerPayload);
-      setCustomers(customerPage.items);
-      setCustomerMeta(customerPage.meta);
-      setAttendanceStats(statistics);
-      setMessage("Đã điểm danh tất cả khách chưa có mặt.");
-    } catch (err) {
-      setError(
-        getApiErrorMessage(err, "Không thể điểm danh tất cả khách."),
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
   async function uploadPhotos(photos) {
     if (!photos.length || busy || !selectedSession) return;
 
@@ -462,8 +428,6 @@ function GuideAttendancePage() {
   }
   async function deletePhoto(photo) {
     if (busy || !selectedSession || !canOperateSession) return;
-    if (!window.confirm(`Xóa ảnh “${photo.original_name || "Ảnh điểm danh"}”?`)) return;
-
     setBusy(true);
     setError("");
     try {
@@ -649,6 +613,41 @@ function GuideAttendancePage() {
                   );
                 })}
               </div>
+              {Array.isArray(selectedSession?.photos) && selectedSession.photos.length ? (
+                <div className="guide-attendance-photo-section">
+                  <button
+                    type="button"
+                    className={`guide-attendance-photo-stack ${photoAlbumOpen ? "is-open" : ""}`}
+                    onClick={() => setPhotoAlbumOpen((open) => !open)}
+                    aria-expanded={photoAlbumOpen}
+                    aria-label={photoAlbumOpen ? "Thu gọn tập ảnh" : `Mở tập ${selectedSession.photos.length} ảnh điểm danh`}
+                    title={photoAlbumOpen ? "Thu gọn tập ảnh" : "Xem tất cả ảnh"}
+                  >
+                    <span className="guide-attendance-photo-stack-cards">
+                      {selectedSession.photos.slice(0, 3).map((photo, index) => (
+                        <img key={photo.id} src={mediaUrl(photo.url)} alt="" style={{ "--stack-index": index }} />
+                      ))}
+                    </span>
+                  </button>
+                  {photoAlbumOpen ? (
+                    <div className="guide-attendance-photo-gallery">
+                      {selectedSession.photos.map((photo, index) => (
+                        <article key={photo.id} className="guide-attendance-photo-item">
+                          <a href={mediaUrl(photo.url)} target="_blank" rel="noreferrer" title={photo.original_name || `Ảnh ${index + 1}`}>
+                            <img src={mediaUrl(photo.url)} alt={photo.original_name || "Ảnh điểm danh"} />
+                            <span>Ảnh {index + 1}</span>
+                          </a>
+                          {canOperateSession ? (
+                            <button type="button" disabled={busy} onClick={() => deletePhoto(photo)} aria-label={`Xóa ${photo.original_name || `ảnh ${index + 1}`}`} title="Xóa ảnh">
+                              ×
+                            </button>
+                          ) : null}
+                        </article>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
               <div
                 className={`guide-attendance-photo-dropzone ${isDraggingPhotos ? "is-dragging" : ""} ${!canUploadPhotos ? "is-disabled" : ""}`}
                 onDragEnter={(event) => {
@@ -673,41 +672,6 @@ function GuideAttendancePage() {
                 <input ref={photoInputRef} type="file" accept="image/jpeg,image/png,image/webp" multiple disabled={busy || !canUploadPhotos} onChange={choosePhotos} />
               </div>
             </div>
-            {Array.isArray(selectedSession?.photos) && selectedSession.photos.length ? (
-              <div className="guide-attendance-photo-section">
-                <button
-                  type="button"
-                  className={`guide-attendance-photo-stack ${photoAlbumOpen ? "is-open" : ""}`}
-                  onClick={() => setPhotoAlbumOpen((open) => !open)}
-                  aria-expanded={photoAlbumOpen}
-                  aria-label={photoAlbumOpen ? "Thu gọn tập ảnh" : `Mở tập ${selectedSession.photos.length} ảnh điểm danh`}
-                  title={photoAlbumOpen ? "Thu gọn tập ảnh" : "Xem tất cả ảnh"}
-                >
-                  <span className="guide-attendance-photo-stack-cards">
-                    {selectedSession.photos.slice(0, 3).map((photo, index) => (
-                      <img key={photo.id} src={mediaUrl(photo.url)} alt="" style={{ "--stack-index": index }} />
-                    ))}
-                  </span>
-                </button>
-                {photoAlbumOpen ? (
-                  <div className="guide-attendance-photo-gallery">
-                  {selectedSession.photos.map((photo, index) => (
-                    <article key={photo.id} className="guide-attendance-photo-item">
-                      <a href={mediaUrl(photo.url)} target="_blank" rel="noreferrer" title={photo.original_name || `Ảnh ${index + 1}`}>
-                        <img src={mediaUrl(photo.url)} alt={photo.original_name || "Ảnh điểm danh"} />
-                        <span>Ảnh {index + 1}</span>
-                      </a>
-                      {canOperateSession ? (
-                        <button type="button" disabled={busy} onClick={() => deletePhoto(photo)} aria-label={`Xóa ${photo.original_name || `ảnh ${index + 1}`}`} title="Xóa ảnh">
-                          ×
-                        </button>
-                      ) : null}
-                    </article>
-                  ))}
-                  </div>
-                ) : null}
-                </div>
-            ) : null}
             {isReadOnlySession ? (
               <div className="guide-attendance-readonly-notice" role="status">
                 Mốc này không diễn ra hôm nay nên chỉ có thể xem lịch sử điểm danh.
@@ -720,9 +684,7 @@ function GuideAttendancePage() {
                     ? stats.checked
                     : filter.key === "unchecked"
                       ? stats.unchecked
-                      : filter.key === "absent"
-                        ? stats.absent
-                        : stats.total;
+                      : stats.total;
                 return (
                   <button
                     key={filter.key}
@@ -761,13 +723,6 @@ function GuideAttendancePage() {
                 <option value="Người lớn">Người lớn</option>
                 <option value="Trẻ em">Trẻ em</option>
               </select>
-              <button
-                type="button"
-                onClick={markAll}
-                disabled={busy || !canOperateSession}
-              >
-                Điểm danh tất cả
-              </button>
             </div>
             <div className="guide-attendance-table">
               <div className="guide-attendance-table-head">
