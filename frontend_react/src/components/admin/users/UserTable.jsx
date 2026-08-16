@@ -21,8 +21,27 @@ function formatDate(value) {
 }
 
 function formatPresence(presence) {
-  if (presence?.is_online) return { label: "Online", detail: "Đang hoạt động" };
-  if (!presence?.last_seen_at) return { label: "Offline", detail: "Chưa ghi nhận truy cập" };
+  const formatDuration = (secondsValue) => {
+    const seconds = Math.max(0, Number(secondsValue || 0));
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    if (days > 0) return `${days} ngày`;
+    if (hours > 0) return `${hours} giờ ${minutes % 60} phút`;
+    return `${minutes} phút`;
+  };
+
+  if (presence?.is_online) {
+    return {
+      label: "Trực tuyến",
+      detail: `Đã online ${formatDuration(presence.online_seconds)}`,
+    };
+  }
+
+  if (!presence?.last_seen_at) {
+    return { label: "Chưa truy cập", detail: "Chưa có dữ liệu online" };
+  }
 
   const elapsedSeconds = Math.max(
     0,
@@ -36,7 +55,7 @@ function formatPresence(presence) {
   if (hours > 0) detail = `Rời hệ thống ${hours} giờ ${minutes % 60} phút trước`;
   if (days > 0) detail = `Rời hệ thống ${days} ngày trước`;
 
-  return { label: "Offline", detail };
+  return { label: "Ngoại tuyến", detail };
 }
 
 function Icon({ name }) {
@@ -108,8 +127,8 @@ function UserTable({
             <th>Ngày đăng ký</th>
             <th>Vai trò</th>
             {showBookings ? <th>Booking</th> : null}
-            {showPresence ? <th>Trực tuyến</th> : null}
             <th>Trạng thái</th>
+            {showPresence ? <th>Trực tuyến</th> : null}
             <th>Hành động</th>
           </tr>
         </thead>

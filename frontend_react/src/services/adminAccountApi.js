@@ -263,3 +263,12 @@ export const getCustomerActivityHistory = async (id, params = {}) => {
 
   return response.data?.data || response.data || {};
 };
+
+export const getAdminUserTimeline = async (params = {}) => {
+  const response = await apiClient.get(
+    `${USER_MANAGEMENT_ENDPOINT}/admin-timeline`,
+    { params },
+  );
+
+  return response.data?.data || [];
+};

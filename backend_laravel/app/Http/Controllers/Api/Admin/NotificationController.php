@@ -5,12 +5,34 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Notification;
 use App\Models\NotificationDraft;
+use App\Models\TourActivityLog;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class NotificationController extends Controller
 {
+    private function snapshot(NotificationDraft $draft): array
+    {
+        return ['title' => $draft->title, 'message' => $draft->message, 'target_type' => $draft->target_type, 'target_ids' => $draft->target_ids, 'status' => $draft->status];
+    }
+
+    private function record(Request $request, NotificationDraft $draft, string $action, string $description, array $metadata = []): void
+    {
+        TourActivityLog::record($request->user()?->id, $action, $draft->title, $description, 'notification', $draft->id, $metadata);
+    }
+
+    public function adminTimeline()
+    {
+        $items = TourActivityLog::query()->with('actor:id,full_name,email')->where('metadata->entity_type', 'notification')->latest()->limit(100)->get()->map(fn (TourActivityLog $item) => [
+            'id' => $item->id, 'description' => $item->description, 'target_name' => $item->tour_title, 'metadata' => $item->metadata,
+            'actor' => $item->actor ? ['name' => $item->actor->full_name, 'email' => $item->actor->email] : null,
+            'created_at' => $item->created_at?->toIso8601String(),
+        ]);
+
+        return response()->json(['status' => 'success', 'data' => $items]);
+    }
+
     //Tạo bản nháp thông báo (I)
     public function saveDraft(Request $request)
     {
@@ -33,6 +55,7 @@ class NotificationController extends Controller
                 'status' => 'draft'
             ]
         );
+        $this->record($request, $draft, 'created', 'Lưu bản nháp thông báo.', ['after' => $this->snapshot($draft)]);
 
         return response()->json([
             'message' => 'Lưu nháp thành công!',
@@ -81,6 +104,8 @@ class NotificationController extends Controller
             return response()->json(['message' => 'Không tìm thấy bản nháp hoặc bản nháp đã được gửi.'], 404);
         }
 
+        $before = $this->snapshot($draft);
+
         // 2. Validate dữ liệu mới
         $request->validate([
             'title' => 'required|string|max:255',
@@ -96,6 +121,7 @@ class NotificationController extends Controller
             'target_type' => $request->target_type,
             'target_ids' => $request->target_ids,
         ]);
+        $this->record($request, $draft, 'updated', 'Cập nhật bản nháp thông báo.', ['before' => $before, 'after' => $this->snapshot($draft)]);
 
         return response()->json([
             'message' => 'Cập nhật bản nháp thành công!',
@@ -104,7 +130,7 @@ class NotificationController extends Controller
     }
 
     //Xóa mềm bản nháp (V)
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
         $draft = NotificationDraft::find($id);
 
@@ -112,7 +138,9 @@ class NotificationController extends Controller
             return response()->json(['message' => 'Bản nháp không tồn tại.'], 404);
         }
 
+        $before = $this->snapshot($draft);
         $draft->delete(); // Lệnh này tự động cập nhật deleted_at (xóa mềm)
+        $this->record($request, $draft, 'deleted', 'Chuyển bản nháp vào thùng rác.', ['before' => $before]);
 
         return response()->json(['message' => 'Đã xóa bản nháp thành công!'], 200);
     }
@@ -132,7 +160,7 @@ class NotificationController extends Controller
     }
 
     //Khoi phục xóa mềm (VII)
-    public function restoreDraft($id)
+    public function restoreDraft(Request $request, $id)
     {
         // 1. Tìm bản ghi đã xóa (sử dụng withTrashed để tìm cả những bản đã bị xóa mềm)
         $draft = NotificationDraft::withTrashed()->find($id);
@@ -144,6 +172,7 @@ class NotificationController extends Controller
 
         // 3. Khôi phục bản ghi
         $draft->restore();
+        $this->record($request, $draft, 'restored', 'Khôi phục bản nháp thông báo.', ['after' => $this->snapshot($draft)]);
 
         return response()->json([
             'message' => 'Khôi phục bản nháp thành công!',
@@ -152,7 +181,7 @@ class NotificationController extends Controller
     }
 
     //Xóa vĩnh viễn bản nháp (VIII)
-    public function forceDeleteDraft($id)
+    public function forceDeleteDraft(Request $request, $id)
     {
         // 1. Tìm bản ghi đã xóa bằng withTrashed()
         $draft = NotificationDraft::withTrashed()->find($id);
@@ -163,16 +192,20 @@ class NotificationController extends Controller
         }
 
         // 3. Xóa vĩnh viễn khỏi database
+        $before = $this->snapshot($draft);
+        $draftId = $draft->id;
+        $title = $draft->title;
         $draft->forceDelete();
+        TourActivityLog::record($request->user()?->id, 'force_deleted', $title, 'Xóa vĩnh viễn bản nháp thông báo.', 'notification', $draftId, ['before' => $before]);
 
         return response()->json(['message' => 'Đã xóa vĩnh viễn bản nháp thành công!'], 200);
     }
 
     //Gửi thông báo (IX)
-    public function sendNotification($id)
+    public function sendNotification(Request $request, $id)
     {
         // Bắt đầu transaction để đảm bảo dữ liệu không bị lỗi giữa chừng
-        return DB::transaction(function () use ($id) {
+        return DB::transaction(function () use ($id, $request) {
 
             $draft = NotificationDraft::query()
                 ->lockForUpdate()
@@ -213,6 +246,7 @@ class NotificationController extends Controller
 
             // Cập nhật trạng thái chiến dịch
             $draft->update(['status' => 'sent']);
+            $this->record($request, $draft, 'sent', 'Gửi thông báo.', ['after' => $this->snapshot($draft), 'recipient_count' => count($notifications)]);
 
             return response()->json([
                 'message' => 'Gửi thông báo thành công cho ' . count($notifications) . ' người!'
@@ -250,7 +284,7 @@ class NotificationController extends Controller
     }
 
     //Thu hồi lại thông báo đã gửi (XI)
-    public function revoke($draft_id)
+    public function revoke(Request $request, $draft_id)
     {
         // 1. Kiểm tra bản nháp xem có tồn tại và đã gửi hay chưa
         $draft = \App\Models\NotificationDraft::where('id', $draft_id)
@@ -269,6 +303,7 @@ class NotificationController extends Controller
 
         // 3. Cập nhật lại trạng thái bản nháp về 'draft' để Admin có thể chỉnh sửa và gửi lại
         $draft->update(['status' => 'draft']);
+        $this->record($request, $draft, 'revoked', 'Thu hồi thông báo đã gửi.', ['after' => $this->snapshot($draft), 'revoked_count' => $deletedCount]);
 
         return response()->json([
             'message' => "Đã thu hồi thành công $deletedCount thông báo đã gửi cho người dùng.",

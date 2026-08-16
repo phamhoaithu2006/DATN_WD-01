@@ -1,4 +1,4 @@
-function UserFilters({ search, status, onSearchChange, onStatusChange }) {
+function UserFilters({ search, status, onSearchChange, onStatusChange, onTimeline }) {
   return (
     <div className="user-filter-bar">
       <label className="user-search">
@@ -20,6 +20,7 @@ function UserFilters({ search, status, onSearchChange, onStatusChange }) {
         <option value="active">Hoạt động</option>
         <option value="inactive">Bị khóa</option>
       </select>
+      {onTimeline ? <button className="user-timeline-button" type="button" onClick={onTimeline}>Timeline</button> : null}
     </div>
   );
 }

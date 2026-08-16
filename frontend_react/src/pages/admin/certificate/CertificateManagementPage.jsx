@@ -1,6 +1,6 @@
 ﻿import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
 import AdminPageHeader from '../../../components/admin/AdminPageHeader'
+import CatalogToolbar from '../../../components/admin/guides/CatalogToolbar'
 import Icon from '../../../components/customer/Icon'
 import { certificateApi } from '../../../services/certificateApi'
 import { formatDateDdMmYyyy } from '../../../utils/dateFormat'
@@ -45,6 +45,9 @@ function ConfirmModal({ title, desc, onConfirm, onCancel, loading }) {
 
 function CertificateManagementPage() {
   const [certificates, setCertificates] = useState([])
+  const [search, setSearch] = useState('')
+  const [timelineOpen, setTimelineOpen] = useState(false)
+  const [timelineEvents, setTimelineEvents] = useState([])
   const [loading, setLoading] = useState(true)
   const [notice, setNotice] = useState(null)
 
@@ -95,6 +98,10 @@ function CertificateManagementPage() {
 
     return () => window.clearTimeout(timeoutId)
   }, [load])
+
+  useEffect(() => {
+    certificateApi.getTimeline().then((response) => setTimelineEvents(response.data?.data || [])).catch(() => setTimelineEvents([]))
+  }, [certificates])
 
   async function handleAdd(event) {
     event.preventDefault()
@@ -219,10 +226,6 @@ function CertificateManagementPage() {
         description="Quản lý các loại chứng chỉ nghề nghiệp của hướng dẫn viên."
         actions={
           <div className="support-header-actions">
-            <Link className="support-back-button" to="/admin/guides">
-              <Icon name="chevronRight" size={16} />
-              Quay lại danh sách HDV
-            </Link>
             <button
               className="support-add-button"
               type="button"
@@ -252,6 +255,8 @@ function CertificateManagementPage() {
           <small>Các đơn vị phát hành</small>
         </div>
       </div>
+
+      <CatalogToolbar entityLabel="chứng chỉ" events={timelineEvents} search={search} onSearchChange={setSearch} timelineOpen={timelineOpen} onTimelineToggle={() => setTimelineOpen((open) => !open)} />
 
       <div className="support-main-panel">
         <div className="support-table-wrap">
@@ -284,7 +289,7 @@ function CertificateManagementPage() {
                   </td>
                 </tr>
               ) : (
-                certificates.map((cert, index) => (
+                certificates.filter((cert) => !search.trim() || cert.name?.toLocaleLowerCase('vi').includes(search.trim().toLocaleLowerCase('vi')) || cert.issued_by?.toLocaleLowerCase('vi').includes(search.trim().toLocaleLowerCase('vi'))).map((cert, index) => (
                   <tr key={cert.id}>
                     <td>{index + 1}</td>
                     <td>

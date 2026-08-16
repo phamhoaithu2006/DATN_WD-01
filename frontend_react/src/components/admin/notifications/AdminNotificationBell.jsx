@@ -488,11 +488,10 @@ async function goToGuideLeaveRequest(notification) {
   const requestId = getLeaveRequestId(notification)
   const params = new URLSearchParams()
 
-  params.set('openLeaveRequests', '1')
   if (requestId) params.set('leaveRequestId', requestId)
 
   setOpen(false)
-  navigate(`/admin/guides?${params.toString()}`)
+  navigate(`/admin/guide-leave-requests${params.size ? `?${params.toString()}` : ''}`)
 }
 
 async function goToSupportRequest(notification) {

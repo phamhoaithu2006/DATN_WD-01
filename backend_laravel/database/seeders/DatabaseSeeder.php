@@ -67,6 +67,11 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         DB::transaction(function (): void {
+            $this->call([
+                LanguageSeeder::class,
+                CertificateSeeder::class,
+            ]);
+
             $roles = collect([
                 'admin' => 'Quản trị viên',
                 'customer' => 'Khách hàng',
@@ -645,7 +650,6 @@ class DatabaseSeeder extends Seeder
             }
 
             $guideAvailableFrom[$guide->id] = $returnDate->copy()->addDay()->startOfDay();
-            $guide->provinces()->syncWithoutDetaching([$tour->province_id]);
 
             TourGuideAssignment::updateOrCreate(
                 [

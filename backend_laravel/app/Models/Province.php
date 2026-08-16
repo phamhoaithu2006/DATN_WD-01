@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
@@ -24,16 +23,6 @@ class Province extends Model
     public function places(): HasMany
     {
         return $this->hasMany(DestinationPlace::class)->orderBy('name');
-    }
-
-    public function guides(): BelongsToMany
-    {
-        return $this->belongsToMany(
-            Guide::class,
-            'guide_provinces',
-            'province_id',
-            'guide_id'
-        )->withTimestamps();
     }
 
     /**

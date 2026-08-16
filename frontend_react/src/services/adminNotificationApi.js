@@ -42,6 +42,10 @@ const adminNotificationApi = {
     return apiClient.get(`${BASE_URL}/users`, { params }).then(unwrap)
   },
 
+  getAdminTimeline() {
+    return apiClient.get(`${BASE_URL}/admin-timeline`).then(unwrap)
+  },
+
   getRoles() {
     return apiClient.get('/admin/roles').then(unwrap)
   },

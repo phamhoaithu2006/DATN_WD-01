@@ -11,6 +11,7 @@ import {
   getSupportStaffs,
   getSupportStaffPresence,
   getSupportStaffActivityHistory,
+  getSupportStaffAdminTimeline,
   updateSupportStaff,
   uploadSupportStaffAvatar,
 } from '../../services/supportStaffApi'
@@ -33,9 +34,38 @@ const EMPTY_FORM = {
   account_id: '',
   name: '',
   email: '',
+  phone: '',
   specialization: '',
   experience_years: '',
   status: '',
+}
+
+const TIMELINE_FIELDS = {
+  name: 'Họ tên', email: 'Email', phone: 'Số điện thoại', specialization: 'Chuyên môn', experience_years: 'Kinh nghiệm', status: 'Trạng thái', role: 'Vai trò', performance_rating: 'Đánh giá',
+}
+
+function SupportStaffAdminTimeline({ items, loading, onClose }) {
+  const valueLabel = (field, value) => {
+    if (field === 'specialization') return SPECIALIZATION_OPTIONS.find((item) => item.value === value)?.label || value || 'Trống'
+    if (field === 'status') return STATUS_OPTIONS.find((item) => item.value === value)?.label || value || 'Trống'
+    return value === null || value === undefined || value === '' ? 'Trống' : String(value)
+  }
+
+  return <div className="catalog-timeline-backdrop" role="presentation" onMouseDown={onClose}>
+    <section className="catalog-timeline-modal" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
+      <header><div><small>TIMELINE</small><h2>Thao tác quản lý nhân viên hỗ trợ</h2></div><button type="button" onClick={onClose}>&times;</button></header>
+      {loading ? <div className="catalog-timeline-empty">Đang tải timeline...</div> : items.length ? <div className="catalog-timeline-list">
+        {items.map((item) => {
+          const before = item.metadata?.before || {}
+          const after = item.metadata?.after || {}
+          const changes = Object.keys(TIMELINE_FIELDS).filter((field) => before[field] !== after[field])
+          return <article key={item.id}><i /><div><strong>{item.description}</strong><p><b>{item.actor?.name || 'Quản trị viên'}</b> · {item.target_name}</p>
+            {changes.length ? <div className="catalog-timeline-changes">{changes.map((field) => <div key={field}><b>{TIMELINE_FIELDS[field]}</b><span>{valueLabel(field, before[field])}</span><em>→</em><span className="after">{valueLabel(field, after[field])}</span></div>)}</div> : null}
+            <time>{formatDateTime(item.created_at)}</time></div></article>
+        })}
+      </div> : <div className="catalog-timeline-empty">Chưa có thao tác quản trị nào.</div>}
+    </section>
+  </div>
 }
 
 function initials(name = '') {
@@ -335,26 +365,21 @@ function SupportStaffFormModal({
         <div className="support-form-grid">
           <label>
             Họ và tên <span className="text-red-500">*</span>
-            {editing ? (
-              <input value={form.name} onChange={onChange('name')} readOnly />
-            ) : (
-              <>
-                <select value={form.account_id} onChange={onPickAccount}>
-                  <option value="">Chọn tài khoản NVHT chưa có hồ sơ</option>
-                  {accountOptions.map((account) => (
-                    <option key={account.id} value={account.id}>
-                      {getAccountLabel(account)}
-                    </option>
-                  ))}
-                </select>
-                <small className="support-field-hint">
-                  Chỉ hiển thị tài khoản chưa tạo hồ sơ nhân viên hỗ trợ.
-                </small>
-              </>
-            )}
+            <select value={form.account_id} onChange={onPickAccount} disabled={Boolean(editing)}>
+              <option value="">Chọn tài khoản NVHT chưa có hồ sơ</option>
+              {accountOptions.map((account) => <option key={account.id} value={account.id}>{getAccountLabel(account)}</option>)}
+              {editing ? <option value={form.account_id}>{form.name}</option> : null}
+            </select>
+            {!editing ? <small className="support-field-hint">Chỉ hiển thị tài khoản chưa tạo hồ sơ nhân viên hỗ trợ.</small> : null}
             {errors.name ? <span className="support-field-error">{errors.name}</span> : null}
             {errors.account_id ? <span className="support-field-error">{errors.account_id}</span> : null}
           </label>
+
+          <div className="support-account-fields support-form-wide">
+            <label>Họ và tên<input value={form.name} readOnly={!editing} onChange={onChange('name')} /></label>
+            <label>Email<input type="email" value={form.email} readOnly={!editing} onChange={onChange('email')} />{errors.email ? <span className="support-field-error">{errors.email}</span> : null}</label>
+            <label>Số điện thoại<input value={form.phone} readOnly={!editing} onChange={onChange('phone')} /></label>
+          </div>
 
           <label>
             Chuyên môn <span className="text-red-500">*</span>
@@ -761,6 +786,9 @@ function SupportStaffManagementPage() {
   const [activityData, setActivityData] = useState(null)
   const [activityLoading, setActivityLoading] = useState(false)
   const [activityTab, setActivityTab] = useState('activities')
+  const [adminTimelineOpen, setAdminTimelineOpen] = useState(false)
+  const [adminTimelineLoading, setAdminTimelineLoading] = useState(false)
+  const [adminTimelineItems, setAdminTimelineItems] = useState([])
   const avatarInputRef = useRef(null)
 
   function handleStatCardClick(status) {
@@ -788,8 +816,9 @@ function SupportStaffManagementPage() {
     if (nextEditing) {
       setForm({
         account_id: getCurrentAccountId(nextEditing, accountOptions),
-        name: nextEditing.name || '',
-        email: nextEditing.email || '',
+        name: nextEditing.user?.full_name || nextEditing.name || '',
+        email: nextEditing.user?.email || nextEditing.email || '',
+        phone: nextEditing.user?.phone || nextEditing.phone || '',
         specialization: nextEditing.specialization || '',
         experience_years: nextEditing.experience_years ?? '',
         status: nextEditing.status || '',
@@ -806,6 +835,7 @@ function SupportStaffManagementPage() {
               account_id: String(defaultAccount.id),
               name: defaultAccount.full_name || defaultAccount.name || '',
               email: defaultAccount.email || '',
+              phone: defaultAccount.phone || '',
             }
           : EMPTY_FORM,
       )
@@ -857,6 +887,7 @@ function SupportStaffManagementPage() {
       account_id: accountId,
       name: selectedAccount?.full_name || selectedAccount?.name || '',
       email: selectedAccount?.email || '',
+      phone: selectedAccount?.phone || '',
     }))
 
     setAvatarCurrentUrl(selectedAccount?.avatar_url || '')
@@ -990,6 +1021,20 @@ function SupportStaffManagementPage() {
     }
   }
 
+  async function openAdminTimeline() {
+    setAdminTimelineOpen(true)
+    setAdminTimelineLoading(true)
+    try {
+      const response = await getSupportStaffAdminTimeline()
+      setAdminTimelineItems(Array.isArray(response?.data) ? response.data : [])
+    } catch (error) {
+      setAdminTimelineOpen(false)
+      openToast('error', getServerMessage(error, 'Không tải được timeline thao tác của admin.'))
+    } finally {
+      setAdminTimelineLoading(false)
+    }
+  }
+
   const refreshAll = useCallback(async (pageNumber = page) => {
     await Promise.all([loadStatistics(), loadList(pageNumber), loadPresence()])
   }, [loadList, loadPresence, loadStatistics, page])
@@ -1058,6 +1103,9 @@ function SupportStaffManagementPage() {
         specialization: form.specialization,
         experience_years: Number(form.experience_years),
         status: form.status,
+        full_name: form.name,
+        email: form.email,
+        phone: form.phone,
         ...(form.account_id ? { user_id: Number(form.account_id) } : {}),
       }
 
@@ -1263,6 +1311,10 @@ function SupportStaffManagementPage() {
                 </option>
               ))}
             </select>
+
+            <button className="catalog-timeline-button support-admin-timeline-button" type="button" onClick={openAdminTimeline}>
+              Timeline <span>{adminTimelineItems.length}</span>
+            </button>
           </div>
 
           <div className="support-table-wrap">
@@ -1416,6 +1468,14 @@ function SupportStaffManagementPage() {
             setActivityStaff(null)
             setActivityData(null)
           }}
+        />
+      ) : null}
+
+      {adminTimelineOpen ? (
+        <SupportStaffAdminTimeline
+          items={adminTimelineItems}
+          loading={adminTimelineLoading}
+          onClose={() => setAdminTimelineOpen(false)}
         />
       ) : null}
 

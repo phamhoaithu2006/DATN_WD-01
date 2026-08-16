@@ -775,6 +775,9 @@ function AdminReceivedNotificationsPage() {
       'supportRequestId',
     )
 
+  const queryFilter =
+    searchParams.get('filter')
+
   const selectedRequestId =
     getSupportRequestId(
       selectedNotification,
@@ -1215,6 +1218,14 @@ function AdminReceivedNotificationsPage() {
   }, [notificationFilter])
 
   useEffect(() => {
+    setNotificationFilter(
+      queryFilter === 'support_admin_request'
+        ? 'support_admin_request'
+        : 'all',
+    )
+  }, [queryFilter])
+
+  useEffect(() => {
     setSupplementHistoryOpen(true)
   }, [
     selectedRequestId,
@@ -1530,6 +1541,7 @@ function AdminReceivedNotificationsPage() {
       <AdminPageHeader
         breadcrumb={[
           'ViVuGo',
+          'Thông báo',
           'Thông Báo Đã Nhận',
         ]}
         title="Thông Báo Đã Nhận"

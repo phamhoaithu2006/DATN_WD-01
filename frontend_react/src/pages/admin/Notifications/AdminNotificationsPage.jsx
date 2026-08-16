@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import { confirmAction } from '../../../components/common/AppConfirmDialog.jsx'
 import AdminPageHeader from '../../../components/admin/AdminPageHeader'
 import adminNotificationApi from '/src/services/adminNotificationApi.js'
+import '../../../styles/support-staff.css'
 
 const EMPTY_FORM = {
   title: '',
@@ -50,6 +51,22 @@ const formatDate = (dateValue) => {
   }).format(new Date(dateValue))
 }
 
+const TIMELINE_LABELS = { title: 'Tiêu đề', message: 'Nội dung', target_type: 'Đối tượng', target_ids: 'Người nhận', status: 'Trạng thái' }
+
+function NotificationAdminTimeline({ items, loading, onClose }) {
+  const show = (value) => Array.isArray(value) ? (value.join(', ') || 'Trống') : (value ?? 'Trống')
+  return <div className="catalog-timeline-backdrop" role="presentation" onMouseDown={onClose}><section className="catalog-timeline-modal" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
+    <header><div><small>TIMELINE</small><h2>Thao tác quản lý thông báo</h2></div><button type="button" onClick={onClose}>&times;</button></header>
+    {loading ? <div className="catalog-timeline-empty">Đang tải timeline...</div> : items.length ? <div className="catalog-timeline-list">{items.map((item) => {
+      const before = item.metadata?.before || {}; const after = item.metadata?.after || {}
+      const changes = Object.keys(TIMELINE_LABELS).filter((field) => JSON.stringify(before[field] ?? null) !== JSON.stringify(after[field] ?? null))
+      return <article key={item.id}><i /><div><strong>{item.description}</strong><p><b>{item.actor?.name || 'Quản trị viên'}</b> · {item.target_name}</p>
+        {changes.length ? <div className="catalog-timeline-changes">{changes.map((field) => <div key={field}><b>{TIMELINE_LABELS[field]}</b><span>{show(before[field])}</span><em>→</em><span className="after">{show(after[field])}</span></div>)}</div> : null}
+        <time>{formatDate(item.created_at)}</time></div></article>
+    })}</div> : <div className="catalog-timeline-empty">Chưa có thao tác quản trị nào.</div>}
+  </section></div>
+}
+
 const ROLE_LABELS = {
   admin: 'Quản trị viên',
   customer: 'Khách hàng',
@@ -86,6 +103,9 @@ const getComposeTargetLabel = (form, selectedUserIds, selectedRoleIds) => {
 
 export default function AdminNotificationsPage() {
   const [tab, setTab] = useState('compose')
+  const [timelineOpen, setTimelineOpen] = useState(false)
+  const [timelineLoading, setTimelineLoading] = useState(false)
+  const [timelineItems, setTimelineItems] = useState([])
 
   const [form, setForm] = useState(EMPTY_FORM)
   const [editingDraftId, setEditingDraftId] = useState(null)
@@ -529,6 +549,20 @@ const openDraftDetail = async (id) => {
     }
   }
 
+  async function openAdminTimeline() {
+    setTimelineOpen(true)
+    setTimelineLoading(true)
+    try {
+      const response = await adminNotificationApi.getAdminTimeline()
+      setTimelineItems(Array.isArray(response?.data) ? response.data : [])
+    } catch (error) {
+      setTimelineOpen(false)
+      toast.error(error.response?.data?.message || 'Không tải được timeline thao tác của admin.')
+    } finally {
+      setTimelineLoading(false)
+    }
+  }
+
   const tabClass = (tabName) =>
   `rounded-xl px-4 py-2.5 text-sm font-bold transition ${
     tab === tabName
@@ -537,7 +571,7 @@ const openDraftDetail = async (id) => {
   }`
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-6">
+    <div className="w-full max-w-none space-y-6 px-2 py-4 lg:px-4">
       <AdminPageHeader
         breadcrumb={['ViVuGo', 'Thông báo người dùng']}
         title="Thông báo người dùng"
@@ -545,7 +579,7 @@ const openDraftDetail = async (id) => {
         showNotificationBell
       />
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <button className={tabClass('compose')} onClick={() => setTab('compose')}>
           Soạn thông báo
         </button>
@@ -561,10 +595,14 @@ const openDraftDetail = async (id) => {
         <button className={tabClass('trash')} onClick={() => setTab('trash')}>
           Thùng rác ({trashDrafts.length})
         </button>
+
+        <button className="catalog-timeline-button ml-auto" type="button" onClick={openAdminTimeline}>
+          Timeline <span>{timelineItems.length}</span>
+        </button>
       </div>
 
       {tab === 'compose' && (
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="grid w-full gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.55fr)] 2xl:grid-cols-[minmax(0,1fr)_460px]">
           <div className="space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold text-slate-800">
@@ -1139,6 +1177,10 @@ const openDraftDetail = async (id) => {
             </div>
         </div>
         )}
+
+      {timelineOpen ? (
+        <NotificationAdminTimeline items={timelineItems} loading={timelineLoading} onClose={() => setTimelineOpen(false)} />
+      ) : null}
     </div>
   )
 }

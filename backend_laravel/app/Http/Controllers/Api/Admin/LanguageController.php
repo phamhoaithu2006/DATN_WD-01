@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Language;
 use App\Models\LanguageLevel;
+use App\Models\TourActivityLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -17,7 +18,7 @@ class LanguageController extends Controller
 
         return response()->json([
             'message' => 'Danh sách ngôn ngữ',
-            'data'    => $languages,
+            'data' => $languages,
         ]);
     }
 
@@ -26,13 +27,13 @@ class LanguageController extends Controller
     {
         $language = Language::with('levels')->find($id);
 
-        if (!$language) {
+        if (! $language) {
             return response()->json(['message' => 'Không tìm thấy ngôn ngữ'], 404);
         }
 
         return response()->json([
             'message' => 'Chi tiết ngôn ngữ',
-            'data'    => $language,
+            'data' => $language,
         ]);
     }
 
@@ -40,9 +41,9 @@ class LanguageController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'name'              => 'required|string|max:100|unique:languages,name',
-            'levels'            => 'nullable|array',
-            'levels.*'          => 'required|string|max:20',
+            'name' => 'required|string|max:100|unique:languages,name',
+            'levels' => 'nullable|array',
+            'levels.*' => 'required|string|max:20',
         ]);
 
         DB::beginTransaction();
@@ -55,20 +56,25 @@ class LanguageController extends Controller
                 foreach ($request->levels as $levelName) {
                     LanguageLevel::create([
                         'language_id' => $language->id,
-                        'level_name'  => $levelName,
+                        'level_name' => $levelName,
                     ]);
                 }
             }
 
             DB::commit();
 
+            TourActivityLog::record($request->user()?->id, 'created', $language->name, 'Thêm ngôn ngữ mới.', 'language', $language->id, [
+                'data' => $language->load('levels')->toArray(),
+            ]);
+
             return response()->json([
                 'message' => 'Thêm ngôn ngữ thành công',
-                'data'    => $language->load('levels'),
+                'data' => $language->load('levels'),
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['message' => 'Lỗi: ' . $e->getMessage()], 500);
+
+            return response()->json(['message' => 'Lỗi: '.$e->getMessage()], 500);
         }
     }
 
@@ -77,32 +83,41 @@ class LanguageController extends Controller
     {
         $language = Language::find($id);
 
-        if (!$language) {
+        if (! $language) {
             return response()->json(['message' => 'Không tìm thấy ngôn ngữ'], 404);
         }
 
         $request->validate([
-            'name' => 'required|string|max:100|unique:languages,name,' . $id,
+            'name' => 'required|string|max:100|unique:languages,name,'.$id,
         ]);
 
+        $before = $language->toArray();
         $language->update(['name' => $request->name]);
+        TourActivityLog::record($request->user()?->id, 'updated', $language->name, 'Cập nhật ngôn ngữ.', 'language', $language->id, [
+            'before' => $before,
+            'after' => $language->fresh()->toArray(),
+        ]);
 
         return response()->json([
             'message' => 'Cập nhật ngôn ngữ thành công',
-            'data'    => $language->load('levels'),
+            'data' => $language->load('levels'),
         ]);
     }
 
     // XÓA NGÔN NGỮ (sẽ xóa luôn levels do cascade)
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
         $language = Language::find($id);
 
-        if (!$language) {
+        if (! $language) {
             return response()->json(['message' => 'Không tìm thấy ngôn ngữ'], 404);
         }
 
+        $snapshot = $language->load('levels')->toArray();
         $language->delete();
+        TourActivityLog::record($request->user()?->id, 'deleted', $snapshot['name'], 'Xóa ngôn ngữ và các cấp độ.', 'language', (int) $snapshot['id'], [
+            'data' => $snapshot,
+        ]);
 
         return response()->json(['message' => 'Xóa ngôn ngữ thành công']);
     }
@@ -114,13 +129,13 @@ class LanguageController extends Controller
     {
         $language = Language::find($languageId);
 
-        if (!$language) {
+        if (! $language) {
             return response()->json(['message' => 'Không tìm thấy ngôn ngữ'], 404);
         }
 
         return response()->json([
-            'message' => 'Danh sách cấp độ của ' . $language->name,
-            'data'    => $language->levels,
+            'message' => 'Danh sách cấp độ của '.$language->name,
+            'data' => $language->levels,
         ]);
     }
 
@@ -129,7 +144,7 @@ class LanguageController extends Controller
     {
         $language = Language::find($languageId);
 
-        if (!$language) {
+        if (! $language) {
             return response()->json(['message' => 'Không tìm thấy ngôn ngữ'], 404);
         }
 
@@ -151,12 +166,16 @@ class LanguageController extends Controller
 
         $level = LanguageLevel::create([
             'language_id' => $languageId,
-            'level_name'  => $request->level_name,
+            'level_name' => $request->level_name,
+        ]);
+
+        TourActivityLog::record($request->user()?->id, 'level_created', $language->name, 'Thêm cấp độ '.$level->level_name.'.', 'language', $language->id, [
+            'data' => $level->toArray(),
         ]);
 
         return response()->json([
             'message' => 'Thêm cấp độ thành công',
-            'data'    => $level,
+            'data' => $level,
         ], 201);
     }
 
@@ -165,7 +184,7 @@ class LanguageController extends Controller
     {
         $level = LanguageLevel::where('language_id', $languageId)->find($levelId);
 
-        if (!$level) {
+        if (! $level) {
             return response()->json(['message' => 'Không tìm thấy cấp độ'], 404);
         }
 
@@ -186,24 +205,34 @@ class LanguageController extends Controller
             ],
         ]);
 
+        $before = $level->toArray();
         $level->update(['level_name' => $request->level_name]);
+        TourActivityLog::record($request->user()?->id, 'level_updated', $level->language->name, 'Cập nhật cấp độ.', 'language', (int) $languageId, [
+            'before' => $before,
+            'after' => $level->fresh()->toArray(),
+        ]);
 
         return response()->json([
             'message' => 'Cập nhật cấp độ thành công',
-            'data'    => $level,
+            'data' => $level,
         ]);
     }
 
     // XÓA 1 LEVEL
-    public function destroyLevel($languageId, $levelId)
+    public function destroyLevel(Request $request, $languageId, $levelId)
     {
         $level = LanguageLevel::where('language_id', $languageId)->find($levelId);
 
-        if (!$level) {
+        if (! $level) {
             return response()->json(['message' => 'Không tìm thấy cấp độ'], 404);
         }
 
+        $snapshot = $level->toArray();
+        $languageName = $level->language->name;
         $level->delete();
+        TourActivityLog::record($request->user()?->id, 'level_deleted', $languageName, 'Xóa cấp độ '.$snapshot['level_name'].'.', 'language', (int) $languageId, [
+            'data' => $snapshot,
+        ]);
 
         return response()->json(['message' => 'Xóa cấp độ thành công']);
     }

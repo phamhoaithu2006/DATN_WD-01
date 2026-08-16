@@ -60,6 +60,11 @@ const menuItems = [
   {
     label: 'Booking',
     path: '/admin/bookings',
+    children: [
+      { label: 'Danh sách booking', path: '/admin/bookings' },
+      { label: 'Yêu cầu hủy', path: '/admin/booking-cancellation-requests' },
+    ],
+    showBookingDisruptionBadge: true,
     icon: (
       <>
         <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 1 4 16.5v-11Z" />
@@ -94,6 +99,12 @@ const menuItems = [
   {
     label: 'Hướng Dẫn Viên',
     path: '/admin/guides',
+    children: [
+      { label: 'Quản lý ngôn ngữ', path: '/admin/languages' },
+      { label: 'Quản lý chứng chỉ', path: '/admin/certificates' },
+      { label: 'Đơn xin nghỉ', path: '/admin/guide-leave-requests' },
+      { label: 'Quản lý HDV', path: '/admin/guides' },
+    ],
     showGuideLeaveBadge: true,
     icon: (
       <>
@@ -128,18 +139,20 @@ const menuItems = [
     ),
   },
   {
-    label: 'Gửi Thông Báo',
-    path: '/admin/notifications',
-    icon: (
-      <>
-        <path d="M22 2 11 13" />
-        <path d="m22 2-7 20-4-9-9-4Z" />
-      </>
-    ),
-  },
-  {
-    label: 'Thông Báo Đã Nhận',
+    label: 'Thông báo',
     path: ADMIN_RECEIVED_NOTIFICATIONS_PATH,
+    children: [
+      {
+        label: 'Thông báo đã nhận',
+        path: ADMIN_RECEIVED_NOTIFICATIONS_PATH,
+        excludeSearch: 'filter',
+      },
+      {
+        label: 'Yêu cầu hỗ trợ NVHT',
+        path: `${ADMIN_RECEIVED_NOTIFICATIONS_PATH}?filter=support_admin_request`,
+        search: 'filter=support_admin_request',
+      },
+    ],
     showReceivedNotificationBadge: true,
     icon: (
       <>
@@ -274,6 +287,18 @@ function AdminSidebar({
   const [isTourMenuOpen, setIsTourMenuOpen] = useState(isTourSuiteActive)
   const isDepartureSuiteActive = location.pathname.startsWith('/admin/tour-departures')
   const [isDepartureMenuOpen, setIsDepartureMenuOpen] = useState(isDepartureSuiteActive)
+  const isBookingSuiteActive =
+    location.pathname.startsWith('/admin/bookings') ||
+    location.pathname.startsWith('/admin/booking-cancellation-requests')
+  const [isBookingMenuOpen, setIsBookingMenuOpen] = useState(isBookingSuiteActive)
+  const isGuideSuiteActive =
+    location.pathname.startsWith('/admin/guides') ||
+    location.pathname.startsWith('/admin/guide-leave-requests') ||
+    location.pathname.startsWith('/admin/languages') ||
+    location.pathname.startsWith('/admin/certificates')
+  const [isGuideMenuOpen, setIsGuideMenuOpen] = useState(isGuideSuiteActive)
+  const isNotificationSuiteActive = location.pathname.startsWith('/admin/notifications')
+  const [isNotificationMenuOpen, setIsNotificationMenuOpen] = useState(isNotificationSuiteActive)
 
   const visibleMenuItems = useMemo(() => {
     return role === 'admin' ? menuItems : []
@@ -286,6 +311,18 @@ function AdminSidebar({
   useEffect(() => {
     setIsDepartureMenuOpen(isDepartureSuiteActive)
   }, [isDepartureSuiteActive])
+
+  useEffect(() => {
+    setIsBookingMenuOpen(isBookingSuiteActive)
+  }, [isBookingSuiteActive])
+
+  useEffect(() => {
+    setIsGuideMenuOpen(isGuideSuiteActive)
+  }, [isGuideSuiteActive])
+
+  useEffect(() => {
+    setIsNotificationMenuOpen(isNotificationSuiteActive)
+  }, [isNotificationSuiteActive])
 
   const loadTourDepartureWarningCount = useCallback(async () => {
     if (role !== 'admin') {
@@ -453,9 +490,45 @@ function AdminSidebar({
 
           if (item.children) {
             const isDepartureGroup = item.path === '/admin/tour-departures'
-            const isGroupActive = isDepartureGroup ? isDepartureSuiteActive : isTourSuiteActive
-            const isGroupOpen = isDepartureGroup ? isDepartureMenuOpen : isTourMenuOpen
-            const setGroupOpen = isDepartureGroup ? setIsDepartureMenuOpen : setIsTourMenuOpen
+            const isBookingGroup = item.path === '/admin/bookings'
+            const isGuideGroup = item.path === '/admin/guides'
+            const isNotificationGroup = item.path === ADMIN_RECEIVED_NOTIFICATIONS_PATH
+            const isGroupActive = isDepartureGroup
+              ? isDepartureSuiteActive
+              : isBookingGroup
+                ? isBookingSuiteActive
+                : isGuideGroup
+                  ? isGuideSuiteActive
+                  : isNotificationGroup
+                    ? isNotificationSuiteActive
+                  : isTourSuiteActive
+            const isGroupOpen = isDepartureGroup
+              ? isDepartureMenuOpen
+              : isBookingGroup
+                ? isBookingMenuOpen
+                : isGuideGroup
+                  ? isGuideMenuOpen
+                  : isNotificationGroup
+                    ? isNotificationMenuOpen
+                  : isTourMenuOpen
+            const setGroupOpen = isDepartureGroup
+              ? setIsDepartureMenuOpen
+              : isBookingGroup
+                ? setIsBookingMenuOpen
+                : isGuideGroup
+                  ? setIsGuideMenuOpen
+                  : isNotificationGroup
+                    ? setIsNotificationMenuOpen
+                  : setIsTourMenuOpen
+            const submenuId = isDepartureGroup
+              ? 'admin-departure-submenu'
+              : isBookingGroup
+                ? 'admin-booking-submenu'
+                : isGuideGroup
+                  ? 'admin-guide-submenu'
+                  : isNotificationGroup
+                    ? 'admin-notification-submenu'
+                  : 'admin-tour-submenu'
 
             return (
               <div className="admin-nav-group" key={item.path}>
@@ -463,7 +536,7 @@ function AdminSidebar({
                   type="button"
                   className={`admin-nav-link admin-nav-parent${isGroupActive ? ' active' : ''}`}
                   aria-expanded={isGroupOpen}
-                  aria-controls={isDepartureGroup ? 'admin-departure-submenu' : 'admin-tour-submenu'}
+                  aria-controls={submenuId}
                   title={collapsed ? item.label : undefined}
                   onClick={() => {
                     if (collapsed) onToggle()
@@ -474,21 +547,35 @@ function AdminSidebar({
                     {item.icon}
                   </svg>
                   <span className="admin-nav-label">{item.label}</span>
+                  {badgeCount > 0 ? (
+                    <span className="admin-nav-badge" aria-label={`${badgeCount} việc cần xử lý`}>
+                      {formatBadgeValue(badgeCount)}
+                    </span>
+                  ) : null}
                   <svg className={`admin-nav-chevron${isGroupOpen ? ' open' : ''}`} viewBox="0 0 24 24" aria-hidden="true">
                     <path d="m9 18 6-6-6-6" />
                   </svg>
                 </button>
 
                 {isGroupOpen && !collapsed ? (
-                  <div className="admin-nav-submenu" id={isDepartureGroup ? 'admin-departure-submenu' : 'admin-tour-submenu'}>
+                  <div className="admin-nav-submenu" id={submenuId}>
                     {item.children.map((child) => (
                       <NavLink
                         key={child.path}
                         to={child.path}
-                        end={child.path === '/admin/tours' || child.path === '/admin/tour-departures'}
-                        className={({ isActive }) =>
-                          isActive ? 'admin-nav-sublink active' : 'admin-nav-sublink'
-                        }
+                        end={child.path === '/admin/tours' || child.path === '/admin/tour-departures' || child.path === '/admin/bookings'}
+                        className={({ isActive }) => {
+                          const searchParams = new URLSearchParams(location.search)
+                          const matchesSearch = child.search
+                            ? location.search.includes(child.search)
+                            : child.excludeSearch
+                              ? !searchParams.has(child.excludeSearch)
+                              : true
+
+                          return isActive && matchesSearch
+                            ? 'admin-nav-sublink active'
+                            : 'admin-nav-sublink'
+                        }}
                       >
                         <span>{child.label}</span>
                       </NavLink>

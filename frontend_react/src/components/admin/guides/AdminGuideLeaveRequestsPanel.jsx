@@ -135,7 +135,6 @@ function getTabStatus(activeTab) {
 function AdminGuideLeaveRequestsPanel({
   open = true,
   highlightRequestId = '',
-  onClose,
 }) {
   const [activeTab, setActiveTab] = useState('pending')
   const [filters, setFilters] = useState(emptyFilters)
@@ -504,20 +503,6 @@ function AdminGuideLeaveRequestsPanel({
 
   return (
     <section className="admin-guide-leave-panel">
-      <div className="admin-guide-leave-head">
-        <div>
-          <span>Đơn xin nghỉ</span>
-          <h3>Quản lý đơn xin nghỉ HDV</h3>
-          <p>Duyệt, không duyệt hoặc xem nhật kí thao tác đơn xin nghỉ.</p>
-        </div>
-
-        {onClose ? (
-          <button type="button" onClick={onClose}>
-            Đóng
-          </button>
-        ) : null}
-      </div>
-
       {error ? <div className="admin-guide-leave-alert error">{error}</div> : null}
 
       <div className="admin-guide-leave-tabs" role="tablist" aria-label="Lọc đơn xin nghỉ">
@@ -556,6 +541,15 @@ function AdminGuideLeaveRequestsPanel({
 
         <button type="button" onClick={() => setFilters(emptyFilters)}>
           Đặt lại
+        </button>
+
+        <button
+          type="button"
+          className="admin-guide-leave-timeline-button"
+          onClick={() => setActiveTab('history')}
+        >
+          Timeline
+          <span>{historyLogs.length}</span>
         </button>
       </div>
 

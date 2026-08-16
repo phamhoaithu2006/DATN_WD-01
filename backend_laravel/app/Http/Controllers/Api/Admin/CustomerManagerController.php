@@ -8,6 +8,7 @@ use App\Models\CustomerPresenceSession;
 use App\Models\Guide;
 use App\Models\Role;
 use App\Models\SupportStaff;
+use App\Models\TourActivityLog;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -111,7 +112,6 @@ class CustomerManagerController extends Controller
         return (int) $guide->experience_years === 0
             && (float) $guide->average_rating === 0.0
             && (int) $guide->review_count === 0
-            && ! $guide->provinces()->exists()
             && ! $guide->languages()->exists()
             && ! $guide->experiences()->exists();
     }
@@ -307,10 +307,21 @@ class CustomerManagerController extends Controller
             return $user;
         });
 
+        $createdUser = $user->fresh('role');
+        TourActivityLog::record(
+            $request->user()?->id,
+            'created',
+            $createdUser->full_name,
+            'Tạo tài khoản người dùng.',
+            'user',
+            $createdUser->id,
+            ['after' => $this->timelineSnapshot($createdUser), 'role_id' => $createdUser->role_id]
+        );
+
         return response()->json([
             'status' => 'success',
             'message' => 'Tạo tài khoản thành công',
-            'data' => $user->fresh('role'),
+            'data' => $createdUser,
         ], 201);
     }
 
@@ -371,6 +382,9 @@ class CustomerManagerController extends Controller
             ], 404);
         }
 
+        $before = $this->timelineSnapshot($customer);
+        $passwordChanged = $request->filled('password');
+
         $validatedData = $request->validate([
             'full_name' => 'sometimes|string|max:255',
             'email' => 'sometimes|email|unique:users,email,'.$id,
@@ -419,10 +433,26 @@ class CustomerManagerController extends Controller
             Storage::disk('public')->delete($previousAvatarPath);
         }
 
+        $updatedUser = $customer->fresh('role');
+        TourActivityLog::record(
+            $request->user()?->id,
+            'updated',
+            $updatedUser->full_name,
+            'Cập nhật tài khoản người dùng.',
+            'user',
+            $updatedUser->id,
+            [
+                'before' => $before,
+                'after' => $this->timelineSnapshot($updatedUser),
+                'password_changed' => $passwordChanged,
+                'role_id' => $updatedUser->role_id,
+            ]
+        );
+
         return response()->json([
             'status' => 'success',
             'message' => 'Cập nhật thông tin thành công',
-            'data' => $customer->fresh('role'),
+            'data' => $updatedUser,
         ]);
     }
 
@@ -431,10 +461,10 @@ class CustomerManagerController extends Controller
      *
      * * @param int $id
      */
-    public function lock($id): JsonResponse
+    public function lock(Request $request, $id): JsonResponse
     {
         // 1. Tìm kiếm người dùng bằng find() thay vì where()
-        $user = User::find($id);
+        $user = User::with('role')->find($id);
 
         // 2. Kiểm tra sự tồn tại của người dùng
         if (! $user) {
@@ -453,7 +483,18 @@ class CustomerManagerController extends Controller
         }
 
         // 4. Cập nhật trạng thái thành 'inactive'
+        $before = $this->timelineSnapshot($user);
         $user->update(['status' => 'inactive']);
+        $updatedUser = $user->fresh('role');
+        TourActivityLog::record(
+            $request->user()?->id,
+            'locked',
+            $updatedUser->full_name,
+            'Khóa tài khoản người dùng.',
+            'user',
+            $updatedUser->id,
+            ['before' => $before, 'after' => $this->timelineSnapshot($updatedUser), 'role_id' => $updatedUser->role_id]
+        );
 
         return response()->json([
             'status' => 'success',
@@ -466,10 +507,10 @@ class CustomerManagerController extends Controller
      *
      * * @param int $id
      */
-    public function unlock($id): JsonResponse
+    public function unlock(Request $request, $id): JsonResponse
     {
         // 1. Tìm kiếm người dùng bằng find() để áp dụng cho mọi tài khoản
-        $user = User::find($id);
+        $user = User::with('role')->find($id);
 
         // 2. Kiểm tra sự tồn tại của người dùng
         if (! $user) {
@@ -488,12 +529,66 @@ class CustomerManagerController extends Controller
         }
 
         // 4. Cập nhật trạng thái thành 'active'
+        $before = $this->timelineSnapshot($user);
         $user->update(['status' => 'active']);
+        $updatedUser = $user->fresh('role');
+        TourActivityLog::record(
+            $request->user()?->id,
+            'unlocked',
+            $updatedUser->full_name,
+            'Mở khóa tài khoản người dùng.',
+            'user',
+            $updatedUser->id,
+            ['before' => $before, 'after' => $this->timelineSnapshot($updatedUser), 'role_id' => $updatedUser->role_id]
+        );
 
         return response()->json([
             'status' => 'success',
             'message' => 'Tài khoản đã được mở khóa thành công',
         ], 200);
+    }
+
+    public function adminTimeline(Request $request): JsonResponse
+    {
+        $query = TourActivityLog::query()
+            ->with('actor:id,full_name,email')
+            ->where('metadata->entity_type', 'user');
+
+        if ($request->filled('role_id')) {
+            $query->where('metadata->role_id', $request->integer('role_id'));
+        }
+
+        $activities = $query->latest()
+            ->limit(100)
+            ->get()
+            ->map(fn (TourActivityLog $activity) => [
+                'id' => $activity->id,
+                'action' => $activity->action,
+                'description' => $activity->description,
+                'target_name' => $activity->tour_title,
+                'metadata' => $activity->metadata,
+                'actor' => $activity->actor ? [
+                    'name' => $activity->actor->full_name,
+                    'email' => $activity->actor->email,
+                ] : null,
+                'created_at' => $activity->created_at?->toIso8601String(),
+            ]);
+
+        return response()->json(['status' => 'success', 'data' => $activities]);
+    }
+
+    private function timelineSnapshot(User $user): array
+    {
+        $user->loadMissing('role');
+
+        return [
+            'full_name' => $user->full_name,
+            'email' => $user->email,
+            'phone' => $user->phone,
+            'status' => $user->status,
+            'role' => $user->role?->name,
+            'avatar_url' => $user->avatar_url,
+        ];
     }
 
     public function activityHistory(Request $request, int $id): JsonResponse

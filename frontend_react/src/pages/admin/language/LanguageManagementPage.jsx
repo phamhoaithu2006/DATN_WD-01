@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import AdminPageHeader from '../../../components/admin/AdminPageHeader'
-import Icon from '../../../components/customer/Icon'
+import CatalogToolbar from '../../../components/admin/guides/CatalogToolbar'
 import { languageApi } from '../../../services/languageApi'
 
 // ─── helpers ───────────────────────────────────────────────
@@ -206,6 +205,9 @@ function LevelPanel({ language, onToast }) {
 // ─── Main Page ─────────────────────────────────────────────
 function LanguageManagementPage() {
   const [languages, setLanguages]   = useState([])
+  const [search, setSearch] = useState('')
+  const [timelineOpen, setTimelineOpen] = useState(false)
+  const [timelineEvents, setTimelineEvents] = useState([])
   const [loading, setLoading]       = useState(true)
   const [expandedId, setExpanded]   = useState(null)
   const [notice, setNotice]         = useState(null)
@@ -253,6 +255,10 @@ function LanguageManagementPage() {
 
     return () => window.clearTimeout(timeoutId)
   }, [load])
+
+  useEffect(() => {
+    languageApi.getTimeline().then((response) => setTimelineEvents(response.data?.data || [])).catch(() => setTimelineEvents([]))
+  }, [languages])
 
   async function handleAdd(e) {
     e.preventDefault()
@@ -323,10 +329,6 @@ function LanguageManagementPage() {
         description="Quản lý ngôn ngữ và cấp độ cho hướng dẫn viên."
         actions={
           <div className="support-header-actions">
-            <Link className="support-back-button" to="/admin/guides">
-              <Icon name="chevronRight" size={16} />
-              Quay lại danh sách HDV
-            </Link>
             <button
               className="support-add-button"
               type="button"
@@ -354,6 +356,8 @@ function LanguageManagementPage() {
       </div>
 
       {/* Bảng */}
+      <CatalogToolbar entityLabel="ngôn ngữ" events={timelineEvents} search={search} onSearchChange={setSearch} timelineOpen={timelineOpen} onTimelineToggle={() => setTimelineOpen((open) => !open)} />
+
       <div className="support-content-grid">
         <div className="support-main-panel">
           <div className="support-table-wrap">
@@ -386,7 +390,7 @@ function LanguageManagementPage() {
                     </td>
                   </tr>
                 ) : (
-                  languages.map((lang, idx) => (
+                  languages.filter((lang) => !search.trim() || lang.name?.toLocaleLowerCase('vi').includes(search.trim().toLocaleLowerCase('vi')) || lang.levels?.some((level) => level.level_name?.toLocaleLowerCase('vi').includes(search.trim().toLocaleLowerCase('vi')))).map((lang, idx) => (
                     <>
                       <tr key={lang.id}>
                         <td>{idx + 1}</td>

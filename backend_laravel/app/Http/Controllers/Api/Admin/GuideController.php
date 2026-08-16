@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Guide;
 use App\Models\Province;
+use App\Models\TourActivityLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -13,6 +14,39 @@ use Illuminate\Validation\Rule;
 
 class GuideController extends Controller
 {
+    private function orderByOnlineFirst($query)
+    {
+        if (Schema::hasTable('guide_presence_sessions')) {
+            $query->orderByRaw(
+                'EXISTS (SELECT 1 FROM guide_presence_sessions gps WHERE gps.user_id = guides.user_id AND gps.ended_at IS NULL AND gps.last_seen_at >= ?) DESC',
+                [now()->subSeconds(120)]
+            );
+        }
+
+        return $query;
+    }
+
+    private function timelineSnapshot(Guide $guide): array
+    {
+        $guide->loadMissing($this->guideRelations());
+
+        return [
+            'name' => $guide->user?->full_name,
+            'email' => $guide->user?->email,
+            'phone' => $guide->user?->phone,
+            'guide_code' => $guide->guide_code,
+            'experience_years' => $guide->experience_years,
+            'status' => $guide->status,
+            'languages' => $guide->languages->map(fn ($item) => trim(($item->language?->name ?? '').' '.($item->level?->name ?? '')))->values()->all(),
+            'certificates' => $guide->experiences->map(fn ($item) => trim(($item->certificate?->name ?? '').' '.($item->issued_year ?? '')))->values()->all(),
+        ];
+    }
+
+    private function recordAdminAction(Request $request, Guide $guide, string $action, string $description, array $metadata = []): void
+    {
+        TourActivityLog::record($request->user()?->id, $action, $guide->user?->full_name ?? $guide->guide_code, $description, 'guide', $guide->id, $metadata);
+    }
+
     /**
      * Các relationship luôn trả về khi lấy HDV.
      */
@@ -20,10 +54,8 @@ class GuideController extends Controller
     {
         return [
             'user',
-            'provinces',
             // Giữ tên quan hệ cũ trong response để frontend cũ vẫn đọc được,
             // nhưng dữ liệu thực tế vẫn lấy từ guide_provinces.
-            'destinations',
             'languages.language',
             'languages.level',
             'experiences.certificate',
@@ -161,7 +193,7 @@ class GuideController extends Controller
      */
     public function index(Request $request)
     {
-        $guides = $this->guideQuery()
+        $guides = $this->orderByOnlineFirst($this->guideQuery())
             ->orderByDesc('guides.updated_at')
             ->orderByDesc('guides.id')
             ->paginate($this->perPage($request));
@@ -194,7 +226,7 @@ class GuideController extends Controller
 
         return response()->json([
             'message' => 'Kết quả tìm kiếm hướng dẫn viên',
-            'data' => $query
+            'data' => $this->orderByOnlineFirst($query)
                 ->orderByDesc('guides.updated_at')
                 ->orderByDesc('guides.id')
                 ->paginate($this->perPage($request)),
@@ -302,19 +334,9 @@ class GuideController extends Controller
         }
 
         // Lọc theo tỉnh/thành phụ trách.
-        $provinceId = $request->input('province_id', $request->input('destination_id'));
-
-        if ($provinceId !== null && $provinceId !== '') {
-            $provinceId = (int) $provinceId;
-
-            $query->whereHas('provinces', function ($q) use ($provinceId) {
-                $q->where('provinces.id', $provinceId);
-            });
-        }
-
         return response()->json([
             'message' => 'Kết quả lọc hướng dẫn viên',
-            'data' => $query
+            'data' => $this->orderByOnlineFirst($query)
                 ->orderByDesc('guides.updated_at')
                 ->orderByDesc('guides.id')
                 ->paginate($this->perPage($request)),
@@ -361,15 +383,27 @@ class GuideController extends Controller
     /**
      * THÊM HDV
      */
+    public function adminTimeline()
+    {
+        $activities = TourActivityLog::query()
+            ->with('actor:id,full_name,email')
+            ->where('metadata->entity_type', 'guide')
+            ->latest()->limit(100)->get()
+            ->map(fn (TourActivityLog $activity) => [
+                'id' => $activity->id,
+                'description' => $activity->description,
+                'target_name' => $activity->tour_title,
+                'metadata' => $activity->metadata,
+                'actor' => $activity->actor ? ['name' => $activity->actor->full_name, 'email' => $activity->actor->email] : null,
+                'created_at' => $activity->created_at?->toIso8601String(),
+            ]);
+
+        return response()->json(['status' => 'success', 'data' => $activities]);
+    }
+
     public function store(Request $request)
     {
         // Nhận tên province_ids mới, đồng thời giữ tương thích với frontend cũ.
-        if (!$request->has('destination_ids') && $request->has('province_ids')) {
-            $request->merge([
-                'destination_ids' => $request->input('province_ids'),
-            ]);
-        }
-
         $validated = $request->validate([
             'user_id' => [
                 'required',
@@ -391,18 +425,6 @@ class GuideController extends Controller
             ],
 
             // Tỉnh/thành phụ trách; destination_ids là tên khóa tương thích tạm thời.
-            'destination_ids' => [
-                'required',
-                'array',
-                'min:1',
-            ],
-
-            'destination_ids.*' => [
-                'integer',
-                'distinct',
-                'exists:provinces,id',
-            ],
-
             'languages' => [
                 'nullable',
                 'array',
@@ -455,10 +477,6 @@ class GuideController extends Controller
                 ]);
 
                 // Gán các tỉnh/thành phụ trách.
-                $guide->provinces()->sync(
-                    $validated['destination_ids']
-                );
-
                 foreach ($validated['languages'] ?? [] as $language) {
                     $guide->languages()->create([
                         'language_id' => $language['language_id'],
@@ -476,9 +494,12 @@ class GuideController extends Controller
                 return $guide;
             });
 
+            $guide->load($this->guideRelations());
+            $this->recordAdminAction($request, $guide, 'created', 'Thêm hướng dẫn viên.', ['after' => $this->timelineSnapshot($guide)]);
+
             return response()->json([
                 'message' => 'Thêm hướng dẫn viên thành công',
-                'data' => $guide->load($this->guideRelations()),
+                'data' => $guide,
             ], 201);
         } catch (\Throwable $e) {
             return response()->json([
@@ -500,14 +521,18 @@ class GuideController extends Controller
             ], 404);
         }
 
-        // Nhận tên province_ids mới, đồng thời giữ tương thích với frontend cũ.
-        if (!$request->has('destination_ids') && $request->has('province_ids')) {
-            $request->merge([
-                'destination_ids' => $request->input('province_ids'),
-            ]);
-        }
+        $before = $this->timelineSnapshot($guide);
 
+        // Nhận tên province_ids mới, đồng thời giữ tương thích với frontend cũ.
         $validated = $request->validate([
+            'full_name' => ['sometimes', 'required', 'string', 'max:255'],
+            'email' => [
+                'sometimes',
+                'required',
+                'email',
+                Rule::unique('users', 'email')->ignore($guide->user_id),
+            ],
+            'phone' => ['sometimes', 'nullable', 'string', 'max:15'],
             'experience_years' => [
                 'sometimes',
                 'integer',
@@ -518,18 +543,6 @@ class GuideController extends Controller
             'status' => [
                 'sometimes',
                 Rule::in(['active', 'inactive', 'locked']),
-            ],
-
-            'destination_ids' => [
-                'sometimes',
-                'array',
-                'min:1',
-            ],
-
-            'destination_ids.*' => [
-                'integer',
-                'distinct',
-                'exists:provinces,id',
             ],
 
             'languages' => [
@@ -567,6 +580,14 @@ class GuideController extends Controller
 
         try {
             DB::transaction(function () use ($guide, $request, $validated) {
+                $userData = collect($validated)
+                    ->only(['full_name', 'email', 'phone'])
+                    ->toArray();
+
+                if (!empty($userData)) {
+                    $guide->user()->update($userData);
+                }
+
                 $guideData = collect($validated)
                     ->only([
                         'experience_years',
@@ -579,12 +600,6 @@ class GuideController extends Controller
                 }
 
                 // Cập nhật tỉnh/thành phụ trách.
-                if ($request->has('destination_ids')) {
-                    $guide->provinces()->sync(
-                        $validated['destination_ids']
-                    );
-                }
-
                 if ($request->has('languages')) {
                     $guide->languages()->delete();
 
@@ -608,9 +623,15 @@ class GuideController extends Controller
                 }
             });
 
+            $updatedGuide = $guide->fresh()->load($this->guideRelations());
+            $this->recordAdminAction($request, $updatedGuide, 'updated', 'Cập nhật hướng dẫn viên.', [
+                'before' => $before,
+                'after' => $this->timelineSnapshot($updatedGuide),
+            ]);
+
             return response()->json([
                 'message' => 'Cập nhật hướng dẫn viên thành công',
-                'data' => $guide->fresh()->load($this->guideRelations()),
+                'data' => $updatedGuide,
             ]);
         } catch (\Throwable $e) {
             return response()->json([
@@ -622,7 +643,7 @@ class GuideController extends Controller
     /**
      * XÓA MỀM HDV
      */
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
         $guide = Guide::find($id);
 
@@ -632,7 +653,10 @@ class GuideController extends Controller
             ], 404);
         }
 
+        $guide->load($this->guideRelations());
+        $before = $this->timelineSnapshot($guide);
         $guide->delete();
+        $this->recordAdminAction($request, $guide, 'deleted', 'Chuyển hướng dẫn viên vào thùng rác.', ['before' => $before]);
 
         return response()->json([
             'message' => 'Xóa hướng dẫn viên thành công',
@@ -658,7 +682,7 @@ class GuideController extends Controller
     /**
      * KHÔI PHỤC HDV
      */
-    public function restore($id)
+    public function restore(Request $request, $id)
     {
         $guide = Guide::withTrashed()->find($id);
 
@@ -669,6 +693,8 @@ class GuideController extends Controller
         }
 
         $guide->restore();
+        $guide->load($this->guideRelations());
+        $this->recordAdminAction($request, $guide, 'restored', 'Khôi phục hướng dẫn viên.', ['after' => $this->timelineSnapshot($guide)]);
 
         return response()->json([
             'message' => 'Khôi phục hướng dẫn viên thành công',
@@ -678,7 +704,7 @@ class GuideController extends Controller
     /**
      * XÓA VĨNH VIỄN HDV
      */
-    public function forceDelete($id)
+    public function forceDelete(Request $request, $id)
     {
         $guide = Guide::withTrashed()->find($id);
 
@@ -689,13 +715,18 @@ class GuideController extends Controller
         }
 
         try {
+            $guide->load($this->guideRelations());
+            $before = $this->timelineSnapshot($guide);
+            $guideId = $guide->id;
+            $guideName = $guide->user?->full_name ?? $guide->guide_code;
             DB::transaction(function () use ($guide) {
-                $guide->provinces()->detach();
                 $guide->languages()->delete();
                 $guide->experiences()->delete();
 
                 $guide->forceDelete();
             });
+
+            TourActivityLog::record($request->user()?->id, 'force_deleted', $guideName, 'Xóa vĩnh viễn hướng dẫn viên.', 'guide', $guideId, ['before' => $before]);
 
             return response()->json([
                 'message' => 'Xóa vĩnh viễn hướng dẫn viên thành công',
