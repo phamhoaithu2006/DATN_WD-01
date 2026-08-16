@@ -36,6 +36,7 @@ function BookingManagementPage() {
   const [sortBy, setSortBy] = useState('updated_at')
   const [sortDir, setSortDir] = useState('desc')
   const [page, setPage] = useState(1)
+  const [perPage, setPerPage] = useState(10)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(null)
   const [detail, setDetail] = useState(null)
@@ -47,7 +48,7 @@ function BookingManagementPage() {
   const params = useMemo(
     () => ({
       page,
-      per_page: 10,
+      per_page: perPage,
       search: search.trim() || undefined,
       status: status || undefined,
       payment_status: paymentStatus || undefined,
@@ -56,7 +57,7 @@ function BookingManagementPage() {
       sort_by: sortBy,
       sort_dir: sortDir,
     }),
-    [date, page, paymentStatus, search, sortBy, sortDir, status],
+    [date, page, paymentStatus, perPage, search, sortBy, sortDir, status],
   )
 
   const load = useCallback(async () => {
@@ -347,7 +348,12 @@ function BookingManagementPage() {
         loading={loading}
         meta={meta}
         page={page}
+        perPage={perPage}
         onPageChange={changePage}
+        onPerPageChange={(value) => {
+          setPage(1)
+          setPerPage(value)
+        }}
       />
 
       {detail ? (

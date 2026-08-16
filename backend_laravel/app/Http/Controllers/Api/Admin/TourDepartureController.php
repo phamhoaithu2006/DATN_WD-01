@@ -9,7 +9,6 @@ use App\Models\Booking;
 use App\Models\Tour;
 use App\Models\TourDeparture;
 use App\Services\AdminNotificationService;
-use App\Services\TourDepartureChangeNotificationService;
 use App\Services\TourDepartureMutationGuard;
 use App\TourFinalizationService;
 use Carbon\Carbon;
@@ -345,7 +344,6 @@ class TourDepartureController extends Controller
         Request $request,
         $id,
         TourDepartureMutationGuard $guard,
-        TourDepartureChangeNotificationService $notificationService,
         AdminNotificationService $adminNotificationService
     ) {
         $tourDeparture = TourDeparture::with('tour')->findOrFail($id);
@@ -388,12 +386,6 @@ class TourDepartureController extends Controller
                 'nullable',
                 'boolean',
             ],
-            'change_reason' => [
-                'required',
-                'string',
-                'min:3',
-                'max:1000',
-            ],
         ]);
 
         $confirmed = filter_var(
@@ -401,17 +393,11 @@ class TourDepartureController extends Controller
             FILTER_VALIDATE_BOOLEAN
         );
 
-        $changeReason = trim(
-            (string) $validated['change_reason']
-        );
-
         /*
-     * Không đưa change_reason và confirm_booked_change
-     * vào bảng tour_departures.
+     * Không đưa cờ xác nhận vào bảng tour_departures.
      */
         $payload = Arr::except($validated, [
             'confirm_booked_change',
-            'change_reason',
         ]);
 
         $this->normalizeDepartureLocation($payload);
@@ -519,50 +505,29 @@ class TourDepartureController extends Controller
             ], 409);
         }
 
-        $notificationResult = null;
-
         DB::transaction(function () use (
             $tourDeparture,
-            $bookingCount,
             $changes,
-            $changeReason,
-            $notificationService,
             $adminNotificationService,
-            $request,
-            &$notificationResult
+            $request
         ) {
             $tourDeparture->save();
-
-            /*
-         * Có booking thì tự gửi thông báo cho khách và HDV.
-         */
-            if ($bookingCount > 0) {
-                $notificationResult =
-                    $notificationService->sendForUpdatedDeparture(
-                        $tourDeparture,
-                        $changes,
-                        $changeReason
-                    );
-            }
 
             $adminNotificationService->notifyTourDepartureUpdated(
                 $tourDeparture,
                 $request->user(),
                 $changes,
-                $changeReason
+                null
             );
         });
 
         return response()->json([
-            'message' => $bookingCount > 0
-                ? 'Cập nhật thành công và đã gửi thông báo.'
-                : 'Cập nhật lịch khởi hành thành công.',
+            'message' => 'Cập nhật lịch khởi hành thành công.',
 
             'data' => $this->serializeDeparture(
                 $tourDeparture->fresh()->load('tour')
             ),
             'changes' => $changes,
-            'notification' => $notificationResult,
         ]);
     }
 

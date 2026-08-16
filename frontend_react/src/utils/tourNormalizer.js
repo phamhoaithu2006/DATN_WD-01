@@ -43,7 +43,7 @@ export function getNextDeparture(tour) {
 
   const availableDepartures = departures
     .filter((departure) => {
-      const isOpen = !departure.status || ["open", "confirmed"].includes(departure.status);
+      const isOpen = !departure.status || departure.status === "open";
 
       return isOpen && getAvailableSlots(departure) > 0;
     })

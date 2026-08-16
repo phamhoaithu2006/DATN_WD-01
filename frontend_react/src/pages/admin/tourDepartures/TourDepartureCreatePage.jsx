@@ -446,17 +446,28 @@ export function TourDetailCard({ tour, loading = false }) {
   )
 }
 
-const TourDepartureCreatePage = () => {
+const TourDepartureCreatePage = ({
+  embedded = false,
+  initialTourId: initialTourIdProp = '',
+  onCreated,
+  onCancel,
+  hideActions = false,
+  formId,
+  selectedGuideId = '',
+  onDraftChange,
+}) => {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const tourSelectRef = useRef(null)
+  const basePriceEditedRef = useRef(false)
 
-  const initialTourId = searchParams.get('tourId') || ''
+  const initialTourId = initialTourIdProp || searchParams.get('tourId') || ''
 
   const [tours, setTours] = useState([])
   const [selectedTourId, setSelectedTourId] = useState(initialTourId)
   const [formData, setFormData] = useState(emptyForm)
   const [fieldErrors, setFieldErrors] = useState({})
+  const [guideAssignmentMode, setGuideAssignmentMode] = useState('none')
 
   const [loadingTours, setLoadingTours] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -486,6 +497,49 @@ const TourDepartureCreatePage = () => {
   const [loadingTourDetail, setLoadingTourDetail] = useState(false)
 
   const selectedTour = selectedTourDetail || selectedTourFromList
+  const selectedTourBasePrice = getFirstValue(
+    selectedTour?.base_price,
+    selectedTour?.original_price,
+    selectedTour?.price,
+    selectedTour?.adult_price,
+    selectedTour?.selling_price
+  )
+
+  useEffect(() => {
+    const departureDate = formData.departure_date || ''
+    let returnDate = departureDate
+
+    if (departureDate) {
+      const [year, month, day] = departureDate.split('-').map(Number)
+      const date = new Date(year, month - 1, day)
+      date.setDate(date.getDate() + Math.max(Number(selectedTour?.duration_days || 1) - 1, 0))
+      returnDate = [
+        date.getFullYear(),
+        String(date.getMonth() + 1).padStart(2, '0'),
+        String(date.getDate()).padStart(2, '0'),
+      ].join('-')
+    }
+
+    onDraftChange?.({ departureDate, returnDate })
+  }, [formData.departure_date, onDraftChange, selectedTour?.duration_days])
+
+  useEffect(() => {
+    if (!selectedTourId || basePriceEditedRef.current) return
+
+    setFormData((current) => ({
+      ...current,
+      base_price:
+        selectedTourBasePrice === undefined
+          ? ''
+          : String(selectedTourBasePrice),
+    }))
+    setFieldErrors((current) => {
+      if (!current.base_price) return current
+      const next = { ...current }
+      delete next.base_price
+      return next
+    })
+  }, [selectedTourId, selectedTourBasePrice])
 
   useEffect(() => {
     const fetchTours = async () => {
@@ -580,6 +634,10 @@ const TourDepartureCreatePage = () => {
   const handleChange = (event) => {
     const { name, value } = event.target
 
+    if (name === 'base_price') {
+      basePriceEditedRef.current = true
+    }
+
     setFormData((current) => ({
       ...current,
       [name]: value,
@@ -591,7 +649,14 @@ const TourDepartureCreatePage = () => {
   }
 
   const handleTourChange = (event) => {
-    setSelectedTourId(event.target.value)
+    const nextTourId = event.target.value
+    basePriceEditedRef.current = false
+    setSelectedTourId(nextTourId)
+    setFormData((current) => ({
+      ...current,
+      base_price: '',
+      discount_price: '',
+    }))
     clearFieldError('tour_id')
     setError('')
     setMessage('')
@@ -650,16 +715,44 @@ const TourDepartureCreatePage = () => {
       const response = await tourDepartureApi.create(selectedTourId, payload)
       const createdDeparture =
         response?.data?.data || response?.data?.departure || response?.data || null
+      const createdDepartureId = createdDeparture?.id
+      let assignmentMessage = ''
+      let assigned = false
 
-      setMessage('Thêm lịch khởi hành thành công.')
+      if (selectedGuideId && createdDepartureId) {
+        try {
+          await tourDepartureApi.directAssignGuide(createdDepartureId, selectedGuideId)
+          assigned = true
+          assignmentMessage = ' Đã phân công HDV được chọn.'
+        } catch (assignmentError) {
+          assignmentMessage = ' Lịch đã tạo nhưng không thể phân công HDV đã chọn; vui lòng kiểm tra lịch trống của HDV.'
+          console.warn('Không thể phân công HDV đã chọn.', assignmentError)
+        }
+      } else if (guideAssignmentMode === 'auto' && createdDepartureId) {
+        try {
+          await tourDepartureApi.autoAssignGuide(createdDepartureId)
+          assigned = true
+          assignmentMessage = ' Đã tự động phân công HDV phù hợp.'
+        } catch (assignmentError) {
+          assignmentMessage = ' Lịch đã tạo nhưng chưa tìm được HDV phù hợp; bạn có thể phân công sau.'
+          console.warn('Không thể tự động phân công HDV.', assignmentError)
+        }
+      }
 
-      setTimeout(() => {
-        navigate('/admin/tour-departures', {
-          state: {
-            newDepartureId: createdDeparture?.id,
-          },
+      setMessage(`Thêm lịch khởi hành thành công.${assignmentMessage}`)
+
+      if (embedded) {
+        onCreated?.({
+          departure: createdDeparture,
+          assigned,
         })
-      }, 700)
+      } else {
+        setTimeout(() => {
+          navigate('/admin/tour-departures', {
+            state: { newDepartureId: createdDepartureId },
+          })
+        }, 700)
+      }
     } catch (err) {
       console.error(err)
 
@@ -677,8 +770,8 @@ const TourDepartureCreatePage = () => {
   }
 
   return (
-    <div className="p-6">
-      <div className="mb-6">
+    <div className={embedded ? '' : 'p-6'}>
+      {!embedded ? <div className="mb-6">
         <h1 className="text-2xl font-bold text-slate-900">
           Lịch khởi hành
         </h1>
@@ -686,9 +779,9 @@ const TourDepartureCreatePage = () => {
         <p className="mt-1 text-gray-500">
           Tạo lịch mới và phân công hướng dẫn viên cho từng lịch khởi hành.
         </p>
-      </div>
+      </div> : null}
 
-      <div className="mb-6 flex gap-2 border-b border-slate-200">
+      {!embedded ? <div className="mb-6 flex gap-2 border-b border-slate-200">
         <NavLink
           to="/admin/tour-departures/create"
           className="border-b-2 border-blue-600 px-4 py-3 text-sm font-bold text-blue-600"
@@ -702,7 +795,7 @@ const TourDepartureCreatePage = () => {
         >
           Phân công HDV
         </NavLink>
-      </div>
+      </div> : null}
 
       {message ? (
         <div className="mb-5 flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-700">
@@ -732,7 +825,7 @@ const TourDepartureCreatePage = () => {
         </div>
       ) : null}
 
-      <div className="mb-6 rounded-xl bg-white p-5 shadow">
+      {!embedded ? <div className="mb-6 rounded-xl bg-white p-5 shadow">
         <label className="mb-2 block text-sm font-medium text-slate-700">
           Chọn tour <span className="text-red-500">*</span>
         </label>
@@ -781,7 +874,7 @@ const TourDepartureCreatePage = () => {
             Chọn một tour để xem thông tin chi tiết ngay tại đây.
           </div>
         )}
-      </div>
+      </div> : null}
 
       <div className={submitting ? 'pointer-events-none opacity-60' : ''}>
         <TourDepartureForm
@@ -790,9 +883,13 @@ const TourDepartureCreatePage = () => {
           onChange={handleChange}
           onSubmit={handleSubmit}
           submitText={submitting ? 'Đang thêm...' : 'Thêm mới'}
-          onCancel={() => navigate('/admin/tour-departures')}
+          onCancel={embedded ? onCancel : () => navigate('/admin/tour-departures')}
+          hideActions={hideActions}
+          formId={formId}
           disabled={submitting}
           fieldErrors={fieldErrors}
+          guideAssignmentMode={guideAssignmentMode}
+          onGuideAssignmentModeChange={setGuideAssignmentMode}
         />
       </div>
     </div>

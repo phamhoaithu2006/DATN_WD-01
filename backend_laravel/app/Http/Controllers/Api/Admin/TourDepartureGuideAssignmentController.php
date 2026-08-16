@@ -15,6 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\ValidationException;
 
 class TourDepartureGuideAssignmentController extends Controller
 {
@@ -409,7 +410,7 @@ class TourDepartureGuideAssignmentController extends Controller
         $guard->assertCanManageGuideAssignment($departure);
 
         // Nhận province_id mới, đồng thời giữ tương thích với bộ lọc cũ.
-        if (!$request->has('province_id') && $request->has('destination_id')) {
+        if (! $request->has('province_id') && $request->has('destination_id')) {
             $request->merge([
                 'province_id' => $request->input('destination_id'),
             ]);
@@ -679,6 +680,66 @@ class TourDepartureGuideAssignmentController extends Controller
         ]);
     }
 
+    public function previewCandidates(Request $request)
+    {
+        $validated = $request->validate([
+            'from' => ['required', 'date'],
+            'to' => ['required', 'date', 'after_or_equal:from'],
+            'keyword' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $from = Carbon::parse($validated['from'])->toDateString();
+        $to = Carbon::parse($validated['to'])->toDateString();
+
+        $guides = Guide::query()
+            ->with('user:id,full_name,email,phone,avatar_url')
+            ->whereHas('user')
+            ->when(
+                Schema::hasColumn('guides', 'status'),
+                fn ($query) => $query->where('status', 'active')
+            )
+            ->when($validated['keyword'] ?? null, function ($query, string $keyword): void {
+                $query->where(function ($searchQuery) use ($keyword): void {
+                    $searchQuery->where('guide_code', 'like', "%{$keyword}%")
+                        ->orWhereHas('user', function ($userQuery) use ($keyword): void {
+                            $userQuery->where('full_name', 'like', "%{$keyword}%")
+                                ->orWhere('email', 'like', "%{$keyword}%")
+                                ->orWhere('phone', 'like', "%{$keyword}%");
+                        });
+                });
+            })
+            ->orderBy('id')
+            ->get()
+            ->map(function (Guide $guide) use ($from, $to): array {
+                $hasConflict = $guide->assignments()
+                    ->whereIn('status', ['assigned', 'confirmed'])
+                    ->whereHas('departure', function ($query) use ($from, $to): void {
+                        $query->whereDate('departure_date', '<=', $to)
+                            ->whereRaw(
+                                'DATE(COALESCE(return_date, departure_date)) >= ?',
+                                [$from]
+                            );
+                    })
+                    ->exists();
+
+                return [
+                    'id' => $guide->id,
+                    'guide_code' => $guide->guide_code,
+                    'avatar_url' => $guide->user?->avatar_url ?? $guide->avatar_url,
+                    'user' => $guide->user,
+                    'is_available' => ! $hasConflict,
+                    'blocking_reasons' => $hasConflict
+                        ? ['HDV đã có tour khác trùng khoảng thời gian này.']
+                        : [],
+                ];
+            });
+
+        return response()->json([
+            'message' => 'Danh sách HDV xem trước theo lịch trống',
+            'data' => $guides,
+        ]);
+    }
+
     public function directAssign(
         Request $request,
         TourDeparture $departure,
@@ -763,6 +824,29 @@ class TourDepartureGuideAssignmentController extends Controller
                 ->firstOrFail();
 
             $guard->assertCanManageGuideAssignment($departure);
+
+            Guide::query()->whereKey($guide->id)->lockForUpdate()->firstOrFail();
+
+            $lockedFrom = $departure->departure_date;
+            $lockedTo = $departure->return_date ?: $departure->departure_date;
+            $stillHasScheduleConflict = TourGuideAssignment::query()
+                ->where('guide_id', $guide->id)
+                ->whereIn('status', ['assigned', 'confirmed'])
+                ->where('tour_departure_id', '!=', $departure->id)
+                ->whereHas('departure', function ($query) use ($lockedFrom, $lockedTo): void {
+                    $query->whereDate('departure_date', '<=', $lockedTo)
+                        ->whereRaw(
+                            'DATE(COALESCE(return_date, departure_date)) >= ?',
+                            [$lockedFrom]
+                        );
+                })
+                ->exists();
+
+            if ($stillHasScheduleConflict) {
+                throw ValidationException::withMessages([
+                    'guide_id' => ['HDV này vừa được phân công cho tour khác trùng khoảng thời gian.'],
+                ]);
+            }
 
             /*
          * Lấy HDV cũ đang được phân công cho lịch này.

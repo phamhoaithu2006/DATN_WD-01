@@ -249,8 +249,9 @@ class TourManagerController extends Controller
         // Backend tự gắn người tạo tour
         $validatedData['created_by'] = $user->id;
 
-        $validatedData['slug'] = $request->slug
-            ?? Str::slug($validatedData['title']);
+        $validatedData['slug'] = $this->generateUniqueSlug(
+            $request->filled('slug') ? $request->input('slug') : $validatedData['title']
+        );
 
         $validatedData['available_slots'] = $request->available_slots
             ?? $validatedData['max_slots'];
@@ -341,6 +342,11 @@ class TourManagerController extends Controller
     public function update(Request $request, $id)
     {
         $tour = Tour::findOrFail($id);
+
+        if ($tour->departures()->exists()) {
+            return $this->departureConflictResponse($tour, 'sửa');
+        }
+
         $this->normalizeItineraryRequest($request);
         $this->normalizeProvinceRequest($request);
         $this->normalizeAgePricingRulesRequest($request);
@@ -396,8 +402,11 @@ class TourManagerController extends Controller
 
         $this->normalizeDiscountPriceData($validatedData);
 
-        if (isset($validatedData['title']) && ! $request->has('slug')) {
-            $validatedData['slug'] = Str::slug($validatedData['title']);
+        if (isset($validatedData['title'])) {
+            $validatedData['slug'] = $this->generateUniqueSlug(
+                $request->filled('slug') ? $request->input('slug') : $validatedData['title'],
+                $tour->getKey()
+            );
         }
 
         if (isset($validatedData['duration_days'])) {
@@ -534,6 +543,11 @@ class TourManagerController extends Controller
     public function destroy(Request $request, $id)
     {
         $tour = Tour::findOrFail($id);
+
+        if ($tour->departures()->exists()) {
+            return $this->departureConflictResponse($tour, 'xóa');
+        }
+
         $this->logActivity($request, $tour, 'deleted', 'Đã chuyển tour vào thùng rác.');
         $tour->delete(); // Chạy soft delete do Model có cấu hình SoftDeletes
 
@@ -550,6 +564,11 @@ class TourManagerController extends Controller
     public function hide(Request $request, $id)
     {
         $tour = Tour::findOrFail($id);
+
+        if ($tour->departures()->exists()) {
+            return $this->departureConflictResponse($tour, 'ẩn');
+        }
+
         $tour->update(['status' => 'hidden']);
         $this->logActivity($request, $tour, 'hidden', 'Đã ẩn tour khỏi danh sách hiển thị.');
 
@@ -600,6 +619,84 @@ class TourManagerController extends Controller
             'status' => 'success',
             'message' => 'Lấy danh sách tour bị ẩn thành công',
             'data' => $tours,
+        ]);
+    }
+
+    public function trashedTours(Request $request)
+    {
+        $perPage = min(max((int) $request->input('per_page', 10), 1), 100);
+        $search = trim((string) $request->input('search', ''));
+
+        $tours = Tour::onlyTrashed()
+            ->with(['category', 'province', 'thumbnail'])
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($searchQuery) use ($search) {
+                    $searchQuery->where('title', 'like', '%'.$search.'%')
+                        ->orWhere('slug', 'like', '%'.$search.'%');
+                });
+            })
+            ->latest('deleted_at')
+            ->paginate($perPage);
+
+        $tours->getCollection()->transform(
+            fn ($tour) => (new TourResource($tour))->resolve($request)
+        );
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Lấy danh sách tour đã xóa thành công',
+            'data' => $tours,
+        ]);
+    }
+
+    public function showTrashed(Request $request, $id)
+    {
+        $tour = Tour::onlyTrashed()
+            ->with([
+                'category',
+                'province',
+                'thumbnail',
+                'images',
+                'itineraries.images',
+                'itineraries.destinationPlace.province',
+                'itineraries.destinationPlace.district.province',
+                'itineraries.destinationPlace.activityTypeLinks',
+                'agePricingRules',
+            ])
+            ->findOrFail($id);
+
+        return response()->json([
+            'status' => 'success',
+            'data' => new TourResource($tour),
+        ]);
+    }
+
+    public function restore(Request $request, $id)
+    {
+        $tour = Tour::onlyTrashed()->findOrFail($id);
+        $tour->restore();
+        $this->logActivity($request, $tour, 'restored', 'Đã khôi phục tour từ thùng rác.');
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Đã khôi phục tour thành công',
+            'data' => new TourResource($tour->fresh(['category', 'province', 'thumbnail'])),
+        ]);
+    }
+
+    public function forceDelete(Request $request, $id)
+    {
+        $tour = Tour::onlyTrashed()->findOrFail($id);
+        $tourId = $tour->id;
+        $tourTitle = $tour->title;
+
+        $this->logActivity($request, $tour, 'force_deleted', 'Đã xóa vĩnh viễn tour.');
+        $tour->forceDelete();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Đã xóa vĩnh viễn tour thành công',
+            'data' => ['id' => $tourId, 'title' => $tourTitle],
         ]);
     }
 
@@ -892,6 +989,25 @@ class TourManagerController extends Controller
         return $slug;
     }
 
+    private function generateUniqueSlug(string $value, ?int $exceptTourId = null): string
+    {
+        $baseSlug = Str::limit(Str::slug($value) ?: 'tour', 280, '');
+        $slug = $baseSlug;
+        $suffix = 2;
+
+        while (
+            Tour::withTrashed()
+                ->where('slug', $slug)
+                ->when($exceptTourId, fn ($query) => $query->whereKeyNot($exceptTourId))
+                ->exists()
+        ) {
+            $suffixText = '-'.$suffix++;
+            $slug = Str::limit($baseSlug, 280 - strlen($suffixText), '').$suffixText;
+        }
+
+        return $slug;
+    }
+
     private function normalizeAgePricingRulesRequest(Request $request): void
     {
         if (! $request->exists('age_pricing_rules')) {
@@ -986,6 +1102,31 @@ class TourManagerController extends Controller
                 'is_active' => $rule['is_active'] ?? true,
             ]);
         }
+    }
+
+    private function departureConflictResponse(Tour $tour, string $action)
+    {
+        $departures = $tour->departures()
+            ->orderByDesc('departure_date')
+            ->get([
+                'id',
+                'tour_id',
+                'departure_date',
+                'return_date',
+                'total_slots',
+                'booked_slots',
+                'status',
+            ]);
+
+        return response()->json([
+            'status' => 'error',
+            'message' => "Tour đang có lịch khởi hành nên không thể {$action}.",
+            'code' => 'tour_has_departures',
+            'data' => [
+                'tour_id' => $tour->id,
+                'departures' => $departures,
+            ],
+        ], 422);
     }
 
     private function logActivity(

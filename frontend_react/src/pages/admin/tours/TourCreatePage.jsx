@@ -9,6 +9,8 @@ const API_BASE_URL = (
   import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api'
 ).replace(/\/$/, '')
 
+const TOUR_CREATE_DRAFT_KEY = 'vivugo:admin:tour-create-draft'
+
 function TourCreatePage() {
   const navigate = useNavigate()
 
@@ -57,8 +59,6 @@ function TourCreatePage() {
       const data = await response.json().catch(() => null)
 
       if (!response.ok) {
-        console.error('CREATE TOUR ERROR RESPONSE:', data)
-
         if (response.status === 401) {
           toast.error('Bạn chưa đăng nhập', {
             description: 'Token đã hết hạn. Vui lòng đăng nhập lại.',
@@ -89,6 +89,8 @@ function TourCreatePage() {
           return
         }
 
+        console.error('CREATE TOUR ERROR RESPONSE:', data)
+
         const serverMessage = String(data?.message || '')
 
         // Không hiển thị SQLSTATE hoặc câu SQL thô cho người dùng.
@@ -96,8 +98,7 @@ function TourCreatePage() {
           response.status === 500 &&
           (
             serverMessage.includes('SQLSTATE[22003]') ||
-            serverMessage.includes('base_price') ||
-            serverMessage.includes('Out of range value')
+            /Out of range value for column ['`]base_price['`]/i.test(serverMessage)
           )
         ) {
           setErrors({
@@ -122,6 +123,8 @@ function TourCreatePage() {
       window.setTimeout(() => {
         navigate('/admin/tours')
       }, 1600)
+
+      return true
     } catch (error) {
       console.error('CREATE TOUR ERROR:', error)
 
@@ -136,7 +139,7 @@ function TourCreatePage() {
   return (
     <div className="p-6">
       <AdminPageHeader
-        breadcrumb={['ViVuGo', 'Quản Lý Tour', 'Thêm tour']}
+        breadcrumb={['ViVuGo', 'Tour', 'Quản Lý Tour', 'Thêm tour']}
         title="Thêm tour"
         description="Tạo tour mới cho hệ thống."
         actions={
@@ -151,6 +154,8 @@ function TourCreatePage() {
 
       <TourForm
         onSubmit={handleSubmit}
+        onCancel={() => navigate('/admin/tours')}
+        draftStorageKey={TOUR_CREATE_DRAFT_KEY}
         submitting={submitting}
         submitText="Thêm tour"
         errors={errors}

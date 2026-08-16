@@ -259,36 +259,32 @@ function getStatusMeta(status) {
 
   const map = {
     open: {
-      text: 'Sắp tới',
-      badge: 'text-blue-700',
-    },
-    upcoming: {
-      text: 'Sắp tới',
-      badge: 'text-blue-700',
+      text: 'Mở',
+      badge: 'text-emerald-700',
     },
     closed: {
-      text: 'Đang diễn ra',
-      badge: 'text-sky-700',
+      text: 'Đóng',
+      badge: 'text-slate-600',
     },
-    ongoing: {
-      text: 'Đang diễn ra',
-      badge: 'text-sky-700',
+    confirmed: {
+      text: 'Đóng',
+      badge: 'text-slate-600',
     },
     completed: {
-      text: 'Đã hoàn thành',
-      badge: 'text-emerald-700',
-    },
-    past: {
-      text: 'Đã hoàn thành',
-      badge: 'text-emerald-700',
+      text: 'Đóng',
+      badge: 'text-slate-600',
     },
     cancelled: {
-      text: 'Đã hủy',
-      badge: 'text-rose-700',
+      text: 'Đóng',
+      badge: 'text-slate-600',
     },
     canceled: {
-      text: 'Đã hủy',
-      badge: 'text-rose-700',
+      text: 'Đóng',
+      badge: 'text-slate-600',
+    },
+    in_progress: {
+      text: 'Đóng',
+      badge: 'text-slate-600',
     },
   }
 
@@ -481,34 +477,6 @@ function getAssignmentFilterEmptyText(scheduleFilter, assignmentFilter) {
   return 'Không có lịch sắp tới.'
 }
 
-function buildPageNumbers(currentPage, totalPages) {
-  if (totalPages <= 7) {
-    return Array.from({ length: totalPages }, (_, index) => index + 1)
-  }
-
-  const pages = new Set([1, totalPages, currentPage])
-
-  if (currentPage > 1) pages.add(currentPage - 1)
-  if (currentPage < totalPages) pages.add(currentPage + 1)
-
-  if (currentPage <= 3) {
-    pages.add(2)
-    pages.add(3)
-    pages.add(4)
-  }
-
-  if (currentPage >= totalPages - 2) {
-    pages.add(totalPages - 1)
-    pages.add(totalPages - 2)
-    pages.add(totalPages - 3)
-  }
-
-  return Array.from(pages)
-    .filter((page) => page >= 1 && page <= totalPages)
-    .sort((a, b) => a - b)
-}
-
-
 function parseNotificationData(value) {
   if (!value) return {}
 
@@ -700,7 +668,7 @@ function DepartureHistoryButton() {
         title="Xem lịch sử thao tác lịch khởi hành và phân công HDV"
       >
         <ClockIcon />
-        Lịch sử thao tác
+        Timeline
 
         {unreadCount > 0 ? (
           <span className="absolute -right-2 -top-2 inline-flex min-w-[22px] items-center justify-center rounded-full bg-rose-600 px-1.5 py-0.5 text-[11px] font-black leading-none text-white ring-2 ring-white">
@@ -804,7 +772,7 @@ export default function TourDepartureTable({
 }) {
   const [assignmentFilter, setAssignmentFilter] = useState('all')
   const [currentPage, setCurrentPage] = useState(1)
-  const [pageSize, setPageSize] = useState(5)
+  const [pageSize, setPageSize] = useState(10)
   const [openActionMenuId, setOpenActionMenuId] = useState(null)
 
   const getEditLink = (departureId) => {
@@ -917,7 +885,6 @@ export default function TourDepartureTable({
   const paginatedRows = displayedRows.slice(pageStartIndex, pageEndIndex)
   const visibleStart = totalRows === 0 ? 0 : pageStartIndex + 1
   const visibleEnd = Math.min(pageEndIndex, totalRows)
-  const pageNumbers = buildPageNumbers(safePage, totalPages)
 
   useEffect(() => {
     setCurrentPage(1)
@@ -1111,7 +1078,7 @@ export default function TourDepartureTable({
                       const daysUntilDeparture = getDaysUntilDeparture(item)
                       const tourTitle = getTourTitle(item)
                       const missingGuideWarning = isAssignmentWarningTarget(item) && !hasAssignedGuide(item)
-                      const statusMeta = getStatusMeta(getDepartureTimeGroup(item))
+                      const statusMeta = getStatusMeta(item.status)
                       const leadAssignment = getLeadAssignment(item)
 
                       const locked = isLockedDeparture(item)
@@ -1401,76 +1368,45 @@ export default function TourDepartureTable({
               </table>
             </div>
 
-            <div className="mt-4 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex flex-wrap items-center gap-3">
-                <span>
-                  Hiển thị{' '}
-                  <strong className="text-slate-900">
-                    {visibleStart}-{visibleEnd}
-                  </strong>{' '}
-                  trên <strong className="text-slate-900">{totalRows}</strong>{' '}
-                  lịch
-                </span>
-
-                <label className="flex items-center gap-2">
-                  <span>Số dòng:</span>
+            <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-5">
+                <label className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                  <span>Số dòng</span>
                   <select
                     value={pageSize}
                     onChange={(event) => setPageSize(Number(event.target.value))}
-                    className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
                   >
-                    {[5, 10, 20, 50].map((size) => (
+                    {[10, 20, 30].map((size) => (
                       <option key={size} value={size}>
                         {size}
                       </option>
                     ))}
                   </select>
                 </label>
-              </div>
 
-              <div className="flex flex-wrap items-center gap-1">
-                <button
-                  type="button"
-                  disabled={safePage <= 1}
-                  onClick={() => setCurrentPage(1)}
-                  className="rounded-lg border border-slate-200 px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Đầu
-                </button>
-
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
                   disabled={safePage <= 1}
                   onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
-                  className="rounded-lg border border-slate-200 px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex h-9 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  Trước
+                  ← Trước
                 </button>
 
-                {pageNumbers.map((page, index) => {
-                  const previousPage = pageNumbers[index - 1]
-                  const needsDots = previousPage && page - previousPage > 1
-
-                  return (
-                    <span key={page} className="inline-flex items-center gap-1">
-                      {needsDots ? (
-                        <span className="px-2 text-slate-400">...</span>
-                      ) : null}
-
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => (
                       <button
+                        key={page}
                         type="button"
                         onClick={() => setCurrentPage(page)}
-                        className={`rounded-lg border px-3 py-2 font-bold transition ${
-                          safePage === page
-                            ? 'border-blue-600 bg-blue-600 text-white'
-                            : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                        }`}
+                        aria-current={safePage === page ? 'page' : undefined}
+                        className={safePage === page ? 'flex h-9 min-w-9 items-center justify-center rounded-lg bg-sky-600 px-2 text-xs font-extrabold text-white' : 'flex h-9 min-w-9 items-center justify-center rounded-lg border border-slate-200 bg-white px-2 text-xs font-bold text-slate-600 hover:bg-slate-50'}
                       >
                         {page}
                       </button>
-                    </span>
-                  )
-                })}
+                  ))}
+                </div>
 
                 <button
                   type="button"
@@ -1478,18 +1414,9 @@ export default function TourDepartureTable({
                   onClick={() =>
                     setCurrentPage((page) => Math.min(page + 1, totalPages))
                   }
-                  className="rounded-lg border border-slate-200 px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex h-9 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  Sau
-                </button>
-
-                <button
-                  type="button"
-                  disabled={safePage >= totalPages}
-                  onClick={() => setCurrentPage(totalPages)}
-                  className="rounded-lg border border-slate-200 px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Cuối
+                  Sau →
                 </button>
               </div>
             </div>

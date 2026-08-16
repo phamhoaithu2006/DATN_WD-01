@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   useNavigate,
   useParams,
@@ -136,7 +136,7 @@ function isNonNegativeNumber(value) {
   return Number.isFinite(number) && number >= 0
 }
 
-function validateTourDepartureEditForm(formData, changeReason) {
+function validateTourDepartureEditForm(formData) {
   const errors = {}
 
   if (isBlank(formData.departure_date)) {
@@ -181,10 +181,6 @@ function validateTourDepartureEditForm(formData, changeReason) {
     errors.discount_price = 'Giá giảm phải nhỏ hơn giá gốc.'
   }
 
-  if (changeReason.trim().length < 3) {
-    errors.change_reason = 'Vui lòng nhập lý do thay đổi ít nhất 3 ký tự.'
-  }
-
   return errors
 }
 
@@ -197,7 +193,6 @@ export default function TourDepartureEditPage({
   onSaved,
 }) {
   const navigate = useNavigate()
-  const reasonRef = useRef(null)
   const routeParams = useParams()
   const tourId = tourIdProp || routeParams.tourId
   const departureId = departureIdProp || routeParams.departureId
@@ -217,7 +212,6 @@ export default function TourDepartureEditPage({
     confirmedFromQuery
   )
 
-  const [changeReason, setChangeReason] = useState('')
   const [fieldErrors, setFieldErrors] = useState({})
   const [formError, setFormError] = useState('')
   const [notification, setNotification] = useState(null)
@@ -281,8 +275,7 @@ export default function TourDepartureEditPage({
       if (booked && !confirmedFromQuery) {
         const confirmed = await confirmAction(
           `Lịch này đã có ${totalBookings} khách/đơn đặt tour.\n\n` +
-            'Bạn có muốn tiếp tục chỉnh sửa không?\n\n' +
-            'Sau khi lưu, hệ thống sẽ gửi thông báo cho khách hàng và HDV phụ trách.'
+            'Bạn có muốn tiếp tục chỉnh sửa không?'
         )
 
         if (!confirmed) {
@@ -304,7 +297,7 @@ export default function TourDepartureEditPage({
         discount_price: getDepartureDiscountPrice(departure),
 
         total_slots: departure.total_slots ?? '',
-        status: departure.status || 'open',
+        status: departure.status === 'open' ? 'open' : 'closed',
       })
 
       setTour(
@@ -374,10 +367,7 @@ export default function TourDepartureEditPage({
 
     if (!firstFieldName) return
 
-    const element =
-      firstFieldName === 'change_reason'
-        ? reasonRef.current
-        : document.querySelector(`[name="${firstFieldName}"]`)
+    const element = document.querySelector(`[name="${firstFieldName}"]`)
 
     element?.focus?.()
     element?.scrollIntoView?.({
@@ -414,7 +404,6 @@ export default function TourDepartureEditPage({
       status: formData.status,
 
       confirm_booked_change: confirmBookedChange,
-      change_reason: changeReason.trim(),
     }
 
     return tourDepartureApi.update(departureId, payload)
@@ -423,7 +412,7 @@ export default function TourDepartureEditPage({
   const handleSubmit = async (event) => {
     event.preventDefault()
 
-    const errors = validateTourDepartureEditForm(formData, changeReason)
+    const errors = validateTourDepartureEditForm(formData)
 
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors)
@@ -440,7 +429,7 @@ export default function TourDepartureEditPage({
       if (!confirmBookedChange) {
         const confirmed = await confirmAction(
           `Lịch này đã có ${bookingCount} khách/đơn đặt tour.\n\n` +
-            'Bạn xác nhận cập nhật và gửi thông báo cho khách hàng, HDV chứ?'
+            'Bạn xác nhận cập nhật lịch khởi hành chứ?'
         )
 
         if (!confirmed) return
@@ -459,9 +448,7 @@ export default function TourDepartureEditPage({
       showNotification(
         'success',
         'Cập nhật thành công',
-        hasBookings
-          ? 'Thông tin lịch khởi hành đã được cập nhật. Thông báo cũng đã được gửi cho khách hàng và hướng dẫn viên phụ trách.'
-          : 'Thông tin lịch khởi hành đã được cập nhật thành công.',
+        'Thông tin lịch khởi hành đã được cập nhật thành công.',
         '/admin/tour-departures'
       )
     } catch (error) {
@@ -473,7 +460,7 @@ export default function TourDepartureEditPage({
 
       if (needsConfirmation) {
         const confirmed = await confirmAction(
-          'Lịch này vừa có khách đặt tour. Bạn có xác nhận cập nhật và gửi thông báo không?'
+          'Lịch này vừa có khách đặt tour. Bạn có xác nhận cập nhật lịch khởi hành không?'
         )
 
         if (!confirmed) return
@@ -484,7 +471,7 @@ export default function TourDepartureEditPage({
           showNotification(
             'success',
             'Cập nhật thành công',
-            'Thông tin lịch khởi hành đã được cập nhật. Thông báo cũng đã được gửi cho khách hàng và hướng dẫn viên phụ trách.',
+            'Thông tin lịch khởi hành đã được cập nhật thành công.',
             '/admin/tour-departures'
           )
           return
@@ -625,10 +612,6 @@ export default function TourDepartureEditPage({
             Lịch này đã có {bookingCount} khách/đơn đặt tour.
           </p>
 
-          <p className="mt-1 text-sm">
-            Khi lưu thay đổi, hệ thống sẽ gửi thông báo đến khách hàng
-            và HDV phụ trách.
-          </p>
         </div>
       ) : null}
 
@@ -639,41 +622,6 @@ export default function TourDepartureEditPage({
           {formError}
         </div>
       ) : null}
-
-      <div className="mb-5 rounded-xl border border-blue-100 bg-blue-50 p-5">
-        <label className="mb-2 block text-sm font-bold text-slate-800">
-          Lý do thay đổi lịch <span className="text-red-500">*</span>
-        </label>
-
-        <textarea
-          ref={reasonRef}
-          value={changeReason}
-          onChange={(event) => {
-            setChangeReason(event.target.value)
-            clearFieldError('change_reason')
-            setFormError('')
-          }}
-          disabled={saving}
-          rows={4}
-          maxLength={1000}
-          placeholder="Ví dụ: Điều chỉnh lịch do thay đổi chuyến bay hoặc yêu cầu vận hành..."
-          className={`w-full rounded-lg border bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 disabled:cursor-not-allowed disabled:bg-slate-100 ${
-            fieldErrors.change_reason
-              ? 'border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-100'
-              : 'border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
-          }`}
-        />
-
-        {fieldErrors.change_reason ? (
-          <p className="mt-1 text-xs font-semibold text-red-600">
-            {fieldErrors.change_reason}
-          </p>
-        ) : null}
-
-        <p className="mt-2 text-xs text-slate-500">
-          Tên tour, thông tin cũ và thông tin mới sẽ do hệ thống tự động lấy.
-        </p>
-      </div>
 
       <TourDepartureForm
         formData={formData}

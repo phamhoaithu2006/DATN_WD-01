@@ -12,6 +12,14 @@ const tourApi = {
     return apiClient.get('/admin/tours/hidden-list')
   },
 
+  getTrashed(params = {}) {
+    return apiClient.get('/admin/tours/trashed-list', { params })
+  },
+
+  getTrashedById(id) {
+    return apiClient.get(`/admin/tours/trashed/${id}`)
+  },
+
   getTimeline(params = {}) {
     return apiClient.get('/admin/tours/timeline', { params })
   },
@@ -35,6 +43,14 @@ const tourApi = {
 
   unhide(id) {
     return apiClient.patch(`/admin/tours/${id}/unhide`)
+  },
+
+  restore(id) {
+    return apiClient.patch(`/admin/tours/${id}/restore`)
+  },
+
+  forceDelete(id) {
+    return apiClient.delete(`/admin/tours/${id}/force`)
   },
 }
 

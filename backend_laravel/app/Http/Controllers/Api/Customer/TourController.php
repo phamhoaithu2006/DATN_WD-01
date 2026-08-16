@@ -189,7 +189,7 @@ class TourController extends Controller
     private function applyVisibleDepartures($query)
     {
         return $query
-            ->whereIn('status', ['open', 'confirmed'])
+            ->where('status', 'open')
             ->whereDate(
                 'departure_date',
                 '>',
