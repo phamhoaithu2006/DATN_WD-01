@@ -21,7 +21,7 @@ class AdminSupportStaffMonitoringController extends Controller
      *
      * Frontend có thể gọi lại endpoint này mỗi 30–60 giây.
      */
-    public function presenceIndex(): JsonResponse
+    public function presenceIndex(Request $request): JsonResponse
     {
         $staffList =
             SupportStaff::query()
@@ -40,9 +40,11 @@ class AdminSupportStaffMonitoringController extends Controller
                 ->mapWithKeys(
                     function (
                         SupportStaff $staff
-                    ) {
+                    ) use ($request) {
                         return [
-                            (string) $staff->id =>
+                            (string) ($request->input('key_by') === 'user_id'
+                                ? $staff->user_id
+                                : $staff->id) =>
                                 $this
                                     ->buildPresenceData(
                                         (int) $staff

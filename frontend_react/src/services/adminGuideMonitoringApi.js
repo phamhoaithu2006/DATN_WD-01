@@ -1,7 +1,7 @@
 import apiClient from './apiClient'
 
-export async function getGuidePresence() {
-  const response = await apiClient.get('/admin/guides/presence')
+export async function getGuidePresence(params = {}) {
+  const response = await apiClient.get('/admin/guides/presence', { params })
   return response?.data ?? response
 }
 

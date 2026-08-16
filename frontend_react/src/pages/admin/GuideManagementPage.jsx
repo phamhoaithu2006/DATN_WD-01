@@ -1,9 +1,7 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import apiClient from '../../services/apiClient'
-import adminGuideLeaveRequestApi from '../../services/adminGuideLeaveRequestApi.js'
 import AdminPageHeader from '../../components/admin/AdminPageHeader'
-import AdminGuideLeaveRequestsPanel from '../../components/admin/guides/AdminGuideLeaveRequestsPanel.jsx'
 import AdminGuideActivityModal from '../../components/admin/guides/AdminGuideActivityModal.jsx'
 import { getGuideActivityHistory, getGuidePresence } from '../../services/adminGuideMonitoringApi.js'
 import Icon from '../../components/customer/Icon'
@@ -11,7 +9,9 @@ import '../../styles/support-staff.css'
 
 const DEFAULT_FORM = {
   user_id: '',
-  destination_ids: [],
+  full_name: '',
+  email: '',
+  phone: '',
   experience_years: '',
   status: '',
   languages: [],
@@ -29,6 +29,31 @@ const STATUS_LABELS = {
   active: 'Đang hoạt động',
   inactive: 'Ngừng hoạt động',
   locked: 'Tạm khóa',
+}
+
+const GUIDE_TIMELINE_FIELDS = {
+  name: 'Họ tên', email: 'Email', phone: 'Số điện thoại', guide_code: 'Mã HDV', experience_years: 'Kinh nghiệm', status: 'Trạng thái', languages: 'Ngoại ngữ', certificates: 'Chứng chỉ',
+}
+
+function GuideAdminTimeline({ items, loading, onClose }) {
+  const display = (field, value) => {
+    if (Array.isArray(value)) return value.join(', ') || 'Trống'
+    if (field === 'status') return STATUS_LABELS[value] || value || 'Trống'
+    return value === null || value === undefined || value === '' ? 'Trống' : String(value)
+  }
+  const same = (left, right) => JSON.stringify(left ?? null) === JSON.stringify(right ?? null)
+
+  return <div className="catalog-timeline-backdrop" role="presentation" onMouseDown={onClose}><section className="catalog-timeline-modal" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
+    <header><div><small>TIMELINE</small><h2>Thao tác quản lý hướng dẫn viên</h2></div><button type="button" onClick={onClose}>&times;</button></header>
+    {loading ? <div className="catalog-timeline-empty">Đang tải timeline...</div> : items.length ? <div className="catalog-timeline-list">{items.map((item) => {
+      const before = item.metadata?.before || {}; const after = item.metadata?.after || {}
+      const changes = Object.keys(GUIDE_TIMELINE_FIELDS).filter((field) => !same(before[field], after[field]))
+      return <article key={item.id}><i /><div><strong>{item.description}</strong><p><b>{item.actor?.name || 'Quản trị viên'}</b> · {item.target_name}</p>
+        {changes.length ? <div className="catalog-timeline-changes">{changes.map((field) => <div key={field}><b>{GUIDE_TIMELINE_FIELDS[field]}</b><span>{display(field, before[field])}</span><em>→</em><span className="after">{display(field, after[field])}</span></div>)}</div> : null}
+        <time>{item.created_at ? new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(item.created_at)) : '--'}</time>
+      </div></article>
+    })}</div> : <div className="catalog-timeline-empty">Chưa có thao tác quản trị nào.</div>}
+  </section></div>
 }
 
 function unwrapList(response) {
@@ -152,12 +177,6 @@ function getAssignedTourCount(guide) {
   )
 }
 
-function toDestinationIds(destinations = []) {
-  return destinations
-    .map((item) => String(item.destination_id || item.id || ''))
-    .filter(Boolean)
-}
-
 function toLanguageRows(languages = []) {
   return languages.map((item) => ({
     language_id: String(item.language_id || item.language?.id || ''),
@@ -175,11 +194,11 @@ function toCertificateRows(experiences = []) {
 function makePayload(form) {
   return {
     user_id: form.user_id ? Number(form.user_id) : null,
-    destination_ids: (form.destination_ids || [])
-      .filter(Boolean)
-      .map(Number),
     experience_years: Number(form.experience_years),
     status: form.status,
+    full_name: form.full_name,
+    email: form.email,
+    phone: form.phone,
     languages: (form.languages || [])
       .filter((item) => item.language_id)
       .map((item) => ({
@@ -238,6 +257,7 @@ function validateForm(form) {
   if (!form.user_id) {
     errors.user_id = 'Vui lòng chọn tài khoản HDV.'
   }
+
 
   const experienceYearsError = getExperienceYearsError(form.experience_years)
 
@@ -315,7 +335,6 @@ async function deleteAvatar(guideId) {
 }
 
 function GuideManagementPage() {
-  const [searchParams] = useSearchParams()
   const [guides, setGuides] = useState([])
 
   const [statistics, setStatistics] = useState({
@@ -327,25 +346,16 @@ function GuideManagementPage() {
 
   const [keyword, setKeyword] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
-  const [destinationFilter, setDestinationFilter] = useState('all')
   const [leaveStatusFilter, setLeaveStatusFilter] = useState('all')
 
-  const [leavePanelOpen, setLeavePanelOpen] = useState(
-    searchParams.get('openLeaveRequests') === '1',
-  )
   const [presenceMap, setPresenceMap] = useState({})
   const [activityGuide, setActivityGuide] = useState(null)
   const [activityData, setActivityData] = useState(null)
   const [activityLoading, setActivityLoading] = useState(false)
   const [activityTab, setActivityTab] = useState('activities')
-  const [leaveSummary, setLeaveSummary] = useState({
-    pending_count: 0,
-    processed_count: 0,
-    available_guides_count: 0,
-    pending_guides_count: 0,
-    waiting_leave_guides_count: 0,
-    resting_guides_count: 0,
-  })
+  const [adminTimelineOpen, setAdminTimelineOpen] = useState(false)
+  const [adminTimelineLoading, setAdminTimelineLoading] = useState(false)
+  const [adminTimelineItems, setAdminTimelineItems] = useState([])
 
   const [pagination, setPagination] = useState({
     currentPage: 1,
@@ -384,12 +394,8 @@ function GuideManagementPage() {
   const [error, setError] = useState('')
   const [formErrors, setFormErrors] = useState({})
 
-  const highlightedLeaveRequestId = searchParams.get('leaveRequestId') || ''
-  const leavePendingCount = Number(leaveSummary.pending_count || 0)
-
   const hasFilter =
     statusFilter !== 'all' ||
-    destinationFilter !== 'all' ||
     leaveStatusFilter !== 'all'
 
   const filteredStatusStatistics = useMemo(
@@ -434,26 +440,6 @@ function GuideManagementPage() {
       setStatistics(next)
     } catch {
       // Không chặn màn hình khi phần thống kê lỗi.
-    }
-  }, [])
-
-  const loadLeaveSummary = useCallback(async () => {
-    try {
-      const response = await adminGuideLeaveRequestApi.list({
-        status: 'all',
-        per_page: 1,
-      })
-
-      setLeaveSummary(response?.summary || {
-        pending_count: 0,
-        processed_count: 0,
-        available_guides_count: 0,
-        pending_guides_count: 0,
-        waiting_leave_guides_count: 0,
-        resting_guides_count: 0,
-      })
-    } catch {
-      // Không chặn màn hình khi thống kê đơn nghỉ lỗi.
     }
   }, [])
 
@@ -521,10 +507,6 @@ function GuideManagementPage() {
           params.status = statusFilter
         }
 
-        if (destinationFilter !== 'all') {
-          params.destination_id = destinationFilter
-        }
-
         if (leaveStatusFilter !== 'all') {
           params.leave_status = leaveStatusFilter
         }
@@ -544,7 +526,7 @@ function GuideManagementPage() {
         setIsLoading(false)
       }
     },
-    [destinationFilter, hasFilter, keyword, leaveStatusFilter, pageSize, statusFilter],
+    [hasFilter, keyword, leaveStatusFilter, pageSize, statusFilter],
   )
 
   const loadGuidePresence = useCallback(
@@ -590,15 +572,13 @@ function GuideManagementPage() {
     const timeoutId = window.setTimeout(() => {
       void loadCatalogs()
       void loadStatistics()
-      void loadLeaveSummary()
     }, 0)
 
     return () => window.clearTimeout(timeoutId)
-  }, [loadCatalogs, loadLeaveSummary, loadStatistics])
+  }, [loadCatalogs, loadStatistics])
 
   useEffect(() => {
     function reloadGuideLeaveRequests() {
-      void loadLeaveSummary()
       void loadGuides(pagination.currentPage)
     }
 
@@ -613,19 +593,7 @@ function GuideManagementPage() {
         reloadGuideLeaveRequests,
       )
     }
-  }, [loadGuides, loadLeaveSummary, pagination.currentPage])
-
-  useEffect(() => {
-    if (searchParams.get('openLeaveRequests') === '1') {
-      const timeoutId = window.setTimeout(() => {
-        setLeavePanelOpen(true)
-      }, 0)
-
-      return () => window.clearTimeout(timeoutId)
-    }
-
-    return undefined
-  }, [searchParams])
+  }, [loadGuides, pagination.currentPage])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -858,7 +826,6 @@ function GuideManagementPage() {
   function openCreateForm() {
     setForm({
       ...DEFAULT_FORM,
-      destination_ids: [''],
       languages: [{ ...EMPTY_LANGUAGE_ROW }],
       experiences: [{ ...EMPTY_CERTIFICATE_ROW }],
     })
@@ -876,25 +843,34 @@ function GuideManagementPage() {
     void loadAvailableUsers()
   }
 
-  function openEditForm(guide) {
-    const destinationRows = toDestinationIds(guide.destinations)
+  async function openEditForm(guide) {
+    let sourceGuide = guide
+
+    try {
+      const response = await apiClient.get(`/admin/guides/${guide.id}`)
+      sourceGuide = response.data?.data || guide
+    } catch {
+      // Dùng dữ liệu danh sách nếu API chi tiết tạm thời không tải được.
+    }
 
     setForm({
-      user_id: String(guide.user_id || guide.user?.id || ''),
-      destination_ids: destinationRows.length > 0 ? destinationRows : [''],
-      experience_years: String(guide.experience_years ?? ''),
-      status: guide.status || '',
-      languages: toLanguageRows(guide.languages),
-      experiences: toCertificateRows(guide.experiences),
+      user_id: String(sourceGuide.user_id || sourceGuide.user?.id || ''),
+      full_name: sourceGuide.user?.full_name || sourceGuide.user?.name || sourceGuide.full_name || sourceGuide.name || '',
+      email: sourceGuide.user?.email || sourceGuide.email || '',
+      phone: sourceGuide.user?.phone || sourceGuide.phone || '',
+      experience_years: String(sourceGuide.experience_years ?? ''),
+      status: sourceGuide.status || '',
+      languages: toLanguageRows(sourceGuide.languages),
+      experiences: toCertificateRows(sourceGuide.experiences),
     })
 
     setAvatarFile(null)
-    setCurrentAvatarUrl(guide.user?.avatar_url || '')
+    setCurrentAvatarUrl(sourceGuide.user?.avatar_url || sourceGuide.avatar_url || '')
     setPreviewAvatarUrl('')
     setRemoveAvatarRequested(false)
-    setEditingGuideId(guide.id)
-    setEditingGuideCode(guide.guide_code || '')
-    setEditingUser(guide.user || null)
+    setEditingGuideId(sourceGuide.id)
+    setEditingGuideCode(sourceGuide.guide_code || '')
+    setEditingUser(sourceGuide.user || null)
     setFormErrors({})
     setError('')
     setNotice('')
@@ -1048,6 +1024,33 @@ function GuideManagementPage() {
     }
   }
 
+  async function openAdminTimeline() {
+    setAdminTimelineOpen(true)
+    setAdminTimelineLoading(true)
+    try {
+      const response = await apiClient.get('/admin/guides/admin-timeline')
+      setAdminTimelineItems(Array.isArray(response.data?.data) ? response.data.data : [])
+    } catch (requestError) {
+      setAdminTimelineOpen(false)
+      setError(getErrorMessage(requestError, 'Không tải được timeline thao tác của admin.'))
+    } finally {
+      setAdminTimelineLoading(false)
+    }
+  }
+
+  function selectGuideAccount(event) {
+    const userId = event.target.value
+    const user = selectableUsers.find((item) => String(item.id) === String(userId))
+    setForm((current) => ({
+      ...current,
+      user_id: userId,
+      full_name: user?.full_name || '',
+      email: user?.email || '',
+      phone: user?.phone || '',
+    }))
+    setFormErrors((current) => ({ ...current, user_id: '' }))
+  }
+
   function selectStatistic(status) {
     setStatusFilter(status)
     setDestinationFilter('all')
@@ -1075,24 +1078,6 @@ function GuideManagementPage() {
         actions={
           <div className="guide-header-actions-group">
             <div className="guide-header-actions-top-row">
-              <div className="guide-header-links">
-                <Link
-                  className="guide-section-link guide-section-link-primary"
-                  to="/admin/languages"
-                >
-                  <Icon name="globe" size={16} />
-                  Ngôn ngữ
-                </Link>
-
-                <Link
-                  className="guide-section-link guide-section-link-primary"
-                  to="/admin/certificates"
-                >
-                  <Icon name="shield" size={16} />
-                  Chứng chỉ
-                </Link>
-              </div>
-
               <div className="guide-header-actions-button-stack">
                 <div className="guide-header-actions-primary-buttons">
                   <Link className="guide-trash-button" to="/admin/guides/trash">
@@ -1110,20 +1095,6 @@ function GuideManagementPage() {
                   </button>
                 </div>
 
-                <div className="admin-guide-header-secondary-actions">
-                  <button
-                    type="button"
-                    className={`admin-guide-leave-menu-button ${leavePanelOpen ? 'active' : ''}`}
-                    onClick={() => setLeavePanelOpen((current) => !current)}
-                  >
-                    Đơn xin nghỉ
-
-                    {leavePendingCount > 0 ? (
-                      <span>{leavePendingCount > 99 ? '99+' : leavePendingCount}</span>
-                    ) : null}
-                  </button>
-
-                </div>
               </div>
             </div>
           </div>
@@ -1159,7 +1130,7 @@ function GuideManagementPage() {
       <div className="guide-stat-grid">
         <button
           className={`guide-stat-card blue ${
-            statusFilter === 'all' && destinationFilter === 'all'
+            statusFilter === 'all'
               ? 'is-active'
               : ''
           }`}
@@ -1264,6 +1235,10 @@ function GuideManagementPage() {
               <option value="waiting_leave">Đang chờ nghỉ</option>
               <option value="available_leave">Không có đơn nghỉ</option>
             </select>
+
+            <button className="catalog-timeline-button guide-admin-timeline-button" type="button" onClick={openAdminTimeline}>
+              Timeline <span>{adminTimelineItems.length}</span>
+            </button>
           </div>
 
           <div className="guide-table-wrap">
@@ -1489,9 +1464,7 @@ function GuideManagementPage() {
                   required
                   value={form.user_id}
                   disabled={Boolean(editingGuideId)}
-                  onChange={(event) =>
-                    updateForm('user_id', event.target.value)
-                  }
+                  onChange={selectGuideAccount}
                 >
                   <option value="" disabled>
                     {availableUsersLoading
@@ -1516,6 +1489,22 @@ function GuideManagementPage() {
                   </span>
                 ) : null}
               </label>
+
+              <div className="guide-account-fields guide-form-wide">
+                <label>
+                  <span>Họ và tên</span>
+                  <input value={form.full_name} readOnly={!editingGuideId} onChange={(event) => updateForm('full_name', event.target.value)} />
+                </label>
+                <label>
+                  <span>Email</span>
+                  <input type="email" value={form.email} readOnly={!editingGuideId} onChange={(event) => updateForm('email', event.target.value)} />
+                  {formErrors.email ? <span className="guide-field-error">{formErrors.email}</span> : null}
+                </label>
+                <label>
+                  <span>Số điện thoại</span>
+                  <input value={form.phone} readOnly={!editingGuideId} onChange={(event) => updateForm('phone', event.target.value)} />
+                </label>
+              </div>
 
               <label>
                 <span className="guide-field-label-line">
@@ -1756,24 +1745,14 @@ function GuideManagementPage() {
                 Ảnh đại diện
 
                 <div className="guide-avatar-upload guide-avatar-upload-wide">
-                  <div className="guide-avatar-preview guide-avatar-preview-large">
-                    {previewAvatarUrl || currentAvatarUrl ? (
-                      <img
-                        alt="Ảnh đại diện hướng dẫn viên"
-                        src={previewAvatarUrl || currentAvatarUrl}
-                      />
-                    ) : (
-                      <span>Chưa có ảnh</span>
-                    )}
-                  </div>
-
-                  <input
-                    ref={avatarInputRef}
-                    accept="image/jpeg,image/png,image/webp"
-                    className="guide-avatar-input"
-                    type="file"
-                    onChange={handleAvatarChange}
-                  />
+                  <div className="guide-avatar-upload-panel">
+                    <input
+                      ref={avatarInputRef}
+                      accept="image/jpeg,image/png,image/webp"
+                      className="guide-avatar-input"
+                      type="file"
+                      onChange={handleAvatarChange}
+                    />
 
                   <button
                     className="guide-avatar-upload-btn"
@@ -1816,6 +1795,18 @@ function GuideManagementPage() {
                         : 'Xóa avatar hiện tại'}
                     </button>
                   ) : null}
+                  </div>
+
+                  <div className="guide-avatar-preview guide-avatar-preview-large">
+                    {previewAvatarUrl || currentAvatarUrl ? (
+                      <img
+                        alt="Ảnh đại diện hướng dẫn viên"
+                        src={previewAvatarUrl || currentAvatarUrl}
+                      />
+                    ) : (
+                      <span>Chưa có ảnh</span>
+                    )}
+                  </div>
                 </div>
               </label>
             </div>
@@ -1961,28 +1952,6 @@ function GuideManagementPage() {
         </div>
       ) : null}
 
-      {leavePanelOpen ? (
-        <div
-          className="admin-guide-leave-card-backdrop"
-          role="presentation"
-          onMouseDown={() => setLeavePanelOpen(false)}
-        >
-          <div
-            className="admin-guide-leave-card-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Quản lý đơn xin nghỉ HDV"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <AdminGuideLeaveRequestsPanel
-              open={leavePanelOpen}
-              highlightRequestId={highlightedLeaveRequestId}
-              onClose={() => setLeavePanelOpen(false)}
-            />
-          </div>
-        </div>
-      ) : null}
-
       {activityGuide ? (
         <AdminGuideActivityModal
           guide={activityGuide}
@@ -1992,6 +1961,10 @@ function GuideManagementPage() {
           onChangeTab={setActivityTab}
           onClose={() => { setActivityGuide(null); setActivityData(null) }}
         />
+      ) : null}
+
+      {adminTimelineOpen ? (
+        <GuideAdminTimeline items={adminTimelineItems} loading={adminTimelineLoading} onClose={() => setAdminTimelineOpen(false)} />
       ) : null}
 
       {deleteTarget ? (

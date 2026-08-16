@@ -186,9 +186,10 @@ export async function forceDeleteSupportStaff(
  * Lấy trạng thái online/offline
  * của toàn bộ nhân viên hỗ trợ.
  */
-export async function getSupportStaffPresence() {
+export async function getSupportStaffPresence(params = {}) {
   const response = await apiClient.get(
     '/admin/support-staff/presence',
+    { params },
   )
 
   return getResponseData(response)
@@ -215,5 +216,10 @@ export async function getSupportStaffActivityHistory(
     },
   )
 
+  return getResponseData(response)
+}
+
+export async function getSupportStaffAdminTimeline() {
+  const response = await apiClient.get('/admin/support-staff/admin-timeline')
   return getResponseData(response)
 }

@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -68,21 +67,6 @@ class Guide extends Model
             'guide_id',
             'tour_departure_id'
         )->withPivot('status', 'note')->withTimestamps();
-    }
-
-    public function destinations(): BelongsToMany
-    {
-        return $this->belongsToMany(
-            Province::class,
-            'guide_provinces',
-            'guide_id',
-            'province_id'
-        )->withTimestamps();
-    }
-
-    public function provinces(): BelongsToMany
-    {
-        return $this->destinations();
     }
 
     public function assignments(): HasMany

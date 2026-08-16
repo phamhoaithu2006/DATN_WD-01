@@ -9,6 +9,7 @@ export const languageApi = {
   create:  (payload)  => apiClient.post(BASE, payload),
   update:  (id, data) => apiClient.put(`${BASE}/${id}`, data),
   remove:  (id)       => apiClient.delete(`${BASE}/${id}`),
+  getTimeline: ()     => apiClient.get('/admin/tours/timeline', { params: { entity_type: 'language' } }),
 
   // Level
   getLevels:     (langId)              => apiClient.get(`${BASE}/${langId}/levels`),

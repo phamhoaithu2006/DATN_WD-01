@@ -1,6 +1,7 @@
 import apiClient from './apiClient'
 
 export const certificateApi = {
+  getTimeline: () => apiClient.get('/admin/tours/timeline', { params: { entity_type: 'certificate' } }),
   // Lấy danh sách toàn bộ chứng chỉ
   getAll: () => {
     return apiClient.get('admin/certificates')

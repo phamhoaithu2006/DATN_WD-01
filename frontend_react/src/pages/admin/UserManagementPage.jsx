@@ -5,6 +5,7 @@ import UserFilters from "../../components/admin/users/UserFilters";
 import UserFormModal from "../../components/admin/users/UserFormModal";
 import UserTable from "../../components/admin/users/UserTable";
 import CustomerActivityModal from "../../components/admin/users/CustomerActivityModal";
+import UserTimelineModal from "../../components/admin/users/UserTimelineModal";
 import AdminPageHeader from "../../components/admin/AdminPageHeader";
 import { confirmAction } from "../../components/common/AppConfirmDialog.jsx";
 import {
@@ -12,12 +13,16 @@ import {
   getAccount,
   getAccounts,
   getAccountRoles,
+  getAdminUserTimeline,
   getCustomerActivityHistory,
   setAccountStatus,
   updateAccount,
 } from "../../services/adminAccountApi";
 import "../../styles/user-management.css";
 import { getCustomerPresence } from "../../services/customerPresenceApi";
+import { getSupportStaffPresence } from "../../services/supportStaffApi";
+import { getGuidePresence } from "../../services/adminGuideMonitoringApi";
+import { readSession } from "../../services/authStorage";
 
 const USER_ROLE_PAGES = [
   {
@@ -166,6 +171,9 @@ function UserManagementPage({ roleName = "customer" }) {
   const [activityCustomer, setActivityCustomer] = useState(null);
   const [activityData, setActivityData] = useState(null);
   const [activityLoading, setActivityLoading] = useState(false);
+  const [timelineOpen, setTimelineOpen] = useState(false);
+  const [timelineLoading, setTimelineLoading] = useState(false);
+  const [timelineActivities, setTimelineActivities] = useState([]);
   const [presenceMap, setPresenceMap] = useState({});
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
@@ -174,7 +182,15 @@ function UserManagementPage({ roleName = "customer" }) {
   const totalPages = Math.max(Math.ceil(totalRows / pageSize), 1);
   const safePage = Math.min(currentPage, totalPages);
   const pageStartIndex = (safePage - 1) * pageSize;
-  const paginatedCustomers = customers.slice(pageStartIndex, pageStartIndex + pageSize);
+  const sortedCustomers = useMemo(
+    () => [...customers].sort((left, right) => {
+      const leftOnline = presenceMap[String(left.id)]?.is_online ? 1 : 0;
+      const rightOnline = presenceMap[String(right.id)]?.is_online ? 1 : 0;
+      return rightOnline - leftOnline;
+    }),
+    [customers, presenceMap],
+  );
+  const paginatedCustomers = sortedCustomers.slice(pageStartIndex, pageStartIndex + pageSize);
   const visibleStart = totalRows > 0 ? pageStartIndex + 1 : 0;
   const visibleEnd = Math.min(pageStartIndex + pageSize, totalRows);
   const pageNumbers = buildPageNumbers(safePage, totalPages);
@@ -195,9 +211,29 @@ function UserManagementPage({ roleName = "customer" }) {
         status: status || undefined,
         role_id: selectedRole.id,
       });
-      const customerPresence = rolePage.name === "customer"
-        ? await getCustomerPresence().catch(() => ({}))
-        : {};
+      let accountPresence = {};
+
+      if (rolePage.name === "customer") {
+        accountPresence = await getCustomerPresence().catch(() => ({}));
+      } else if (rolePage.name === "support staff") {
+        const response = await getSupportStaffPresence({ key_by: "user_id" }).catch(() => ({}));
+        accountPresence = response?.data || {};
+      } else if (rolePage.name === "tour guide") {
+        const response = await getGuidePresence({ key_by: "user_id" }).catch(() => ({}));
+        accountPresence = response?.data || {};
+      } else if (rolePage.name === "admin") {
+        const currentAdmin = readSession();
+
+        if (currentAdmin?.id) {
+          accountPresence = {
+            [String(currentAdmin.id)]: {
+              is_online: true,
+              last_seen_at: new Date().toISOString(),
+              online_since: new Date().toISOString(),
+            },
+          };
+        }
+      }
 
       const resolvedRoles = roleList?.length
         ? roleList
@@ -211,7 +247,7 @@ function UserManagementPage({ roleName = "customer" }) {
       setCurrentRoleId(selectedRole.id);
       setCustomers(withResolvedRoles(list, rolesWithCurrent));
       setRoles(rolesWithCurrent);
-      setPresenceMap(customerPresence);
+      setPresenceMap(accountPresence);
     } catch (error) {
       setNotice({ type: "error", text: messageFrom(error) });
     } finally {
@@ -321,6 +357,20 @@ function UserManagementPage({ roleName = "customer" }) {
     }
   }
 
+  async function openTimeline() {
+    setTimelineOpen(true);
+    setTimelineLoading(true);
+    try {
+      const activities = await getAdminUserTimeline({ role_id: currentRoleId });
+      setTimelineActivities(activities);
+    } catch (error) {
+      setNotice({ type: "error", text: messageFrom(error) });
+      setTimelineOpen(false);
+    } finally {
+      setTimelineLoading(false);
+    }
+  }
+
   return (
     <section className="user-management-page">
       <AdminPageHeader
@@ -367,6 +417,7 @@ function UserManagementPage({ roleName = "customer" }) {
         status={status}
         onSearchChange={setSearch}
         onStatusChange={setStatus}
+        onTimeline={openTimeline}
       />
       <UserTable
         customers={paginatedCustomers}
@@ -376,7 +427,7 @@ function UserManagementPage({ roleName = "customer" }) {
         onEdit={setEditing}
         onToggleLock={toggleLock}
         onHistory={rolePage.name === "customer" ? openActivityHistory : undefined}
-        presenceMap={rolePage.name === "customer" ? presenceMap : null}
+        presenceMap={presenceMap}
         startIndex={pageStartIndex}
       />
 
@@ -413,6 +464,14 @@ function UserManagementPage({ roleName = "customer" }) {
             setActivityCustomer(null);
             setActivityData(null);
           }}
+        />
+      ) : null}
+
+      {timelineOpen ? (
+        <UserTimelineModal
+          activities={timelineActivities}
+          loading={timelineLoading}
+          onClose={() => setTimelineOpen(false)}
         />
       ) : null}
 

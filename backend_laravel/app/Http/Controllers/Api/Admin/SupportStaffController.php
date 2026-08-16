@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\SupportStaff;
+use App\Models\TourActivityLog;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 
@@ -19,6 +21,18 @@ class SupportStaffController extends Controller
         'noi_dia' => 'Ná»™i Ä‘á»‹a',
         'quoc_te' => 'Quá»‘c táº¿',
     ];
+
+    private function orderByOnlineFirst($query)
+    {
+        if (Schema::hasTable('support_staff_presence_sessions')) {
+            $query->orderByRaw(
+                'EXISTS (SELECT 1 FROM support_staff_presence_sessions sps WHERE sps.user_id = support_staff.user_id AND sps.ended_at IS NULL AND sps.last_seen_at >= ?) DESC',
+                [now()->subSeconds(120)]
+            );
+        }
+
+        return $query;
+    }
 
     private function supportStaffQuery()
     {
@@ -54,6 +68,27 @@ class SupportStaffController extends Controller
         }
 
         return $staff;
+    }
+
+    private function timelineSnapshot(SupportStaff $staff): array
+    {
+        $staff->loadMissing('user');
+
+        return [
+            'name' => $staff->user?->full_name ?? $staff->name,
+            'email' => $staff->user?->email ?? $staff->email,
+            'phone' => $staff->user?->phone,
+            'specialization' => $staff->specialization,
+            'experience_years' => $staff->experience_years,
+            'status' => $staff->status,
+            'role' => $staff->role,
+            'performance_rating' => $staff->performance_rating,
+        ];
+    }
+
+    private function recordAdminAction(Request $request, SupportStaff $staff, string $action, string $description, array $metadata = []): void
+    {
+        TourActivityLog::record($request->user()?->id, $action, $staff->user?->full_name ?? $staff->name, $description, 'support_staff', $staff->id, $metadata);
     }
 
     private function hasCompleteSupportStaffProfile(?SupportStaff $staff): bool
@@ -153,7 +188,9 @@ class SupportStaffController extends Controller
         }
 
         $perPage = max((int) $request->input('per_page', 10), 1);
-        $staff = $query->orderBy('support_staff.id')->paginate($perPage);
+        $staff = $this->orderByOnlineFirst($query)
+            ->orderBy('support_staff.id')
+            ->paginate($perPage);
         $staff->setCollection($staff->getCollection()->map(fn ($item) => $this->hydrateSupportStaff($item)));
 
         return response()->json([
@@ -234,6 +271,27 @@ class SupportStaffController extends Controller
         ]);
     }
 
+    public function adminTimeline()
+    {
+        $activities = TourActivityLog::query()
+            ->with('actor:id,full_name,email')
+            ->where('metadata->entity_type', 'support_staff')
+            ->latest()
+            ->limit(100)
+            ->get()
+            ->map(fn (TourActivityLog $activity) => [
+                'id' => $activity->id,
+                'action' => $activity->action,
+                'description' => $activity->description,
+                'target_name' => $activity->tour_title,
+                'metadata' => $activity->metadata,
+                'actor' => $activity->actor ? ['name' => $activity->actor->full_name, 'email' => $activity->actor->email] : null,
+                'created_at' => $activity->created_at?->toIso8601String(),
+            ]);
+
+        return response()->json(['status' => 'success', 'data' => $activities]);
+    }
+
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -291,6 +349,9 @@ class SupportStaffController extends Controller
 
         $staff->load('user.role');
         $this->hydrateSupportStaff($staff);
+        $this->recordAdminAction($request, $staff, 'created', 'Thêm nhân viên hỗ trợ.', [
+            'after' => $this->timelineSnapshot($staff),
+        ]);
 
         return response()->json([
             'status' => 'success',
@@ -313,6 +374,7 @@ class SupportStaffController extends Controller
     public function update(Request $request, $id)
     {
         $staff = SupportStaff::query()->with('user.role')->findOrFail($id);
+        $before = $this->timelineSnapshot($staff);
 
         $validator = Validator::make($request->all(), [
             'user_id' => [
@@ -327,6 +389,14 @@ class SupportStaffController extends Controller
             'role' => 'sometimes|required|string|max:100',
             'status' => ['sometimes', 'required', 'string', Rule::in(self::STATUSES)],
             'performance_rating' => 'sometimes|required|numeric|between:0,5',
+            'full_name' => 'sometimes|required|string|max:255',
+            'email' => [
+                'sometimes',
+                'required',
+                'email',
+                Rule::unique('users', 'email')->ignore($staff->user_id),
+            ],
+            'phone' => 'sometimes|nullable|string|max:15',
         ]);
 
         if ($validator->fails()) {
@@ -337,6 +407,16 @@ class SupportStaffController extends Controller
         }
 
         $data = $validator->validated();
+        $userData = collect($data)->only(['full_name', 'email', 'phone'])->toArray();
+        unset($data['full_name'], $data['email'], $data['phone']);
+
+        if (!empty($userData)) {
+            $staff->user()->update($userData);
+            $staff->unsetRelation('user');
+            $staff->load('user.role');
+            $data['name'] = $staff->user->full_name;
+            $data['email'] = $staff->user->email;
+        }
 
         if (array_key_exists('user_id', $data)) {
             $user = User::with('role')->findOrFail($data['user_id']);
@@ -359,6 +439,10 @@ class SupportStaffController extends Controller
         $staff->update($data);
         $staff->load('user.role');
         $this->hydrateSupportStaff($staff);
+        $this->recordAdminAction($request, $staff, 'updated', 'Cập nhật nhân viên hỗ trợ.', [
+            'before' => $before,
+            'after' => $this->timelineSnapshot($staff),
+        ]);
 
         return response()->json([
             'status' => 'success',
@@ -367,10 +451,12 @@ class SupportStaffController extends Controller
         ]);
     }
 
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
-        $staff = SupportStaff::findOrFail($id);
+        $staff = SupportStaff::with('user')->findOrFail($id);
+        $before = $this->timelineSnapshot($staff);
         $staff->delete();
+        $this->recordAdminAction($request, $staff, 'deleted', 'Chuyển nhân viên hỗ trợ vào thùng rác.', ['before' => $before]);
 
         return response()->json([
             'status' => 'success',
@@ -394,11 +480,12 @@ class SupportStaffController extends Controller
         ]);
     }
 
-    public function restore($id)
+    public function restore(Request $request, $id)
     {
         $staff = SupportStaff::onlyTrashed()->with('user.role')->findOrFail($id);
         $staff->restore();
         $this->hydrateSupportStaff($staff);
+        $this->recordAdminAction($request, $staff, 'restored', 'Khôi phục nhân viên hỗ trợ.', ['after' => $this->timelineSnapshot($staff)]);
 
         return response()->json([
             'status' => 'success',
@@ -407,10 +494,14 @@ class SupportStaffController extends Controller
         ]);
     }
 
-    public function forceDestroy($id)
+    public function forceDestroy(Request $request, $id)
     {
-        $staff = SupportStaff::onlyTrashed()->findOrFail($id);
+        $staff = SupportStaff::onlyTrashed()->with('user')->findOrFail($id);
+        $before = $this->timelineSnapshot($staff);
+        $staffId = $staff->id;
+        $staffName = $staff->user?->full_name ?? $staff->name;
         $staff->forceDelete();
+        TourActivityLog::record($request->user()?->id, 'force_deleted', $staffName, 'Xóa vĩnh viễn nhân viên hỗ trợ.', 'support_staff', $staffId, ['before' => $before]);
 
         return response()->json([
             'status' => 'success',

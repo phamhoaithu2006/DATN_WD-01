@@ -441,6 +441,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(functi
     Route::get('/customers', [CustomerManagerController::class, 'index']);
     Route::get('/customers/search', [CustomerManagerController::class, 'search']);
     Route::post('/customers', [CustomerManagerController::class, 'store']);
+    Route::get('/customers/admin-timeline', [CustomerManagerController::class, 'adminTimeline']);
     Route::get('/customers/{id}', [CustomerManagerController::class, 'show']);
     Route::put('/customers/{id}', [CustomerManagerController::class, 'update']);
     Route::patch('/customers/{id}/lock', [CustomerManagerController::class, 'lock']);
@@ -454,6 +455,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(functi
     Route::get('guides/filter', [GuideController::class, 'filter']);
     Route::get('guides/statistics', [GuideController::class, 'statistics']);
     Route::get('guides/available-users', [GuideController::class, 'availableUsers']);
+    Route::get('guides/admin-timeline', [GuideController::class, 'adminTimeline']);
     Route::patch('guides/{id}/restore', [GuideController::class, 'restore'])->whereNumber('id');
     Route::delete('guides/{id}/force', [GuideController::class, 'forceDelete'])->whereNumber('id');
     Route::get('guides', [GuideController::class, 'index']);
@@ -495,6 +497,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(functi
     Route::get('/support-staff/statistics', [SupportStaffController::class, 'statistics']);
     Route::get('/support-staff/available-users', [SupportStaffController::class, 'availableUsers']);
     Route::get('/support-staff/trashed', [SupportStaffController::class, 'trashed']);
+    Route::get('/support-staff/admin-timeline', [SupportStaffController::class, 'adminTimeline']);
 
     // Online/offline và lịch sử thao tác NVHT
     Route::get(
@@ -517,11 +520,9 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(functi
     Route::delete('/support-staff/{id}/force-delete', [SupportStaffController::class, 'forceDestroy']);
 
     // Danh mục tỉnh/thành đã đồng bộ và quận/huyện trực thuộc
-    Route::get('guides/province-options', [DestinationController::class, 'options']);
     // Alias cũ cho màn hình hướng dẫn viên trong giai đoạn chuyển đổi.
     Route::get('administrative/provinces', [DestinationController::class, 'provinces']);
     Route::get('administrative/provinces/{province}/districts', [DestinationController::class, 'provinceDistricts']);
-    Route::get('guides/destination-options', [DestinationController::class, 'options']);
     Route::get('destination-places/trashed', [DestinationPlaceController::class, 'trashed']);
     Route::patch('destination-places/{id}/restore', [DestinationPlaceController::class, 'restore'])->whereNumber('id');
     Route::delete('destination-places/{id}/force-delete', [DestinationPlaceController::class, 'forceDestroy'])->whereNumber('id');
@@ -667,6 +668,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(functi
 
     // Gửi thông báo
     Route::get('/notifications/users', [NotificationController::class, 'getUsers']);
+    Route::get('/notifications/admin-timeline', [NotificationController::class, 'adminTimeline']);
     Route::post('/notifications/preview-recipients', [NotificationController::class, 'previewRecipients']);
     Route::post('/notifications/draft', [NotificationController::class, 'saveDraft']);
     Route::get('/notifications/drafts', [NotificationController::class, 'listDrafts']);

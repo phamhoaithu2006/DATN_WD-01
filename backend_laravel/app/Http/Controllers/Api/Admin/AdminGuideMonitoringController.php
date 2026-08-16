@@ -15,10 +15,13 @@ class AdminGuideMonitoringController extends Controller
 {
     private const ONLINE_THRESHOLD_SECONDS = 120;
 
-    public function presenceIndex(): JsonResponse
+    public function presenceIndex(Request $request): JsonResponse
     {
         $map = Guide::query()->withoutTrashed()->whereNotNull('user_id')->pluck('user_id', 'id')
-            ->mapWithKeys(fn ($userId, $guideId) => [(string) $guideId => $this->presence((int) $userId)]);
+            ->mapWithKeys(fn ($userId, $guideId) => [
+                (string) ($request->input('key_by') === 'user_id' ? $userId : $guideId) =>
+                    $this->presence((int) $userId),
+            ]);
 
         return response()->json(['success' => true, 'data' => $map]);
     }

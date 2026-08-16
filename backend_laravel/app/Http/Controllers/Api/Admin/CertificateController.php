@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Certificate;
+use App\Models\TourActivityLog;
 use Illuminate\Http\Request;
 
 class CertificateController extends Controller
@@ -16,8 +17,8 @@ class CertificateController extends Controller
         if ($request->search) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', '%' . $search . '%')
-                    ->orWhere('issued_by', 'like', '%' . $search . '%');
+                $q->where('name', 'like', '%'.$search.'%')
+                    ->orWhere('issued_by', 'like', '%'.$search.'%');
             });
         }
 
@@ -25,7 +26,7 @@ class CertificateController extends Controller
 
         return response()->json([
             'message' => 'Danh sách chứng chỉ',
-            'data'    => $certificates,
+            'data' => $certificates,
         ]);
     }
 
@@ -34,13 +35,13 @@ class CertificateController extends Controller
     {
         $certificate = Certificate::find($id);
 
-        if (!$certificate) {
+        if (! $certificate) {
             return response()->json(['message' => 'Không tìm thấy chứng chỉ'], 404);
         }
 
         return response()->json([
             'message' => 'Chi tiết chứng chỉ',
-            'data'    => $certificate,
+            'data' => $certificate,
         ]);
     }
 
@@ -48,18 +49,22 @@ class CertificateController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'name'      => 'required|string|max:150|unique:certificates,name',
+            'name' => 'required|string|max:150|unique:certificates,name',
             'issued_by' => 'nullable|string|max:150',
         ]);
 
         $certificate = Certificate::create([
-            'name'      => $request->name,
+            'name' => $request->name,
             'issued_by' => $request->issued_by,
+        ]);
+
+        TourActivityLog::record($request->user()?->id, 'created', $certificate->name, 'Thêm chứng chỉ mới.', 'certificate', $certificate->id, [
+            'data' => $certificate->toArray(),
         ]);
 
         return response()->json([
             'message' => 'Thêm chứng chỉ thành công',
-            'data'    => $certificate,
+            'data' => $certificate,
         ], 201);
     }
 
@@ -68,32 +73,38 @@ class CertificateController extends Controller
     {
         $certificate = Certificate::find($id);
 
-        if (!$certificate) {
+        if (! $certificate) {
             return response()->json(['message' => 'Không tìm thấy chứng chỉ'], 404);
         }
 
         $request->validate([
-            'name'      => 'required|string|max:150|unique:certificates,name,' . $id,
+            'name' => 'required|string|max:150|unique:certificates,name,'.$id,
             'issued_by' => 'nullable|string|max:150',
         ]);
 
+        $before = $certificate->toArray();
         $certificate->update([
-            'name'      => $request->name,
+            'name' => $request->name,
             'issued_by' => $request->issued_by,
+        ]);
+
+        TourActivityLog::record($request->user()?->id, 'updated', $certificate->name, 'Cập nhật chứng chỉ.', 'certificate', $certificate->id, [
+            'before' => $before,
+            'after' => $certificate->fresh()->toArray(),
         ]);
 
         return response()->json([
             'message' => 'Cập nhật chứng chỉ thành công',
-            'data'    => $certificate,
+            'data' => $certificate,
         ]);
     }
 
     // XÓA CHỨNG CHỈ
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
         $certificate = Certificate::find($id);
 
-        if (!$certificate) {
+        if (! $certificate) {
             return response()->json(['message' => 'Không tìm thấy chứng chỉ'], 404);
         }
 
@@ -105,7 +116,11 @@ class CertificateController extends Controller
             ], 422);
         }
 
+        $snapshot = $certificate->toArray();
         $certificate->delete();
+        TourActivityLog::record($request->user()?->id, 'deleted', $snapshot['name'], 'Xóa chứng chỉ.', 'certificate', (int) $snapshot['id'], [
+            'data' => $snapshot,
+        ]);
 
         return response()->json(['message' => 'Xóa chứng chỉ thành công']);
     }

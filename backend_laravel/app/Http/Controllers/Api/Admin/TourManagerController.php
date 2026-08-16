@@ -21,7 +21,7 @@ class TourManagerController extends Controller
     public function timeline(Request $request)
     {
         $validated = $request->validate([
-            'entity_type' => ['nullable', Rule::in(['tour', 'category', 'destination', 'destination_place'])],
+            'entity_type' => ['nullable', Rule::in(['tour', 'category', 'destination', 'destination_place', 'language', 'certificate'])],
         ]);
 
         $activities = TourActivityLog::query()
