@@ -267,6 +267,7 @@ class TourResource extends JsonResource
 
             'created_at' => $this->formatDateTime($this->created_at),
             'updated_at' => $this->formatDateTime($this->updated_at),
+            'deleted_at' => $this->formatDateTime($this->deleted_at),
         ];
     }
 

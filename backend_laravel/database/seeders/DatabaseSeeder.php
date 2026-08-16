@@ -10,6 +10,7 @@ use App\Models\DestinationPlace;
 use App\Models\Guide;
 use App\Models\Payment;
 use App\Models\Province;
+use App\Models\Review;
 use App\Models\Role;
 use App\Models\SupportStaff;
 use App\Models\Tour;
@@ -18,6 +19,7 @@ use App\Models\TourGuideAssignment;
 use App\Models\TourImage;
 use App\Models\TourItinerary;
 use App\Models\TourItineraryImage;
+use App\Models\TourReview;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
@@ -27,6 +29,41 @@ use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
+    private const CUSTOMER_NAMES = [
+        'Nguyễn Minh Anh', 'Trần Quốc Bảo', 'Lê Hoàng Duy', 'Phạm Thùy Dương',
+        'Hoàng Gia Hân', 'Vũ Đức Huy', 'Đặng Khánh Linh', 'Bùi Tuấn Kiệt',
+        'Đỗ Ngọc Mai', 'Hồ Quang Minh', 'Ngô Phương Nam', 'Dương Bảo Ngọc',
+        'Lý Thành Phát', 'Phan Yến Nhi', 'Võ Nhật Quang', 'Mai Thu Trang',
+        'Trịnh Hải Yến', 'Cao Anh Tuấn', 'Tạ Mỹ Linh', 'Chu Đức Thành',
+    ];
+
+    private const GUIDE_NAMES = [
+        'Nguyễn Văn Hùng', 'Trần Thị Thanh Hương', 'Lê Quốc Khánh', 'Phạm Minh Tuấn',
+        'Hoàng Ngọc Lan', 'Vũ Thành Công', 'Đặng Thu Hà', 'Bùi Đức Long',
+        'Đỗ Thị Kim Oanh', 'Hồ Anh Khoa', 'Ngô Việt Dũng', 'Dương Thị Hồng Nhung',
+        'Lý Quốc Việt', 'Phan Thanh Tùng', 'Võ Thị Bích Ngọc', 'Mai Đức Thắng',
+        'Trịnh Hoàng Nam', 'Cao Thị Ngọc Hân', 'Tạ Minh Đức', 'Chu Thanh Bình',
+    ];
+
+    private const SUPPORT_STAFF_NAMES = [
+        'Nguyễn Thị Thu Hiền', 'Trần Minh Phương', 'Lê Ngọc Ánh', 'Phạm Quốc Trung',
+        'Hoàng Thị Diệu Linh', 'Vũ Minh Hoàng', 'Đặng Thị Thu Thảo', 'Bùi Quang Vinh',
+        'Đỗ Thị Hạnh Nguyên', 'Hồ Gia Bảo',
+    ];
+
+    private const PARTICIPANT_NAMES = [
+        'Nguyễn Hoàng Phúc', 'Trần Thị Bảo Châu', 'Lê Minh Khang', 'Phạm Ngọc Thảo',
+        'Hoàng Anh Vũ', 'Vũ Thị Khánh Vy', 'Đặng Quốc An', 'Bùi Thanh Tâm',
+        'Đỗ Minh Triết', 'Hồ Thị Tú Anh', 'Ngô Gia Huy', 'Dương Thị Quỳnh Anh',
+        'Lý Tuấn Anh', 'Phan Thị Hải My', 'Võ Minh Nhật', 'Mai Thị Phương Thảo',
+        'Trịnh Đức Anh', 'Cao Thị Thanh Trúc', 'Tạ Quốc Đạt', 'Chu Thị Ngọc Diệp',
+        'Nguyễn Đức Mạnh', 'Trần Thị Hồng Gấm', 'Lê Quốc Huy', 'Phạm Thị Mai Chi',
+        'Hoàng Minh Hiếu', 'Vũ Thị Hà My', 'Đặng Anh Khoa', 'Bùi Thị Như Quỳnh',
+        'Đỗ Thành Đạt', 'Hồ Thị Minh Thư', 'Ngô Quang Hưng', 'Dương Thị Lan Anh',
+        'Lý Minh Quân', 'Phan Thị Thu Uyên', 'Võ Quốc Bảo', 'Mai Thị Thanh Hà',
+        'Trịnh Công Thành', 'Cao Thị Bảo Trâm', 'Tạ Minh Khôi', 'Chu Thị Hải Yến',
+    ];
+
     public function run(): void
     {
         DB::transaction(function (): void {
@@ -54,23 +91,25 @@ class DatabaseSeeder extends Seeder
                 $password
             );
 
-            foreach (range(1, 20) as $number) {
+            foreach (self::CUSTOMER_NAMES as $offset => $fullName) {
+                $number = $offset + 1;
                 $index = str_pad((string) $number, 2, '0', STR_PAD_LEFT);
 
                 $this->upsertUser(
                     $roles['customer']->id,
-                    "Khách hàng {$index}",
+                    $fullName,
                     "customer{$index}@gmail.com",
                     '09100000'.$index,
                     $password
                 );
             }
 
-            foreach (range(1, 10) as $number) {
+            foreach (array_slice(self::GUIDE_NAMES, 0, 10) as $offset => $fullName) {
+                $number = $offset + 1;
                 $index = str_pad((string) $number, 2, '0', STR_PAD_LEFT);
                 $user = $this->upsertUser(
                     $roles['tour guide']->id,
-                    "Hướng dẫn viên {$index}",
+                    $fullName,
                     "guide{$index}@gmail.com",
                     '09200000'.$index,
                     $password
@@ -89,11 +128,12 @@ class DatabaseSeeder extends Seeder
                 );
             }
 
-            foreach (range(1, 10) as $number) {
+            foreach (self::SUPPORT_STAFF_NAMES as $offset => $fullName) {
+                $number = $offset + 1;
                 $index = str_pad((string) $number, 2, '0', STR_PAD_LEFT);
                 $user = $this->upsertUser(
                     $roles['support staff']->id,
-                    "Nhân viên hỗ trợ {$index}",
+                    $fullName,
                     "support{$index}@gmail.com",
                     '09300000'.$index,
                     $password
@@ -233,6 +273,101 @@ class DatabaseSeeder extends Seeder
 
         $this->seedTourDepartures($seededTours, $admin);
         $this->seedTourBookings();
+        $this->seedCompletedBookingReviews();
+    }
+
+    private function seedCompletedBookingReviews(): void
+    {
+        $comments = [
+            'Chuyến đi được tổ chức chu đáo, lịch trình hợp lý và nhiều trải nghiệm đáng nhớ.',
+            'Dịch vụ tốt, các điểm tham quan đẹp và hướng dẫn viên hỗ trợ rất nhiệt tình.',
+            'Gia đình tôi hài lòng với chuyến đi, thời gian di chuyển và nghỉ ngơi được sắp xếp phù hợp.',
+            'Tour đúng với thông tin giới thiệu, nhân viên thân thiện và phục vụ chuyên nghiệp.',
+            'Một hành trình đáng nhớ, tôi sẽ tiếp tục lựa chọn ViVuGo cho những chuyến đi sau.',
+        ];
+
+        $bookings = Booking::query()
+            ->where('status', 'completed')
+            ->whereNotNull('user_id')
+            ->whereNotNull('tour_departure_id')
+            ->whereHas('tourDeparture', function ($query): void {
+                $query->where(function ($departureQuery): void {
+                    $departureQuery
+                        ->where('status', 'completed')
+                        ->orWhereDate(DB::raw('COALESCE(return_date, departure_date)'), '<', today());
+                });
+            })
+            ->with([
+                'tourDeparture.guideAssignments' => fn ($query) => $query
+                    ->whereIn('status', ['assigned', 'confirmed', 'completed'])
+                    ->orderBy('id'),
+            ])
+            ->orderBy('id')
+            ->get()
+            ->unique(fn (Booking $booking): string => $booking->user_id.'-'.$booking->tour_departure_id);
+
+        foreach ($bookings as $booking) {
+            $rating = 4 + (($booking->id + $booking->user_id) % 2);
+            $comment = $comments[$booking->id % count($comments)];
+
+            TourReview::updateOrCreate(
+                [
+                    'user_id' => $booking->user_id,
+                    'tour_departure_id' => $booking->tour_departure_id,
+                ],
+                [
+                    'tour_id' => $booking->tour_id,
+                    'booking_id' => $booking->id,
+                    'rating' => $rating,
+                    'comment' => $comment,
+                    'status' => 'visible',
+                ]
+            );
+
+            foreach ($booking->tourDeparture->guideAssignments as $assignment) {
+                Review::updateOrCreate(
+                    [
+                        'booking_id' => $booking->id,
+                        'guide_id' => $assignment->guide_id,
+                    ],
+                    [
+                        'user_id' => $booking->user_id,
+                        'tour_id' => $booking->tour_id,
+                        'tour_departure_id' => $booking->tour_departure_id,
+                        'rating' => $rating,
+                        'comment' => 'Hướng dẫn viên am hiểu lịch trình, nhiệt tình và hỗ trợ đoàn chu đáo.',
+                        'status' => 'visible',
+                    ]
+                );
+            }
+        }
+
+        $this->refreshSeededReviewRatings();
+    }
+
+    private function refreshSeededReviewRatings(): void
+    {
+        Tour::query()->each(function (Tour $tour): void {
+            $ratings = TourReview::query()
+                ->where('tour_id', $tour->id)
+                ->where('status', 'visible');
+
+            $tour->update([
+                'average_rating' => round((float) $ratings->avg('rating'), 2),
+                'review_count' => $ratings->count(),
+            ]);
+        });
+
+        Guide::query()->each(function (Guide $guide): void {
+            $ratings = Review::query()
+                ->where('guide_id', $guide->id)
+                ->where('status', 'visible');
+
+            $guide->update([
+                'average_rating' => round((float) $ratings->avg('rating'), 2),
+                'review_count' => $ratings->count(),
+            ]);
+        });
     }
 
     /**
@@ -276,7 +411,7 @@ class DatabaseSeeder extends Seeder
             });
 
         $departures = TourDeparture::query()
-            ->whereBetween('departure_date', [today()->toDateString(), today()->endOfMonth()->toDateString()])
+            ->whereBetween('departure_date', [today()->subDays(60)->toDateString(), today()->addDays(35)->toDateString()])
             ->where('status', 'open')
             ->with(['tour.agePricingRules'])
             ->orderBy('departure_date')
@@ -337,7 +472,7 @@ class DatabaseSeeder extends Seeder
                         'unit_price' => $unitPrice,
                         'discount_amount' => 0,
                         'total_amount' => $unitPrice * 5,
-                        'status' => 'confirmed',
+                        'status' => $returnDate->lt(today()) ? 'completed' : 'confirmed',
                         'payment_status' => 'paid',
                         'slot_committed_at' => now(),
                         'note' => 'Booking dữ liệu mẫu được tạo tự động.',
@@ -369,7 +504,10 @@ class DatabaseSeeder extends Seeder
                             'identity_number' => $identityNumber,
                         ],
                         [
-                            'full_name' => "{$customer->full_name} - Thành viên {$participantIndex}",
+                            'full_name' => self::PARTICIPANT_NAMES[
+                                (($booking->id - 1) * 5 + $participantIndex - 1)
+                                % count(self::PARTICIPANT_NAMES)
+                            ],
                             'phone' => null,
                             'phone_normalized' => null,
                             'birth_date' => Carbon::create(1980 + (($booking->id + $participantIndex) % 20), 5, 15)->toDateString(),
@@ -407,9 +545,11 @@ class DatabaseSeeder extends Seeder
                 'total_slots' => max((int) $departure->total_slots, $committedSlots),
                 'booked_slots' => $committedSlots,
                 // Lịch mẫu đã có đủ khách thanh toán nên được chốt để HDV thao tác.
-                'status' => $departureDate->lte(today()) && $returnDate->gte(today())
-                    ? 'in_progress'
-                    : 'confirmed',
+                'status' => $returnDate->lt(today())
+                    ? 'completed'
+                    : ($departureDate->lte(today()) && $returnDate->gte(today())
+                        ? 'in_progress'
+                        : 'confirmed'),
             ]);
         }
     }
@@ -417,10 +557,13 @@ class DatabaseSeeder extends Seeder
     private function createExtraCustomer(int $number, int $roleId): User
     {
         $index = str_pad((string) $number, 7, '0', STR_PAD_LEFT);
+        $fullName = self::PARTICIPANT_NAMES[
+            ($number - 1) % count(self::PARTICIPANT_NAMES)
+        ];
 
         return $this->upsertUser(
             $roleId,
-            "Khách đặt tour bổ sung {$index}",
+            $fullName,
             "booking.customer{$index}@gmail.com",
             '095'.$index,
             Hash::make('password')
@@ -428,33 +571,26 @@ class DatabaseSeeder extends Seeder
     }
 
     /**
-     * Tạo 5 lịch cho mỗi tour, phủ kín mọi ngày từ hôm nay đến cuối tháng
-     * và phân HDV không bị trùng khoảng thời gian dẫn tour.
+     * Tạo 5 lịch cho mỗi tour, gồm lịch đã hoàn thành, đang diễn ra và sắp khởi hành.
+     * HDV được phân công không bị trùng khoảng thời gian dẫn tour.
      *
      * @param  Collection<int, Tour>  $tours
      */
     private function seedTourDepartures(Collection $tours, User $admin): void
     {
-        $startDate = today();
-        $endDate = $startDate->copy()->endOfMonth();
-        $dates = collect();
-
-        for ($date = $startDate->copy(); $date->lte($endDate); $date->addDay()) {
-            $dates->push($date->copy());
-        }
-
-        if ($dates->isEmpty() || $tours->isEmpty()) {
+        if ($tours->isEmpty()) {
             return;
         }
 
         $departurePlans = collect();
+        $dayOffsets = [-45, -25, 0, 10, 20];
 
         foreach ($tours->values() as $tourIndex => $tour) {
             foreach (range(0, 4) as $occurrence) {
                 $sequence = $tourIndex + ($occurrence * $tours->count());
                 $departurePlans->push([
                     'tour' => $tour,
-                    'date' => $dates[$sequence % $dates->count()]->copy(),
+                    'date' => today()->addDays($dayOffsets[$occurrence] + ($tourIndex % 3)),
                     'sequence' => $sequence,
                 ]);
             }
@@ -531,9 +667,12 @@ class DatabaseSeeder extends Seeder
     {
         $index = str_pad((string) $number, 2, '0', STR_PAD_LEFT);
         $roleId = (int) Role::query()->where('name', 'tour guide')->value('id');
+        $fullName = self::GUIDE_NAMES[
+            (10 + $number - 1) % count(self::GUIDE_NAMES)
+        ];
         $user = $this->upsertUser(
             $roleId,
-            "Hướng dẫn viên bổ sung {$index}",
+            $fullName,
             "guide.extra{$index}@gmail.com",
             '09400000'.$index,
             Hash::make('password')

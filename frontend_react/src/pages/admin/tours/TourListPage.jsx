@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import AdminPageHeader from '../../../components/admin/AdminPageHeader'
 import tourApi from '../../../services/toursApi'
+import { tourDepartureApi } from '../../../services/tourDepartureApi'
 
 const getRequestErrorMessage = (error, fallback) => {
   const status = error?.response?.status
@@ -202,8 +203,10 @@ const getTourStatusConfig = (status) => {
 }
 
 function TourListPage() {
+  const navigate = useNavigate()
   const [tours, setTours] = useState([])
   const [pagination, setPagination] = useState({ currentPage: 1, lastPage: 1, total: 0 })
+  const [perPage, setPerPage] = useState(10)
   const [loading, setLoading] = useState(true)
   const [keyword, setKeyword] = useState('')
   const [searchValue, setSearchValue] = useState('')
@@ -214,6 +217,7 @@ function TourListPage() {
   const [isTimelineOpen, setIsTimelineOpen] = useState(false)
   const [timelineLoading, setTimelineLoading] = useState(false)
   const [timelineActivities, setTimelineActivities] = useState([])
+  const [departureBlock, setDepartureBlock] = useState(null)
   const [filters, setFilters] = useState({
     status: '',
     category: '',
@@ -241,7 +245,7 @@ function TourListPage() {
 
       const response = await tourApi.getAll({
         page,
-        per_page: 10,
+        per_page: perPage,
         search: keyword || undefined,
         ...Object.fromEntries(
           Object.entries(appliedFilters).filter(([, value]) => value),
@@ -268,7 +272,7 @@ function TourListPage() {
     } finally {
       setLoading(false)
     }
-  }, [keyword, appliedFilters])
+  }, [keyword, appliedFilters, perPage])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -349,9 +353,32 @@ function TourListPage() {
     destination_place: 'Điểm đến chi tiết',
   }
 
-  const openActionModal = (type, tour) => {
+  const checkTourDepartures = async (type, tour) => {
     setToast(null)
-    setPendingAction({ type, tour })
+    setActionLoading(`check-${type}-${tour.id}`)
+
+    try {
+      const response = await tourDepartureApi.getByTour(tour.id)
+      const departures = Array.isArray(response?.data?.data) ? response.data.data : []
+
+      if (departures.length > 0) {
+        setDepartureBlock({ type, tour, departures })
+        return
+      }
+
+      if (type === 'edit') {
+        navigate(`/admin/tours/${tour.id}/edit`)
+      } else {
+        setPendingAction({ type, tour })
+      }
+    } catch (error) {
+      setToast({
+        type: 'error',
+        message: getRequestErrorMessage(error, 'Không thể kiểm tra lịch khởi hành của tour.'),
+      })
+    } finally {
+      setActionLoading(null)
+    }
   }
 
   const closeActionModal = () => {
@@ -525,6 +552,14 @@ function TourListPage() {
             >
               <EyeOffIcon className="h-4 w-4 text-amber-600" />
               Tour đã ẩn
+            </Link>
+
+            <Link
+              to="/admin/tours/trash"
+              className="inline-flex h-11 items-center gap-2 rounded-xl border border-rose-200 bg-white px-4 text-sm font-semibold text-rose-700 shadow-sm transition hover:bg-rose-50"
+            >
+              <TrashIcon className="h-4 w-4" />
+              Tour đã xóa
             </Link>
 
             <Link
@@ -835,18 +870,20 @@ function TourListPage() {
                             <EyeIcon className="h-4 w-4" />
                           </Link>
 
-                          <Link
-                            to={`/admin/tours/${tour.id}/edit`}
+                          <button
+                            type="button"
+                            onClick={() => void checkTourDepartures('edit', tour)}
+                            disabled={actionLoading === `check-edit-${tour.id}`}
                             className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-sky-50 text-sky-600 transition hover:bg-sky-100"
                             title="Sửa tour"
                           >
                             <EditIcon className="h-4 w-4" />
-                          </Link>
+                          </button>
 
                           <button
                             type="button"
-                            onClick={() => openActionModal('hide', tour)}
-                            disabled={actionLoading === `hide-${tour.id}`}
+                            onClick={() => void checkTourDepartures('hide', tour)}
+                            disabled={actionLoading === `hide-${tour.id}` || actionLoading === `check-hide-${tour.id}`}
                             className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-600 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
                             title="Ẩn tour"
                           >
@@ -855,8 +892,8 @@ function TourListPage() {
 
                           <button
                             type="button"
-                            onClick={() => openActionModal('delete', tour)}
-                            disabled={actionLoading === `delete-${tour.id}`}
+                            onClick={() => void checkTourDepartures('delete', tour)}
+                            disabled={actionLoading === `delete-${tour.id}` || actionLoading === `check-delete-${tour.id}`}
                             className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-rose-50 text-rose-600 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
                             title="Xóa tour"
                           >
@@ -872,39 +909,43 @@ function TourListPage() {
           </table>
         </div>
 
-        {!loading && pagination.lastPage > 1 && (
-          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-5">
-            <p className="text-sm text-slate-500">
-              Trang {pagination.currentPage} / {pagination.lastPage} · {pagination.total} tour
-            </p>
+        {!loading && (
+          <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-5">
+            <label className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+              Số dòng
+              <select value={perPage} onChange={(event) => setPerPage(Number(event.target.value))} className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100" aria-label="Số tour trên mỗi trang">
+                {[10, 20, 30].map((value) => <option key={value} value={value}>{value}</option>)}
+              </select>
+            </label>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 disabled={pagination.currentPage <= 1}
                 onClick={() => fetchTours(pagination.currentPage - 1)}
-                className="h-9 rounded-lg border border-slate-200 px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex h-9 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                Trước
+                ← Trước
               </button>
-              {Array.from({ length: pagination.lastPage }, (_, index) => index + 1)
-                .filter((page) => Math.abs(page - pagination.currentPage) <= 2)
-                .map((page) => (
+              <div className="flex items-center gap-1">
+                {Array.from({ length: pagination.lastPage }, (_, index) => index + 1).map((page) => (
                   <button
                     key={page}
                     type="button"
                     onClick={() => fetchTours(page)}
-                    className={`h-9 min-w-9 rounded-lg px-3 text-sm font-medium transition ${page === pagination.currentPage ? 'bg-sky-500 text-white' : 'border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                    aria-current={page === pagination.currentPage ? 'page' : undefined}
+                    className={page === pagination.currentPage ? 'flex h-9 min-w-9 items-center justify-center rounded-lg bg-sky-600 px-2 text-xs font-extrabold text-white' : 'flex h-9 min-w-9 items-center justify-center rounded-lg border border-slate-200 bg-white px-2 text-xs font-bold text-slate-600 hover:bg-slate-50'}
                   >
                     {page}
                   </button>
                 ))}
+              </div>
               <button
                 type="button"
                 disabled={pagination.currentPage >= pagination.lastPage}
                 onClick={() => fetchTours(pagination.currentPage + 1)}
-                className="h-9 rounded-lg border border-slate-200 px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex h-9 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                Sau
+                Sau →
               </button>
             </div>
           </div>
@@ -1048,6 +1089,82 @@ function TourListPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {departureBlock && (
+        <div
+          className="fixed inset-0 z-[1100] grid place-items-center bg-slate-950/45 p-4"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setDepartureBlock(null)
+          }}
+        >
+          <section className="flex max-h-[86vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-rose-200 bg-white shadow-2xl">
+            <header className="flex items-start justify-between gap-4 border-b border-rose-100 bg-rose-50/70 px-6 py-5">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide text-rose-600">Không thể thực hiện</p>
+                <h2 className="mt-1 text-xl font-bold text-slate-900">
+                  Tour đang có lịch khởi hành
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  Không thể {departureBlock.type === 'edit' ? 'sửa' : departureBlock.type === 'hide' ? 'ẩn' : 'xóa'} tour{' '}
+                  <strong className="text-slate-800">{formatTourTitle(departureBlock.tour?.title || '')}</strong>{' '}
+                  vì đang có {departureBlock.departures.length} lịch khởi hành.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDepartureBlock(null)}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-xl text-slate-500 shadow-sm transition hover:bg-slate-100"
+                aria-label="Đóng danh sách lịch khởi hành"
+              >
+                ×
+              </button>
+            </header>
+
+            <div className="overflow-auto p-6">
+              <div className="overflow-hidden rounded-xl border border-slate-200">
+                <table className="w-full min-w-[720px] text-left text-sm">
+                  <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
+                    <tr>
+                      <th className="px-4 py-3">STT</th>
+                      <th className="px-4 py-3">Ngày khởi hành</th>
+                      <th className="px-4 py-3">Ngày về</th>
+                      <th className="px-4 py-3">Số chỗ</th>
+                      <th className="px-4 py-3">Đã đặt</th>
+                      <th className="px-4 py-3">Trạng thái</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {departureBlock.departures.map((departure, index) => (
+                      <tr key={departure.id} className="bg-white">
+                        <td className="px-4 py-3 font-medium text-slate-500">{index + 1}</td>
+                        <td className="px-4 py-3 font-semibold text-slate-800">{departure.departure_date || '-'}</td>
+                        <td className="px-4 py-3 text-slate-600">{departure.return_date || '-'}</td>
+                        <td className="px-4 py-3 text-slate-600">{departure.total_slots ?? '-'}</td>
+                        <td className="px-4 py-3 text-slate-600">{departure.booked_slots ?? 0}</td>
+                        <td className="px-4 py-3">
+                          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
+                            {departure.status_label || departure.status || '-'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <footer className="flex justify-end border-t border-slate-100 px-6 py-4">
+              <button
+                type="button"
+                onClick={() => setDepartureBlock(null)}
+                className="h-10 rounded-lg bg-slate-800 px-5 text-sm font-semibold text-white hover:bg-slate-900"
+              >
+                Đóng
+              </button>
+            </footer>
+          </section>
         </div>
       )}
 

@@ -481,7 +481,7 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
   const basePrice = Number(tour.price?.discount || tour.price?.base || 0);
   const displayBasePrice = currency === "VND" && basePrice > 0 && basePrice < 100000 ? basePrice * 25000 : basePrice;
   const departures = Array.isArray(tour.departures) ? tour.departures : [];
-  const firstOpenDeparture = departures.find((departure) => ["open", "confirmed"].includes(departure.status) && Number(departure.available_slots) > 0);
+  const firstOpenDeparture = departures.find((departure) => departure.status === "open" && Number(departure.available_slots) > 0);
   const effectiveSelectedDepartureId = selectedDepartureId || (firstOpenDeparture ? String(firstOpenDeparture.id) : "");
   const selectedDeparture = departures.find((departure) => String(departure.id) === String(effectiveSelectedDepartureId)) || null;
   const adultPrice = Number(selectedDeparture?.price || displayBasePrice || 0);
@@ -953,7 +953,7 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
         return;
       }
 
-      if (selectedDeparture.status && !["open", "confirmed"].includes(selectedDeparture.status)) {
+      if (selectedDeparture.status && selectedDeparture.status !== "open") {
         notifyValidationError("Lịch khởi hành này hiện không còn nhận đặt chỗ.");
         return;
       }

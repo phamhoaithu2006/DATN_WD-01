@@ -173,6 +173,32 @@ test('admin can create tour without duration_nights and backend calculates it', 
     ]);
 });
 
+test('admin can create tours with the same title and receives unique slugs', function () {
+    $admin = createAdminUser();
+    Sanctum::actingAs($admin);
+
+    $payload = [
+        'category_id' => 1,
+        'province_id' => 1,
+        'title' => 'Tour Da Nang 3 ngay 2 dem',
+        'duration_days' => 3,
+        'base_price' => 1800000,
+        'max_slots' => 20,
+        'status' => 'draft',
+    ];
+
+    $this->postJson('/api/admin/tours', $payload)
+        ->assertCreated()
+        ->assertJsonPath('data.slug', 'tour-da-nang-3-ngay-2-dem');
+
+    $this->postJson('/api/admin/tours', $payload)
+        ->assertCreated()
+        ->assertJsonPath('data.title', $payload['title'])
+        ->assertJsonPath('data.slug', 'tour-da-nang-3-ngay-2-dem-2');
+
+    expect(Tour::query()->where('title', $payload['title'])->count())->toBe(2);
+});
+
 test('admin can create departure with valid data', function () {
     $admin = createAdminUser();
     Sanctum::actingAs($admin);

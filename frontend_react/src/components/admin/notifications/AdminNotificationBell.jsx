@@ -475,7 +475,7 @@ async function goToGuideReplacementRequest(notification) {
   if (requestId) params.set('replacementRequestId', requestId)
 
   setOpen(false)
-  navigate(`/admin/tour-departures?${params.toString()}`)
+  navigate(`/admin/tour-departures/guide-replacement-requests?${params.toString()}`)
 }
 
 async function goToGuideLeaveRequest(notification) {

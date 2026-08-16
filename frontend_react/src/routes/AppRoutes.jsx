@@ -34,12 +34,14 @@ const SystemSettingsPage = lazy(() => import('../pages/admin/settings/SystemSett
 const TourCreatePage = lazy(() => import('../pages/admin/tours/TourCreatePage'))
 const TourEditPage = lazy(() => import('../pages/admin/tours/TourEditPage'))
 const TourHiddenPage = lazy(() => import('../pages/admin/tours/TourHiddenPage'))
+const TourTrashPage = lazy(() => import('../pages/admin/tours/TourTrashPage'))
 const TourListPage = lazy(() => import('../pages/admin/tours/TourListPage'))
 const TourDetailPage = lazy(() => import('../pages/admin/tours/TourDetailPage'))
 const ReportStatisticsPage = lazy(() => import('../pages/admin/reportStatistics/ReportStatisticsPage'))
 const TourDepartureListPage = lazy(() => import('../pages/admin/tourDepartures/TourDepartureListPage'))
 const TourDepartureCreatePage = lazy(() => import('../pages/admin/tourDepartures/TourDepartureCreatePage'))
 const TourDepartureEditPage = lazy(() => import('../pages/admin/tourDepartures/TourDepartureEditPage'))
+const GuideReplacementRequestsPage = lazy(() => import('../pages/admin/tourDepartures/GuideReplacementRequestsPage'))
 const AdminNotificationsPage = lazy(() => import('../pages/admin/Notifications/AdminNotificationsPage'))
 const AdminReceivedNotificationsPage = lazy(() => import('../pages/admin/AdminReceivedNotificationsPage'))
 const LanguageManagementPage = lazy(() => import('../pages/admin/language/LanguageManagementPage'))
@@ -550,6 +552,13 @@ function AppRoutes() {
       />
 
       <Route
+        path="/admin/tours/trash"
+        element={adminPage(
+          <TourTrashPage />,
+        )}
+      />
+
+      <Route
         path="/admin/tours/:id"
         element={adminPage(
           <TourDetailPage />,
@@ -572,6 +581,13 @@ function AppRoutes() {
         path="/admin/tour-departures"
         element={adminPage(
           <TourDepartureListPage />,
+        )}
+      />
+
+      <Route
+        path="/admin/tour-departures/guide-replacement-requests"
+        element={adminPage(
+          <GuideReplacementRequestsPage />,
         )}
       />
 

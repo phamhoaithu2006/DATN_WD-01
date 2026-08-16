@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import Select from 'react-select'
 import { toast } from 'sonner'
 import { tourDepartureApi } from '../../../services/tourDepartureApi'
@@ -9,8 +9,10 @@ import { GuideAssignmentPanel } from './GuideAssignmentPage.jsx'
 import TourDepartureBookingModal from '../../../components/admin/tourDepartures/TourDepartureBookingModal.jsx'
 import { confirmAction } from '../../../components/common/AppConfirmDialog.jsx'
 import AdminGuideReplacementRequestsPanel from '../../../components/admin/guides/AdminGuideReplacementRequestsPanel.jsx'
+import AdminPageHeader from '../../../components/admin/AdminPageHeader.jsx'
 import TourDepartureEditPage from './TourDepartureEditPage.jsx'
-import { TourDetailCard } from './TourDepartureCreatePage.jsx'
+import TourDepartureCreatePage, { TourDetailCard } from './TourDepartureCreatePage.jsx'
+import PendingGuideSelectionPanel from '../../../components/admin/tourDepartures/PendingGuideSelectionPanel.jsx'
 import '../../../styles/support-staff.css'
 
 function getArrayFromResponse(res) {
@@ -324,6 +326,12 @@ export default function TourDepartureListPage() {
   const [activeTab, setActiveTab] = useState('departures')
   const [scheduleFilter, setScheduleFilter] = useState('upcoming')
   const [focusedDepartureId, setFocusedDepartureId] = useState(null)
+  const [workspaceMode, setWorkspaceMode] = useState('list')
+  const [pendingGuideId, setPendingGuideId] = useState('')
+  const [pendingDepartureDraft, setPendingDepartureDraft] = useState({
+    departureDate: '',
+    returnDate: '',
+  })
 
   /*
    * NEW chỉ tồn tại trong phiên render hiện tại.
@@ -1131,37 +1139,19 @@ export default function TourDepartureListPage() {
 
   return (
     <div className="p-6">
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-900">
-            Quản lý lịch khởi hành
-          </h1>
+      <AdminPageHeader
+        breadcrumb={['ViVuGo', 'Lịch Khởi Hành', 'Quản lý lịch khởi hành']}
+        title="Quản lý lịch khởi hành"
+        description="Phân loại lịch sắp tới, lịch đã qua và phân công hướng dẫn viên."
+      />
 
-          <p className="mt-1 text-sm text-slate-500">
-            Phân loại lịch sắp tới, lịch đã qua và phân công hướng dẫn viên.
-          </p>
-        </div>
+      <div className="mb-6 flex justify-end">
 
         <div className="flex shrink-0 items-center gap-2">
           <button
-            type="button"
-            onClick={() => setReplacementPanelOpen(true)}
-            className="relative inline-flex h-10 items-center justify-center rounded-lg border border-orange-200 bg-orange-50 px-4 text-sm font-bold text-orange-700 shadow-sm transition hover:bg-orange-100"
-          >
-            Đơn đổi HDV
-            {replacementRequests.length > 0 ? (
-              <span className="ml-2 rounded-full bg-orange-600 px-1.5 py-0.5 text-[11px] font-black text-white">
-                {replacementRequests.length > 99 ? '99+' : replacementRequests.length}
-              </span>
-            ) : null}
-          </button>
-
-          <Link
-          to={`/admin/tour-departures/create?tourId=${selectedTourId}`}
-          onClick={(event) => {
-            if (!validateBeforeCreateDeparture()) {
-              event.preventDefault()
-            }
+          type="button"
+          onClick={() => {
+            if (validateBeforeCreateDeparture()) setWorkspaceMode('create')
           }}
           aria-disabled={!selectedTourId}
           title={
@@ -1176,7 +1166,7 @@ export default function TourDepartureListPage() {
           }`}
         >
           + Thêm lịch khởi hành
-          </Link>
+          </button>
         </div>
       </div>
 
@@ -1438,32 +1428,126 @@ export default function TourDepartureListPage() {
         </section>
       ) : null}
 
-      <TourDepartureTable
-        departures={departures}
-        loading={loading}
-        selectedTourId={selectedTourId}
-        activeTab={activeTab}
-        scheduleFilter={scheduleFilter}
-        onChangeTab={handleChangeTab}
-        onChangeScheduleFilter={setScheduleFilter}
-        onDelete={handleDelete}
-        onCancel={handleCancelDeparture}
-        onOpenAssignment={openGuideAssignment}
-        onRequestEdit={requestEdit}
-        onViewDetails={openDepartureDetail}
-        assignmentWarningCount={assignmentWarningCount}
-        newDepartureIds={newDepartureIds}
-        newAssignmentDepartureIds={newAssignmentDepartureIds}
-        guideContent={
-          <GuideAssignmentPanel
-            embedded
-            selectedTourId={selectedTourId}
-            focusedDepartureId={focusedDepartureId}
-            onClearFocus={() => setFocusedDepartureId(null)}
-            onAssigned={handleAssigned}
-          />
-        }
-      />
+      {workspaceMode === 'list' ? (
+        <TourDepartureTable
+          departures={departures}
+          loading={loading}
+          selectedTourId={selectedTourId}
+          activeTab={activeTab}
+          scheduleFilter={scheduleFilter}
+          onChangeTab={handleChangeTab}
+          onChangeScheduleFilter={setScheduleFilter}
+          onDelete={handleDelete}
+          onCancel={handleCancelDeparture}
+          onOpenAssignment={openGuideAssignment}
+          onRequestEdit={requestEdit}
+          onViewDetails={openDepartureDetail}
+          assignmentWarningCount={assignmentWarningCount}
+          newDepartureIds={newDepartureIds}
+          newAssignmentDepartureIds={newAssignmentDepartureIds}
+          guideContent={
+            <GuideAssignmentPanel
+              embedded
+              selectedTourId={selectedTourId}
+              focusedDepartureId={focusedDepartureId}
+              onClearFocus={() => setFocusedDepartureId(null)}
+              onAssigned={handleAssigned}
+            />
+          }
+        />
+      ) : (
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-5">
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setWorkspaceMode('create')}
+                className={`border-b-2 px-4 py-4 text-sm font-bold transition ${workspaceMode === 'create' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-900'}`}
+              >
+                Thêm lịch khởi hành
+              </button>
+              <button
+                type="button"
+                onClick={() => setWorkspaceMode('assignment')}
+                className={`border-b-2 px-4 py-4 text-sm font-bold transition ${workspaceMode === 'assignment' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-900'}`}
+              >
+                Phân công HDV
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setWorkspaceMode('list')
+                setFocusedDepartureId(null)
+              }}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50"
+            >
+              Danh sách lịch
+            </button>
+          </div>
+
+          <div className="p-5">
+            <div className={workspaceMode === 'create' ? '' : 'hidden'}>
+              <TourDepartureCreatePage
+                embedded
+                hideActions
+                formId="inline-tour-departure-create-form"
+                initialTourId={selectedTourId}
+                selectedGuideId={pendingGuideId}
+                onDraftChange={setPendingDepartureDraft}
+                onCancel={() => setWorkspaceMode('list')}
+                onCreated={async ({ departure, assigned }) => {
+                  if (departure?.id) {
+                    setNewDepartureIds((current) => new Set(current).add(String(departure.id)))
+                    if (assigned) {
+                      setNewAssignmentDepartureIds((current) => new Set(current).add(String(departure.id)))
+                    }
+                  }
+                  await fetchDepartures(selectedTourId)
+                  toast.success(
+                    assigned
+                      ? 'Đã tạo lịch khởi hành và phân công HDV.'
+                      : 'Đã tạo lịch khởi hành. Hãy chọn HDV phù hợp.'
+                  )
+                  setPendingGuideId('')
+                  setWorkspaceMode('list')
+                }}
+              />
+            </div>
+
+            <div className={workspaceMode === 'assignment' ? '' : 'hidden'}>
+              <PendingGuideSelectionPanel
+                value={pendingGuideId}
+                onChange={setPendingGuideId}
+                departureDate={pendingDepartureDraft.departureDate}
+                returnDate={pendingDepartureDraft.returnDate}
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 border-t border-slate-200 bg-white px-5 py-4">
+            <button
+              type="button"
+              onClick={() => {
+                setWorkspaceMode('list')
+                setFocusedDepartureId(null)
+              }}
+              className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+            >
+              Hủy
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                document.getElementById('inline-tour-departure-create-form')?.requestSubmit()
+              }}
+              className="inline-flex h-10 items-center justify-center rounded-lg bg-blue-600 px-5 text-sm font-medium text-white transition hover:bg-blue-700"
+            >
+              Thêm mới
+            </button>
+          </div>
+        </section>
+      )}
 
       {replacementPanelOpen ? (
         <div
@@ -1486,7 +1570,7 @@ export default function TourDepartureListPage() {
         </div>
       ) : null}
 
-      {focusedDepartureId ? (
+      {focusedDepartureId && workspaceMode !== 'assignment' ? (
         <div
           className="fixed inset-y-0 right-0 z-[70] flex items-start justify-center bg-slate-950/45 px-5 py-8 backdrop-blur-sm md:left-[280px]"
           onMouseDown={(event) => {

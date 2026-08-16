@@ -262,6 +262,9 @@ export default function TourDepartureForm({
   hideActions = false,
   disabled = false,
   fieldErrors = {},
+  guideAssignmentMode,
+  onGuideAssignmentModeChange,
+  formId,
 }) {
   const durationDays = getDurationDays(tour)
   const durationNights = getDurationNights(tour)
@@ -415,10 +418,8 @@ export default function TourDepartureForm({
               disabled={disabled}
               className={getSelectClass(getError('status'))}
             >
-              <option value="open">Sắp tới</option>
-              <option value="closed">Đang diễn ra</option>
-              <option value="completed">Đã hoàn thành</option>
-              <option value="cancelled">Đã hủy</option>
+              <option value="open">Mở</option>
+              <option value="closed">Đóng</option>
             </select>
 
             <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
@@ -427,6 +428,26 @@ export default function TourDepartureForm({
           </div>
           <FieldError message={getError('status')} />
         </div>
+
+        {onGuideAssignmentModeChange ? (
+          <div className="md:col-span-2">
+            <label className="mb-1.5 block text-sm font-medium text-slate-700">
+              Phân công hướng dẫn viên
+            </label>
+            <select
+              value={guideAssignmentMode || 'none'}
+              onChange={(event) => onGuideAssignmentModeChange(event.target.value)}
+              disabled={disabled}
+              className={getSelectClass('')}
+            >
+              <option value="none">Để trống, phân công sau</option>
+              <option value="auto">Tự động phân công HDV phù hợp sau khi tạo lịch</option>
+            </select>
+            <p className="mt-1 text-xs text-slate-500">
+              Có thể bỏ qua và phân công thủ công trong tab Phân công HDV.
+            </p>
+          </div>
+        ) : null}
       </div>
 
       <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
@@ -473,6 +494,7 @@ export default function TourDepartureForm({
 
   return (
     <form
+      id={formId}
       onSubmit={onSubmit}
       noValidate
       className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"

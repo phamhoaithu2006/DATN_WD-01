@@ -542,6 +542,8 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(functi
     Route::prefix('tours')->group(function () {
         Route::get('/', [TourManagerController::class, 'index']);
         Route::get('/hidden-list', [TourManagerController::class, 'hiddenTours']);
+        Route::get('/trashed-list', [TourManagerController::class, 'trashedTours']);
+        Route::get('/trashed/{id}', [TourManagerController::class, 'showTrashed'])->whereNumber('id');
         Route::get('/statistics', [TourManagerController::class, 'statistics']);
         Route::get('/timeline', [TourManagerController::class, 'timeline']);
 
@@ -614,6 +616,9 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(functi
             TourManagerController::class,
             'unhide',
         ]);
+
+        Route::patch('/{id}/restore', [TourManagerController::class, 'restore'])->whereNumber('id');
+        Route::delete('/{id}/force', [TourManagerController::class, 'forceDelete'])->whereNumber('id');
     });
 
     // Cài đặt hệ thống
@@ -685,6 +690,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(functi
     Route::get('tour-departures/{tourDeparture}/booked-customers', [AdminTourDepartureBookingController::class, 'index']);
     Route::prefix('tour-departures')->group(function () {
         Route::get('guide-planning', [TourDepartureGuideAssignmentController::class, 'planning']);
+        Route::get('preview-guide-candidates', [TourDepartureGuideAssignmentController::class, 'previewCandidates']);
         Route::get('{departure}/guide-candidates', [TourDepartureGuideAssignmentController::class, 'candidates']);
         Route::post('{departure}/auto-assign-guide', [TourDepartureGuideAssignmentController::class, 'autoAssign']);
         Route::post('{departure}/assign-guide', [TourDepartureGuideAssignmentController::class, 'assign']);

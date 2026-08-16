@@ -820,7 +820,7 @@ class CustomerBookingController extends Controller
 
             if (in_array($data['resolution'], ['change_departure_date', 'change_tour'], true)) {
                 $target = TourDeparture::query()->lockForUpdate()->findOrFail($data['tour_departure_id']);
-                if (! in_array($target->status, ['open', 'confirmed'], true) || $target->total_slots - $target->booked_slots < $source->number_of_people) {
+                if ($target->status !== 'open' || $target->total_slots - $target->booked_slots < $source->number_of_people) {
                     return ['error' => 'Lịch khởi hành mới không còn mở hoặc không đủ chỗ.'];
                 }
 
@@ -898,7 +898,7 @@ class CustomerBookingController extends Controller
             ]);
         }
 
-        if (! in_array($departure->status, ['open', 'confirmed'], true)) {
+        if ($departure->status !== 'open') {
             throw ValidationException::withMessages([
                 'tour_departure_id' => ['Lịch khởi hành hiện không mở để đặt.'],
             ]);

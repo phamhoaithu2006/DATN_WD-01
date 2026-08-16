@@ -14,6 +14,27 @@ const API_BASE_URL = (
 
 const API_ORIGIN = API_BASE_URL.replace(/\/api$/, '')
 
+const tourFormDraftCache = new Map()
+
+const readTourFormDraft = (storageKey) => {
+  if (!storageKey) return null
+  if (tourFormDraftCache.has(storageKey)) return tourFormDraftCache.get(storageKey)
+
+  try {
+    const savedDraft = JSON.parse(window.localStorage.getItem(storageKey) || 'null')
+    if (savedDraft) tourFormDraftCache.set(storageKey, savedDraft)
+    return savedDraft
+  } catch {
+    return null
+  }
+}
+
+const clearTourFormDraft = (storageKey) => {
+  if (!storageKey) return
+  tourFormDraftCache.delete(storageKey)
+  window.localStorage.removeItem(storageKey)
+}
+
 const normalizeImageUrl = (url) => {
   if (!url) return ''
 
@@ -1085,36 +1106,50 @@ const validateAgePricingRules = (rules = []) => {
 }
 
 const validateItinerary = (itinerary = [], durationDays = 1, strict = false) => {
-  if (!Array.isArray(itinerary)) return ''
+  const errors = {}
+  if (!Array.isArray(itinerary)) return errors
 
   const maxDay = Number(durationDays)
 
   if (strict && itinerary.length === 0) {
-    return 'Vui lòng thêm ít nhất 1 chặng trong lịch trình trước khi hiển thị tour.'
+    errors.itinerary = 'Vui lòng thêm ít nhất 1 chặng trong lịch trình trước khi hiển thị tour.'
+    return errors
+  }
+
+  if (strict && Number.isInteger(maxDay) && maxDay > 0) {
+    const missingDay = Array.from({ length: maxDay }, (_, index) => index + 1)
+      .find((day) => !itinerary.some((step) => Number(step.day_number) === day))
+
+    if (missingDay) {
+      errors.itinerary = `Vui lòng thêm ít nhất 1 chặng cho ngày ${missingDay}.`
+    }
   }
 
   for (let index = 0; index < itinerary.length; index += 1) {
     const step = itinerary[index] || {}
     const dayNumber = Number(step.day_number || 0)
     const title = String(step.title || '').trim()
-    const imageError = (step.images || []).some(
-      (image) => !isValidImageUrlOrPath(image.image_url),
-    )
 
     if (!Number.isInteger(dayNumber) || dayNumber < 1 || dayNumber > maxDay) {
-      return `Chặng #${index + 1} có ngày không hợp lệ.`
+      errors[`itinerary.${index}.day_number`] = `Chặng #${index + 1} có ngày không hợp lệ.`
+    }
+
+    if (strict && !step.province_id) {
+      errors[`itinerary.${index}.province_id`] = 'Vui lòng chọn tỉnh/thành phố.'
     }
 
     if (strict && !title) {
-      return `Vui lòng nhập tiêu đề cho chặng #${index + 1}.`
+      errors[`itinerary.${index}.title`] = 'Vui lòng nhập tiêu đề chặng.'
     }
 
-    if (imageError) {
-      return `Link ảnh ở chặng #${index + 1} không hợp lệ.`
-    }
+    ;(step.images || []).forEach((image, imageIndex) => {
+      if (!isValidImageUrlOrPath(image.image_url)) {
+        errors[`itinerary.${index}.images.${imageIndex}.image_url`] = 'Link ảnh không hợp lệ.'
+      }
+    })
   }
 
-  return ''
+  return errors
 }
 
 const validateTourForm = ({
@@ -1199,14 +1234,12 @@ const validateTourForm = ({
   const agePricingErrors = validateAgePricingRules(formData.age_pricing_rules)
   Object.assign(errors, agePricingErrors)
 
-  const itineraryError = validateItinerary(
+  const itineraryErrors = validateItinerary(
     formData.itinerary,
     durationDays,
     isStrictSubmit,
   )
-  if (itineraryError) {
-    errors.itinerary = itineraryError
-  }
+  Object.assign(errors, itineraryErrors)
 
   if (isStrictSubmit && !thumbnailImage && !thumbnailPreview) {
     errors.thumbnail_image = 'Vui lòng chọn ảnh đại diện trước khi hiển thị tour.'
@@ -1454,6 +1487,8 @@ function FieldLabel({ children, required = false }) {
 function TourForm({
   initialData = null,
   onSubmit,
+  onCancel,
+  draftStorageKey = '',
   submitting = false,
   submitText = 'Lưu tour',
   errors: serverErrors = {},
@@ -1469,8 +1504,9 @@ function TourForm({
   )
   const lastAppliedInitialDataKeyRef = useRef(null)
 
+  const [savedDraft] = useState(() => readTourFormDraft(draftStorageKey))
   const [formData, setFormData] = useState(() =>
-    getInitialFormData(resolvedInitialData),
+    savedDraft?.formData || getInitialFormData(resolvedInitialData),
   )
 
   const [categories, setCategories] = useState([])
@@ -1481,13 +1517,17 @@ function TourForm({
   const [loadingProvinceCounts, setLoadingProvinceCounts] = useState([])
   const [loadingOptions, setLoadingOptions] = useState(false)
   const [optionError, setOptionError] = useState('')
-  const [thumbnailImage, setThumbnailImage] = useState(null)
-  const [thumbnailPreview, setThumbnailPreview] = useState(() =>
-    getInitialThumbnailPreview(resolvedInitialData),
+  const [thumbnailImage, setThumbnailImage] = useState(
+    () => savedDraft?.thumbnailImage || null,
   )
-  const [galleryImages, setGalleryImages] = useState([])
+  const [thumbnailPreview, setThumbnailPreview] = useState(() =>
+    savedDraft?.thumbnailPreview || getInitialThumbnailPreview(resolvedInitialData),
+  )
+  const [galleryImages, setGalleryImages] = useState(
+    () => savedDraft?.galleryImages || [],
+  )
   const [galleryPreviews, setGalleryPreviews] = useState(() =>
-    getInitialImagePreviews(resolvedInitialData),
+    savedDraft?.galleryPreviews || getInitialImagePreviews(resolvedInitialData),
   )
   const [clientErrors, setClientErrors] = useState({})
 
@@ -1500,6 +1540,9 @@ function TourForm({
   }
 
   const hasError = (field) => Boolean(getErrorMessage(field))
+  const hasErrorPrefix = (prefix) => Object.keys(allErrors).some(
+    (field) => field === prefix || field.startsWith(`${prefix}.`),
+  )
 
   const clearFieldError = (field) => {
     setClientErrors((current) => {
@@ -1528,13 +1571,32 @@ function TourForm({
 
     // Khi bấm Sửa: đổ toàn bộ tour vào form.
     // Khi chuyển sang Thêm (initialData null/{}): reset về form trống.
-    setFormData(getInitialFormData(resolvedInitialData))
-    setThumbnailImage(null)
-    setThumbnailPreview(getInitialThumbnailPreview(resolvedInitialData))
-    setGalleryImages([])
-    setGalleryPreviews(getInitialImagePreviews(resolvedInitialData))
+    setFormData(savedDraft?.formData || getInitialFormData(resolvedInitialData))
+    setThumbnailImage(savedDraft?.thumbnailImage || null)
+    setThumbnailPreview(savedDraft?.thumbnailPreview || getInitialThumbnailPreview(resolvedInitialData))
+    setGalleryImages(savedDraft?.galleryImages || [])
+    setGalleryPreviews(savedDraft?.galleryPreviews || getInitialImagePreviews(resolvedInitialData))
     setClientErrors({})
-  }, [initialDataKey, resolvedInitialData])
+  }, [initialDataKey, resolvedInitialData, savedDraft])
+
+  useEffect(() => {
+    if (!draftStorageKey) return
+
+    const draft = {
+      formData,
+      thumbnailImage,
+      thumbnailPreview,
+      galleryImages,
+      galleryPreviews,
+    }
+    tourFormDraftCache.set(draftStorageKey, draft)
+
+    try {
+      window.localStorage.setItem(draftStorageKey, JSON.stringify({ formData }))
+    } catch {
+      // Dữ liệu vẫn được giữ trong bộ nhớ của phiên hiện tại.
+    }
+  }, [draftStorageKey, formData, galleryImages, galleryPreviews, thumbnailImage, thumbnailPreview])
 
   useEffect(() => {
     if (categories.length === 0 && provinces.length === 0) return
@@ -1997,6 +2059,7 @@ function TourForm({
   }
 
   const handleUpdateStep = (indexToUpdate, field, value) => {
+    clearFieldError(`itinerary.${indexToUpdate}.${field}`)
     const nextItinerary = formData.itinerary.map((step, idx) => {
       if (idx === indexToUpdate) {
         return { ...step, [field]: value }
@@ -2026,6 +2089,7 @@ function TourForm({
   }
 
   const handleItineraryProvinceChange = (indexToUpdate, provinceId) => {
+    clearFieldError(`itinerary.${indexToUpdate}.province_id`)
     const nextItinerary = formData.itinerary.map((step, idx) => idx === indexToUpdate
       ? {
           ...step,
@@ -2068,6 +2132,7 @@ function TourForm({
   }
 
   const handleUpdateStepImage = (stepIndex, imageIndex, field, value) => {
+    clearFieldError(`itinerary.${stepIndex}.images.${imageIndex}.${field}`)
     const nextItinerary = formData.itinerary.map((step, idx) => {
       if (idx === stepIndex) {
         const nextImages = (step.images || []).map((img, imgIdx) => {
@@ -2110,11 +2175,14 @@ function TourForm({
     })
   }
 
-  const submitForm = (statusOverride) => {
+  const submitForm = async (statusOverride) => {
     const submitStatus = statusOverride || formData.status || 'published'
+    const effectiveProvinceId = formData.itinerary.find((step) => step.province_id)?.province_id
+      || formData.province_id
+    const effectiveFormData = { ...formData, province_id: effectiveProvinceId }
 
     const validationErrors = validateTourForm({
-      formData,
+      formData: effectiveFormData,
       thumbnailImage,
       thumbnailPreview,
       galleryImages,
@@ -2141,7 +2209,7 @@ function TourForm({
     const payload = new FormData()
 
     payload.append('category_id', formData.category_id)
-    payload.append('province_id', formData.province_id)
+    payload.append('province_id', effectiveProvinceId)
     payload.append('title', formData.title.trim())
     payload.append('summary', formData.summary || '')
     payload.append('description', formData.description || '')
@@ -2175,7 +2243,8 @@ function TourForm({
       formData.thumbnail_alt_text || formData.title.trim() || 'Ảnh tour',
     )
 
-    onSubmit(payload)
+    const wasCreated = await onSubmit(payload)
+    if (wasCreated === true) clearTourFormDraft(draftStorageKey)
   }
 
   const handleSubmit = (e) => {
@@ -2183,19 +2252,20 @@ function TourForm({
     submitForm()
   }
 
-  const handleSaveDraft = () => {
-    submitForm('draft')
+  const handleCancel = () => {
+    clearTourFormDraft(draftStorageKey)
+    setFormData(getInitialFormData(resolvedInitialData))
+    setThumbnailImage(null)
+    setThumbnailPreview(getInitialThumbnailPreview(resolvedInitialData))
+    setGalleryImages([])
+    setGalleryPreviews(getInitialImagePreviews(resolvedInitialData))
+    setClientErrors({})
+    onCancel?.()
   }
 
   const currentCategoryMissing =
     formData.category_id &&
     !categories.some((item) => String(getOptionId(item)) === String(formData.category_id))
-
-  const currentProvinceMissing =
-    formData.province_id &&
-    !provinces.some(
-      (item) => String(getOptionId(item)) === String(formData.province_id),
-    )
 
   const selectedCategory =
     categories.find((item) => String(getOptionId(item)) === String(formData.category_id)) ||
@@ -2479,11 +2549,16 @@ function TourForm({
                             (option) => option.value === stepProvinceId,
                           ) || null
                           const provinceCountsLoading = loadingProvinceCounts.includes(currentType)
+                          const stepErrorPrefix = `itinerary.${originalIdx}`
+                          const provinceErrorKey = `${stepErrorPrefix}.province_id`
+                          const titleErrorKey = `${stepErrorPrefix}.title`
+                          const stepHasError = hasErrorPrefix(stepErrorPrefix)
 
                           return (
                             <div
                               key={stepIdx}
-                              className="rounded-xl border border-slate-200 bg-white p-4 shadow-[0_2px_12px_rgba(15,23,42,0.03)] transition hover:border-slate-300"
+                              className={`rounded-xl border bg-white p-4 shadow-[0_2px_12px_rgba(15,23,42,0.03)] transition ${stepHasError ? 'border-rose-400 ring-2 ring-rose-100' : 'border-slate-200 hover:border-slate-300'}`}
+                              data-invalid={stepHasError}
                             >
                               <div className="mb-3 flex items-center justify-between border-b border-slate-100 pb-3">
                                 <div className="flex items-center gap-2">
@@ -2522,7 +2597,7 @@ function TourForm({
                                 </div>
 
                                 <div>
-                                  <FieldLabel>Tỉnh / Thành phố</FieldLabel>
+                                  <FieldLabel required>Tỉnh / Thành phố</FieldLabel>
                                   <Select
                                     inputId={`itinerary-province-${originalIdx}`}
                                     value={selectedProvinceOption}
@@ -2557,8 +2632,8 @@ function TourForm({
                                         ...baseStyles,
                                         minHeight: '2.5rem',
                                         borderRadius: '0.75rem',
-                                        borderColor: state.isFocused ? '#3b82f6' : '#e2e8f0',
-                                        boxShadow: state.isFocused ? '0 0 0 3px #dbeafe' : 'none',
+                                        borderColor: hasError(provinceErrorKey) ? '#f43f5e' : state.isFocused ? '#3b82f6' : '#e2e8f0',
+                                        boxShadow: hasError(provinceErrorKey) ? '0 0 0 3px #ffe4e6' : state.isFocused ? '0 0 0 3px #dbeafe' : 'none',
                                       }),
                                       valueContainer: (baseStyles) => ({
                                         ...baseStyles,
@@ -2580,6 +2655,7 @@ function TourForm({
                                       }),
                                     }}
                                   />
+                                  {errorText(provinceErrorKey)}
                                 </div>
 
                                 <div className="md:col-span-3">
@@ -2621,7 +2697,7 @@ function TourForm({
                                 </div>
 
                                 <div className="md:col-span-2">
-                                  <FieldLabel>Tiêu đề chặng</FieldLabel>
+                                  <FieldLabel required>Tiêu đề chặng</FieldLabel>
                                   <input
                                     type="text"
                                     value={step.title || ''}
@@ -2633,8 +2709,11 @@ function TourForm({
                                       )
                                     }
                                     placeholder="Ví dụ: Đón sân bay Nội Bài / Khám phá Phố Cổ"
-                                    className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-800 outline-none transition focus:border-blue-500"
+                                    className={fieldClass('mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-800 outline-none transition focus:border-blue-500', titleErrorKey)}
+                                    data-invalid={hasError(titleErrorKey)}
+                                    aria-invalid={hasError(titleErrorKey)}
                                   />
+                                  {errorText(titleErrorKey)}
                                 </div>
 
                                 <div>
@@ -2741,7 +2820,9 @@ function TourForm({
                                               )
                                             }
                                             placeholder="URL ảnh"
-                                            className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-blue-500"
+                                            className={fieldClass('h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-blue-500', `itinerary.${originalIdx}.images.${imgIdx}.image_url`)}
+                                            data-invalid={hasError(`itinerary.${originalIdx}.images.${imgIdx}.image_url`)}
+                                            aria-invalid={hasError(`itinerary.${originalIdx}.images.${imgIdx}.image_url`)}
                                           />
 
                                           <input
@@ -2759,6 +2840,8 @@ function TourForm({
                                             className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-blue-500"
                                           />
                                         </div>
+
+                                        {errorText(`itinerary.${originalIdx}.images.${imgIdx}.image_url`)}
 
                                         {img.image_url && (
                                           <div className="h-9 w-12 flex-shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
@@ -2988,53 +3071,6 @@ function TourForm({
                   </div>
                 </div>
                 {errorText('category_id')}
-              </div>
-
-              <div>
-                <FieldLabel required>Tỉnh / Thành phố thuộc hệ thống</FieldLabel>
-                <div className="relative">
-                  <select
-                    name="province_id"
-                    value={formData.province_id}
-                    onChange={handleChange}
-                    disabled={loadingOptions}
-                    className={fieldClass(selectClass, 'province_id')}
-                    data-invalid={hasError('province_id')}
-                    aria-invalid={hasError('province_id')}
-                  >
-                    <option value="">
-                      {loadingOptions ? 'Đang tải...' : 'Chọn tỉnh/thành đã đồng bộ'}
-                    </option>
-
-                    {currentProvinceMissing && (
-                      <option value={formData.province_id}>
-                        Tỉnh/thành #{formData.province_id}
-                      </option>
-                    )}
-
-                    {provinces.map((item) => (
-                      <option key={getOptionId(item)} value={getOptionId(item)}>
-                        {getOptionName(item, `Tỉnh/thành #${getOptionId(item)}`)} ({item.places_count ?? 0} địa điểm)
-                      </option>
-                    ))}
-                  </select>
-
-                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3.5 pt-1.5 text-slate-400">
-                    <svg
-                      className="h-3.5 w-3.5 stroke-2"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M19 9l-7 7-7-7"
-                      />
-                    </svg>
-                  </div>
-                </div>
-                {errorText('province_id')}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -3276,11 +3312,11 @@ function TourForm({
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
-                  onClick={handleSaveDraft}
+                  onClick={handleCancel}
                   disabled={submitting}
-                  className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex h-11 items-center justify-center rounded-xl border border-rose-200 bg-white px-4 text-sm font-black text-rose-600 shadow-sm transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Lưu nháp
+                  Hủy
                 </button>
 
                 <button

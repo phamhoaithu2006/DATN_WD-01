@@ -40,6 +40,10 @@ const menuItems = [
   {
     label: 'Lịch Khởi Hành',
     path: '/admin/tour-departures',
+    children: [
+      { label: 'Quản lý lịch khởi hành', path: '/admin/tour-departures' },
+      { label: 'Đơn yêu cầu đổi HDV', path: '/admin/tour-departures/guide-replacement-requests' },
+    ],
     showUnassignedDepartureBadge: true,
     icon: (
       <>
@@ -268,14 +272,20 @@ function AdminSidebar({
     location.pathname.startsWith('/admin/categories') ||
     location.pathname.startsWith('/admin/destination-places')
   const [isTourMenuOpen, setIsTourMenuOpen] = useState(isTourSuiteActive)
+  const isDepartureSuiteActive = location.pathname.startsWith('/admin/tour-departures')
+  const [isDepartureMenuOpen, setIsDepartureMenuOpen] = useState(isDepartureSuiteActive)
 
   const visibleMenuItems = useMemo(() => {
     return role === 'admin' ? menuItems : []
   }, [role])
 
   useEffect(() => {
-    if (isTourSuiteActive) setIsTourMenuOpen(true)
+    setIsTourMenuOpen(isTourSuiteActive)
   }, [isTourSuiteActive])
+
+  useEffect(() => {
+    setIsDepartureMenuOpen(isDepartureSuiteActive)
+  }, [isDepartureSuiteActive])
 
   const loadTourDepartureWarningCount = useCallback(async () => {
     if (role !== 'admin') {
@@ -442,35 +452,40 @@ function AdminSidebar({
               : 0
 
           if (item.children) {
+            const isDepartureGroup = item.path === '/admin/tour-departures'
+            const isGroupActive = isDepartureGroup ? isDepartureSuiteActive : isTourSuiteActive
+            const isGroupOpen = isDepartureGroup ? isDepartureMenuOpen : isTourMenuOpen
+            const setGroupOpen = isDepartureGroup ? setIsDepartureMenuOpen : setIsTourMenuOpen
+
             return (
               <div className="admin-nav-group" key={item.path}>
                 <button
                   type="button"
-                  className={`admin-nav-link admin-nav-parent${isTourSuiteActive ? ' active' : ''}`}
-                  aria-expanded={isTourMenuOpen}
-                  aria-controls="admin-tour-submenu"
+                  className={`admin-nav-link admin-nav-parent${isGroupActive ? ' active' : ''}`}
+                  aria-expanded={isGroupOpen}
+                  aria-controls={isDepartureGroup ? 'admin-departure-submenu' : 'admin-tour-submenu'}
                   title={collapsed ? item.label : undefined}
                   onClick={() => {
                     if (collapsed) onToggle()
-                    setIsTourMenuOpen((open) => !open)
+                    setGroupOpen((open) => !open)
                   }}
                 >
                   <svg className="admin-nav-icon" viewBox="0 0 24 24" aria-hidden="true">
                     {item.icon}
                   </svg>
                   <span className="admin-nav-label">{item.label}</span>
-                  <svg className={`admin-nav-chevron${isTourMenuOpen ? ' open' : ''}`} viewBox="0 0 24 24" aria-hidden="true">
+                  <svg className={`admin-nav-chevron${isGroupOpen ? ' open' : ''}`} viewBox="0 0 24 24" aria-hidden="true">
                     <path d="m9 18 6-6-6-6" />
                   </svg>
                 </button>
 
-                {isTourMenuOpen && !collapsed ? (
-                  <div className="admin-nav-submenu" id="admin-tour-submenu">
+                {isGroupOpen && !collapsed ? (
+                  <div className="admin-nav-submenu" id={isDepartureGroup ? 'admin-departure-submenu' : 'admin-tour-submenu'}>
                     {item.children.map((child) => (
                       <NavLink
                         key={child.path}
                         to={child.path}
-                        end={child.path === '/admin/tours'}
+                        end={child.path === '/admin/tours' || child.path === '/admin/tour-departures'}
                         className={({ isActive }) =>
                           isActive ? 'admin-nav-sublink active' : 'admin-nav-sublink'
                         }

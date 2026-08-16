@@ -1653,6 +1653,7 @@ export function GuideAssignmentPanel({
   onClearFocus,
   embedded = false,
   modalLayout = false,
+  hideManagementList = false,
 }) {
   const [directDepartureId, setDirectDepartureId] = useState(
     focusedDepartureId || ''
@@ -1737,8 +1738,9 @@ export function GuideAssignmentPanel({
   useEffect(() => {
     if (focusedDepartureId) {
       setDirectDepartureId(String(focusedDepartureId))
+      void fetchPlanning()
     }
-  }, [focusedDepartureId])
+  }, [focusedDepartureId, fetchPlanning])
 
   const scopedRows = useMemo(() => {
     return rows.filter((item) => {
@@ -2312,7 +2314,7 @@ export function GuideAssignmentPanel({
         modalLayout={modalLayout}
       />
 
-      {!focusedDepartureId ? (
+      {!focusedDepartureId && !hideManagementList ? (
         <section className="mt-8 border-t border-slate-200 pt-6">
           <div className="mb-4">
             <h3 className="text-lg font-black text-slate-900">
