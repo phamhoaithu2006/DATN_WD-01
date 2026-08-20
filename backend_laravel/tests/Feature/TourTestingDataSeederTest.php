@@ -38,6 +38,16 @@ test('database seeder can run twice without duplicate key failures', function ()
         'EARLYBIRD',
         'EXPIRED2025',
     ])->count())->toBe(5);
+
+    $futureSeededDepartureStatuses = DB::table('tour_departures')
+        ->join('bookings', 'bookings.tour_departure_id', '=', 'tour_departures.id')
+        ->where('bookings.booking_code', 'like', 'BKSEED-%')
+        ->whereDate('tour_departures.departure_date', '>', today()->addDays(3))
+        ->distinct()
+        ->pluck('tour_departures.status');
+
+    expect($futureSeededDepartureStatuses)->not->toBeEmpty()
+        ->each->toBe('open');
 });
 
 // BookingSeeder hiện là shim tương thích gọi DemoWorkflowSeeder (booking BK-DEMO-%),
