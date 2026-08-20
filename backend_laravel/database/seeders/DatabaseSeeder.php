@@ -554,7 +554,7 @@ class DatabaseSeeder extends Seeder
                     ? 'completed'
                     : ($departureDate->lte(today()) && $returnDate->gte(today())
                         ? 'in_progress'
-                        : 'confirmed'),
+                        : 'open'),
             ]);
         }
     }
