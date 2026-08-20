@@ -159,6 +159,7 @@ class DatabaseSeeder extends Seeder
             }
 
             $this->seedTourData($admin);
+            $this->call(InternationalTourSeeder::class);
         });
     }
 
