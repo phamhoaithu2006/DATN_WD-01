@@ -14,6 +14,12 @@ const iconPaths = {
       <path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18" />
     </>
   ),
+  compass: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="m15.5 8.5-2.1 4.9-4.9 2.1 2.1-4.9 4.9-2.1Z" />
+    </>
+  ),
   calendar: (
     <>
       <rect x="3" y="5" width="18" height="16" rx="2" />

@@ -823,7 +823,7 @@ function HomePage({
 
                       <div className="vg-review-card-footer">
                         <div className="vg-review-person">
-                          <div className="vg-review-avatar" aria-hidden="true">
+                          <div className={`vg-review-avatar vg-review-avatar-${(index % 6) + 1}`} aria-hidden="true">
                             {reviewerAvatar ? (
                               <img
                                 src={reviewerAvatar}

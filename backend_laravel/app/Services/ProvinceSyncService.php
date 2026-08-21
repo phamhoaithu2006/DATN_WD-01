@@ -9,7 +9,7 @@ use RuntimeException;
 
 class ProvinceSyncService
 {
-    private const ENDPOINT = 'https://provinces.open-api.vn/api/p/';
+    private const ENDPOINT = 'https://provinces.open-api.vn/api/v1/p/';
 
     /**
      * @return array{created: int, updated: int, skipped: int}

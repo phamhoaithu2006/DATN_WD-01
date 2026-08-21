@@ -43,6 +43,34 @@ function resolveRole(user) {
   return user?.role?.name || user?.role || user?.role_name || "";
 }
 
+function getRoleHome(role) {
+  if (role === "admin") return "/admin";
+  if (role === "tour guide") return "/guide";
+  if (role === "support staff") return "/support";
+  return "/";
+}
+
+function getPostLoginPath(role, requestedPath) {
+  const path = typeof requestedPath === "string" ? requestedPath : "";
+  if (!path || path.startsWith("/auth")) return getRoleHome(role);
+
+  const rolePrefix = role === "admin"
+    ? "/admin"
+    : role === "tour guide"
+      ? "/guide"
+      : role === "support staff"
+        ? "/support"
+        : null;
+
+  if (rolePrefix) return path === rolePrefix || path.startsWith(`${rolePrefix}/`)
+    ? path
+    : getRoleHome(role);
+
+  return path.startsWith("/admin") || path.startsWith("/guide") || path.startsWith("/support")
+    ? "/"
+    : path;
+}
+
 function getLoginFieldError(field, values) {
   if (field === "password") {
     if (!values.password) {
@@ -342,7 +370,7 @@ function AuthPage() {
         role: roleName,
       });
 
-      if (!roleName) {
+      if (!["admin", "customer", "tour guide", "support staff"].includes(roleName)) {
         clearSession();
         toast.error("Tài khoản chưa được gán vai trò hợp lệ.", { duration: 5000 });
         return;
@@ -350,29 +378,7 @@ function AuthPage() {
 
       saveToken(data.token, loginData.remember);
       saveSession(sessionUser, loginData.remember);
-
-      if (roleName === "admin") {
-        navigate("/admin", { replace: true });
-        return;
-      }
-
-      if (roleName === "customer") {
-        navigate("/", { replace: true });
-        return;
-      }
-
-      if (roleName === "tour guide") {
-        navigate("/guide", { replace: true });
-        return;
-      }
-
-      if (roleName === "support staff") {
-        navigate("/support", { replace: true });
-        return;
-      }
-
-      clearSession();
-      toast.error("Tài khoản không có quyền truy cập phù hợp.", { duration: 5000 });
+      navigate(getPostLoginPath(roleName, location.state?.from), { replace: true });
     } catch (error) {
       toast.error(
         error.response?.data?.message ||

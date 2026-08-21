@@ -1958,7 +1958,6 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
               <div className="reviews-summary-note">
                 <span className="reviews-summary-badge">{hasRating ? ratingLabel : "Chưa có đánh giá"}</span>
                 <strong>{hasRating ? "Khách hàng đã trải nghiệm tour" : "Đánh giá xác thực"}</strong>
-                <p>{hasRating ? "Điểm số được tổng hợp từ các booking đã hoàn thành." : "Đánh giá chỉ mở sau khi khách hoàn thành chuyến đi."}</p>
               </div>
             </div>
 
