@@ -13,34 +13,12 @@ function TourEditPage() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
 
-  const getTourListFromResponse = (responseData) => {
-    if (Array.isArray(responseData)) {
-      return responseData
-    }
-
-    if (Array.isArray(responseData?.data?.data)) {
-      return responseData.data.data
-    }
-
-    if (Array.isArray(responseData?.data)) {
-      return responseData.data
-    }
-
-    if (Array.isArray(responseData?.tours)) {
-      return responseData.tours
-    }
-
-    return []
-  }
-
   const fetchTour = useCallback(async () => {
     try {
       setLoading(true)
 
-      const response = await tourApi.getAll()
-      const tourList = getTourListFromResponse(response.data)
-
-      const foundTour = tourList.find((item) => Number(item.id) === Number(id))
+      const response = await tourApi.getById(id)
+      const foundTour = response.data?.data
 
       if (!foundTour) {
         toast.error('Không tìm thấy tour', {
