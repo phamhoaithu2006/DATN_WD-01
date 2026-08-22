@@ -92,7 +92,7 @@ class DatabaseSeeder extends Seeder
                 $roles['admin']->id,
                 'Quản trị viên',
                 'admin@gmail.com',
-                '0900000000',
+                ' lại chứ',
                 $password
             );
 
@@ -159,7 +159,6 @@ class DatabaseSeeder extends Seeder
             }
 
             $this->seedTourData($admin);
-            $this->call(InternationalTourSeeder::class);
         });
     }
 

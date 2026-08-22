@@ -134,6 +134,10 @@ class TourManagerController extends Controller
     public function show($id)
     {
         $tour = Tour::with(['category', 'province', 'thumbnail', 'images', 'itineraries.images', 'itineraries.destinationPlace.province', 'itineraries.destinationPlace.district.province', 'itineraries.destinationPlace.activityTypeLinks', 'departures', 'agePricingRules'])
+            ->withCount([
+                'bookings as active_bookings_count' => fn ($query) => $query
+                    ->whereNotIn('status', ['cancelled', 'cancelled_by_tour']),
+            ])
             ->findOrFail($id);
 
         return response()->json([
@@ -343,10 +347,6 @@ class TourManagerController extends Controller
     {
         $tour = Tour::findOrFail($id);
 
-        if ($tour->departures()->exists()) {
-            return $this->departureConflictResponse($tour, 'sửa');
-        }
-
         $this->normalizeItineraryRequest($request);
         $this->normalizeProvinceRequest($request);
         $this->normalizeAgePricingRulesRequest($request);
@@ -398,7 +398,32 @@ class TourManagerController extends Controller
             'age_pricing_rules.*.price_value' => 'nullable|numeric|min:0',
             'age_pricing_rules.*.sort_order' => 'nullable|integer|min:0',
             'age_pricing_rules.*.is_active' => 'nullable|boolean',
+            'confirm_itinerary_change' => 'nullable|boolean',
         ]);
+
+        if (
+            array_key_exists('duration_days', $validatedData)
+            && (int) $validatedData['duration_days'] !== (int) $tour->duration_days
+            && $tour->departures()->exists()
+        ) {
+            throw ValidationException::withMessages([
+                'duration_days' => 'Không thể thay đổi số ngày/đêm khi tour đã có lịch khởi hành. Vui lòng tạo tour hoặc lịch mới có thời lượng khác.',
+            ]);
+        }
+
+        if (
+            $request->exists('itinerary')
+            && ! $request->boolean('confirm_itinerary_change')
+            && $tour->bookings()
+                ->whereNotIn('status', ['cancelled', 'cancelled_by_tour'])
+                ->exists()
+        ) {
+            return response()->json([
+                'status' => 'warning',
+                'code' => 'tour_has_bookings',
+                'message' => 'Tour đã có khách đặt. Vui lòng xác nhận trước khi thay đổi lịch trình.',
+            ], 409);
+        }
 
         $this->normalizeDiscountPriceData($validatedData);
 
@@ -440,7 +465,8 @@ class TourManagerController extends Controller
             $validatedData['age_pricing_rules'],
             $validatedData['thumbnail_image'],
             $validatedData['gallery_images'],
-            $validatedData['thumbnail_alt_text']
+            $validatedData['thumbnail_alt_text'],
+            $validatedData['confirm_itinerary_change']
         );
 
         if ($shouldSyncAgePricingRules) {

@@ -355,6 +355,14 @@ function TourListPage() {
 
   const checkTourDepartures = async (type, tour) => {
     setToast(null)
+
+    // Tour có lịch vẫn được phép cập nhật các thông tin không làm thay đổi
+    // từng lịch khởi hành; các trường bị hạn chế được kiểm tra tại form/API.
+    if (type === 'edit') {
+      navigate(`/admin/tours/${tour.id}/edit`)
+      return
+    }
+
     setActionLoading(`check-${type}-${tour.id}`)
 
     try {
@@ -366,11 +374,7 @@ function TourListPage() {
         return
       }
 
-      if (type === 'edit') {
-        navigate(`/admin/tours/${tour.id}/edit`)
-      } else {
-        setPendingAction({ type, tour })
-      }
+      setPendingAction({ type, tour })
     } catch (error) {
       setToast({
         type: 'error',

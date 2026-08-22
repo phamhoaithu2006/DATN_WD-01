@@ -264,6 +264,9 @@ class TourResource extends JsonResource
             'bookings_count' => (int) (
                 $this->resource->getAttribute('bookings_count') ?? 0
             ),
+            'active_bookings_count' => (int) (
+                $this->resource->getAttribute('active_bookings_count') ?? 0
+            ),
 
             'created_at' => $this->formatDateTime($this->created_at),
             'updated_at' => $this->formatDateTime($this->updated_at),

@@ -164,7 +164,15 @@ const normalizeItineraryForForm = (itinerary = []) => {
       destination_place_name:
         source.destination_place_name ??
         source.destinationPlaceName ??
-        (destinationPlaceId ? '' : source.destination_place?.name ?? ''),
+        source.destination_place?.name ??
+        source.destinationPlace?.name ??
+        '',
+      province_name:
+        source.province_name ??
+        source.province?.name ??
+        source.destination_place?.province?.name ??
+        source.destinationPlace?.province?.name ??
+        '',
       destination_place_address:
         source.destination_place_address ??
         source.destinationPlaceAddress ??
@@ -2175,7 +2183,7 @@ function TourForm({
     })
   }
 
-  const submitForm = async (statusOverride) => {
+  const submitForm = async (statusOverride, confirmItineraryChange = false) => {
     const submitStatus = statusOverride || formData.status || 'published'
     const effectiveProvinceId = formData.itinerary.find((step) => step.province_id)?.province_id
       || formData.province_id
@@ -2201,9 +2209,26 @@ function TourForm({
       return
     }
 
-    const agePricingRules = normalizeAgePricingRulesForSubmit(
-      formData.age_pricing_rules,
+    const agePricingRules = normalizeAgePricingRulesForSubmit(formData.age_pricing_rules)
+    const itinerary = normalizeItineraryForSubmit(formData.itinerary)
+    const initialItinerary = normalizeItineraryForSubmit(
+      normalizeItineraryForForm(getItineraryFromTourData(resolvedInitialData)),
     )
+    const isEditing = Boolean(resolvedInitialData?.id)
+    const hasItineraryChanged = JSON.stringify(itinerary) !== JSON.stringify(initialItinerary)
+    const activeBookingsCount = Number(resolvedInitialData?.active_bookings_count || 0)
+
+    if (isEditing && hasItineraryChanged && activeBookingsCount > 0 && !confirmItineraryChange) {
+      showConfirmToast({
+        title: 'Tour đã có khách đặt',
+        description: 'Thay đổi lịch trình có thể ảnh hưởng đến thông tin khách đã nhận. Giá của các booking hiện có sẽ được giữ nguyên.',
+        confirmText: 'Vẫn cập nhật',
+        tone: 'amber',
+        onConfirm: () => submitForm(statusOverride, true),
+      })
+      return
+    }
+
     const discountPrice = normalizePositivePriceForForm(formData.discount_price)
 
     const payload = new FormData()
@@ -2214,10 +2239,13 @@ function TourForm({
     payload.append('summary', formData.summary || '')
     payload.append('description', formData.description || '')
 
-    payload.append(
-      'itinerary',
-      JSON.stringify(normalizeItineraryForSubmit(formData.itinerary)),
-    )
+    if (!isEditing || hasItineraryChanged) {
+      payload.append('itinerary', JSON.stringify(itinerary))
+    }
+
+    if (confirmItineraryChange) {
+      payload.append('confirm_itinerary_change', '1')
+    }
 
     payload.append('duration_days', Number(formData.duration_days))
     payload.append('base_price', Number(formData.base_price || 0))
@@ -2274,6 +2302,8 @@ function TourForm({
     resolvedInitialData?.categoryInfo ||
     null
   const durationLimit = getTourDurationLimit(selectedCategory)
+  const hasDepartures = Array.isArray(resolvedInitialData?.departures)
+    && resolvedInitialData.departures.length > 0
   const requestedDurationDays = Number(formData.duration_days || 1)
   const visibleDurationDays = Math.max(
     1,
@@ -2547,7 +2577,12 @@ function TourForm({
                           })
                           const selectedProvinceOption = provinceSelectOptions.find(
                             (option) => option.value === stepProvinceId,
-                          ) || null
+                          ) || (stepProvinceId ? {
+                            value: stepProvinceId,
+                            label: step.province_name || `Tỉnh/thành #${stepProvinceId}`,
+                            name: step.province_name || `Tỉnh/thành #${stepProvinceId}`,
+                            placesCount: null,
+                          } : null)
                           const provinceCountsLoading = loadingProvinceCounts.includes(currentType)
                           const stepErrorPrefix = `itinerary.${originalIdx}`
                           const provinceErrorKey = `${stepErrorPrefix}.province_id`
@@ -3084,7 +3119,8 @@ function TourForm({
                     step="1"
                     value={formData.duration_days}
                     onChange={handleChange}
-                    className={fieldClass(inputClass, 'duration_days')}
+                    disabled={hasDepartures}
+                    className={`${fieldClass(inputClass, 'duration_days')} ${hasDepartures ? 'cursor-not-allowed bg-slate-50 text-slate-500' : ''}`}
                     data-invalid={hasError('duration_days')}
                     aria-invalid={hasError('duration_days')}
                   />
