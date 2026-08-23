@@ -11,8 +11,11 @@ use App\Models\TourDeparture;
 use App\Models\TourReview;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class PublicCatalogController extends Controller
@@ -30,7 +33,7 @@ class PublicCatalogController extends Controller
             ->limit(5)
             ->get(['id', 'name', 'slug', 'description', 'thumbnail_url']);
 
-        $destinations = Province::query()
+        $destinationProvinces = Province::query()
             ->whereHas('tours', fn (Builder $query) => $this->applyAvailableTourConstraints($query))
             ->withCount([
                 'tours as tour_count' => fn (Builder $query) => $this->applyAvailableTourConstraints($query),
@@ -38,14 +41,21 @@ class PublicCatalogController extends Controller
             ->orderByDesc('tour_count')
             ->orderBy('name')
             ->limit(6)
-            ->get(['id', 'name', 'code'])
+            ->get(['id', 'name', 'code']);
+
+        $destinationImages = $this->destinationImages($destinationProvinces);
+
+        $destinations = $destinationProvinces
             ->map(fn (Province $province): array => [
                 'id' => $province->id,
                 'name' => $province->name,
                 'slug' => $province->slug,
                 'province_city' => $province->name,
                 'country' => 'Việt Nam',
-                'thumbnail_url' => null,
+                'thumbnail_url' => $destinationImages->get($province->id)?->thumbnail_url,
+                'thumbnail_alt_text' => $destinationImages->get($province->id)?->alt_text
+                    ?: 'Ảnh điểm đến '.$province->name,
+                'place_name' => $destinationImages->get($province->id)?->place_name,
                 'tour_count' => (int) $province->tour_count,
             ])
             ->values();
@@ -180,7 +190,96 @@ class PublicCatalogController extends Controller
             ->whereHas('departures', fn (Builder $departureQuery) => $this->applyAvailableDepartureConstraints($departureQuery));
     }
 
-    private function applyAvailableDepartureConstraints(Builder|HasMany $query): Builder|HasMany
+    private function destinationImages(Collection $provinces): Collection
+    {
+        $provinceIds = $provinces
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+
+        if ($provinceIds === []) {
+            return collect();
+        }
+
+        $itineraryImages = DB::table('tour_itinerary_images as candidate_image')
+            ->join('tour_itineraries as itinerary', 'itinerary.id', '=', 'candidate_image.tour_itinerary_id')
+            ->join('destination_places as place', 'place.id', '=', 'itinerary.destination_place_id')
+            ->join('tours as candidate_tour', 'candidate_tour.id', '=', 'itinerary.tour_id')
+            ->whereIn('place.province_id', $provinceIds)
+            ->where('place.status', 'active')
+            ->whereNull('place.deleted_at')
+            ->whereNotNull('candidate_image.image_url')
+            ->where('candidate_image.image_url', '!=', '')
+            ->select([
+                'place.province_id as province_id',
+                'candidate_image.image_url as thumbnail_url',
+                'candidate_image.alt_text as alt_text',
+                'place.name as place_name',
+                DB::raw('1 as source_priority'),
+            ]);
+        $this->applyAvailableImageTourConstraints($itineraryImages, 'candidate_tour');
+
+        $placeImages = DB::table('tour_itineraries as itinerary')
+            ->join('destination_places as place', 'place.id', '=', 'itinerary.destination_place_id')
+            ->join('tours as candidate_tour', 'candidate_tour.id', '=', 'itinerary.tour_id')
+            ->whereIn('place.province_id', $provinceIds)
+            ->where('place.status', 'active')
+            ->whereNull('place.deleted_at')
+            ->whereNotNull('place.thumbnail_url')
+            ->where('place.thumbnail_url', '!=', '')
+            ->select([
+                'place.province_id as province_id',
+                'place.thumbnail_url as thumbnail_url',
+                DB::raw('NULL as alt_text'),
+                'place.name as place_name',
+                DB::raw('2 as source_priority'),
+            ]);
+        $this->applyAvailableImageTourConstraints($placeImages, 'candidate_tour');
+
+        $tourImages = DB::table('tour_images as candidate_image')
+            ->join('tours as candidate_tour', 'candidate_tour.id', '=', 'candidate_image.tour_id')
+            ->whereIn('candidate_tour.province_id', $provinceIds)
+            ->whereNotNull('candidate_image.image_url')
+            ->where('candidate_image.image_url', '!=', '')
+            ->select([
+                'candidate_tour.province_id as province_id',
+                'candidate_image.image_url as thumbnail_url',
+                'candidate_image.alt_text as alt_text',
+                DB::raw('NULL as place_name'),
+                DB::raw('3 as source_priority'),
+            ]);
+        $this->applyAvailableImageTourConstraints($tourImages, 'candidate_tour');
+
+        return $itineraryImages
+            ->unionAll($placeImages)
+            ->unionAll($tourImages)
+            ->get()
+            ->groupBy(fn ($image) => (int) $image->province_id)
+            ->map(function (Collection $images) {
+                $priority = (int) $images->min('source_priority');
+
+                return $images
+                    ->filter(fn ($image) => (int) $image->source_priority === $priority)
+                    ->random();
+            });
+    }
+
+    private function applyAvailableImageTourConstraints(QueryBuilder $query, string $tourAlias): void
+    {
+        $query
+            ->where($tourAlias.'.status', 'published')
+            ->whereNull($tourAlias.'.deleted_at')
+            ->whereExists(function (QueryBuilder $departureQuery) use ($tourAlias): void {
+                $departureQuery
+                    ->selectRaw('1')
+                    ->from('tour_departures')
+                    ->whereColumn('tour_departures.tour_id', $tourAlias.'.id');
+
+                $this->applyAvailableDepartureConstraints($departureQuery);
+            });
+    }
+
+    private function applyAvailableDepartureConstraints(Builder|HasMany|QueryBuilder $query): Builder|HasMany|QueryBuilder
     {
         return $query
             ->where('status', 'open')

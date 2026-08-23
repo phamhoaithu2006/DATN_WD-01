@@ -12,6 +12,9 @@ beforeEach(function () {
     Schema::dropIfExists('tour_reviews');
     Schema::dropIfExists('reviews');
     Schema::dropIfExists('bookings');
+    Schema::dropIfExists('tour_itinerary_images');
+    Schema::dropIfExists('tour_itineraries');
+    Schema::dropIfExists('destination_places');
     Schema::dropIfExists('tour_images');
     Schema::dropIfExists('tour_departures');
     Schema::dropIfExists('tours');
@@ -86,6 +89,37 @@ beforeEach(function () {
         $table->string('image_url');
         $table->string('alt_text')->nullable();
         $table->boolean('is_thumbnail')->default(false);
+        $table->unsignedInteger('sort_order')->default(0);
+        $table->timestamps();
+    });
+
+    Schema::create('destination_places', function (Blueprint $table) {
+        $table->id();
+        $table->unsignedBigInteger('province_id');
+        $table->string('name');
+        $table->string('slug')->unique();
+        $table->string('thumbnail_url')->nullable();
+        $table->string('status')->default('active');
+        $table->softDeletes();
+        $table->timestamps();
+    });
+
+    Schema::create('tour_itineraries', function (Blueprint $table) {
+        $table->id();
+        $table->unsignedBigInteger('tour_id');
+        $table->unsignedBigInteger('destination_place_id')->nullable();
+        $table->unsignedInteger('day_number')->default(1);
+        $table->unsignedInteger('sort_order')->default(0);
+        $table->string('type')->default('sightseeing');
+        $table->string('title');
+        $table->timestamps();
+    });
+
+    Schema::create('tour_itinerary_images', function (Blueprint $table) {
+        $table->id();
+        $table->unsignedBigInteger('tour_itinerary_id');
+        $table->string('image_url');
+        $table->string('alt_text')->nullable();
         $table->unsignedInteger('sort_order')->default(0);
         $table->timestamps();
     });
@@ -223,6 +257,97 @@ test('home returns only bookable content and visible customer reviews', function
         ->assertJsonPath('data.destinations.0.tour_count', 1)
         ->assertJsonPath('data.reviews.0.reviewer_name', 'N. V. A.')
         ->assertJsonPath('data.reviews.0.tour_slug', 'da-nang-cuoi-tuan');
+});
+
+test('home returns a random destination image with the expected source priority', function () {
+    $category = Category::query()->create([
+        'name' => 'Khám phá',
+        'slug' => 'kham-pha',
+        'status' => 'active',
+    ]);
+    $province = Province::query()->create([
+        'name' => 'Đà Nẵng',
+        'code' => '48',
+    ]);
+    $tour = Tour::query()->create([
+        'category_id' => $category->id,
+        'province_id' => $province->id,
+        'title' => 'Đà Nẵng trải nghiệm',
+        'slug' => 'da-nang-trai-nghiem',
+        'duration_days' => 3,
+        'duration_nights' => 2,
+        'base_price' => 3000000,
+        'max_slots' => 20,
+        'available_slots' => 20,
+        'status' => 'published',
+    ]);
+
+    DB::table('tour_departures')->insert([
+        'tour_id' => $tour->id,
+        'departure_date' => now()->addWeek()->toDateString(),
+        'return_date' => now()->addDays(9)->toDateString(),
+        'base_price' => 3000000,
+        'total_slots' => 20,
+        'booked_slots' => 0,
+        'status' => 'open',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    DB::table('tour_images')->insert([
+        'tour_id' => $tour->id,
+        'image_url' => 'tours/da-nang-fallback.jpg',
+        'alt_text' => 'Ảnh tour Đà Nẵng',
+        'is_thumbnail' => true,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    $placeId = DB::table('destination_places')->insertGetId([
+        'province_id' => $province->id,
+        'name' => 'Bà Nà Hills',
+        'slug' => 'ba-na-hills',
+        'thumbnail_url' => 'places/ba-na-hills.jpg',
+        'status' => 'active',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    $itineraryId = DB::table('tour_itineraries')->insertGetId([
+        'tour_id' => $tour->id,
+        'destination_place_id' => $placeId,
+        'day_number' => 1,
+        'sort_order' => 1,
+        'type' => 'sightseeing',
+        'title' => 'Khám phá Bà Nà Hills',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    DB::table('tour_itinerary_images')->insert([
+        'tour_itinerary_id' => $itineraryId,
+        'image_url' => 'itineraries/ba-na-cau-vang.jpg',
+        'alt_text' => 'Cầu Vàng tại Bà Nà Hills',
+        'sort_order' => 1,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    $this->getJson('/api/home')
+        ->assertOk()
+        ->assertJsonPath('data.destinations.0.thumbnail_url', 'itineraries/ba-na-cau-vang.jpg')
+        ->assertJsonPath('data.destinations.0.thumbnail_alt_text', 'Cầu Vàng tại Bà Nà Hills')
+        ->assertJsonPath('data.destinations.0.place_name', 'Bà Nà Hills');
+
+    DB::table('tour_itinerary_images')->delete();
+
+    $this->getJson('/api/home')
+        ->assertOk()
+        ->assertJsonPath('data.destinations.0.thumbnail_url', 'places/ba-na-hills.jpg')
+        ->assertJsonPath('data.destinations.0.place_name', 'Bà Nà Hills');
+
+    DB::table('destination_places')->where('id', $placeId)->update(['thumbnail_url' => null]);
+
+    $this->getJson('/api/home')
+        ->assertOk()
+        ->assertJsonPath('data.destinations.0.thumbnail_url', 'tours/da-nang-fallback.jpg')
+        ->assertJsonPath('data.destinations.0.place_name', null);
 });
 
 test('home returns the five categories with the most bookable tours', function () {
