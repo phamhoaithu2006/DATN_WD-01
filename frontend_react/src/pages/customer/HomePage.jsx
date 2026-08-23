@@ -9,7 +9,7 @@ import { VIETNAM_PROVINCES } from "../../constants/vietnamProvinces";
 // Skeleton Loading khi đang tải dữ liệu
 function HomeSkeleton() {
   return (
-    <div className="vg-home-skeleton vg-container">
+    <div className="vg-home-skeleton vg-container" aria-label="Đang tải dữ liệu trang chủ">
       <div className="vg-skeleton-hero vg-skeleton-pulse" />
       <div className="vg-skeleton-grid">
         {Array.from({ length: 6 }).map((_, index) => (
@@ -37,7 +37,7 @@ function getEarliestBookableDepartureDate() {
   return `${year}-${month}-${day}`;
 }
 
-// Dynamic Background Slider cho Hero.
+// Dynamic Background Slider cho Hero
 function HeroBannerBackground({ banners = [], activeIndex, setActiveIndex }) {
   const safeBanners = Array.isArray(banners) && banners.length > 0 ? banners : [];
 
@@ -270,6 +270,19 @@ function CustomHeroDropdown({
   );
 }
 
+function dedupeTours(toursList) {
+  if (!Array.isArray(toursList)) return [];
+  const seen = new Set();
+  const result = [];
+  for (const tour of toursList) {
+    if (tour && tour.id && !seen.has(tour.id)) {
+      seen.add(tour.id);
+      result.push(tour);
+    }
+  }
+  return result;
+}
+
 function HomePage({
   tours = [],
   internationalTours = [],
@@ -285,44 +298,59 @@ function HomePage({
   const navigate = useNavigate();
   const [heroBannerIndex, setHeroBannerIndex] = useState(0);
   const [filterOptions, setFilterOptions] = useState(null);
+  const [activeTabId, setActiveTabId] = useState("featured");
+  const tabButtonsRef = useRef({});
+
   const [heroSearch, setHeroSearch] = useState({
     q: "",
     departure_location: "",
     destination_id: "",
     departure_date: "",
     category_id: "",
+    scope: "",
   });
   const earliestDepartureInputValue = getEarliestBookableDepartureDate();
 
   const safeTours = Array.isArray(tours) ? tours : [];
-  const safeInternationalTours = Array.isArray(internationalTours)
-    ? internationalTours
-    : [];
-  const safeDiscountedTours = Array.isArray(discountedTours)
-    ? discountedTours
-    : [];
-  const safeUpcomingTours = Array.isArray(upcomingTours)
-    ? upcomingTours
-    : [];
   const safeBanners = Array.isArray(banners) ? banners : [];
-
   const safeFavorites = Array.isArray(favorites) ? favorites : [];
-  const safeCategories = Array.isArray(homeContent.categories)
+  const safeCategories = Array.isArray(homeContent?.categories)
     ? homeContent.categories
     : [];
-  const safeReviews = Array.isArray(homeContent.reviews)
+  const safeReviews = Array.isArray(homeContent?.reviews)
     ? homeContent.reviews
     : [];
-  const reviewMarqueeCopies = safeReviews.length > 0 ? 2 : 0;
-  const marqueeReviews = Array.from(
-    { length: reviewMarqueeCopies },
-    () => safeReviews,
-  ).flat();
-  const featuredTourCards = Array.isArray(homeContent.featured_tours)
-    ? homeContent.featured_tours
-    : safeTours.slice(0, 6);
-  const internationalTourCards = safeInternationalTours;
 
+  // Dải statistics dưới Hero: CHỈ lấy 3 chỉ số thật từ homeContent.statistics
+  const statistics = homeContent?.statistics || {};
+  const statItems = [
+    typeof statistics.available_tours === "number" && statistics.available_tours > 0
+      ? {
+        key: "available_tours",
+        count: statistics.available_tours,
+        label: "Tour đang mở bán",
+        icon: "compass",
+      }
+      : null,
+    typeof statistics.destinations === "number" && statistics.destinations > 0
+      ? {
+        key: "destinations",
+        count: statistics.destinations,
+        label: "Điểm đến",
+        icon: "mapPin",
+      }
+      : null,
+    typeof statistics.categories === "number" && statistics.categories > 0
+      ? {
+        key: "categories",
+        count: statistics.categories,
+        label: "Loại hình du lịch",
+        icon: "layers",
+      }
+      : null,
+  ].filter(Boolean);
+
+  // Danh mục loại hình du lịch (có hình ảnh và tour_count)
   const visibleCategories = safeCategories
     .map((category) => ({
       ...category,
@@ -332,6 +360,135 @@ function HomePage({
     .filter((category) => category.tour_count > 0)
     .slice(0, 5);
 
+  // Điểm đến phổ biến với ảnh ngẫu nhiên từ địa điểm thuộc tour đang mở bán
+  const visibleDestinations = (
+    Array.isArray(homeContent?.destinations) ? homeContent.destinations : []
+  )
+    .map((dest) => ({
+      ...dest,
+      image: mediaUrl(dest.thumbnail_url),
+      tour_count: Number(dest.tour_count) || 0,
+    }))
+    .filter((dest) => dest.tour_count > 0)
+    .slice(0, 6);
+
+  // Cấu hình các Tab Tour duy nhất (Deduplicate tour nội bộ, tối đa 6 tour/tab)
+  const availableTabs = useMemo(() => {
+    const safeToursList = Array.isArray(tours) ? tours : [];
+    const safeDiscountedList = Array.isArray(discountedTours) ? discountedTours : [];
+    const safeUpcomingList = Array.isArray(upcomingTours) ? upcomingTours : [];
+    const safeInternationalList = Array.isArray(internationalTours) ? internationalTours : [];
+    const safeFeaturedList = Array.isArray(homeContent?.featured_tours) && homeContent.featured_tours.length > 0
+      ? homeContent.featured_tours
+      : safeToursList;
+
+    const featuredList = dedupeTours(safeFeaturedList).slice(0, 6);
+    const dealsList = dedupeTours(safeDiscountedList).slice(0, 6);
+    const upcomingList = dedupeTours(safeUpcomingList).slice(0, 6);
+    const internationalList = dedupeTours(safeInternationalList).slice(0, 6);
+
+    const allTabs = [
+      {
+        id: "featured",
+        label: "Nổi bật",
+        icon: "sparkle",
+        kicker: "Tour nổi bật",
+        title: "Hành trình được khách hàng quan tâm",
+        description: "Các hành trình mới được cập nhật, có lịch khởi hành còn chỗ.",
+        tours: featuredList,
+        link: "/tours",
+        linkText: "Xem tất cả tour nổi bật →",
+      },
+      {
+        id: "deals",
+        label: "Đang ưu đãi",
+        icon: "fire",
+        kicker: "🔥 Khuyến mãi hot",
+        title: "Ưu đãi hấp dẫn hôm nay",
+        description: "Các hành trình giảm giá đặc biệt, số lượng chỗ ưu đãi có hạn.",
+        tours: dealsList,
+        link: "/tours?sort=discount",
+        linkText: "Xem tất cả ưu đãi →",
+      },
+      {
+        id: "upcoming",
+        label: "Sắp khởi hành",
+        icon: "calendar",
+        kicker: "Chuyến đi sắp tới",
+        title: "Tour sắp khởi hành",
+        description: "Những hành trình có ngày khởi hành gần nhất — giữ chỗ ngay kẻo lỡ.",
+        tours: upcomingList,
+        link: "/tours?sort=departure_soon",
+        linkText: "Xem tour sắp khởi hành →",
+      },
+      {
+        id: "international",
+        label: "Quốc tế",
+        icon: "globe",
+        kicker: "Khám phá",
+        title: "Tour quốc tế",
+        description: "Gợi ý các hành trình nổi bật với trải nghiệm đa dạng và giá cạnh tranh.",
+        tours: internationalList,
+        link: "/tours?scope=international",
+        linkText: "Xem tất cả tour quốc tế →",
+      },
+    ];
+
+    // Chỉ giữ các tab có dữ liệu
+    return allTabs.filter((tab) => tab.tours.length > 0);
+  }, [
+    homeContent,
+    tours,
+    discountedTours,
+    upcomingTours,
+    internationalTours,
+  ]);
+
+  // Xử lý dynamic fallback: Nếu active tab biến mất sau khi dữ liệu cập nhật,
+  // tự động chuyển sang tab khả dụng đầu tiên.
+  useEffect(() => {
+    if (availableTabs.length === 0) return;
+    const exists = availableTabs.some((tab) => tab.id === activeTabId);
+    if (!exists) {
+      setActiveTabId(availableTabs[0].id);
+    }
+  }, [availableTabs, activeTabId]);
+
+  const activeTab = availableTabs.find((tab) => tab.id === activeTabId) || availableTabs[0] || null;
+
+  // Điều hướng bằng bàn phím theo chuẩn WAI-ARIA (Roving tabIndex)
+  const handleTabKeyDown = (event, currentIndex) => {
+    if (availableTabs.length <= 1) return;
+    let targetIndex = -1;
+
+    if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+      targetIndex = (currentIndex + 1) % availableTabs.length;
+    } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+      targetIndex = (currentIndex - 1 + availableTabs.length) % availableTabs.length;
+    } else if (event.key === "Home") {
+      targetIndex = 0;
+    } else if (event.key === "End") {
+      targetIndex = availableTabs.length - 1;
+    }
+
+    if (targetIndex !== -1) {
+      event.preventDefault();
+      const nextTab = availableTabs[targetIndex];
+      if (nextTab) {
+        setActiveTabId(nextTab.id);
+        tabButtonsRef.current[nextTab.id]?.focus();
+      }
+    }
+  };
+
+  // Đánh giá tinh gọn: tối đa 3 review mới nhất
+  const curatedReviews = safeReviews.slice(0, 3);
+  const totalReviewsCount = safeReviews.length;
+  const avgScore = totalReviewsCount > 0
+    ? (safeReviews.reduce((acc, r) => acc + Number(r.rating || 5), 0) / totalReviewsCount).toFixed(1).replace(".", ",")
+    : "5,0";
+
+  // Khối cam kết và giá trị dịch vụ hợp nhất
   const serviceHighlights = [
     {
       icon: "shield",
@@ -339,18 +496,18 @@ function HomePage({
       description: "Cam kết giá rõ ràng, không phí ẩn, dễ dàng so sánh và lựa chọn.",
     },
     {
-      icon: "headset",
-      title: "Tư vấn tận tâm",
-      description: "Đội ngũ hỗ trợ luôn sẵn sàng theo dõi hành trình và xử lý nhanh.",
-    },
-    {
       icon: "wallet",
       title: "Thanh toán linh hoạt",
       description: "Đặt cọc dễ, nhiều phương thức thanh toán và chính sách hoàn hủy rõ ràng.",
     },
     {
+      icon: "headset",
+      title: "Hỗ trợ tận tâm",
+      description: "Đội ngũ hỗ trợ luôn sẵn sàng theo dõi hành trình và xử lý nhanh.",
+    },
+    {
       icon: "star",
-      title: "Tour đã kiểm duyệt",
+      title: "Tour được kiểm duyệt",
       description: "Chỉ chọn những hành trình chất lượng, lịch trình rõ ràng và đáng tin cậy.",
     },
   ];
@@ -376,7 +533,7 @@ function HomePage({
     ...(Array.isArray(filterOptions?.departure_locations)
       ? filterOptions.departure_locations.map((location) => location.name).filter(Boolean)
       : []),
-  ])).sort((first, second) => first.localeCompare(second, 'vi'));
+  ])).sort((first, second) => first.localeCompare(second, "vi"));
   const destinationOptions = Array.isArray(filterOptions?.destinations)
     ? filterOptions.destinations
     : [];
@@ -557,11 +714,19 @@ function HomePage({
                   </div>
                 </form>
               </div>
-              <div className="vg-hero-proof-strip" aria-label="Cam kết dịch vụ ViVuGo">
-                <span><Icon name="shield" size={16} /> Thanh toán an toàn</span>
-                <span><Icon name="headset" size={16} /> Hỗ trợ tận tâm</span>
-                <span><Icon name="star" size={16} /> Hành trình chọn lọc</span>
-              </div>
+
+              {/* Dải thống kê thật từ API (chỉ hiển thị khi có dữ liệu thật hợp lệ) */}
+              {statItems.length > 0 ? (
+                <div className="vg-hero-stats-strip" aria-label="Thống kê hệ thống">
+                  {statItems.map((item) => (
+                    <div className="vg-hero-stat-item" key={item.key}>
+                      <Icon name={item.icon} size={15} />
+                      <strong className="vg-hero-stat-number">{item.count}</strong>
+                      <span className="vg-hero-stat-label">{item.label}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </div>
           </div>
         </div>
@@ -588,113 +753,9 @@ function HomePage({
         </section>
       ) : null}
 
-      {/* Section 1: Tour Giảm Giá / Hot Deals */}
-      {!loading && safeDiscountedTours.length > 0 ? (
-        <section className="vg-home-section vg-deals-section vg-tour-showcase vg-tour-showcase-deals" id="tour-giam-gia">
-          <div className="vg-container">
-            <div className="vg-section-heading">
-              <div>
-                <span className="vg-kicker is-fire">🔥 Khuyến mãi hot</span>
-                <h2>Ưu đãi hấp dẫn hôm nay</h2>
-                <p>Các hành trình giảm giá đặc biệt, số lượng chỗ ưu đãi có hạn.</p>
-              </div>
-              <Link to="/tours?sort=discount">Xem tất cả ưu đãi →</Link>
-            </div>
-            <div className="vg-tour-grid vg-tour-grid-wide">
-              {safeDiscountedTours.map((tour) => (
-                <TourCard
-                  key={tour.id}
-                  tour={tour}
-                  favorite={safeFavorites.includes(tour.id)}
-                  onFavorite={onFavorite}
-                />
-              ))}
-            </div>
-          </div>
-        </section>
-      ) : null}
-
-      {/* Section 2: Tour Nổi Bật (Trong nước) */}
-      {!loading && featuredTourCards.length > 0 ? (
-        <section className="vg-home-section vg-tour-showcase vg-tour-showcase-featured" id="tour-trong-nuoc">
-          <div className="vg-container">
-            <div className="vg-section-heading">
-              <div>
-                <span className="vg-kicker">Tour nổi bật</span>
-                <h2>Hành trình được khách hàng quan tâm</h2>
-                <p>Dựa trên đánh giá, số lượt đặt và ngày khởi hành còn chỗ.</p>
-              </div>
-              <Link to="/tours">Xem tất cả →</Link>
-            </div>
-            <div className="vg-tour-grid vg-tour-grid-wide">
-              {featuredTourCards.map((tour) => (
-                <TourCard
-                  key={tour.id}
-                  tour={tour}
-                  favorite={safeFavorites.includes(tour.id)}
-                  onFavorite={onFavorite}
-                />
-              ))}
-            </div>
-          </div>
-        </section>
-      ) : null}
-
-      {/* Section 3: Tour Sắp Khởi Hành (ngày khởi hành gần nhất, badge tĩnh trên card) */}
-      {!loading && safeUpcomingTours.length > 0 ? (
-        <section className="vg-home-section vg-home-section-alt vg-tour-showcase vg-tour-showcase-upcoming" id="tour-sap-khoi-hanh">
-          <div className="vg-container">
-            <div className="vg-section-heading">
-              <div>
-                <span className="vg-kicker">Chuyến đi sắp tới</span>
-                <h2>Tour sắp khởi hành</h2>
-                <p>Những hành trình có ngày khởi hành gần nhất — giữ chỗ ngay kẻo lỡ.</p>
-              </div>
-              <Link to="/tours?sort=departure_soon">Xem danh sách →</Link>
-            </div>
-            <div className="vg-tour-grid vg-tour-grid-wide">
-              {safeUpcomingTours.map((tour) => (
-                <TourCard
-                  key={tour.id}
-                  tour={tour}
-                  favorite={safeFavorites.includes(tour.id)}
-                  onFavorite={onFavorite}
-                />
-              ))}
-            </div>
-          </div>
-        </section>
-      ) : null}
-
-      {/* Section 4: Tour Quốc Tế */}
-      {!loading && internationalTourCards.length > 0 ? (
-        <section className="vg-home-section vg-tour-showcase vg-tour-showcase-international" id="tour-quoc-te">
-          <div className="vg-container">
-            <div className="vg-section-heading">
-              <div>
-                <span className="vg-kicker">Khám phá</span>
-                <h2>Tour quốc tế</h2>
-                <p>Gợi ý các hành trình nổi bật với trải nghiệm đa dạng và giá cạnh tranh.</p>
-              </div>
-              <Link to="/tours?scope=international">Xem tất cả →</Link>
-            </div>
-            <div className="vg-tour-grid vg-tour-grid-wide">
-              {internationalTourCards.map((tour) => (
-                <TourCard
-                  key={tour.id}
-                  tour={tour}
-                  favorite={safeFavorites.includes(tour.id)}
-                  onFavorite={onFavorite}
-                />
-              ))}
-            </div>
-          </div>
-        </section>
-      ) : null}
-
-      {/* Section 5: Loại hình du lịch phổ biến (Categories Grid) */}
+      {/* Section 1: Khám phá theo loại hình du lịch */}
       {!loading && visibleCategories.length > 0 ? (
-        <section className="vg-home-section vg-home-section-alt vg-popular-categories-section" id="loai-hinh-du-lich">
+        <section className="vg-home-section vg-discovery-section" id="kham-pha">
           <div className="vg-container">
             <div className="vg-popular-categories-block">
               <div className="vg-centered-heading">
@@ -723,7 +784,7 @@ function HomePage({
                         }}
                       />
                     ) : null}
-                    <div className="vg-masonry-overlay"></div>
+                    <div className="vg-masonry-overlay" />
                     <div className="vg-masonry-content">
                       <span className="vg-masonry-badge">{category.tour_count} tour đang mở</span>
                       <h3>{category.name}</h3>
@@ -737,158 +798,253 @@ function HomePage({
         </section>
       ) : null}
 
-
-      {/* Section 7: Đánh giá thực tế của khách hàng (Reviews Section) */}
-      {/* Section 7: Đánh giá thực tế của khách hàng (Reviews Section) */}
-      {!loading && safeReviews.length > 0 ? (
-        <section className="vg-home-section vg-reviews-section vg-home-section-alt" id="danh-gia">
-          <div className="vg-reviews-bg-glow" aria-hidden="true"></div>
+      {/* Section 2: Unified Tour Section có Tab (Chỉ render tab active) */}
+      {!loading && activeTab && activeTab.tours.length > 0 ? (
+        <section className="vg-home-section vg-tour-showcase-tabbed" id="danh-sach-tour">
           <div className="vg-container">
-            <div className="vg-centered-heading">
-              <span className="vg-kicker">Trải nghiệm du khách</span>
-              <h2>
-                Khách hàng nói gì về <span className="vg-brand-word-primary">ViVu</span><span className="vg-brand-word-accent">Go</span>?
-              </h2>
-              <p>Cảm nhận chân thực từ những du khách đã đồng hành cùng chúng tôi trên mọi nẻo đường.</p>
+            {/* Header section & Tab Bar */}
+            <div className="vg-tour-tab-header">
+              <div className="vg-tour-tab-title-group">
+                <span className="vg-kicker">{activeTab.kicker}</span>
+                <h2>{activeTab.title}</h2>
+                <p>{activeTab.description}</p>
+              </div>
+
+              <div className="vg-tour-tab-action-group">
+                <Link to={activeTab.link} className="vg-tour-tab-view-all">
+                  {activeTab.linkText}
+                </Link>
+              </div>
             </div>
 
-            {/* Social Proof Trust Bar */}
-            {(() => {
-              const avgScore = safeReviews.length > 0
-                ? (safeReviews.reduce((acc, r) => acc + Number(r.rating || 5), 0) / safeReviews.length).toFixed(1).replace(".", ",")
-                : "5,0";
-              const totalCount = safeReviews.length;
-
-              return (
-                <div className="vg-reviews-trust-bar">
-                  <div className="vg-trust-score-badge">
-                    <span className="vg-trust-score-num">{avgScore}</span>
-                    <div className="vg-trust-stars">★★★★★</div>
-                  </div>
-                  <div className="vg-trust-avatar-stack">
-                    {safeReviews.slice(0, 4).map((r, i) => {
-                      const name = r.reviewer_name || "K";
-                      const avColor = (i % 4) + 1;
-                      return (
-                        <span key={i} className={`vg-trust-avatar vg-av-${avColor}`}>
-                          {name.charAt(0).toUpperCase()}
-                        </span>
-                      );
-                    })}
-                    {totalCount > 4 ? (
-                      <span className="vg-trust-avatar vg-av-plus">+{totalCount - 4}</span>
-                    ) : null}
-                  </div>
-                  <div className="vg-trust-stats-info">
-                    <strong>{totalCount > 0 ? `${totalCount}+ Đánh giá thực tế` : "1.200+ Du khách hài lòng"}</strong>
-                    <span>100% Đánh giá 5 sao từ du khách đã đi tour</span>
-                  </div>
-                </div>
-              );
-            })()}
-
-            <div className="vg-review-marquee-wrap">
-              <div className="vg-review-marquee" aria-label="Đánh giá tour 5 sao từ khách hàng">
+            {/* Accessible Tab List with Roving tabIndex */}
+            {availableTabs.length > 0 ? (
               <div
-                className="vg-review-marquee-track"
-                style={{
-                  "--vg-review-duration": `${Math.max(140, safeReviews.length * 20)}s`,
-                }}
+                className="vg-tour-tabs-nav"
+                role="tablist"
+                aria-label="Danh mục tour trang chủ"
               >
-                {marqueeReviews.map((review, index) => {
-                  const reviewerName = review.reviewer_name || "Khách hàng ViVuGo";
-                  const reviewerAvatar = mediaUrl(review.reviewer_avatar_url);
-                  const tourTitle = review.tour_title || review.tour?.title || "Tour Du Lịch Trải Nghiệm";
-                  const tourSlug = review.tour_slug || review.tour?.slug || review.tour_id || review.tour?.id;
-                  const tourLink = tourSlug ? `/tours/${tourSlug}` : "/tours";
-
+                {availableTabs.map((tab, idx) => {
+                  const isActive = tab.id === activeTab.id;
                   return (
-                    <article
-                      className="vg-review-card"
-                      key={`${review.id}-${index}`}
-                      aria-hidden={index >= safeReviews.length}
+                    <button
+                      key={tab.id}
+                      ref={(el) => {
+                        if (el) tabButtonsRef.current[tab.id] = el;
+                      }}
+                      type="button"
+                      role="tab"
+                      id={`tab-${tab.id}`}
+                      aria-selected={isActive}
+                      aria-controls={`tabpanel-${tab.id}`}
+                      tabIndex={isActive ? 0 : -1}
+                      className={`vg-tour-tab-btn ${isActive ? "is-active" : ""}`}
+                      onClick={() => setActiveTabId(tab.id)}
+                      onKeyDown={(event) => handleTabKeyDown(event, idx)}
                     >
-                      <div className="vg-review-quote-mark" aria-hidden="true">“</div>
-
-                      <Link
-                        to={tourLink}
-                        className="vg-review-tour-tag"
-                        title={`Xem chi tiết ${tourTitle}`}
-                      >
-                        <Icon name="compass" size={13} />
-                        <span>{tourTitle}</span>
-                      </Link>
-
-                      <p className="vg-review-comment">{review.comment}</p>
-
-                      <div className="vg-review-card-footer">
-                        <div className="vg-review-person">
-                          <div className={`vg-review-avatar vg-review-avatar-${(index % 6) + 1}`} aria-hidden="true">
-                            {reviewerAvatar ? (
-                              <img
-                                src={reviewerAvatar}
-                                alt=""
-                                onError={(event) => {
-                                  event.currentTarget.hidden = true;
-                                }}
-                              />
-                            ) : null}
-                            <span>{reviewerName.charAt(0).toUpperCase()}</span>
-                          </div>
-                          <div>
-                            <strong>{reviewerName}</strong>
-                          </div>
-                        </div>
-
-                        <div className="vg-review-stars" aria-label="5 trên 5 sao">
-                          <strong>{Number(review.rating).toFixed(1).replace(".", ",")}</strong>
-                          <span className="vg-stars-gold">★★★★★</span>
-                        </div>
-                      </div>
-                      <div className="vg-review-card-accent vg-review-card-accent-bottom"></div>
-                    </article>
+                      <Icon name={tab.icon} size={15} />
+                      <span className="vg-tab-text">{tab.label}</span>
+                      <span className="vg-tab-badge">{tab.tours.length}</span>
+                    </button>
                   );
                 })}
               </div>
+            ) : null}
+
+            {/* Tab Panel: CHỈ render danh sách tour của tab đang active */}
+            <div
+              role="tabpanel"
+              id={`tabpanel-${activeTab.id}`}
+              aria-labelledby={`tab-${activeTab.id}`}
+              className="vg-tour-tabpanel"
+            >
+              <div className="vg-tour-grid vg-tour-grid-wide">
+                {activeTab.tours.map((tour) => (
+                  <TourCard
+                    key={tour.id}
+                    tour={tour}
+                    favorite={safeFavorites.includes(tour.id)}
+                    onFavorite={onFavorite}
+                  />
+                ))}
               </div>
             </div>
           </div>
         </section>
       ) : null}
 
-      {/* Section 8: Về chúng tôi & Highlight dịch vụ */}
-      <section className="vg-home-section vg-about-section" id="gioi-thieu">
+      {/* Section 3: Điểm đến phổ biến (Lưới thẻ ảnh 3x2) */}
+      {!loading && visibleDestinations.length > 0 ? (
+        <section className="vg-home-section vg-home-destinations-section" id="diem-den-yeu-thich">
+          <div className="vg-container">
+            <div className="vg-popular-destinations-block">
+              <div className="vg-destinations-grid-header">
+                <div className="vg-destinations-grid-title-wrap">
+                  <span className="vg-kicker">Điểm đến</span>
+                  <h3>Điểm đến được yêu thích</h3>
+                </div>
+                <Link to="/destinations" className="vg-destinations-all-link">
+                  Xem tất cả điểm đến →
+                </Link>
+              </div>
+              <div className="vg-home-destination-cards-grid" role="list">
+                {visibleDestinations.map((dest) => (
+                  <Link
+                    key={dest.id}
+                    to={`/tours?destinations=${dest.id}`}
+                    className={`vg-home-destination-card ${dest.image ? "has-image" : "is-fallback"}`}
+                    role="listitem"
+                    aria-label={`Khám phá tour tại ${dest.name || dest.province_city}`}
+                  >
+                    <div className="vg-home-dest-card-media">
+                      <div className="vg-home-dest-card-fallback" aria-hidden="true">
+                        <Icon name="mapPin" size={28} />
+                      </div>
+                      {dest.image ? (
+                        <img
+                          src={dest.image}
+                          alt={dest.thumbnail_alt_text || `Ảnh điểm đến ${dest.name || dest.province_city}`}
+                          className="vg-home-dest-card-image"
+                          loading="lazy"
+                          onError={(event) => {
+                            event.currentTarget.style.display = "none";
+                          }}
+                        />
+                      ) : null}
+                    </div>
+                    <div className="vg-home-dest-card-overlay" aria-hidden="true" />
+                    <div className="vg-home-dest-card-content">
+                      {dest.place_name ? (
+                        <span className="vg-home-dest-card-place">{dest.place_name}</span>
+                      ) : null}
+                      <div className="vg-home-dest-card-footer">
+                        <div className="vg-home-dest-card-body">
+                          <strong className="vg-home-dest-card-name">{dest.name || dest.province_city}</strong>
+                          <span className="vg-home-dest-card-count">{dest.tour_count} tour đang mở</span>
+                        </div>
+                        <span className="vg-home-dest-card-action" aria-hidden="true">
+                          <Icon name="arrowRight" size={17} className="vg-home-dest-card-arrow" />
+                        </span>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {/* Section 4: Đánh giá thực tế của khách hàng (Tối đa 3 review mới nhất) */}
+      {!loading && curatedReviews.length > 0 ? (
+        <section className="vg-home-section vg-reviews-section vg-home-section-alt" id="danh-gia">
+          <div className="vg-reviews-bg-glow" aria-hidden="true" />
+          <div className="vg-container">
+            <div className="vg-centered-heading">
+              <span className="vg-kicker">Trải nghiệm du khách</span>
+              <h2>
+                Đánh giá 5 sao mới nhất từ du khách
+              </h2>
+              <p>Cảm nhận chân thực từ những du khách đã đồng hành và trải nghiệm tour thực tế cùng ViVuGo.</p>
+            </div>
+
+            {/* Social Proof Trust Bar */}
+            <div className="vg-reviews-trust-bar">
+              <div className="vg-trust-score-badge">
+                <span className="vg-trust-score-num">{avgScore}</span>
+                <div className="vg-trust-stars">★★★★★</div>
+              </div>
+              <div className="vg-trust-avatar-stack">
+                {curatedReviews.map((r, i) => {
+                  const name = r.reviewer_name || "K";
+                  const avColor = (i % 4) + 1;
+                  return (
+                    <span key={i} className={`vg-trust-avatar vg-av-${avColor}`}>
+                      {name.charAt(0).toUpperCase()}
+                    </span>
+                  );
+                })}
+              </div>
+              <div className="vg-trust-stats-info">
+                <strong>{totalReviewsCount > 0 ? `${totalReviewsCount} Đánh giá thực tế` : "Đánh giá từ khách hàng"}</strong>
+                <span>Đánh giá 5 sao mới nhất từ du khách đã trải nghiệm tour</span>
+              </div>
+            </div>
+
+            {/* Lưới 3 thẻ review tĩnh, responsive */}
+            <div className="vg-reviews-grid-compact">
+              {curatedReviews.map((review, index) => {
+                const reviewerName = review.reviewer_name || "Khách hàng ViVuGo";
+                const reviewerAvatar = mediaUrl(review.reviewer_avatar_url);
+                const tourTitle = review.tour_title || review.tour?.title || "Tour Du Lịch Trải Nghiệm";
+                const tourSlug = review.tour_slug || review.tour?.slug || review.tour_id || review.tour?.id;
+                const tourLink = tourSlug ? `/tours/${tourSlug}` : "/tours";
+
+                return (
+                  <article className="vg-review-card" key={review.id || index}>
+                    <div className="vg-review-quote-mark" aria-hidden="true">“</div>
+
+                    <Link
+                      to={tourLink}
+                      className="vg-review-tour-tag"
+                      title={`Xem chi tiết ${tourTitle}`}
+                    >
+                      <Icon name="compass" size={13} />
+                      <span>{tourTitle}</span>
+                    </Link>
+
+                    <p className="vg-review-comment">{review.comment}</p>
+
+                    <div className="vg-review-card-footer">
+                      <div className="vg-review-person">
+                        <div className={`vg-review-avatar vg-review-avatar-${(index % 6) + 1}`} aria-hidden="true">
+                          {reviewerAvatar ? (
+                            <img
+                              src={reviewerAvatar}
+                              alt=""
+                              onError={(event) => {
+                                event.currentTarget.hidden = true;
+                              }}
+                            />
+                          ) : null}
+                          <span>{reviewerName.charAt(0).toUpperCase()}</span>
+                        </div>
+                        <div>
+                          <strong>{reviewerName}</strong>
+                        </div>
+                      </div>
+
+                      <div className="vg-review-stars" aria-label="5 trên 5 sao">
+                        <strong>{Number(review.rating).toFixed(1).replace(".", ",")}</strong>
+                        <span className="vg-stars-gold">★★★★★</span>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {/* Section 4: Khối Niềm tin & Giá trị Dịch vụ Hợp nhất */}
+      <section className="vg-home-section vg-trust-consolidated-section" id="gioi-thieu">
         <div className="vg-container">
           <div className="vg-centered-heading vg-about-heading">
             <span className="vg-kicker">Về ViVuGo</span>
-            <h2>Đi nhẹ nhàng, trải nghiệm trọn vẹn</h2>
+            <h2>Đồng hành tin cậy trên mọi hành trình</h2>
             <p>
-              ViVuGo đồng hành để việc chọn tour, đặt chỗ và chuẩn bị cho chuyến đi của bạn trở nên rõ ràng, đơn giản và an tâm hơn.
+              ViVuGo giúp bạn dễ dàng tìm kiếm, so sánh và đặt tour du lịch với trải nghiệm minh bạch, an toàn và hỗ trợ tận tâm.
             </p>
           </div>
-          <div className="vg-about-strip">
-            <article>
-              <Icon name="sparkle" size={22} />
-              <div>
-                <strong>Hành trình được chọn lọc</strong>
-                <span>Từ tour trong nước đến quốc tế, mỗi hành trình đều được chọn lọc kỹ và cập nhật thông tin rõ ràng trước khi giới thiệu đến bạn.</span>
-              </div>
-            </article>
-            <article>
-              <Icon name="headset" size={22} />
-              <div>
-                <strong>Đồng hành cùng khách hàng</strong>
-                <span>Chúng tôi lắng nghe phản hồi thực tế để nâng cao chất lượng dịch vụ và chăm sóc từng chuyến đi.</span>
-              </div>
-            </article>
-          </div>
-          <div className="vg-benefit-grid vg-benefit-grid-home">
+
+          <div className="vg-trust-consolidated-grid">
             {serviceHighlights.map((item) => (
-              <article key={item.title}>
-                <span>
-                  <Icon name={item.icon} size={26} />
-                </span>
-                <div>
+              <article key={item.title} className="vg-trust-highlight-card">
+                <div className="vg-trust-highlight-icon">
+                  <Icon name={item.icon} size={24} />
+                </div>
+                <div className="vg-trust-highlight-body">
                   <h3>{item.title}</h3>
                   <p>{item.description}</p>
                 </div>

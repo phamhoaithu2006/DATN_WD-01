@@ -118,7 +118,7 @@ function CustomerPage() {
   const homeInternationalTours = useMemo(() => {
     const international = normalizedTours
       .filter((tour) => !isDomesticTour(tour))
-      .slice(0, 4);
+      .slice(0, 6);
 
     return international;
   }, [normalizedTours]);
@@ -150,7 +150,7 @@ function CustomerPage() {
         const dateB = new Date(b.nextDepartureDate || b.nextDeparture?.departure_date).getTime();
         return dateA - dateB;
       })
-      .slice(0, 4);
+      .slice(0, 6);
   }, [normalizedTours]);
 
   const pendingPaymentCount = useMemo(() => bookings.filter((booking) => (
