@@ -65,6 +65,57 @@ function isValidPhone(value) {
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const IDENTITY_REGEX = /^[A-Za-z0-9-]{6,20}$/;
 const MAX_BOOKING_GUESTS = 20;
+const BOOKING_DRAFT_VERSION = 1;
+const BOOKING_DRAFT_STORAGE_PREFIX = "vivugo:booking-draft";
+
+function getBookingDraftStorageKey(tourId) {
+  if (!tourId) return "";
+
+  const session = readSession() || {};
+  const accountKey = session.id || session.email || "guest";
+
+  return `${BOOKING_DRAFT_STORAGE_PREFIX}:${String(accountKey)}:${String(tourId)}`;
+}
+
+function readBookingDraft(storageKey) {
+  if (!storageKey || typeof window === "undefined") return null;
+
+  try {
+    const rawDraft = window.sessionStorage.getItem(storageKey);
+    if (!rawDraft) return null;
+
+    const draft = JSON.parse(rawDraft);
+    const checkoutStep = Number(draft?.checkoutStep);
+
+    if (draft?.version !== BOOKING_DRAFT_VERSION || ![1, 2].includes(checkoutStep)) {
+      return null;
+    }
+
+    return draft;
+  } catch {
+    return null;
+  }
+}
+
+function writeBookingDraft(storageKey, draft) {
+  if (!storageKey || typeof window === "undefined") return;
+
+  try {
+    window.sessionStorage.setItem(storageKey, JSON.stringify(draft));
+  } catch {
+    // Không làm gián đoạn việc nhập thông tin nếu bộ nhớ phiên không khả dụng.
+  }
+}
+
+function clearBookingDraft(storageKey) {
+  if (!storageKey || typeof window === "undefined") return;
+
+  try {
+    window.sessionStorage.removeItem(storageKey);
+  } catch {
+    // Bản nháp chỉ là dữ liệu hỗ trợ; không chặn luồng đặt tour nếu không xóa được.
+  }
+}
 
 function normalizePhone(value) {
   return String(value || "").trim().replace(/\D/g, "");
@@ -281,6 +332,8 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
   const [createdBooking, setCreatedBooking] = useState(null);
   const [bookingRestoreLoading, setBookingRestoreLoading] = useState(() => Boolean(readToken()));
   const bookingIdempotencyKeyRef = useRef("");
+  const bookingDraftHydratedRef = useRef(false);
+  const bookingDraftStorageKey = getBookingDraftStorageKey(tourId);
   const [useCustomContact, setUseCustomContact] = useState(false);
   const [contact, setContact] = useState(() => {
     const session = readSession() || {};
@@ -322,6 +375,7 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
     setFieldErrors({ contact: {}, participants: {} });
     setContact((current) => ({ ...current, special_request: "" }));
     bookingIdempotencyKeyRef.current = "";
+    bookingDraftHydratedRef.current = false;
   }, [tourId]);
 
   useEffect(() => {
@@ -361,7 +415,70 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
 
     if (!Number.isInteger(currentTourId) || currentTourId <= 0) return undefined;
 
+    const restoreBookingDraft = () => {
+      const draft = readBookingDraft(bookingDraftStorageKey);
+
+      if (!draft) return false;
+
+      const currentDepartures = Array.isArray(tour?.departures) ? tour.departures : [];
+      const draftDepartureId = String(draft.selectedDepartureId || "");
+      const draftDeparture = currentDepartures.find(
+        (departure) => String(departure.id) === draftDepartureId,
+      );
+      const hasDepartureData = currentDepartures.length > 0;
+      const hasUsableDeparture = !draftDepartureId
+        || !hasDepartureData
+        || (
+          Boolean(draftDeparture)
+          && (!draftDeparture.status || draftDeparture.status === "open")
+          && Number(draftDeparture.available_slots ?? 0) > 0
+        );
+      const restoredDepartureId = hasUsableDeparture ? draftDepartureId : "";
+      const restoredParticipants = Array.isArray(draft.participants)
+        ? draft.participants.slice(0, MAX_BOOKING_GUESTS).map((participant) => ({
+          full_name: participant?.full_name || "",
+          phone: participant?.phone || "",
+          birth_date: participant?.birth_date || "",
+          gender: ["male", "female", "other"].includes(participant?.gender)
+            ? participant.gender
+            : "male",
+          identity_number: participant?.identity_number || "",
+        }))
+        : [];
+      const restoredContact = draft.contact && typeof draft.contact === "object"
+        ? {
+          contact_name: draft.contact.contact_name || "",
+          contact_email: draft.contact.contact_email || "",
+          contact_phone: draft.contact.contact_phone || "",
+          address: draft.contact.address || "",
+          special_request: draft.contact.special_request || "",
+        }
+        : null;
+      const restoredQuantities = draft.quantities && typeof draft.quantities === "object"
+        && !Array.isArray(draft.quantities)
+        ? draft.quantities
+        : {};
+
+      setSelectedDepartureId(restoredDepartureId);
+      setQuantities(restoredQuantities);
+      setBookingPreview(null);
+      setBookingError("");
+      setBookingConfirmationModal(null);
+      setCreatedBooking(null);
+      setParticipants(restoredParticipants);
+      setFieldErrors({ contact: {}, participants: {} });
+      setUseCustomContact(Boolean(draft.useCustomContact));
+      if (restoredContact) {
+        setContact((current) => ({ ...current, ...restoredContact }));
+      }
+      setCheckoutStep(Number(draft.checkoutStep) === 2 && hasUsableDeparture ? 2 : 1);
+      bookingDraftHydratedRef.current = true;
+
+      return true;
+    };
+
     if (!readToken()) {
+      bookingDraftHydratedRef.current = true;
       setBookingRestoreLoading(false);
       return undefined;
     }
@@ -388,13 +505,24 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
           setUseCustomContact(true);
         }
 
+        if (booking) {
+          clearBookingDraft(bookingDraftStorageKey);
+          bookingDraftHydratedRef.current = true;
+        } else {
+          restoreBookingDraft();
+          bookingDraftHydratedRef.current = true;
+        }
+
       })
       .catch((error) => {
         if (!active) return;
 
         if (error.response?.status !== 401) {
           console.warn("Không thể khôi phục đơn chờ thanh toán:", error);
+          restoreBookingDraft();
         }
+
+        bookingDraftHydratedRef.current = true;
       })
       .finally(() => {
         if (active) setBookingRestoreLoading(false);
@@ -403,7 +531,39 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
     return () => {
       active = false;
     };
-  }, [tour?.id]);
+  // Draft được khôi phục theo tour hiện tại; dữ liệu lịch đã có trong snapshot tour khi vào checkout.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tour?.id, tourId, bookingDraftStorageKey]);
+
+  useEffect(() => {
+    if (!bookingDraftHydratedRef.current || !readToken()) return;
+
+    if (checkoutStep === 3) {
+      clearBookingDraft(bookingDraftStorageKey);
+      return;
+    }
+
+    if (![1, 2].includes(checkoutStep)) return;
+
+    writeBookingDraft(bookingDraftStorageKey, {
+      version: BOOKING_DRAFT_VERSION,
+      updatedAt: Date.now(),
+      checkoutStep,
+      selectedDepartureId: String(selectedDepartureId || ""),
+      quantities,
+      contact,
+      participants,
+      useCustomContact,
+    });
+  }, [
+    bookingDraftStorageKey,
+    checkoutStep,
+    contact,
+    participants,
+    quantities,
+    selectedDepartureId,
+    useCustomContact,
+  ]);
 
   const reviewSlug =
     detailTour?.slug ||
@@ -1086,6 +1246,7 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
       setBookingConfirmationModal(null);
       setCreatedBooking(booking);
       setCheckoutStep(3);
+      clearBookingDraft(bookingDraftStorageKey);
       toast.success("Thông tin hợp lệ. Đơn đặt tour đã được tạo.", {
         id: "tour-booking-created",
       });

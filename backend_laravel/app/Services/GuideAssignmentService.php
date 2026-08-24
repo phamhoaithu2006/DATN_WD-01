@@ -32,7 +32,6 @@ class GuideAssignmentService
         $query = Guide::query()
             ->with([
                 'user:id,full_name,email,avatar_url',
-                'provinces:id,name',
             ])
             ->whereHas('user');
 
@@ -283,7 +282,6 @@ class GuideAssignmentService
             if ($currentAssignment) {
                 return $currentAssignment->load([
                     'guide.user',
-                    'guide.provinces',
                 ]);
             }
 
@@ -311,7 +309,6 @@ class GuideAssignmentService
                 'assigned_at' => now(),
             ])->load([
                 'guide.user',
-                'guide.provinces',
             ]);
         }, 3);
     }
@@ -374,7 +371,6 @@ class GuideAssignmentService
                 'assigned_at' => now(),
             ])->load([
                 'guide.user',
-                'guide.provinces',
             ]);
         }, 3);
     }

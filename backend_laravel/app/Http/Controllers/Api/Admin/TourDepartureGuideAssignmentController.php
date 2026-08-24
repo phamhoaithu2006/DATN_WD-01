@@ -43,7 +43,6 @@ class TourDepartureGuideAssignmentController extends Controller
                         ->whereIn('status', ['assigned', 'confirmed'])
                         ->with([
                             'guide.user:id,full_name,email,avatar_url',
-                            'guide.provinces:id,name,code',
                         ]);
                 },
             ])
@@ -427,6 +426,13 @@ class TourDepartureGuideAssignmentController extends Controller
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
 
+        if (! empty($validated['province_id'])) {
+            return response()->json([
+                'message' => 'Bộ lọc tỉnh phụ trách HDV chưa được cấu hình trong hệ thống hiện tại.',
+                'code' => 'GUIDE_PROVINCE_FILTER_UNAVAILABLE',
+            ], 422);
+        }
+
         $departure->loadMissing([
             'tour:id,title,province_id',
             'tour.province:id,name,code',
@@ -464,7 +470,6 @@ class TourDepartureGuideAssignmentController extends Controller
         $query = Guide::query()
             ->with([
                 'user:id,full_name,email,phone,avatar_url',
-                'provinces:id,name,code',
             ]);
 
         /*
@@ -495,14 +500,6 @@ class TourDepartureGuideAssignmentController extends Controller
                             ->orWhere('email', 'like', "%{$keyword}%")
                             ->orWhere('phone', 'like', "%{$keyword}%");
                     });
-            });
-        }
-
-        if (! empty($validated['province_id'])) {
-            $provinceId = (int) $validated['province_id'];
-
-            $query->whereHas('provinces', function ($q) use ($provinceId) {
-                $q->where('provinces.id', $provinceId);
             });
         }
 
@@ -660,9 +657,9 @@ class TourDepartureGuideAssignmentController extends Controller
                     'guide_code' => $guide->guide_code ?? null,
                     'avatar_url' => $avatarUrl,
                     'user' => $guide->user,
-                    'provinces' => $guide->provinces,
-                    // Alias tạm thời cho frontend cũ.
-                    'destinations' => $guide->provinces,
+                    // Giữ nguyên shape response trong lúc quan hệ HDV–tỉnh chưa được cấu hình.
+                    'provinces' => [],
+                    'destinations' => [],
                     'languages' => $guideLanguages,
                     'is_available' => $isAvailable,
                     'is_eligible' => $isAvailable,
@@ -759,7 +756,6 @@ class TourDepartureGuideAssignmentController extends Controller
         $guide = Guide::query()
             ->with([
                 'user:id,full_name,email,phone',
-                'provinces:id,name,code',
             ])
             ->findOrFail($validated['guide_id']);
 

@@ -154,10 +154,15 @@ class PublicCatalogController extends Controller
         ]);
     }
 
-    public function destinations(): JsonResponse
+    public function destinations(Request $request): JsonResponse
     {
-        $destinations = Province::query()
-            ->orderBy('name')
+        $query = Province::query();
+
+        if ($request->boolean('with_tours')) {
+            $query->whereHas('tours', fn (Builder $q) => $this->applyAvailableTourConstraints($q));
+        }
+
+        $destinations = $query
             ->orderBy('name')
             ->get(['id', 'name', 'code'])
             ->map(fn (Province $province): array => [

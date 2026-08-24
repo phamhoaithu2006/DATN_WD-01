@@ -189,6 +189,99 @@ test('public catalog returns only active categories and destinations', function 
         ->assertJsonFragment(['slug' => 'noi-bo']);
 });
 
+test('catalog destinations with_tours filters out provinces without bookable tours', function () {
+    $category = Category::query()->create([
+        'name' => 'Biển đảo',
+        'slug' => 'bien-dao',
+        'status' => 'active',
+    ]);
+    $provinceWithValidTour = Province::query()->create([
+        'name' => 'Đà Nẵng',
+    ]);
+    $provinceWithDraftTour = Province::query()->create([
+        'name' => 'Hà Nội',
+    ]);
+    $provinceWithNoDepartures = Province::query()->create([
+        'name' => 'Hải Phòng',
+    ]);
+    $provinceWithExpiredDeparture = Province::query()->create([
+        'name' => 'Nha Trang',
+    ]);
+    Province::query()->create([
+        'name' => 'Cần Thơ',
+    ]);
+
+    // Tour hợp lệ: published + departure open trong tương lai + còn slot
+    $validTour = Tour::query()->create([
+        'category_id' => $category->id,
+        'province_id' => $provinceWithValidTour->id,
+        'title' => 'Tour Đà Nẵng',
+        'slug' => 'tour-da-nang',
+        'status' => 'published',
+    ]);
+    DB::table('tour_departures')->insert([
+        'tour_id' => $validTour->id,
+        'departure_date' => now()->addWeek()->toDateString(),
+        'return_date' => now()->addDays(9)->toDateString(),
+        'base_price' => 3000000,
+        'total_slots' => 20,
+        'booked_slots' => 2,
+        'status' => 'open',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    // Tour nháp (draft)
+    Tour::query()->create([
+        'category_id' => $category->id,
+        'province_id' => $provinceWithDraftTour->id,
+        'title' => 'Tour Hà Nội Draft',
+        'slug' => 'tour-ha-noi-draft',
+        'status' => 'draft',
+    ]);
+
+    // Tour published nhưng không có lịch khởi hành
+    Tour::query()->create([
+        'category_id' => $category->id,
+        'province_id' => $provinceWithNoDepartures->id,
+        'title' => 'Tour Hải Phòng No Departure',
+        'slug' => 'tour-hai-phong-no-departure',
+        'status' => 'published',
+    ]);
+
+    // Tour published nhưng lịch khởi hành đã quá hạn
+    $expiredTour = Tour::query()->create([
+        'category_id' => $category->id,
+        'province_id' => $provinceWithExpiredDeparture->id,
+        'title' => 'Tour Nha Trang Expired',
+        'slug' => 'tour-nha-trang-expired',
+        'status' => 'published',
+    ]);
+    DB::table('tour_departures')->insert([
+        'tour_id' => $expiredTour->id,
+        'departure_date' => now()->subDay()->toDateString(),
+        'return_date' => now()->toDateString(),
+        'base_price' => 2000000,
+        'total_slots' => 20,
+        'booked_slots' => 0,
+        'status' => 'open',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    // 1. Mặc định không truyền with_tours: trả về tất cả 5 tỉnh
+    $this->getJson('/api/catalog/destinations')
+        ->assertOk()
+        ->assertJsonCount(5, 'data');
+
+    // 2. Truyền with_tours=1: chỉ trả về tỉnh có tour hợp lệ (Đà Nẵng)
+    $this->getJson('/api/catalog/destinations?with_tours=1')
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.slug', 'da-nang')
+        ->assertJsonPath('data.0.name', 'Đà Nẵng');
+});
+
 test('home returns only bookable content and visible customer reviews', function () {
     $category = Category::query()->create([
         'name' => 'Nghỉ dưỡng',

@@ -13,19 +13,35 @@ import CustomerSupportMenuBadge from './CustomerSupportMenuBadge'
 
 // Detailed mock data structured for the Mega Menu categories, tabs, and content items
 const megaMenuData = {
-  "places-to-see": {
-    label: { vi: "Điểm du lịch", en: "Places to see" },
+  tour: {
+    label: { vi: "Tour", en: "Tours" },
     sidebar: [
-      { id: "top-attractions", label: { vi: "Điểm du lịch nổi bật", en: "Top attractions" } },
-      { id: "north-america", label: { vi: "Bắc Mỹ", en: "North America" } },
-      { id: "europe", label: { vi: "Châu Âu", en: "Europe" } },
-      { id: "africa", label: { vi: "Châu Phi", en: "Africa" } },
-      { id: "central-south-america", label: { vi: "Trung & Nam Mỹ", en: "Central & South America" } },
-      { id: "asia", label: { vi: "Châu Á", en: "Asia" } },
-      { id: "australia-pacific", label: { vi: "Úc & Thái Bình Dương", en: "Australia & the Pacific" } }
+      { id: "all-destinations", label: { vi: "Tất cả điểm đến", en: "All destinations" } },
+      { id: "vietnam", label: { vi: "Trong nước", en: "Domestic" } },
+      { id: "international", label: { vi: "Quốc tế", en: "International" } },
+      { id: "all-activities", label: { vi: "Tất cả trải nghiệm", en: "All experiences" } },
+      { id: "outdoor-adventures", label: { vi: "Phiêu lưu ngoài trời", en: "Outdoor adventures" } },
+      { id: "cultural-tours", label: { vi: "Tour văn hóa", en: "Cultural tours" } },
+      { id: "food-dining", label: { vi: "Ẩm thực & Nhà hàng", en: "Food & dining" } },
+      { id: "water-sports", label: { vi: "Thể thao dưới nước", en: "Water sports" } }
     ],
     content: {
-      "top-attractions": [
+      "all-destinations": [
+        {
+          title: { vi: "Vịnh Hạ Long", en: "Ha Long Bay" },
+          subtitle: { vi: "Kỳ quan tại Quảng Ninh, Việt Nam", en: "Attraction in Quang Ninh, Vietnam" },
+          image: "https://picsum.photos/seed/halong/80/80"
+        },
+        {
+          title: { vi: "Đà Nẵng", en: "Da Nang" },
+          subtitle: { vi: "Thành phố biển đáng sống, Việt Nam", en: "Coastal city in Vietnam" },
+          image: "https://picsum.photos/seed/danang/80/80"
+        },
+        {
+          title: { vi: "Núi Phú Sĩ", en: "Mount Fuji" },
+          subtitle: { vi: "Kỳ quan tại Shizuoka, Nhật Bản", en: "Attraction in Shizuoka, Japan" },
+          image: "https://picsum.photos/seed/fuji/80/80"
+        },
         {
           title: { vi: "Tháp Eiffel", en: "Eiffel Tower" },
           subtitle: { vi: "Kỳ quan tại Paris, Pháp", en: "Attraction in Paris, France" },
@@ -37,140 +53,45 @@ const megaMenuData = {
           image: "https://picsum.photos/seed/colosseum/80/80"
         },
         {
+          title: { vi: "Đền Angkor Wat", en: "Angkor Wat" },
+          subtitle: { vi: "Kỳ quan tại Siem Reap, Campuchia", en: "Temple Complex in Siem Reap, Cambodia" },
+          image: "https://picsum.photos/seed/angkor/80/80"
+        }
+      ],
+      "vietnam": [
+        {
           title: { vi: "Vịnh Hạ Long", en: "Ha Long Bay" },
           subtitle: { vi: "Kỳ quan tại Quảng Ninh, Việt Nam", en: "Attraction in Quang Ninh, Vietnam" },
           image: "https://picsum.photos/seed/halong/80/80"
         },
         {
-          title: { vi: "Tượng Nữ thần Tự do", en: "Statue of Liberty" },
-          subtitle: { vi: "Điểm tham quan tại New York, Mỹ", en: "Attraction in New York, USA" },
-          image: "https://picsum.photos/seed/liberty/80/80"
+          title: { vi: "Đà Nẵng", en: "Da Nang" },
+          subtitle: { vi: "Thành phố biển đáng sống, Việt Nam", en: "Coastal city in Vietnam" },
+          image: "https://picsum.photos/seed/danang/80/80"
         },
         {
-          title: { vi: "Đền Taj Mahal", en: "Taj Mahal" },
-          subtitle: { vi: "Kỳ quan tại Agra, Ấn Độ", en: "Attraction in Agra, India" },
-          image: "https://picsum.photos/seed/tajmahal/80/80"
-        },
+          title: { vi: "Phú Quốc", en: "Phu Quoc" },
+          subtitle: { vi: "Đảo ngọc thiên đường, Việt Nam", en: "Paradise Island in Vietnam" },
+          image: "https://picsum.photos/seed/phuquoc/80/80"
+        }
+      ],
+      "international": [
         {
           title: { vi: "Núi Phú Sĩ", en: "Mount Fuji" },
           subtitle: { vi: "Kỳ quan tại Shizuoka, Nhật Bản", en: "Attraction in Shizuoka, Japan" },
           image: "https://picsum.photos/seed/fuji/80/80"
-        }
-      ],
-      "north-america": [
-        {
-          title: { vi: "Hẻm núi Grand Canyon", en: "Grand Canyon" },
-          subtitle: { vi: "Vườn quốc gia tại Arizona, Mỹ", en: "National Park in Arizona, USA" },
-          image: "https://picsum.photos/seed/grandcanyon/80/80"
         },
-        {
-          title: { vi: "Thác Niagara", en: "Niagara Falls" },
-          subtitle: { vi: "Kỳ quan thiên nhiên tại New York, Mỹ", en: "Natural Wonder in New York, USA" },
-          image: "https://picsum.photos/seed/niagara/80/80"
-        },
-        {
-          title: { vi: "Công viên Yellowstone", en: "Yellowstone National Park" },
-          subtitle: { vi: "Vườn quốc gia tại Wyoming, Mỹ", en: "National Park in Wyoming, USA" },
-          image: "https://picsum.photos/seed/yellowstone/80/80"
-        }
-      ],
-      "europe": [
         {
           title: { vi: "Tháp Eiffel", en: "Eiffel Tower" },
           subtitle: { vi: "Kỳ quan tại Paris, Pháp", en: "Attraction in Paris, France" },
           image: "https://picsum.photos/seed/eiffel/80/80"
         },
         {
-          title: { vi: "Kênh đào Venice", en: "Venice Canals" },
-          subtitle: { vi: "Điểm lãng mạn tại Venice, Ý", en: "Romantic Landmark in Venice, Italy" },
-          image: "https://picsum.photos/seed/venice/80/80"
-        },
-        {
-          title: { vi: "Bảo tàng Louvre", en: "Louvre Museum" },
-          subtitle: { vi: "Bảo tàng nghệ thuật tại Paris, Pháp", en: "Art Museum in Paris, France" },
-          image: "https://picsum.photos/seed/louvre/80/80"
-        }
-      ],
-      "africa": [
-        {
-          title: { vi: "Kim tự tháp Giza", en: "Pyramids of Giza" },
-          subtitle: { vi: "Di tích lịch sử tại Cairo, Ai Cập", en: "Historic Site in Cairo, Egypt" },
-          image: "https://picsum.photos/seed/pyramids/80/80"
-        },
-        {
-          title: { vi: "Vườn quốc gia Serengeti", en: "Serengeti National Park" },
-          subtitle: { vi: "Khu bảo tồn động vật tại Tanzania", en: "Wildlife Reserve in Tanzania" },
-          image: "https://picsum.photos/seed/serengeti/80/80"
-        },
-        {
-          title: { vi: "Núi Bàn (Table Mountain)", en: "Table Mountain" },
-          subtitle: { vi: "Kỳ quan thiên nhiên tại Cape Town, Nam Phi", en: "Natural Wonder in Cape Town, South Africa" },
-          image: "https://picsum.photos/seed/tablemountain/80/80"
-        }
-      ],
-      "central-south-america": [
-        {
-          title: { vi: "Machu Picchu", en: "Machu Picchu" },
-          subtitle: { vi: "Thành phố cổ đại tại Cusco, Peru", en: "Ancient City in Cusco, Peru" },
-          image: "https://picsum.photos/seed/machupicchu/80/80"
-        },
-        {
-          title: { vi: "Tượng Chúa cứu thế", en: "Christ the Redeemer" },
-          subtitle: { vi: "Tượng đài kỳ quan tại Rio de Janeiro, Brazil", en: "Iconic Statue in Rio de Janeiro, Brazil" },
-          image: "https://picsum.photos/seed/christ/80/80"
-        },
-        {
-          title: { vi: "Quần đảo Galapagos", en: "Galapagos Islands" },
-          subtitle: { vi: "Kỳ quan đa dạng sinh học tại Ecuador", en: "Biodiverse Sanctuary in Ecuador" },
-          image: "https://picsum.photos/seed/galapagos/80/80"
-        }
-      ],
-      "asia": [
-        {
           title: { vi: "Đền Angkor Wat", en: "Angkor Wat" },
-          subtitle: { vi: "Kỳ quan tôn giáo tại Siem Reap, Campuchia", en: "Temple Complex in Siem Reap, Cambodia" },
+          subtitle: { vi: "Kỳ quan tại Siem Reap, Campuchia", en: "Temple Complex in Siem Reap, Cambodia" },
           image: "https://picsum.photos/seed/angkor/80/80"
-        },
-        {
-          title: { vi: "Vịnh Hạ Long", en: "Ha Long Bay" },
-          subtitle: { vi: "Kỳ quan thiên nhiên tại Quảng Ninh, Việt Nam", en: "Attraction in Quang Ninh, Vietnam" },
-          image: "https://picsum.photos/seed/halong/80/80"
-        },
-        {
-          title: { vi: "Vạn Lý Trường Thành", en: "Great Wall of China" },
-          subtitle: { vi: "Di tích lịch sử tại Bắc Kinh, Trung Quốc", en: "Historic Wall in Beijing, China" },
-          image: "https://picsum.photos/seed/greatwall/80/80"
         }
       ],
-      "australia-pacific": [
-        {
-          title: { vi: "Nhà hát Opera Sydney", en: "Sydney Opera House" },
-          subtitle: { vi: "Công trình biểu tượng tại Sydney, Úc", en: "Iconic Theatre in Sydney, Australia" },
-          image: "https://picsum.photos/seed/opera/80/80"
-        },
-        {
-          title: { vi: "Rạn san hô Great Barrier", en: "Great Barrier Reef" },
-          subtitle: { vi: "Kỳ quan san hô tại Queensland, Úc", en: "Coral Reef System in Queensland, Australia" },
-          image: "https://picsum.photos/seed/reef/80/80"
-        },
-        {
-          title: { vi: "Vườn quốc gia Fiordland", en: "Fiordland National Park" },
-          subtitle: { vi: "Cảnh quan thiên nhiên tại New Zealand", en: "Glacial Fjord System in New Zealand" },
-          image: "https://picsum.photos/seed/fiordland/80/80"
-        }
-      ]
-    }
-  },
-  "things-to-do": {
-    label: { vi: "Trải nghiệm", en: "Things to do" },
-    sidebar: [
-      { id: "all-activities", label: { vi: "Tất cả hoạt động", en: "All activities" } },
-      { id: "outdoor-adventures", label: { vi: "Phiêu lưu ngoài trời", en: "Outdoor adventures" } },
-      { id: "cultural-tours", label: { vi: "Tour văn hóa", en: "Cultural tours" } },
-      { id: "food-dining", label: { vi: "Ẩm thực & Nhà hàng", en: "Food & dining" } },
-      { id: "water-sports", label: { vi: "Thể thao dưới nước", en: "Water sports" } }
-    ],
-    content: {
       "all-activities": [
         {
           title: { vi: "Chèo thuyền Kayak", en: "Kayaking tour" },
@@ -313,7 +234,7 @@ function Header({ user, onLogout, pendingCount = 0 }) {
     async function loadMenuData() {
       try {
         const [catalogDestinations, catalogCategories, toursData] = await Promise.all([
-          fetchCatalogDestinations().catch(() => []),
+          fetchCatalogDestinations({ with_tours: 1 }).catch(() => []),
           fetchCatalogCategories().catch(() => []),
           fetchTours().catch(() => [])
         ]);
@@ -330,7 +251,7 @@ function Header({ user, onLogout, pendingCount = 0 }) {
 
         const tours = Array.isArray(toursData) ? toursData : [];
 
-        // Build Places to see (Điểm du lịch)
+        // Build Destinations list (chỉ hiển thị tỉnh có tour sẵn sàng đặt)
         const domesticDests = destinations.filter(d => {
           const c = (d.country || '').trim().toLowerCase();
           return c === 'việt nam' || c === 'viet nam' || c === '';
@@ -340,18 +261,13 @@ function Header({ user, onLogout, pendingCount = 0 }) {
           return c !== 'việt nam' && c !== 'viet nam' && c !== '';
         });
 
-        const placesSidebar = [
-          { id: "all-destinations", label: { vi: "Tất cả điểm đến", en: "All destinations" } }
-        ];
-        if (domesticDests.length > 0) {
-          placesSidebar.push({ id: "vietnam", label: { vi: "Trong nước", en: "Domestic" } });
-        }
-        if (intlDests.length > 0) {
-          placesSidebar.push({ id: "international", label: { vi: "Quốc tế", en: "International" } });
-        }
+        const tourSidebar = [];
+        const tourContent = {};
 
-        const placesContent = {
-          "all-destinations": destinations.map(d => ({
+        // Nhóm 1: Điểm đến du lịch (Destinations)
+        if (destinations.length > 0) {
+          tourSidebar.push({ id: "all-destinations", label: { vi: "Tất cả điểm đến", en: "All destinations" } });
+          tourContent["all-destinations"] = destinations.map(d => ({
             id: d.id,
             title: { vi: d.name, en: d.name },
             subtitle: {
@@ -359,58 +275,40 @@ function Header({ user, onLogout, pendingCount = 0 }) {
               en: d.province_city ? `Attraction in ${d.province_city}` : "Top attraction"
             },
             image: d.thumbnail_url || "https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=120&q=80"
-          })),
-          "vietnam": domesticDests.map(d => ({
-            id: d.id,
-            title: { vi: d.name, en: d.name },
-            subtitle: {
-              vi: d.province_city ? `Kỳ quan tại ${d.province_city}, Việt Nam` : "Kỳ quan tại Việt Nam",
-              en: d.province_city ? `Wonder in ${d.province_city}, Vietnam` : "Wonder in Vietnam"
-            },
-            image: d.thumbnail_url || "https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=120&q=80"
-          })),
-          "international": intlDests.map(d => ({
-            id: d.id,
-            title: { vi: d.name, en: d.name },
-            subtitle: {
-              vi: `${d.province_city || ''}, ${d.country}`,
-              en: `${d.province_city || ''}, ${d.country}`
-            },
-            image: d.thumbnail_url || "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=120&q=80"
-          }))
-        };
+          }));
 
-        // Build Things to do (Trải nghiệm)
+          if (domesticDests.length > 0) {
+            tourSidebar.push({ id: "vietnam", label: { vi: "Trong nước", en: "Domestic" } });
+            tourContent["vietnam"] = domesticDests.map(d => ({
+              id: d.id,
+              title: { vi: d.name, en: d.name },
+              subtitle: {
+                vi: d.province_city ? `Kỳ quan tại ${d.province_city}, Việt Nam` : "Kỳ quan tại Việt Nam",
+                en: d.province_city ? `Wonder in ${d.province_city}, Vietnam` : "Wonder in Vietnam"
+              },
+              image: d.thumbnail_url || "https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=120&q=80"
+            }));
+          }
+
+          if (intlDests.length > 0) {
+            tourSidebar.push({ id: "international", label: { vi: "Quốc tế", en: "International" } });
+            tourContent["international"] = intlDests.map(d => ({
+              id: d.id,
+              title: { vi: d.name, en: d.name },
+              subtitle: {
+                vi: `${d.province_city || ''}, ${d.country}`,
+                en: `${d.province_city || ''}, ${d.country}`
+              },
+              image: d.thumbnail_url || "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=120&q=80"
+            }));
+          }
+        }
+
+        // Nhóm 2: Trải nghiệm & Loại hình tour (Experiences & Categories)
         const activeCategories = categories.filter(c => c.status === 'active' || c.status === undefined);
-        const thingsSidebar = [
-          { id: "all-activities", label: { vi: "Tất cả trải nghiệm", en: "All experiences" } }
-        ];
-        activeCategories.forEach(cat => {
-          thingsSidebar.push({
-            id: `cat-${cat.id}`,
-            label: { vi: cat.name, en: cat.name }
-          });
-        });
-
-        const thingsContent = {
-          "all-activities": tours.slice(0, 9).map(tour => ({
-            title: { vi: tour.title, en: tour.title },
-            subtitle: {
-              vi: tour.duration || `${tour.duration_days} ngày ${tour.duration_nights} đêm`,
-              en: tour.duration || `${tour.duration_days} days ${tour.duration_nights} nights`
-            },
-            image: tour.thumbnail_url || tour.image || "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=120&q=80",
-            slug: tour.slug
-          }))
-        };
-
-        activeCategories.forEach(cat => {
-          const catTours = tours.filter(tour =>
-            tour.category_id === cat.id ||
-            tour.category_info?.id === cat.id ||
-            (tour.category && (tour.category === cat.name || tour.category.name === cat.name))
-          );
-          thingsContent[`cat-${cat.id}`] = catTours.slice(0, 9).map(tour => ({
+        if (tours.length > 0 || activeCategories.length > 0) {
+          tourSidebar.push({ id: "all-activities", label: { vi: "Tất cả trải nghiệm", en: "All experiences" } });
+          tourContent["all-activities"] = tours.slice(0, 9).map(tour => ({
             title: { vi: tour.title, en: tour.title },
             subtitle: {
               vi: tour.duration || `${tour.duration_days} ngày ${tour.duration_nights} đêm`,
@@ -419,21 +317,49 @@ function Header({ user, onLogout, pendingCount = 0 }) {
             image: tour.thumbnail_url || tour.image || "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=120&q=80",
             slug: tour.slug
           }));
-        });
+
+          activeCategories.forEach(cat => {
+            const catTours = tours.filter(tour =>
+              tour.category_id === cat.id ||
+              tour.category_info?.id === cat.id ||
+              (tour.category && (tour.category === cat.name || tour.category.name === cat.name))
+            );
+            tourSidebar.push({
+              id: `cat-${cat.id}`,
+              label: { vi: cat.name, en: cat.name }
+            });
+            tourContent[`cat-${cat.id}`] = catTours.slice(0, 9).map(tour => ({
+              title: { vi: tour.title, en: tour.title },
+              subtitle: {
+                vi: tour.duration || `${tour.duration_days} ngày ${tour.duration_nights} đêm`,
+                en: tour.duration || `${tour.duration_days} days ${tour.duration_nights} nights`
+              },
+              image: tour.thumbnail_url || tour.image || "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=120&q=80",
+              slug: tour.slug
+            }));
+          });
+        }
+
+        // Fallback an toàn nếu cả 2 API đều không có dữ liệu
+        if (tourSidebar.length === 0) {
+          tourSidebar.push(...megaMenuData.tour.sidebar);
+          Object.assign(tourContent, megaMenuData.tour.content);
+        }
 
         setMenuData({
-          "places-to-see": {
-            label: { vi: "Điểm du lịch", en: "Places to see" },
-            sidebar: placesSidebar,
-            content: placesContent
-          },
-          "things-to-do": {
-            label: { vi: "Trải nghiệm", en: "Things to do" },
-            sidebar: thingsSidebar,
-            content: thingsContent
+          tour: {
+            label: { vi: "Tour", en: "Tours" },
+            sidebar: tourSidebar,
+            content: tourContent
           },
           policies: megaMenuData.policies
         });
+
+        setActiveTab((currentTab) => {
+          if (currentTab && tourContent[currentTab]) return currentTab;
+          return tourSidebar[0]?.id || null;
+        });
+
         menuDataLoadedRef.current = true;
       } catch (err) {
         console.error("Failed to load mega menu data:", err);
@@ -820,7 +746,9 @@ function Header({ user, onLogout, pendingCount = 0 }) {
                             <div className="grid grid-cols-1 gap-2.5 pl-1.5">
                               {items.map((item, idx) => {
                                 const itemTitle = language === "vi" ? item.title.vi : item.title.en;
-                                const searchUrl = item.slug
+                                const searchUrl = menuKey === "policies"
+                                  ? policyLinks[item.title.vi] || "/policies/general"
+                                  : item.slug
                                   ? `/tours/${item.slug}`
                                   : `/tours?q=${encodeURIComponent(language === "vi" ? item.title.vi : item.title.en)}`;
                                 return (
