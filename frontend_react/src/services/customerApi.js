@@ -55,8 +55,8 @@ export async function fetchCatalogCategories() {
   return response.data?.data || []
 }
 
-export async function fetchCatalogDestinations() {
-  const response = await api.get('/catalog/destinations')
+export async function fetchCatalogDestinations(params = {}) {
+  const response = await api.get('/catalog/destinations', { params })
 
   return response.data?.data || []
 }

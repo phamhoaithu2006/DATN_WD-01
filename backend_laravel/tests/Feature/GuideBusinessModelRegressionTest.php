@@ -170,7 +170,7 @@ test('admin phân công mọi HDV không trùng lịch khi lịch đang diễn r
     $admin = guideAuditUser('admin');
     $guideUser = guideAuditUser('tour guide');
     $guide = guideAuditProfile($guideUser, ['status' => 'inactive']);
-    ['departure' => $departure] = guideAuditDeparture(now()->toDateString());
+    ['tour' => $tour, 'departure' => $departure] = guideAuditDeparture(now()->toDateString());
 
     $assignment = TourGuideAssignment::query()->create([
         'tour_departure_id' => $departure->id,
@@ -182,6 +182,15 @@ test('admin phân công mọi HDV không trùng lịch khi lịch đang diễn r
     ]);
 
     Sanctum::actingAs($admin);
+
+    $this->getJson(sprintf(
+        '/api/admin/tour-departures/guide-planning?from=%s&to=%s&tour_id=%d',
+        now()->toDateString(),
+        now()->addDay()->toDateString(),
+        $tour->id
+    ))
+        ->assertOk()
+        ->assertJsonPath('data.data.0.id', $departure->id);
 
     $this->getJson("/api/admin/tour-departures/{$departure->id}/guide-candidates")
         ->assertOk();
@@ -204,6 +213,21 @@ test('admin phân công mọi HDV không trùng lịch khi lịch đang diễn r
         'guide_id' => $guide->id,
         'status' => 'assigned',
     ]);
+});
+
+test('admin nhận lỗi rõ ràng khi lọc HDV theo tỉnh chưa được hỗ trợ', function () {
+    $admin = guideAuditUser('admin');
+    ['tour' => $tour, 'departure' => $departure] = guideAuditDeparture(
+        now()->addDay()->toDateString()
+    );
+
+    Sanctum::actingAs($admin);
+
+    $this->getJson(
+        "/api/admin/tour-departures/{$departure->id}/direct-guide-candidates?province_id={$tour->province_id}"
+    )
+        ->assertUnprocessable()
+        ->assertJsonPath('code', 'GUIDE_PROVINCE_FILTER_UNAVAILABLE');
 });
 
 test('admin vẫn hoàn tác được phân công của lịch khởi hành tương lai', function () {
