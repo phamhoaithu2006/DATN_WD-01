@@ -143,6 +143,10 @@ const menuItems = [
     path: ADMIN_RECEIVED_NOTIFICATIONS_PATH,
     children: [
       {
+        label: 'Gửi thông báo',
+        path: '/admin/notifications',
+      },
+      {
         label: 'Thông báo đã nhận',
         path: ADMIN_RECEIVED_NOTIFICATIONS_PATH,
         excludeSearch: 'filter',
@@ -563,7 +567,7 @@ function AdminSidebar({
                       <NavLink
                         key={child.path}
                         to={child.path}
-                        end={child.path === '/admin/tours' || child.path === '/admin/tour-departures' || child.path === '/admin/bookings'}
+                        end={child.path === '/admin/tours' || child.path === '/admin/tour-departures' || child.path === '/admin/bookings' || child.path === '/admin/notifications'}
                         className={({ isActive }) => {
                           const searchParams = new URLSearchParams(location.search)
                           const matchesSearch = child.search
