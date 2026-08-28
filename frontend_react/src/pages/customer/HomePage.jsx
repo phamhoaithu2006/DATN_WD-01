@@ -481,12 +481,14 @@ function HomePage({
     }
   };
 
-  // Đánh giá tinh gọn: tối đa 3 review mới nhất
-  const curatedReviews = safeReviews.slice(0, 3);
-  const totalReviewsCount = safeReviews.length;
-  const avgScore = totalReviewsCount > 0
-    ? (safeReviews.reduce((acc, r) => acc + Number(r.rating || 5), 0) / totalReviewsCount).toFixed(1).replace(".", ",")
-    : "5,0";
+  // Hiển thị toàn bộ đánh giá từ 4 sao trở lên mà API trả về.
+  const displayedReviews = safeReviews.filter((review) => Number(review.rating) >= 4);
+  const totalReviewsCount = displayedReviews.length;
+  const averageRating = totalReviewsCount > 0
+    ? displayedReviews.reduce((acc, review) => acc + Number(review.rating), 0) / totalReviewsCount
+    : 5;
+  const avgScore = averageRating.toFixed(1).replace(".", ",");
+  const roundedAverageRating = Math.round(averageRating);
 
   // Khối cam kết và giá trị dịch vụ hợp nhất
   const serviceHighlights = [
@@ -935,15 +937,15 @@ function HomePage({
         </section>
       ) : null}
 
-      {/* Section 4: Đánh giá thực tế của khách hàng (Tối đa 3 review mới nhất) */}
-      {!loading && curatedReviews.length > 0 ? (
+      {/* Section 4: Cảm nhận của khách hàng (Từ 4 sao trở lên) */}
+      {!loading && displayedReviews.length > 0 ? (
         <section className="vg-home-section vg-reviews-section vg-home-section-alt" id="danh-gia">
           <div className="vg-reviews-bg-glow" aria-hidden="true" />
           <div className="vg-container">
             <div className="vg-centered-heading">
               <span className="vg-kicker">Trải nghiệm du khách</span>
               <h2>
-                Đánh giá 5 sao mới nhất từ du khách
+                Cảm nhận của khách hàng
               </h2>
               <p>Cảm nhận chân thực từ những du khách đã đồng hành và trải nghiệm tour thực tế cùng ViVuGo.</p>
             </div>
@@ -952,10 +954,20 @@ function HomePage({
             <div className="vg-reviews-trust-bar">
               <div className="vg-trust-score-badge">
                 <span className="vg-trust-score-num">{avgScore}</span>
-                <div className="vg-trust-stars">★★★★★</div>
+                <div className="vg-trust-stars" aria-label={`${avgScore} trên 5 sao`}>
+                  {[..."★★★★★"].map((star, starIndex) => (
+                    <span
+                      key={starIndex}
+                      className={starIndex < roundedAverageRating ? "is-filled" : "is-empty"}
+                      aria-hidden="true"
+                    >
+                      {star}
+                    </span>
+                  ))}
+                </div>
               </div>
               <div className="vg-trust-avatar-stack">
-                {curatedReviews.map((r, i) => {
+                {displayedReviews.slice(0, 3).map((r, i) => {
                   const name = r.reviewer_name || "K";
                   const avColor = (i % 4) + 1;
                   return (
@@ -967,61 +979,88 @@ function HomePage({
               </div>
               <div className="vg-trust-stats-info">
                 <strong>{totalReviewsCount > 0 ? `${totalReviewsCount} Đánh giá thực tế` : "Đánh giá từ khách hàng"}</strong>
-                <span>Đánh giá 5 sao mới nhất từ du khách đã trải nghiệm tour</span>
+                <span>Những đánh giá từ 4 sao trở lên của du khách đã trải nghiệm tour</span>
               </div>
             </div>
 
-            {/* Lưới 3 thẻ review tĩnh, responsive */}
-            <div className="vg-reviews-grid-compact">
-              {curatedReviews.map((review, index) => {
-                const reviewerName = review.reviewer_name || "Khách hàng ViVuGo";
-                const reviewerAvatar = mediaUrl(review.reviewer_avatar_url);
-                const tourTitle = review.tour_title || review.tour?.title || "Tour Du Lịch Trải Nghiệm";
-                const tourSlug = review.tour_slug || review.tour?.slug || review.tour_id || review.tour?.id;
-                const tourLink = tourSlug ? `/tours/${tourSlug}` : "/tours";
+            {/* Marquee toàn bộ đánh giá, nhân bản một lần để vòng lặp liền mạch */}
+            <div className="vg-review-marquee-wrap">
+              <div
+                className="vg-review-marquee"
+                role="region"
+                aria-label="Đánh giá của khách hàng từ 4 sao trở lên"
+              >
+                <div className="vg-review-marquee-track">
+                  {[...displayedReviews, ...displayedReviews].map((review, index) => {
+                    const reviewIndex = index % totalReviewsCount;
+                    const copyIndex = Math.floor(index / totalReviewsCount);
+                    const reviewerName = review.reviewer_name || "Khách hàng ViVuGo";
+                    const reviewerAvatar = mediaUrl(review.reviewer_avatar_url);
+                    const tourTitle = review.tour_title || review.tour?.title || "Tour Du Lịch Trải Nghiệm";
+                    const tourSlug = review.tour_slug || review.tour?.slug || review.tour_id || review.tour?.id;
+                    const tourLink = tourSlug ? `/tours/${tourSlug}` : "/tours";
+                    const reviewRating = Math.min(5, Math.max(0, Number(review.rating) || 0));
+                    const roundedReviewRating = Math.round(reviewRating);
 
-                return (
-                  <article className="vg-review-card" key={review.id || index}>
-                    <div className="vg-review-quote-mark" aria-hidden="true">“</div>
+                    return (
+                      <article
+                        className="vg-review-card"
+                        key={`${review.id || reviewIndex}-${copyIndex}`}
+                        aria-hidden={copyIndex === 1}
+                        data-review-copy={copyIndex}
+                      >
+                        <div className="vg-review-quote-mark" aria-hidden="true">“</div>
 
-                    <Link
-                      to={tourLink}
-                      className="vg-review-tour-tag"
-                      title={`Xem chi tiết ${tourTitle}`}
-                    >
-                      <Icon name="compass" size={13} />
-                      <span>{tourTitle}</span>
-                    </Link>
+                        <Link
+                          to={tourLink}
+                          className="vg-review-tour-tag"
+                          title={`Xem chi tiết ${tourTitle}`}
+                          tabIndex={copyIndex === 1 ? -1 : undefined}
+                        >
+                          <Icon name="compass" size={13} />
+                          <span>{tourTitle}</span>
+                        </Link>
 
-                    <p className="vg-review-comment">{review.comment}</p>
+                        <p className="vg-review-comment">{review.comment}</p>
 
-                    <div className="vg-review-card-footer">
-                      <div className="vg-review-person">
-                        <div className={`vg-review-avatar vg-review-avatar-${(index % 6) + 1}`} aria-hidden="true">
-                          {reviewerAvatar ? (
-                            <img
-                              src={reviewerAvatar}
-                              alt=""
-                              onError={(event) => {
-                                event.currentTarget.hidden = true;
-                              }}
-                            />
-                          ) : null}
-                          <span>{reviewerName.charAt(0).toUpperCase()}</span>
+                        <div className="vg-review-card-footer">
+                          <div className="vg-review-person">
+                            <div className={`vg-review-avatar vg-review-avatar-${(reviewIndex % 6) + 1}`} aria-hidden="true">
+                              {reviewerAvatar ? (
+                                <img
+                                  src={reviewerAvatar}
+                                  alt=""
+                                  onError={(event) => {
+                                    event.currentTarget.hidden = true;
+                                  }}
+                                />
+                              ) : null}
+                              <span>{reviewerName.charAt(0).toUpperCase()}</span>
+                            </div>
+                            <div>
+                              <strong>{reviewerName}</strong>
+                            </div>
+                          </div>
+
+                          <div className="vg-review-stars" aria-label={`${reviewRating} trên 5 sao`}>
+                            <strong>{reviewRating.toFixed(1).replace(".", ",")}</strong>
+                            <span className="vg-stars-gold" aria-hidden="true">
+                              {[..."★★★★★"].map((star, starIndex) => (
+                                <span
+                                  key={starIndex}
+                                  className={starIndex < roundedReviewRating ? "is-filled" : "is-empty"}
+                                >
+                                  {star}
+                                </span>
+                              ))}
+                            </span>
+                          </div>
                         </div>
-                        <div>
-                          <strong>{reviewerName}</strong>
-                        </div>
-                      </div>
-
-                      <div className="vg-review-stars" aria-label="5 trên 5 sao">
-                        <strong>{Number(review.rating).toFixed(1).replace(".", ",")}</strong>
-                        <span className="vg-stars-gold">★★★★★</span>
-                      </div>
-                    </div>
-                  </article>
-                );
-              })}
+                      </article>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           </div>
         </section>

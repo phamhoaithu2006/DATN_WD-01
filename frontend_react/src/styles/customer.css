@@ -4320,7 +4320,7 @@
   overflow: hidden;
   padding: 16px 0 28px;
   scroll-behavior: smooth;
-  touch-action: none;
+  touch-action: pan-y;
   mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent);
   -webkit-mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent);
   scrollbar-width: none;
@@ -4363,24 +4363,26 @@
 
 .vg-review-marquee-track {
   display: flex;
+  flex-wrap: nowrap;
   width: max-content;
   gap: 24px;
-  animation: vg-review-marquee-scroll var(--vg-review-duration, 140s) linear infinite;
+  animation: vg-review-marquee-scroll-right var(--vg-review-duration, 600s) linear infinite;
   will-change: transform;
 }
 
 .vg-review-marquee:hover .vg-review-marquee-track,
-.vg-review-marquee-track:hover {
+.vg-review-marquee-track:hover,
+.vg-review-marquee:focus-within .vg-review-marquee-track {
   animation-play-state: paused;
 }
 
-@keyframes vg-review-marquee-scroll {
+@keyframes vg-review-marquee-scroll-right {
   from {
-    transform: translateX(0);
+    transform: translateX(calc(-50% - 12px));
   }
 
   to {
-    transform: translateX(calc(-50% - 12px));
+    transform: translateX(0);
   }
 }
 
@@ -13813,18 +13815,30 @@ textarea.vg-checkout-input {
   }
 }
 
-/* 4. Curated Reviews 3-Card Grid */
-.vg-home-page .vg-reviews-grid-compact {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 24px;
+/* 4. Customer Reviews Marquee */
+.vg-home-page .vg-review-marquee-wrap {
   margin-top: 32px;
 }
 
-.vg-home-page .vg-reviews-grid-compact .vg-review-card {
-  width: 100%;
-  flex: none;
+.vg-home-page .vg-review-marquee-track .vg-review-card {
+  width: min(480px, max(280px, calc(100vw - 48px)));
+  flex: 0 0 min(480px, max(280px, calc(100vw - 48px)));
   box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05), 0 2px 6px rgba(15, 23, 42, 0.02);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vg-home-page .vg-review-marquee-track {
+    animation: none;
+    transform: translateX(0);
+  }
+}
+
+.vg-home-page .vg-review-stars .vg-stars-gold .is-empty {
+  color: #cbd5e1;
+}
+
+.vg-home-page .vg-trust-stars .is-empty {
+  color: #cbd5e1;
 }
 
 /* 5. Khối Niềm tin & Giá trị Dịch vụ Hợp nhất */
@@ -13890,10 +13904,6 @@ textarea.vg-checkout-input {
     gap: 14px;
   }
 
-  .vg-home-page .vg-reviews-grid-compact {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .vg-home-page .vg-trust-consolidated-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -13923,11 +13933,6 @@ textarea.vg-checkout-input {
 
   .vg-home-page .vg-tour-tabs-nav {
     margin-bottom: 20px;
-  }
-
-  .vg-home-page .vg-reviews-grid-compact {
-    grid-template-columns: 1fr;
-    gap: 16px;
   }
 
   .vg-home-page .vg-trust-consolidated-grid {
