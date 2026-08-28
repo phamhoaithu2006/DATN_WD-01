@@ -282,7 +282,7 @@ test('catalog destinations with_tours filters out provinces without bookable tou
         ->assertJsonPath('data.0.name', 'Đà Nẵng');
 });
 
-test('home returns only bookable content and visible customer reviews', function () {
+test('home returns only bookable content and customer reviews rated at least four stars', function () {
     $category = Category::query()->create([
         'name' => 'Nghỉ dưỡng',
         'slug' => 'nghi-duong',
@@ -337,8 +337,22 @@ test('home returns only bookable content and visible customer reviews', function
         'comment' => 'Lịch trình rõ ràng và hỗ trợ chu đáo.',
         'status' => 'visible',
     ]);
+    TourReview::query()->create([
+        'user_id' => $userId,
+        'tour_id' => $tour->id,
+        'rating' => 4,
+        'comment' => 'Tour được tổ chức tốt.',
+        'status' => 'visible',
+    ]);
+    TourReview::query()->create([
+        'user_id' => $userId,
+        'tour_id' => $tour->id,
+        'rating' => 3,
+        'comment' => 'Trải nghiệm ở mức trung bình.',
+        'status' => 'visible',
+    ]);
 
-    $this->getJson('/api/home')
+    $response = $this->getJson('/api/home')
         ->assertOk()
         ->assertJsonPath('status', 'success')
         ->assertJsonPath('data.statistics.available_tours', 1)
@@ -348,8 +362,17 @@ test('home returns only bookable content and visible customer reviews', function
         ->assertJsonPath('data.featured_tours.0.slug', 'da-nang-cuoi-tuan')
         ->assertJsonPath('data.categories.0.tour_count', 1)
         ->assertJsonPath('data.destinations.0.tour_count', 1)
-        ->assertJsonPath('data.reviews.0.reviewer_name', 'N. V. A.')
+        ->assertJsonCount(2, 'data.reviews')
+        ->assertJsonFragment([
+            'rating' => 4,
+            'comment' => 'Tour được tổ chức tốt.',
+        ])
         ->assertJsonPath('data.reviews.0.tour_slug', 'da-nang-cuoi-tuan');
+
+    expect(collect($response->json('data.reviews'))->pluck('rating')->all())
+        ->toContain(5)
+        ->toContain(4)
+        ->not->toContain(3);
 });
 
 test('home returns a random destination image with the expected source priority', function () {

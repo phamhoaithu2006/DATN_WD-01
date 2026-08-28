@@ -388,9 +388,9 @@ function AdminDashboardPage() {
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {statCards.map((card, index) => (
-            <div key={card.key} className="dashboard-fade-up" style={{ animationDelay: `${index * 70}ms` }}>
-              <StatCard {...card} />
+          {statCards.map(({ key: cardKey, ...cardProps }, index) => (
+            <div key={cardKey} className="dashboard-fade-up" style={{ animationDelay: `${index * 70}ms` }}>
+              <StatCard {...cardProps} />
             </div>
           ))}
         </div>

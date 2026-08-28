@@ -95,7 +95,7 @@ class PublicCatalogController extends Controller
         $reviews = TourReview::query()
             ->visible()
             ->whereHas('tour', fn (Builder $query) => $query->where('status', 'published'))
-            ->where('rating', 5)
+            ->where('rating', '>=', 4)
             ->whereNotNull('comment')
             ->where('comment', '!=', '')
             ->with([
