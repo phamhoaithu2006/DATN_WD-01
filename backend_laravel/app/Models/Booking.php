@@ -12,6 +12,10 @@ class Booking extends Model
     // Số lần hủy tối đa được phép cho MỖI TOUR (không phân biệt lịch khởi hành).
     public const CUSTOMER_CANCELLATION_LIMIT = 2;
 
+    // Số lần khách được sửa thông tin liên hệ/hành khách tối đa cho MỖI BOOKING
+    // (tính chung cho cả 3 API: updateInformation, updateContact, updateParticipants).
+    public const INFORMATION_EDIT_LIMIT = 3;
+
     /**
      * Đếm số booking đã hủy của 1 khách hàng cho MỘT tour cụ thể
      * (gộp mọi lịch khởi hành của tour đó lại với nhau).

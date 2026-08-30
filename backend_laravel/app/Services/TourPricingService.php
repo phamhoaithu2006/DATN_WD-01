@@ -57,7 +57,9 @@ class TourPricingService
             : $tour->agePricingRules()->where('is_active', true)->get();
 
         return $rules
-            ->filter(fn (TourAgePricingRule $rule) => $rule->is_active)
+            ->filter(fn(TourAgePricingRule $rule) => $rule->is_active)
+            ->sortBy('sort_order')
+            ->values()
             ->first(function (TourAgePricingRule $rule) use ($age) {
                 if ($age < $rule->min_age) {
                     return false;

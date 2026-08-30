@@ -249,7 +249,7 @@ class CustomerBookingController extends Controller
                 });
 
             // Loại khách suy ra từ quy tắc giá (không tin participant_type do client gửi)
-            if (! $pricedParticipants->contains(fn (array $participant) => $participant['_derived_type'] === 'adult')) {
+            if (! $pricedParticipants->contains(fn(array $participant) => $participant['_derived_type'] === 'adult')) {
                 throw ValidationException::withMessages([
                     'participants' => ['Đơn đặt tour phải có ít nhất 1 người lớn đi kèm.'],
                 ]);
@@ -277,7 +277,7 @@ class CustomerBookingController extends Controller
             }
 
             $booking = Booking::create([
-                'booking_code' => 'BK-'.Str::upper((string) Str::ulid()),
+                'booking_code' => 'BK-' . Str::upper((string) Str::ulid()),
                 'idempotency_key' => $idempotencyKey,
                 'user_id' => $lockedUser->id,
                 'tour_id' => $tour->id,
@@ -386,7 +386,7 @@ class CustomerBookingController extends Controller
 
         $updatedBooking = DB::transaction(function () use ($booking, $request, $data): Booking {
             $lockedBooking = Booking::query()
-                ->with(['tourDeparture', 'contact', 'participants'])
+                ->with(['tour.agePricingRules', 'tourDeparture', 'contact', 'participants'])
                 ->lockForUpdate()
                 ->findOrFail($booking->id);
 
@@ -396,6 +396,7 @@ class CustomerBookingController extends Controller
 
             $this->ensureBookingInformationCanBeUpdated($lockedBooking);
             $this->ensureSameParticipants($lockedBooking, $data['participants']);
+            $this->ensureParticipantBirthDatesKeepSameTicketType($lockedBooking, $data['participants']);
             $this->bookingPhoneDuplicateGuard->ensureAvailable(
                 $lockedBooking->tour_id,
                 $this->submittedPhones($data['contact'], $data['participants']),
@@ -423,6 +424,7 @@ class CustomerBookingController extends Controller
                     'phone_normalized' => $participant['phone'] ?? null,
                     'gender' => $participant['gender'],
                     'identity_number' => $participant['identity_number'] ?? null,
+                    'birth_date' => $participant['birth_date'],
                 ]);
             }
 
@@ -436,19 +438,23 @@ class CustomerBookingController extends Controller
             return $lockedBooking;
         }, 3);
 
+        $bookingData = $updatedBooking->fresh([
+            'tour.category',
+            'tour.province',
+            'tour.destination',
+            'tour.thumbnail',
+            'tourDeparture',
+            'payment',
+            'contact',
+            'participants',
+        ])->toArray();
+        $bookingData['information_edit_count'] = $updatedBooking->informationChangeHistories()->count();
+        $bookingData['information_edit_limit'] = Booking::INFORMATION_EDIT_LIMIT;
+
         return response()->json([
             'success' => true,
             'message' => 'Đã cập nhật thông tin booking.',
-            'data' => $updatedBooking->fresh([
-                'tour.category',
-                'tour.province',
-                'tour.destination',
-                'tour.thumbnail',
-                'tourDeparture',
-                'payment',
-                'contact',
-                'participants',
-            ]),
+            'data' => $bookingData,
         ]);
     }
 
@@ -696,10 +702,14 @@ class CustomerBookingController extends Controller
             return $lockedBooking;
         }, 3);
 
+        $bookingData = $lockedBooking->fresh(['contact', 'participants'])->toArray();
+        $bookingData['information_edit_count'] = $lockedBooking->informationChangeHistories()->count();
+        $bookingData['information_edit_limit'] = Booking::INFORMATION_EDIT_LIMIT;
+
         return response()->json([
             'success' => true,
             'message' => 'Đã cập nhật thông tin liên hệ.',
-            'data' => $lockedBooking->fresh(['contact', 'participants']),
+            'data' => $bookingData,
         ]);
     }
 
@@ -746,7 +756,7 @@ class CustomerBookingController extends Controller
                 'participants.*.identity_number' => ['nullable', 'string', 'max:30'],
             ]);
 
-            $submittedById = collect($data['participants'])->keyBy(fn (array $participant): int => (int) $participant['id']);
+            $submittedById = collect($data['participants'])->keyBy(fn(array $participant): int => (int) $participant['id']);
             $phones = [
                 $lockedBooking->contact?->phone_normalized,
                 ...$lockedBooking->participants->map(function ($participant) use ($submittedById): ?string {
@@ -782,10 +792,14 @@ class CustomerBookingController extends Controller
             return $lockedBooking;
         }, 3);
 
+        $bookingData = $lockedBooking->fresh(['contact', 'participants'])->toArray();
+        $bookingData['information_edit_count'] = $lockedBooking->informationChangeHistories()->count();
+        $bookingData['information_edit_limit'] = Booking::INFORMATION_EDIT_LIMIT;
+
         return response()->json([
             'success' => true,
             'message' => 'Đã cập nhật thông tin hành khách.',
-            'data' => $lockedBooking->fresh(['contact', 'participants']),
+            'data' => $bookingData,
         ]);
     }
 
@@ -796,7 +810,7 @@ class CustomerBookingController extends Controller
 
         if ($cancelledCount >= Booking::CUSTOMER_CANCELLATION_LIMIT) {
             throw ValidationException::withMessages([
-                'booking' => ['Bạn đã sử dụng hết giới hạn '.Booking::CUSTOMER_CANCELLATION_LIMIT.' lần hủy booking theo chính sách ViVuGo.'],
+                'booking' => ['Bạn đã sử dụng hết giới hạn ' . Booking::CUSTOMER_CANCELLATION_LIMIT . ' lần hủy booking theo chính sách ViVuGo.'],
             ]);
         }
     }
@@ -826,7 +840,7 @@ class CustomerBookingController extends Controller
 
                 $replacement = $source->replicate(['booking_code', 'created_at', 'updated_at']);
                 $replacement->fill([
-                    'booking_code' => 'BK-'.Str::upper((string) Str::ulid()),
+                    'booking_code' => 'BK-' . Str::upper((string) Str::ulid()),
                     'tour_id' => $target->tour_id,
                     'tour_departure_id' => $target->id,
                     'source_booking_id' => $source->id,
@@ -839,7 +853,7 @@ class CustomerBookingController extends Controller
                 ]);
                 $replacement->save();
                 $replacement->contact()->create($source->contact?->only(['contact_name', 'contact_email', 'contact_phone', 'address', 'special_request']) ?? []);
-                $replacement->participants()->createMany($source->participants->map(fn ($participant) => $participant->only([
+                $replacement->participants()->createMany($source->participants->map(fn($participant) => $participant->only([
                     'full_name',
                     'phone',
                     'birth_date',
@@ -1003,7 +1017,7 @@ class CustomerBookingController extends Controller
 
         $validationErrors = [];
         $participantsByRule = $pricedParticipants->groupBy(
-            fn (array $participant) => $participant['_pricing_rule_id'] === null
+            fn(array $participant) => $participant['_pricing_rule_id'] === null
                 ? 'adult_default'
                 : (string) $participant['_pricing_rule_id']
         );
@@ -1046,6 +1060,33 @@ class CustomerBookingController extends Controller
         return $maxAge <= 4 ? 'infant' : 'child';
     }
 
+    /**
+     * Chặn cứng việc sửa ngày sinh khiến độ tuổi thực tế lệch mốc quy ước
+     * (Em bé 0-1, Trẻ em 2-11, Người lớn từ 12), BẤT KỂ tour có cấu hình
+     * age_pricing_rules hợp lệ trong DB hay không. Đây là lưới an toàn bổ
+     * sung cho so sánh participant_type/unit_price phía trên — phòng trường
+     * hợp tour chưa/không có rule active khiến resolveRuleForAge() trả về
+     * null và mọi độ tuổi bị mặc định coi là "adult".
+     */
+    private function hardAgeBoundaryViolation(string $existingType, int $newAge, ?string $existingLabel): ?string
+    {
+        $ticketLabel = $existingLabel ?: match ($existingType) {
+            'infant' => 'Em bé',
+            'child' => 'Trẻ em',
+            default => 'Người lớn',
+        };
+
+        $violatesAdult = $existingType === 'adult' && $newAge < 12;
+        $violatesChild = $existingType === 'child' && ($newAge < 2 || $newAge > 11);
+        $violatesInfant = $existingType === 'infant' && $newAge > 1;
+
+        if (! $violatesAdult && ! $violatesChild && ! $violatesInfant) {
+            return null;
+        }
+
+        return "Ngày sinh mới khiến độ tuổi thực tế ({$newAge} tuổi) không còn phù hợp với vé \"{$ticketLabel}\" đã mua — không được phép vì ảnh hưởng đến giá vé.";
+    }
+
     private function expireCustomerPendingBookings(int $userId): void
     {
         $expiredBookings = Booking::query()
@@ -1084,7 +1125,7 @@ class CustomerBookingController extends Controller
                 'payment:id,booking_id,amount,status,expires_at',
             ])
             ->where('user_id', $userId)
-            ->when($tourId !== null, fn ($query) => $query->where('tour_id', $tourId))
+            ->when($tourId !== null, fn($query) => $query->where('tour_id', $tourId))
             ->where('status', 'pending')
             ->where('payment_status', 'unpaid')
             ->whereHas('payment', function ($query): void {
@@ -1135,17 +1176,102 @@ class CustomerBookingController extends Controller
                 'booking' => 'Booking này không còn trong thời hạn được sửa thông tin.',
             ]);
         }
+
+        // Giới hạn tổng số lần sửa (tính chung cho cả 3 API sửa thông tin) cho MỖI booking.
+        $editCount = $booking->informationChangeHistories()->count();
+        if ($editCount >= Booking::INFORMATION_EDIT_LIMIT) {
+            throw ValidationException::withMessages([
+                'booking' => 'Bạn đã sửa thông tin booking này đủ ' . Booking::INFORMATION_EDIT_LIMIT . ' lần, không thể sửa thêm.',
+            ]);
+        }
     }
 
     private function ensureSameParticipants(Booking $booking, array $participants): void
     {
         $existingIds = $booking->participants->pluck('id')->sort()->values()->all();
-        $submittedIds = collect($participants)->pluck('id')->map(fn ($id) => (int) $id)->sort()->values()->all();
+        $submittedIds = collect($participants)->pluck('id')->map(fn($id) => (int) $id)->sort()->values()->all();
 
         if ($existingIds !== $submittedIds) {
             throw ValidationException::withMessages([
                 'participants' => 'Chỉ được sửa thông tin của các hành khách hiện có.',
             ]);
+        }
+    }
+
+    /**
+     * Cho phép khách sửa ngày sinh, NHƯNG ngày sinh mới bắt buộc phải khiến hành khách
+     * rơi vào ĐÚNG rule giá (và ra ĐÚNG đơn giá) như lúc đặt tour — để tổng tiền không đổi.
+     * Không so khớp theo TÊN rule (label) vì tên hiển thị có thể lệch với dữ liệu đã lưu
+     * (VD: rule hiện tại tên "Người lớn từ 12 tuổi" nhưng participant lưu "Người lớn" từ
+     * lúc đặt tour) — thay vào đó tính lại rule/đơn giá cho tuổi mới bằng đúng hàm dùng lúc
+     * đặt tour (TourPricingService::resolveRuleForAge) rồi so participant_type + unit_price.
+     */
+    private function ensureParticipantBirthDatesKeepSameTicketType(Booking $booking, array $participants): void
+    {
+        $departureDate = $booking->tourDeparture?->departure_date;
+
+        if (! $departureDate) {
+            throw ValidationException::withMessages([
+                'booking' => 'Booking này chưa có lịch khởi hành hợp lệ.',
+            ]);
+        }
+
+        $tour = $booking->tour;
+        $adultPrice = $tour ? $this->tourPricingService->resolveAdultPrice($tour, $booking->tourDeparture) : 0.0;
+        $existingById = $booking->participants->keyBy('id');
+
+        $validationErrors = [];
+
+        foreach ($participants as $index => $participant) {
+            $existing = $existingById[(int) $participant['id']] ?? null;
+            if (! $existing) {
+                continue;
+            }
+
+            $newBirthDate = Carbon::parse($participant['birth_date'])->startOfDay();
+
+            if ($newBirthDate->isAfter($departureDate)) {
+                $validationErrors["participants.{$index}.birth_date"] = ['Ngày sinh không được sau ngày khởi hành.'];
+                continue;
+            }
+
+            $newAge = (int) $newBirthDate->diffInYears($departureDate);
+
+            if ($newAge > 120) {
+                $validationErrors["participants.{$index}.birth_date"] = ['Ngày sinh không hợp lệ.'];
+                continue;
+            }
+
+            // Lưới an toàn cứng: không phụ thuộc tour có cấu hình age_pricing_rules hay
+            // không (nếu tour chưa cấu hình rule, resolveRuleForAge() trả về null và mọi
+            // độ tuổi sẽ bị coi là "adult" một cách sai lệch). Mốc tuổi dưới đây theo đúng
+            // quy ước hiện tại của hệ thống: Em bé 0-1, Trẻ em 2-11, Người lớn từ 12.
+            $existingType = $existing->participant_type ?? 'adult';
+            $ageErrorMessage = $this->hardAgeBoundaryViolation($existingType, $newAge, $existing->pricing_rule_label);
+
+            if ($ageErrorMessage !== null) {
+                $validationErrors["participants.{$index}.birth_date"] = [$ageErrorMessage];
+                continue;
+            }
+
+            $newRule = $tour ? $this->tourPricingService->resolveRuleForAge($tour, $newAge) : null;
+            $newParticipantType = $this->participantTypeFromPricingRule($newRule);
+            $newUnitPrice = $this->calculateUnitPriceFromRule($adultPrice, $newRule);
+
+            $sameType = $newParticipantType === ($existing->participant_type ?? 'adult');
+            $samePrice = abs($newUnitPrice - (float) $existing->unit_price) < 0.01;
+
+            if (! $sameType || ! $samePrice) {
+                $validationErrors["participants.{$index}.birth_date"] = [
+                    $newRule
+                        ? "Ngày sinh mới khiến hành khách rơi vào nhóm vé \"{$newRule->label}\", khác với vé \"{$existing->pricing_rule_label}\" đã mua — không được phép vì ảnh hưởng đến giá vé."
+                        : "Ngày sinh mới không còn phù hợp với vé \"{$existing->pricing_rule_label}\" đã mua — không được phép vì ảnh hưởng đến giá vé.",
+                ];
+            }
+        }
+
+        if ($validationErrors !== []) {
+            throw ValidationException::withMessages($validationErrors);
         }
     }
 
@@ -1159,12 +1285,13 @@ class CustomerBookingController extends Controller
                 'address',
                 'special_request',
             ]),
-            'participants' => $booking->participants->map(fn ($participant) => $participant->only([
+            'participants' => $booking->participants->map(fn($participant) => $participant->only([
                 'id',
                 'full_name',
                 'phone',
                 'gender',
                 'identity_number',
+                'birth_date',
             ]))->values()->all(),
         ];
     }
