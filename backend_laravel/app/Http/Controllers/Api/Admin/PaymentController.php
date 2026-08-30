@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Payment;
+use App\Services\BookingConfirmationService;
 use App\Services\VnpayPaymentLifecycleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,6 +15,7 @@ class PaymentController extends Controller
 {
     public function __construct(
         private readonly VnpayPaymentLifecycleService $paymentLifecycleService,
+        private readonly BookingConfirmationService $bookingConfirmationService,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -134,6 +136,8 @@ class PaymentController extends Controller
                             'note' => 'Booking được tự động xác nhận sau khi thanh toán đủ.',
                         ]);
                     }
+
+                    $this->bookingConfirmationService->enqueueForConfirmedBooking($payment->booking);
                 } else {
                     $payment->booking->update([
                         'status' => 'cancelled',

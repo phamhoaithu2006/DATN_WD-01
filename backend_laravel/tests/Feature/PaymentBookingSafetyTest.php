@@ -1,14 +1,20 @@
 <?php
 
 use App\Models\Booking;
+use App\Models\BookingConfirmationOutbox;
 use App\Models\Payment;
 use App\Models\Role;
 use App\Models\Tour;
 use App\Models\TourDeparture;
 use App\Models\User;
+use App\Jobs\DeliverBookingConfirmationEmail;
+use App\Mail\BookingConfirmationMail;
+use App\Services\BookingInvoicePdfService;
 use App\Services\VnpayPaymentLifecycleService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Queue;
 use Laravel\Sanctum\Sanctum;
 
 uses(RefreshDatabase::class);
@@ -173,6 +179,12 @@ function transactionReferenceFromCheckoutUrl(string $checkoutUrl): string
     parse_str((string) parse_url($checkoutUrl, PHP_URL_QUERY), $query);
 
     return (string) ($query['vnp_TxnRef'] ?? '');
+}
+
+function deliverBookingConfirmationEmail(BookingConfirmationOutbox $outbox): void
+{
+    (new DeliverBookingConfirmationEmail($outbox->id))
+        ->handle(app(BookingInvoicePdfService::class));
 }
 
 test('guest and non admin cannot access admin booking and payment routes', function () {
@@ -735,6 +747,173 @@ test('successful VNPAY payment commits slots exactly once', function () {
         'id' => $booking->id,
         'payment_status' => 'paid',
     ]);
+});
+
+test('successful VNPAY payment queues one confirmation email with a PDF invoice', function () {
+    configureVnpayForTest();
+    Mail::fake();
+    Queue::fake();
+
+    $customer = paymentSafetyUser('customer');
+    $booking = paymentSafetyBooking(['user_id' => $customer->id]);
+    $booking->contact()->create([
+        'contact_name' => 'Nguyễn Văn An',
+        'contact_email' => 'booking-contact@example.com',
+        'contact_phone' => '0900000000',
+        'phone_normalized' => '0900000000',
+    ]);
+
+    $this->getJson('/api/webhooks/vnpay?'.http_build_query(vnpayIpnPayload($booking->payment)))
+        ->assertOk()
+        ->assertJsonPath('RspCode', '00');
+
+    $outbox = BookingConfirmationOutbox::query()->where('booking_id', $booking->id)->firstOrFail();
+
+    expect($outbox->recipient_email)->toBe('booking-contact@example.com')
+        ->and($outbox->payload['booking_code'])->toBe($booking->booking_code)
+        ->and($outbox->processed_at)->toBeNull();
+
+    Queue::assertPushed(DeliverBookingConfirmationEmail::class, 1);
+    deliverBookingConfirmationEmail($outbox);
+
+    Mail::assertSent(BookingConfirmationMail::class, function (BookingConfirmationMail $mail) use ($booking): bool {
+        $attachment = $mail->attachments()[0];
+        $pdfContent = $attachment->attachWith(
+            fn (string $path): string => (string) file_get_contents($path),
+            fn (\Closure $data): string => $data(),
+        );
+
+        return $mail->hasTo('booking-contact@example.com')
+            && str_contains($mail->render(), $booking->booking_code)
+            && $attachment->as === "hoa-don-{$booking->booking_code}.pdf"
+            && $attachment->mime === 'application/pdf'
+            && str_starts_with($pdfContent, '%PDF-');
+    });
+    Mail::assertSentCount(1);
+
+    expect($outbox->fresh()->processed_at)->not->toBeNull();
+});
+
+test('repeated VNPAY callbacks do not create a second booking confirmation outbox', function () {
+    configureVnpayForTest();
+    Mail::fake();
+    Queue::fake();
+
+    $booking = paymentSafetyBooking();
+    $booking->contact()->create([
+        'contact_name' => 'Nguyễn Văn An',
+        'contact_email' => 'booking@example.com',
+        'contact_phone' => '0900000000',
+        'phone_normalized' => '0900000000',
+    ]);
+    $payload = vnpayIpnPayload($booking->payment);
+
+    $this->getJson('/api/webhooks/vnpay?'.http_build_query($payload))->assertOk();
+    $this->getJson('/api/webhooks/vnpay?'.http_build_query($payload))->assertOk();
+
+    expect(BookingConfirmationOutbox::query()->where('booking_id', $booking->id)->count())->toBe(1);
+
+    $outbox = BookingConfirmationOutbox::query()->where('booking_id', $booking->id)->firstOrFail();
+    Queue::assertPushed(DeliverBookingConfirmationEmail::class, 1);
+    deliverBookingConfirmationEmail($outbox);
+    deliverBookingConfirmationEmail($outbox);
+
+    Mail::assertSentCount(1);
+    expect($outbox->fresh()->processed_at)->not->toBeNull();
+});
+
+test('booking without contact email falls back to the customer account email', function () {
+    configureVnpayForTest();
+    Mail::fake();
+    Queue::fake();
+
+    $customer = paymentSafetyUser('customer');
+    $booking = paymentSafetyBooking(['user_id' => $customer->id]);
+    $booking->contact()->create([
+        'contact_name' => 'Nguyễn Văn An',
+        'contact_email' => null,
+        'contact_phone' => '0900000000',
+        'phone_normalized' => '0900000000',
+    ]);
+
+    $this->getJson('/api/webhooks/vnpay?'.http_build_query(vnpayIpnPayload($booking->payment)))
+        ->assertOk();
+
+    $outbox = BookingConfirmationOutbox::query()->where('booking_id', $booking->id)->firstOrFail();
+    expect($outbox->recipient_email)->toBe($customer->email);
+
+    Queue::assertPushed(DeliverBookingConfirmationEmail::class, 1);
+    deliverBookingConfirmationEmail($outbox);
+
+    Mail::assertSent(BookingConfirmationMail::class, fn (BookingConfirmationMail $mail): bool => $mail->hasTo($customer->email));
+});
+
+test('admin payment confirmation sends a booking confirmation email', function () {
+    Mail::fake();
+    Queue::fake();
+
+    $customer = paymentSafetyUser('customer');
+    $booking = paymentSafetyBooking(['user_id' => $customer->id]);
+    $booking->contact()->create([
+        'contact_name' => 'Nguyễn Văn An',
+        'contact_email' => 'admin-confirm@example.com',
+        'contact_phone' => '0900000000',
+        'phone_normalized' => '0900000000',
+    ]);
+
+    Sanctum::actingAs(paymentSafetyUser('admin'));
+
+    $this->patchJson("/api/admin/payments/{$booking->payment->id}/confirm", [
+        'transaction_code' => 'MANUAL-CONFIRM-001',
+    ])->assertOk();
+
+    $outbox = BookingConfirmationOutbox::query()->where('booking_id', $booking->id)->firstOrFail();
+    Queue::assertPushed(DeliverBookingConfirmationEmail::class, 1);
+    deliverBookingConfirmationEmail($outbox);
+
+    Mail::assertSent(BookingConfirmationMail::class, function (BookingConfirmationMail $mail) use ($booking): bool {
+        return $mail->hasTo('admin-confirm@example.com')
+            && $mail->invoice['transaction_code'] === 'MANUAL-CONFIRM-001';
+    });
+});
+
+test('booking creation and paid-but-sold-out flow do not send a false confirmation email', function () {
+    configureVnpayForTest();
+    Mail::fake();
+    Queue::fake();
+
+    $customer = paymentSafetyUser('customer');
+    $departure = paymentSafetyDeparture(null, ['total_slots' => 1]);
+    Sanctum::actingAs($customer);
+
+    $created = $this->withHeader('Idempotency-Key', 'booking-confirmation-pending-0001')
+        ->postJson('/api/customer/bookings', customerBookingSafetyPayload($departure))
+        ->assertCreated();
+
+    $firstBooking = Booking::query()->findOrFail($created->json('data.id'));
+    expect($firstBooking->status)->toBe('pending')
+        ->and(BookingConfirmationOutbox::query()->count())->toBe(0);
+
+    $secondCustomer = paymentSafetyUser('customer');
+    Sanctum::actingAs($secondCustomer);
+    $secondCreated = $this->withHeader('Idempotency-Key', 'booking-confirmation-sold-out-0001')
+        ->postJson('/api/customer/bookings', customerBookingSafetyPayload($departure, '0900000011'))
+        ->assertCreated();
+
+    $firstBooking = $firstBooking->fresh(['payment']);
+    $secondBooking = Booking::query()->findOrFail($secondCreated->json('data.id'));
+
+    $this->getJson('/api/webhooks/vnpay?'.http_build_query(vnpayIpnPayload($firstBooking->payment)))->assertOk();
+    $this->getJson('/api/webhooks/vnpay?'.http_build_query(vnpayIpnPayload($secondBooking->payment)))->assertOk();
+
+    expect(BookingConfirmationOutbox::query()->where('booking_id', $firstBooking->id)->count())->toBe(1)
+        ->and(BookingConfirmationOutbox::query()->where('booking_id', $secondBooking->id)->count())->toBe(0)
+        ->and($secondBooking->fresh()->payment_status)->toBe('refund_pending');
+
+    $firstOutbox = BookingConfirmationOutbox::query()->where('booking_id', $firstBooking->id)->firstOrFail();
+    Queue::assertPushed(DeliverBookingConfirmationEmail::class, 1);
+    deliverBookingConfirmationEmail($firstOutbox);
+    Mail::assertSentCount(1);
 });
 
 test('payment succeeds but booking waits for refund when the last slots are taken first', function () {
