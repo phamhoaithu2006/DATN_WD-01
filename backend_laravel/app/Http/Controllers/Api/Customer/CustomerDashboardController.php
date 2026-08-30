@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Customer;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\CustomerTourReviewResource;
 use App\Models\Booking;
+use App\Models\BookingInformationChangeHistory;
 use App\Models\Tour;
 use App\Services\BookingReviewEligibilityService;
 use Illuminate\Http\JsonResponse;
@@ -63,7 +64,15 @@ class CustomerDashboardController extends Controller
             ->groupBy('tour_id')
             ->pluck('total', 'tour_id');
 
-        $bookings = $bookings->map(function (Booking $booking) use ($request, $cancelledCountByTourId): array {
+        // Đếm số lần đã sửa thông tin liên hệ/hành khách cho TỪNG booking,
+        // tính 1 lần cho cả danh sách thay vì query lại cho mỗi booking (tránh N+1).
+        $editCountByBookingId = BookingInformationChangeHistory::query()
+            ->whereIn('booking_id', $bookings->pluck('id'))
+            ->selectRaw('booking_id, COUNT(*) as total')
+            ->groupBy('booking_id')
+            ->pluck('total', 'booking_id');
+
+        $bookings = $bookings->map(function (Booking $booking) use ($request, $cancelledCountByTourId, $editCountByBookingId): array {
             $data = $booking->toArray();
             $data['can_review_tour'] = $this->bookingReviewEligibilityService->isReviewable($booking);
             $data['tour_review'] = $booking->tourReview
@@ -82,6 +91,9 @@ class CustomerDashboardController extends Controller
 
             $data['customer_cancellation_count'] = (int) ($cancelledCountByTourId[$booking->tour_id] ?? 0);
             $data['customer_cancellation_limit'] = Booking::CUSTOMER_CANCELLATION_LIMIT;
+
+            $data['information_edit_count'] = (int) ($editCountByBookingId[$booking->id] ?? 0);
+            $data['information_edit_limit'] = Booking::INFORMATION_EDIT_LIMIT;
 
             return $data;
         });

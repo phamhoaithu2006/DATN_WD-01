@@ -27,6 +27,7 @@ class UpdateCustomerBookingInformationRequest extends FormRequest
             'participants.*.phone' => ['nullable', 'string', 'regex:/^0\d{9}$/'],
             'participants.*.gender' => ['required', 'in:male,female,other'],
             'participants.*.identity_number' => ['nullable', 'string', 'max:30'],
+            'participants.*.birth_date' => ['required', 'date', 'before_or_equal:today'],
         ];
     }
 
@@ -54,6 +55,9 @@ class UpdateCustomerBookingInformationRequest extends FormRequest
         return [
             'contact.contact_phone.regex' => 'Số điện thoại liên hệ phải gồm 10 chữ số và bắt đầu bằng số 0.',
             'participants.*.phone.regex' => 'Số điện thoại hành khách phải gồm 10 chữ số và bắt đầu bằng số 0.',
+            'participants.*.birth_date.required' => 'Vui lòng nhập ngày sinh cho tất cả hành khách.',
+            'participants.*.birth_date.date' => 'Ngày sinh không hợp lệ.',
+            'participants.*.birth_date.before_or_equal' => 'Ngày sinh không hợp lệ.',
         ];
     }
 }
