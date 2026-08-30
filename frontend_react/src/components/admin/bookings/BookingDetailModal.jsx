@@ -45,6 +45,66 @@ const REQUEST_STATUS_LABELS = {
   rejected: 'Đã từ chối',
 }
 
+const CONTACT_FIELD_LABELS = {
+  contact_name: 'Tên liên hệ',
+  contact_email: 'Email liên hệ',
+  contact_phone: 'SĐT liên hệ',
+  address: 'Địa chỉ',
+  special_request: 'Yêu cầu đặc biệt',
+}
+
+const PARTICIPANT_FIELD_LABELS = {
+  full_name: 'Họ tên',
+  phone: 'SĐT',
+  gender: 'Giới tính',
+  identity_number: 'CCCD/Hộ chiếu',
+  birth_date: 'Ngày sinh',
+}
+
+function formatDiffValue(key, value) {
+  if (!value) return 'trống'
+  if (key === 'birth_date') {
+    const date = new Date(value)
+    if (!Number.isNaN(date.getTime())) {
+      return date.toLocaleDateString('vi-VN')
+    }
+  }
+  return String(value)
+}
+
+// So sánh snapshot trước/sau của 1 lần khách sửa thông tin, chỉ liệt kê
+// đúng những trường thực sự thay đổi (không hiện lại toàn bộ dữ liệu).
+function summarizeInformationChange(history) {
+  const before = history.before || {}
+  const after = history.after || {}
+  const lines = []
+
+  const beforeContact = before.contact || {}
+  const afterContact = after.contact || {}
+  Object.entries(CONTACT_FIELD_LABELS).forEach(([key, label]) => {
+    const oldValue = beforeContact[key] ?? ''
+    const newValue = afterContact[key] ?? ''
+    if (String(oldValue) !== String(newValue)) {
+      lines.push(`${label}: "${formatDiffValue(key, oldValue)}" → "${formatDiffValue(key, newValue)}"`)
+    }
+  })
+
+  const beforeParticipants = Array.isArray(before.participants) ? before.participants : []
+  const afterParticipants = Array.isArray(after.participants) ? after.participants : []
+  afterParticipants.forEach((afterP, index) => {
+    const beforeP = beforeParticipants.find((p) => p.id === afterP.id) || beforeParticipants[index] || {}
+    Object.entries(PARTICIPANT_FIELD_LABELS).forEach(([key, label]) => {
+      const oldValue = beforeP[key] ?? ''
+      const newValue = afterP[key] ?? ''
+      if (String(oldValue) !== String(newValue)) {
+        lines.push(`Hành khách ${index + 1} - ${label}: "${formatDiffValue(key, oldValue)}" → "${formatDiffValue(key, newValue)}"`)
+      }
+    })
+  })
+
+  return lines
+}
+
 function BookingDetailModal({ booking, busy, onClose, onInvoice, onPaymentChange, onStatusChange }) {
   const name = customerName(booking)
   const phone = customerPhone(booking)
@@ -53,6 +113,9 @@ function BookingDetailModal({ booking, busy, onClose, onInvoice, onPaymentChange
   const contact = booking.contact || {}
   const payment = booking.payment || null
   const statusHistories = Array.isArray(booking.status_histories) ? booking.status_histories : []
+  const informationChangeHistories = Array.isArray(booking.information_change_histories)
+    ? booking.information_change_histories
+    : []
   const disruptionRequests = Array.isArray(booking.disruption_requests) ? booking.disruption_requests : []
   const isReadOnly = isBookingReadOnly(booking)
   const departureText = departure
@@ -283,6 +346,41 @@ function BookingDetailModal({ booking, busy, onClose, onInvoice, onPaymentChange
             </ol>
           ) : (
             <div className="booking-participant-empty">Chưa có lịch sử thay đổi trạng thái.</div>
+          )}
+        </section>
+
+        <section className="booking-detail-panel booking-history-panel">
+          <div className="booking-detail-panel-title">
+            <span>Lịch sử sửa thông tin liên hệ/hành khách</span>
+            <strong>{informationChangeHistories.length}</strong>
+          </div>
+          {informationChangeHistories.length ? (
+            <ol className="booking-status-timeline">
+              {informationChangeHistories.map((history) => {
+                const changes = summarizeInformationChange(history)
+
+                return (
+                  <li key={history.id}>
+                    <span className="booking-status-timeline__dot" aria-hidden="true" />
+                    <div>
+                      <strong>Khách hàng sửa thông tin</strong>
+                      <small>{formatDate(history.created_at)} · {history.changed_by?.full_name || 'Khách hàng'}</small>
+                      {changes.length ? (
+                        <ul className="booking-information-change-list">
+                          {changes.map((line, index) => (
+                            <li key={index}>{line}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p>Không phát hiện thay đổi nội dung cụ thể.</p>
+                      )}
+                    </div>
+                  </li>
+                )
+              })}
+            </ol>
+          ) : (
+            <div className="booking-participant-empty">Chưa có lịch sử sửa thông tin.</div>
           )}
         </section>
 

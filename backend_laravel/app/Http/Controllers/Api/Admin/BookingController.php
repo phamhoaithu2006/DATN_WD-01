@@ -121,8 +121,9 @@ class BookingController extends Controller
             'contact',
             'participants',
             'payment',
-            'statusHistories' => fn ($q) => $q->with('changedBy:id,full_name')->latest(),
-            'disruptionRequests' => fn ($q) => $q
+            'statusHistories' => fn($q) => $q->with('changedBy:id,full_name')->latest(),
+            'informationChangeHistories' => fn($q) => $q->with('changedBy:id,full_name')->latest(),
+            'disruptionRequests' => fn($q) => $q
                 ->with(['requestedDeparture:id,departure_date,return_date', 'processedBy:id,full_name'])
                 ->latest(),
         ])->findOrFail($id);
@@ -165,7 +166,7 @@ class BookingController extends Controller
         $contact = $data['contact'] ?? null;
         unset($data['participants'], $data['contact']);
 
-        $data['booking_code'] = 'BK'.now()->format('Ymd').strtoupper(Str::random(4));
+        $data['booking_code'] = 'BK' . now()->format('Ymd') . strtoupper(Str::random(4));
         $data['discount_amount'] = $data['discount_amount'] ?? 0;
         $data['status'] = 'pending';
         $data['payment_status'] = 'unpaid';
