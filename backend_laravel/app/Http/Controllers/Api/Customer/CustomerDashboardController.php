@@ -45,12 +45,16 @@ class CustomerDashboardController extends Controller
                 'tour.category',
                 'tour.province',
                 'tour.destination',
+                'tour.thumbnail',
                 'tourDeparture',
                 'payment',
                 'contact',
                 'participants',
                 'tourReview',
                 'disruptionRequests',
+                'statusHistories' => fn($q) => $q
+                    ->with('changedBy:id,full_name')
+                    ->orderByDesc('id'),
                 'informationChangeHistories' => fn($q) => $q->orderByDesc('id'),
             ])
             ->orderByDesc('id')
