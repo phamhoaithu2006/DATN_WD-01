@@ -367,7 +367,7 @@ class CustomerBookingController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Đặt tour thành công. Đang chuyển đến VNPAY để thanh toán.',
+            'message' => 'Đã tạo đơn chờ thanh toán. Đang chuyển đến VNPAY.',
             'data' => array_merge($booking->toArray(), [
                 'checkout_url' => $checkoutUrl,
                 'payment_id' => $booking->payment->id,
