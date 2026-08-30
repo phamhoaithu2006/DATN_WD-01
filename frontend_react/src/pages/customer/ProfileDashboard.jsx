@@ -5,6 +5,7 @@ import LoadingState from "../../components/common/LoadingState";
 import TourCard from "../../components/customer/TourCard";
 import BookingCountdown from "../../components/customer/BookingCountdown";
 import BookingInformationModal from "../../components/customer/BookingInformationModal";
+import CustomerBookingDetailModal from "../../components/customer/CustomerBookingDetailModal";
 import { confirmAction } from "../../components/common/AppConfirmDialog.jsx";
 import GuideReviewModal from "../../components/customer/GuideReviewModal";
 import TourReviewModal from "../../components/customer/TourReviewModal";
@@ -703,6 +704,7 @@ function ProfileDashboard({
   const [bookingSearch, setBookingSearch] = useState("");
   const [bookingSort, setBookingSort] = useState("newest");
   const [activeTicketBooking, setActiveTicketBooking] = useState(null);
+  const [activeBookingDetail, setActiveBookingDetail] = useState(null);
   const [reviewableBookings, setReviewableBookings] = useState([]);
   const [reviewableBookingsLoading, setReviewableBookingsLoading] = useState(false);
   const [reviewableBookingsError, setReviewableBookingsError] = useState("");
@@ -1546,6 +1548,13 @@ function ProfileDashboard({
                               {canEditBookingInformation(booking) ? "Sửa thông tin" : "Xem thông tin"}
                             </button>
                           ) : null}
+                          <button
+                            type="button"
+                            className="vg-btn-secondary vg-booking-detail-button"
+                            onClick={() => setActiveBookingDetail(booking)}
+                          >
+                            <Icon name="eye" size={15} /> Xem chi tiết
+                          </button>
                           {isPendingPayment ? (
                             <div className="vg-booking-actions">
                               <button
@@ -1699,6 +1708,15 @@ function ProfileDashboard({
         <BookingTicketModal
           booking={activeTicketBooking}
           onClose={() => setActiveTicketBooking(null)}
+          formatCurrency={formatCurrency}
+          formatDate={formatDate}
+        />
+      ) : null}
+
+      {activeBookingDetail ? (
+        <CustomerBookingDetailModal
+          booking={activeBookingDetail}
+          onClose={() => setActiveBookingDetail(null)}
           formatCurrency={formatCurrency}
           formatDate={formatDate}
         />

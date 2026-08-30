@@ -455,7 +455,7 @@ function TourDepartureBookingModal({
                   )}
                 </p>
                 <p>
-                  <span className="font-bold text-slate-800">Thời điểm tạo:</span>{' '}
+                  <span className="font-bold text-slate-800">Thời gian đặt:</span>{' '}
                   {formatDateTime(departure?.created_at || payload?.created_at)}
                 </p>
               </div>
