@@ -5,7 +5,88 @@ function normalizePhone(value) {
   return String(value || "").trim().replace(/\D/g, "");
 }
 
-function BookingInformationModal({ booking, onClose, onSave, readOnly = false }) {
+// booking.participants[].birth_date từ API có thể là "1990-05-01" hoặc
+// "1990-05-01T00:00:00.000000Z" — input type="date" chỉ nhận đúng "YYYY-MM-DD".
+function toDateInputValue(value) {
+  return String(value || "").slice(0, 10);
+}
+
+const CONTACT_FIELD_LABELS = {
+  contact_name: "Tên liên hệ",
+  contact_email: "Email liên hệ",
+  contact_phone: "SĐT liên hệ",
+  address: "Địa chỉ",
+  special_request: "Yêu cầu đặc biệt",
+};
+
+const PARTICIPANT_FIELD_LABELS = {
+  full_name: "Họ tên",
+  phone: "SĐT",
+  gender: "Giới tính",
+  identity_number: "CCCD/Hộ chiếu",
+  birth_date: "Ngày sinh",
+};
+
+function formatDiffValue(key, value) {
+  if (!value) return "trống";
+  if (key === "birth_date") {
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) {
+      return date.toLocaleDateString("vi-VN");
+    }
+  }
+  return String(value);
+}
+
+// So sánh snapshot trước/sau của 1 lần sửa, chỉ liệt kê đúng những trường
+// thực sự thay đổi để khách dễ theo dõi thay vì phải đọc lại toàn bộ dữ liệu.
+function summarizeInformationChange(history) {
+  const before = history.before || {};
+  const after = history.after || {};
+  const lines = [];
+
+  const beforeContact = before.contact || {};
+  const afterContact = after.contact || {};
+  Object.entries(CONTACT_FIELD_LABELS).forEach(([key, label]) => {
+    const oldValue = beforeContact[key] ?? "";
+    const newValue = afterContact[key] ?? "";
+    if (String(oldValue) !== String(newValue)) {
+      lines.push(`${label}: "${formatDiffValue(key, oldValue)}" → "${formatDiffValue(key, newValue)}"`);
+    }
+  });
+
+  const beforeParticipants = Array.isArray(before.participants) ? before.participants : [];
+  const afterParticipants = Array.isArray(after.participants) ? after.participants : [];
+  afterParticipants.forEach((afterP, index) => {
+    const beforeP = beforeParticipants.find((p) => p.id === afterP.id) || beforeParticipants[index] || {};
+    Object.entries(PARTICIPANT_FIELD_LABELS).forEach(([key, label]) => {
+      const oldValue = beforeP[key] ?? "";
+      const newValue = afterP[key] ?? "";
+      if (String(oldValue) !== String(newValue)) {
+        lines.push(`Hành khách ${index + 1} - ${label}: "${formatDiffValue(key, oldValue)}" → "${formatDiffValue(key, newValue)}"`);
+      }
+    });
+  });
+
+  return lines;
+}
+
+function formatHistoryDate(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+function BookingInformationModal({
+  booking,
+  onClose,
+  onSave,
+  readOnly = false,
+  lockReason = null,
+  editCount = 0,
+  editLimit = 3,
+}) {
   const [contact, setContact] = useState(() => ({
     contact_name: booking.contact?.contact_name || "",
     contact_email: booking.contact?.contact_email || "",
@@ -19,9 +100,16 @@ function BookingInformationModal({ booking, onClose, onSave, readOnly = false })
     phone: participant.phone || "",
     gender: participant.gender || "male",
     identity_number: participant.identity_number || "",
+    birth_date: toDateInputValue(participant.birth_date),
+    pricing_rule_label: participant.pricing_rule_label || "Người lớn mặc định",
   })));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+
+  const histories = Array.isArray(booking.information_change_histories)
+    ? booking.information_change_histories
+    : [];
 
   const updateParticipant = (index, field, value) => {
     setParticipants((current) => current.map((participant, participantIndex) => (
@@ -51,6 +139,7 @@ function BookingInformationModal({ booking, onClose, onSave, readOnly = false })
           full_name: participant.full_name.trim(),
           phone: normalizePhone(participant.phone) || null,
           identity_number: participant.identity_number.trim() || null,
+          birth_date: participant.birth_date,
         })),
       });
       onClose();
@@ -75,14 +164,69 @@ function BookingInformationModal({ booking, onClose, onSave, readOnly = false })
             </h2>
             <p className="mt-1 text-sm text-slate-500">
               {readOnly
-                ? "Đã quá thời hạn chỉnh sửa (trong vòng 3 ngày trước khởi hành). Bạn chỉ có thể xem lại thông tin bên dưới, vui lòng liên hệ hỗ trợ nếu cần thay đổi."
-                : "Số lượng khách, ngày sinh và tổng tiền không thể thay đổi."}
+                ? null
+                : "Số lượng khách và tổng tiền không thể thay đổi. Ngày sinh chỉ được đổi trong độ tuổi vẫn thuộc đúng loại vé đã mua."}
             </p>
           </div>
-          <button type="button" className="rounded-full p-2 text-slate-500 hover:bg-slate-100" onClick={onClose} aria-label="Đóng">
-            <Icon name="close" size={20} />
-          </button>
+          <div className="flex items-center gap-2">
+            {histories.length ? (
+              <button
+                type="button"
+                className="flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-100"
+                onClick={() => setIsHistoryOpen(true)}
+              >
+                <Icon name="clock" size={14} />
+                Timeline
+                <span className="rounded-full bg-slate-200 px-1.5 text-[11px] text-slate-700">{histories.length}</span>
+              </button>
+            ) : null}
+            <button type="button" className="rounded-full p-2 text-slate-500 hover:bg-slate-100" onClick={onClose} aria-label="Đóng">
+              <Icon name="close" size={20} />
+            </button>
+          </div>
         </header>
+
+        {readOnly ? (
+          <div className="mb-5 flex items-center gap-3 rounded-2xl border-2 border-red-300 bg-red-50 px-4 py-3 text-red-700">
+            <Icon name="alertCircle" size={22} />
+            <div>
+              <p className="text-sm font-extrabold">
+                {lockReason === 'limit'
+                  ? `Bạn đã sửa thông tin đủ ${editLimit}/${editLimit} lần cho phép.`
+                  : "Đã quá thời hạn chỉnh sửa."}
+              </p>
+              <p className="text-xs font-semibold">
+                {lockReason === 'limit'
+                  ? "Bạn chỉ có thể xem lại thông tin bên dưới, vui lòng liên hệ hỗ trợ nếu cần thay đổi thêm."
+                  : "Chỉ được sửa thông tin trong vòng 3 ngày trước khởi hành. Bạn chỉ có thể xem lại thông tin bên dưới, vui lòng liên hệ hỗ trợ nếu cần thay đổi."}
+              </p>
+            </div>
+          </div>
+        ) : (() => {
+          const remaining = Math.max(0, editLimit - editCount);
+          const isLastEdit = remaining <= 1;
+          return (
+            <div
+              className={`mb-5 flex items-center gap-3 rounded-2xl border-2 px-4 py-3 ${
+                isLastEdit
+                  ? "border-red-300 bg-red-50 text-red-700"
+                  : "border-amber-300 bg-amber-50 text-amber-800"
+              }`}
+            >
+              <Icon name="alertCircle" size={22} />
+              <div>
+                <p className="text-sm font-extrabold">
+                  Bạn đã sửa thông tin {editCount}/{editLimit} lần được phép.
+                </p>
+                <p className="text-xs font-semibold">
+                  {remaining > 0
+                    ? `Còn lại ${remaining} lần sửa. ${isLastEdit ? "Đây là lần sửa cuối cùng, hãy kiểm tra kỹ trước khi lưu!" : ""}`
+                    : "Đây là lần lưu cuối cùng bạn được phép — sau khi lưu sẽ không thể sửa thêm."}
+                </p>
+              </div>
+            </div>
+          );
+        })()}
 
         {error ? <p className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{error}</p> : null}
 
@@ -101,7 +245,12 @@ function BookingInformationModal({ booking, onClose, onSave, readOnly = false })
           <h3 className="text-sm font-extrabold text-slate-800">Hành khách</h3>
           {participants.map((participant, index) => (
             <div key={participant.id} className="rounded-2xl border border-slate-200 p-4">
-              <p className="mb-3 text-sm font-bold text-slate-700">Hành khách {index + 1}</p>
+              <p className="mb-3 text-sm font-bold text-slate-700">
+                Hành khách {index + 1}
+                <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500">
+                  Loại vé: {participant.pricing_rule_label}
+                </span>
+              </p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <input disabled={readOnly} required value={participant.full_name} onChange={(event) => updateParticipant(index, "full_name", event.target.value)} placeholder="Họ và tên" className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm disabled:bg-slate-50 disabled:text-slate-500" />
                 <input disabled={readOnly} value={participant.phone} onChange={(event) => updateParticipant(index, "phone", event.target.value)} placeholder="Số điện thoại" className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm disabled:bg-slate-50 disabled:text-slate-500" />
@@ -111,10 +260,80 @@ function BookingInformationModal({ booking, onClose, onSave, readOnly = false })
                   <option value="other">Khác</option>
                 </select>
                 <input disabled={readOnly} value={participant.identity_number} onChange={(event) => updateParticipant(index, "identity_number", event.target.value)} placeholder="CCCD/Hộ chiếu" className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm disabled:bg-slate-50 disabled:text-slate-500" />
+                <label className="sm:col-span-2 flex flex-col gap-1 text-xs font-semibold text-slate-500">
+                  Ngày sinh (chỉ đổi được trong độ tuổi vẫn thuộc "{participant.pricing_rule_label}")
+                  <input
+                    type="date"
+                    disabled={readOnly}
+                    required
+                    value={participant.birth_date}
+                    onChange={(event) => updateParticipant(index, "birth_date", event.target.value)}
+                    className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-normal text-slate-700 disabled:bg-slate-50 disabled:text-slate-500"
+                  />
+                </label>
               </div>
             </div>
           ))}
         </section>
+
+        {isHistoryOpen ? (
+          <div
+            className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/60 px-4 py-8"
+            role="presentation"
+            onMouseDown={() => setIsHistoryOpen(false)}
+          >
+            <div
+              className="max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl sm:p-6"
+              onMouseDown={(event) => event.stopPropagation()}
+            >
+              <div className="mb-4 flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-sky-600">Lịch sử thao tác</p>
+                  <h3 className="mt-1 text-lg font-extrabold text-slate-900">Lịch sử bạn đã sửa thông tin</h3>
+                </div>
+                <button
+                  type="button"
+                  className="rounded-full p-2 text-slate-500 hover:bg-slate-100"
+                  onClick={() => setIsHistoryOpen(false)}
+                  aria-label="Đóng"
+                >
+                  <Icon name="close" size={20} />
+                </button>
+              </div>
+
+              <ol className="space-y-3">
+                {histories.map((history) => {
+                  const changes = summarizeInformationChange(history);
+
+                  return (
+                    <li key={history.id} className="rounded-xl border border-slate-200 p-3">
+                      <p className="text-xs font-bold text-slate-600">{formatHistoryDate(history.created_at)}</p>
+                      {changes.length ? (
+                        <ul className="mt-1.5 space-y-1 text-xs text-slate-500">
+                          {changes.map((line, index) => (
+                            <li key={index}>{line}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="mt-1.5 text-xs text-slate-400">Không phát hiện thay đổi nội dung cụ thể.</p>
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+
+              <div className="mt-5 flex justify-end">
+                <button
+                  type="button"
+                  className="rounded-xl px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-100"
+                  onClick={() => setIsHistoryOpen(false)}
+                >
+                  Đóng
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         <footer className="mt-7 flex justify-end gap-3">
           <button type="button" className="rounded-xl px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-100" onClick={onClose}>

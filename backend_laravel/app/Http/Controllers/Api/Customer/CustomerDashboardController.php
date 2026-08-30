@@ -51,6 +51,7 @@ class CustomerDashboardController extends Controller
                 'participants',
                 'tourReview',
                 'disruptionRequests',
+                'informationChangeHistories' => fn($q) => $q->orderByDesc('id'),
             ])
             ->orderByDesc('id')
             ->get();

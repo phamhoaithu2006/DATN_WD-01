@@ -12,6 +12,7 @@ use App\Models\Tour;
 use App\Models\TourDeparture;
 use App\Models\TourRefundOutbox;
 use App\Models\User;
+use App\Services\AdminNotificationService;
 use App\Services\BookingPhoneDuplicateGuard;
 use App\Services\TourPricingService;
 use App\Services\VnpayPaymentLifecycleService;
@@ -32,6 +33,7 @@ class CustomerBookingController extends Controller
         private readonly BookingPhoneDuplicateGuard $bookingPhoneDuplicateGuard,
         private readonly VnpayService $vnpayService,
         private readonly VnpayPaymentLifecycleService $paymentLifecycleService,
+        private readonly AdminNotificationService $adminNotificationService,
     ) {}
 
     public function preview(Request $request): JsonResponse
@@ -383,8 +385,10 @@ class CustomerBookingController extends Controller
         }
 
         $data = $request->validated();
+        $notificationBefore = null;
+        $notificationAfter = null;
 
-        $updatedBooking = DB::transaction(function () use ($booking, $request, $data): Booking {
+        $updatedBooking = DB::transaction(function () use ($booking, $request, $data, &$notificationBefore, &$notificationAfter): Booking {
             $lockedBooking = Booking::query()
                 ->with(['tour.agePricingRules', 'tourDeparture', 'contact', 'participants'])
                 ->lockForUpdate()
@@ -429,14 +433,26 @@ class CustomerBookingController extends Controller
             }
 
             $lockedBooking->load(['contact', 'participants']);
+            $after = $this->bookingInformationSnapshot($lockedBooking);
             $lockedBooking->informationChangeHistories()->create([
                 'changed_by' => $request->user()->id,
                 'before' => $before,
-                'after' => $this->bookingInformationSnapshot($lockedBooking),
+                'after' => $after,
             ]);
+
+            // Lấy ra ngoài transaction để gửi thông báo cho admin sau khi commit thành công,
+            // tránh gửi thông báo rồi lỡ transaction bị rollback vì lý do khác.
+            $notificationBefore = $before;
+            $notificationAfter = $after;
 
             return $lockedBooking;
         }, 3);
+
+        $this->adminNotificationService->notifyBookingInformationUpdated(
+            $updatedBooking,
+            $request->user(),
+            $this->summarizeInformationChange($notificationBefore, $notificationAfter),
+        );
 
         $bookingData = $updatedBooking->fresh([
             'tour.category',
@@ -447,6 +463,7 @@ class CustomerBookingController extends Controller
             'payment',
             'contact',
             'participants',
+            'informationChangeHistories' => fn($q) => $q->orderByDesc('id'),
         ])->toArray();
         $bookingData['information_edit_count'] = $updatedBooking->informationChangeHistories()->count();
         $bookingData['information_edit_limit'] = Booking::INFORMATION_EDIT_LIMIT;
@@ -1060,33 +1077,6 @@ class CustomerBookingController extends Controller
         return $maxAge <= 4 ? 'infant' : 'child';
     }
 
-    /**
-     * Chặn cứng việc sửa ngày sinh khiến độ tuổi thực tế lệch mốc quy ước
-     * (Em bé 0-1, Trẻ em 2-11, Người lớn từ 12), BẤT KỂ tour có cấu hình
-     * age_pricing_rules hợp lệ trong DB hay không. Đây là lưới an toàn bổ
-     * sung cho so sánh participant_type/unit_price phía trên — phòng trường
-     * hợp tour chưa/không có rule active khiến resolveRuleForAge() trả về
-     * null và mọi độ tuổi bị mặc định coi là "adult".
-     */
-    private function hardAgeBoundaryViolation(string $existingType, int $newAge, ?string $existingLabel): ?string
-    {
-        $ticketLabel = $existingLabel ?: match ($existingType) {
-            'infant' => 'Em bé',
-            'child' => 'Trẻ em',
-            default => 'Người lớn',
-        };
-
-        $violatesAdult = $existingType === 'adult' && $newAge < 12;
-        $violatesChild = $existingType === 'child' && ($newAge < 2 || $newAge > 11);
-        $violatesInfant = $existingType === 'infant' && $newAge > 1;
-
-        if (! $violatesAdult && ! $violatesChild && ! $violatesInfant) {
-            return null;
-        }
-
-        return "Ngày sinh mới khiến độ tuổi thực tế ({$newAge} tuổi) không còn phù hợp với vé \"{$ticketLabel}\" đã mua — không được phép vì ảnh hưởng đến giá vé.";
-    }
-
     private function expireCustomerPendingBookings(int $userId): void
     {
         $expiredBookings = Booking::query()
@@ -1242,18 +1232,6 @@ class CustomerBookingController extends Controller
                 continue;
             }
 
-            // Lưới an toàn cứng: không phụ thuộc tour có cấu hình age_pricing_rules hay
-            // không (nếu tour chưa cấu hình rule, resolveRuleForAge() trả về null và mọi
-            // độ tuổi sẽ bị coi là "adult" một cách sai lệch). Mốc tuổi dưới đây theo đúng
-            // quy ước hiện tại của hệ thống: Em bé 0-1, Trẻ em 2-11, Người lớn từ 12.
-            $existingType = $existing->participant_type ?? 'adult';
-            $ageErrorMessage = $this->hardAgeBoundaryViolation($existingType, $newAge, $existing->pricing_rule_label);
-
-            if ($ageErrorMessage !== null) {
-                $validationErrors["participants.{$index}.birth_date"] = [$ageErrorMessage];
-                continue;
-            }
-
             $newRule = $tour ? $this->tourPricingService->resolveRuleForAge($tour, $newAge) : null;
             $newParticipantType = $this->participantTypeFromPricingRule($newRule);
             $newUnitPrice = $this->calculateUnitPriceFromRule($adultPrice, $newRule);
@@ -1294,5 +1272,71 @@ class CustomerBookingController extends Controller
                 'birth_date',
             ]))->values()->all(),
         ];
+    }
+
+    /** Tóm tắt các trường thực sự thay đổi giữa 2 snapshot, dùng cho nội dung thông báo Admin. */
+    private function summarizeInformationChange(?array $before, ?array $after): array
+    {
+        if (! $before || ! $after) {
+            return [];
+        }
+
+        $contactLabels = [
+            'contact_name' => 'Tên liên hệ',
+            'contact_email' => 'Email liên hệ',
+            'contact_phone' => 'SĐT liên hệ',
+            'address' => 'Địa chỉ',
+            'special_request' => 'Yêu cầu đặc biệt',
+        ];
+        $participantLabels = [
+            'full_name' => 'Họ tên',
+            'phone' => 'SĐT',
+            'gender' => 'Giới tính',
+            'identity_number' => 'CCCD/Hộ chiếu',
+            'birth_date' => 'Ngày sinh',
+        ];
+
+        $lines = [];
+        $beforeContact = $before['contact'] ?? [];
+        $afterContact = $after['contact'] ?? [];
+        foreach ($contactLabels as $key => $label) {
+            $oldValue = $beforeContact[$key] ?? '';
+            $newValue = $afterContact[$key] ?? '';
+            if ((string) $oldValue !== (string) $newValue) {
+                $lines[] = "- {$label}: \"" . $this->formatDiffValue($key, $oldValue) . '" → "' . $this->formatDiffValue($key, $newValue) . '"';
+            }
+        }
+
+        $beforeParticipants = collect($before['participants'] ?? [])->keyBy('id');
+        foreach (($after['participants'] ?? []) as $index => $afterParticipant) {
+            $beforeParticipant = $beforeParticipants->get($afterParticipant['id'] ?? null, []);
+            foreach ($participantLabels as $key => $label) {
+                $oldValue = $beforeParticipant[$key] ?? '';
+                $newValue = $afterParticipant[$key] ?? '';
+                if ((string) $oldValue !== (string) $newValue) {
+                    $lines[] = '- Hành khách ' . ($index + 1) . " - {$label}: \"" . $this->formatDiffValue($key, $oldValue) . '" → "' . $this->formatDiffValue($key, $newValue) . '"';
+                }
+            }
+        }
+
+        return $lines;
+    }
+
+    /** Định dạng lại giá trị cho dễ đọc trong nội dung thông báo (VD: ngày sinh -> dd/mm/yyyy). */
+    private function formatDiffValue(string $key, $value): string
+    {
+        if ($value === null || $value === '') {
+            return 'trống';
+        }
+
+        if ($key === 'birth_date') {
+            try {
+                return Carbon::parse($value)->format('d/m/Y');
+            } catch (\Throwable) {
+                return (string) $value;
+            }
+        }
+
+        return (string) $value;
     }
 }

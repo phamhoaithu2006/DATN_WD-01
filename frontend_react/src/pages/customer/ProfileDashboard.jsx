@@ -787,25 +787,39 @@ function ProfileDashboard({
     && paymentExpiresAt(booking) > now
   ), [now, paymentExpiresAt]);
 
-  const canEditBookingInformation = useCallback((booking) => {
-    if (!['pending', 'confirmed'].includes(booking.status)) return false;
+  // Trả về lý do KHÔNG cho sửa thông tin booking, hoặc null nếu vẫn sửa được.
+  // Dùng chung 1 hàm để nút bấm, modal và thông báo luôn khớp lý do với nhau.
+  const getBookingInformationLockReason = useCallback((booking) => {
+    if (!['pending', 'confirmed'].includes(booking.status)) return 'status';
 
     const departureDate = booking.tour_departure?.departure_date;
-    if (!departureDate) return false;
+    if (!departureDate) return 'status';
 
     // Không ghép chuỗi thủ công (dễ tạo ra chuỗi ngày không hợp lệ nếu
     // departureDate đã là datetime đầy đủ, ví dụ "...T00:00:00Z") — parse
     // trực tiếp rồi tự chuẩn hoá về đầu ngày để tính hạn chỉnh sửa.
     const departureTime = new Date(departureDate).getTime();
-    if (Number.isNaN(departureTime)) return false;
+    if (Number.isNaN(departureTime)) return 'status';
 
     const deadline = new Date(departureTime);
     deadline.setHours(0, 0, 0, 0);
     deadline.setDate(deadline.getDate() - 3);
     deadline.setHours(23, 59, 59, 999);
 
-    return Date.now() <= deadline.getTime();
+    if (Date.now() > deadline.getTime()) return 'deadline';
+
+    // Giới hạn tổng số lần sửa (tính chung cho cả booking, không phân biệt
+    // sửa liên hệ hay sửa hành khách) — mặc định 3 nếu backend chưa trả về.
+    const editCount = booking.information_edit_count ?? 0;
+    const editLimit = booking.information_edit_limit ?? 3;
+    if (editCount >= editLimit) return 'limit';
+
+    return null;
   }, []);
+
+  const canEditBookingInformation = useCallback((booking) => (
+    getBookingInformationLockReason(booking) === null
+  ), [getBookingInformationLockReason]);
 
   const getBookingTripState = useCallback((booking) => {
     if (booking.payment_status === "refund_pending") return "refund_pending";
@@ -1695,6 +1709,9 @@ function ProfileDashboard({
           key={editingBooking.id}
           booking={editingBooking}
           readOnly={editingBookingReadOnly}
+          lockReason={getBookingInformationLockReason(editingBooking)}
+          editCount={editingBooking.information_edit_count ?? 0}
+          editLimit={editingBooking.information_edit_limit ?? 3}
           onClose={() => {
             setEditingBooking(null);
             setEditingBookingReadOnly(false);
