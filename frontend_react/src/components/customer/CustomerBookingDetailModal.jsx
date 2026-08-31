@@ -1,5 +1,7 @@
 import Icon from "./Icon";
 import { mediaUrl } from "../../utils/mediaUrl";
+import { useNavigate } from "react-router-dom";
+import { useState } from "react";
 
 const STATUS_LABELS = {
   pending: "Chờ thanh toán",
@@ -29,15 +31,6 @@ function getStatusLabel(status) {
   return STATUS_LABELS[status] || status || "Chưa cập nhật";
 }
 
-function getHistoryActor(history) {
-  if (history?.changed_by?.full_name) return history.changed_by.full_name;
-
-  if (history?.new_status === "cancelled_by_tour") return "Hệ thống tự động";
-  if (history?.new_status === "cancelled") return "Khách hàng";
-
-  return "Hệ thống";
-}
-
 function getParticipantTypeLabel(type) {
   return {
     adult: "Người lớn",
@@ -61,6 +54,9 @@ function CustomerBookingDetailModal({
   formatCurrency,
   formatDate,
 }) {
+  const navigate = useNavigate();
+  const [expandedParticipant, setExpandedParticipant] = useState(null);
+
   if (!booking) return null;
 
   const tour = booking.tour || {};
@@ -72,9 +68,15 @@ function CustomerBookingDetailModal({
   ));
   const isCancelled = ["cancelled", "cancelled_by_tour"].includes(booking.status)
     || departure.status === "cancelled";
-  const cancellationActor = cancellationHistory
-    ? getHistoryActor(cancellationHistory)
-    : (booking.status === "cancelled_by_tour" ? "Hệ thống tự động" : "Khách hàng");
+  const isCancelledByTour = booking.status === "cancelled_by_tour"
+    || departure.status === "cancelled";
+  const approvedCustomerCancellation = (booking.disruption_requests || [])
+    .filter((request) => request.status === "approved" && ["refund", "retain"].includes(request.type))
+    .sort((a, b) => Number(b.id || 0) - Number(a.id || 0))[0];
+  const cancellationActor = isCancelledByTour ? "Quản trị viên" : "Khách hàng";
+  const cancellationReason = isCancelledByTour
+    ? (booking.tour_cancellation_message || booking.cancel_reason || departure.cancellation_reason)
+    : (approvedCustomerCancellation?.reason || booking.cancel_reason || cancellationHistory?.note);
   const tourImage = mediaUrl(
     tour.thumbnail?.image_url
       || tour.thumbnail_url
@@ -99,6 +101,19 @@ function CustomerBookingDetailModal({
     || departure.meeting_point
     || "Sẽ được thông báo trước ngày đi";
   const unitPrice = Number(booking.unit_price || 0);
+  const now = Date.now();
+  const departureTime = departure.departure_date
+    ? new Date(departure.departure_date).getTime()
+    : 0;
+  const returnTime = departure.return_date
+    ? new Date(departure.return_date).getTime()
+    : 0;
+  const tripProgress = booking.status === "completed" || (returnTime > 0 && returnTime <= now)
+    ? 2
+    : departureTime > 0 && departureTime <= now
+      ? 1
+      : 0;
+  const tripProgressSteps = ["Sắp diễn ra", "Đang diễn ra", "Đã hoàn thành"];
 
   return (
     <div className="vg-customer-detail-overlay" onClick={onClose}>
@@ -129,7 +144,7 @@ function CustomerBookingDetailModal({
                 <Icon name="compass" size={28} />
               </div>
             )}
-            <div>
+            <div className="vg-customer-tour-summary-content">
               <span>{categoryName} · {destinationName}</span>
               <h3>Thông tin tour</h3>
               <p>{tour.summary || tour.description || "Thông tin tour đang được cập nhật."}</p>
@@ -138,7 +153,42 @@ function CustomerBookingDetailModal({
                 <span><Icon name="clock" size={14} /> {duration}</span>
               </div>
             </div>
+            <button
+              type="button"
+              className="vg-customer-tour-detail-link"
+              disabled={!tour.slug && !tour.id}
+              onClick={() => {
+                onClose();
+                navigate(`/tours/${tour.slug || tour.id}`);
+              }}
+            >
+              <Icon name="eye" size={15} />
+              Chi tiết
+            </button>
           </section>
+
+          {isCancelled ? (
+            <section className="vg-customer-trip-cancelled" aria-label="Trạng thái tour">
+              <div><Icon name="xCircle" size={17} /> Tour đã hủy</div>
+            </section>
+          ) : (
+            <section className="vg-customer-trip-progress" aria-label="Tiến độ chuyến đi">
+              {tripProgressSteps.map((label, index) => (
+              <div className="vg-customer-trip-progress-part" key={label}>
+                <div
+                  className={`vg-customer-trip-progress-step${index <= tripProgress ? " is-reached" : ""}${index === tripProgress ? " is-current" : ""}`}
+                  aria-current={index === tripProgress ? "step" : undefined}
+                >
+                  <span>{index + 1}</span>
+                  <strong>{label}</strong>
+                </div>
+                {index < tripProgressSteps.length - 1 ? (
+                  <i className={index < tripProgress ? "is-complete" : ""} aria-hidden="true" />
+                ) : null}
+              </div>
+              ))}
+            </section>
+          )}
 
           <div className="vg-customer-detail-grid">
             <section className="vg-customer-detail-card">
@@ -166,11 +216,11 @@ function CustomerBookingDetailModal({
             <section className={isCancelled ? "vg-customer-detail-card is-cancelled" : "vg-customer-detail-card"}>
               <div className="vg-customer-detail-card-title">
                 <Icon name={isCancelled ? "alertCircle" : "checkCircle"} size={17} />
-                <h3>Trạng thái booking</h3>
+                <h3>Trạng thái tour</h3>
               </div>
               <div className="vg-customer-status-panel">
                 <span className="vg-customer-status-label">Trạng thái hiện tại</span>
-                <strong>{getStatusLabel(booking.status)}</strong>
+                <strong>{isCancelled ? "Tour đã hủy" : getStatusLabel(booking.status)}</strong>
               </div>
               {isCancelled ? (
                 <div className="vg-customer-cancellation-info">
@@ -184,7 +234,7 @@ function CustomerBookingDetailModal({
                   </div>
                   <div>
                     <span>Lý do</span>
-                    <p>{booking.cancel_reason || cancellationHistory?.note || "Chưa có lý do cụ thể."}</p>
+                    <p>{cancellationReason || "Chưa có lý do cụ thể."}</p>
                   </div>
                 </div>
               ) : (
@@ -198,27 +248,65 @@ function CustomerBookingDetailModal({
           <section className="vg-customer-detail-card vg-customer-passenger-card">
             <div className="vg-customer-detail-card-title">
               <Icon name="users" size={17} />
-              <h3>Danh sách booking</h3>
-              <span>{participants.length} khách</span>
+              <h3>Thành viên</h3>
+              <span>{participants.length} thành viên</span>
             </div>
             <p className="vg-customer-detail-hint">
-              Danh sách khách hàng trong booking {booking.booking_code || ""}.
+              Danh sách thành viên trong booking {booking.booking_code || ""}. Bấm vào từng thành viên để xem đầy đủ thông tin.
             </p>
             {participants.length ? (
               <div className="vg-customer-passenger-list">
-                {participants.map((participant, index) => (
-                  <article key={participant.id || index} className="vg-customer-passenger">
-                    <span className="vg-customer-passenger-number">{index + 1}</span>
-                    <div>
-                      <strong>Khách hàng {index + 1}</strong>
-                      <p>{participant.full_name || "Chưa cập nhật họ tên"}</p>
+                {participants.map((participant, index) => {
+                  const participantKey = participant.id || index;
+                  const isExpanded = expandedParticipant === participantKey;
+                  const genderLabel = {
+                    male: "Nam",
+                    female: "Nữ",
+                    other: "Khác",
+                  }[participant.gender] || "Chưa cập nhật";
+
+                  return (
+                  <article
+                    key={participantKey}
+                    className={`vg-customer-passenger${isExpanded ? " is-expanded" : ""}`}
+                    role="button"
+                    tabIndex={0}
+                    aria-expanded={isExpanded}
+                    onClick={() => setExpandedParticipant(isExpanded ? null : participantKey)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        setExpandedParticipant(isExpanded ? null : participantKey);
+                      }
+                    }}
+                  >
+                    <div className="vg-customer-passenger-summary">
+                      <span className="vg-customer-passenger-number">{index + 1}</span>
+                      <div>
+                        <strong>Thành viên {index + 1}</strong>
+                        <p>{participant.full_name || "Chưa cập nhật họ tên"}</p>
+                      </div>
+                      <div className="vg-customer-passenger-meta">
+                        <span>{getParticipantTypeLabel(participant.participant_type)}</span>
+                      </div>
                     </div>
-                    <div className="vg-customer-passenger-meta">
-                      <span>{getParticipantTypeLabel(participant.participant_type)}</span>
-                      {participant.phone ? <span>{participant.phone}</span> : null}
-                    </div>
+
+                    {isExpanded ? (
+                      <dl className="vg-customer-passenger-detail">
+                        <DetailItem label="Họ và tên" value={participant.full_name} />
+                        <DetailItem label="Loại thành viên" value={getParticipantTypeLabel(participant.participant_type)} />
+                        <DetailItem label="Giới tính" value={genderLabel} />
+                        <DetailItem label="Ngày sinh" value={participant.birth_date ? formatDate(participant.birth_date) : "Chưa cập nhật"} />
+                        <DetailItem label="Số điện thoại" value={participant.phone} />
+                        <DetailItem label="CCCD / Hộ chiếu" value={participant.identity_number} />
+                        {participant.unit_price ? (
+                          <DetailItem label="Giá vé" value={formatCurrency(Number(participant.unit_price))} emphasize />
+                        ) : null}
+                      </dl>
+                    ) : null}
                   </article>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="vg-customer-passenger-empty">
@@ -227,33 +315,6 @@ function CustomerBookingDetailModal({
             )}
           </section>
 
-          {histories.length ? (
-            <section className="vg-customer-detail-card vg-customer-history-card">
-              <div className="vg-customer-detail-card-title">
-                <Icon name="clock" size={17} />
-                <h3>Lịch sử trạng thái</h3>
-              </div>
-              <ol className="vg-customer-history-list">
-                {histories.map((history) => (
-                  <li key={history.id}>
-                    <span className="vg-customer-history-dot" aria-hidden="true" />
-                    <div>
-                      <strong>
-                        {history.old_status
-                          ? getStatusLabel(history.old_status) + " → "
-                          : "Khởi tạo → "}
-                        {getStatusLabel(history.new_status)}
-                      </strong>
-                      <p>
-                        {formatDateTime(history.created_at)} · Người thực hiện: {getHistoryActor(history)}
-                      </p>
-                      {history.note ? <small>{history.note}</small> : null}
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            </section>
-          ) : null}
         </div>
 
         <footer className="vg-customer-detail-footer">

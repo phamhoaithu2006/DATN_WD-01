@@ -65,7 +65,7 @@ function statusClass(status) {
   return `booking-request-status booking-request-status--${status}`
 }
 
-function StatCard({ label, value, tone = 'total' }) {
+function StatCard({ label, value, tone = 'total', active = false, onClick }) {
   const icons = {
     total: (
       <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -90,7 +90,12 @@ function StatCard({ label, value, tone = 'total' }) {
   }
 
   return (
-    <div className={`booking-request-stat booking-request-stat--${tone}`}>
+    <button
+      type="button"
+      className={`booking-request-stat booking-request-stat--${tone}${active ? ' is-active' : ''}`}
+      onClick={onClick}
+      aria-pressed={active}
+    >
       <div className="booking-request-stat-icon-bg">
         {icons[tone] || icons.total}
       </div>
@@ -101,7 +106,7 @@ function StatCard({ label, value, tone = 'total' }) {
         </span>
         <strong>{Number(value || 0).toLocaleString('vi-VN')}</strong>
       </div>
-    </div>
+    </button>
   )
 }
 
@@ -346,6 +351,9 @@ function BookingCancellationRequestsPage({ embedded = false }) {
   const [summary, setSummary] = useState({})
   const [timeline, setTimeline] = useState([])
   const [timelineOpen, setTimelineOpen] = useState(false)
+  const [timelineDetailLoading, setTimelineDetailLoading] = useState(null)
+  const [expandedTimelineEvent, setExpandedTimelineEvent] = useState(null)
+  const [timelineDetailRequest, setTimelineDetailRequest] = useState(null)
   const [meta, setMeta] = useState({ current_page: 1, last_page: 1, total: 0 })
   const [filters, setFilters] = useState({ search: '', status: 'pending', type: '' })
   const [page, setPage] = useState(1)
@@ -398,6 +406,48 @@ function BookingCancellationRequestsPage({ embedded = false }) {
   const updateFilter = (key, value) => {
     setPage(1)
     setFilters((current) => ({ ...current, [key]: value }))
+  }
+
+  const openTimelineDetail = async (event) => {
+    if (expandedTimelineEvent === event.id) {
+      setExpandedTimelineEvent(null)
+      setTimelineDetailRequest(null)
+      return
+    }
+
+    setExpandedTimelineEvent(event.id)
+    setTimelineDetailRequest(null)
+    setTimelineDetailLoading(event.id)
+    try {
+      let request
+
+      if (event.disruption_request_id) {
+        const response = await adminBookingDisruptionApi.show(event.disruption_request_id)
+        request = response?.data
+      } else {
+        const response = await adminBookingDisruptionApi.list({
+          search: event.booking_code,
+          per_page: 100,
+        })
+        const matchingRequests = (Array.isArray(response?.data) ? response.data : [])
+          .filter((item) => item.booking?.booking_code === event.booking_code)
+        const eventTime = new Date(event.created_at).getTime()
+
+        request = matchingRequests.sort((a, b) => (
+          Math.abs(new Date(a.created_at).getTime() - eventTime)
+          - Math.abs(new Date(b.created_at).getTime() - eventTime)
+        ))[0]
+      }
+
+      if (!request) throw new Error('Không tìm thấy chi tiết yêu cầu hủy này.')
+
+      setTimelineDetailRequest(request)
+    } catch (error) {
+      setExpandedTimelineEvent(null)
+      setNotice({ type: 'error', text: getErrorMessage(error) })
+    } finally {
+      setTimelineDetailLoading(null)
+    }
   }
 
   const openDecision = async (request, mode) => {
@@ -492,10 +542,34 @@ function BookingCancellationRequestsPage({ embedded = false }) {
       ) : null}
 
       <section className="booking-request-stats" aria-label="Thống kê yêu cầu booking">
-        <StatCard label="Tổng yêu cầu" value={summary.total_count} tone="total" />
-        <StatCard label="Chờ xử lý" value={summary.pending_count} tone="pending" />
-        <StatCard label="Đã duyệt" value={summary.approved_count} tone="approved" />
-        <StatCard label="Đã từ chối" value={summary.rejected_count} tone="rejected" />
+        <StatCard
+          label="Tổng yêu cầu"
+          value={summary.total_count}
+          tone="total"
+          active={filters.status === ''}
+          onClick={() => updateFilter('status', '')}
+        />
+        <StatCard
+          label="Chờ xử lý"
+          value={summary.pending_count}
+          tone="pending"
+          active={filters.status === 'pending'}
+          onClick={() => updateFilter('status', 'pending')}
+        />
+        <StatCard
+          label="Đã duyệt"
+          value={summary.approved_count}
+          tone="approved"
+          active={filters.status === 'approved'}
+          onClick={() => updateFilter('status', 'approved')}
+        />
+        <StatCard
+          label="Đã từ chối"
+          value={summary.rejected_count}
+          tone="rejected"
+          active={filters.status === 'rejected'}
+          onClick={() => updateFilter('status', 'rejected')}
+        />
       </section>
 
       <section className="booking-request-panel">
@@ -666,13 +740,34 @@ function BookingCancellationRequestsPage({ embedded = false }) {
                   <article className={`booking-request-timeline-item is-${event.action}`} key={event.id}>
                     {index < timeline.length - 1 ? <i aria-hidden="true" /> : null}
                     <span className="booking-request-timeline-dot" aria-hidden="true" />
-                    <div>
-                      <div className="booking-request-timeline-title">
-                        <strong>{event.title}</strong>
-                        <em>{event.booking_code}</em>
-                      </div>
-                      <p>{event.detail}</p>
-                      <small>{event.actor} · {formatDate(event.created_at, true)}</small>
+                    <div className="booking-request-timeline-entry">
+                      <button
+                        type="button"
+                        className="booking-request-timeline-content"
+                        onClick={() => void openTimelineDetail(event)}
+                        disabled={timelineDetailLoading === event.id}
+                        aria-expanded={expandedTimelineEvent === event.id}
+                        aria-label={`Xem chi tiết ${event.title} của booking ${event.booking_code}`}
+                      >
+                        <time>{formatDate(event.created_at, true)}</time>
+                        <div className="booking-request-timeline-title">
+                          <strong>{event.title}</strong>
+                          <em>{event.booking_code}</em>
+                        </div>
+                        <p>{event.detail}</p>
+                        <small>{event.actor}</small>
+                        <span className="booking-request-timeline-view">
+                          {timelineDetailLoading === event.id
+                            ? 'Đang tải…'
+                            : expandedTimelineEvent === event.id ? 'Thu gọn ↑' : 'Xem chi tiết ↓'}
+                        </span>
+                      </button>
+
+                      {expandedTimelineEvent === event.id && timelineDetailRequest ? (
+                        <div className="booking-request-timeline-detail">
+                          <RequestDetail request={timelineDetailRequest} />
+                        </div>
+                      ) : null}
                     </div>
                   </article>
                 ))}

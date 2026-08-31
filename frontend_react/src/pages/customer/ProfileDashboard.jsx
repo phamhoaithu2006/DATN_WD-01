@@ -207,6 +207,16 @@ const DISRUPTION_TYPE_OPTIONS = [
   },
 ];
 
+const CUSTOMER_CANCELLATION_REASONS = [
+  "Thay đổi kế hoạch cá nhân",
+  "Trùng lịch công việc hoặc học tập",
+  "Lý do sức khỏe, không thể tham gia chuyến đi",
+  "Đặt nhầm tour hoặc lịch khởi hành",
+  "Không thể sắp xếp phương tiện đến điểm tập trung",
+  "Thay đổi kế hoạch tài chính",
+  "Sự kiện bất khả kháng",
+];
+
 function CancelBookingModal({ booking, onClose, onCancelled }) {
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -559,7 +569,8 @@ function ParticipantsEditModal({ booking, onClose, onUpdated, readOnly = false }
 }
 
 function DisruptionRequestModal({ booking, onClose, onSubmitted }) {
-  const [reason, setReason] = useState("");
+  const [selectedReason, setSelectedReason] = useState("");
+  const [customReason, setCustomReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
@@ -569,8 +580,15 @@ function DisruptionRequestModal({ booking, onClose, onSubmitted }) {
   async function handleSubmit(event) {
     event.preventDefault();
 
-    if (reason.trim().length < 5) {
-      setError("Vui lòng mô tả rõ tình huống (tối thiểu 5 ký tự).");
+    const reason = selectedReason === "other" ? customReason.trim() : selectedReason;
+
+    if (!selectedReason) {
+      setError("Vui lòng chọn lý do hủy tour.");
+      return;
+    }
+
+    if (selectedReason === "other" && reason.length < 5) {
+      setError("Vui lòng nhập lý do khác (tối thiểu 5 ký tự).");
       return;
     }
 
@@ -580,7 +598,7 @@ function DisruptionRequestModal({ booking, onClose, onSubmitted }) {
     try {
       const result = await createDisruptionRequest(booking.id, {
         type: "refund",
-        reason: reason.trim(),
+        reason,
       });
       setSuccess(true);
       onSubmitted?.(result);
@@ -595,7 +613,7 @@ function DisruptionRequestModal({ booking, onClose, onSubmitted }) {
 
   return (
     <div className="vg-ticket-modal-overlay" onClick={() => !submitting && onClose?.()}>
-      <div className="vg-simple-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="vg-simple-modal vg-disruption-modal" onClick={(e) => e.stopPropagation()}>
         <header className="vg-simple-modal-header">
           <h2>Yêu cầu hủy đơn</h2>
           <button type="button" onClick={onClose} disabled={submitting} aria-label="Đóng">
@@ -643,16 +661,49 @@ function DisruptionRequestModal({ booking, onClose, onSubmitted }) {
 
             <label>
               Lý do hủy đơn
-              <textarea
-                rows={4}
-                value={reason}
-                onChange={(event) => {
-                  setReason(event.target.value);
-                  setError("");
-                }}
-                placeholder="Ví dụ: Tôi có việc bận đột xuất không thể tham gia chuyến đi..."
-              />
+              <div className="vg-cancellation-reason-list">
+                {[...CUSTOMER_CANCELLATION_REASONS, "other"].map((reasonOption) => {
+                  const isOther = reasonOption === "other";
+                  const isSelected = selectedReason === reasonOption;
+
+                  return (
+                    <label
+                      key={reasonOption}
+                      className={`vg-cancellation-reason-item${isSelected ? " is-selected" : ""}`}
+                    >
+                      <input
+                        type="radio"
+                        name="cancellation-reason"
+                        value={reasonOption}
+                        checked={isSelected}
+                        onChange={() => {
+                          setSelectedReason(reasonOption);
+                          if (!isOther) setCustomReason("");
+                          setError("");
+                        }}
+                      />
+                      <span>{isOther ? "Khác" : reasonOption}</span>
+                    </label>
+                  );
+                })}
+              </div>
             </label>
+
+            {selectedReason === "other" ? (
+              <label>
+                Nhập lý do khác
+                <textarea
+                  rows={4}
+                  value={customReason}
+                  onChange={(event) => {
+                    setCustomReason(event.target.value);
+                    setError("");
+                  }}
+                  placeholder="Nhập cụ thể lý do bạn cần hủy tour..."
+                  autoFocus
+                />
+              </label>
+            ) : null}
 
             {error ? <p className="vg-booking-action-error">{error}</p> : null}
 
@@ -892,7 +943,16 @@ function ProfileDashboard({
     return bookings.filter((booking) => {
       const state = getBookingTripState(booking);
 
-      if (bookingFilter !== "all" && state !== bookingFilter) return false;
+      if (
+        bookingFilter === "cancelled_tours"
+        && !["cancellation_pending", "refund_pending", "cancelled"].includes(state)
+      ) return false;
+
+      if (
+        bookingFilter !== "all"
+        && bookingFilter !== "cancelled_tours"
+        && state !== bookingFilter
+      ) return false;
 
       if (bookingSearch.trim()) {
         const q = bookingSearch.trim().toLowerCase();
@@ -1258,24 +1318,10 @@ function ProfileDashboard({
                 </button>
                 <button
                   type="button"
-                  className={`vg-filter-btn ${bookingFilter === "cancellation_pending" ? "active" : ""}`}
-                  onClick={() => selectBookingFilter("cancellation_pending")}
+                  className={`vg-filter-btn ${bookingFilter === "cancelled_tours" ? "active" : ""}`}
+                  onClick={() => selectBookingFilter("cancelled_tours")}
                 >
-                  Chờ hủy <span className="vg-filter-count is-warn">{stats.cancellation_pending}</span>
-                </button>
-                <button
-                  type="button"
-                  className={`vg-filter-btn ${bookingFilter === "refund_pending" ? "active" : ""}`}
-                  onClick={() => selectBookingFilter("refund_pending")}
-                >
-                  Chờ hoàn tiền <span className="vg-filter-count is-refund">{stats.refund_pending}</span>
-                </button>
-                <button
-                  type="button"
-                  className={`vg-filter-btn ${bookingFilter === "cancelled" ? "active" : ""}`}
-                  onClick={() => selectBookingFilter("cancelled")}
-                >
-                  Đã hủy <span className="vg-filter-count">{stats.cancelled}</span>
+                  Tour đã hủy <span className="vg-filter-count">{stats.cancellation_pending + stats.refund_pending + stats.cancelled}</span>
                 </button>
               </div>
 
@@ -1376,7 +1422,24 @@ function ProfileDashboard({
                     || null;
 
                   return (
-                    <article key={booking.id} className={`vg-booking-card ${isPendingPayment ? "is-pending-payment-card" : ""}`}>
+                    <article
+                      key={booking.id}
+                      className={`vg-booking-card ${isPendingPayment ? "is-pending-payment-card" : ""}`}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Xem chi tiết booking ${booking.booking_code}`}
+                      onClick={(event) => {
+                        if (event.target.closest("button, a, input, select, textarea")) return;
+                        setActiveBookingDetail(booking);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.target !== event.currentTarget) return;
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setActiveBookingDetail(booking);
+                        }
+                      }}
+                    >
                       {tourImage ? (
                         <div className="vg-booking-thumb">
                           <img
@@ -1548,13 +1611,6 @@ function ProfileDashboard({
                               {canEditBookingInformation(booking) ? "Sửa thông tin" : "Xem thông tin"}
                             </button>
                           ) : null}
-                          <button
-                            type="button"
-                            className="vg-btn-secondary vg-booking-detail-button"
-                            onClick={() => setActiveBookingDetail(booking)}
-                          >
-                            <Icon name="eye" size={15} /> Xem chi tiết
-                          </button>
                           {isPendingPayment ? (
                             <div className="vg-booking-actions">
                               <button

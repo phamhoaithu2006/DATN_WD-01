@@ -169,6 +169,7 @@ class BookingDisruptionController extends Controller
 
                 return [
                     'id' => "customer-{$item->id}",
+                    'disruption_request_id' => null,
                     'action' => $withdrawn ? 'withdrawn' : 'requested',
                     'title' => $withdrawn ? 'Khách rút yêu cầu hủy' : 'Khách gửi yêu cầu hủy',
                     'detail' => trim((string) preg_replace('/^\[[^]]+\]\s*/', '', $item->note)),
@@ -189,6 +190,7 @@ class BookingDisruptionController extends Controller
             ->get()
             ->map(fn ($item): array => [
                 'id' => "admin-{$item->id}",
+                'disruption_request_id' => (int) $item->id,
                 'action' => $item->status,
                 'title' => $item->status === 'approved' ? 'Admin duyệt yêu cầu hủy' : 'Admin từ chối yêu cầu hủy',
                 'detail' => $item->admin_note ?: 'Không có ghi chú xử lý.',
