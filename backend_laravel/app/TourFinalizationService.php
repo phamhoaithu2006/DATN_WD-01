@@ -271,13 +271,13 @@ class TourFinalizationService
                 'status' => 'cancelled_by_tour',
 
                 'cancel_reason' =>
-                    $reason === 'insufficient_participants'
+                    $customerMessage ?: ($reason === 'insufficient_participants'
                         ? 'Tour bị hủy do không đủ số lượng khách tối thiểu.'
                         : (
                             $reason === 'weather_disaster'
                                 ? 'Tour bị hủy do điều kiện thời tiết hoặc thiên tai.'
                                 : 'Tour bị hủy bởi quản trị viên.'
-                        ),
+                        )),
 
                 'cancellation_reason' =>
                     $reason === 'insufficient_participants'
@@ -298,9 +298,8 @@ class TourFinalizationService
                 'old_status' => $oldStatus,
                 'new_status' => 'cancelled_by_tour',
                 'changed_by' => $changedBy,
-                'note' =>
-                    'Tour bị hủy bởi hệ thống/Admin. '
-                    . 'Khách không chịu phí hủy.',
+                'note' => $customerMessage
+                    ?: 'Tour bị hủy bởi hệ thống/Admin. Khách không chịu phí hủy.',
             ]);
         }
 

@@ -7,6 +7,7 @@ use App\Http\Resources\CustomerTourReviewResource;
 use App\Models\Booking;
 use App\Models\BookingInformationChangeHistory;
 use App\Models\Tour;
+use App\Models\TourFinalizationOutbox;
 use App\Services\BookingReviewEligibilityService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -60,6 +61,16 @@ class CustomerDashboardController extends Controller
             ->orderByDesc('id')
             ->get();
 
+        $tourCancellationMessages = TourFinalizationOutbox::query()
+            ->whereIn('tour_departure_id', $bookings->pluck('tour_departure_id')->filter()->unique())
+            ->whereIn('event_type', ['tour_cancelled_admin', 'tour_cancelled_insufficient_participants'])
+            ->orderByDesc('id')
+            ->get()
+            ->unique('tour_departure_id')
+            ->mapWithKeys(fn (TourFinalizationOutbox $outbox) => [
+                $outbox->tour_departure_id => $outbox->payload['customer_message'] ?? null,
+            ]);
+
         // Đếm số lần hủy theo TỪNG TOUR (không phân biệt lịch khởi hành),
         // tính 1 lần cho cả danh sách thay vì query lại cho mỗi booking (tránh N+1).
         $cancelledCountByTourId = Booking::query()
@@ -77,7 +88,7 @@ class CustomerDashboardController extends Controller
             ->groupBy('booking_id')
             ->pluck('total', 'booking_id');
 
-        $bookings = $bookings->map(function (Booking $booking) use ($request, $cancelledCountByTourId, $editCountByBookingId): array {
+        $bookings = $bookings->map(function (Booking $booking) use ($request, $cancelledCountByTourId, $editCountByBookingId, $tourCancellationMessages): array {
             $data = $booking->toArray();
             $data['can_review_tour'] = $this->bookingReviewEligibilityService->isReviewable($booking);
             $data['tour_review'] = $booking->tourReview
@@ -98,6 +109,7 @@ class CustomerDashboardController extends Controller
             $data['customer_cancellation_limit'] = Booking::CUSTOMER_CANCELLATION_LIMIT;
 
             $data['information_edit_count'] = (int) ($editCountByBookingId[$booking->id] ?? 0);
+            $data['tour_cancellation_message'] = $tourCancellationMessages[$booking->tour_departure_id] ?? null;
             $data['information_edit_limit'] = Booking::INFORMATION_EDIT_LIMIT;
 
             return $data;

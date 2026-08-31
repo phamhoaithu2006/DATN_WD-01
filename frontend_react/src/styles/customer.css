@@ -1568,12 +1568,24 @@
   margin-bottom: 0 !important;
   box-sizing: border-box !important;
   text-align: left !important;
+  cursor: pointer !important;
 }
 
 .vg-booking-card:hover {
   border-color: #cbd5e1 !important;
   box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08) !important;
   transform: translateY(-2px) !important;
+}
+
+.vg-booking-card:focus-visible {
+  border-color: #60a5fa !important;
+  outline: 3px solid rgba(59, 130, 246, 0.2) !important;
+  outline-offset: 3px !important;
+}
+
+.vg-booking-card:active {
+  transform: translateY(0) scale(0.995) !important;
+  box-shadow: 0 7px 18px rgba(30, 82, 130, 0.12) !important;
 }
 
 .vg-booking-card.is-pending-payment-card {
@@ -12963,6 +12975,7 @@ textarea.vg-checkout-input {
 }
 
 .vg-simple-modal-body input,
+.vg-simple-modal-body select,
 .vg-simple-modal-body textarea {
   border: 1px solid #cbd5e1;
   border-radius: 10px;
@@ -12976,6 +12989,7 @@ textarea.vg-checkout-input {
 }
 
 .vg-simple-modal-body input:focus,
+.vg-simple-modal-body select:focus,
 .vg-simple-modal-body textarea:focus {
   border-color: #4f46e5;
   box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
@@ -14082,7 +14096,8 @@ textarea.vg-checkout-input {
 
 .vg-customer-tour-summary {
   display: grid;
-  grid-template-columns: 180px minmax(0, 1fr);
+  grid-template-columns: 180px minmax(0, 1fr) auto;
+  align-items: center;
   gap: 18px;
   padding: 16px;
   border: 1px solid #dbeafe;
@@ -14105,10 +14120,202 @@ textarea.vg-checkout-input {
   color: #0f766e;
 }
 
-.vg-customer-tour-summary > div:last-child > span {
+.vg-customer-tour-summary-content > span {
   color: #0d9488;
   font-size: 12px;
   font-weight: 800;
+}
+
+.vg-simple-modal.vg-disruption-modal {
+  width: min(760px, calc(100vw - 32px));
+  max-width: 760px;
+}
+
+.vg-cancellation-reason-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  margin-top: 2px;
+}
+
+.vg-simple-modal-body .vg-cancellation-reason-item {
+  display: flex;
+  min-width: 0;
+  min-height: 48px;
+  padding: 11px 13px;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #dbe3ef;
+  border-radius: 11px;
+  background: #f8fafc;
+  color: #334155;
+  cursor: pointer;
+  transition: border-color .16s ease, background .16s ease, box-shadow .16s ease;
+}
+
+.vg-simple-modal-body .vg-cancellation-reason-item:hover {
+  border-color: #818cf8;
+  background: #f5f7ff;
+}
+
+.vg-simple-modal-body .vg-cancellation-reason-item.is-selected {
+  border-color: #4f46e5;
+  background: #eef2ff;
+  color: #312e81;
+  box-shadow: 0 0 0 2px rgba(79, 70, 229, .1);
+}
+
+.vg-simple-modal-body .vg-cancellation-reason-item input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  padding: 0;
+  flex: 0 0 16px;
+  accent-color: #4f46e5;
+  box-shadow: none;
+}
+
+.vg-cancellation-reason-item span {
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+@media (max-width: 640px) {
+  .vg-cancellation-reason-list { grid-template-columns: 1fr; }
+}
+
+.vg-customer-tour-detail-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 96px;
+  padding: 10px 14px;
+  border: 1px solid #2563eb;
+  border-radius: 10px;
+  background: #2563eb;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform .18s ease, background .18s ease, box-shadow .18s ease;
+}
+
+.vg-customer-tour-detail-link:hover {
+  transform: translateY(-2px);
+  background: #1d4ed8;
+  box-shadow: 0 8px 18px rgba(37, 99, 235, .24);
+}
+
+.vg-customer-tour-detail-link:active { transform: translateY(0); }
+.vg-customer-tour-detail-link:disabled { cursor: not-allowed; opacity: .5; }
+
+.vg-customer-trip-progress {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  margin-top: 16px;
+  padding: 14px 18px;
+  border: 1px solid #dbeafe;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.vg-customer-trip-progress-part {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex: 1 1 0;
+}
+
+.vg-customer-trip-progress-part:last-child { flex: 0 0 auto; }
+
+.vg-customer-trip-progress-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 8px 13px;
+  border: 2px solid #3b82f6;
+  border-radius: 12px;
+  background: #eff6ff;
+  color: #2563eb;
+  white-space: nowrap;
+  transition: background .2s ease, border-color .2s ease, color .2s ease, box-shadow .2s ease;
+}
+
+.vg-customer-trip-progress-step > span {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.vg-customer-trip-progress-step strong { font-size: 12px; font-weight: 900; }
+
+.vg-customer-trip-progress-step.is-reached {
+  border-color: #22c55e;
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.vg-customer-trip-progress-step.is-current {
+  background: #22c55e;
+  color: #fff;
+  box-shadow: 0 7px 16px rgba(34, 197, 94, .22);
+}
+
+.vg-customer-trip-progress-part > i {
+  height: 4px;
+  min-width: 24px;
+  margin: 0 8px;
+  flex: 1 1 auto;
+  border-radius: 999px;
+  background: #bfdbfe;
+}
+
+.vg-customer-trip-progress-part > i.is-complete { background: #22c55e; }
+
+.vg-customer-trip-cancelled {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 14px 18px;
+  border: 1px solid #fecaca;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.vg-customer-trip-cancelled::before,
+.vg-customer-trip-cancelled::after {
+  height: 4px;
+  flex: 1 1 auto;
+  border-radius: 999px;
+  background: #ef4444;
+  content: "";
+}
+
+.vg-customer-trip-cancelled > div {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 180px;
+  justify-content: center;
+  padding: 10px 18px;
+  border: 2px solid #ef4444;
+  border-radius: 12px;
+  background: #fee2e2;
+  color: #b91c1c;
+  font-size: 13px;
+  font-weight: 900;
 }
 
 .vg-customer-tour-summary h3 {
@@ -14283,14 +14490,31 @@ textarea.vg-checkout-input {
 }
 
 .vg-customer-passenger {
-  display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
   padding: 11px 12px;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   background: #f8fafc;
+  cursor: pointer;
+  transition: border-color .18s ease, background .18s ease, box-shadow .18s ease;
+}
+
+.vg-customer-passenger:hover,
+.vg-customer-passenger.is-expanded {
+  border-color: #60a5fa;
+  background: #fff;
+  box-shadow: 0 7px 18px rgba(37, 99, 235, .09);
+}
+
+.vg-customer-passenger:focus-visible {
+  outline: 3px solid rgba(59, 130, 246, .2);
+  outline-offset: 2px;
+}
+
+.vg-customer-passenger-summary {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
 }
 
 .vg-customer-passenger-number {
@@ -14331,6 +14555,18 @@ textarea.vg-checkout-input {
   margin-right: 7px;
   color: #cbd5e1;
   content: "·";
+}
+
+.vg-customer-passenger-detail {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 13px 16px;
+  margin: 12px 0 0 44px;
+  padding: 14px;
+  border-top: 1px solid #dbeafe;
+  border-radius: 0 0 10px 10px;
+  background: #f8fbff;
+  animation: bookingRequestModalIn .18s ease-out;
 }
 
 .vg-customer-passenger-empty {
@@ -14452,13 +14688,38 @@ textarea.vg-checkout-input {
     grid-template-columns: 1fr;
   }
 
+  .vg-customer-tour-detail-link {
+    width: 100%;
+  }
+
+  .vg-customer-trip-progress {
+    align-items: stretch;
+    padding: 13px;
+    flex-direction: column;
+  }
+
+  .vg-customer-trip-progress-part {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .vg-customer-trip-progress-part:last-child { flex: 1 1 auto; }
+  .vg-customer-trip-progress-step { width: 100%; }
+  .vg-customer-trip-progress-part > i {
+    width: 4px;
+    height: 18px;
+    min-width: 0;
+    margin: 5px 0 5px 18px;
+    flex: 0 0 18px;
+  }
+
   .vg-customer-tour-summary > img,
   .vg-customer-tour-summary-placeholder {
     width: 100%;
     height: 150px;
   }
 
-  .vg-customer-passenger {
+  .vg-customer-passenger-summary {
     grid-template-columns: 34px minmax(0, 1fr);
   }
 
@@ -14466,6 +14727,11 @@ textarea.vg-checkout-input {
     grid-column: 2;
     justify-content: flex-start;
     text-align: left;
+  }
+
+  .vg-customer-passenger-detail {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-left: 0;
   }
 
   .vg-customer-detail-footer {
@@ -14478,4 +14744,6 @@ textarea.vg-checkout-input {
   .vg-customer-detail-list {
     grid-template-columns: 1fr;
   }
+
+  .vg-customer-passenger-detail { grid-template-columns: 1fr; }
 }
