@@ -601,7 +601,18 @@ function GuideAttendancePage() {
                       aria-selected={isActive}
                       className={`guide-attendance-day-card is-${dateState} ${isActive ? "is-active" : ""}`}
                       onClick={() => {
+                        const total = Number(attendanceStats.total_customers || customerMeta.total || 0);
+                        const checked = Number(session.checked_in_count || 0)
+                          + Number(session.checked_out_count || 0);
+                        const absent = Number(session.absent_count || 0);
                         setSessionId(session.id);
+                        setAttendanceStats({
+                          total_customers: total,
+                          checked_in: checked,
+                          not_checked_in: Math.max(total - checked - absent, 0),
+                          absent,
+                          checked_out: Number(session.checked_out_count || 0),
+                        });
                         setPage(1);
                         setPhotoAlbumOpen(false);
                       }}
