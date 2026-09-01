@@ -21,7 +21,12 @@ function ProfileForm({ profile, setProfile, password = false }) {
       : {
           ...profile,
           avatar: null,
+          current_password: "",
         },
+  );
+  const contactChanged = !password && (
+    String(form.email || "").trim().toLowerCase() !== String(profile.email || "").trim().toLowerCase()
+    || String(form.phone || "").trim() !== String(profile.phone || "").trim()
   );
   const avatarSrc = password ? mediaUrl(profile.avatar_url) : avatarPreview;
 
@@ -48,14 +53,17 @@ function ProfileForm({ profile, setProfile, password = false }) {
       else {
         const response = await updateProfile({
           full_name: form.full_name,
+          email: form.email,
           phone: form.phone,
           avatar: form.avatar,
+          current_password: contactChanged ? form.current_password : "",
         });
         const nextProfile = {
           ...profile,
           ...form,
           ...(response.data?.data || {}),
           avatar: null,
+          current_password: "",
         };
 
         setForm(nextProfile);
@@ -67,8 +75,12 @@ function ProfileForm({ profile, setProfile, password = false }) {
       setNotice(
         password ? "Đổi mật khẩu thành công." : "Cập nhật hồ sơ thành công.",
       );
-    } catch {
-      setNotice("Không thể cập nhật. Vui lòng kiểm tra kết nối và thử lại.");
+    } catch (error) {
+      const validationErrors = error.response?.data?.errors;
+      const message = validationErrors
+        ? Object.values(validationErrors).flat()[0]
+        : error.response?.data?.message;
+      setNotice(message || "Không thể cập nhật. Vui lòng kiểm tra kết nối và thử lại.");
     }
   }
 
@@ -176,7 +188,13 @@ function ProfileForm({ profile, setProfile, password = false }) {
               </label>
               <label>
                 Email
-                <input readOnly value={form.email} />
+                <input
+                  type="email"
+                  value={form.email || ""}
+                  onChange={(event) =>
+                    setForm({ ...form, email: event.target.value })
+                  }
+                />
               </label>
               <label className="wide">
                 Số điện thoại
@@ -187,6 +205,21 @@ function ProfileForm({ profile, setProfile, password = false }) {
                   }
                 />
               </label>
+              {contactChanged ? (
+                <label className="wide">
+                  Mật khẩu hiện tại
+                  <input
+                    autoComplete="current-password"
+                    required
+                    type="password"
+                    value={form.current_password}
+                    onChange={(event) =>
+                      setForm({ ...form, current_password: event.target.value })
+                    }
+                  />
+                  <small>Nhập đúng mật khẩu để xác nhận thay đổi email hoặc số điện thoại.</small>
+                </label>
+              ) : null}
             </div>
           </>
         )}

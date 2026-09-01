@@ -530,6 +530,7 @@ function CustomerPage() {
       <ProfileDashboard
         route={route}
         profile={profile}
+        setProfile={setProfile}
         summary={summary}
         bookings={bookings}
         bookingsLoading={!bookingsLoaded}

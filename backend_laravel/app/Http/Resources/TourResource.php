@@ -90,11 +90,23 @@ class TourResource extends JsonResource
                 $destinationPlaceDistrict = $destinationPlace?->relationLoaded('district')
                     ? $destinationPlace->district
                     : null;
+                $itineraryProvince = $itinerary->province;
+                $province = $itineraryProvince
+                    ?? $destinationPlaceProvince
+                    ?? $destinationPlaceDistrict?->province
+                    ?? $this->province;
+
                 return [
                     'id' => $itinerary->id,
                     'day_number' => (int) $itinerary->day_number,
                     'sort_order' => (int) $itinerary->sort_order,
                     'type' => $itinerary->type,
+                    'province_id' => $province?->id,
+                    'province_name' => $province?->name,
+                    'province' => $province ? [
+                        'id' => $province->id,
+                        'name' => $province->name,
+                    ] : null,
                     'destination_place_id' => $itinerary->destination_place_id,
                     'destination_place' => $destinationPlace ? [
                         'id' => $destinationPlace->id,
