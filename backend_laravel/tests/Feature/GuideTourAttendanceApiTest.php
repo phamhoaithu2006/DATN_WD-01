@@ -92,15 +92,15 @@ function guideAttendanceScenario(): array
     $tour = guideAttendanceTour();
     $dayOneMorning = TourItinerary::query()->create([
         'tour_id' => $tour->id, 'day_number' => 1, 'sort_order' => 1,
-        'type' => 'departure', 'title' => 'Tập trung khởi hành', 'start_time' => '07:00',
+        'type' => 'departure', 'title' => 'Tập trung khởi hành', 'start_time' => '07:00', 'end_time' => '11:00',
     ]);
     $dayOneAfternoon = TourItinerary::query()->create([
         'tour_id' => $tour->id, 'day_number' => 1, 'sort_order' => 2,
-        'type' => 'sightseeing', 'title' => 'Tham quan buổi chiều', 'start_time' => '14:00',
+        'type' => 'sightseeing', 'title' => 'Tham quan buổi chiều', 'start_time' => '14:00', 'end_time' => '17:00',
     ]);
     $dayTwo = TourItinerary::query()->create([
         'tour_id' => $tour->id, 'day_number' => 2, 'sort_order' => 3,
-        'type' => 'return', 'title' => 'Trả khách', 'start_time' => '16:00',
+        'type' => 'return', 'title' => 'Trả khách', 'start_time' => '16:00', 'end_time' => '18:00',
     ]);
 
     $ongoing = TourDeparture::query()->create([
@@ -292,6 +292,141 @@ test('one attendance session is generated for every itinerary day', function () 
         ->assertJsonPath('data.0.can_take_attendance', true)
         ->assertJsonPath('data.1.itinerary.day_number', 2)
         ->assertJsonPath('data.1.can_take_attendance', false);
+
+    Carbon::setTestNow();
+});
+
+test('guide can confirm tour stages in order within the current day', function () {
+    Carbon::setTestNow('2026-07-20 09:00:00');
+    $scenario = guideAttendanceScenario();
+    Sanctum::actingAs($scenario['guideUser']);
+    $endpoint = "/api/guide/tours/{$scenario['ongoing']->id}/stages";
+
+    $this->getJson($endpoint)
+        ->assertOk()
+        ->assertJsonPath('data.current_stage.tour_itinerary_id', $scenario['dayOneMorning']->id)
+        ->assertJsonPath('data.stages.0.status', 'in_progress')
+        ->assertJsonPath('data.stages.1.status', 'pending')
+        ->assertJsonPath('data.stages.2.status', 'pending');
+
+    $this->postJson("{$endpoint}/advance")
+        ->assertOk()
+        ->assertJsonPath('data.stages.0.status', 'completed')
+        ->assertJsonPath('data.stages.1.status', 'pending');
+
+    Carbon::setTestNow('2026-07-20 11:00:00');
+
+    $this->postJson("{$endpoint}/advance")
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('stage');
+
+    Carbon::setTestNow('2026-07-20 14:30:00');
+
+    $this->getJson($endpoint)
+        ->assertOk()
+        ->assertJsonPath('data.current_stage.tour_itinerary_id', $scenario['dayOneAfternoon']->id)
+        ->assertJsonPath('data.stages.1.status', 'in_progress');
+
+    $this->postJson("{$endpoint}/advance")
+        ->assertOk()
+        ->assertJsonPath('data.stages.1.status', 'completed')
+        ->assertJsonPath('data.stages.2.status', 'pending');
+
+    Carbon::setTestNow('2026-07-21 16:30:00');
+
+    $this->getJson($endpoint)
+        ->assertOk()
+        ->assertJsonPath('data.current_stage.tour_itinerary_id', $scenario['dayTwo']->id)
+        ->assertJsonPath('data.stages.2.status', 'in_progress');
+
+    $this->postJson("{$endpoint}/advance")
+        ->assertOk()
+        ->assertJsonPath('data.current_stage.status', 'completed')
+        ->assertJsonPath('data.stages.0.status', 'completed')
+        ->assertJsonPath('data.stages.1.status', 'completed')
+        ->assertJsonPath('data.stages.2.status', 'completed');
+
+    $this->assertDatabaseHas('tour_departure_stages', [
+        'tour_departure_id' => $scenario['ongoing']->id,
+        'tour_itinerary_id' => $scenario['dayTwo']->id,
+        'status' => 'completed',
+    ]);
+
+    Carbon::setTestNow();
+});
+
+test('guide can start today when yesterday still has an unfinished stage', function () {
+    Carbon::setTestNow('2026-07-20 09:00:00');
+    $scenario = guideAttendanceScenario();
+    Sanctum::actingAs($scenario['guideUser']);
+    $endpoint = "/api/guide/tours/{$scenario['ongoing']->id}/stages";
+
+    $this->getJson($endpoint)
+        ->assertOk()
+        ->assertJsonPath('data.stages.1.status', 'pending');
+
+    Carbon::setTestNow('2026-07-21 16:30:00');
+
+    $this->getJson($endpoint)
+        ->assertOk()
+        ->assertJsonPath('data.current_stage.tour_itinerary_id', $scenario['dayTwo']->id)
+        ->assertJsonPath('data.stages.0.status', 'in_progress')
+        ->assertJsonPath('data.stages.2.status', 'in_progress');
+
+    $this->postJson("{$endpoint}/advance")
+        ->assertOk()
+        ->assertJsonPath('data.stages.0.status', 'in_progress')
+        ->assertJsonPath('data.stages.2.status', 'completed');
+
+    Carbon::setTestNow();
+});
+
+test('guide can only confirm an activity inside its time window', function () {
+    Carbon::setTestNow('2026-07-20 06:30:00');
+    $scenario = guideAttendanceScenario();
+    Sanctum::actingAs($scenario['guideUser']);
+    $endpoint = "/api/guide/tours/{$scenario['ongoing']->id}/stages";
+
+    $this->getJson($endpoint)
+        ->assertOk()
+        ->assertJsonPath('data.stages.0.status', 'in_progress');
+
+    $this->postJson("{$endpoint}/advance")
+        ->assertUnprocessable()
+        ->assertJsonPath('errors.stage.0', 'Chưa đến giờ hoạt động. Chỉ có thể xác nhận trong khung giờ đã lên lịch.');
+
+    Carbon::setTestNow('2026-07-20 11:30:00');
+
+    $this->postJson("{$endpoint}/advance")
+        ->assertUnprocessable()
+        ->assertJsonPath('errors.stage.0', 'Hoạt động đã hết thời gian xác nhận.');
+
+    Carbon::setTestNow('2026-07-20 14:30:00');
+
+    $this->getJson($endpoint)
+        ->assertOk()
+        ->assertJsonPath('data.stages.1.status', 'in_progress');
+
+    $this->postJson("{$endpoint}/advance")
+        ->assertOk()
+        ->assertJsonPath('data.stages.0.status', 'in_progress')
+        ->assertJsonPath('data.stages.1.status', 'completed');
+
+    Carbon::setTestNow();
+});
+
+test('guide cannot advance stages outside the tour operating window', function () {
+    Carbon::setTestNow('2026-07-20 09:00:00');
+    $scenario = guideAttendanceScenario();
+    Sanctum::actingAs($scenario['guideUser']);
+
+    $this->postJson("/api/guide/tours/{$scenario['upcoming']->id}/stages/advance")
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('tour_departure_id');
+
+    $this->postJson("/api/guide/tours/{$scenario['completed']->id}/stages/advance")
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('tour_departure_id');
 
     Carbon::setTestNow();
 });

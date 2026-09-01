@@ -104,6 +104,9 @@ export const updateGuideAttendanceNote = async (departureId, sessionId, particip
 export const getGuideTourStages = async (departureId) =>
   unwrap(await apiClient.get(`/guide/tours/${departureId}/stages`)).data
 
+export const advanceGuideTourStage = async (departureId) =>
+  unwrap(await apiClient.post(`/guide/tours/${departureId}/stages/advance`)).data
+
 export const requestGuideReplacement = async (departureId, payload = {}) => {
   const formData = new FormData()
 

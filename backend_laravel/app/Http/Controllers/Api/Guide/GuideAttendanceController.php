@@ -254,9 +254,7 @@ class GuideAttendanceController extends Controller
     public function stages(Request $request, TourDeparture $tourDeparture): JsonResponse
     {
         $stages = $this->service->getStages($request->user(), $tourDeparture);
-        $currentStage = $stages->firstWhere('status', 'in_progress')
-            ?? $stages->firstWhere('status', 'pending')
-            ?? $stages->last();
+        $currentStage = $this->service->getDisplayCurrentStage($tourDeparture, $stages);
 
         return response()->json([
             'status' => 'success',
