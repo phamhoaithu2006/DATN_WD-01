@@ -241,7 +241,7 @@ class GuideDashboardController extends Controller
                         $innerQuery->whereNull('tour_departures.return_date')
                             ->orWhereDate('tour_departures.return_date', '>=', $today->toDateString());
                     })
-                    ->whereIn('tour_departures.status', ['confirmed', 'in_progress']);
+                    ->whereIn('tour_departures.status', ['open', 'closed', 'confirmed', 'in_progress']);
             });
 
         $upcomingQuery = (clone $nonCancelledQuery)
@@ -421,7 +421,7 @@ class GuideDashboardController extends Controller
                 $query->whereNull('tour_departures.return_date')
                     ->orWhere('tour_departures.return_date', '>=', $today);
             })
-            ->whereIn('tour_departures.status', ['confirmed', 'in_progress'])
+            ->whereIn('tour_departures.status', ['open', 'closed', 'confirmed', 'in_progress'])
             ->orderBy('tour_departures.departure_date', 'asc')
             ->limit(5)
             ->get()

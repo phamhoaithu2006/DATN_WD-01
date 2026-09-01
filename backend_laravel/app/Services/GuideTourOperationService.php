@@ -189,12 +189,13 @@ class GuideTourOperationService
         $checkedIn = $statusCounts->get('checked_in', 0);
         $absent = $statusCounts->get('absent', 0);
         $checkedOut = $statusCounts->get('checked_out', 0);
+        $attended = $checkedIn + $checkedOut;
 
         return [
             'current_session' => $session->loadMissing('creator:id,full_name,email'),
             'total_customers' => $totalCustomers,
-            'checked_in' => $checkedIn,
-            'not_checked_in' => max($totalCustomers - $checkedIn - $absent - $checkedOut, 0),
+            'checked_in' => $attended,
+            'not_checked_in' => max($totalCustomers - $attended - $absent, 0),
             'absent' => $absent,
             'checked_out' => $checkedOut,
         ];
@@ -797,7 +798,11 @@ class GuideTourOperationService
 
         $query->whereHas('attendances', function (Builder $attendanceQuery) use ($session, $status): void {
             $attendanceQuery->where('attendance_session_id', $session->id)
-                ->where('status', $status);
+                ->when(
+                    $status === 'checked_in',
+                    fn (Builder $query) => $query->whereIn('status', ['checked_in', 'checked_out']),
+                    fn (Builder $query) => $query->where('status', $status)
+                );
         });
     }
 
@@ -1003,7 +1008,7 @@ class GuideTourOperationService
             ]);
         }
 
-        if (! in_array($departure->status, ['confirmed', 'in_progress'], true)) {
+        if (! in_array($departure->status, ['open', 'closed', 'confirmed', 'in_progress'], true)) {
             throw ValidationException::withMessages([
                 'tour_departure_id' => 'Chỉ có thể bắt đầu tour khi tour đã được xác nhận.',
             ]);
@@ -1020,7 +1025,7 @@ class GuideTourOperationService
 
     private function isDepartureOngoing(TourDeparture $departure): bool
     {
-        if (! in_array($departure->status, ['confirmed', 'in_progress'], true)) {
+        if (! in_array($departure->status, ['open', 'closed', 'confirmed', 'in_progress'], true)) {
             return false;
         }
 

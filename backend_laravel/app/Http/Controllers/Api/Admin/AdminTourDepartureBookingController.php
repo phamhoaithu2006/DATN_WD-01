@@ -26,6 +26,12 @@ class AdminTourDepartureBookingController extends Controller
 
         $tourDeparture->load([
             'tour:id,title,slug,base_price,discount_price',
+            'guideAssignments' => fn ($query) => $query
+                ->where('status', 'assigned')
+                ->with([
+                    'guide:id,user_id,guide_code',
+                    'guide.user:id,full_name,email,avatar_url',
+                ]),
         ]);
 
         $bookings = Booking::query()
@@ -207,6 +213,7 @@ class AdminTourDepartureBookingController extends Controller
                     ),
 
                     'status' => $tourDeparture->status,
+                    'assigned_guides' => $tourDeparture->guideAssignments->values(),
                 ],
 
                 'bookings' => $bookings,
