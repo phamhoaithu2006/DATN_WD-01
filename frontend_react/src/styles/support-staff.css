@@ -760,23 +760,21 @@
 }
 
 .support-page .support-table th:nth-child(1),
-.support-page .support-table td:nth-child(1) { width: 5%; text-align: center; }
+.support-page .support-table td:nth-child(1) { width: 6%; text-align: center; }
 .support-page .support-table th:nth-child(2),
-.support-page .support-table td:nth-child(2) { width: 7%; }
+.support-page .support-table td:nth-child(2) { width: 9%; text-align: center; }
 .support-page .support-table th:nth-child(3),
-.support-page .support-table td:nth-child(3) { width: 10%; }
+.support-page .support-table td:nth-child(3) { width: 11%; }
 .support-page .support-table th:nth-child(4),
-.support-page .support-table td:nth-child(4) { width: 17%; }
+.support-page .support-table td:nth-child(4) { width: 27%; }
 .support-page .support-table th:nth-child(5),
-.support-page .support-table td:nth-child(5) { width: 11%; white-space: nowrap; }
+.support-page .support-table td:nth-child(5) { width: 12%; white-space: nowrap; text-align: center; }
 .support-page .support-table th:nth-child(6),
-.support-page .support-table td:nth-child(6) { width: 10%; }
+.support-page .support-table td:nth-child(6) { width: 13%; text-align: center; }
 .support-page .support-table th:nth-child(7),
-.support-page .support-table td:nth-child(7) { width: 12%; }
+.support-page .support-table td:nth-child(7) { width: 16%; text-align: left; }
 .support-page .support-table th:nth-child(8),
-.support-page .support-table td:nth-child(8) { width: 14%; text-align: left; }
-.support-page .support-table th:nth-child(9),
-.support-page .support-table td:nth-child(9) { width: 14%; min-width: 184px; text-align: center; white-space: nowrap; }
+.support-page .support-table td:nth-child(8) { width: 16%; min-width: 184px; text-align: center; white-space: nowrap; }
 
 .support-trash-page .support-table th:nth-child(1),
 .support-trash-page .support-table td:nth-child(1) {
@@ -2209,6 +2207,10 @@
   background: #2563eb;
   color: #ffffff;
   box-shadow: 0 10px 22px rgba(37, 99, 235, 0.2);
+}
+
+.admin-guide-leave-tabs button.timeline-tab {
+  margin-left: auto;
 }
 
 .admin-guide-leave-tabs button span {

@@ -283,7 +283,7 @@ function getStatusMeta(status) {
       badge: 'text-slate-600',
     },
     in_progress: {
-      text: 'Đóng',
+      text: 'Đang diễn ra',
       badge: 'text-slate-600',
     },
   }

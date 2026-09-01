@@ -15,6 +15,7 @@ export default function GuideReplacementRequestsPage() {
       <AdminGuideReplacementRequestsPanel
         highlightRequestId={searchParams.get('replacementRequestId') || ''}
         initialTab={searchParams.get('tab') === 'history' ? 'history' : 'pending'}
+        showHeader={false}
       />
     </div>
   )

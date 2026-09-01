@@ -803,7 +803,7 @@ function DestinationPlaceManagementPage() {
                 </div>
                 <h3 className="mt-4 text-base font-black text-slate-900">Vui lòng chọn tỉnh/thành</h3>
                 <p className="mx-auto mt-1 max-w-sm text-xs font-medium text-slate-500">
-                  Chọn một tỉnh/thành từ danh sách ở phía trên (mobile) hoặc bên trái (desktop) để xem và quản lý các địa điểm.
+                  Chọn một tỉnh/thành từ danh sách ở phía bên trái (desktop) để xem và quản lý các địa điểm.
                 </p>
               </div>
             )}

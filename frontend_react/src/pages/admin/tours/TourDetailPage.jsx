@@ -287,6 +287,11 @@ function getDepartureStatusMeta(status) {
       className: 'bg-sky-50 text-sky-700 ring-sky-100',
       dot: 'bg-sky-500',
     },
+    in_progress: {
+      label: 'Đang diễn ra',
+      className: 'bg-slate-100 text-slate-700 ring-slate-200',
+      dot: 'bg-slate-500',
+    },
     cancelled: {
       label: 'Đã hủy',
       className: 'bg-rose-50 text-rose-700 ring-rose-100',

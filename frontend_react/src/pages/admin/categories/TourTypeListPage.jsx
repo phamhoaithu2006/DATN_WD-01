@@ -469,11 +469,11 @@ function TourTypeListPage() {
         title="Quản Lý Danh Mục Tour"
         description="Quản lý danh mục tour du lịch, tìm kiếm nhanh, chỉnh sửa thông tin và khôi phục các danh mục tour đã xóa mềm."
         actions={
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3 lg:flex-nowrap">
             <button
               type="button"
               onClick={isTrashMode ? () => setListMode('active') : openTrashList}
-              className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-amber-200 hover:bg-amber-50 hover:text-amber-700"
+              className="inline-flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-amber-200 hover:bg-amber-50 hover:text-amber-700"
             >
               <TrashIcon className="h-4 w-4 text-amber-600" />
               {isTrashMode ? 'Danh sách quản lý' : 'Đã xóa'}
@@ -481,7 +481,7 @@ function TourTypeListPage() {
 
             <Link
               to="/admin/categories/create"
-              className="inline-flex h-11 items-center gap-2 rounded-xl bg-sky-500 px-5 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(14,165,233,0.25)] transition hover:bg-sky-600"
+              className="inline-flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl bg-sky-500 px-5 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(14,165,233,0.25)] transition hover:bg-sky-600"
             >
               <PlusIcon className="h-4 w-4" />
               Thêm danh mục tour

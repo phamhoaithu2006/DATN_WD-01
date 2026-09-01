@@ -16,10 +16,6 @@ function initials(name = "") {
   );
 }
 
-function formatDate(value) {
-  return value ? new Intl.DateTimeFormat("vi-VN").format(new Date(value)) : "-";
-}
-
 function formatPresence(presence) {
   const formatDuration = (secondsValue) => {
     const seconds = Math.max(0, Number(secondsValue || 0));
@@ -112,11 +108,11 @@ function UserTable({
   startIndex = 0,
 }) {
   const showPresence = presenceMap !== null;
-  const emptyColSpan = (showBookings ? 10 : 9) + (showPresence ? 1 : 0);
+  const emptyColSpan = (showBookings ? 9 : 8) + (showPresence ? 1 : 0);
 
   return (
     <div className="user-table-wrap">
-      <table className="user-table">
+      <table className={`user-table ${showBookings ? "with-bookings" : "without-bookings"} ${showPresence ? "with-presence" : "without-presence"}`}>
         <thead>
           <tr>
             <th>STT</th>
@@ -124,7 +120,6 @@ function UserTable({
             <th>Họ tên</th>
             <th>Email</th>
             <th>Số điện thoại</th>
-            <th>Ngày đăng ký</th>
             <th>Vai trò</th>
             {showBookings ? <th>Booking</th> : null}
             <th>Trạng thái</th>
@@ -145,7 +140,6 @@ function UserTable({
               </td>
               <td>{customer.email}</td>
               <td>{customer.phone || "-"}</td>
-              <td>{formatDate(customer.created_at)}</td>
               <td>
                 <span className={`user-role ${roleClass(customer.role)}`}>
                   {roleLabel(customer.role)}

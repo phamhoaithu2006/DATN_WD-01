@@ -1325,7 +1325,6 @@ function SupportStaffManagementPage() {
                   <th>Avatar</th>
                   <th>Mã NV</th>
                   <th>Họ tên</th>
-                  <th>Chuyên môn</th>
                   <th>Kinh nghiệm</th>
                   <th>Trạng thái</th>
                   <th>Trực tuyến</th>
@@ -1336,7 +1335,7 @@ function SupportStaffManagementPage() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td className="support-empty-row" colSpan="9">
+                    <td className="support-empty-row" colSpan="8">
                       <div className="support-loading">
                         <span />
                         <p>Đang tải danh sách nhân viên hỗ trợ...</p>
@@ -1345,7 +1344,7 @@ function SupportStaffManagementPage() {
                   </tr>
                 ) : staffList.length === 0 ? (
                   <tr>
-                    <td className="support-empty-row" colSpan="9">
+                    <td className="support-empty-row" colSpan="8">
                       <div className="support-empty-state">
                         <strong>Không tìm thấy nhân viên phù hợp</strong>
                         <span>Hãy thử đổi bộ lọc hoặc từ khóa tìm kiếm.</span>
@@ -1366,7 +1365,6 @@ function SupportStaffManagementPage() {
                         <strong className="support-name">{staff.name}</strong>
                         <span className="support-email">{staff.email || '—'}</span>
                       </td>
-                      <td>{getSpecializationLabel(staff.specialization)}</td>
                       <td>{Number(staff.experience_years || 0)} năm</td>
                       <td>
                         <span className={`support-status ${staff.status}`}>

@@ -223,7 +223,8 @@
 }
 .user-table {
   border-collapse: collapse;
-  min-width: 960px;
+  min-width: 1180px;
+  table-layout: fixed;
   width: 100%;
 }
 .user-table th {
@@ -232,21 +233,67 @@
   font-size: 12px;
   font-weight: 700;
   padding: 15px 17px;
-  text-align: left;
+  text-align: center;
 }
 .user-table td {
   border-top: 1px solid #edf1f6;
   color: #526b8d;
   font-size: 14px;
   padding: 17px;
+  text-align: center;
+  vertical-align: middle;
 }
+.user-table th:nth-child(1),
+.user-table td:nth-child(1) { width: 55px; }
+.user-table th:nth-child(2),
+.user-table td:nth-child(2) { width: 75px; }
+.user-table th:nth-child(3),
+.user-table td:nth-child(3) { width: 135px; text-align: left; }
+.user-table th:nth-child(4),
+.user-table td:nth-child(4) { width: 255px; text-align: left; }
+.user-table th:nth-child(5),
+.user-table td:nth-child(5) { width: 135px; white-space: nowrap; }
+.user-table th:nth-child(6),
+.user-table td:nth-child(6) { width: 135px; }
+.user-table th:nth-child(7),
+.user-table td:nth-child(7) { width: 85px; }
+.user-table th:nth-child(8),
+.user-table td:nth-child(8) { width: 125px; }
+.user-table th:nth-child(9),
+.user-table td:nth-child(9) { width: 175px; }
+.user-table th:nth-child(10),
+.user-table td:nth-child(10) { width: 125px; }
+.user-table th:last-child,
+.user-table td:last-child { width: 160px; }
+.user-table.without-bookings th:nth-child(7),
+.user-table.without-bookings td:nth-child(7) { width: 125px; }
+.user-table.without-bookings.with-presence th:nth-child(8),
+.user-table.without-bookings.with-presence td:nth-child(8) { width: 175px; }
+.user-table.without-bookings.with-presence th:nth-child(9),
+.user-table.without-bookings.with-presence td:nth-child(9) { width: 125px; }
+.user-table.without-bookings.without-presence th:nth-child(8),
+.user-table.without-bookings.without-presence td:nth-child(8) { width: 125px; }
+.user-table.with-bookings.without-presence th:nth-child(8),
+.user-table.with-bookings.without-presence td:nth-child(8) { width: 125px; }
+.user-table.with-bookings.without-presence th:nth-child(9),
+.user-table.with-bookings.without-presence td:nth-child(9) { width: 125px; }
 .user-table td > strong {
   color: #10213d;
   display: block;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .user-table td small {
   display: block;
   margin-top: 5px;
+  white-space: nowrap;
+}
+.user-table td:nth-child(4) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .user-avatar {
   align-items: center;
@@ -331,6 +378,7 @@
   font-style: normal;
   font-weight: 700;
   padding: 6px 10px;
+  white-space: nowrap;
 }
 .user-status.active {
   background: #d1fae5;
@@ -341,15 +389,33 @@
   color: #ef4444;
 }
 .user-actions {
+  align-items: center;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
   display: flex;
-  gap: 8px;
+  gap: 4px;
+  justify-content: center;
+  margin: 0 auto;
+  padding: 4px;
+  width: max-content;
 }
 .user-actions button {
-  background: none;
-  border: 0;
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 7px;
   color: #0ea5e9;
   cursor: pointer;
+  display: inline-flex;
+  height: 28px;
+  justify-content: center;
   padding: 5px;
+  width: 28px;
+}
+.user-actions button:hover {
+  background: #e0f2fe;
+  border-color: #bae6fd;
 }
 .user-actions button.danger {
   color: #ef4444;
