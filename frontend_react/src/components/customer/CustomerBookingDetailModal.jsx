@@ -41,6 +41,57 @@ function getParticipantTypeLabel(type) {
   }[type] || type || "Hành khách";
 }
 
+function formatTime(value) {
+  if (!value) return "--:--";
+  const date = new Date(String(value).replace(" ", "T"));
+  if (Number.isNaN(date.getTime())) return "--:--";
+  return date.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+}
+
+function addDays(value, offset) {
+  const text = String(value || "");
+  const raw = text.match(/^\d{4}-\d{2}-\d{2}/)?.[0];
+  if (!raw) return null;
+  let [year, month, day] = raw.split("-").map(Number);
+  if (text.includes("T")) {
+    const timestamp = new Date(text);
+    if (!Number.isNaN(timestamp.getTime())) {
+      year = timestamp.getFullYear();
+      month = timestamp.getMonth() + 1;
+      day = timestamp.getDate();
+    }
+  }
+  const date = new Date(year, month - 1, day + Number(offset || 0));
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function getLocalDateState(value) {
+  const normalized = addDays(value, 0);
+  const raw = String(normalized || "").match(/^\d{4}-\d{2}-\d{2}/)?.[0];
+  if (!raw) return "unknown";
+  const [year, month, day] = raw.split("-").map(Number);
+  const target = new Date(year, month - 1, day);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (target.getTime() > today.getTime()) return "future";
+  if (target.getTime() < today.getTime()) return "past";
+  return "today";
+}
+
+function getCustomerActivityState(status, scheduledDate) {
+  const dayState = getLocalDateState(scheduledDate);
+  if (dayState === "future") {
+    return { label: "Chưa đến ngày", className: "is-upcoming" };
+  }
+  if (status === "completed") {
+    return { label: "Đã xác nhận", className: "is-confirmed" };
+  }
+  if (status === "skipped") {
+    return { label: "Đã bỏ qua", className: "is-unconfirmed" };
+  }
+  return { label: "Chưa xác nhận", className: "is-unconfirmed" };
+}
+
 function DetailItem({ label, value, emphasize = false }) {
   return (
     <div className="vg-customer-detail-item">
@@ -58,12 +109,17 @@ function CustomerBookingDetailModal({
 }) {
   const navigate = useNavigate();
   const [expandedParticipant, setExpandedParticipant] = useState(null);
+  const [itineraryOpen, setItineraryOpen] = useState(false);
+  const [selectedItineraryDay, setSelectedItineraryDay] = useState(1);
 
   if (!booking) return null;
 
   const tour = booking.tour || {};
   const departure = booking.tour_departure || {};
   const participants = Array.isArray(booking.participants) ? booking.participants : [];
+  const attendanceSessions = Array.isArray(departure.attendance_sessions)
+    ? [...departure.attendance_sessions].sort((a, b) => String(a?.scheduled_date || "").localeCompare(String(b?.scheduled_date || "")))
+    : [];
   const histories = Array.isArray(booking.status_histories) ? booking.status_histories : [];
   const cancellationHistory = histories.find((history) => (
     ["cancelled", "cancelled_by_tour"].includes(history.new_status)
@@ -119,6 +175,16 @@ function CustomerBookingDetailModal({
       ? 1
       : 0;
   const tripProgressSteps = ["Sắp diễn ra", "Đang diễn ra", "Đã hoàn thành"];
+  const stages = Array.isArray(departure.stages) ? departure.stages : [];
+  const tourItineraries = Array.isArray(tour.itineraries) ? tour.itineraries : [];
+  const itinerarySource = stages.length ? stages : tourItineraries;
+  const itineraryDayCount = itinerarySource.reduce(
+    (max, item) => Math.max(max, Number(item?.day_number || item?.itinerary?.day_number || 1)),
+    Number(tour.duration_days || 1),
+  );
+  const selectedDayActivities = itinerarySource
+    .filter((item, index) => Number(item?.day_number || item?.itinerary?.day_number || index + 1) === selectedItineraryDay)
+    .sort((a, b) => Number(a?.sort_order || a?.itinerary?.sort_order || 0) - Number(b?.sort_order || b?.itinerary?.sort_order || 0));
 
   return (
     <div className="vg-customer-detail-overlay" onClick={onClose}>
@@ -250,6 +316,77 @@ function CustomerBookingDetailModal({
             </section>
           </div>
 
+          <section className={`vg-customer-detail-card vg-customer-itinerary-card${itineraryOpen ? " is-open" : ""}`}>
+            <button
+              type="button"
+              className="vg-customer-itinerary-toggle"
+              onClick={() => setItineraryOpen((current) => !current)}
+              aria-expanded={itineraryOpen}
+            >
+              <span className="vg-customer-itinerary-toggle-icon"><Icon name="calendar" size={17} /></span>
+              <span>
+                <strong>Lịch trình tour</strong>
+                <small>Theo dõi hoạt động và trạng thái mới nhất do HDV cập nhật</small>
+              </span>
+              <span className="vg-customer-itinerary-toggle-summary">{itineraryDayCount} ngày</span>
+              <Icon name="chevronDown" size={18} className="vg-customer-itinerary-chevron" />
+            </button>
+
+            {itineraryOpen ? (
+              <div className="vg-customer-itinerary-content">
+                <div className="vg-customer-itinerary-days" role="tablist" aria-label="Chọn ngày lịch trình">
+                  {Array.from({ length: itineraryDayCount }).map((_, index) => {
+                    const dayNumber = index + 1;
+                    return (
+                      <button
+                        key={dayNumber}
+                        type="button"
+                        role="tab"
+                        aria-selected={selectedItineraryDay === dayNumber}
+                        className={selectedItineraryDay === dayNumber ? "is-active" : ""}
+                        onClick={() => setSelectedItineraryDay(dayNumber)}
+                      >
+                        <span>Ngày {dayNumber}</span>
+                        <strong>{formatDate(addDays(departure.departure_date, index))}</strong>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {selectedDayActivities.length ? (
+                  <div className="vg-customer-itinerary-list">
+                    {selectedDayActivities.map((activity, index) => {
+                      const detail = activity.itinerary || activity;
+                      const destination = detail.destination_place || detail.destinationPlace;
+                      const scheduledDate = addDays(departure.departure_date, selectedItineraryDay - 1);
+                      const activityState = getCustomerActivityState(activity.status, scheduledDate);
+                      return (
+                        <article className={`vg-customer-itinerary-activity ${activityState.className}`} key={activity.id || detail.id || index}>
+                          <span className="vg-customer-itinerary-number">{index + 1}</span>
+                          <div className="vg-customer-itinerary-activity-main">
+                            <div className="vg-customer-itinerary-activity-head">
+                              <span className="vg-customer-itinerary-time"><Icon name="clock" size={13} /> {String(activity.start_time || detail.start_time || "--:--").slice(0, 5)}{activity.end_time || detail.end_time ? ` – ${String(activity.end_time || detail.end_time).slice(0, 5)}` : ""}</span>
+                              <strong>{activity.title || detail.title || `Hoạt động ${index + 1}`}</strong>
+                              <span className="vg-customer-visually-hidden">{activityState.label}</span>
+                            </div>
+                            {destination?.name ? <p className="vg-customer-itinerary-destination"><Icon name="mapPin" size={14} /> <strong>{destination.name}</strong>{destination.address ? ` · ${destination.address}` : ""}</p> : null}
+                            {detail.description ? <p className="vg-customer-itinerary-description">{String(detail.description).replace(/<[^>]*>/g, "")}</p> : null}
+                            {(activity.started_at || activity.completed_at) ? (
+                              <div className="vg-customer-itinerary-updated">
+                                {activity.started_at ? <span>Bắt đầu: {formatDateTime(activity.started_at)}</span> : null}
+                                {activity.completed_at ? <span>Hoàn thành: {formatDateTime(activity.completed_at)}</span> : null}
+                              </div>
+                            ) : null}
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                ) : <div className="vg-customer-itinerary-empty">Lịch trình ngày {selectedItineraryDay} đang được cập nhật.</div>}
+              </div>
+            ) : null}
+          </section>
+
           <section className="vg-customer-detail-card vg-customer-passenger-card">
             <div className="vg-customer-detail-card-title">
               <Icon name="users" size={17} />
@@ -297,17 +434,53 @@ function CustomerBookingDetailModal({
                     </div>
 
                     {isExpanded ? (
-                      <dl className="vg-customer-passenger-detail">
-                        <DetailItem label="Họ và tên" value={participant.full_name} />
-                        <DetailItem label="Loại thành viên" value={getParticipantTypeLabel(participant.participant_type)} />
-                        <DetailItem label="Giới tính" value={genderLabel} />
-                        <DetailItem label="Ngày sinh" value={participant.birth_date ? formatDate(participant.birth_date) : "Chưa cập nhật"} />
-                        <DetailItem label="Số điện thoại" value={participant.phone} />
-                        <DetailItem label="CCCD / Hộ chiếu" value={participant.identity_number} />
-                        {participant.unit_price ? (
-                          <DetailItem label="Giá vé" value={formatCurrency(Number(participant.unit_price))} emphasize />
-                        ) : null}
-                      </dl>
+                      <div className="vg-customer-passenger-expanded-content">
+                        <dl className="vg-customer-passenger-detail">
+                          <DetailItem label="Họ và tên" value={participant.full_name} />
+                          <DetailItem label="Loại thành viên" value={getParticipantTypeLabel(participant.participant_type)} />
+                          <DetailItem label="Giới tính" value={genderLabel} />
+                          <DetailItem label="Ngày sinh" value={participant.birth_date ? formatDate(participant.birth_date) : "Chưa cập nhật"} />
+                          <DetailItem label="Số điện thoại" value={participant.phone} />
+                          <DetailItem label="CCCD / Hộ chiếu" value={participant.identity_number} />
+                          {participant.unit_price ? (
+                            <DetailItem label="Giá vé" value={formatCurrency(Number(participant.unit_price))} emphasize />
+                          ) : null}
+                        </dl>
+
+                        <div className="vg-customer-attendance-history">
+                          <div className="vg-customer-attendance-title">
+                            <span><Icon name="clock" size={15} /></span>
+                            <div><strong>Điểm danh hằng ngày</strong><small>Thời gian được HDV cập nhật trong chuyến đi</small></div>
+                          </div>
+                          <div className="vg-customer-attendance-days">
+                              {Array.from({ length: itineraryDayCount }).map((_, sessionIndex) => {
+                                const session = attendanceSessions[sessionIndex];
+                                const attendance = session
+                                  ? (participant.attendances || []).find((item) => String(item.attendance_session_id) === String(session.id))
+                                  : null;
+                                const isCheckedIn = ["checked_in", "checked_out"].includes(attendance?.status) && Boolean(attendance?.checked_in_at);
+                                const scheduledDate = session?.scheduled_date || addDays(departure.departure_date, sessionIndex);
+                                const isUpcoming = getLocalDateState(scheduledDate) === "future";
+                                return (
+                                  <div className={`vg-customer-attendance-day ${isUpcoming ? "is-upcoming" : isCheckedIn ? "is-checked" : "is-missed"}`} key={session?.id || sessionIndex}>
+                                    <div className="vg-customer-attendance-day-heading">
+                                      <strong>Ngày {sessionIndex + 1}</strong>
+                                      <span>{formatDate(scheduledDate)}</span>
+                                    </div>
+                                    <div className="vg-customer-attendance-mark" aria-label={isUpcoming ? "Chưa đến ngày" : isCheckedIn ? "Đã điểm danh" : "Chưa điểm danh"}>
+                                      {!isUpcoming ? <span>{isCheckedIn ? "✓" : "×"}</span> : null}
+                                      <strong>{isUpcoming ? "Chưa đến ngày" : isCheckedIn ? "Đã điểm danh" : "Chưa điểm danh"}</strong>
+                                    </div>
+                                    <div className="vg-customer-attendance-time">
+                                      <span>Thời gian điểm danh</span>
+                                      <strong>{isUpcoming ? "--:--" : isCheckedIn ? formatTime(attendance.checked_in_at) : "Chưa có"}</strong>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                          </div>
+                        </div>
+                      </div>
                     ) : null}
                   </article>
                   );
