@@ -1053,7 +1053,6 @@ function GuideManagementPage() {
 
   function selectStatistic(status) {
     setStatusFilter(status)
-    setDestinationFilter('all')
     setLeaveStatusFilter('all')
 
     setPagination((current) => ({
