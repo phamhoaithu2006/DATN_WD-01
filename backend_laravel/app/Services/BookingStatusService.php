@@ -178,15 +178,40 @@ class BookingStatusService
 
         return match ($displayStatus) {
             self::DISPLAY_CONFIRMED => $query
-                ->where('status', 'confirmed')
+                ->whereNotIn('status', ['cancelled', 'cancelled_by_tour', 'completed'])
                 ->where('payment_status', 'paid')
-                ->whereHas('tourDeparture', fn (Builder $departure) => $departure->whereDate('departure_date', '>', $upcomingEnd)),
-            self::DISPLAY_UPCOMING => $query
-                ->where('status', 'confirmed')
-                ->where('payment_status', 'paid')
+                ->whereHas('tour', fn (Builder $tour) => $tour->where('status', 'published'))
                 ->whereHas('tourDeparture', fn (Builder $departure) => $departure
-                    ->whereDate('departure_date', '>', $today)
-                    ->whereDate('departure_date', '<=', $upcomingEnd)),
+                    ->whereNotIn('status', ['cancelled', 'canceled', 'completed'])
+                    ->whereDate('departure_date', '>', $upcomingEnd)),
+            self::DISPLAY_UPCOMING => $query
+                ->whereNotIn('status', ['cancelled', 'cancelled_by_tour', 'completed'])
+                ->where('payment_status', 'paid')
+                ->whereHas('tour', fn (Builder $tour) => $tour->where('status', 'published'))
+                ->whereHas('tourDeparture', fn (Builder $departure) => $departure
+                    ->whereNotIn('status', ['cancelled', 'canceled', 'completed'])
+                    ->whereDate('departure_date', '>', $today)),
+            self::DISPLAY_DEPARTED => $query
+                ->whereNotIn('status', ['cancelled', 'cancelled_by_tour', 'completed'])
+                ->where(function (Builder $booking): void {
+                    $booking->where('status', '!=', 'awaiting_payment')
+                        ->orWhereNotNull('slot_committed_at');
+                })
+                ->whereHas('tourDeparture', fn (Builder $departure) => $departure
+                    ->where('status', '!=', 'completed')
+                    ->whereNotIn('status', ['cancelled', 'canceled'])
+                    ->whereDate('departure_date', '<=', $today)
+                    ->whereDate('return_date', '>=', $today)),
+            self::DISPLAY_COMPLETED => $query
+                ->whereNotIn('status', ['cancelled', 'cancelled_by_tour'])
+                ->where(function (Builder $booking) use ($today): void {
+                    $booking->where('status', 'completed')
+                        ->orWhereHas('tourDeparture', fn (Builder $departure) => $departure
+                            ->where('status', 'completed')
+                            ->orWhere(function (Builder $datedDeparture) use ($today): void {
+                                $datedDeparture->whereDate('return_date', '<', $today);
+                            }));
+                }),
             self::DISPLAY_CANCELLED => $query->whereIn('status', ['cancelled', 'cancelled_by_tour']),
             default => $query->where('status', $displayStatus),
         };
@@ -416,11 +441,7 @@ class BookingStatusService
         }
 
         if ($departureDate?->gt($today) && $eligible) {
-            $upcomingEnd = today()->addDays(TourDeparture::CUSTOMER_BOOKING_CUTOFF_DAYS);
-
-            return $departureDate->lte($upcomingEnd)
-                ? self::DISPLAY_UPCOMING
-                : self::DISPLAY_CONFIRMED;
+            return self::DISPLAY_UPCOMING;
         }
 
         return self::DISPLAY_AWAITING_PAYMENT;

@@ -21,7 +21,7 @@ class FinalizeTourDepartures extends Command
      *
      * @var string
      */
-    protected $description = 'Confirm or cancel departures when their 72-hour booking cutoff is reached.';
+    protected $description = 'Close departures when their 72-hour booking cutoff is reached.';
 
     /**
      * Execute the console command.
