@@ -13,19 +13,37 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class CustomerController extends Controller
 {
     // Sửa thông tin cơ bản cho người dùng
     public function updateProfile(Request $request)
     {
+        $user = $request->user();
+        $request->merge([
+            'full_name' => trim((string) $request->input('full_name', '')),
+            'email' => strtolower(trim((string) $request->input('email', $user->email))),
+            'phone' => trim((string) $request->input('phone', '')),
+        ]);
+
         // 1. Kiểm tra dữ liệu FE gửi lên
         $validatedData = $request->validate([
             // Họ tên bắt buộc, là chuỗi và tối đa 150 ký tự
             'full_name' => 'required|string|max:150',
 
+            'email' => [
+                'required',
+                'email',
+                'max:150',
+                Rule::unique('users', 'email')->ignore($user->id),
+            ],
+
             // Số điện thoại có thể bỏ trống, tối đa 20 ký tự
             'phone' => 'nullable|string|max:20',
+
+            'current_password' => 'nullable|string',
 
             // FE gửi file ảnh với key là "avatar"
             // Chỉ nhận jpg, jpeg, png, webp và dung lượng tối đa 2MB
@@ -33,12 +51,24 @@ class CustomerController extends Controller
         ]);
 
         // 2. Lấy user hiện đang đăng nhập từ token Sanctum
-        $user = $request->user();
+        $newPhone = $validatedData['phone'] !== '' ? $validatedData['phone'] : null;
+        $contactChanged = $validatedData['email'] !== strtolower((string) $user->email)
+            || $newPhone !== ($user->phone ?: null);
+
+        if ($contactChanged && (
+            empty($validatedData['current_password'])
+            || ! Hash::check($validatedData['current_password'], $user->password)
+        )) {
+            throw ValidationException::withMessages([
+                'current_password' => 'Mật khẩu hiện tại không đúng.',
+            ]);
+        }
 
         // 3. Tạo mảng dữ liệu cơ bản cần cập nhật
         $updateData = [
             'full_name' => $validatedData['full_name'],
-            'phone' => $validatedData['phone'] ?? null,
+            'email' => $validatedData['email'],
+            'phone' => $newPhone,
         ];
 
         // 4. Kiểm tra người dùng có chọn file ảnh mới hay không

@@ -1347,6 +1347,17 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
             <span style={{ color: "#687176" }}>{tour.title}</span>
           </div>
 
+          <button
+            type="button"
+            className="vg-tour-detail-back-button"
+            onClick={() => {
+              if (window.history.length > 1) navigate(-1);
+              else navigate("/tours");
+            }}
+          >
+            ← Quay lại
+          </button>
+
           {/* Title */}
           <h1 className="vg-traveloka-title">{tour.title}</h1>
         </div>

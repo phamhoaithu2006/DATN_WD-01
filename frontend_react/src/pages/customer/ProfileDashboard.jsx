@@ -6,20 +6,24 @@ import TourCard from "../../components/customer/TourCard";
 import BookingCountdown from "../../components/customer/BookingCountdown";
 import BookingInformationModal from "../../components/customer/BookingInformationModal";
 import CustomerBookingDetailModal from "../../components/customer/CustomerBookingDetailModal";
+import AvatarCropModal from "../../components/customer/AvatarCropModal";
 import { confirmAction } from "../../components/common/AppConfirmDialog.jsx";
 import GuideReviewModal from "../../components/customer/GuideReviewModal";
 import TourReviewModal from "../../components/customer/TourReviewModal";
 import { useLocale } from "../../contexts/LocaleContext";
 import {
   cancelCustomerBooking,
+  changePassword,
   continueCustomerBookingPayment,
   createDisruptionRequest,
   fetchGuideReviewableBookings,
   updateBookingContact,
   updateBookingParticipants,
   updateCustomerBookingInformation,
+  updateProfile,
   withdrawDisruptionRequest,
 } from "../../services/customerApi";
+import { readSession, saveSession } from "../../services/authStorage";
 import { mediaUrl } from "../../utils/mediaUrl";
 
 function EmptyState({ icon, title, action }) {
@@ -47,9 +51,6 @@ function CustomerAvatar({ profile }) {
       ) : (
         <span>{profile.full_name?.charAt(0)?.toUpperCase() || "V"}</span>
       )}
-      <Link to="/customer/profile/edit" title="Chỉnh sửa hồ sơ">
-        <Icon name="camera" size={17} />
-      </Link>
     </div>
   );
 }
@@ -725,6 +726,7 @@ function DisruptionRequestModal({ booking, onClose, onSubmitted }) {
 function ProfileDashboard({
   route,
   profile,
+  setProfile,
   summary,
   bookings,
   bookingsLoading = false,
@@ -767,6 +769,198 @@ function ProfileDashboard({
   const [disruptionBooking, setDisruptionBooking] = useState(null);
   const [editingBooking, setEditingBooking] = useState(null);
   const [editingBookingReadOnly, setEditingBookingReadOnly] = useState(false);
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [profileForm, setProfileForm] = useState(null);
+  const [pendingProfileAvatar, setPendingProfileAvatar] = useState(null);
+  const [profileAvatarPreview, setProfileAvatarPreview] = useState("");
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileNotice, setProfileNotice] = useState("");
+  const [securityMode, setSecurityMode] = useState("");
+  const [securityForm, setSecurityForm] = useState({
+    value: "",
+    confirmation: "",
+    current_password: "",
+  });
+  const [securitySaving, setSecuritySaving] = useState(false);
+  const [securityNotice, setSecurityNotice] = useState("");
+  const [securityErrors, setSecurityErrors] = useState({});
+  const [visibleSecurityPasswords, setVisibleSecurityPasswords] = useState({
+    value: false,
+    confirmation: false,
+    current_password: false,
+  });
+
+  const beginProfileEdit = () => {
+    setProfileForm({
+      full_name: profile.full_name || "",
+      email: profile.email || "",
+      phone: profile.phone || "",
+      avatar: null,
+      current_password: "",
+    });
+    setProfileNotice("");
+    setProfileAvatarPreview(mediaUrl(profile.avatar_url));
+    setEditingProfile(true);
+  };
+
+  const cancelProfileEdit = () => {
+    setEditingProfile(false);
+    setProfileForm(null);
+    setPendingProfileAvatar(null);
+    setProfileAvatarPreview((current) => {
+      if (current.startsWith("blob:")) URL.revokeObjectURL(current);
+      return "";
+    });
+    setProfileNotice("");
+  };
+
+  const profileContactChanged = Boolean(profileForm) && (
+    profileForm.email.trim().toLowerCase() !== String(profile.email || "").trim().toLowerCase()
+    || profileForm.phone.trim() !== String(profile.phone || "").trim()
+  );
+
+  const openSecurityForm = (mode) => {
+    setSecurityMode(mode);
+    setSecurityForm({ value: "", confirmation: "", current_password: "" });
+    setSecurityNotice("");
+    setSecurityErrors({});
+    setVisibleSecurityPasswords({ value: false, confirmation: false, current_password: false });
+  };
+
+  const closeSecurityForm = () => {
+    setSecurityMode("");
+    setSecurityNotice("");
+    setSecurityErrors({});
+    setVisibleSecurityPasswords({ value: false, confirmation: false, current_password: false });
+  };
+
+  const toggleSecurityPassword = (field) => {
+    setVisibleSecurityPasswords((current) => ({ ...current, [field]: !current[field] }));
+  };
+
+  const updateSecurityField = (field, value) => {
+    setSecurityForm((current) => ({ ...current, [field]: value }));
+    setSecurityErrors((current) => {
+      if (!current[field]) return current;
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  };
+
+  const submitSecurityChange = async (event) => {
+    event.preventDefault();
+    setSecurityNotice("");
+    const nextErrors = {};
+
+    if (!securityForm.value.trim()) {
+      nextErrors.value = securityMode === "email"
+        ? "Vui lòng nhập email mới."
+        : securityMode === "phone"
+          ? "Vui lòng nhập số điện thoại mới."
+          : "Vui lòng nhập mật khẩu mới.";
+    } else if (securityMode === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(securityForm.value.trim())) {
+      nextErrors.value = "Email mới không đúng định dạng.";
+    }
+
+    if (securityMode === "password" && !securityForm.confirmation) {
+      nextErrors.confirmation = "Vui lòng nhập lại mật khẩu mới.";
+    } else if (securityMode === "password" && securityForm.value !== securityForm.confirmation) {
+      nextErrors.confirmation = "Mật khẩu nhập lại không khớp.";
+    }
+
+    if (!securityForm.current_password) {
+      nextErrors.current_password = "Vui lòng nhập mật khẩu hiện tại.";
+    }
+
+    if (Object.keys(nextErrors).length) {
+      setSecurityErrors(nextErrors);
+      return;
+    }
+
+    setSecurityErrors({});
+    setSecuritySaving(true);
+
+    try {
+      if (securityMode === "password") {
+        await changePassword({
+          current_password: securityForm.current_password,
+          new_password: securityForm.value,
+          new_password_confirmation: securityForm.confirmation,
+        });
+      } else {
+        const response = await updateProfile({
+          full_name: profile.full_name,
+          email: securityMode === "email" ? securityForm.value : profile.email,
+          phone: securityMode === "phone" ? securityForm.value : profile.phone,
+          current_password: securityForm.current_password,
+        });
+        const nextProfile = { ...profile, ...(response.data?.data || {}) };
+        setProfile(nextProfile);
+        saveSession({ ...readSession(), ...nextProfile });
+      }
+
+      setSecurityForm({ value: "", confirmation: "", current_password: "" });
+      setSecurityErrors({});
+      setSecurityNotice("Cập nhật thông tin bảo mật thành công.");
+    } catch (error) {
+      const validationErrors = error.response?.data?.errors;
+      const fieldMap = {
+        email: "value",
+        phone: "value",
+        new_password: "value",
+        new_password_confirmation: "confirmation",
+        current_password: "current_password",
+      };
+      const mappedErrors = {};
+
+      Object.entries(validationErrors || {}).forEach(([field, messages]) => {
+        if (fieldMap[field]) mappedErrors[fieldMap[field]] = [].concat(messages)[0];
+      });
+
+      const message = error.response?.data?.message;
+      if (!Object.keys(mappedErrors).length && error.response?.status === 400) {
+        mappedErrors.current_password = message || "Mật khẩu hiện tại không đúng.";
+      }
+
+      setSecurityErrors(mappedErrors);
+      setSecurityNotice(Object.keys(mappedErrors).length ? "" : (message || "Không thể cập nhật thông tin bảo mật."));
+    } finally {
+      setSecuritySaving(false);
+    }
+  };
+
+  const submitInlineProfile = async (event) => {
+    event.preventDefault();
+    setProfileSaving(true);
+    setProfileNotice("");
+
+    try {
+      const response = await updateProfile({
+        ...profileForm,
+        current_password: profileContactChanged ? profileForm.current_password : "",
+      });
+      const nextProfile = { ...profile, ...(response.data?.data || {}) };
+      setProfile(nextProfile);
+      saveSession({ ...readSession(), ...nextProfile });
+      setProfileForm((current) => ({
+        ...current,
+        ...nextProfile,
+        avatar: null,
+        current_password: "",
+      }));
+      setProfileAvatarPreview(mediaUrl(nextProfile.avatar_url));
+      setProfileNotice("Cập nhật hồ sơ thành công.");
+    } catch (error) {
+      const validationErrors = error.response?.data?.errors;
+      setProfileNotice(
+        (validationErrors ? Object.values(validationErrors).flat()[0] : error.response?.data?.message)
+        || "Không thể cập nhật hồ sơ.",
+      );
+    } finally {
+      setProfileSaving(false);
+    }
+  };
 
   const selectBookingFilter = (nextFilter) => {
     setBookingFilter(nextFilter);
@@ -1256,7 +1450,7 @@ function ProfileDashboard({
             <Icon name="heart" /> Yêu thích
           </NavLink>
           <NavLink className={active === "settings" ? "active" : ""} to="/customer/settings">
-            <Icon name="settings" /> Cài đặt
+            <Icon name="shield" /> Bảo mật
           </NavLink>
         </nav>
 
@@ -1698,24 +1892,76 @@ function ProfileDashboard({
                   <span>Thông tin cá nhân</span>
                   <h2>Hồ sơ của bạn</h2>
                 </div>
-                <Link to="/customer/profile/edit">
-                  <Icon name="edit" size={18} /> Chỉnh sửa
-                </Link>
+                {editingProfile ? (
+                  <button type="button" className="vg-profile-edit-action" onClick={cancelProfileEdit}>
+                    ← Quay lại
+                  </button>
+                ) : (
+                  <button type="button" className="vg-profile-edit-action" onClick={beginProfileEdit}>
+                    <Icon name="edit" size={18} /> Chỉnh sửa
+                  </button>
+                )}
               </header>
-              <div className="vg-profile-info-grid">
-                <div>
-                  <span>Họ và tên</span>
-                  <strong>{profile.full_name || "Chưa cập nhật"}</strong>
+              {editingProfile && profileForm ? (
+                <form className="vg-inline-profile-form" onSubmit={submitInlineProfile}>
+                  <AvatarCropModal
+                    file={pendingProfileAvatar}
+                    onCancel={() => setPendingProfileAvatar(null)}
+                    onConfirm={(file) => {
+                      setProfileForm((current) => ({ ...current, avatar: file }));
+                      setProfileAvatarPreview((current) => {
+                        if (current.startsWith("blob:")) URL.revokeObjectURL(current);
+                        return URL.createObjectURL(file);
+                      });
+                      setPendingProfileAvatar(null);
+                    }}
+                  />
+                  <label className="vg-inline-avatar-field wide">
+                    <span>Ảnh đại diện</span>
+                    <span className="vg-inline-avatar-picker">
+                      {profileAvatarPreview ? (
+                        <img src={profileAvatarPreview} alt={profileForm.full_name || "Ảnh đại diện"} />
+                      ) : (
+                        <strong>{profileForm.full_name?.charAt(0)?.toUpperCase() || "V"}</strong>
+                      )}
+                      <i><Icon name="camera" size={17} /></i>
+                    </span>
+                    <input
+                      className="vg-inline-avatar-input"
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0] || null;
+                        event.target.value = "";
+                        if (file) setPendingProfileAvatar(file);
+                      }}
+                    />
+                    <small>{profileForm.avatar ? profileForm.avatar.name : "Nhấn vào ảnh để chọn ảnh mới"}</small>
+                  </label>
+                  <label className="wide">
+                    Họ và tên
+                    <span className="vg-name-save-row">
+                      <input required value={profileForm.full_name} onChange={(event) => setProfileForm({ ...profileForm, full_name: event.target.value })} />
+                      <button type="submit" disabled={profileSaving}>
+                        <Icon name="shield" size={17} /> {profileSaving ? "Đang lưu..." : "Lưu thay đổi"}
+                      </button>
+                    </span>
+                  </label>
+                  {profileNotice ? <p className="vg-inline-profile-notice wide">{profileNotice}</p> : null}
+                  <div className="vg-profile-security-row wide">
+                    <button type="button" className="vg-profile-security-button" onClick={() => navigate("/customer/settings")}>
+                      <Icon name="shield" size={17} />
+                      <span><strong>Bảo mật tài khoản</strong><small>Đổi SĐT, email, mật khẩu</small></span>
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div className="vg-profile-info-grid">
+                  <div><span>Họ và tên</span><strong>{profile.full_name || "Chưa cập nhật"}</strong></div>
+                  <div><span>Email</span><strong>{profile.email || "Chưa cập nhật"}</strong></div>
+                  <div><span>Số điện thoại</span><strong>{profile.phone || "Chưa cập nhật"}</strong></div>
                 </div>
-                <div>
-                  <span>Email</span>
-                  <strong>{profile.email || "Chưa cập nhật"}</strong>
-                </div>
-                <div>
-                  <span>Số điện thoại</span>
-                  <strong>{profile.phone || "Chưa cập nhật"}</strong>
-                </div>
-              </div>
+              )}
             </section>
 
             <aside className="vg-profile-side">
@@ -1731,30 +1977,46 @@ function ProfileDashboard({
                   )}
                 </strong>
               </div>
-              <Link to="/customer/password">
-                <Icon name="shield" size={19} /> Đổi mật khẩu
-              </Link>
             </aside>
           </div>
         ) : null}
 
         {active === "settings" ? (
-          <div className="vg-settings-card">
-            <h2>Tùy chọn tài khoản</h2>
-            <label>
-              <span>
-                <strong>Nhận ưu đãi qua email</strong>
-                <small>Cập nhật tour mới và chương trình khuyến mãi.</small>
-              </span>
-              <input type="checkbox" defaultChecked />
-            </label>
-            <label>
-              <span>
-                <strong>Lưu lịch sử tìm kiếm</strong>
-                <small>Giúp ViVuGo đề xuất hành trình phù hợp hơn.</small>
-              </span>
-              <input type="checkbox" defaultChecked />
-            </label>
+          <div className="vg-security-card">
+            <div className="vg-security-heading">
+              <div>
+                <span>Bảo mật tài khoản</span>
+                <h2>{securityMode ? "Cập nhật thông tin bảo mật" : "Bạn muốn thay đổi gì?"}</h2>
+              </div>
+              {securityMode ? <button type="button" onClick={closeSecurityForm}>← Quay lại</button> : null}
+            </div>
+
+            {!securityMode ? (
+              <div className="vg-security-options">
+                <button type="button" onClick={() => openSecurityForm("email")}><Icon name="mail" size={22} /><span><strong>Sửa email</strong><small>Email hiện tại: {profile.email || "Chưa cập nhật"}</small></span></button>
+                <button type="button" onClick={() => openSecurityForm("phone")}><Icon name="phone" size={22} /><span><strong>Sửa số điện thoại</strong><small>Số hiện tại: {profile.phone || "Chưa cập nhật"}</small></span></button>
+                <button type="button" onClick={() => openSecurityForm("password")}><Icon name="shield" size={22} /><span><strong>Sửa mật khẩu</strong><small>Đổi mật khẩu đăng nhập của tài khoản</small></span></button>
+              </div>
+            ) : (
+              <form className="vg-security-form" onSubmit={submitSecurityChange} noValidate>
+                {securityMode === "email" ? <div className="vg-security-current"><span>Email hiện tại</span><strong>{profile.email || "Chưa cập nhật"}</strong></div> : null}
+                {securityMode === "phone" ? <div className="vg-security-current"><span>Số điện thoại hiện tại</span><strong>{profile.phone || "Chưa cập nhật"}</strong></div> : null}
+                <label>
+                  {securityMode === "email" ? "Email mới" : securityMode === "phone" ? "Số điện thoại mới" : "Mật khẩu mới"}
+                  <span className="vg-security-input-wrap">
+                    <input className={securityErrors.value ? "is-invalid" : ""} type={securityMode === "email" ? "email" : securityMode === "phone" ? "tel" : visibleSecurityPasswords.value ? "text" : "password"} value={securityForm.value} onChange={(event) => updateSecurityField("value", event.target.value)} aria-invalid={Boolean(securityErrors.value)} />
+                    {securityMode === "password" ? <button type="button" onClick={() => toggleSecurityPassword("value")} aria-label={visibleSecurityPasswords.value ? "Ẩn mật khẩu mới" : "Hiện mật khẩu mới"}><Icon name={visibleSecurityPasswords.value ? "eye" : "eye-off"} size={19} /></button> : null}
+                  </span>
+                  {securityErrors.value ? <small className="vg-security-field-error">{securityErrors.value}</small> : null}
+                </label>
+                {securityMode === "password" ? (
+                  <label>Nhập lại mật khẩu mới<span className="vg-security-input-wrap"><input className={securityErrors.confirmation ? "is-invalid" : ""} type={visibleSecurityPasswords.confirmation ? "text" : "password"} value={securityForm.confirmation} onChange={(event) => updateSecurityField("confirmation", event.target.value)} aria-invalid={Boolean(securityErrors.confirmation)} /><button type="button" onClick={() => toggleSecurityPassword("confirmation")} aria-label={visibleSecurityPasswords.confirmation ? "Ẩn mật khẩu nhập lại" : "Hiện mật khẩu nhập lại"}><Icon name={visibleSecurityPasswords.confirmation ? "eye" : "eye-off"} size={19} /></button></span>{securityErrors.confirmation ? <small className="vg-security-field-error">{securityErrors.confirmation}</small> : null}</label>
+                ) : null}
+                <label>Mật khẩu hiện tại<span className="vg-security-input-wrap"><input className={securityErrors.current_password ? "is-invalid" : ""} type={visibleSecurityPasswords.current_password ? "text" : "password"} autoComplete="current-password" value={securityForm.current_password} onChange={(event) => updateSecurityField("current_password", event.target.value)} aria-invalid={Boolean(securityErrors.current_password)} /><button type="button" onClick={() => toggleSecurityPassword("current_password")} aria-label={visibleSecurityPasswords.current_password ? "Ẩn mật khẩu hiện tại" : "Hiện mật khẩu hiện tại"}><Icon name={visibleSecurityPasswords.current_password ? "eye" : "eye-off"} size={19} /></button></span>{securityErrors.current_password ? <small className="vg-security-field-error">{securityErrors.current_password}</small> : null}</label>
+                {securityNotice ? <p>{securityNotice}</p> : null}
+                <button type="submit" disabled={securitySaving}><Icon name="shield" size={17} /> {securitySaving ? "Đang xác nhận..." : "Xác nhận thay đổi"}</button>
+              </form>
+            )}
           </div>
         ) : null}
       </section>

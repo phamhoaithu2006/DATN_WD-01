@@ -4,6 +4,7 @@ import BrandLogo from "../BrandLogo";
 import CustomerNotificationBell from "./CustomerNotificationBell";
 import Icon from "./Icon";
 import { useLocale } from "../../contexts/LocaleContext";
+import { mediaUrl } from "../../utils/mediaUrl";
 import {
   fetchCatalogCategories,
   fetchCatalogDestinations,
@@ -206,6 +207,12 @@ const megaMenuData = {
 };
 
 function Header({ user, onLogout, pendingCount = 0 }) {
+  const [accountAvatarFailed, setAccountAvatarFailed] = useState(false);
+  const accountAvatarUrl = !accountAvatarFailed ? mediaUrl(user?.avatar_url) : "";
+
+  useEffect(() => {
+    setAccountAvatarFailed(false);
+  }, [user?.avatar_url]);
   const { language } = useLocale();
   const location = useLocation();
 
@@ -555,7 +562,16 @@ function Header({ user, onLogout, pendingCount = 0 }) {
                 aria-controls="customer-account-dropdown"
                 onClick={() => setAccountMenuOpen((open) => !open)}
               >
-                <Icon name="user" />
+                {accountAvatarUrl ? (
+                  <img
+                    className="vg-account-avatar"
+                    src={accountAvatarUrl}
+                    alt={user.full_name || "Ảnh đại diện"}
+                    onError={() => setAccountAvatarFailed(true)}
+                  />
+                ) : (
+                  <Icon name="user" />
+                )}
                 <span>{user.full_name || "Tài khoản"}</span>
                 {pendingCount > 0 ? (
                   <span className="vg-nav-corner-badge" title="Có đơn hàng đang chờ thanh toán">

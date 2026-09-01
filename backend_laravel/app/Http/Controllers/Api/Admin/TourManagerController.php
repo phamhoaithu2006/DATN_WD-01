@@ -907,7 +907,6 @@ class TourManagerController extends Controller
             unset(
                 $item['images'],
                 $item['day'],
-                $item['province_id'],
                 $item['destination_place_name'],
                 $item['destination_place_address'],
                 $item['itinerary_destination_id'],
@@ -917,6 +916,9 @@ class TourManagerController extends Controller
                 'day_number' => $item['day_number'],
                 'sort_order' => $item['sort_order'] ?? $index,
                 'type' => $item['type'],
+                'province_id' => $destinationPlace?->province_id
+                    ?? $destinationPlace?->district?->province_id
+                    ?? ($item['province_id'] ?? $tour->province_id),
                 'destination_place_id' => $destinationPlace?->id,
                 'title' => $item['title'],
                 'start_time' => $item['start_time'] ?? null,
