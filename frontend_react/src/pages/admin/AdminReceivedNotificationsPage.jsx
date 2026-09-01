@@ -1542,9 +1542,11 @@ function AdminReceivedNotificationsPage() {
         breadcrumb={[
           'ViVuGo',
           'Thông báo',
-          'Thông Báo Đã Nhận',
+          queryFilter === 'support_admin_request'
+            ? 'Yêu cầu hỗ trợ NVHT'
+            : 'Thông báo đã nhận',
         ]}
-        title="Thông Báo Đã Nhận"
+        title={queryFilter === 'support_admin_request' ? 'Yêu cầu hỗ trợ NVHT' : 'Thông báo đã nhận'}
         description="Theo dõi các thông báo gửi tới Admin và xử lý yêu cầu hỗ trợ."
         showNotificationBell
       />

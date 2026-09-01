@@ -1104,9 +1104,9 @@ export default function SupportRequestsPage() {
         breadcrumb={[
           'ViVuGo',
           'Nhân viên hỗ trợ',
-          'Yêu cầu hỗ trợ',
+          'Form hỗ trợ',
         ]}
-        title="Yêu cầu hỗ trợ"
+        title="Form hỗ trợ"
         description="Tiếp nhận, yêu cầu khách bổ sung thông tin và gửi yêu cầu cần Admin xử lý."
       />
 
