@@ -696,7 +696,7 @@ class DatabaseSeeder extends Seeder
                     'status' => 'assigned',
                     'assigned_by' => $admin->id,
                     'assigned_at' => now(),
-                    'notes' => 'Phân công tự động bởi DatabaseSeeder.',
+                    'notes' => 'Tour được hệ thống tự động phân công.',
                 ]
             );
         }

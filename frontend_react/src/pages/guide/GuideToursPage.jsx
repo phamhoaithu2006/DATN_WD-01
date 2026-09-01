@@ -40,6 +40,33 @@ function getTourDescription(item) {
   );
 }
 
+function formatItineraryTime(value) {
+  const time = String(value || "").match(/\d{2}:\d{2}/)?.[0];
+  return time || "";
+}
+
+function getItineraryDays(itineraries) {
+  const days = new Map();
+
+  itineraries.forEach((step, index) => {
+    const parsedDay = Number(step?.day_number);
+    const dayNumber = Number.isInteger(parsedDay) && parsedDay > 0 ? parsedDay : 1;
+    const activities = days.get(dayNumber) || [];
+    activities.push({ ...step, originalIndex: index });
+    days.set(dayNumber, activities);
+  });
+
+  return [...days.entries()]
+    .sort(([dayA], [dayB]) => dayA - dayB)
+    .map(([dayNumber, activities]) => ({
+      dayNumber,
+      activities: activities.sort((activityA, activityB) => {
+        const orderDifference = Number(activityA.sort_order || 0) - Number(activityB.sort_order || 0);
+        return orderDifference || activityA.originalIndex - activityB.originalIndex;
+      }),
+    }));
+}
+
 function getCancellationReason(item) {
   const reason = String(item?.cancellation_reason || "").toLowerCase()
   if (reason === "insufficient_participants") return "Không đủ tối thiểu 10 khách"
@@ -217,6 +244,7 @@ function TourDetailModal({
   const itineraries = Array.isArray(item?.tour?.itineraries)
     ? item.tour.itineraries
     : [];
+  const itineraryDays = getItineraryDays(itineraries);
   const replacementEligibility = getReplacementEligibility(item);
 
   return (
@@ -305,18 +333,57 @@ function TourDetailModal({
         </div>
         <div className="guide-tour-detail-section">
           <h3>Lịch trình</h3>
-          {itineraries.length > 0 ? (
+          {itineraryDays.length > 0 ? (
             <div className="guide-tour-detail-steps">
-              {itineraries.map((step, index) => (
-                <article key={step.id || index}>
-                  <span>Ngày {step.day_number || index + 1}</span>
-                  <strong>{step.title || "Hành trình"}</strong>
-                  {step.destination_place?.name ? (
-                    <p><strong>Điểm đến:</strong> {formatDestinationPlace(step.destination_place)}</p>
-                  ) : null}
-                  {formatDestinationPlaceAddress(step.destination_place) ? <p><strong>Địa chỉ:</strong> {formatDestinationPlaceAddress(step.destination_place)}</p> : null}
-                  <p>{stripHtml(step.description) || "Chưa có mô tả."}</p>
-                </article>
+              {itineraryDays.map((day) => (
+                <section className="guide-tour-itinerary-day" key={day.dayNumber}>
+                  <header className="guide-tour-itinerary-day-header">
+                    <div>
+                      <span>Ngày {day.dayNumber}</span>
+                      <strong>Lịch trình trong ngày</strong>
+                    </div>
+                    <small>{day.activities.length} hoạt động</small>
+                  </header>
+                  <div className="guide-tour-itinerary-activities">
+                    {day.activities.map((step, index) => {
+                      const startTime = formatItineraryTime(step.start_time);
+                      const endTime = formatItineraryTime(step.end_time);
+                      const destination = step.destination_place?.name
+                        ? formatDestinationPlace(step.destination_place)
+                        : "";
+                      const address = formatDestinationPlaceAddress(step.destination_place);
+
+                      return (
+                        <article className="guide-tour-itinerary-activity" key={step.id || `${day.dayNumber}-${index}`}>
+                          <div className="guide-tour-itinerary-marker">
+                            <span>{index + 1}</span>
+                          </div>
+                          <div className="guide-tour-itinerary-content">
+                            <div className="guide-tour-itinerary-title-row">
+                              <strong>{step.title || "Hoạt động trong ngày"}</strong>
+                              {startTime || endTime ? (
+                                <time>{startTime || "--:--"}{endTime ? ` – ${endTime}` : ""}</time>
+                              ) : null}
+                            </div>
+                            {destination || address ? (
+                              <div className="guide-tour-itinerary-location">
+                                <span aria-hidden="true">●</span>
+                                <p>{destination ? <strong>{destination}</strong> : null}{address ? <small>{address}</small> : null}</p>
+                              </div>
+                            ) : null}
+                            {stripHtml(step.description) ? <p>{stripHtml(step.description)}</p> : null}
+                            {step.duration || step.transport ? (
+                              <div className="guide-tour-itinerary-meta">
+                                {step.duration ? <span>Thời lượng: {step.duration}</span> : null}
+                                {step.transport ? <span>Di chuyển: {step.transport}</span> : null}
+                              </div>
+                            ) : null}
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                </section>
               ))}
             </div>
           ) : (
