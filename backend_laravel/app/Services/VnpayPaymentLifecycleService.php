@@ -25,10 +25,6 @@ class VnpayPaymentLifecycleService
             return false;
         }
 
-        if ($lockedBooking->slot_committed_at) {
-            return true;
-        }
-
         $departure = TourDeparture::query()
             ->lockForUpdate()
             ->find($lockedBooking->tour_departure_id);
@@ -42,9 +38,14 @@ class VnpayPaymentLifecycleService
             || ! $tourIsBookable
             || $departure->status !== 'open'
             || $departure->departure_date->lte(TourDeparture::customerBookingCutoffDate())
-            || ((int) $departure->total_slots - (int) $departure->booked_slots) < (int) $lockedBooking->number_of_people
+            || (! $lockedBooking->slot_committed_at
+                && ((int) $departure->total_slots - (int) $departure->booked_slots) < (int) $lockedBooking->number_of_people)
         ) {
             return false;
+        }
+
+        if ($lockedBooking->slot_committed_at) {
+            return true;
         }
 
         $departure->booked_slots = (int) $departure->booked_slots + (int) $lockedBooking->number_of_people;

@@ -968,3 +968,10 @@
     grid-column: 2;
   }
 }
+.booking-header-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.booking-trash-page-button { border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; color: #334155; cursor: pointer; font-weight: 700; padding: 10px 14px; }
+.booking-refund-proof { grid-column: 1 / -1; }
+.booking-refund-proof dd { display: flex; align-items: flex-start; gap: 10px; }
+.booking-refund-proof img { width: 220px; max-height: 160px; border: 1px solid #dbe5f2; border-radius: 10px; object-fit: cover; }
+.booking-refund-proof button { border: 1px solid #fecaca; border-radius: 8px; background: #fff; color: #dc2626; cursor: pointer; padding: 7px 10px; }
+.booking-trash-actions { min-width: 240px; }

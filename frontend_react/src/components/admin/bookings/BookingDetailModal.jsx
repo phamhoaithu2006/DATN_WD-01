@@ -8,6 +8,7 @@ import {
   formatMoney,
 } from './bookingFormatters'
 import { isBookingReadOnly } from './bookingPermissions'
+import { mediaUrl } from '../../../utils/mediaUrl'
 
 function cancellationReasonLabel(booking) {
   const reason = String(booking.cancellation_reason || '').toLowerCase()
@@ -105,7 +106,7 @@ function summarizeInformationChange(history) {
   return lines
 }
 
-function BookingDetailModal({ booking, busy, onClose, onInvoice, onPaymentChange, onStatusChange }) {
+function BookingDetailModal({ booking, busy, onClose, onDeleteRefundProof, onInvoice, onPaymentChange, onStatusChange }) {
   const name = customerName(booking)
   const phone = customerPhone(booking)
   const departure = bookingDeparture(booking)
@@ -243,10 +244,10 @@ function BookingDetailModal({ booking, busy, onClose, onInvoice, onPaymentChange
                     </button>
                     <button
                       type="button"
-                      disabled={busy || isReadOnly || payment.status !== 'success'}
+                      disabled={busy || !['success', 'refunded'].includes(payment.status)}
                       onClick={() => onPaymentChange(booking, 'refund')}
                     >
-                      Hoàn tiền
+                      {payment.status === 'refunded' ? 'Thay ảnh hoàn tiền' : 'Hoàn tiền'}
                     </button>
                   </div>
                 ) : (
@@ -291,6 +292,12 @@ function BookingDetailModal({ booking, busy, onClose, onInvoice, onPaymentChange
                 <dt>Thời gian thanh toán</dt>
                 <dd>{formatDate(payment?.paid_at)}</dd>
               </div>
+              {payment?.refund_proof_url ? (
+                <div className="booking-refund-proof">
+                  <dt>Ảnh chứng minh hoàn tiền</dt>
+                  <dd><a href={mediaUrl(payment.refund_proof_url)} target="_blank" rel="noreferrer"><img src={mediaUrl(payment.refund_proof_url)} alt="Chứng minh đã hoàn tiền cho khách" /></a><button type="button" disabled={busy} onClick={() => onDeleteRefundProof(booking)}>Xóa ảnh</button></dd>
+                </div>
+              ) : null}
             </dl>
           </section>
         </div>

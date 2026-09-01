@@ -639,7 +639,8 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(functi
     Route::get('/payments/{id}', [PaymentController::class, 'show']);
     Route::patch('/payments/{id}/confirm', [PaymentController::class, 'confirm']);
     Route::patch('/payments/{id}/fail', [PaymentController::class, 'fail']);
-    Route::patch('/payments/{id}/refund', [PaymentController::class, 'refund']);
+    Route::match(['patch', 'post'], '/payments/{id}/refund', [PaymentController::class, 'refund']);
+    Route::delete('/payments/{id}/refund-proof', [PaymentController::class, 'deleteRefundProof']);
 
     // Hồ sơ admin
     Route::get('/profile', [AdminProfileController::class, 'show']);
@@ -650,10 +651,14 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(functi
     Route::prefix('bookings')->group(function () {
         Route::get('/', [BookingController::class, 'index']);
         Route::get('/statistics', [BookingController::class, 'statistics']);
+        Route::get('/trash', [BookingController::class, 'trash']);
+        Route::get('/trash/{id}', [BookingController::class, 'showTrashed']);
         Route::get('/{id}', [BookingController::class, 'show']);
         Route::post('/', [BookingController::class, 'store']);
         Route::put('/{id}', [BookingController::class, 'update']);
         Route::patch('/{id}/cancel', [BookingController::class, 'softDelete']);
+        Route::patch('/{id}/trash', [BookingController::class, 'moveToTrash']);
+        Route::patch('/{id}/restore', [BookingController::class, 'restore']);
         Route::delete('/{id}', [BookingController::class, 'destroy']);
     });
 
