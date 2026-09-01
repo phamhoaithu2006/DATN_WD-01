@@ -14,6 +14,7 @@ import {
   messageFrom,
 } from '../../components/admin/bookings/bookingFormatters'
 import {
+  cancelBooking,
   moveBookingToTrash,
   getBooking,
   getBookings,
@@ -342,7 +343,9 @@ function BookingManagementPage() {
         bookings={bookings}
         busy={busy}
         loading={loading}
+        onCancel={(booking) => updateStatus(booking, 'cancelled')}
         onDelete={removeBooking}
+        onStart={(booking) => updateStatus(booking, 'departed')}
         onView={openDetail}
       />
 

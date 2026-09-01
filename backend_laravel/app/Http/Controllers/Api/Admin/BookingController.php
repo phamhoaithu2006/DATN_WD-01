@@ -122,9 +122,9 @@ class BookingController extends Controller
             'contact',
             'participants',
             'payment',
-            'statusHistories' => fn($q) => $q->with('changedBy:id,full_name')->latest(),
-            'informationChangeHistories' => fn($q) => $q->with('changedBy:id,full_name')->latest(),
-            'disruptionRequests' => fn($q) => $q
+            'statusHistories' => fn ($q) => $q->with('changedBy:id,full_name')->latest(),
+            'informationChangeHistories' => fn ($q) => $q->with('changedBy:id,full_name')->latest(),
+            'disruptionRequests' => fn ($q) => $q
                 ->with(['requestedDeparture:id,departure_date,return_date', 'processedBy:id,full_name'])
                 ->latest(),
         ])->findOrFail($id);
@@ -194,7 +194,7 @@ class BookingController extends Controller
         $contact = $data['contact'] ?? null;
         unset($data['participants'], $data['contact']);
 
-        $data['booking_code'] = 'BK' . now()->format('Ymd') . strtoupper(Str::random(4));
+        $data['booking_code'] = 'BK'.now()->format('Ymd').strtoupper(Str::random(4));
         $data['discount_amount'] = $data['discount_amount'] ?? 0;
         $data['status'] = 'pending';
         $data['payment_status'] = 'unpaid';
@@ -422,6 +422,12 @@ class BookingController extends Controller
                 ->lockForUpdate()
                 ->findOrFail($id);
 
+            if (in_array($booking->status, ['departed', 'completed', 'cancelled', 'cancelled_by_tour'], true)) {
+                throw ValidationException::withMessages([
+                    'status' => 'Booking đang diễn ra, đã hủy hoặc đã hoàn thành không thể hủy lại.',
+                ]);
+            }
+
             $oldStatus = $booking->status;
             $paymentStatus = $booking->payment_status === 'paid' ? 'refund_pending' : $booking->payment_status;
             $booking->update([
@@ -458,6 +464,7 @@ class BookingController extends Controller
         }
 
         $booking->delete();
+
         return response()->json(['success' => true, 'message' => 'Đã chuyển booking vào thùng rác.']);
     }
 
@@ -610,7 +617,7 @@ class BookingController extends Controller
         Booking::query()
             ->with(['tourDeparture:id,tour_id,status,departure_date,return_date', 'tour:id,status'])
             ->where('payment_status', 'paid')
-            ->whereIn('status', ['pending', 'confirmed', 'departed', 'completed'])
+            ->whereIn('status', ['pending', 'confirmed', 'departed'])
             ->whereHas('tourDeparture')
             ->chunkById(100, function ($bookings): void {
                 foreach ($bookings as $booking) {
@@ -623,6 +630,8 @@ class BookingController extends Controller
                         $newStatus = 'cancelled_by_tour';
                     } elseif ($departureStatus === 'completed' || ($returnDate && $returnDate->lt($today))) {
                         $newStatus = 'completed';
+                    } elseif ($booking->status === 'departed') {
+                        $newStatus = null;
                     } elseif ($departureDate && $departureDate->lte($today) && $returnDate?->gte($today)) {
                         $newStatus = 'departed';
                     } elseif ($departureDate?->gt($today)) {

@@ -1,5 +1,5 @@
 import BookingBadge from './BookingBadge'
-import { EyeIcon, TrashIcon } from './BookingIcons'
+import { CheckIcon, CloseIcon, EyeIcon, TrashIcon } from './BookingIcons'
 import {
   customerName,
   customerPhone,
@@ -35,7 +35,7 @@ const participantPreviewFor = (booking) => {
   return remaining > 0 ? `${names.join(', ')} +${remaining}` : names.join(', ')
 }
 
-function BookingActions({ booking, busy, onDelete, onView }) {
+function BookingActions({ booking, busy, onCancel, onStart, onDelete, onView }) {
   const canDelete = canDeleteBooking(booking)
 
   return (
@@ -43,15 +43,21 @@ function BookingActions({ booking, busy, onDelete, onView }) {
       <button type="button" title="Xem chi tiết" onClick={() => onView(booking)} disabled={!!busy}>
         <EyeIcon />
       </button>
-      <button
-        className="danger"
-        type="button"
-        title={canDelete ? 'Xóa mềm' : 'Booking đang diễn ra hoặc đã kết thúc, không thể xóa'}
-        onClick={() => onDelete(booking)}
-        disabled={!!busy || !canDelete}
-      >
-        <TrashIcon />
-      </button>
+      {booking.status === 'confirmed' ? (
+        <>
+          <button className="success" type="button" title="Chuyển sang Đang diễn ra" onClick={() => onStart(booking)} disabled={!!busy}>
+            <CheckIcon />
+          </button>
+          <button className="danger" type="button" title="Hủy booking" onClick={() => onCancel(booking)} disabled={!!busy}>
+            <CloseIcon />
+          </button>
+        </>
+      ) : null}
+      {canDelete ? (
+        <button className="danger" type="button" title="Xóa mềm" onClick={() => onDelete(booking)} disabled={!!busy}>
+          <TrashIcon />
+        </button>
+      ) : null}
     </div>
   )
 }
@@ -60,7 +66,9 @@ function BookingTable({
   bookings,
   busy,
   loading,
+  onCancel,
   onDelete,
+  onStart,
   onView,
 }) {
   return (
@@ -119,7 +127,9 @@ function BookingTable({
                     <BookingActions
                       booking={booking}
                       busy={busy}
+                      onCancel={onCancel}
                       onDelete={onDelete}
+                      onStart={onStart}
                       onView={onView}
                     />
                   </td>

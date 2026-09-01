@@ -120,6 +120,7 @@ function BookingDetailModal({ booking, busy, onClose, onDeleteRefundProof, onInv
     ? booking.information_change_histories
     : []
   const disruptionRequests = Array.isArray(booking.disruption_requests) ? booking.disruption_requests : []
+  const cancellationHistories = statusHistories.filter((history) => history.new_status === 'cancelled')
   const isReadOnly = isBookingReadOnly(booking)
   const departureText = departure
     ? `${formatDate(departure.departure_date)} - ${formatDate(departure.return_date)}`
@@ -402,10 +403,10 @@ function BookingDetailModal({ booking, busy, onClose, onDeleteRefundProof, onInv
 
         <section className="booking-detail-panel booking-history-panel">
           <div className="booking-detail-panel-title">
-            <span>Yêu cầu hủy và xử lý booking</span>
-            <strong>{disruptionRequests.length}</strong>
+            <span>Lịch sử hủy và xử lý booking</span>
+            <strong>{disruptionRequests.length + cancellationHistories.length}</strong>
           </div>
-          {disruptionRequests.length ? (
+          {disruptionRequests.length || cancellationHistories.length ? (
             <div className="booking-disruption-list">
               {disruptionRequests.map((request) => (
                 <article key={request.id}>
@@ -420,6 +421,16 @@ function BookingDetailModal({ booking, busy, onClose, onDeleteRefundProof, onInv
                   <small>Gửi lúc {formatDate(request.created_at)}</small>
                   <p>{request.reason || 'Không có lý do.'}</p>
                   {request.admin_note ? <p><b>Phản hồi:</b> {request.admin_note}</p> : null}
+                </article>
+              ))}
+              {cancellationHistories.map((history) => (
+                <article key={`cancellation-history-${history.id}`}>
+                  <div>
+                    <strong>Hủy booking</strong>
+                    <span className="booking-request-inline-status approved">Đã ghi nhận</span>
+                  </div>
+                  <small>{formatDate(history.created_at)} · {history.changed_by?.full_name || 'Khách hàng'}</small>
+                  <p>{String(history.note || 'Booking đã được hủy.').replace(/^\[[^\]]+\]\s*/, '')}</p>
                 </article>
               ))}
             </div>

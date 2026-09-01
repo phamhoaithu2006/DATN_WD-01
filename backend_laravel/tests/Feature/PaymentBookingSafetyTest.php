@@ -1,5 +1,7 @@
 <?php
 
+use App\Jobs\DeliverBookingConfirmationEmail;
+use App\Mail\BookingConfirmationMail;
 use App\Models\Booking;
 use App\Models\BookingConfirmationOutbox;
 use App\Models\Payment;
@@ -8,8 +10,6 @@ use App\Models\Tour;
 use App\Models\TourAgePricingRule;
 use App\Models\TourDeparture;
 use App\Models\User;
-use App\Jobs\DeliverBookingConfirmationEmail;
-use App\Mail\BookingConfirmationMail;
 use App\Services\BookingInvoicePdfService;
 use App\Services\VnpayPaymentLifecycleService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -264,6 +264,33 @@ test('admin booking list marks bookings whose departure has started as departed'
         ->assertJsonPath('data.0.status', 'departed');
 
     expect($booking->fresh()->status)->toBe('departed');
+});
+
+test('admin can manually start a confirmed booking without automatic sync reverting it', function () {
+    $admin = paymentSafetyUser('admin');
+    $booking = paymentSafetyBooking([
+        'status' => 'confirmed',
+        'payment_status' => 'paid',
+    ]);
+
+    Sanctum::actingAs($admin);
+
+    $this->putJson("/api/admin/bookings/{$booking->id}", [
+        'status' => 'departed',
+    ])->assertOk()
+        ->assertJsonPath('data.status', 'departed');
+
+    $this->getJson('/api/admin/bookings?status=departed')
+        ->assertOk()
+        ->assertJsonPath('data.0.id', $booking->id)
+        ->assertJsonPath('data.0.status', 'departed');
+
+    $this->assertDatabaseHas('booking_status_histories', [
+        'booking_id' => $booking->id,
+        'changed_by' => $admin->id,
+        'old_status' => 'confirmed',
+        'new_status' => 'departed',
+    ]);
 });
 
 test('admin cannot move a booking of a completed departure back to pending', function () {
@@ -807,7 +834,7 @@ test('successful VNPAY payment queues one confirmation email with a PDF invoice'
         $attachment = $mail->attachments()[0];
         $pdfContent = $attachment->attachWith(
             fn (string $path): string => (string) file_get_contents($path),
-            fn (\Closure $data): string => $data(),
+            fn (Closure $data): string => $data(),
         );
 
         return $mail->hasTo('booking-contact@example.com')
@@ -898,7 +925,7 @@ test('admin payment confirmation sends a booking confirmation email', function (
     Queue::assertPushed(DeliverBookingConfirmationEmail::class, 1);
     deliverBookingConfirmationEmail($outbox);
 
-    Mail::assertSent(BookingConfirmationMail::class, function (BookingConfirmationMail $mail) use ($booking): bool {
+    Mail::assertSent(BookingConfirmationMail::class, function (BookingConfirmationMail $mail): bool {
         return $mail->hasTo('admin-confirm@example.com')
             && $mail->invoice['transaction_code'] === 'MANUAL-CONFIRM-001';
     });
