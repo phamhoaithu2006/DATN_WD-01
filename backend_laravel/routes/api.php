@@ -652,6 +652,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(functi
     Route::prefix('bookings')->group(function () {
         Route::get('/', [BookingController::class, 'index']);
         Route::get('/statistics', [BookingController::class, 'statistics']);
+        Route::get('/timeline', [BookingController::class, 'timeline']);
         Route::get('/trash', [BookingController::class, 'trash']);
         Route::get('/trash/{id}', [BookingController::class, 'showTrashed']);
         Route::get('/{id}', [BookingController::class, 'show']);

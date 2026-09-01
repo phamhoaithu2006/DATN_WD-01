@@ -8,12 +8,16 @@ use App\Models\AttendanceSession;
 use App\Models\TourDeparture;
 use App\Services\TourPricingService;
 use App\Services\GuideTourOperationService;
+use App\Services\BookingStatusService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class AdminTourDepartureBookingController extends Controller
 {
-    public function __construct(private readonly GuideTourOperationService $guideTourOperationService) {}
+    public function __construct(
+        private readonly GuideTourOperationService $guideTourOperationService,
+        private readonly BookingStatusService $bookingStatusService,
+    ) {}
 
     public function index(Request $request, TourDeparture $tourDeparture): JsonResponse
     {
@@ -27,17 +31,22 @@ class AdminTourDepartureBookingController extends Controller
         $tourDeparture->load([
             'tour:id,title,slug,base_price,discount_price',
             'guideAssignments' => fn ($query) => $query
-                ->where('status', 'assigned')
+                ->whereIn('status', ['assigned', 'confirmed', 'cancelled'])
                 ->with([
                     'guide:id,user_id,guide_code',
                     'guide.user:id,full_name,email,avatar_url',
                 ]),
         ]);
 
+        $isCancelled = in_array(strtolower((string) $tourDeparture->status), ['cancelled', 'canceled'], true);
+
         $bookings = Booking::query()
             ->where('tour_departure_id', $tourDeparture->id)
             ->with([
                 'user:id,full_name,email,phone',
+
+                'tour:id,status',
+                'tourDeparture:id,tour_id,status,departure_date,return_date,total_slots,booked_slots',
 
                 'contact:id,booking_id,contact_name,contact_email,contact_phone,address,special_request',
 
@@ -83,6 +92,8 @@ class AdminTourDepartureBookingController extends Controller
             ->withQueryString();
 
         $bookings->getCollection()->transform(function (Booking $booking) {
+            $statusPresentation = $this->bookingStatusService->presentation($booking);
+
             return [
                 'booking_id' => $booking->id,
                 'booking_code' => $booking->booking_code,
@@ -136,6 +147,8 @@ class AdminTourDepartureBookingController extends Controller
                 'total_amount' => $booking->total_amount,
 
                 'status' => $booking->status,
+                'display_status' => $statusPresentation['display_status'],
+                'display_status_label' => $statusPresentation['display_status_label'],
                 'payment_status' => $booking->payment_status,
                 'note' => $booking->note,
                 'created_at' => $booking->created_at?->format('Y-m-d H:i:s'),
@@ -234,7 +247,11 @@ class AdminTourDepartureBookingController extends Controller
                     ),
 
                     'status' => $tourDeparture->status,
-                    'assigned_guides' => $tourDeparture->guideAssignments->values(),
+                    'assigned_guides' => $tourDeparture->guideAssignments
+                        ->filter(fn ($assignment) => $isCancelled
+                            ? $assignment->status === 'cancelled'
+                            : in_array($assignment->status, ['assigned', 'confirmed'], true))
+                        ->values(),
                 ],
 
                 'bookings' => $bookings,

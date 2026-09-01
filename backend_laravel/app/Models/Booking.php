@@ -185,11 +185,14 @@ class Booking extends Model
     // ─── Scopes cho filter/search ─────────────────────────────────
     public function scopeSearch($query, $keyword)
     {
+        $keyword = trim((string) $keyword);
+
         return $query->when(
             $keyword,
             fn ($q) => $q->where(function ($searchQuery) use ($keyword) {
                 $searchQuery
-                    ->whereHas('tour', fn ($tour) => $tour->where('title', 'like', "%{$keyword}%"))
+                    ->where('booking_code', 'like', "%{$keyword}%")
+                    ->orWhereHas('tour', fn ($tour) => $tour->where('title', 'like', "%{$keyword}%"))
                     ->orWhereHas('user', fn ($user) => $user->where('full_name', 'like', "%{$keyword}%"))
                     ->orWhereHas('contact', fn ($contact) => $contact->where('contact_name', 'like', "%{$keyword}%"));
             })

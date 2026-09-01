@@ -92,7 +92,7 @@ class TourDepartureController extends Controller
                 'tour:id,title,slug,duration_days,duration_nights,base_price,discount_price',
                 'guideAssignments' => function ($query) {
                     $query
-                        ->where('status', 'assigned')
+                        ->whereIn('status', ['assigned', 'confirmed', 'cancelled'])
                         ->with([
                             'guide:id,user_id,guide_code',
                             'guide.user:id,full_name,email,avatar_url',
@@ -114,7 +114,12 @@ class TourDepartureController extends Controller
         $today = now()->startOfDay();
 
         $departures->each(function (TourDeparture $departure) use ($today) {
-            $assignedGuides = $departure->guideAssignments->values();
+            $scheduleGroup = $this->getScheduleGroup($departure, $today);
+            $assignedGuides = $departure->guideAssignments
+                ->filter(fn ($assignment) => $scheduleGroup === 'cancelled'
+                    ? $assignment->status === 'cancelled'
+                    : in_array($assignment->status, ['assigned', 'confirmed'], true))
+                ->values();
 
             $leadAssignment = $assignedGuides->first(function ($assignment) {
                 return $assignment->status === 'assigned' &&
@@ -126,7 +131,6 @@ class TourDepartureController extends Controller
              * Lịch 11/07 - 13/07 vẫn là đang diễn ra trong ngày 13/07,
              * không được đẩy sang đã qua chỉ vì departure_date < hôm nay.
              */
-            $scheduleGroup = $this->getScheduleGroup($departure, $today);
             $isLocked = in_array($scheduleGroup, [
                 'past',
                 'completed',
@@ -203,7 +207,7 @@ class TourDepartureController extends Controller
                 'tour:id,title,slug,duration_days,duration_nights,base_price,discount_price',
                 'guideAssignments' => function ($query) {
                     $query
-                        ->where('status', 'assigned')
+                        ->whereIn('status', ['assigned', 'confirmed', 'cancelled'])
                         ->with([
                             'guide:id,user_id,guide_code',
                             'guide.user:id,full_name,email,avatar_url',
@@ -225,14 +229,18 @@ class TourDepartureController extends Controller
         $today = now()->startOfDay();
 
         $departures->each(function (TourDeparture $departure) use ($today) {
-            $assignedGuides = $departure->guideAssignments->values();
+            $scheduleGroup = $this->getScheduleGroup($departure, $today);
+            $assignedGuides = $departure->guideAssignments
+                ->filter(fn ($assignment) => $scheduleGroup === 'cancelled'
+                    ? $assignment->status === 'cancelled'
+                    : in_array($assignment->status, ['assigned', 'confirmed'], true))
+                ->values();
 
             $leadAssignment = $assignedGuides->first(function ($assignment) {
                 return $assignment->status === 'assigned' &&
                     ($assignment->role === 'lead' || ! $assignment->role);
             });
 
-            $scheduleGroup = $this->getScheduleGroup($departure, $today);
             $isLocked = in_array($scheduleGroup, [
                 'past',
                 'completed',
@@ -305,7 +313,7 @@ class TourDepartureController extends Controller
             ],
             'status' => [
                 'required',
-                'in:open,closed,completed,cancelled',
+                'in:open,closed',
             ],
         ]);
 
@@ -380,7 +388,7 @@ class TourDepartureController extends Controller
             ],
             'status' => [
                 'sometimes',
-                'in:open,closed,completed,cancelled',
+                'in:open,closed',
             ],
             'confirm_booked_change' => [
                 'nullable',

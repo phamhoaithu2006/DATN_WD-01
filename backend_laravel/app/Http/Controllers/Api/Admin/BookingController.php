@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
+use App\Models\BookingAuditLog;
 use App\Models\Tour;
 use App\Models\TourDeparture;
 use App\Services\BookingAuditService;
@@ -40,7 +41,7 @@ class BookingController extends Controller
         $request->validate([
             'search' => 'nullable|string|max:100',
             'status' => ['nullable', Rule::in(['awaiting_payment', 'confirmed', 'departed', 'completed', 'cancelled', 'cancelled_by_tour', 'cancelled_all'])],
-            'display_status' => ['nullable', Rule::in(['awaiting_payment', 'confirmed', 'upcoming', 'departed', 'completed', 'cancelled'])],
+            'display_status' => ['nullable', Rule::in(['awaiting_payment', 'upcoming', 'departed', 'completed', 'cancelled'])],
             'payment_status' => ['nullable', Rule::in(['unpaid', 'paid', 'failed', 'refunded', 'refund_pending'])],
             'from_date' => 'nullable|date',
             'to_date' => 'nullable|date|after_or_equal:from_date',
@@ -51,7 +52,7 @@ class BookingController extends Controller
 
         $this->synchronizeBookingStatusesWithDepartures();
 
-        $bookings = Booking::with([
+        $bookingQuery = Booking::with([
             'user:id,full_name,email',
             'tour:id,title,status',
             'tourDeparture:id,tour_id,departure_at,departure_date,return_date,status,total_slots,booked_slots',
@@ -65,7 +66,21 @@ class BookingController extends Controller
             ->filterStatus($request->status)
             ->tap(fn ($query) => $this->bookingStatusService->applyDisplayFilter($query, $request->display_status))
             ->filterPaymentStatus($request->payment_status)
-            ->filterDate($request->from_date, $request->to_date)
+            ->filterDate($request->from_date, $request->to_date);
+
+        // Ở bộ lọc "Tất cả", ưu tiên booking đã hủy đang chờ hoàn tiền để admin xử lý;
+        // booking đã hủy và hoàn tiền xong được đưa xuống cuối danh sách.
+        if (! $request->filled('display_status') && ! $request->filled('payment_status')) {
+            $bookingQuery->orderByRaw(<<<'SQL'
+                CASE
+                    WHEN status IN ('cancelled', 'cancelled_by_tour') AND payment_status = 'refund_pending' THEN 0
+                    WHEN status IN ('cancelled', 'cancelled_by_tour') AND payment_status = 'refunded' THEN 2
+                    ELSE 1
+                END ASC
+            SQL);
+        }
+
+        $bookings = $bookingQuery
             ->orderBy($request->sort_by ?? 'updated_at', $request->sort_dir ?? 'desc')
             ->orderByDesc('id')
             ->paginate($request->per_page ?? 15);
@@ -114,25 +129,50 @@ class BookingController extends Controller
             SUM(CASE WHEN payment_status = 'paid' AND status NOT IN ('cancelled', 'cancelled_by_tour') THEN total_amount ELSE 0 END) as total_revenue
         ")->first();
 
-        $confirmedQuery = Booking::query()
-            ->where('status', 'confirmed')
-            ->where('payment_status', 'paid')
+        $displayCountQuery = Booking::query()
             ->when($year, fn ($builder) => $builder->whereYear('created_at', $year));
-        $upcomingEnd = today()->addDays(TourDeparture::CUSTOMER_BOOKING_CUTOFF_DAYS)->toDateString();
-
-        $stats->confirmed = (clone $confirmedQuery)
-            ->whereHas('tourDeparture', fn ($departure) => $departure->whereDate('departure_date', '>', $upcomingEnd))
+        $stats->confirmed = $this->bookingStatusService
+            ->applyDisplayFilter(clone $displayCountQuery, BookingStatusService::DISPLAY_CONFIRMED)
             ->count();
-        $stats->upcoming = (clone $confirmedQuery)
-            ->whereHas('tourDeparture', fn ($departure) => $departure
-                ->whereDate('departure_date', '>', today()->toDateString())
-                ->whereDate('departure_date', '<=', $upcomingEnd))
+        $stats->upcoming = $this->bookingStatusService
+            ->applyDisplayFilter(clone $displayCountQuery, BookingStatusService::DISPLAY_UPCOMING)
+            ->count();
+        $stats->departed = $this->bookingStatusService
+            ->applyDisplayFilter(clone $displayCountQuery, BookingStatusService::DISPLAY_DEPARTED)
+            ->count();
+        $stats->completed = $this->bookingStatusService
+            ->applyDisplayFilter(clone $displayCountQuery, BookingStatusService::DISPLAY_COMPLETED)
             ->count();
 
         return response()->json([
             'success' => true,
             'data' => $stats,
         ]);
+    }
+
+    public function timeline()
+    {
+        $events = BookingAuditLog::query()
+            ->with('actor:id,full_name')
+            ->latest('created_at')
+            ->latest('id')
+            ->limit(50)
+            ->get()
+            ->map(fn (BookingAuditLog $event) => [
+                'id' => $event->id,
+                'booking_id' => $event->booking_id,
+                'booking_code' => $event->booking_code,
+                'action' => $event->action,
+                'status_before' => $event->status_before,
+                'status_after' => $event->status_after,
+                'payment_status_before' => $event->payment_status_before,
+                'payment_status_after' => $event->payment_status_after,
+                'reason' => $event->reason,
+                'actor' => $event->actor?->full_name ?: $event->actor_name ?: 'Hệ thống',
+                'created_at' => $event->created_at?->toDateTimeString(),
+            ]);
+
+        return response()->json(['success' => true, 'data' => $events]);
     }
 
     /**
@@ -146,6 +186,13 @@ class BookingController extends Controller
         $this->bookingStatusService->synchronize($booking);
         $booking = $booking->fresh($this->bookingDetailRelations());
         $this->bookingStatusService->decorate($booking);
+        $this->bookingAuditService->record($booking, 'booking_viewed', request()->user()?->id, [
+            'status_before' => $booking->status,
+            'status_after' => $booking->status,
+            'payment_status_before' => $booking->payment_status,
+            'payment_status_after' => $booking->payment_status,
+            'reason' => 'Quản trị viên xem chi tiết booking.',
+        ]);
 
         return response()->json([
             'success' => true,
@@ -256,6 +303,12 @@ class BookingController extends Controller
 
             return $booking;
         });
+
+        $this->bookingAuditService->record($booking, 'booking_created', $request->user()?->id, [
+            'status_after' => $booking->status,
+            'payment_status_after' => $booking->payment_status,
+            'reason' => 'Quản trị viên tạo booking.',
+        ]);
 
         return response()->json([
             'success' => true,
@@ -413,6 +466,30 @@ class BookingController extends Controller
                 $this->bookingCancellationEmailService->enqueueForCancelledBooking(
                     $lockedBooking,
                     BookingCancellationEmailService::SOURCE_ADMIN_BOOKING,
+                );
+            }
+
+            if ($requestedStatus !== 'cancelled') {
+                $this->bookingAuditService->record(
+                    $lockedBooking,
+                    $requestedStatus !== null && $requestedStatus !== $oldStatus
+                        ? 'booking_status_updated'
+                        : 'booking_information_updated',
+                    request()->user()?->id,
+                    [
+                        'status_before' => $oldStatus,
+                        'status_after' => $lockedBooking->status,
+                        'payment_status_before' => $oldPaymentStatus,
+                        'payment_status_after' => $lockedBooking->payment_status,
+                        'reason' => $requestedStatus !== null && $requestedStatus !== $oldStatus
+                            ? 'Quản trị viên cập nhật trạng thái booking.'
+                            : 'Quản trị viên cập nhật thông tin booking.',
+                        'metadata' => [
+                            'updated_fields' => array_values(array_diff(array_keys($data), ['payment_status'])),
+                            'contact_updated' => $contact !== null,
+                            'participants_updated' => $participants !== null,
+                        ],
+                    ],
                 );
             }
         });

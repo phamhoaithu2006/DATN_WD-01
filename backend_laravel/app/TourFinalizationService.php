@@ -77,7 +77,9 @@ class TourFinalizationService
                 return null;
             }
 
-            $newStatus = 'confirmed';
+            // Trạng thái lịch phản ánh khả năng hiển thị/nhận booking:
+            // đến hạn chốt 72 giờ thì luôn đóng, kể cả tour đã đủ khách.
+            $newStatus = 'closed';
 
             $lockedDeparture->update([
                 'status' => $newStatus,
@@ -87,7 +89,7 @@ class TourFinalizationService
                 'tour_departure_id' => $lockedDeparture->id,
                 'old_status' => 'open',
                 'new_status' => $newStatus,
-                'reason' => $isConfirmed ? 'minimum_participants_met' : 'insufficient_participants',
+                'reason' => $isConfirmed ? 'booking_cutoff_reached' : 'insufficient_participants',
             ]);
 
             $affectedBookings = collect();
@@ -194,13 +196,14 @@ class TourFinalizationService
          * Chỉ cho phép hủy lịch đang ở trạng thái:
          *
          * open      = Sắp tới
-         * confirmed = Đã xác nhận đủ điều kiện khởi hành
+         * confirmed = Dữ liệu cũ đã xác nhận đủ điều kiện khởi hành
+         * closed    = Đã đóng nhận booking nhưng tour chưa khởi hành
          *
          * "confirmed" là trạng thái nội bộ do finalize() tạo ra.
          */
         if (! in_array(
             $currentStatus,
-            ['open', 'confirmed'],
+            ['open', 'confirmed', 'closed'],
             true
         )) {
             throw ValidationException::withMessages([
@@ -258,11 +261,6 @@ class TourFinalizationService
                 'tour_departure_id',
                 $lockedDeparture->id
             )
-            ->whereNotIn('status', [
-                'cancelled',
-                'canceled',
-                'cancelled_by_tour',
-            ])
             ->lockForUpdate()
             ->get();
 
@@ -271,9 +269,11 @@ class TourFinalizationService
          */
         foreach ($bookings as $booking) {
             $oldStatus = $booking->status;
+            $oldPaymentStatus = $booking->payment_status;
 
             $booking->update([
                 'status' => 'cancelled_by_tour',
+                'payment_status' => 'refund_pending',
 
                 'cancel_reason' =>
                     $customerMessage ?: ($reason === 'insufficient_participants'
@@ -289,23 +289,21 @@ class TourFinalizationService
                         ? 'tour_cancelled_insufficient_participants'
                         : 'tour_cancelled_by_administrator',
 
-                /*
-                 * Hệ thống hiện tại đang dùng pending_selection.
-                 * Khách sẽ xử lý phương án sau khi tour bị hủy.
-                 */
-                'resolution_status' => 'pending_selection',
+                'resolution_status' => 'refund_pending',
 
                 'cancelled_at' => now(),
             ]);
 
-            BookingStatusHistory::query()->create([
-                'booking_id' => $booking->id,
-                'old_status' => $oldStatus,
-                'new_status' => 'cancelled_by_tour',
-                'changed_by' => $changedBy,
-                'note' => $customerMessage
-                    ?: 'Tour bị hủy bởi hệ thống/Admin. Khách không chịu phí hủy.',
-            ]);
+            if ($oldStatus !== 'cancelled_by_tour' || $oldPaymentStatus !== 'refund_pending') {
+                BookingStatusHistory::query()->create([
+                    'booking_id' => $booking->id,
+                    'old_status' => $oldStatus,
+                    'new_status' => 'cancelled_by_tour',
+                    'changed_by' => $changedBy,
+                    'note' => $customerMessage
+                        ?: 'Tour bị hủy bởi hệ thống/Admin. Thanh toán đang chờ hoàn tiền.',
+                ]);
+            }
 
             $this->bookingCancellationEmailService->enqueueForCancelledBooking(
                 $booking,
