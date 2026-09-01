@@ -41,6 +41,42 @@ function formatDateTime(value) {
   return formatDateTimeDdMmYyyy(value, '?')
 }
 
+function stripHtml(value) {
+  return String(value || '').replace(/<[^>]*>/g, '').trim()
+}
+
+function getAssignmentNote(item) {
+  const note = String(item?.assignment_note || item?.assignment?.note || item?.notes || '').trim()
+
+  if (/databaseseeder/i.test(note)) {
+    return 'Tour được hệ thống tự động phân công.'
+  }
+
+  return note || 'Không có ghi chú phân công.'
+}
+
+function groupItinerariesByDay(itineraries) {
+  const grouped = new Map()
+
+  itineraries.forEach((step, index) => {
+    const parsedDay = Number(step?.day_number)
+    const dayNumber = Number.isInteger(parsedDay) && parsedDay > 0 ? parsedDay : 1
+    const activities = grouped.get(dayNumber) || []
+    activities.push({ ...step, originalIndex: index })
+    grouped.set(dayNumber, activities)
+  })
+
+  return [...grouped.entries()]
+    .sort(([dayA], [dayB]) => dayA - dayB)
+    .map(([dayNumber, activities]) => ({
+      dayNumber,
+      activities: activities.sort((activityA, activityB) => (
+        Number(activityA.sort_order || 0) - Number(activityB.sort_order || 0)
+        || activityA.originalIndex - activityB.originalIndex
+      )),
+    }))
+}
+
 function normalizePaginator(response) {
   const payload = response?.data ?? response
   const paginator = payload?.data ?? payload
@@ -160,6 +196,9 @@ function TourHistoryModal({ open, item, detailLoading, extras, onClose }) {
   const [expandedCustomerId, setExpandedCustomerId] = useState(null)
   const customers = Array.isArray(extras?.customers) ? extras.customers : []
   const sessions = Array.isArray(extras?.sessions) ? extras.sessions : []
+  const itineraryDays = groupItinerariesByDay(
+    Array.isArray(item?.tour?.itineraries) ? item.tour.itineraries : [],
+  )
 
   if (!open || !item) return null
 
@@ -172,6 +211,7 @@ function TourHistoryModal({ open, item, detailLoading, extras, onClose }) {
         aria-label="Chi tiết lịch sử tour"
         onClick={(event) => event.stopPropagation()}
       >
+        <button type="button" className="guide-tour-modal-top-close" onClick={onClose} aria-label="Đóng">×</button>
         <div className="guide-tour-modal-hero">
           <div className="guide-tour-modal-image-wrap">
             {getTourImage(item) ? (
@@ -213,10 +253,10 @@ function TourHistoryModal({ open, item, detailLoading, extras, onClose }) {
         </div>
 
         <div className="guide-tour-modal-section">
-          <h4>Ghi chú</h4>
+          <h4>Thông tin phân công</h4>
           <div className="guide-tour-modal-content-box">
             <p className="guide-tour-modal-note">
-              {item?.assignment_note || item?.assignment?.note || item?.notes || 'Không có ghi chú đặc biệt.'}
+              {getAssignmentNote(item)}
             </p>
           </div>
         </div>
@@ -306,18 +346,30 @@ function TourHistoryModal({ open, item, detailLoading, extras, onClose }) {
           <h4>Lịch trình</h4>
           {detailLoading ? (
             <div className="guide-tour-modal-content-box guide-tour-modal-empty">Đang tải chi tiết...</div>
-          ) : Array.isArray(item?.tour?.itineraries) && item.tour.itineraries.length > 0 ? (
+          ) : itineraryDays.length > 0 ? (
             <div className="guide-tour-modal-itineraries">
-              {item.tour.itineraries.map((step) => (
-                <article key={step.id} className="guide-tour-modal-step">
-                  <span>Ngày {step.day_number}</span>
-                  <strong>{step.title || 'Hành trình'}</strong>
-                  {step.destination_place?.name ? (
-                    <p><strong>Điểm đến:</strong> {formatDestinationPlace(step.destination_place)}</p>
-                  ) : null}
-                  {formatDestinationPlaceAddress(step.destination_place) ? <p><strong>Địa chỉ:</strong> {formatDestinationPlaceAddress(step.destination_place)}</p> : null}
-                  <p>{step.description || 'Chưa có mô tả chi tiết.'}</p>
-                </article>
+              {itineraryDays.map((day) => (
+                <section className="guide-tour-modal-itinerary-day" key={day.dayNumber}>
+                  <header>
+                    <span>Ngày {day.dayNumber}</span>
+                    <strong>{day.activities.length} hoạt động</strong>
+                  </header>
+                  <div>
+                    {day.activities.map((step, index) => (
+                      <article key={step.id || `${day.dayNumber}-${index}`} className="guide-tour-modal-step">
+                        <i>{index + 1}</i>
+                        <div>
+                          <strong>{step.title || 'Hoạt động trong ngày'}</strong>
+                          {step.destination_place?.name ? (
+                            <p><b>Điểm đến:</b> {formatDestinationPlace(step.destination_place)}</p>
+                          ) : null}
+                          {formatDestinationPlaceAddress(step.destination_place) ? <p><b>Địa chỉ:</b> {formatDestinationPlaceAddress(step.destination_place)}</p> : null}
+                          {stripHtml(step.description) ? <p>{stripHtml(step.description)}</p> : null}
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </section>
               ))}
             </div>
           ) : (
