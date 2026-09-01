@@ -1,4 +1,6 @@
-import BookingBadge from './BookingBadge'
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import Icon from '../../customer/Icon'
 import { InvoiceIcon } from './BookingIcons'
 import {
   bookingDeparture,
@@ -9,6 +11,7 @@ import {
 } from './bookingFormatters'
 import { isBookingReadOnly } from './bookingPermissions'
 import { mediaUrl } from '../../../utils/mediaUrl'
+import '../../../styles/itinerary-activity.css'
 
 function cancellationReasonLabel(booking) {
   const reason = String(booking.cancellation_reason || '').toLowerCase()
@@ -25,8 +28,9 @@ function cancellationReasonLabel(booking) {
 }
 
 const STATUS_LABELS = {
-  pending: 'Chờ xác nhận',
-  confirmed: 'Sắp diễn ra',
+  awaiting_payment: 'Chờ thanh toán',
+  confirmed: 'Đã xác nhận',
+  upcoming: 'Sắp diễn ra',
   departed: 'Đang diễn ra',
   completed: 'Đã kết thúc',
   cancelled: 'Đã hủy',
@@ -64,6 +68,23 @@ const PARTICIPANT_FIELD_LABELS = {
   birth_date: 'Ngày sinh',
 }
 
+const TRIP_PROGRESS_STEPS = ['Sắp diễn ra', 'Đang diễn ra', 'Đã hoàn thành']
+
+function formatDateTime(value) {
+  if (!value) return 'Chưa cập nhật'
+
+  const date = new Date(String(value).replace(' ', 'T'))
+  if (Number.isNaN(date.getTime())) return 'Chưa cập nhật'
+
+  return date.toLocaleString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
 function formatDiffValue(key, value) {
   if (!value) return 'trống'
   if (key === 'birth_date') {
@@ -75,8 +96,6 @@ function formatDiffValue(key, value) {
   return String(value)
 }
 
-// So sánh snapshot trước/sau của 1 lần khách sửa thông tin, chỉ liệt kê
-// đúng những trường thực sự thay đổi (không hiện lại toàn bộ dữ liệu).
 function summarizeInformationChange(history) {
   const before = history.before || {}
   const after = history.after || {}
@@ -108,10 +127,120 @@ function summarizeInformationChange(history) {
   return lines
 }
 
+function addDays(value, offset) {
+  const raw = String(value || '').match(/^\d{4}-\d{2}-\d{2}/)?.[0]
+  if (!raw) return null
+
+  const [year, month, day] = raw.split('-').map(Number)
+  const date = new Date(year, month - 1, day + Number(offset || 0))
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
+function getLocalDateState(value) {
+  const raw = String(value || '').match(/^\d{4}-\d{2}-\d{2}/)?.[0]
+  if (!raw) return 'unknown'
+
+  const [year, month, day] = raw.split('-').map(Number)
+  const target = new Date(year, month - 1, day)
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+
+  if (target > today) return 'future'
+  if (target < today) return 'past'
+  return 'today'
+}
+
+function parseItinerary(value) {
+  if (Array.isArray(value)) return value
+  if (typeof value !== 'string' || !value.trim()) return []
+
+  try {
+    const parsed = JSON.parse(value)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+function cleanText(value) {
+  return String(value || '').replace(/<[^>]*>/g, '').trim()
+}
+
+function getParticipantTypeLabel(type) {
+  return {
+    adult: 'Người lớn',
+    child: 'Trẻ em',
+    infant: 'Em bé',
+  }[type] || type || 'Hành khách'
+}
+
+function getDurationLabel(tour, departure) {
+  const days = Number(tour.duration_days || 0)
+  const nights = Number(tour.duration_nights || 0)
+  if (days > 0) {
+    return `${days} ngày${nights > 0 ? ` ${nights} đêm` : ''}`
+  }
+
+  const start = new Date(String(departure.departure_date || '').replace(' ', 'T'))
+  const end = new Date(String(departure.return_date || '').replace(' ', 'T'))
+  if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime()) && end >= start) {
+    const durationDays = Math.round((end - start) / 86400000) + 1
+    return `${durationDays} ngày${durationDays > 1 ? ` ${durationDays - 1} đêm` : ''}`
+  }
+
+  return 'Chưa cập nhật'
+}
+
+function getTripProgress(booking, departure) {
+  if (booking.status === 'completed') return 2
+  if (booking.status === 'departed' || booking.display_status === 'departed') return 1
+
+  const now = Date.now()
+  const departureTime = departure.departure_date
+    ? new Date(String(departure.departure_date).replace(' ', 'T')).getTime()
+    : 0
+  const returnTime = departure.return_date
+    ? new Date(String(departure.return_date).replace(' ', 'T')).getTime()
+    : 0
+
+  if (returnTime > 0 && returnTime <= now) return 2
+  if (departureTime > 0 && departureTime <= now) return 1
+  return 0
+}
+
+function getActivityDayNumber(activity, index) {
+  return Number(activity?.day_number || activity?.itinerary?.day_number || index + 1)
+}
+
+function getActivityState(status, scheduledDate) {
+  if (status === 'completed') return { label: 'Đã hoàn thành', className: 'is-confirmed' }
+  if (status === 'in_progress') return { label: 'Đang diễn ra', className: 'is-in-progress' }
+  if (status === 'pending') return { label: 'Chưa bắt đầu', className: 'is-pending' }
+  if (getLocalDateState(scheduledDate) === 'future') return { label: 'Chưa đến ngày', className: 'is-upcoming' }
+  return { label: 'Chưa cập nhật', className: 'is-unknown' }
+}
+
+function DetailItem({ label, value, emphasize = false }) {
+  return (
+    <div className="booking-trip-detail-item">
+      <dt>{label}</dt>
+      <dd className={emphasize ? 'is-emphasized' : ''}>{value || 'Chưa cập nhật'}</dd>
+    </div>
+  )
+}
+
 function BookingDetailModal({ booking, busy, onClose, onDeleteRefundProof, onInvoice, onPaymentChange, onStatusChange }) {
+  const navigate = useNavigate()
+  const [expandedParticipant, setExpandedParticipant] = useState(null)
+  const [itineraryOpen, setItineraryOpen] = useState(false)
+  const [selectedItineraryDay, setSelectedItineraryDay] = useState(1)
+
+  if (!booking) return null
+
+  const tour = booking.tour || {}
+  const departure = bookingDeparture(booking) || {}
   const name = customerName(booking)
   const phone = customerPhone(booking)
-  const departure = bookingDeparture(booking)
   const participants = Array.isArray(booking.participants) ? booking.participants : []
   const contact = booking.contact || {}
   const payment = booking.payment || null
@@ -121,330 +250,487 @@ function BookingDetailModal({ booking, busy, onClose, onDeleteRefundProof, onInv
     : []
   const disruptionRequests = Array.isArray(booking.disruption_requests) ? booking.disruption_requests : []
   const cancellationHistories = statusHistories.filter((history) => history.new_status === 'cancelled')
+  const displayStatus = booking.display_status || booking.status
+  const capabilities = booking.capabilities || {}
   const isReadOnly = isBookingReadOnly(booking)
-  const departureText = departure
-    ? `${formatDate(departure.departure_date)} - ${formatDate(departure.return_date)}`
-    : 'Chưa có lịch khởi hành'
-  const paymentMethodLabel = payment?.payment_method === 'cod'
-    ? 'Thanh toán thủ công'
-    : payment?.payment_method || '--'
-  const refundDisplayStatus = booking.payment_status === 'refund_pending'
-    ? 'refund_pending'
-    : booking.payment_status === 'refunded'
-      ? 'refunded'
-      : null
-  const cannotReturnToPending = booking.payment_status === 'paid'
-    || booking.status === 'completed'
-    || booking.status === 'cancelled_by_tour'
-    || booking.tourDeparture?.status === 'completed'
-  const isCancelledByTour = booking.status === 'cancelled_by_tour'
-  const statusValue = isCancelledByTour ? 'confirmed' : (booking.status || '')
+  const isCancelled = ['cancelled', 'cancelled_by_tour'].includes(booking.status)
+    || ['cancelled', 'canceled'].includes(String(departure.status || '').toLowerCase())
+  const refundStatus = ['refund_pending', 'refunded'].includes(booking.payment_status)
+    ? booking.payment_status
+    : null
+  const departureDate = departure.departure_date ? formatDate(departure.departure_date) : 'Chưa cập nhật'
+  const returnDate = departure.return_date ? formatDate(departure.return_date) : 'Chưa cập nhật'
+  const departureLocation = departure.departure_location || departure.meeting_point || 'Chưa cập nhật'
+  const destinationName = tour.province?.name || tour.destination?.name || tour.destination_name || 'Chưa cập nhật'
+  const categoryName = tour.category?.name || 'Tour du lịch'
+  const duration = getDurationLabel(tour, departure)
+  const tourImage = mediaUrl(tour.thumbnail?.image_url || tour.thumbnail_url || tour.image || '')
+  const tripProgress = getTripProgress(booking, departure)
+  const itinerarySource = departure.stages?.length
+    ? departure.stages
+    : Array.isArray(tour.itineraries) && tour.itineraries.length
+      ? tour.itineraries
+      : parseItinerary(tour.itinerary)
+  const itineraryDayCount = Math.max(
+    Number(tour.duration_days) || 1,
+    ...itinerarySource.map((item, index) => getActivityDayNumber(item, index)),
+  )
+  const selectedDayActivities = itinerarySource
+    .filter((item, index) => getActivityDayNumber(item, index) === selectedItineraryDay)
+    .sort((a, b) => Number(a?.sort_order || a?.itinerary?.sort_order || 0) - Number(b?.sort_order || b?.itinerary?.sort_order || 0))
+  const isEligible = booking.eligibility
+    ? booking.eligibility.is_paid
+      && booking.eligibility.has_capacity
+      && booking.eligibility.tour_active
+      && booking.eligibility.departure_active
+    : false
+  const canSetAwaitingPayment = capabilities.can_set_awaiting_payment
+    ?? (booking.status === 'confirmed' && displayStatus === 'confirmed' && !isEligible)
+  const canConfirm = capabilities.can_confirm
+    ?? (booking.status === 'awaiting_payment' && isEligible)
+  const canRefund = capabilities.can_refund
+    ?? (booking.status === 'confirmed' && displayStatus === 'confirmed')
+  const statusValue = booking.status || ''
   const detailStatusOptions = [
-    { value: 'pending', label: 'Chờ xác nhận' },
-    { value: 'confirmed', label: 'Sắp diễn ra' },
-    { value: 'departed', label: 'Đang diễn ra' },
-    { value: 'completed', label: 'Đã kết thúc' },
-    { value: 'cancelled', label: 'Đã hủy' },
+    { value: 'awaiting_payment', label: 'Chờ thanh toán', disabled: booking.status !== 'awaiting_payment' && !canSetAwaitingPayment },
+    { value: 'confirmed', label: 'Đã xác nhận', disabled: booking.status !== 'confirmed' && !canConfirm },
   ]
+  if (!detailStatusOptions.some((item) => item.value === statusValue)) {
+    detailStatusOptions.push({
+      value: statusValue,
+      label: STATUS_LABELS[statusValue] || statusValue,
+      disabled: true,
+    })
+  }
 
   return (
-    <div className="booking-modal-backdrop" role="presentation" onMouseDown={onClose}>
-      <article className="booking-modal booking-detail-modal" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
-        <header className="booking-detail-header">
+    <div className="booking-modal-backdrop booking-trip-backdrop" role="presentation" onMouseDown={onClose}>
+      <article
+        className="booking-modal booking-detail-modal booking-trip-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="admin-booking-detail-title"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <header className="booking-trip-header">
           <div>
-            <p>Chi tiết booking</p>
-            <h2>{booking.booking_code || `#${booking.id}`}</h2>
-            <span>{booking.tour?.title || 'Chưa có thông tin tour'}</span>
+            <span className="booking-trip-kicker">Chi tiết chuyến đi</span>
+            <h2 id="admin-booking-detail-title">{tour.title || 'Tour ViVuGo'}</h2>
+            <p>Mã booking: <strong>{booking.booking_code || `#${booking.id}`}</strong></p>
           </div>
-          <div className="booking-detail-header-actions">
-            <BookingBadge type="status" value={booking.status} />
-            <BookingBadge type="payment" value={booking.payment_status} />
-            <button type="button" className="booking-invoice-button" title="Xuất hóa đơn" aria-label="Xuất hóa đơn" onClick={() => onInvoice(booking)}>
+          <div className="booking-trip-header-actions">
+            <button type="button" className="booking-trip-invoice-button" title="Xuất hóa đơn" aria-label="Xuất hóa đơn" onClick={() => onInvoice(booking)}>
               <InvoiceIcon />
             </button>
-            <button type="button" aria-label="Đóng" onClick={onClose}>×</button>
+            <button type="button" className="booking-trip-close-button" aria-label="Đóng" onClick={onClose}>
+              <Icon name="close" size={19} />
+            </button>
           </div>
         </header>
 
-        <div className="booking-detail-summary">
-          <section>
-            <span>Khách hàng</span>
-            <strong>{name}</strong>
-            <small>{phone || contact.contact_email || '--'}</small>
-          </section>
-          <section>
-            <span>Lịch khởi hành</span>
-            <strong>{departureText}</strong>
-            <small>{booking.number_of_people || 0} khách</small>
-          </section>
-          <section className="booking-detail-money">
-            <span>Tổng tiền</span>
-            <strong>{formatMoney(booking.total_amount)}</strong>
-            <small>Giảm giá {formatMoney(booking.discount_amount)}</small>
-          </section>
-        </div>
-
-        <div className="booking-detail-body">
-          <section className="booking-detail-panel">
-            <div className="booking-detail-panel-title">
-              <span>Thông tin liên hệ</span>
-            </div>
-            <dl className="booking-detail-list">
-              <div>
-                <dt>Họ tên</dt>
-                <dd>{contact.contact_name || name}</dd>
-              </div>
-              <div>
-                <dt>Số điện thoại</dt>
-                <dd>{contact.contact_phone || phone || '--'}</dd>
-              </div>
-              <div>
-                <dt>Email</dt>
-                <dd>{contact.contact_email || booking.user?.email || '--'}</dd>
-              </div>
-              <div>
-                <dt>Địa chỉ</dt>
-                <dd>{contact.address || '--'}</dd>
-              </div>
-            </dl>
-          </section>
-
-          <section className="booking-detail-panel">
-            <div className="booking-detail-panel-title">
-              <span>Thanh toán và xử lý</span>
-            </div>
-            <div className="booking-detail-controls">
-              <label>
-                Trạng thái
-                <select
-                  value={statusValue}
-                  disabled={busy || isReadOnly}
-                  onChange={(event) => onStatusChange(booking, event.target.value)}
-                >
-                  {detailStatusOptions.map((item) => (
-                    <option
-                      key={item.value}
-                      value={item.value}
-                      disabled={item.value === 'pending' && (cannotReturnToPending || isCancelledByTour)}
-                    >
-                      {item.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <div className="booking-payment-actions">
-                <span>Thanh toán</span>
-                {payment ? (
-                  <div>
-                    <button
-                      type="button"
-                      disabled={busy || isReadOnly || payment.status === 'success' || payment.status === 'refunded'}
-                      onClick={() => onPaymentChange(booking, 'confirm')}
-                    >
-                      Xác nhận
-                    </button>
-                    <button
-                      type="button"
-                      disabled={busy || isReadOnly || payment.status === 'failed' || payment.status === 'success' || payment.status === 'refunded'}
-                      onClick={() => onPaymentChange(booking, 'fail')}
-                    >
-                      Thất bại
-                    </button>
-                    <button
-                      type="button"
-                      disabled={busy || !['success', 'refunded'].includes(payment.status)}
-                      onClick={() => onPaymentChange(booking, 'refund')}
-                    >
-                      {payment.status === 'refunded'
-                        ? 'Thay ảnh hoàn tiền'
-                        : booking.payment_status === 'refund_pending' ? 'Đã hoàn tiền' : 'Hoàn tiền'}
-                    </button>
-                  </div>
-                ) : (
-                  <small>Chưa có bản ghi thanh toán</small>
-                )}
-              </div>
-            </div>
-            <dl className="booking-detail-list compact">
-              {booking.status === 'cancelled_by_tour' ? (
-                <>
-                  <div>
-                    <dt>Lý do hủy</dt>
-                    <dd>{cancellationReasonLabel(booking)}</dd>
-                  </div>
-                  <div>
-                    <dt>Phương án khách chọn</dt>
-                    <dd>{booking.resolution_status === 'pending_selection' ? 'Đang chờ khách lựa chọn' : booking.resolution_status || 'Chưa có'}</dd>
-                  </div>
-                </>
-              ) : null}
-              <div>
-                <dt>Đơn giá</dt>
-                <dd>{formatMoney(booking.unit_price)}</dd>
-              </div>
-              <div>
-                <dt>Ngày đặt</dt>
-                <dd>{formatDate(booking.created_at)}</dd>
-              </div>
-              <div>
-                <dt>Phương thức</dt>
-                <dd>{paymentMethodLabel}</dd>
-              </div>
-              <div>
-                <dt>Số tiền thanh toán</dt>
-                <dd>{payment ? formatMoney(payment.amount) : '--'}</dd>
-              </div>
-              <div>
-                <dt>Mã giao dịch</dt>
-                <dd>{payment?.transaction_code || '--'}</dd>
-              </div>
-              <div>
-                <dt>Thời gian thanh toán</dt>
-                <dd>{formatDate(payment?.paid_at)}</dd>
-              </div>
-              {payment?.refund_proof_url ? (
-                <div className="booking-refund-proof">
-                  <dt>Ảnh chứng minh hoàn tiền</dt>
-                  <dd><a href={mediaUrl(payment.refund_proof_url)} target="_blank" rel="noreferrer"><img src={mediaUrl(payment.refund_proof_url)} alt="Chứng minh đã hoàn tiền cho khách" /></a><button type="button" disabled={busy} onClick={() => onDeleteRefundProof(booking)}>Xóa ảnh</button></dd>
-                </div>
-              ) : null}
-            </dl>
-          </section>
-        </div>
-
-        <section className="booking-detail-panel booking-participants-panel">
-            <div className="booking-detail-panel-title">
-              <span>Danh sách hành khách</span>
-              <strong>{participants.length}</strong>
-            </div>
-            {participants.length ? (
-              <div className="booking-participant-list">
-              {participants.map((participant, index) => (
-                <div className="booking-participant-item" key={participant.id || `${participant.full_name}-${index}`}>
-                  <span>{index + 1}</span>
-                  <div>
-                    <strong>{participant.full_name || 'Hành khách'}</strong>
-                    <small>
-                      {formatDate(participant.birth_date)}
-                      {participant.phone ? ` · ${participant.phone}` : ''}
-                    </small>
-                  </div>
-                  <b>{formatMoney(participant.unit_price)}</b>
-                </div>
-              ))}
-              </div>
+        <div className="booking-trip-body">
+          <section className="booking-trip-tour-summary">
+            {tourImage ? (
+              <img src={tourImage} alt={tour.title || 'Ảnh tour'} />
             ) : (
-              <div className="booking-participant-empty">
-                Booking này chưa có dữ liệu hành khách.
+              <div className="booking-trip-tour-placeholder">
+                <Icon name="compass" size={30} />
               </div>
             )}
-        </section>
-
-        <section className="booking-detail-panel booking-history-panel">
-          <div className="booking-detail-panel-title">
-            <span>Lịch sử thay đổi trạng thái</span>
-            <strong>{statusHistories.length}</strong>
-          </div>
-          {statusHistories.length ? (
-            <ol className="booking-status-timeline">
-              {statusHistories.map((history) => (
-                <li key={history.id}>
-                  <span className="booking-status-timeline__dot" aria-hidden="true" />
-                  <div>
-                    <strong>
-                      {history.old_status ? `${STATUS_LABELS[history.old_status] || history.old_status} → ` : ''}
-                      {STATUS_LABELS[history.new_status] || history.new_status}
-                    </strong>
-                    <small>{formatDate(history.created_at)} · {history.changed_by?.full_name || 'Hệ thống'}</small>
-                    {history.note ? <p>{history.note}</p> : null}
-                  </div>
-                </li>
-              ))}
-            </ol>
-          ) : (
-            <div className="booking-participant-empty">Chưa có lịch sử thay đổi trạng thái.</div>
-          )}
-        </section>
-
-        <section className="booking-detail-panel booking-history-panel">
-          <div className="booking-detail-panel-title">
-            <span>Lịch sử sửa thông tin liên hệ/hành khách</span>
-            <strong>{informationChangeHistories.length}</strong>
-          </div>
-          {informationChangeHistories.length ? (
-            <ol className="booking-status-timeline">
-              {informationChangeHistories.map((history) => {
-                const changes = summarizeInformationChange(history)
-
-                return (
-                  <li key={history.id}>
-                    <span className="booking-status-timeline__dot" aria-hidden="true" />
-                    <div>
-                      <strong>Khách hàng sửa thông tin</strong>
-                      <small>{formatDate(history.created_at)} · {history.changed_by?.full_name || 'Khách hàng'}</small>
-                      {changes.length ? (
-                        <ul className="booking-information-change-list">
-                          {changes.map((line, index) => (
-                            <li key={index}>{line}</li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p>Không phát hiện thay đổi nội dung cụ thể.</p>
-                      )}
-                    </div>
-                  </li>
-                )
-              })}
-            </ol>
-          ) : (
-            <div className="booking-participant-empty">Chưa có lịch sử sửa thông tin.</div>
-          )}
-        </section>
-
-        <section className="booking-detail-panel booking-history-panel">
-          <div className="booking-detail-panel-title">
-            <span>Lịch sử hủy và xử lý booking</span>
-            <strong>{disruptionRequests.length + cancellationHistories.length}</strong>
-          </div>
-          {disruptionRequests.length || cancellationHistories.length ? (
-            <div className="booking-disruption-list">
-              {disruptionRequests.map((request) => (
-                <article key={request.id}>
-                  <div>
-                    <strong>{REQUEST_TYPE_LABELS[request.type] || request.type}</strong>
-                    <span className={`booking-request-inline-status ${request.status}`}>
-                      {REQUEST_STATUS_LABELS[request.type === 'refund' && request.status === 'approved'
-                        ? (refundDisplayStatus || request.status)
-                        : request.status] || request.status}
-                    </span>
-                  </div>
-                  <small>Gửi lúc {formatDate(request.created_at)}</small>
-                  <p>{request.reason || 'Không có lý do.'}</p>
-                  {request.admin_note ? <p><b>Phản hồi:</b> {request.admin_note}</p> : null}
-                </article>
-              ))}
-              {cancellationHistories.map((history) => (
-                <article key={`cancellation-history-${history.id}`}>
-                  <div>
-                    <strong>Hủy booking</strong>
-                    <span className="booking-request-inline-status approved">Đã ghi nhận</span>
-                  </div>
-                  <small>{formatDate(history.created_at)} · {history.changed_by?.full_name || 'Khách hàng'}</small>
-                  <p>{String(history.note || 'Booking đã được hủy.').replace(/^\[[^\]]+\]\s*/, '')}</p>
-                </article>
-              ))}
+            <div className="booking-trip-tour-summary-content">
+              <span>{categoryName} · {destinationName}</span>
+              <h3>Thông tin tour</h3>
+              <p>{tour.summary || tour.description || 'Thông tin tour đang được cập nhật.'}</p>
+              <div className="booking-trip-tour-meta">
+                <span><Icon name="mapPin" size={14} /> {destinationName}</span>
+                <span><Icon name="clock" size={14} /> {duration}</span>
+              </div>
             </div>
-          ) : (
-            <div className="booking-participant-empty">Booking này chưa có yêu cầu hủy hoặc thay đổi.</div>
-          )}
-        </section>
-
-        {booking.note || contact.special_request ? (
-          <section className="booking-note">
-            <span>Ghi chú</span>
-            <p>{booking.note || contact.special_request}</p>
+            <button
+              type="button"
+              className="booking-trip-tour-detail-button"
+              disabled={!tour.id}
+              onClick={() => {
+                onClose()
+                navigate(`/admin/tours/${tour.id}`)
+              }}
+            >
+              <Icon name="eye" size={15} />
+              Chi tiết
+            </button>
           </section>
-        ) : null}
+
+          {isCancelled ? (
+            <section className={`booking-trip-cancelled${refundStatus ? ` is-${refundStatus}` : ''}`} aria-label="Trạng thái tour">
+              <div><Icon name="xCircle" size={17} /> {STATUS_LABELS[booking.status] || 'Đã hủy'}</div>
+            </section>
+          ) : (
+            <section className="booking-trip-progress" aria-label="Tiến độ chuyến đi">
+              {TRIP_PROGRESS_STEPS.map((label, index) => (
+                <div className="booking-trip-progress-part" key={label}>
+                  <div
+                    className={`booking-trip-progress-step${index <= tripProgress ? ' is-reached' : ''}${index === tripProgress ? ' is-current' : ''}`}
+                    aria-current={index === tripProgress ? 'step' : undefined}
+                  >
+                    <span>{index + 1}</span>
+                    <strong>{label}</strong>
+                  </div>
+                  {index < TRIP_PROGRESS_STEPS.length - 1 ? (
+                    <i className={index < tripProgress ? 'is-complete' : ''} aria-hidden="true" />
+                  ) : null}
+                </div>
+              ))}
+            </section>
+          )}
+
+          <div className="booking-trip-info-grid">
+            <section className="booking-trip-card">
+              <div className="booking-trip-card-title">
+                <Icon name="calendar" size={17} />
+                <h3>Thông tin lịch</h3>
+              </div>
+              <dl className="booking-trip-detail-list">
+                <DetailItem label="Ngày đi" value={departureDate} />
+                <DetailItem label="Ngày về" value={returnDate} />
+                <DetailItem label="Điểm tập trung" value={departureLocation} />
+                <DetailItem label="Giá / khách" value={formatMoney(booking.unit_price)} />
+                <DetailItem label="Thời gian đặt" value={formatDateTime(booking.created_at)} />
+                <DetailItem label="Tổng thanh toán" value={formatMoney(booking.total_amount)} emphasize />
+              </dl>
+            </section>
+
+            <section className={`booking-trip-card${isCancelled ? ' is-cancelled' : ''}${refundStatus ? ` is-${refundStatus}` : ''}`}>
+              <div className="booking-trip-card-title">
+                <Icon name={isCancelled ? 'alertCircle' : 'checkCircle'} size={17} />
+                <h3>{refundStatus ? 'Trạng thái hoàn tiền' : 'Trạng thái tour'}</h3>
+              </div>
+              <div className="booking-trip-status-panel">
+                <span>Trạng thái hiện tại</span>
+                <strong>{refundStatus ? STATUS_LABELS[refundStatus] || refundStatus : isCancelled ? 'Tour đã hủy' : STATUS_LABELS[displayStatus] || displayStatus || 'Chưa cập nhật'}</strong>
+              </div>
+              {isCancelled ? (
+                <div className="booking-trip-cancellation-info">
+                  <div>
+                    <span>Người đã hủy tour</span>
+                    <strong>{booking.status === 'cancelled_by_tour' ? 'Quản trị viên' : 'Khách hàng'}</strong>
+                  </div>
+                  <div>
+                    <span>Thời gian hủy</span>
+                    <strong>{formatDateTime(booking.cancelled_at || cancellationHistories[0]?.created_at)}</strong>
+                  </div>
+                  <div>
+                    <span>Lý do</span>
+                    <p>{cancellationReasonLabel(booking)}</p>
+                  </div>
+                </div>
+              ) : (
+                <p className="booking-trip-hint">Trạng thái booking và lịch khởi hành được đồng bộ theo dữ liệu hiện tại.</p>
+              )}
+            </section>
+          </div>
+
+          <section className={`booking-trip-card vg-itinerary-card${itineraryOpen ? ' is-open' : ''}`}>
+            <button
+              type="button"
+              className="vg-itinerary-toggle"
+              onClick={() => setItineraryOpen((current) => !current)}
+              aria-expanded={itineraryOpen}
+              aria-controls="admin-booking-itinerary-content"
+            >
+              <span className="vg-itinerary-toggle-icon"><Icon name="calendar" size={17} /></span>
+              <span>
+                <strong>Lịch trình tour</strong>
+                <small>Theo dõi hoạt động và trạng thái mới nhất do HDV cập nhật</small>
+              </span>
+              <span className="vg-itinerary-toggle-summary">{itineraryDayCount} ngày</span>
+              <Icon name="chevronDown" size={18} className="vg-itinerary-chevron" />
+            </button>
+
+            {itineraryOpen ? (
+              <div className="vg-itinerary-content vg-itinerary-admin-content" id="admin-booking-itinerary-content">
+                <div className="vg-itinerary-days" role="tablist" aria-label="Chọn ngày lịch trình">
+                  {Array.from({ length: itineraryDayCount }).map((_, index) => {
+                    const dayNumber = index + 1
+                    return (
+                      <button
+                        key={dayNumber}
+                        type="button"
+                        role="tab"
+                        aria-selected={selectedItineraryDay === dayNumber}
+                        className={selectedItineraryDay === dayNumber ? 'is-active' : ''}
+                        onClick={() => setSelectedItineraryDay(dayNumber)}
+                      >
+                        <span>Ngày {dayNumber}</span>
+                        <strong>{formatDate(addDays(departure.departure_date, index))}</strong>
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {selectedDayActivities.length ? (
+                  <div className="vg-itinerary-list">
+                    {selectedDayActivities.map((activity, index) => {
+                      const detail = activity.itinerary || activity
+                      const destination = activity.destination_place
+                        || activity.destinationPlace
+                        || detail.destination_place
+                        || detail.destinationPlace
+                      const scheduledDate = addDays(departure.departure_date, selectedItineraryDay - 1)
+                      const activityState = getActivityState(activity.status, scheduledDate)
+                      const startTime = activity.start_time || detail.start_time
+                      const endTime = activity.end_time || detail.end_time
+
+                      return (
+                        <article className={`vg-itinerary-activity ${activityState.className}`} key={activity.id || detail.id || index}>
+                          <span className="vg-itinerary-number">{index + 1}</span>
+                          <div className="vg-itinerary-activity-main">
+                            <div className="vg-itinerary-activity-head">
+                              <span className="vg-itinerary-time"><Icon name="clock" size={13} /> {String(startTime || '--:--').slice(0, 5)}{endTime ? ` – ${String(endTime).slice(0, 5)}` : ''}</span>
+                              <strong>{activity.title || detail.title || `Hoạt động ${index + 1}`}</strong>
+                              <span className="vg-itinerary-visually-hidden">{activityState.label}</span>
+                            </div>
+                            {destination?.name ? <p className="vg-itinerary-destination"><Icon name="mapPin" size={14} /> <strong>{destination.name}</strong>{destination.address ? ` · ${destination.address}` : ''}</p> : null}
+                            {detail.description ? <p className="vg-itinerary-description">{cleanText(detail.description)}</p> : null}
+                          </div>
+                        </article>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <div className="vg-itinerary-empty">Lịch trình ngày {selectedItineraryDay} đang được cập nhật.</div>
+                )}
+              </div>
+            ) : null}
+          </section>
+
+          <section className="booking-trip-card booking-trip-passenger-card">
+            <div className="booking-trip-card-title">
+              <Icon name="users" size={17} />
+              <h3>Thành viên</h3>
+              <span>{participants.length} thành viên</span>
+            </div>
+            <p className="booking-trip-hint">Danh sách thành viên trong booking {booking.booking_code || ''}. Bấm vào từng thành viên để xem đầy đủ thông tin.</p>
+            {participants.length ? (
+              <div className="booking-trip-passenger-list">
+                {participants.map((participant, index) => {
+                  const participantKey = participant.id || index
+                  const isExpanded = expandedParticipant === participantKey
+                  const participantPanelId = `admin-booking-participant-${participantKey}`
+                  const genderLabel = {
+                    male: 'Nam',
+                    female: 'Nữ',
+                    other: 'Khác',
+                  }[participant.gender] || 'Chưa cập nhật'
+
+                  return (
+                    <article className={`booking-trip-passenger${isExpanded ? ' is-expanded' : ''}`} key={participantKey}>
+                      <button
+                        type="button"
+                        className="booking-trip-passenger-toggle"
+                        aria-expanded={isExpanded}
+                        aria-controls={participantPanelId}
+                        onClick={() => setExpandedParticipant(isExpanded ? null : participantKey)}
+                      >
+                        <span className="booking-trip-passenger-number">{index + 1}</span>
+                        <span>
+                          <strong>Thành viên {index + 1}</strong>
+                          <small>{participant.full_name || 'Chưa cập nhật họ tên'}</small>
+                        </span>
+                        <span className="booking-trip-passenger-meta">{getParticipantTypeLabel(participant.participant_type)}</span>
+                      </button>
+
+                      {isExpanded ? (
+                        <dl className="booking-trip-passenger-details" id={participantPanelId}>
+                          <DetailItem label="Họ và tên" value={participant.full_name} />
+                          <DetailItem label="Loại thành viên" value={getParticipantTypeLabel(participant.participant_type)} />
+                          <DetailItem label="Giới tính" value={genderLabel} />
+                          <DetailItem label="Ngày sinh" value={participant.birth_date ? formatDate(participant.birth_date) : 'Chưa cập nhật'} />
+                          <DetailItem label="Số điện thoại" value={participant.phone} />
+                          <DetailItem label="CCCD / Hộ chiếu" value={participant.identity_number} />
+                          <DetailItem label="Giá vé" value={formatMoney(participant.unit_price)} emphasize />
+                        </dl>
+                      ) : null}
+                    </article>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="booking-trip-empty">Booking này chưa có dữ liệu hành khách.</div>
+            )}
+          </section>
+
+          <details className="booking-admin-collapsible">
+            <summary>
+              <span className="booking-admin-collapsible-title"><Icon name="settings" size={17} /><strong>Thao tác quản trị</strong></span>
+              <span>Trạng thái · thanh toán</span>
+            </summary>
+            <div className="booking-admin-collapsible-body">
+              <div className="booking-admin-control-grid">
+                <label>
+                  Trạng thái booking
+                  <select value={statusValue} disabled={busy || isReadOnly} onChange={(event) => onStatusChange(booking, event.target.value)}>
+                    {detailStatusOptions.map((item) => (
+                      <option key={item.value} value={item.value} disabled={item.disabled}>{item.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <div className="booking-payment-actions">
+                  <span>Thanh toán</span>
+                  {payment ? (
+                    <div>
+                      <button type="button" disabled={busy || isReadOnly || payment.status === 'success' || payment.status === 'refunded'} onClick={() => onPaymentChange(booking, 'confirm')}>Xác nhận</button>
+                      <button type="button" disabled={busy || isReadOnly || payment.status === 'failed' || payment.status === 'success' || payment.status === 'refunded'} onClick={() => onPaymentChange(booking, 'fail')}>Thất bại</button>
+                      <button type="button" disabled={busy || !canRefund || !['success', 'refunded'].includes(payment.status)} onClick={() => onPaymentChange(booking, 'refund')}>
+                        {payment.status === 'refunded' ? 'Thay ảnh hoàn tiền' : 'Hoàn tiền'}
+                      </button>
+                    </div>
+                  ) : (
+                    <small>Chưa có bản ghi thanh toán</small>
+                  )}
+                </div>
+              </div>
+              <dl className="booking-admin-data-grid">
+                <DetailItem label="Đơn giá" value={formatMoney(booking.unit_price)} />
+                <DetailItem label="Ngày đặt" value={formatDateTime(booking.created_at)} />
+                <DetailItem label="Phương thức" value={payment?.payment_method === 'cod' ? 'Thanh toán thủ công' : payment?.payment_method || '--'} />
+                <DetailItem label="Số tiền thanh toán" value={payment ? formatMoney(payment.amount) : '--'} />
+                <DetailItem label="Mã giao dịch" value={payment?.transaction_code || '--'} />
+                <DetailItem label="Thời gian thanh toán" value={formatDateTime(payment?.paid_at)} />
+                {booking.status === 'cancelled_by_tour' ? (
+                  <>
+                    <DetailItem label="Lý do hủy" value={cancellationReasonLabel(booking)} />
+                    <DetailItem label="Phương án khách chọn" value={booking.resolution_status === 'pending_selection' ? 'Đang chờ khách lựa chọn' : booking.resolution_status || 'Chưa có'} />
+                  </>
+                ) : null}
+              </dl>
+              {payment?.refund_proof_url ? (
+                <div className="booking-admin-refund-proof">
+                  <span>Ảnh chứng minh hoàn tiền</span>
+                  <div>
+                    <a href={mediaUrl(payment.refund_proof_url)} target="_blank" rel="noreferrer">
+                      <img src={mediaUrl(payment.refund_proof_url)} alt="Chứng minh đã hoàn tiền cho khách" />
+                    </a>
+                    <button type="button" disabled={busy || !canRefund} onClick={() => onDeleteRefundProof(booking)}>Xóa ảnh</button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </details>
+
+          <details className="booking-admin-collapsible">
+            <summary>
+              <span className="booking-admin-collapsible-title"><Icon name="user" size={17} /><strong>Thông tin liên hệ</strong></span>
+              <span>{name}</span>
+            </summary>
+            <div className="booking-admin-collapsible-body">
+              <dl className="booking-admin-data-grid">
+                <DetailItem label="Họ tên" value={contact.contact_name || name} />
+                <DetailItem label="Số điện thoại" value={contact.contact_phone || phone} />
+                <DetailItem label="Email" value={contact.contact_email || booking.user?.email} />
+                <DetailItem label="Địa chỉ" value={contact.address} />
+                <DetailItem label="Yêu cầu đặc biệt" value={contact.special_request} />
+              </dl>
+            </div>
+          </details>
+
+          <details className="booking-admin-collapsible">
+            <summary>
+              <span className="booking-admin-collapsible-title"><Icon name="clock" size={17} /><strong>Lịch sử thay đổi trạng thái</strong></span>
+              <span>{statusHistories.length} bản ghi</span>
+            </summary>
+            <div className="booking-admin-collapsible-body">
+              {statusHistories.length ? (
+                <ol className="booking-history-list">
+                  {statusHistories.map((history) => (
+                    <li key={history.id}>
+                      <span className="booking-history-dot" aria-hidden="true" />
+                      <div>
+                        <strong>{history.old_status ? `${STATUS_LABELS[history.old_status] || history.old_status} → ` : ''}{STATUS_LABELS[history.new_status] || history.new_status}</strong>
+                        <small>{formatDateTime(history.created_at)} · {history.changed_by?.full_name || 'Hệ thống'}</small>
+                        {history.note ? <p>{history.note}</p> : null}
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              ) : <div className="booking-trip-empty">Chưa có lịch sử thay đổi trạng thái.</div>}
+            </div>
+          </details>
+
+          <details className="booking-admin-collapsible">
+            <summary>
+              <span className="booking-admin-collapsible-title"><Icon name="edit" size={17} /><strong>Lịch sử sửa thông tin</strong></span>
+              <span>{informationChangeHistories.length} bản ghi</span>
+            </summary>
+            <div className="booking-admin-collapsible-body">
+              {informationChangeHistories.length ? (
+                <ol className="booking-history-list">
+                  {informationChangeHistories.map((history) => {
+                    const changes = summarizeInformationChange(history)
+                    return (
+                      <li key={history.id}>
+                        <span className="booking-history-dot" aria-hidden="true" />
+                        <div>
+                          <strong>Khách hàng sửa thông tin</strong>
+                          <small>{formatDateTime(history.created_at)} · {history.changed_by?.full_name || 'Khách hàng'}</small>
+                          {changes.length ? <ul className="booking-information-change-list">{changes.map((line, index) => <li key={index}>{line}</li>)}</ul> : <p>Không phát hiện thay đổi nội dung cụ thể.</p>}
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ol>
+              ) : <div className="booking-trip-empty">Chưa có lịch sử sửa thông tin.</div>}
+            </div>
+          </details>
+
+          <details className="booking-admin-collapsible">
+            <summary>
+              <span className="booking-admin-collapsible-title"><Icon name="alertCircle" size={17} /><strong>Lịch sử hủy và xử lý booking</strong></span>
+              <span>{disruptionRequests.length + cancellationHistories.length} bản ghi</span>
+            </summary>
+            <div className="booking-admin-collapsible-body">
+              {disruptionRequests.length || cancellationHistories.length ? (
+                <div className="booking-disruption-list">
+                  {disruptionRequests.map((request) => (
+                    <article key={request.id}>
+                      <div>
+                        <strong>{REQUEST_TYPE_LABELS[request.type] || request.type}</strong>
+                        <span className={`booking-request-inline-status ${request.status}`}>
+                          {REQUEST_STATUS_LABELS[request.type === 'refund' && request.status === 'approved'
+                            ? (refundStatus || request.status)
+                            : request.status] || request.status}
+                        </span>
+                      </div>
+                      <small>Gửi lúc {formatDateTime(request.created_at)}</small>
+                      <p>{request.reason || 'Không có lý do.'}</p>
+                      {request.admin_note ? <p><b>Phản hồi:</b> {request.admin_note}</p> : null}
+                    </article>
+                  ))}
+                  {cancellationHistories.map((history) => (
+                    <article key={`cancellation-history-${history.id}`}>
+                      <div>
+                        <strong>Hủy booking</strong>
+                        <span className="booking-request-inline-status approved">Đã ghi nhận</span>
+                      </div>
+                      <small>{formatDateTime(history.created_at)} · {history.changed_by?.full_name || 'Khách hàng'}</small>
+                      <p>{String(history.note || 'Booking đã được hủy.').replace(/^\[[^\]]+\]\s*/, '')}</p>
+                    </article>
+                  ))}
+                </div>
+              ) : <div className="booking-trip-empty">Booking này chưa có yêu cầu hủy hoặc thay đổi.</div>}
+            </div>
+          </details>
+
+          {booking.note || contact.special_request ? (
+            <section className="booking-trip-note">
+              <span>Ghi chú</span>
+              <p>{booking.note || contact.special_request}</p>
+            </section>
+          ) : null}
+        </div>
+
+        <footer className="booking-trip-footer">
+          <button type="button" onClick={onClose}>Đóng</button>
+        </footer>
       </article>
     </div>
   )

@@ -154,7 +154,7 @@ function CustomerPage() {
   }, [normalizedTours]);
 
   const pendingPaymentCount = useMemo(() => bookings.filter((booking) => (
-    booking.status === "pending"
+    booking.status === "awaiting_payment"
     && booking.payment_status === "unpaid"
     && booking.payment?.payment_method === "vnpay"
     && booking.payment?.status === "pending"

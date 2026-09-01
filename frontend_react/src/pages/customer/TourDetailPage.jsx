@@ -1974,7 +1974,7 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                     <h5>Phương thức thanh toán</h5>
                     <div className="preview-content">
                       <p><strong>Cổng thanh toán:</strong> Giả lập kiểm thử ViVuGo</p>
-                      <p><strong>Trạng thái:</strong> Chờ xác nhận đặt chỗ</p>
+                      <p><strong>Trạng thái:</strong> Chờ thanh toán</p>
                     </div>
                   </div>
                 )}

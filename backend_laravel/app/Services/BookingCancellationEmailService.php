@@ -16,6 +16,8 @@ class BookingCancellationEmailService
 
     public const SOURCE_ADMIN_DEPARTURE = 'admin_departure';
 
+    public const SOURCE_ADMIN_BOOKING = 'admin_booking';
+
     public function enqueueForCancelledBooking(Booking $booking, string $source): ?BookingCancellationOutbox
     {
         $booking = $this->loadBooking($booking);
@@ -69,14 +71,13 @@ class BookingCancellationEmailService
             return false;
         }
 
-        if ($source === self::SOURCE_ADMIN_DEPARTURE) {
-            return $booking->status === 'cancelled_by_tour';
-        }
-
-        return in_array($source, [
+        return match ($source) {
+            self::SOURCE_ADMIN_DEPARTURE => $booking->status === 'cancelled_by_tour',
+            self::SOURCE_ADMIN_BOOKING => $booking->status === 'cancelled',
             self::SOURCE_CUSTOMER_DIRECT,
-            self::SOURCE_CUSTOMER_REQUEST_APPROVED,
-        ], true) && $booking->status === 'cancelled';
+            self::SOURCE_CUSTOMER_REQUEST_APPROVED => $booking->status === 'cancelled',
+            default => false,
+        };
     }
 
     private function resolveRecipientEmail(Booking $booking): ?string
@@ -136,6 +137,10 @@ class BookingCancellationEmailService
             self::SOURCE_ADMIN_DEPARTURE => [
                 'mail_subject' => 'Thông báo tour bị hủy',
                 'headline' => 'Lịch khởi hành của tour đã bị hủy bởi quản trị viên.',
+            ],
+            self::SOURCE_ADMIN_BOOKING => [
+                'mail_subject' => 'Thông báo booking bị hủy',
+                'headline' => 'Booking của quý khách đã bị hủy bởi quản trị viên.',
             ],
             default => [
                 'mail_subject' => 'Xác nhận hủy tour',

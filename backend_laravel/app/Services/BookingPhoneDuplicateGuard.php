@@ -35,8 +35,8 @@ class BookingPhoneDuplicateGuard
     {
         $query->where(function ($builder): void {
             $builder->where('status', 'confirmed')
-                ->orWhere(function ($pending): void {
-                    $pending->where('status', 'pending')
+                ->orWhere(function ($awaitingPayment): void {
+                    $awaitingPayment->where('status', 'awaiting_payment')
                         ->where(function ($paymentState): void {
                             $paymentState->where('payment_status', 'paid')
                                 ->orWhereHas('payment', fn ($payment) => $payment

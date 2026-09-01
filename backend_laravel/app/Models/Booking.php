@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Booking extends Model
 {
     use SoftDeletes;
+
     // Số lần hủy tối đa được phép cho MỖI TOUR (không phân biệt lịch khởi hành).
     public const CUSTOMER_CANCELLATION_LIMIT = 2;
 
@@ -62,7 +63,7 @@ class Booking extends Model
         'total_amount',
 
         // Trạng thái đơn hàng
-        'status',           // Ví dụ: confirmed, pending, completed
+        'status',           // Ví dụ: awaiting_payment, confirmed, completed
         'payment_status',   // Ví dụ: unpaid, paid, partially_paid
         'slot_committed_at', // Thời điểm booking thực sự chiếm chỗ
 
@@ -86,19 +87,19 @@ class Booking extends Model
     ];
 
     // ─── Bảo vệ state machine (lớp phòng vệ thứ 2, độc lập với check ở Admin\BookingController) ──
-    // Admin\BookingController::update() đã chặn completed/paid -> pending ở tầng controller.
+    // Admin\BookingController::update() đã chặn completed/paid -> awaiting_payment ở tầng controller.
     // Guard này đảm bảo dù có endpoint/khu vực nào khác lỡ set status trực tiếp
-    // qua Eloquent thì cũng không thể đưa 1 booking completed quay lại pending.
+    // qua Eloquent thì cũng không thể đưa 1 booking completed quay lại awaiting_payment.
     protected static function booted(): void
     {
         static::updating(function (Booking $booking): void {
             if (
                 $booking->isDirty('status')
                 && $booking->getOriginal('status') === 'completed'
-                && $booking->status === 'pending'
+                && $booking->status === 'awaiting_payment'
             ) {
                 throw new \RuntimeException(
-                    'Booking đã hoàn thành (completed) không được phép quay lại trạng thái chờ xác nhận (pending).'
+                    'Booking đã hoàn thành (completed) không được phép quay lại trạng thái chờ thanh toán (awaiting_payment).'
                 );
             }
         });
@@ -107,7 +108,7 @@ class Booking extends Model
     // Các trạng thái khách hàng còn được phép tự thao tác (hủy / sửa thông tin)
     public function canBeManagedByCustomer(): bool
     {
-        return in_array($this->status, ['pending', 'confirmed'], true);
+        return in_array($this->status, ['awaiting_payment', 'confirmed'], true);
     }
 
     public function user(): BelongsTo
@@ -165,6 +166,12 @@ class Booking extends Model
     {
         return $this->hasMany(BookingDisruptionRequest::class);
     }
+
+    public function auditLogs(): HasMany
+    {
+        return $this->hasMany(BookingAuditLog::class);
+    }
+
     public function sourceBooking(): BelongsTo
     {
         return $this->belongsTo(self::class, 'source_booking_id');
@@ -180,11 +187,11 @@ class Booking extends Model
     {
         return $query->when(
             $keyword,
-            fn($q) => $q->where(function ($searchQuery) use ($keyword) {
+            fn ($q) => $q->where(function ($searchQuery) use ($keyword) {
                 $searchQuery
-                    ->whereHas('tour', fn($tour) => $tour->where('title', 'like', "%{$keyword}%"))
-                    ->orWhereHas('user', fn($user) => $user->where('full_name', 'like', "%{$keyword}%"))
-                    ->orWhereHas('contact', fn($contact) => $contact->where('contact_name', 'like', "%{$keyword}%"));
+                    ->whereHas('tour', fn ($tour) => $tour->where('title', 'like', "%{$keyword}%"))
+                    ->orWhereHas('user', fn ($user) => $user->where('full_name', 'like', "%{$keyword}%"))
+                    ->orWhereHas('contact', fn ($contact) => $contact->where('contact_name', 'like', "%{$keyword}%"));
             })
         );
     }
@@ -202,13 +209,13 @@ class Booking extends Model
 
     public function scopeFilterPaymentStatus($query, $paymentStatus)
     {
-        return $query->when($paymentStatus, fn($q) => $q->where('payment_status', $paymentStatus));
+        return $query->when($paymentStatus, fn ($q) => $q->where('payment_status', $paymentStatus));
     }
 
     public function scopeFilterDate($query, $from, $to)
     {
         return $query
-            ->when($from, fn($q) => $q->whereDate('created_at', '>=', $from))
-            ->when($to, fn($q) => $q->whereDate('created_at', '<=', $to));
+            ->when($from, fn ($q) => $q->whereDate('created_at', '>=', $from))
+            ->when($to, fn ($q) => $q->whereDate('created_at', '<=', $to));
     }
 }

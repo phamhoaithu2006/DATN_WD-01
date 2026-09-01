@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import AdminPageHeader from '../../components/admin/AdminPageHeader'
 import adminBookingDisruptionApi from '../../services/adminBookingDisruptionApi'
-import { refundPayment } from '../../services/paymentApi'
 import { tourDepartureApi } from '../../services/tourDepartureApi'
 import { mediaUrl } from '../../utils/mediaUrl'
 import '../../styles/booking-cancellation-requests.css'
@@ -581,10 +580,8 @@ function BookingCancellationRequestsPage({ embedded = false }) {
   }
 
   const submitRefund = async () => {
-    const paymentId = selectedRequest?.booking?.payment?.id
-
     if (!selectedRequest || selectedRequest.type !== 'refund' || selectedRequest.status !== 'approved') return
-    if (!paymentId) {
+    if (!selectedRequest.booking?.payment?.id) {
       setNotice({ type: 'error', text: 'Booking này chưa có bản ghi thanh toán để xác nhận hoàn tiền.' })
       return
     }
@@ -595,7 +592,7 @@ function BookingCancellationRequestsPage({ embedded = false }) {
 
     setBusy(true)
     try {
-      const response = await refundPayment(paymentId, refundProofFile)
+      const response = await adminBookingDisruptionApi.refund(selectedRequest.id, refundProofFile)
       const detailResponse = await adminBookingDisruptionApi.show(selectedRequest.id)
       setSelectedRequest(detailResponse?.data || selectedRequest)
       setRefundProofFile(null)

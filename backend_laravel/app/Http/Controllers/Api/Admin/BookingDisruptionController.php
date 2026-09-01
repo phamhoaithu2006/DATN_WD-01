@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\BookingDisruptionRequest;
 use App\Services\BookingDisruptionResolutionService;
+use App\Services\BookingRefundService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,6 +16,7 @@ class BookingDisruptionController extends Controller
 {
     public function __construct(
         private readonly BookingDisruptionResolutionService $resolutionService,
+        private readonly BookingRefundService $refundService,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -39,6 +41,7 @@ class BookingDisruptionController extends Controller
                     $q->where('status', 'approved')
                         ->where('type', 'refund')
                         ->whereHas('booking', fn ($booking) => $booking->where('payment_status', $status));
+
                     return;
                 }
 
@@ -96,6 +99,26 @@ class BookingDisruptionController extends Controller
         ]);
     }
 
+    public function refund(Request $request, BookingDisruptionRequest $bookingDisruptionRequest): JsonResponse
+    {
+        $data = $request->validate([
+            'refund_proof' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+        ]);
+
+        $this->refundService->refundApprovedRequest(
+            $bookingDisruptionRequest->id,
+            $data['refund_proof'],
+        );
+
+        $bookingDisruptionRequest->load($this->relations());
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đã xác nhận hoàn tiền cho booking.',
+            'data' => $this->present($bookingDisruptionRequest),
+        ]);
+    }
+
     public function approve(Request $request, BookingDisruptionRequest $bookingDisruptionRequest): JsonResponse
     {
         $data = $request->validate([
@@ -139,7 +162,7 @@ class BookingDisruptionController extends Controller
     private function summaryData(): array
     {
         $counts = BookingDisruptionRequest::query()
-            ->selectRaw("COUNT(*) as total_count")
+            ->selectRaw('COUNT(*) as total_count')
             ->selectRaw("SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending_count")
             ->selectRaw("SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved_count")
             ->selectRaw("SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected_count")
@@ -147,13 +170,24 @@ class BookingDisruptionController extends Controller
 
         $byType = BookingDisruptionRequest::query()
             ->where('status', 'pending')
-            ->selectRaw("type, COUNT(*) as count")
+            ->selectRaw('type, COUNT(*) as count')
             ->groupBy('type')
             ->pluck('count', 'type');
 
+        $refundPendingCount = (int) BookingDisruptionRequest::query()
+            ->where('status', 'approved')
+            ->where('type', 'refund')
+            ->whereHas('booking', fn ($booking) => $booking->where('payment_status', 'refund_pending'))
+            ->count();
+
+        $pendingCount = (int) ($counts->pending_count ?? 0);
+        $actionableCount = $pendingCount + $refundPendingCount;
+
         return [
             'total_count' => (int) ($counts->total_count ?? 0),
-            'pending_count' => (int) ($counts->pending_count ?? 0),
+            'pending_count' => $pendingCount,
+            'refund_pending_count' => $refundPendingCount,
+            'actionable_count' => $actionableCount,
             'approved_count' => (int) ($counts->approved_count ?? 0),
             'rejected_count' => (int) ($counts->rejected_count ?? 0),
             'pending_by_type' => [

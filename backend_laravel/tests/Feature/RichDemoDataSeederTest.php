@@ -43,7 +43,7 @@ test('rich demo data seeder creates a large consistent operational dataset', fun
         ->values()
         ->all();
 
-    expect($statuses)->toBe(['cancelled', 'completed', 'confirmed', 'pending']);
+    expect($statuses)->toBe(['awaiting_payment', 'cancelled', 'completed', 'confirmed']);
 
     // Đánh giá tour + HDV có dữ liệu và rating tour được tính lại.
     $hueTour = Tour::query()->where('slug', 'hue-kinh-thanh-3n2d')->firstOrFail();
@@ -58,7 +58,7 @@ test('rich demo data seeder creates a large consistent operational dataset', fun
         ->each(function (TourDeparture $departure): void {
             $expected = Booking::query()
                 ->where('tour_departure_id', $departure->id)
-                ->whereIn('status', ['pending', 'confirmed', 'completed'])
+                ->whereIn('status', ['awaiting_payment', 'confirmed', 'completed'])
                 ->sum('number_of_people');
 
             expect($departure->booked_slots)->toBe(min($expected, $departure->total_slots));

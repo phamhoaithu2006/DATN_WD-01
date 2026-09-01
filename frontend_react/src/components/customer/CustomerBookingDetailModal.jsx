@@ -2,12 +2,14 @@ import Icon from "./Icon";
 import { mediaUrl } from "../../utils/mediaUrl";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
+import "../../styles/itinerary-activity.css";
 
 const STATUS_LABELS = {
-  pending: "Chờ thanh toán",
+  awaiting_payment: "Chờ thanh toán",
   confirmed: "Đã xác nhận",
-  departed: "Đã khởi hành",
-  completed: "Đã hoàn thành",
+  upcoming: "Sắp diễn ra",
+  departed: "Đang diễn ra",
+  completed: "Đã kết thúc",
   cancelled: "Đã hủy đơn",
   cancelled_by_tour: "Tour bị hủy",
   refund_pending: "Chờ hoàn tiền",
@@ -116,6 +118,7 @@ function CustomerBookingDetailModal({
 
   const tour = booking.tour || {};
   const departure = booking.tour_departure || {};
+  const displayStatus = booking.display_status || booking.status;
   const participants = Array.isArray(booking.participants) ? booking.participants : [];
   const attendanceSessions = Array.isArray(departure.attendance_sessions)
     ? [...departure.attendance_sessions].sort((a, b) => String(a?.scheduled_date || "").localeCompare(String(b?.scheduled_date || "")))
@@ -291,7 +294,7 @@ function CustomerBookingDetailModal({
               </div>
               <div className="vg-customer-status-panel">
                 <span className="vg-customer-status-label">{refundStatus ? "Trạng thái hoàn tiền" : "Trạng thái hiện tại"}</span>
-                <strong>{refundStatus ? getStatusLabel(refundStatus) : isCancelled ? "Tour đã hủy" : getStatusLabel(booking.status)}</strong>
+                <strong>{refundStatus ? getStatusLabel(refundStatus) : isCancelled ? "Tour đã hủy" : getStatusLabel(displayStatus)}</strong>
               </div>
               {isCancelled ? (
                 <div className="vg-customer-cancellation-info">
@@ -316,25 +319,25 @@ function CustomerBookingDetailModal({
             </section>
           </div>
 
-          <section className={`vg-customer-detail-card vg-customer-itinerary-card${itineraryOpen ? " is-open" : ""}`}>
+          <section className={`vg-customer-detail-card vg-itinerary-card${itineraryOpen ? " is-open" : ""}`}>
             <button
               type="button"
-              className="vg-customer-itinerary-toggle"
+              className="vg-itinerary-toggle"
               onClick={() => setItineraryOpen((current) => !current)}
               aria-expanded={itineraryOpen}
             >
-              <span className="vg-customer-itinerary-toggle-icon"><Icon name="calendar" size={17} /></span>
+              <span className="vg-itinerary-toggle-icon"><Icon name="calendar" size={17} /></span>
               <span>
                 <strong>Lịch trình tour</strong>
                 <small>Theo dõi hoạt động và trạng thái mới nhất do HDV cập nhật</small>
               </span>
-              <span className="vg-customer-itinerary-toggle-summary">{itineraryDayCount} ngày</span>
-              <Icon name="chevronDown" size={18} className="vg-customer-itinerary-chevron" />
+              <span className="vg-itinerary-toggle-summary">{itineraryDayCount} ngày</span>
+              <Icon name="chevronDown" size={18} className="vg-itinerary-chevron" />
             </button>
 
             {itineraryOpen ? (
-              <div className="vg-customer-itinerary-content">
-                <div className="vg-customer-itinerary-days" role="tablist" aria-label="Chọn ngày lịch trình">
+              <div className="vg-itinerary-content">
+                <div className="vg-itinerary-days" role="tablist" aria-label="Chọn ngày lịch trình">
                   {Array.from({ length: itineraryDayCount }).map((_, index) => {
                     const dayNumber = index + 1;
                     return (
@@ -354,25 +357,25 @@ function CustomerBookingDetailModal({
                 </div>
 
                 {selectedDayActivities.length ? (
-                  <div className="vg-customer-itinerary-list">
+                  <div className="vg-itinerary-list">
                     {selectedDayActivities.map((activity, index) => {
                       const detail = activity.itinerary || activity;
                       const destination = detail.destination_place || detail.destinationPlace;
                       const scheduledDate = addDays(departure.departure_date, selectedItineraryDay - 1);
                       const activityState = getCustomerActivityState(activity.status, scheduledDate);
                       return (
-                        <article className={`vg-customer-itinerary-activity ${activityState.className}`} key={activity.id || detail.id || index}>
-                          <span className="vg-customer-itinerary-number">{index + 1}</span>
-                          <div className="vg-customer-itinerary-activity-main">
-                            <div className="vg-customer-itinerary-activity-head">
-                              <span className="vg-customer-itinerary-time"><Icon name="clock" size={13} /> {String(activity.start_time || detail.start_time || "--:--").slice(0, 5)}{activity.end_time || detail.end_time ? ` – ${String(activity.end_time || detail.end_time).slice(0, 5)}` : ""}</span>
+                        <article className={`vg-itinerary-activity ${activityState.className}`} key={activity.id || detail.id || index}>
+                          <span className="vg-itinerary-number">{index + 1}</span>
+                          <div className="vg-itinerary-activity-main">
+                            <div className="vg-itinerary-activity-head">
+                              <span className="vg-itinerary-time"><Icon name="clock" size={13} /> {String(activity.start_time || detail.start_time || "--:--").slice(0, 5)}{activity.end_time || detail.end_time ? ` – ${String(activity.end_time || detail.end_time).slice(0, 5)}` : ""}</span>
                               <strong>{activity.title || detail.title || `Hoạt động ${index + 1}`}</strong>
-                              <span className="vg-customer-visually-hidden">{activityState.label}</span>
+                              <span className="vg-itinerary-visually-hidden">{activityState.label}</span>
                             </div>
-                            {destination?.name ? <p className="vg-customer-itinerary-destination"><Icon name="mapPin" size={14} /> <strong>{destination.name}</strong>{destination.address ? ` · ${destination.address}` : ""}</p> : null}
-                            {detail.description ? <p className="vg-customer-itinerary-description">{String(detail.description).replace(/<[^>]*>/g, "")}</p> : null}
+                            {destination?.name ? <p className="vg-itinerary-destination"><Icon name="mapPin" size={14} /> <strong>{destination.name}</strong>{destination.address ? ` · ${destination.address}` : ""}</p> : null}
+                            {detail.description ? <p className="vg-itinerary-description">{String(detail.description).replace(/<[^>]*>/g, "")}</p> : null}
                             {(activity.started_at || activity.completed_at) ? (
-                              <div className="vg-customer-itinerary-updated">
+                              <div className="vg-itinerary-updated">
                                 {activity.started_at ? <span>Bắt đầu: {formatDateTime(activity.started_at)}</span> : null}
                                 {activity.completed_at ? <span>Hoàn thành: {formatDateTime(activity.completed_at)}</span> : null}
                               </div>
@@ -382,7 +385,7 @@ function CustomerBookingDetailModal({
                       );
                     })}
                   </div>
-                ) : <div className="vg-customer-itinerary-empty">Lịch trình ngày {selectedItineraryDay} đang được cập nhật.</div>}
+                ) : <div className="vg-itinerary-empty">Lịch trình ngày {selectedItineraryDay} đang được cập nhật.</div>}
               </div>
             ) : null}
           </section>

@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { tourDepartureApi } from '../../../services/tourDepartureApi'
 import { TourDetailCard } from '../../../pages/admin/tourDepartures/TourDepartureCreatePage.jsx'
+import Icon from '../../customer/Icon'
 import { mediaUrl } from '../../../utils/mediaUrl'
+import '../../../styles/itinerary-activity.css'
 
 function formatDate(value) {
   if (!value) return '—'
@@ -250,11 +252,11 @@ function formatTimelineDateTime(value) {
 
 function getItineraryStatusMeta(status) {
   return {
-    completed: { label: 'Đã hoàn thành', className: 'bg-emerald-50 text-emerald-700 ring-emerald-200' },
-    in_progress: { label: 'Đang thực hiện', className: 'bg-blue-50 text-blue-700 ring-blue-200' },
-    pending: { label: 'Chưa thực hiện', className: 'bg-amber-50 text-amber-700 ring-amber-200' },
-    skipped: { label: 'Đã bỏ qua', className: 'bg-slate-100 text-slate-600 ring-slate-200' },
-  }[status] || { label: 'Chưa cập nhật', className: 'bg-slate-100 text-slate-600 ring-slate-200' }
+    completed: { label: 'Đã hoàn thành', activityClassName: 'is-confirmed', statusClassName: 'is-completed' },
+    in_progress: { label: 'Đang thực hiện', activityClassName: 'is-in-progress', statusClassName: 'is-in-progress' },
+    pending: { label: 'Chưa thực hiện', activityClassName: 'is-pending', statusClassName: 'is-pending' },
+    skipped: { label: 'Đã bỏ qua', activityClassName: 'is-unconfirmed', statusClassName: 'is-skipped' },
+  }[status] || { label: 'Chưa cập nhật', activityClassName: 'is-unknown', statusClassName: 'is-unknown' }
 }
 
 function addDays(value, offset) {
@@ -559,50 +561,50 @@ function TourDepartureBookingModal({
             </div>
 
             {listMode === 'itinerary' ? (
-              <div className="p-4">
-                <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
+              <div className="vg-itinerary-content vg-itinerary-admin-content">
+                <div className="vg-itinerary-days" role="tablist" aria-label="Chọn ngày lịch trình">
                   {Array.from({ length: itineraryDayCount }).map((_, index) => {
                     const dayNumber = index + 1
                     const session = attendanceSessions[index]
                     const scheduledDate = session?.scheduled_date || addDays(departure?.departure_date || payload?.departure_date, index)
                     return (
-                      <button key={dayNumber} type="button" onClick={() => setSelectedItineraryDay(dayNumber)} className={`min-w-[132px] rounded-xl border px-4 py-3 text-left text-xs transition ${selectedItineraryDay === dayNumber ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}>
-                        <span className="block font-black uppercase">Ngày {dayNumber}</span>
-                        <span className="mt-1 block font-semibold">{formatDate(scheduledDate)}</span>
+                      <button key={dayNumber} type="button" role="tab" aria-selected={selectedItineraryDay === dayNumber} onClick={() => setSelectedItineraryDay(dayNumber)} className={selectedItineraryDay === dayNumber ? 'is-active' : ''}>
+                        <span>Ngày {dayNumber}</span>
+                        <strong>{formatDate(scheduledDate)}</strong>
                       </button>
                     )
                   })}
                 </div>
 
                 {selectedDayActivities.length ? (
-                  <div className="space-y-3">
+                  <div className="vg-itinerary-list">
                     {selectedDayActivities.map((activity, index) => {
                       const itinerary = activity?.itinerary || activity
                       const destination = itinerary?.destination_place || itinerary?.destinationPlace
                       const statusMeta = getItineraryStatusMeta(activity?.status)
                       return (
-                        <article key={activity?.id || itinerary?.id || index} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                          <div className="flex flex-wrap items-start justify-between gap-3">
-                            <div className="flex min-w-0 gap-3">
-                              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-sm font-black text-slate-600">{index + 1}</span>
-                              <div>
-                                <p className="text-xs font-black text-sky-600">{String(activity?.start_time || itinerary?.start_time || '').slice(0, 5) || '--:--'}{activity?.end_time || itinerary?.end_time ? ` – ${String(activity?.end_time || itinerary?.end_time).slice(0, 5)}` : ''}</p>
-                                <h4 className="mt-1 font-black text-slate-900">{activity?.title || itinerary?.title || `Hoạt động ${index + 1}`}</h4>
-                              </div>
+                        <article key={activity?.id || itinerary?.id || index} className={`vg-itinerary-activity ${statusMeta.activityClassName}`}>
+                          <span className="vg-itinerary-number">{index + 1}</span>
+                          <div className="vg-itinerary-activity-main">
+                            <div className="vg-itinerary-activity-head">
+                              <span className="vg-itinerary-time"><Icon name="clock" size={13} /> {String(activity?.start_time || itinerary?.start_time || '').slice(0, 5) || '--:--'}{activity?.end_time || itinerary?.end_time ? ` – ${String(activity?.end_time || itinerary?.end_time).slice(0, 5)}` : ''}</span>
+                              <strong>{activity?.title || itinerary?.title || `Hoạt động ${index + 1}`}</strong>
+                              <span className={`vg-itinerary-status ${statusMeta.statusClassName}`}>{statusMeta.label}</span>
                             </div>
-                            <span className={`rounded-full px-3 py-1 text-xs font-black ring-1 ${statusMeta.className}`}>{statusMeta.label}</span>
-                          </div>
-                          {destination?.name ? <p className="mt-3 rounded-xl bg-sky-50 px-3 py-2 text-sm font-bold text-sky-800">Điểm đến: {destination.name}{destination.address ? ` · ${destination.address}` : ''}</p> : null}
-                          {itinerary?.description ? <p className="mt-3 text-sm leading-6 text-slate-600">{String(itinerary.description).replace(/<[^>]*>/g, '')}</p> : null}
-                          <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 border-t border-slate-100 pt-3 text-xs font-semibold text-slate-500">
-                            {activity?.started_at ? <span>Bắt đầu: {formatTimelineDateTime(activity.started_at)}</span> : null}
-                            {activity?.completed_at ? <span>Hoàn thành: {formatTimelineDateTime(activity.completed_at)}</span> : null}
+                            {destination?.name ? <p className="vg-itinerary-destination"><Icon name="mapPin" size={14} /> <strong>{destination.name}</strong>{destination.address ? ` · ${destination.address}` : ''}</p> : null}
+                            {itinerary?.description ? <p className="vg-itinerary-description">{String(itinerary.description).replace(/<[^>]*>/g, '')}</p> : null}
+                            {(activity?.started_at || activity?.completed_at) ? (
+                              <div className="vg-itinerary-updated">
+                                {activity?.started_at ? <span>Bắt đầu: {formatTimelineDateTime(activity.started_at)}</span> : null}
+                                {activity?.completed_at ? <span>Hoàn thành: {formatTimelineDateTime(activity.completed_at)}</span> : null}
+                              </div>
+                            ) : null}
                           </div>
                         </article>
                       )
                     })}
                   </div>
-                ) : <div className="rounded-xl bg-slate-50 px-4 py-8 text-center text-sm font-bold text-slate-500">Chưa có lịch trình cho ngày {selectedItineraryDay}.</div>}
+                ) : <div className="vg-itinerary-empty">Chưa có lịch trình cho ngày {selectedItineraryDay}.</div>}
               </div>
             ) : loading ? (
               <div className="px-4 py-10 text-center text-sm font-bold text-slate-500">

@@ -7,6 +7,7 @@ use App\Models\Tour;
 use App\Models\TourDeparture;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
 
@@ -148,7 +149,7 @@ function abRegressionPayment(string $status): Payment
         'unit_price' => 1500000,
         'discount_amount' => 0,
         'total_amount' => 1500000,
-        'status' => 'pending',
+        'status' => $status === 'success' ? 'confirmed' : 'awaiting_payment',
         'payment_status' => $bookingPaymentStatus,
     ]);
 
@@ -372,7 +373,13 @@ test('admin chỉ thực hiện được chuyển trạng thái thanh toán hợ
     Sanctum::actingAs(abRegressionUser('admin'));
     $payment = abRegressionPayment($currentStatus);
 
-    $this->patchJson("/api/admin/payments/{$payment->id}/{$action}")
+    $response = $action === 'refund'
+        ? $this->post("/api/admin/payments/{$payment->id}/{$action}", [
+            'refund_proof' => UploadedFile::fake()->create('regression-refund.png', 10, 'image/png'),
+        ])
+        : $this->patchJson("/api/admin/payments/{$payment->id}/{$action}");
+
+    $response
         ->assertOk()
         ->assertJsonPath('data.status', $expectedPaymentStatus)
         ->assertJsonPath('data.booking.payment_status', $expectedBookingStatus);
@@ -400,7 +407,14 @@ test('admin bị từ chối khi chuyển trạng thái thanh toán không hợp
     $payment = abRegressionPayment($currentStatus);
     $bookingPaymentStatus = $payment->booking->payment_status;
 
-    $this->patchJson("/api/admin/payments/{$payment->id}/{$action}")
+    $response = $action === 'refund'
+        ? $this->withHeaders(['Accept' => 'application/json'])
+            ->post("/api/admin/payments/{$payment->id}/{$action}", [
+                'refund_proof' => UploadedFile::fake()->create('invalid-regression-refund.png', 10, 'image/png'),
+            ])
+        : $this->patchJson("/api/admin/payments/{$payment->id}/{$action}");
+
+    $response
         ->assertUnprocessable()
         ->assertJsonValidationErrors('status');
 
