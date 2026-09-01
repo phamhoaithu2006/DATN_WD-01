@@ -2,12 +2,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   checkInGuideCustomer,
   deleteGuideAttendancePhoto,
+  advanceGuideTourStage,
   getGuideAttendanceSessions,
   getGuideAttendanceStatistics,
   getGuideTourCustomerDetail,
   getGuideTourCustomers,
   getGuideTourDetail,
   getGuideTourOngoing,
+  getGuideTourStages,
   undoGuideCustomerCheckIn,
   updateGuideAttendanceNote,
   uploadGuideAttendancePhotos,
@@ -42,6 +44,7 @@ const genderLabels = {
   other: "Khác",
 };
 const MAX_ATTENDANCE_PHOTOS = 6;
+const BUSINESS_TIME_ZONE = "Asia/Ho_Chi_Minh";
 function getVietnameseLabel(value, labels) {
   if (!value) return "Chưa có";
   return labels[String(value).trim().toLowerCase()] || value;
@@ -80,14 +83,7 @@ function getPageNumbers(currentPage, lastPage) {
   return Array.from({ length: end - start + 1 }, (_, index) => start + index);
 }
 function isSameLocalDate(value) {
-  if (!value) return false;
-  const date = new Date(`${String(value).slice(0, 10)}T00:00:00`);
-  const today = new Date();
-  return (
-    date.getFullYear() === today.getFullYear() &&
-    date.getMonth() === today.getMonth() &&
-    date.getDate() === today.getDate()
-  );
+  return getSessionDateState(value) === "today";
 }
 function formatDestinationPlace(place) {
   return place?.name || place?.title || "Chưa xác định";
@@ -95,13 +91,67 @@ function formatDestinationPlace(place) {
 function formatDestinationPlaceAddress(place) {
   return place?.address || place?.full_address || "";
 }
+function getBusinessDateValue(date = new Date()) {
+  const dateParts = new Intl.DateTimeFormat("en-US", {
+    timeZone: BUSINESS_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const values = Object.fromEntries(dateParts.map((part) => [part.type, part.value]));
+
+  return `${values.year}-${values.month}-${values.day}`;
+}
 function getSessionDateState(value) {
   if (!value) return "upcoming";
-  const sessionDate = new Date(`${String(value).slice(0, 10)}T00:00:00`);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  if (sessionDate.getTime() === today.getTime()) return "today";
+  const sessionDate = String(value).slice(0, 10);
+  const today = getBusinessDateValue();
+
+  if (sessionDate === today) return "today";
   return sessionDate < today ? "past" : "upcoming";
+}
+function getBusinessTimeInMinutes(date = new Date()) {
+  const timeParts = new Intl.DateTimeFormat("en-US", {
+    timeZone: BUSINESS_TIME_ZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const values = Object.fromEntries(timeParts.map((part) => [part.type, part.value]));
+
+  return Number(values.hour || 0) * 60 + Number(values.minute || 0);
+}
+function parseClockMinutes(value) {
+  const [hours, minutes] = String(value || "")
+    .slice(0, 5)
+    .split(":")
+    .map(Number);
+
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null;
+  return hours * 60 + minutes;
+}
+function getActivityWindowState(activity, activityIndex, activities, dayState, currentTime) {
+  if (dayState === "past") return "past";
+  if (dayState === "upcoming") return "upcoming";
+
+  const startMinutes = parseClockMinutes(activity?.start_time);
+  const endMinutes = parseClockMinutes(activity?.end_time);
+  const nextActivityStart = activities
+    .slice(activityIndex + 1)
+    .map((item) => parseClockMinutes(item?.start_time))
+    .find((value) => value !== null);
+
+  if (startMinutes === null && endMinutes === null) return "unscheduled";
+
+  const windowStart = startMinutes ?? 0;
+  const windowEnd = endMinutes ?? nextActivityStart ?? 24 * 60;
+  if (windowEnd <= windowStart) return "unscheduled";
+
+  const nowMinutes = getBusinessTimeInMinutes(currentTime);
+  if (nowMinutes < windowStart) return "not_started";
+  if (nowMinutes >= windowEnd) return "expired";
+  return "active";
 }
 function getSessionScheduledDate(session, tour) {
   const providedDate = session?.scheduled_date || session?.scheduledDate;
@@ -130,50 +180,411 @@ function getApiErrorMessage(error, fallback) {
 
   return firstValidationError || error?.response?.data?.message || error?.message || fallback;
 }
-function AttendanceTourDetailModal({ item, onClose }) {
-  if (!item) return null;
-  const image = getTourImage(item);
-  const itineraries = Array.isArray(item?.tour?.itineraries)
-    ? item.tour.itineraries
-    : [];
-  const description = stripHtml(
-    item?.tour?.description || item?.tour?.summary || item?.description,
+
+const TOUR_STAGE_STATUS_META = {
+  pending: { label: "Chưa thực hiện", icon: "○" },
+  in_progress: { label: "Đang thực hiện", icon: "●" },
+  completed: { label: "Đã hoàn thành", icon: "✓" },
+  past_unconfirmed: { label: "Đã qua – chưa xác nhận", icon: "!" },
+  upcoming: { label: "Sắp tới", icon: "○" },
+  not_started: { label: "Chưa đến giờ", icon: "○" },
+  expired_unconfirmed: { label: "Đã hết giờ – chưa xác nhận", icon: "!" },
+  unscheduled: { label: "Chưa có khung giờ", icon: "?" },
+};
+
+function getTourStageStatusMeta(status) {
+  return TOUR_STAGE_STATUS_META[status] || { label: "Chưa đồng bộ", icon: "?" };
+}
+
+function getTourStageDisplayStatus(stage, dayState, activityWindowState) {
+  if (!stage) return null;
+  if (stage.status === "completed") return "completed";
+  if (dayState === "past" && stage.status !== "completed") return "past_unconfirmed";
+  if (dayState === "upcoming" && stage.status !== "completed") return "upcoming";
+  if (activityWindowState === "not_started") return "not_started";
+  if (activityWindowState === "expired") return "expired_unconfirmed";
+  if (activityWindowState === "unscheduled") return "unscheduled";
+  return stage.status;
+}
+
+function getStageForItinerary(activity, stages) {
+  if (!Array.isArray(stages) || !activity) return null;
+
+  const itineraryId = Number(activity.id);
+  if (Number.isFinite(itineraryId) && itineraryId > 0) {
+    const exactStage = stages.find(
+      (stage) => Number(stage?.tour_itinerary_id) === itineraryId,
+    );
+    if (exactStage) return exactStage;
+  }
+
+  const dayNumber = Number(activity.day_number);
+  const sortOrder = Number(activity.sort_order);
+  if (!Number.isFinite(dayNumber)) return null;
+
+  return stages.find((stage) => (
+    Number(stage?.day_number) === dayNumber
+    && (!Number.isFinite(sortOrder) || Number(stage?.sort_order) === sortOrder)
+    && (!activity.title || stage?.title === activity.title)
+  )) || null;
+}
+
+function GuideDayItineraryModal({
+  tour,
+  initialDayNumber = 1,
+  sessions = [],
+  stages = [],
+  stagesLoading = false,
+  stageError = "",
+  stageFeedback = "",
+  stageAdvancing = false,
+  onAdvanceStage,
+  onClose,
+}) {
+  const [selectedDayNumber, setSelectedDayNumber] = useState(initialDayNumber);
+  const [currentTime, setCurrentTime] = useState(() => new Date());
+
+  useEffect(() => {
+    setSelectedDayNumber(initialDayNumber);
+  }, [initialDayNumber]);
+
+  useEffect(() => {
+    const intervalId = setInterval(() => setCurrentTime(new Date()), 30 * 1000);
+    return () => clearInterval(intervalId);
+  }, []);
+
+  if (!tour) return null;
+
+  const itineraries = Array.isArray(tour?.tour?.itineraries)
+    ? tour.tour.itineraries
+    : Array.isArray(tour?.itineraries)
+      ? tour.itineraries
+      : [];
+
+  const daysCount = Math.max(
+    sessions.length,
+    itineraries.reduce((max, item) => Math.max(max, Number(item?.day_number || 1)), 1),
   );
+
+  const dayActivities = itineraries
+    .filter((item, index) => Number(item?.day_number || index + 1) === Number(selectedDayNumber))
+    .sort((a, b) => {
+      const sortOrderDiff = Number(a?.sort_order || 0) - Number(b?.sort_order || 0);
+      if (sortOrderDiff !== 0) return sortOrderDiff;
+      const timeA = String(a?.start_time || "");
+      const timeB = String(b?.start_time || "");
+      return timeA.localeCompare(timeB);
+    });
+
+  const currentSession = sessions.find((_, idx) => idx + 1 === Number(selectedDayNumber));
+  const scheduledDate = currentSession?.scheduled_date
+    || getSessionScheduledDate(currentSession, tour)
+    || getSessionScheduledDate({ itinerary: { day_number: selectedDayNumber } }, tour);
+  const dayState = getSessionDateState(scheduledDate);
+
   return (
     <div className="guide-tour-detail-backdrop" role="presentation" onClick={onClose}>
-      <section className="guide-tour-detail-modal" role="dialog" aria-modal="true" aria-label="Chi tiết tour" onClick={(event) => event.stopPropagation()}>
-        <button type="button" className="guide-tour-detail-close" onClick={onClose} aria-label="Đóng">×</button>
-        <div className="guide-tour-detail-hero">
-          {image ? <img src={image} alt={getTourTitle(item)} /> : <span>{getInitials(getTourTitle(item))}</span>}
-          <div><small>{getTourState(item)}</small><h2>{getTourTitle(item)}</h2><p>{getDestination(item)}</p></div>
-        </div>
-        <div className="guide-tour-detail-grid">
-          <article><span>Khởi hành</span><strong>{formatDate(item.departure_date)}</strong></article>
-          <article><span>Kết thúc</span><strong>{formatDate(item.return_date || item.departure_date)}</strong></article>
-          <article><span>Trạng thái</span><strong>{getTourState(item)}</strong></article>
-        </div>
-        <div className="guide-tour-detail-section">
-          <h3>Mô tả tour</h3>
-          <p>{description || "Tour này chưa có mô tả chi tiết."}</p>
-        </div>
-        <div className="guide-tour-detail-section">
-          <h3>Lịch trình đầy đủ</h3>
-          {itineraries.length > 0 ? (
-            <div className="guide-tour-detail-steps">
-              {itineraries.map((step, index) => (
-                <article key={step.id || index}>
-                  <span>Ngày {step.day_number || index + 1}</span>
-                  <strong>{step.title || "Hành trình"}</strong>
-                  {step.destination_place?.name ? (
-                    <p><strong>Điểm đến:</strong> {formatDestinationPlace(step.destination_place)}</p>
+      <section
+        className="guide-tour-detail-modal guide-day-itinerary-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Lịch trình chi tiết"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <header className="guide-itinerary-modal-header">
+          <div className="guide-itinerary-modal-header-main">
+            <div className="guide-itinerary-modal-kicker-wrap">
+              <span className="guide-itinerary-modal-kicker">Lịch trình chi tiết</span>
+              {getDestination(tour) ? (
+                <span className="guide-itinerary-modal-dest-badge">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                    <circle cx="12" cy="10" r="3" />
+                  </svg>
+                  {getDestination(tour)}
+                </span>
+              ) : null}
+            </div>
+            <h2 className="guide-itinerary-modal-title">{getTourTitle(tour)}</h2>
+            <div className="guide-itinerary-modal-subtitle">
+              <span className="guide-itinerary-modal-day-pill">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                  <line x1="16" y1="2" x2="16" y2="6" />
+                  <line x1="8" y1="2" x2="8" y2="6" />
+                  <line x1="3" y1="10" x2="21" y2="10" />
+                </svg>
+                Ngày {selectedDayNumber}
+              </span>
+              {scheduledDate ? (
+                <span className="guide-itinerary-modal-date-text">
+                  {formatDate(scheduledDate)}
+                </span>
+              ) : null}
+            </div>
+          </div>
+          <button
+            type="button"
+            className="guide-itinerary-modal-close-btn"
+            onClick={onClose}
+            aria-label="Đóng popup lịch trình"
+          >
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </header>
+
+        {daysCount > 1 ? (
+          <div className="guide-itinerary-modal-day-tabs" role="tablist" aria-label="Chọn ngày xem lịch trình">
+            {Array.from({ length: daysCount }).map((_, idx) => {
+              const dayNum = idx + 1;
+              const session = sessions[idx];
+              const dateState = session ? getSessionDateState(session.scheduled_date) : null;
+              const isActive = dayNum === Number(selectedDayNumber);
+              const stateLabel = dateState === "today" ? "Hôm nay" : dateState === "past" ? "Đã qua" : "Sắp tới";
+
+              return (
+                <button
+                  key={dayNum}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  className={`guide-itinerary-modal-day-tab ${isActive ? "is-active" : ""} ${dateState ? `is-state-${dateState}` : ""}`}
+                  onClick={() => setSelectedDayNumber(dayNum)}
+                >
+                  <span className="guide-itinerary-tab-day">Ngày {dayNum}</span>
+                  <strong className="guide-itinerary-tab-date">
+                    {session?.scheduled_date ? formatDate(session.scheduled_date) : `Ngày ${dayNum}`}
+                  </strong>
+                  {dateState ? (
+                    <span className={`guide-itinerary-tab-badge is-${dateState}`}>
+                      <span className="guide-itinerary-tab-dot" aria-hidden="true" />
+                      {stateLabel}
+                    </span>
                   ) : null}
-                  {formatDestinationPlaceAddress(step.destination_place) ? <p><strong>Địa chỉ:</strong> {formatDestinationPlaceAddress(step.destination_place)}</p> : null}
-                  <p>{stripHtml(step.description) || "Chưa có mô tả."}</p>
-                </article>
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+
+        {stageError ? (
+          <div className="guide-itinerary-modal-feedback is-error" role="alert">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            <span>{stageError}</span>
+          </div>
+        ) : null}
+        {stageFeedback ? (
+          <div className="guide-itinerary-modal-feedback" role="status">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+              <polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
+            <span>{stageFeedback}</span>
+          </div>
+        ) : null}
+
+        {dayState !== "today" ? (
+          <div className={`guide-itinerary-modal-day-notice is-${dayState}`} role="status">
+            <span className="guide-itinerary-notice-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="16" x2="12" y2="12" />
+                <line x1="12" y1="8" x2="12.01" y2="8" />
+              </svg>
+            </span>
+            <div className="guide-itinerary-notice-content">
+              <strong>{dayState === "past" ? "Lưu ý ngày đã qua" : "Lưu ý ngày sắp tới"}</strong>
+              <p>
+                {dayState === "past"
+                  ? "Ngày này đã qua. Lịch trình chỉ được xem lại, không thể xác nhận bổ sung."
+                  : "Ngày này chưa diễn ra. Lịch trình này dùng để xem trước các hoạt động dự kiến."}
+              </p>
+            </div>
+          </div>
+        ) : null}
+
+        <div className="guide-itinerary-modal-body">
+          {dayActivities.length > 0 ? (
+            <div className="guide-itinerary-modal-steps">
+              {dayActivities.map((step, index) => (
+                (() => {
+                  const stage = getStageForItinerary(step, stages);
+                  const activityWindowState = getActivityWindowState(
+                    step,
+                    index,
+                    dayActivities,
+                    dayState,
+                    currentTime,
+                  );
+                  const displayStatus = getTourStageDisplayStatus(
+                    stage,
+                    dayState,
+                    activityWindowState,
+                  );
+                  const statusMeta = getTourStageStatusMeta(displayStatus);
+                  const canConfirm = dayState === "today"
+                    && activityWindowState === "active"
+                    && stage?.status === "in_progress"
+                    && !stageAdvancing
+                    && typeof onAdvanceStage === "function";
+                  const statusTargetLabel = step.destination_place
+                    ? "điểm đến"
+                    : "hoạt động";
+
+                  return (
+                    <article
+                      key={step.id || index}
+                      className={`guide-itinerary-modal-step is-stage-${displayStatus || "unknown"}`}
+                    >
+                      <div className="guide-itinerary-step-badge-col" aria-hidden="true">
+                        <span className="guide-itinerary-step-num">{index + 1}</span>
+                      </div>
+
+                      <div className="guide-itinerary-step-card-content">
+                        <div className="guide-itinerary-modal-step-header">
+                          <span className="guide-itinerary-modal-step-time">
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                              <circle cx="12" cy="12" r="10" />
+                              <polyline points="12 6 12 12 16 14" />
+                            </svg>
+                            {step.start_time ? String(step.start_time).slice(0, 5) : "--:--"}
+                            {step.end_time ? ` - ${String(step.end_time).slice(0, 5)}` : ""}
+                          </span>
+                          <h4 className="guide-itinerary-step-title">{step.title || `Hoạt động ${index + 1}`}</h4>
+                          {stage ? (
+                            <span className={`guide-itinerary-modal-step-status is-${displayStatus}`}>
+                              <span className="guide-itinerary-status-dot" aria-hidden="true" />
+                              {statusMeta.label}
+                            </span>
+                          ) : null}
+                        </div>
+
+                        <div className="guide-itinerary-step-info-grid">
+                          {step.destination_place?.name ? (
+                            <div className="guide-itinerary-info-item is-destination">
+                              <span className="guide-itinerary-info-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                                  <circle cx="12" cy="10" r="3" />
+                                </svg>
+                              </span>
+                              <div className="guide-itinerary-info-text">
+                                <span className="guide-itinerary-info-label">Điểm đến</span>
+                                <strong className="guide-itinerary-info-value">{formatDestinationPlace(step.destination_place)}</strong>
+                              </div>
+                            </div>
+                          ) : null}
+
+                          {formatDestinationPlaceAddress(step.destination_place) ? (
+                            <div className="guide-itinerary-info-item is-address">
+                              <span className="guide-itinerary-info-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <circle cx="12" cy="12" r="10" />
+                                  <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
+                                </svg>
+                              </span>
+                              <div className="guide-itinerary-info-text">
+                                <span className="guide-itinerary-info-label">Địa chỉ</span>
+                                <span className="guide-itinerary-info-value">{formatDestinationPlaceAddress(step.destination_place)}</span>
+                              </div>
+                            </div>
+                          ) : null}
+
+                          {step.duration ? (
+                            <div className="guide-itinerary-info-item is-duration">
+                              <span className="guide-itinerary-info-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <circle cx="12" cy="12" r="10" />
+                                  <polyline points="12 6 12 12 15 15" />
+                                </svg>
+                              </span>
+                              <div className="guide-itinerary-info-text">
+                                <span className="guide-itinerary-info-label">Thời lượng</span>
+                                <strong className="guide-itinerary-info-value">{step.duration}</strong>
+                              </div>
+                            </div>
+                          ) : null}
+
+                          {step.transport ? (
+                            <div className="guide-itinerary-info-item is-transport">
+                              <span className="guide-itinerary-info-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <rect x="3" y="4" width="18" height="16" rx="2" />
+                                  <line x1="16" y1="2" x2="16" y2="4" />
+                                  <line x1="8" y1="2" x2="8" y2="4" />
+                                  <line x1="3" y1="10" x2="21" y2="10" />
+                                </svg>
+                              </span>
+                              <div className="guide-itinerary-info-text">
+                                <span className="guide-itinerary-info-label">Di chuyển</span>
+                                <strong className="guide-itinerary-info-value">{step.transport}</strong>
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+
+                        {stripHtml(step.description) ? (
+                          <div className="guide-itinerary-modal-step-desc-box">
+                            <p>{stripHtml(step.description)}</p>
+                          </div>
+                        ) : null}
+
+                        {stage ? (
+                          <div className={`guide-itinerary-modal-step-confirmation is-${displayStatus}`}>
+                            <div className="guide-itinerary-confirm-state-wrap">
+                              <span className="guide-itinerary-confirm-state-label">Tình trạng {statusTargetLabel}</span>
+                              <strong className="guide-itinerary-confirm-state-val">{statusMeta.label}</strong>
+                            </div>
+                            {canConfirm ? (
+                              <button
+                                type="button"
+                                className="guide-itinerary-modal-confirm-btn"
+                                onClick={() => onAdvanceStage(stage)}
+                                disabled={stageAdvancing}
+                              >
+                                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                  <polyline points="20 6 9 17 4 12" />
+                                </svg>
+                                {stageAdvancing ? "Đang xác nhận..." : `Xác nhận hoàn thành ${statusTargetLabel}`}
+                              </button>
+                            ) : null}
+                          </div>
+                        ) : stagesLoading ? (
+                          <div className="guide-itinerary-modal-step-status-loading" role="status">
+                            <span className="guide-itinerary-inline-spinner" aria-hidden="true" />
+                            Đang tải tình trạng...
+                          </div>
+                        ) : (
+                          <div className="guide-itinerary-modal-step-status-loading">
+                            Chưa có dữ liệu xác nhận cho {statusTargetLabel} này.
+                          </div>
+                        )}
+                      </div>
+                    </article>
+                  );
+                })()
               ))}
             </div>
           ) : (
-            <p>Chưa có lịch trình chi tiết cho tour này.</p>
+            <div className="guide-itinerary-modal-empty">
+              <div className="guide-itinerary-empty-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                  <line x1="16" y1="2" x2="16" y2="6" />
+                  <line x1="8" y1="2" x2="8" y2="6" />
+                  <line x1="3" y1="10" x2="21" y2="10" />
+                </svg>
+              </div>
+              <h4>Chưa có lịch trình cho Ngày {selectedDayNumber}</h4>
+              <p>Chưa có thông tin hoạt động chi tiết cho Ngày {selectedDayNumber}.</p>
+            </div>
           )}
         </div>
       </section>
@@ -199,9 +610,15 @@ function GuideAttendancePage() {
   const [noteText, setNoteText] = useState("");
   const [customerDetail, setCustomerDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [detailOpen, setDetailOpen] = useState(false);
   const [isDraggingPhotos, setIsDraggingPhotos] = useState(false);
   const [photoAlbumOpen, setPhotoAlbumOpen] = useState(false);
+  const [itineraryModalOpen, setItineraryModalOpen] = useState(false);
+  const [itineraryModalDayNumber, setItineraryModalDayNumber] = useState(1);
+  const [tourStages, setTourStages] = useState([]);
+  const [stagesLoading, setStagesLoading] = useState(false);
+  const [stageAdvancing, setStageAdvancing] = useState(false);
+  const [stageError, setStageError] = useState("");
+  const [stageFeedback, setStageFeedback] = useState("");
   const photoInputRef = useRef(null);
   useEffect(() => {
     let mounted = true;
@@ -287,6 +704,41 @@ function GuideAttendancePage() {
       mounted = false;
     };
   }, [activeFilter, keyword, page, selectedTourDepartureDate, selectedTourId, sessionId]);
+
+  useEffect(() => {
+    if (!itineraryModalOpen || !selectedTourId) return undefined;
+
+    let mounted = true;
+    setStagesLoading(true);
+    setStageError("");
+    setStageFeedback("");
+    setTourStages([]);
+
+    async function loadTourStages() {
+      try {
+        const payload = await getGuideTourStages(selectedTourId);
+        if (!mounted) return;
+
+        const stages = Array.isArray(payload) ? payload : payload?.stages;
+        setTourStages(Array.isArray(stages) ? stages : []);
+      } catch (err) {
+        if (mounted) {
+          setStageError(
+            getApiErrorMessage(err, "Không tải được tình trạng các điểm đến."),
+          );
+        }
+      } finally {
+        if (mounted) setStagesLoading(false);
+      }
+    }
+
+    void loadTourStages();
+
+    return () => {
+      mounted = false;
+    };
+  }, [itineraryModalOpen, selectedTourId]);
+
   const stats = useMemo(() => ({
     total: Number(attendanceStats.total_customers || 0),
     checked: Number(attendanceStats.checked_in || 0),
@@ -309,6 +761,27 @@ function GuideAttendancePage() {
   async function ensureSession() {
     if (sessionId) return sessionId;
     throw new Error("Tour chưa có phiên điểm danh theo lịch trình.");
+  }
+
+  async function confirmTourStage(stage) {
+    if (!selectedTourId || stage?.status !== "in_progress" || stageAdvancing) return;
+
+    setStageAdvancing(true);
+    setStageError("");
+    setStageFeedback("");
+
+    try {
+      const payload = await advanceGuideTourStage(selectedTourId);
+      const stages = Array.isArray(payload) ? payload : payload?.stages;
+      setTourStages(Array.isArray(stages) ? stages : []);
+      setStageFeedback(`Đã xác nhận hoàn thành ${stage.title || "hoạt động hiện tại"}.`);
+    } catch (err) {
+      setStageError(
+        getApiErrorMessage(err, "Không thể cập nhật tình trạng điểm đến."),
+      );
+    } finally {
+      setStageAdvancing(false);
+    }
   }
   async function markCustomer(customer) {
     if (isChecked(customer) || busy) return;
@@ -489,6 +962,25 @@ function GuideAttendancePage() {
   const selectedSession = attendanceSessions.find(
     (session) => String(session.id) === String(sessionId),
   );
+  function selectAttendanceSession(session) {
+    if (!session?.id) return;
+
+    const total = Number(attendanceStats.total_customers || customerMeta.total || 0);
+    const checked = Number(session.checked_in_count || 0)
+      + Number(session.checked_out_count || 0);
+    const absent = Number(session.absent_count || 0);
+
+    setSessionId(session.id);
+    setAttendanceStats({
+      total_customers: total,
+      checked_in: checked,
+      not_checked_in: Math.max(total - checked - absent, 0),
+      absent,
+      checked_out: Number(session.checked_out_count || 0),
+    });
+    setPage(1);
+    setPhotoAlbumOpen(false);
+  }
   const canOperateSession =
     canOperate &&
     Boolean(selectedSession) &&
@@ -592,35 +1084,37 @@ function GuideAttendancePage() {
                   const dateState = getSessionDateState(session.scheduled_date);
                   const isActive = String(session.id) === String(sessionId);
                   const stateLabel = dateState === "today" ? "Hôm nay" : dateState === "past" ? "Đã qua" : "Sắp tới";
+                  const dayNumber = index + 1;
 
                   return (
-                    <button
+                    <div
                       key={session.id}
-                      type="button"
                       role="tab"
                       aria-selected={isActive}
                       className={`guide-attendance-day-card is-${dateState} ${isActive ? "is-active" : ""}`}
-                      onClick={() => {
-                        const total = Number(attendanceStats.total_customers || customerMeta.total || 0);
-                        const checked = Number(session.checked_in_count || 0)
-                          + Number(session.checked_out_count || 0);
-                        const absent = Number(session.absent_count || 0);
-                        setSessionId(session.id);
-                        setAttendanceStats({
-                          total_customers: total,
-                          checked_in: checked,
-                          not_checked_in: Math.max(total - checked - absent, 0),
-                          absent,
-                          checked_out: Number(session.checked_out_count || 0),
-                        });
-                        setPage(1);
-                        setPhotoAlbumOpen(false);
-                      }}
+                      onClick={() => selectAttendanceSession(session)}
                     >
-                      <span>Ngày {index + 1}</span>
+                      <div className="guide-attendance-day-card-header">
+                        <span>Ngày {dayNumber}</span>
+                        <button
+                          type="button"
+                          className="guide-attendance-day-itinerary-btn"
+                          title={`Xem lịch trình Ngày ${dayNumber}`}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setItineraryModalDayNumber(dayNumber);
+                            setItineraryModalOpen(true);
+                          }}
+                        >
+                          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.2">
+                            <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                          </svg>
+                          <span>Lịch trình</span>
+                        </button>
+                      </div>
                       <strong>{formatDate(session.scheduled_date)}</strong>
                       <small>{stateLabel}</small>
-                    </button>
+                    </div>
                   );
                 })}
               </div>
@@ -683,144 +1177,145 @@ function GuideAttendancePage() {
                 <input ref={photoInputRef} type="file" accept="image/jpeg,image/png,image/webp" multiple disabled={busy || !canUploadPhotos} onChange={choosePhotos} />
               </div>
             </div>
+
             {isReadOnlySession ? (
               <div className="guide-attendance-readonly-notice" role="status">
                 Mốc này không diễn ra hôm nay nên chỉ có thể xem lịch sử điểm danh.
               </div>
             ) : null}
-            <nav className="guide-attendance-tabs">
-              {filters.map((filter) => {
-                const count =
-                  filter.key === "checked"
-                    ? stats.checked
-                    : filter.key === "unchecked"
-                      ? stats.unchecked
-                      : stats.total;
-                return (
-                  <button
-                    key={filter.key}
-                    type="button"
-                    className={activeFilter === filter.key ? "is-active" : ""}
-                    onClick={() => {
-                      setActiveFilter(filter.key);
+                <nav className="guide-attendance-tabs">
+                  {filters.map((filter) => {
+                    const count =
+                      filter.key === "checked"
+                        ? stats.checked
+                        : filter.key === "unchecked"
+                          ? stats.unchecked
+                          : stats.total;
+                    return (
+                      <button
+                        key={filter.key}
+                        type="button"
+                        className={activeFilter === filter.key ? "is-active" : ""}
+                        onClick={() => {
+                          setActiveFilter(filter.key);
+                          setPage(1);
+                        }}
+                      >
+                        {filter.label} ({count})
+                      </button>
+                    );
+                  })}
+                </nav>
+                <div className="guide-attendance-toolbar">
+                  <label>
+                    <input
+                      value={keyword}
+                      onChange={(event) => {
+                        setKeyword(event.target.value);
+                        setPage(1);
+                      }}
+                      placeholder="Tìm kiếm khách theo tên, SĐT..."
+                    />
+                  </label>
+                  <select
+                    value={customerType}
+                    onChange={(event) => {
+                      setCustomerType(event.target.value);
                       setPage(1);
                     }}
+                    aria-label="Lọc loại khách"
                   >
-                    {filter.label} ({count})
-                  </button>
-                );
-              })}
-            </nav>
-            <div className="guide-attendance-toolbar">
-              <label>
-                <input
-                  value={keyword}
-                  onChange={(event) => {
-                    setKeyword(event.target.value);
-                    setPage(1);
-                  }}
-                  placeholder="Tìm kiếm khách theo tên, SĐT..."
-                />
-              </label>
-              <select
-                value={customerType}
-                onChange={(event) => {
-                  setCustomerType(event.target.value);
-                  setPage(1);
-                }}
-                aria-label="Lọc loại khách"
-              >
-                <option value="all">Tất cả loại khách</option>
-                <option value="Người lớn">Người lớn</option>
-                <option value="Trẻ em">Trẻ em</option>
-              </select>
-            </div>
-            <div className="guide-attendance-table">
-              <div className="guide-attendance-table-head">
-                <span></span>
-                <span>STT</span>
-                <span>Họ và tên</span>
-                <span>Loại khách</span>
-                <span>Trạng thái</span>
-                <span>Thời gian</span>
-                <span>Thao tác</span>
-              </div>
-              {loading ? (
-                <div className="guide-shot-empty">Đang tải khách hàng...</div>
-              ) : null}
-              {!loading &&
-                visibleCustomers.map((customer, index) => (
-                  <div className="guide-attendance-row" key={customer.id}>
-                    <span>
-                      <input
-                        type="checkbox"
-                        checked={isChecked(customer)}
-                        disabled={busy || !canOperateSession}
-                        onChange={() =>
-                          isChecked(customer)
-                            ? undoCustomer(customer)
-                            : markCustomer(customer)
-                        }
-                      />
-                    </span>
-                    <span>{firstCustomer + index}</span>
-                    <span className="guide-attendance-person">
-                      <b>{getInitials(getCustomerName(customer))}</b>
-                      <em>
-                        <strong>{getCustomerName(customer)}</strong>
-                        <small>{getCustomerPhone(customer)}</small>
-                      </em>
-                    </span>
-                    <span>
-                      <i
-                        className={
-                          getCustomerType(customer) === "Trẻ em"
-                            ? "is-child"
-                            : ""
-                        }
-                      >
-                        {getCustomerType(customer)}
-                      </i>
-                    </span>
-                    <span>
-                      <mark
-                        className={
-                          isChecked(customer) ? "is-done" : "is-missing"
-                        }
-                      >
-                        {isChecked(customer)
-                          ? "Đã điểm danh"
-                          : "Chưa điểm danh"}
-                      </mark>
-                    </span>
-                    <span>{getCheckTime(customer)}</span>
-                    <span className="guide-attendance-actions">
-                      <button
-                        type="button"
-                        onClick={() => openCustomerDetail(customer)}
-                        disabled={detailLoading}
-                      >
-                        Chi tiết
-                      </button>
-                    </span>
+                    <option value="all">Tất cả loại khách</option>
+                    <option value="Người lớn">Người lớn</option>
+                    <option value="Trẻ em">Trẻ em</option>
+                  </select>
+                </div>
+                <div className="guide-attendance-table">
+                  <div className="guide-attendance-table-head">
+                    <span></span>
+                    <span>STT</span>
+                    <span>Họ và tên</span>
+                    <span>Loại khách</span>
+                    <span>Trạng thái</span>
+                    <span>Thời gian</span>
+                    <span>Thao tác</span>
                   </div>
-                ))}
-            </div>
-            <footer className="guide-attendance-footer">
-              <span>
-                Trang {page}/{totalPages}
-              </span>
-              <div>
-                <button type="button" disabled={page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>‹</button>
-                {getPageNumbers(page, totalPages).map((pageNumber) => (
-                  <button key={pageNumber} type="button" className={pageNumber === page ? "is-active" : ""} onClick={() => setPage(pageNumber)}>{pageNumber}</button>
-                ))}
-                <button type="button" disabled={page >= totalPages} onClick={() => setPage((current) => current + 1)}>›</button>
-              </div>
-              <span>
-                Hiển thị <b>{customers.length} khách / trang</b>
-              </span>
-            </footer>
+                  {loading ? (
+                    <div className="guide-shot-empty">Đang tải khách hàng...</div>
+                  ) : null}
+                  {!loading &&
+                    visibleCustomers.map((customer, index) => (
+                      <div className="guide-attendance-row" key={customer.id}>
+                        <span>
+                          <input
+                            type="checkbox"
+                            checked={isChecked(customer)}
+                            disabled={busy || !canOperateSession}
+                            onChange={() =>
+                              isChecked(customer)
+                                ? undoCustomer(customer)
+                                : markCustomer(customer)
+                            }
+                          />
+                        </span>
+                        <span>{firstCustomer + index}</span>
+                        <span className="guide-attendance-person">
+                          <b>{getInitials(getCustomerName(customer))}</b>
+                          <em>
+                            <strong>{getCustomerName(customer)}</strong>
+                            <small>{getCustomerPhone(customer)}</small>
+                          </em>
+                        </span>
+                        <span>
+                          <i
+                            className={
+                              getCustomerType(customer) === "Trẻ em"
+                                ? "is-child"
+                                : ""
+                            }
+                          >
+                            {getCustomerType(customer)}
+                          </i>
+                        </span>
+                        <span>
+                          <mark
+                            className={
+                              isChecked(customer) ? "is-done" : "is-missing"
+                            }
+                          >
+                            {isChecked(customer)
+                              ? "Đã điểm danh"
+                              : "Chưa điểm danh"}
+                          </mark>
+                        </span>
+                        <span>{getCheckTime(customer)}</span>
+                        <span className="guide-attendance-actions">
+                          <button
+                            type="button"
+                            onClick={() => openCustomerDetail(customer)}
+                            disabled={detailLoading}
+                          >
+                            Chi tiết
+                          </button>
+                        </span>
+                      </div>
+                    ))}
+                </div>
+                <footer className="guide-attendance-footer">
+                  <span>
+                    Trang {page}/{totalPages}
+                  </span>
+                  <div>
+                    <button type="button" disabled={page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>‹</button>
+                    {getPageNumbers(page, totalPages).map((pageNumber) => (
+                      <button key={pageNumber} type="button" className={pageNumber === page ? "is-active" : ""} onClick={() => setPage(pageNumber)}>{pageNumber}</button>
+                    ))}
+                    <button type="button" disabled={page >= totalPages} onClick={() => setPage((current) => current + 1)}>›</button>
+                  </div>
+                  <span>
+                    Hiển thị <b>{customers.length} khách / trang</b>
+                  </span>
+                </footer>
           </section>
         </>
       ) : (
@@ -905,7 +1400,20 @@ function GuideAttendancePage() {
           </section>
         </div>
       ) : null}
-      <AttendanceTourDetailModal item={detailOpen ? selectedTour : null} onClose={() => setDetailOpen(false)} />
+      {itineraryModalOpen ? (
+        <GuideDayItineraryModal
+          tour={selectedTour}
+          initialDayNumber={itineraryModalDayNumber}
+          sessions={attendanceSessions}
+          stages={tourStages}
+          stagesLoading={stagesLoading}
+          stageError={stageError}
+          stageFeedback={stageFeedback}
+          stageAdvancing={stageAdvancing}
+          onAdvanceStage={confirmTourStage}
+          onClose={() => setItineraryModalOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }

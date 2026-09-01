@@ -579,6 +579,31 @@ class GuideTourOperationService
     }
 
     /**
+     * Chọn stage hiển thị và thao tác cho đúng ngày đang diễn ra.
+     *
+     * @param  Collection<int, TourDepartureStage>  $stages
+     */
+    public function getDisplayCurrentStage(TourDeparture $departure, Collection $stages): ?TourDepartureStage
+    {
+        $currentDayNumber = $this->currentItineraryDayNumber($departure);
+        $candidateStages = $currentDayNumber === null
+            ? $stages
+            : $stages->where('day_number', $currentDayNumber)->values();
+
+        return $candidateStages->first(
+            fn (TourDepartureStage $stage): bool => $stage->status === 'in_progress'
+                && $this->stageWindowState($departure, $stage) === 'active'
+        )
+            ?? $candidateStages->first(
+                fn (TourDepartureStage $stage): bool => $stage->status === 'pending'
+                    && $this->stageWindowState($departure, $stage) === 'active'
+            )
+            ?? $candidateStages->firstWhere('status', 'in_progress')
+            ?? $candidateStages->firstWhere('status', 'pending')
+            ?? $candidateStages->last();
+    }
+
+    /**
      * @return array{current_stage: TourDepartureStage, stages: Collection<int, TourDepartureStage>}
      *
      * @throws AuthorizationException|ValidationException
@@ -587,48 +612,107 @@ class GuideTourOperationService
     {
         $departure = $this->assignedDepartureForUser($user, $tourDeparture);
         $this->assertDepartureCanTakeAttendance($departure);
+        $currentDayNumber = $this->currentItineraryDayNumber($departure);
+
+        if ($currentDayNumber === null) {
+            throw ValidationException::withMessages([
+                'stage' => 'Chỉ có thể xác nhận hoạt động của ngày đang diễn ra.',
+            ]);
+        }
+
         $this->ensureStagesForDeparture($departure);
 
-        return DB::transaction(function () use ($departure): array {
-            $currentStage = TourDepartureStage::query()
+        return DB::transaction(function () use ($departure, $currentDayNumber): array {
+            $inProgressStages = TourDepartureStage::query()
                 ->where('tour_departure_id', $departure->id)
+                ->where('day_number', $currentDayNumber)
                 ->where('status', 'in_progress')
-                ->orderBy('day_number')
                 ->orderBy('sort_order')
                 ->orderBy('id')
                 ->lockForUpdate()
-                ->first();
+                ->get();
+
+            $currentStage = $inProgressStages->first(
+                fn (TourDepartureStage $stage): bool => $this->stageWindowState($departure, $stage) === 'active'
+            );
 
             if (! $currentStage) {
+                $currentStage = TourDepartureStage::query()
+                    ->where('tour_departure_id', $departure->id)
+                    ->where('day_number', $currentDayNumber)
+                    ->where('status', 'pending')
+                    ->orderBy('sort_order')
+                    ->orderBy('id')
+                    ->lockForUpdate()
+                    ->get()
+                    ->first(
+                        fn (TourDepartureStage $stage): bool => $this->stageWindowState($departure, $stage) === 'active'
+                    );
+
+                if ($currentStage) {
+                    $currentStage->update([
+                        'status' => 'in_progress',
+                        'started_at' => $currentStage->started_at ?? now(),
+                    ]);
+                    $currentStage = $currentStage->fresh();
+                }
+            }
+
+            if (! $currentStage) {
+                $blockedStage = $inProgressStages->first();
+                $message = match ($blockedStage ? $this->stageWindowState($departure, $blockedStage) : null) {
+                    'upcoming' => 'Chưa đến giờ hoạt động. Chỉ có thể xác nhận trong khung giờ đã lên lịch.',
+                    'ended' => 'Hoạt động đã hết thời gian xác nhận.',
+                    'unavailable' => 'Hoạt động chưa có đủ khung giờ để xác nhận.',
+                    default => 'Hôm nay không có hoạt động nào đang trong khung giờ xác nhận.',
+                };
+
                 throw ValidationException::withMessages([
-                    'stage' => 'No current stage is available for this tour departure.',
+                    'stage' => $message,
+                ]);
+            }
+
+            if ($this->stageWindowState($departure, $currentStage) !== 'active') {
+                throw ValidationException::withMessages([
+                    'stage' => 'Chỉ có thể xác nhận trong khung giờ diễn ra hoạt động.',
                 ]);
             }
 
             $nextStage = TourDepartureStage::query()
                 ->where('tour_departure_id', $departure->id)
+                ->where('day_number', $currentDayNumber)
+                ->where('status', 'pending')
                 ->where(function (Builder $query) use ($currentStage): void {
-                    $query->where('day_number', '>', $currentStage->day_number)
+                    $query->where('sort_order', '>', $currentStage->sort_order)
                         ->orWhere(function (Builder $query) use ($currentStage): void {
-                            $query->where('day_number', $currentStage->day_number)
-                                ->where('sort_order', '>', $currentStage->sort_order);
-                        })
-                        ->orWhere(function (Builder $query) use ($currentStage): void {
-                            $query->where('day_number', $currentStage->day_number)
-                                ->where('sort_order', $currentStage->sort_order)
+                            $query->where('sort_order', $currentStage->sort_order)
                                 ->where('id', '>', $currentStage->id);
                         });
                 })
-                ->orderBy('day_number')
                 ->orderBy('sort_order')
                 ->orderBy('id')
                 ->lockForUpdate()
                 ->first();
 
-            if (! $nextStage) {
-                throw ValidationException::withMessages([
-                    'stage' => 'Cannot advance after the final stage.',
+            if (! $nextStage || $this->stageWindowState($departure, $nextStage) !== 'active') {
+                $currentStage->update([
+                    'status' => 'completed',
+                    'completed_at' => now(),
                 ]);
+
+                TourDeparture::query()
+                    ->whereKey($departure->id)
+                    ->update(['current_stage_id' => $currentStage->id]);
+
+                return [
+                    'current_stage' => $currentStage->fresh(),
+                    'stages' => TourDepartureStage::query()
+                        ->where('tour_departure_id', $departure->id)
+                        ->orderBy('day_number')
+                        ->orderBy('sort_order')
+                        ->orderBy('id')
+                        ->get(),
+                ];
             }
 
             $now = now();
@@ -895,9 +979,14 @@ class GuideTourOperationService
 
     private function itineraryDate(TourDeparture $departure, TourItinerary $itinerary): Carbon
     {
+        return $this->scheduledDateForDay($departure, (int) $itinerary->day_number);
+    }
+
+    private function scheduledDateForDay(TourDeparture $departure, int $dayNumber): Carbon
+    {
         return Carbon::parse($departure->departure_date)
             ->startOfDay()
-            ->addDays(max((int) $itinerary->day_number - 1, 0));
+            ->addDays(max($dayNumber - 1, 0));
     }
 
     /**
@@ -1036,6 +1125,84 @@ class GuideTourOperationService
         return $departureDate->lte($today) && $returnDate->gte($today);
     }
 
+    private function currentItineraryDayNumber(TourDeparture $departure): ?int
+    {
+        $today = Carbon::today();
+        $departureDate = Carbon::parse($departure->departure_date)->startOfDay();
+        $returnDate = Carbon::parse($departure->return_date ?: $departure->departure_date)->startOfDay();
+
+        if ($today->lt($departureDate) || $today->gt($returnDate)) {
+            return null;
+        }
+
+        return $departureDate->diffInDays($today) + 1;
+    }
+
+    private function stageWindowState(TourDeparture $departure, TourDepartureStage $stage): string
+    {
+        $window = $this->stageWindowBounds($departure, $stage);
+
+        if (! $window) {
+            return 'unavailable';
+        }
+
+        [$windowStart, $windowEnd] = $window;
+        $now = now();
+
+        if ($now->lt($windowStart)) {
+            return 'upcoming';
+        }
+
+        if ($now->gte($windowEnd)) {
+            return 'ended';
+        }
+
+        return 'active';
+    }
+
+    /**
+     * @return array{0: Carbon, 1: Carbon}|null
+     */
+    private function stageWindowBounds(TourDeparture $departure, TourDepartureStage $stage): ?array
+    {
+        if (! $stage->start_time && ! $stage->end_time) {
+            return null;
+        }
+
+        $stageDate = $this->scheduledDateForDay($departure, (int) $stage->day_number);
+        $windowStart = $stageDate->copy()->startOfDay();
+        $windowEnd = $stageDate->copy()->endOfDay();
+
+        if ($stage->start_time) {
+            $windowStart->setTimeFromTimeString((string) $stage->start_time);
+        }
+
+        if ($stage->end_time) {
+            $windowEnd->setTimeFromTimeString((string) $stage->end_time);
+        } else {
+            $nextStart = TourDepartureStage::query()
+                ->where('tour_departure_id', $departure->id)
+                ->where('day_number', $stage->day_number)
+                ->whereNotNull('start_time')
+                ->where(function (Builder $query) use ($stage): void {
+                    $query->where('sort_order', '>', $stage->sort_order)
+                        ->orWhere(function (Builder $query) use ($stage): void {
+                            $query->where('sort_order', $stage->sort_order)
+                                ->where('id', '>', $stage->id);
+                        });
+                })
+                ->orderBy('sort_order')
+                ->orderBy('id')
+                ->value('start_time');
+
+            if ($nextStart) {
+                $windowEnd->setTimeFromTimeString((string) $nextStart);
+            }
+        }
+
+        return $windowEnd->gt($windowStart) ? [$windowStart, $windowEnd] : null;
+    }
+
     private function ensureStagesForDeparture(TourDeparture $departure): void
     {
         DB::transaction(function () use ($departure): void {
@@ -1050,7 +1217,11 @@ class GuideTourOperationService
 
             $currentStage = $this->findDisplayCurrentStage($lockedDeparture);
 
-            if ($currentStage && $currentStage->status === 'pending') {
+            if (
+                $currentStage
+                && $currentStage->status === 'pending'
+                && $this->stageWindowState($lockedDeparture, $currentStage) === 'active'
+            ) {
                 $currentStage->update([
                     'status' => 'in_progress',
                     'started_at' => $currentStage->started_at ?? now(),
@@ -1058,8 +1229,9 @@ class GuideTourOperationService
                 $currentStage = $currentStage->fresh();
             }
 
-            if ($currentStage && (int) $lockedDeparture->current_stage_id !== (int) $currentStage->id) {
-                $lockedDeparture->update(['current_stage_id' => $currentStage->id]);
+            $currentStageId = $currentStage?->id;
+            if ((int) ($lockedDeparture->current_stage_id ?? 0) !== (int) ($currentStageId ?? 0)) {
+                $lockedDeparture->update(['current_stage_id' => $currentStageId]);
             }
         });
     }
@@ -1073,9 +1245,15 @@ class GuideTourOperationService
             ->orderBy('id')
             ->get();
 
+        $currentDayNumber = $this->currentItineraryDayNumber($departure);
+        $currentDayStarted = false;
         $now = now();
 
-        foreach ($itineraries as $index => $itinerary) {
+        foreach ($itineraries as $itinerary) {
+            $isCurrentDay = $currentDayNumber !== null
+                && (int) $itinerary->day_number === $currentDayNumber
+                && ! $currentDayStarted;
+
             TourDepartureStage::query()->create([
                 'tour_departure_id' => $departure->id,
                 'tour_itinerary_id' => $itinerary->id,
@@ -1085,9 +1263,11 @@ class GuideTourOperationService
                 'title' => $itinerary->title,
                 'start_time' => $itinerary->start_time,
                 'end_time' => $itinerary->end_time,
-                'status' => $index === 0 ? 'in_progress' : 'pending',
-                'started_at' => $index === 0 ? $now : null,
+                'status' => $isCurrentDay ? 'in_progress' : 'pending',
+                'started_at' => $isCurrentDay ? $now : null,
             ]);
+
+            $currentDayStarted = $currentDayStarted || $isCurrentDay;
         }
     }
 
@@ -1095,6 +1275,18 @@ class GuideTourOperationService
     {
         $baseQuery = TourDepartureStage::query()
             ->where('tour_departure_id', $departure->id);
+
+        $currentDayNumber = $this->currentItineraryDayNumber($departure);
+
+        if ($currentDayNumber !== null) {
+            $currentDayStages = (clone $baseQuery)
+                ->where('day_number', $currentDayNumber)
+                ->orderBy('sort_order')
+                ->orderBy('id')
+                ->get();
+
+            return $this->getDisplayCurrentStage($departure, $currentDayStages);
+        }
 
         return (clone $baseQuery)
             ->where('status', 'in_progress')
