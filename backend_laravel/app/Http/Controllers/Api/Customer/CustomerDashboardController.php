@@ -47,10 +47,15 @@ class CustomerDashboardController extends Controller
                 'tour.province',
                 'tour.destination',
                 'tour.thumbnail',
-                'tourDeparture',
+                'tour.itineraries.destinationPlace:id,name,address,district_name',
+                'tourDeparture.stages.itinerary.destinationPlace:id,name,address,district_name',
+                'tourDeparture.attendanceSessions' => fn ($query) => $query
+                    ->select('id', 'tour_departure_id', 'name', 'scheduled_date', 'status')
+                    ->orderBy('scheduled_date')
+                    ->orderBy('id'),
                 'payment',
                 'contact',
-                'participants',
+                'participants.attendances:id,attendance_session_id,booking_participant_id,status,checked_in_at,checked_out_at,note',
                 'tourReview',
                 'disruptionRequests',
                 'statusHistories' => fn($q) => $q

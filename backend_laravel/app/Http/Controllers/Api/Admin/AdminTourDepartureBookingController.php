@@ -189,6 +189,27 @@ class AdminTourDepartureBookingController extends Controller
                 ])->values(),
             ])->values();
 
+        $stages = $tourDeparture->stages()
+            ->with('itinerary.destinationPlace:id,name,address,district_name')
+            ->orderBy('day_number')
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get()
+            ->map(fn ($stage) => [
+                'id' => $stage->id,
+                'tour_itinerary_id' => $stage->tour_itinerary_id,
+                'day_number' => $stage->day_number,
+                'sort_order' => $stage->sort_order,
+                'type' => $stage->type,
+                'title' => $stage->title,
+                'start_time' => $stage->start_time,
+                'end_time' => $stage->end_time,
+                'status' => $stage->status,
+                'started_at' => $stage->started_at?->toDateTimeString(),
+                'completed_at' => $stage->completed_at?->toDateTimeString(),
+                'itinerary' => $stage->itinerary,
+            ])->values();
+
         return response()->json([
             'success' => true,
             'message' => 'Lấy danh sách khách hàng đặt tour thành công.',
@@ -222,6 +243,7 @@ class AdminTourDepartureBookingController extends Controller
                     'guest_count' => (int) $tourDeparture->booked_slots,
                 ],
                 'attendance_sessions' => $attendanceSessions,
+                'stages' => $stages,
             ],
         ]);
     }
