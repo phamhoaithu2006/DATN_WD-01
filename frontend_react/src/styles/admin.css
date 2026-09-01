@@ -191,9 +191,10 @@
 
 .admin-nav-sublink {
   min-height: 38px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   padding: 6px 10px;
   border-radius: 10px;
   color: #64748b;
@@ -202,6 +203,27 @@
   font-weight: 700;
   line-height: 1.25;
   transition: background 160ms ease, color 160ms ease;
+}
+
+.admin-nav-sublink > span:first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-nav-sublink-badge {
+  display: inline-flex;
+  min-width: 18px;
+  height: 18px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  flex-shrink: 0;
 }
 
 .admin-nav-sublink:hover {

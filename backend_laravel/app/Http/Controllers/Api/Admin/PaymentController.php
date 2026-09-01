@@ -5,11 +5,12 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Payment;
 use App\Services\BookingConfirmationService;
+use App\Services\BookingRefundService;
+use App\Services\BookingStatusService;
 use App\Services\VnpayPaymentLifecycleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class PaymentController extends Controller
@@ -17,6 +18,8 @@ class PaymentController extends Controller
     public function __construct(
         private readonly VnpayPaymentLifecycleService $paymentLifecycleService,
         private readonly BookingConfirmationService $bookingConfirmationService,
+        private readonly BookingRefundService $bookingRefundService,
+        private readonly BookingStatusService $bookingStatusService,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -79,36 +82,19 @@ class PaymentController extends Controller
         $validated = $request->validate([
             'refund_proof' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
-        $path = $validated['refund_proof']->store('refund-proofs', 'public');
 
-        $existingPayment = Payment::query()->find($id);
-        if ($existingPayment?->status === 'refunded') {
-            $oldPath = $existingPayment->refund_proof_path;
-            $existingPayment->update(['refund_proof_path' => $path, 'refunded_at' => $existingPayment->refunded_at ?? now()]);
-            if ($oldPath) {
-                Storage::disk('public')->delete($oldPath);
-            }
-            return response()->json(['status' => 'success', 'message' => 'Đã thay ảnh chứng minh hoàn tiền.', 'data' => $existingPayment->fresh(['booking.user'])]);
-        }
+        $payment = $this->bookingRefundService->refundDirect($id, $validated['refund_proof']);
 
-        try {
-            return $this->updateStatus($id, 'refunded', 'refunded', [
-                'refund_proof_path' => $path,
-                'refunded_at' => now(),
-            ], 'Cập nhật hoàn tiền thành công');
-        } catch (\Throwable $exception) {
-            Storage::disk('public')->delete($path);
-            throw $exception;
-        }
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Xử lý hoàn tiền thành công.',
+            'data' => $payment,
+        ]);
     }
 
     public function deleteRefundProof(int $id): JsonResponse
     {
-        $payment = Payment::query()->findOrFail($id);
-        if ($payment->refund_proof_path) {
-            Storage::disk('public')->delete($payment->refund_proof_path);
-            $payment->update(['refund_proof_path' => null]);
-        }
+        $payment = $this->bookingRefundService->deleteDirectProof($id);
 
         return response()->json(['status' => 'success', 'message' => 'Đã xóa ảnh chứng minh hoàn tiền.', 'data' => $payment->fresh()]);
     }
@@ -156,39 +142,12 @@ class PaymentController extends Controller
 
             if ($payment->booking && $paymentStatus === 'success') {
                 $oldBookingStatus = $payment->booking->status;
-                $hasCommittedSlots = $this->paymentLifecycleService
-                    ->commitSlotsForPaidBooking($payment->booking);
+                $payment->booking->update(['payment_status' => $bookingPaymentStatus]);
+                $this->bookingStatusService->synchronize($payment->booking, auth()->id());
+                $payment->booking->refresh();
 
-                if ($hasCommittedSlots) {
-                    $payment->booking->update([
-                        'status' => 'confirmed',
-                        'payment_status' => $bookingPaymentStatus,
-                    ]);
-
-                    if ($oldBookingStatus !== 'confirmed') {
-                        $payment->booking->statusHistories()->create([
-                            'changed_by' => auth()->id(),
-                            'old_status' => $oldBookingStatus,
-                            'new_status' => 'confirmed',
-                            'note' => 'Booking được tự động xác nhận sau khi thanh toán đủ.',
-                        ]);
-                    }
-
+                if ($payment->booking->status === 'confirmed' && $oldBookingStatus !== 'confirmed') {
                     $this->bookingConfirmationService->enqueueForConfirmedBooking($payment->booking);
-                } else {
-                    $payment->booking->update([
-                        'status' => 'cancelled',
-                        'payment_status' => 'refund_pending',
-                        'cancel_reason' => VnpayPaymentLifecycleService::SOLD_OUT_AFTER_PAYMENT_REASON,
-                        'cancelled_at' => now(),
-                    ]);
-
-                    $payment->booking->statusHistories()->create([
-                        'changed_by' => null,
-                        'old_status' => $oldBookingStatus,
-                        'new_status' => 'cancelled',
-                        'note' => VnpayPaymentLifecycleService::SOLD_OUT_AFTER_PAYMENT_REASON,
-                    ]);
                 }
             } elseif ($payment->booking) {
                 $payment->booking->update([

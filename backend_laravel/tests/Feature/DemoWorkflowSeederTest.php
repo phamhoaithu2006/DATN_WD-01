@@ -21,7 +21,7 @@ test('demo workflow seeder creates complete repeatable data for every major role
         ->keyBy('booking_code');
 
     expect($demoBookings)->toHaveCount(6)
-        ->and($demoBookings['BK-DEMO-PENDING']->status)->toBe('pending')
+        ->and($demoBookings['BK-DEMO-PENDING']->status)->toBe('awaiting_payment')
         ->and($demoBookings['BK-DEMO-PENDING']->payment_status)->toBe('unpaid')
         ->and($demoBookings['BK-DEMO-PENDING']->payment->status)->toBe('pending')
         ->and($demoBookings['BK-DEMO-PENDING']->payment->expires_at->isFuture())->toBeTrue()
@@ -68,7 +68,7 @@ test('demo workflow seeder creates complete repeatable data for every major role
     TourDeparture::query()->each(function (TourDeparture $departure): void {
         $expected = Booking::query()
             ->where('tour_departure_id', $departure->id)
-            ->whereIn('status', ['pending', 'confirmed', 'completed'])
+            ->whereIn('status', ['awaiting_payment', 'confirmed', 'completed'])
             ->sum('number_of_people');
 
         expect($departure->booked_slots)->toBe(min($expected, $departure->total_slots));

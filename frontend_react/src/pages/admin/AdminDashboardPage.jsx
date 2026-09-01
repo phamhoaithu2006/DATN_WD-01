@@ -14,7 +14,7 @@ const currencyFormatter = new Intl.NumberFormat('vi-VN', {
 const numberFormatter = new Intl.NumberFormat('vi-VN')
 
 const STATUS_TONE = {
-  pending: { label: 'Chờ xác nhận', color: '#f59e0b' },
+  awaiting_payment: { label: 'Chờ thanh toán', color: '#f59e0b' },
   confirmed: { label: 'Đã xác nhận', color: '#0ea5e9' },
   completed: { label: 'Hoàn thành', color: '#10b981' },
   cancelled: { label: 'Đã hủy', color: '#ef4444' },
@@ -228,7 +228,7 @@ function AdminDashboardPage() {
     const entries = [
       { key: 'completed', value: Number(bookingStats.completed || 0), label: 'Hoàn thành' },
       { key: 'confirmed', value: Number(bookingStats.confirmed || 0), label: 'Đã xác nhận' },
-      { key: 'pending', value: Number(bookingStats.pending || 0), label: 'Chờ xác nhận' },
+      { key: 'awaiting_payment', value: Number(bookingStats.awaiting_payment || 0), label: 'Chờ thanh toán' },
       { key: 'cancelled', value: Number(bookingStats.cancelled || 0), label: 'Đã hủy' },
     ]
 

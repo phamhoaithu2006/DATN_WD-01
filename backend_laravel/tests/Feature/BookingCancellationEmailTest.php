@@ -208,7 +208,7 @@ test('customer can cancel an unpaid booking and the email says no refund is due'
     $tour = cancellationEmailTour();
     $departure = cancellationEmailDeparture($tour);
     $booking = cancellationEmailBooking($customer, $tour, $departure, [
-        'status' => 'pending',
+        'status' => 'awaiting_payment',
         'payment_status' => 'unpaid',
         'with_payment' => false,
         'contact' => [],
@@ -239,7 +239,7 @@ test('customer cancelling a pending VNPAY payment queues a cancellation email', 
     $tour = cancellationEmailTour();
     $departure = cancellationEmailDeparture($tour);
     $booking = cancellationEmailBooking($customer, $tour, $departure, [
-        'status' => 'pending',
+        'status' => 'awaiting_payment',
         'payment_status' => 'unpaid',
         'contact' => [],
     ]);
@@ -378,24 +378,65 @@ test('admin departure cancellation queues one email for every affected customer'
     Mail::assertSent(BookingCancellationMail::class, fn (BookingCancellationMail $mail): bool => $mail->hasTo('two@example.com'));
 });
 
-test('admin cancelling an individual booking does not queue a cancellation email', function () {
+test('admin cancelling an individual booking queues one cancellation email', function () {
     Mail::fake();
     Queue::fake();
 
     $admin = cancellationEmailUser('admin');
-    $customer = cancellationEmailUser();
+    $customer = cancellationEmailUser('customer', ['email' => 'admin-cancelled-booking@example.com']);
     $tour = cancellationEmailTour();
     $departure = cancellationEmailDeparture($tour, ['booked_slots' => 2]);
     $booking = cancellationEmailBooking($customer, $tour, $departure, ['contact' => []]);
+    $reason = 'Admin hủy booking do lịch khởi hành thay đổi.';
 
     Sanctum::actingAs($admin);
 
-    $this->patchJson("/api/admin/bookings/{$booking->id}/cancel")
+    $this->patchJson("/api/admin/bookings/{$booking->id}/cancel", ['reason' => $reason])
         ->assertOk();
 
+    $outbox = BookingCancellationOutbox::query()->where('booking_id', $booking->id)->firstOrFail();
+
     expect($booking->fresh()->status)->toBe('cancelled')
-        ->and(BookingCancellationOutbox::query()->count())->toBe(0);
-    Queue::assertNothingPushed();
+        ->and($booking->fresh()->payment_status)->toBe('refund_pending')
+        ->and($outbox->recipient_email)->toBe($customer->email)
+        ->and($outbox->payload['cancellation_source'])->toBe(BookingCancellationEmailService::SOURCE_ADMIN_BOOKING)
+        ->and($outbox->payload['reason'])->toBe($reason)
+        ->and($outbox->payload['refund_status'])->toBe('refund_pending');
+
+    Queue::assertPushed(DeliverBookingCancellationEmail::class, 1);
+    deliverCancellationEmail($outbox);
+
+    Mail::assertSent(BookingCancellationMail::class, fn (BookingCancellationMail $mail): bool => $mail->hasTo($customer->email)
+        && $mail->cancellation['mail_subject'] === 'Thông báo booking bị hủy'
+        && str_contains($mail->render(), 'Booking của quý khách đã bị hủy bởi quản trị viên.')
+        && str_contains($mail->render(), $reason));
+    Mail::assertSentCount(1);
+});
+
+test('admin cancelling an individual booking through status update queues one cancellation email', function () {
+    Mail::fake();
+    Queue::fake();
+
+    $admin = cancellationEmailUser('admin');
+    $customer = cancellationEmailUser('customer', ['email' => 'admin-status-cancelled-booking@example.com']);
+    $tour = cancellationEmailTour();
+    $departure = cancellationEmailDeparture($tour, ['booked_slots' => 2]);
+    $booking = cancellationEmailBooking($customer, $tour, $departure, ['contact' => []]);
+    $reason = 'Admin cập nhật trạng thái hủy booking.';
+
+    Sanctum::actingAs($admin);
+
+    $this->putJson("/api/admin/bookings/{$booking->id}", [
+        'status' => 'cancelled',
+        'cancel_reason' => $reason,
+    ])->assertOk();
+
+    $outbox = BookingCancellationOutbox::query()->where('booking_id', $booking->id)->firstOrFail();
+
+    expect($booking->fresh()->status)->toBe('cancelled')
+        ->and($outbox->payload['cancellation_source'])->toBe(BookingCancellationEmailService::SOURCE_ADMIN_BOOKING)
+        ->and($outbox->payload['reason'])->toBe($reason);
+    Queue::assertPushed(DeliverBookingCancellationEmail::class, 1);
 });
 
 test('admin cancelling a departure without bookings does not create a cancellation email', function () {
@@ -515,7 +556,7 @@ test('automatic pending payment failure does not queue a customer cancellation e
     $tour = cancellationEmailTour();
     $departure = cancellationEmailDeparture($tour);
     $booking = cancellationEmailBooking($customer, $tour, $departure, [
-        'status' => 'pending',
+        'status' => 'awaiting_payment',
         'payment_status' => 'unpaid',
         'contact' => [],
     ]);

@@ -13,6 +13,7 @@ use App\Models\TourDeparture;
 use App\Models\TourRefundOutbox;
 use App\Models\User;
 use App\Services\AdminNotificationService;
+use App\Services\BookingAuditService;
 use App\Services\BookingCancellationEmailService;
 use App\Services\BookingPhoneDuplicateGuard;
 use App\Services\TourPricingService;
@@ -36,6 +37,7 @@ class CustomerBookingController extends Controller
         private readonly VnpayPaymentLifecycleService $paymentLifecycleService,
         private readonly AdminNotificationService $adminNotificationService,
         private readonly BookingCancellationEmailService $bookingCancellationEmailService,
+        private readonly BookingAuditService $bookingAuditService,
     ) {}
 
     public function preview(Request $request): JsonResponse
@@ -253,7 +255,7 @@ class CustomerBookingController extends Controller
                 });
 
             // Loại khách suy ra từ quy tắc giá (không tin participant_type do client gửi)
-            if (! $pricedParticipants->contains(fn(array $participant) => $participant['_derived_type'] === 'adult')) {
+            if (! $pricedParticipants->contains(fn (array $participant) => $participant['_derived_type'] === 'adult')) {
                 throw ValidationException::withMessages([
                     'participants' => ['Đơn đặt tour phải có ít nhất 1 người lớn đi kèm.'],
                 ]);
@@ -281,7 +283,7 @@ class CustomerBookingController extends Controller
             }
 
             $booking = Booking::create([
-                'booking_code' => 'BK-' . Str::upper((string) Str::ulid()),
+                'booking_code' => 'BK-'.Str::upper((string) Str::ulid()),
                 'idempotency_key' => $idempotencyKey,
                 'user_id' => $lockedUser->id,
                 'tour_id' => $tour->id,
@@ -297,7 +299,7 @@ class CustomerBookingController extends Controller
                 'total_amount' => $totalAmount,
 
                 // Đổi lại nếu ENUM/status của bạn dùng tên khác
-                'status' => 'pending',
+                'status' => 'awaiting_payment',
                 'payment_status' => 'unpaid',
 
                 'note' => $data['note'] ?? null,
@@ -326,7 +328,7 @@ class CustomerBookingController extends Controller
             $booking->statusHistories()->create([
                 'changed_by' => $lockedUser->id,
                 'old_status' => null,
-                'new_status' => 'pending',
+                'new_status' => 'awaiting_payment',
                 'note' => 'Khách hàng tạo đơn đặt tour.',
             ]);
 
@@ -465,7 +467,7 @@ class CustomerBookingController extends Controller
             'payment',
             'contact',
             'participants',
-            'informationChangeHistories' => fn($q) => $q->orderByDesc('id'),
+            'informationChangeHistories' => fn ($q) => $q->orderByDesc('id'),
         ])->toArray();
         $bookingData['information_edit_count'] = $updatedBooking->informationChangeHistories()->count();
         $bookingData['information_edit_limit'] = Booking::INFORMATION_EDIT_LIMIT;
@@ -500,7 +502,7 @@ class CustomerBookingController extends Controller
                 ->first();
 
             if (
-                $lockedBooking->status !== 'pending'
+                $lockedBooking->status !== 'awaiting_payment'
                 || $lockedBooking->payment_status !== 'unpaid'
                 || ! $payment
                 || $payment->payment_method !== 'vnpay'
@@ -571,13 +573,13 @@ class CustomerBookingController extends Controller
 
             // Chỉ những trạng thái này khách mới được tự hủy.
             // Đã khởi hành / đã hoàn thành / đang bảo lưu thì không được hủy tự động.
-            if (! in_array($lockedBooking->status, ['pending', 'confirmed'], true)) {
+            if (! in_array($lockedBooking->status, ['awaiting_payment', 'confirmed'], true)) {
                 return ['error' => 'Không thể hủy đơn ở trạng thái hiện tại. Vui lòng liên hệ hỗ trợ nếu cần xử lý.'];
             }
 
             // Đơn đang chờ thanh toán nhưng đã thanh toán thành công phải được
             // xử lý qua quy trình hoàn tiền, không được khách tự hủy trực tiếp.
-            if ($lockedBooking->status === 'pending' && $lockedBooking->payment_status !== 'unpaid') {
+            if ($lockedBooking->status === 'awaiting_payment' && $lockedBooking->payment_status !== 'unpaid') {
                 return ['error' => 'Đơn đã thanh toán không thể tự hủy. Vui lòng liên hệ hỗ trợ để được xử lý.'];
             }
 
@@ -597,7 +599,7 @@ class CustomerBookingController extends Controller
             // Trường hợp 1: đơn đang chờ thanh toán VNPAY.
             // Đơn chờ không giữ chỗ nên việc hủy chỉ cập nhật payment/booking.
             if (
-                $lockedBooking->status === 'pending'
+                $lockedBooking->status === 'awaiting_payment'
                 && $lockedBooking->payment_status === 'unpaid'
                 && $payment
                 && $payment->payment_method === 'vnpay'
@@ -605,7 +607,9 @@ class CustomerBookingController extends Controller
             ) {
                 $this->paymentLifecycleService->failPendingPayment(
                     $payment,
-                    'Khách hàng chủ động hủy đơn chờ thanh toán.'
+                    'Khách hàng chủ động hủy đơn chờ thanh toán.',
+                    null,
+                    $request->user()->id,
                 );
 
                 $this->bookingCancellationEmailService->enqueueForCancelledBooking(
@@ -623,6 +627,7 @@ class CustomerBookingController extends Controller
             $lockedBooking->cancel_reason = $reason;
             $lockedBooking->cancelled_at = now();
 
+            $oldPaymentStatus = $lockedBooking->payment_status;
             if ($lockedBooking->payment_status === 'paid') {
                 // Đánh dấu chờ admin xử lý hoàn tiền thủ công (VD: qua VNPAY / chuyển khoản)
                 $lockedBooking->payment_status = 'refund_pending';
@@ -638,6 +643,13 @@ class CustomerBookingController extends Controller
                 'old_status' => $oldStatus,
                 'new_status' => 'cancelled',
                 'note' => $reason,
+            ]);
+            $this->bookingAuditService->record($lockedBooking, 'customer_cancelled', $request->user()->id, [
+                'status_before' => $oldStatus,
+                'status_after' => 'cancelled',
+                'payment_status_before' => $oldPaymentStatus,
+                'payment_status_after' => $lockedBooking->payment_status,
+                'reason' => $reason,
             ]);
 
             $this->bookingCancellationEmailService->enqueueForCancelledBooking(
@@ -785,7 +797,7 @@ class CustomerBookingController extends Controller
                 'participants.*.identity_number' => ['nullable', 'string', 'max:30'],
             ]);
 
-            $submittedById = collect($data['participants'])->keyBy(fn(array $participant): int => (int) $participant['id']);
+            $submittedById = collect($data['participants'])->keyBy(fn (array $participant): int => (int) $participant['id']);
             $phones = [
                 $lockedBooking->contact?->phone_normalized,
                 ...$lockedBooking->participants->map(function ($participant) use ($submittedById): ?string {
@@ -839,7 +851,7 @@ class CustomerBookingController extends Controller
 
         if ($cancelledCount >= Booking::CUSTOMER_CANCELLATION_LIMIT) {
             throw ValidationException::withMessages([
-                'booking' => ['Bạn đã sử dụng hết giới hạn ' . Booking::CUSTOMER_CANCELLATION_LIMIT . ' lần hủy booking theo chính sách ViVuGo.'],
+                'booking' => ['Bạn đã sử dụng hết giới hạn '.Booking::CUSTOMER_CANCELLATION_LIMIT.' lần hủy booking theo chính sách ViVuGo.'],
             ]);
         }
     }
@@ -869,11 +881,11 @@ class CustomerBookingController extends Controller
 
                 $replacement = $source->replicate(['booking_code', 'created_at', 'updated_at']);
                 $replacement->fill([
-                    'booking_code' => 'BK-' . Str::upper((string) Str::ulid()),
+                    'booking_code' => 'BK-'.Str::upper((string) Str::ulid()),
                     'tour_id' => $target->tour_id,
                     'tour_departure_id' => $target->id,
                     'source_booking_id' => $source->id,
-                    'status' => 'pending',
+                    'status' => 'awaiting_payment',
                     'payment_status' => 'unpaid',
                     'cancel_reason' => null,
                     'cancellation_reason' => null,
@@ -882,7 +894,7 @@ class CustomerBookingController extends Controller
                 ]);
                 $replacement->save();
                 $replacement->contact()->create($source->contact?->only(['contact_name', 'contact_email', 'contact_phone', 'address', 'special_request']) ?? []);
-                $replacement->participants()->createMany($source->participants->map(fn($participant) => $participant->only([
+                $replacement->participants()->createMany($source->participants->map(fn ($participant) => $participant->only([
                     'full_name',
                     'phone',
                     'birth_date',
@@ -894,7 +906,7 @@ class CustomerBookingController extends Controller
                     'pricing_type',
                     'pricing_value',
                 ]))->all());
-                $replacement->statusHistories()->create(['old_status' => null, 'new_status' => 'pending', 'note' => "Created from cancelled booking {$source->booking_code}."]);
+                $replacement->statusHistories()->create(['old_status' => null, 'new_status' => 'awaiting_payment', 'note' => "Created from cancelled booking {$source->booking_code}."]);
                 $source->update(['resolution_status' => $data['resolution']]);
 
                 return ['booking' => $replacement];
@@ -909,7 +921,7 @@ class CustomerBookingController extends Controller
                     'requested_by' => $source->user_id,
                     'amount' => $amount,
                     'reason' => 'Tour cancelled due to insufficient participants.',
-                    'status' => 'pending',
+                    'status' => 'awaiting_payment',
                     'requested_at' => now(),
                 ]);
                 $outbox = TourRefundOutbox::query()->create([
@@ -1046,7 +1058,7 @@ class CustomerBookingController extends Controller
 
         $validationErrors = [];
         $participantsByRule = $pricedParticipants->groupBy(
-            fn(array $participant) => $participant['_pricing_rule_id'] === null
+            fn (array $participant) => $participant['_pricing_rule_id'] === null
                 ? 'adult_default'
                 : (string) $participant['_pricing_rule_id']
         );
@@ -1094,7 +1106,7 @@ class CustomerBookingController extends Controller
         $expiredBookings = Booking::query()
             ->with('payment')
             ->where('user_id', $userId)
-            ->where('status', 'pending')
+            ->where('status', 'awaiting_payment')
             ->where('payment_status', 'unpaid')
             ->whereHas('payment', function ($query): void {
                 $query
@@ -1127,8 +1139,8 @@ class CustomerBookingController extends Controller
                 'payment:id,booking_id,amount,status,expires_at',
             ])
             ->where('user_id', $userId)
-            ->when($tourId !== null, fn($query) => $query->where('tour_id', $tourId))
-            ->where('status', 'pending')
+            ->when($tourId !== null, fn ($query) => $query->where('tour_id', $tourId))
+            ->where('status', 'awaiting_payment')
             ->where('payment_status', 'unpaid')
             ->whereHas('payment', function ($query): void {
                 $query
@@ -1170,7 +1182,7 @@ class CustomerBookingController extends Controller
         $lastEditableDate = $departureDate?->copy()->subDays(3);
 
         if (
-            ! in_array($booking->status, ['pending', 'confirmed'], true)
+            ! in_array($booking->status, ['awaiting_payment', 'confirmed'], true)
             || ! $lastEditableDate
             || today('Asia/Ho_Chi_Minh')->gt($lastEditableDate)
         ) {
@@ -1183,7 +1195,7 @@ class CustomerBookingController extends Controller
         $editCount = $booking->informationChangeHistories()->count();
         if ($editCount >= Booking::INFORMATION_EDIT_LIMIT) {
             throw ValidationException::withMessages([
-                'booking' => 'Bạn đã sửa thông tin booking này đủ ' . Booking::INFORMATION_EDIT_LIMIT . ' lần, không thể sửa thêm.',
+                'booking' => 'Bạn đã sửa thông tin booking này đủ '.Booking::INFORMATION_EDIT_LIMIT.' lần, không thể sửa thêm.',
             ]);
         }
     }
@@ -1191,7 +1203,7 @@ class CustomerBookingController extends Controller
     private function ensureSameParticipants(Booking $booking, array $participants): void
     {
         $existingIds = $booking->participants->pluck('id')->sort()->values()->all();
-        $submittedIds = collect($participants)->pluck('id')->map(fn($id) => (int) $id)->sort()->values()->all();
+        $submittedIds = collect($participants)->pluck('id')->map(fn ($id) => (int) $id)->sort()->values()->all();
 
         if ($existingIds !== $submittedIds) {
             throw ValidationException::withMessages([
@@ -1234,6 +1246,7 @@ class CustomerBookingController extends Controller
 
             if ($newBirthDate->isAfter($departureDate)) {
                 $validationErrors["participants.{$index}.birth_date"] = ['Ngày sinh không được sau ngày khởi hành.'];
+
                 continue;
             }
 
@@ -1241,6 +1254,7 @@ class CustomerBookingController extends Controller
 
             if ($newAge > 120) {
                 $validationErrors["participants.{$index}.birth_date"] = ['Ngày sinh không hợp lệ.'];
+
                 continue;
             }
 
@@ -1275,7 +1289,7 @@ class CustomerBookingController extends Controller
                 'address',
                 'special_request',
             ]),
-            'participants' => $booking->participants->map(fn($participant) => $participant->only([
+            'participants' => $booking->participants->map(fn ($participant) => $participant->only([
                 'id',
                 'full_name',
                 'phone',
@@ -1315,7 +1329,7 @@ class CustomerBookingController extends Controller
             $oldValue = $beforeContact[$key] ?? '';
             $newValue = $afterContact[$key] ?? '';
             if ((string) $oldValue !== (string) $newValue) {
-                $lines[] = "- {$label}: \"" . $this->formatDiffValue($key, $oldValue) . '" → "' . $this->formatDiffValue($key, $newValue) . '"';
+                $lines[] = "- {$label}: \"".$this->formatDiffValue($key, $oldValue).'" → "'.$this->formatDiffValue($key, $newValue).'"';
             }
         }
 
@@ -1326,7 +1340,7 @@ class CustomerBookingController extends Controller
                 $oldValue = $beforeParticipant[$key] ?? '';
                 $newValue = $afterParticipant[$key] ?? '';
                 if ((string) $oldValue !== (string) $newValue) {
-                    $lines[] = '- Hành khách ' . ($index + 1) . " - {$label}: \"" . $this->formatDiffValue($key, $oldValue) . '" → "' . $this->formatDiffValue($key, $newValue) . '"';
+                    $lines[] = '- Hành khách '.($index + 1)." - {$label}: \"".$this->formatDiffValue($key, $oldValue).'" → "'.$this->formatDiffValue($key, $newValue).'"';
                 }
             }
         }

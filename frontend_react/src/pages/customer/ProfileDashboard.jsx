@@ -1027,7 +1027,7 @@ function ProfileDashboard({
     : 0, []);
 
   const canPayBooking = useCallback((booking) => (
-    booking.status === "pending"
+    booking.status === "awaiting_payment"
     && booking.payment_status === "unpaid"
     && booking.payment?.payment_method === "vnpay"
     && booking.payment?.status === "pending"
@@ -1037,7 +1037,7 @@ function ProfileDashboard({
   // Trả về lý do KHÔNG cho sửa thông tin booking, hoặc null nếu vẫn sửa được.
   // Dùng chung 1 hàm để nút bấm, modal và thông báo luôn khớp lý do với nhau.
   const getBookingInformationLockReason = useCallback((booking) => {
-    if (!['pending', 'confirmed'].includes(booking.status)) return 'status';
+    if (!['awaiting_payment', 'confirmed'].includes(booking.status)) return 'status';
 
     const departureDate = booking.tour_departure?.departure_date;
     if (!departureDate) return 'status';
@@ -1080,6 +1080,11 @@ function ProfileDashboard({
 
     if (["cancelled", "cancelled_by_tour"].includes(booking.status)) return "cancelled";
 
+    if (booking.display_status === "departed") return "ongoing";
+    if (booking.display_status === "completed") return "completed";
+    if (["confirmed", "upcoming"].includes(booking.display_status)) return "upcoming";
+    if (booking.display_status === "awaiting_payment") return "awaiting_payment";
+
     const departureAt = booking.tour_departure?.departure_date
       ? new Date(booking.tour_departure.departure_date).getTime()
       : 0;
@@ -1115,6 +1120,7 @@ function ProfileDashboard({
       upcoming: 0,
       ongoing: 0,
       completed: 0,
+      awaiting_payment: 0,
       cancellation_pending: 0,
       refund_pending: 0,
       refunded: 0,
@@ -1127,6 +1133,7 @@ function ProfileDashboard({
       if (state === "upcoming") result.upcoming++;
       if (state === "ongoing") result.ongoing++;
       if (state === "completed") result.completed++;
+      if (state === "awaiting_payment") result.awaiting_payment++;
       if (state === "cancellation_pending") result.cancellation_pending++;
       if (state === "refund_pending") result.refund_pending++;
       if (state === "refunded") result.refunded++;
@@ -1168,8 +1175,9 @@ function ProfileDashboard({
           refunded: 2,
           upcoming: 3,
           ongoing: 4,
-          completed: 5,
-          cancelled: 6,
+          awaiting_payment: 5,
+          completed: 6,
+          cancelled: 7,
         };
         const priorityDifference =
           (stateOrder[getBookingTripState(a)] ?? 5) -
@@ -1244,8 +1252,8 @@ function ProfileDashboard({
 
     if (state === "upcoming") {
       return (
-        <span className="vg-status-badge is-paid">
-          <Icon name="calendar" size={13} /> Sắp khởi hành
+        <span className={booking.display_status === "confirmed" ? "vg-status-badge is-confirmed" : "vg-status-badge is-paid"}>
+          <Icon name="calendar" size={13} /> {booking.display_status === "confirmed" ? "Đã xác nhận" : "Sắp diễn ra"}
         </span>
       );
     }
@@ -1266,7 +1274,7 @@ function ProfileDashboard({
       );
     }
 
-    if (booking.payment_status === "paid") {
+    if (booking.payment_status === "paid" && state !== "awaiting_payment") {
       return (
         <span className="vg-status-badge is-paid">
           <Icon name="checkCircle" size={13} /> Đã thanh toán
@@ -1282,10 +1290,10 @@ function ProfileDashboard({
       );
     }
 
-    if (state === "pending") {
+    if (state === "awaiting_payment") {
       return (
         <span className="vg-status-badge is-pending-payment">
-          <Icon name="clock" size={13} /> Đang đợi thanh toán
+          <Icon name="clock" size={13} /> Chờ thanh toán
         </span>
       );
     }
@@ -1793,7 +1801,7 @@ function ProfileDashboard({
                         ) : null}
                       </div>
 
-                      <div className="vg-booking-summary-side">
+                      <div className={`vg-booking-summary-side ${isOngoingTrip ? "is-ongoing" : ""}`}>
                         <div className="vg-booking-status-wrap">
                           {renderStatusBadge(booking)}
                         </div>
@@ -1804,7 +1812,7 @@ function ProfileDashboard({
                         </div>
 
                         <div className="vg-booking-actions-row">
-                          {(canManageBooking || isOngoingTrip) ? (
+                          {canManageBooking ? (
                             <button
                               type="button"
                               className="vg-btn-ticket"

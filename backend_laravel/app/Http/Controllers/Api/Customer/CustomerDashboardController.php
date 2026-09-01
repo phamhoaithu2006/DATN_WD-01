@@ -9,13 +9,15 @@ use App\Models\BookingInformationChangeHistory;
 use App\Models\Tour;
 use App\Models\TourFinalizationOutbox;
 use App\Services\BookingReviewEligibilityService;
+use App\Services\BookingStatusService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class CustomerDashboardController extends Controller
 {
     public function __construct(
-        private readonly BookingReviewEligibilityService $bookingReviewEligibilityService
+        private readonly BookingReviewEligibilityService $bookingReviewEligibilityService,
+        private readonly BookingStatusService $bookingStatusService,
     ) {}
 
     public function summary(Request $request): JsonResponse
@@ -39,6 +41,7 @@ class CustomerDashboardController extends Controller
     public function bookings(Request $request): JsonResponse
     {
         $userId = $request->user()->id;
+        $this->bookingStatusService->synchronizeAll($userId);
 
         $bookings = Booking::query()
             ->where('user_id', $userId)
@@ -58,10 +61,10 @@ class CustomerDashboardController extends Controller
                 'participants.attendances:id,attendance_session_id,booking_participant_id,status,checked_in_at,checked_out_at,note',
                 'tourReview',
                 'disruptionRequests',
-                'statusHistories' => fn($q) => $q
+                'statusHistories' => fn ($q) => $q
                     ->with('changedBy:id,full_name')
                     ->orderByDesc('id'),
-                'informationChangeHistories' => fn($q) => $q->orderByDesc('id'),
+                'informationChangeHistories' => fn ($q) => $q->orderByDesc('id'),
             ])
             ->orderByDesc('id')
             ->get();
@@ -94,6 +97,7 @@ class CustomerDashboardController extends Controller
             ->pluck('total', 'booking_id');
 
         $bookings = $bookings->map(function (Booking $booking) use ($request, $cancelledCountByTourId, $editCountByBookingId, $tourCancellationMessages): array {
+            $this->bookingStatusService->decorate($booking);
             $data = $booking->toArray();
             $data['can_review_tour'] = $this->bookingReviewEligibilityService->isReviewable($booking);
             $data['tour_review'] = $booking->tourReview

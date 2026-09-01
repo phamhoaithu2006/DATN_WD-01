@@ -3,6 +3,7 @@
 use App\Jobs\DeliverBookingConfirmationEmail;
 use App\Mail\BookingConfirmationMail;
 use App\Models\Booking;
+use App\Models\BookingAuditLog;
 use App\Models\BookingConfirmationOutbox;
 use App\Models\Payment;
 use App\Models\Role;
@@ -13,6 +14,7 @@ use App\Models\User;
 use App\Services\BookingInvoicePdfService;
 use App\Services\VnpayPaymentLifecycleService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
@@ -120,7 +122,7 @@ function paymentSafetyBooking(array $attributes = []): Booking
         'unit_price' => 1500000,
         'discount_amount' => 0,
         'total_amount' => 1500000 * $numberOfPeople,
-        'status' => 'pending',
+        'status' => 'awaiting_payment',
         'payment_status' => 'unpaid',
         'slot_committed_at' => $slotCommittedAt,
     ], $attributes));
@@ -216,7 +218,7 @@ test('customer can restore an active pending booking for the current tour', func
         ->assertOk()
         ->assertJsonPath('data.id', $booking->id)
         ->assertJsonPath('data.payment.status', 'pending')
-        ->assertJsonPath('data.status', 'pending');
+        ->assertJsonPath('data.status', 'awaiting_payment');
 });
 
 test('customer cannot restore another customer pending booking', function () {
@@ -250,6 +252,7 @@ test('customer cannot restore an expired pending booking', function () {
 test('admin booking list marks bookings whose departure has started as departed', function () {
     $booking = paymentSafetyBooking([
         'status' => 'confirmed',
+        'payment_status' => 'paid',
     ]);
     $booking->tourDeparture()->update([
         'departure_date' => today()->toDateString(),
@@ -266,7 +269,7 @@ test('admin booking list marks bookings whose departure has started as departed'
     expect($booking->fresh()->status)->toBe('departed');
 });
 
-test('admin can manually start a confirmed booking without automatic sync reverting it', function () {
+test('admin cannot manually start a confirmed booking outside automatic date sync', function () {
     $admin = paymentSafetyUser('admin');
     $booking = paymentSafetyBooking([
         'status' => 'confirmed',
@@ -277,36 +280,26 @@ test('admin can manually start a confirmed booking without automatic sync revert
 
     $this->putJson("/api/admin/bookings/{$booking->id}", [
         'status' => 'departed',
-    ])->assertOk()
-        ->assertJsonPath('data.status', 'departed');
+    ])->assertUnprocessable()
+        ->assertJsonValidationErrors('status');
 
-    $this->getJson('/api/admin/bookings?status=departed')
-        ->assertOk()
-        ->assertJsonPath('data.0.id', $booking->id)
-        ->assertJsonPath('data.0.status', 'departed');
-
-    $this->assertDatabaseHas('booking_status_histories', [
-        'booking_id' => $booking->id,
-        'changed_by' => $admin->id,
-        'old_status' => 'confirmed',
-        'new_status' => 'departed',
-    ]);
+    expect($booking->fresh()->status)->toBe('confirmed');
 });
 
-test('admin cannot move a booking of a completed departure back to pending', function () {
+test('admin cannot move a booking of a completed departure back to awaiting payment', function () {
     $booking = paymentSafetyBooking(['status' => 'completed']);
     $booking->tourDeparture()->update(['status' => 'completed']);
 
     Sanctum::actingAs(paymentSafetyUser('admin'));
 
-    $this->putJson("/api/admin/bookings/{$booking->id}", ['status' => 'pending'])
+    $this->putJson("/api/admin/bookings/{$booking->id}", ['status' => 'awaiting_payment'])
         ->assertUnprocessable()
         ->assertJsonValidationErrors('status');
 
     expect($booking->fresh()->status)->toBe('completed');
 });
 
-test('admin cannot move a paid booking back to pending', function () {
+test('admin cannot move a paid booking back to awaiting payment', function () {
     $booking = paymentSafetyBooking([
         'status' => 'confirmed',
         'payment_status' => 'paid',
@@ -314,7 +307,7 @@ test('admin cannot move a paid booking back to pending', function () {
 
     Sanctum::actingAs(paymentSafetyUser('admin'));
 
-    $this->putJson("/api/admin/bookings/{$booking->id}", ['status' => 'pending'])
+    $this->putJson("/api/admin/bookings/{$booking->id}", ['status' => 'awaiting_payment'])
         ->assertUnprocessable()
         ->assertJsonValidationErrors('status');
 
@@ -332,7 +325,7 @@ test('customer cannot cancel more than two bookings', function () {
         ]);
         $previous->statusHistories()->create([
             'changed_by' => $customer->id,
-            'old_status' => 'pending',
+            'old_status' => 'awaiting_payment',
             'new_status' => 'cancelled',
             'note' => "Khách hàng tự hủy lần {$index}.",
         ]);
@@ -344,7 +337,7 @@ test('customer cannot cancel more than two bookings', function () {
         ->assertUnprocessable()
         ->assertJsonPath('message', 'Bạn đã sử dụng hết giới hạn 2 lần hủy booking theo chính sách ViVuGo.');
 
-    expect($booking->fresh()->status)->toBe('pending');
+    expect($booking->fresh()->status)->toBe('awaiting_payment');
 });
 
 test('customer booking creates a pending VNPAY payment with checkout url', function () {
@@ -679,7 +672,7 @@ test('customer cannot continue or cancel another customers booking', function ()
 
     $this->assertDatabaseHas('bookings', [
         'id' => $booking->id,
-        'status' => 'pending',
+        'status' => 'awaiting_payment',
         'payment_status' => 'unpaid',
     ]);
 });
@@ -706,7 +699,7 @@ test('continuing an expired booking cancels it without changing slots', function
     ]);
 });
 
-test('customer can cancel a pending booking and slots are released only once', function () {
+test('customer can cancel a booking awaiting payment and slots are released only once', function () {
     $customer = paymentSafetyUser('customer');
     $booking = paymentSafetyBooking(['user_id' => $customer->id, 'number_of_people' => 2]);
     Sanctum::actingAs($customer);
@@ -727,7 +720,7 @@ test('customer can cancel a pending booking and slots are released only once', f
     ]);
     $this->assertDatabaseHas('booking_status_histories', [
         'booking_id' => $booking->id,
-        'old_status' => 'pending',
+        'old_status' => 'awaiting_payment',
         'new_status' => 'cancelled',
         'note' => 'Khách hàng chủ động hủy đơn chờ thanh toán.',
     ]);
@@ -945,7 +938,7 @@ test('booking creation and paid-but-sold-out flow do not send a false confirmati
         ->assertCreated();
 
     $firstBooking = Booking::query()->findOrFail($created->json('data.id'));
-    expect($firstBooking->status)->toBe('pending')
+    expect($firstBooking->status)->toBe('awaiting_payment')
         ->and(BookingConfirmationOutbox::query()->count())->toBe(0);
 
     $secondCustomer = paymentSafetyUser('customer');
@@ -1079,7 +1072,7 @@ test('VNPAY return status keeps a failed attempt available for retry', function 
     $this->getJson('/api/vnpay/return-status?'.http_build_query($payload))
         ->assertOk()
         ->assertJsonPath('data.status', 'pending')
-        ->assertJsonPath('data.booking_status', 'pending')
+        ->assertJsonPath('data.booking_status', 'awaiting_payment')
         ->assertJsonPath('data.payment_status', 'unpaid')
         ->assertJsonPath('data.last_attempt_status', 'failed');
 
@@ -1089,7 +1082,7 @@ test('VNPAY return status keeps a failed attempt available for retry', function 
     ]);
 });
 
-test('VNPAY return status keeps booking pending when customer goes back', function () {
+test('VNPAY return status keeps booking awaiting payment when customer goes back', function () {
     configureVnpayForTest();
     $booking = paymentSafetyBooking(['number_of_people' => 2]);
     $payload = vnpayIpnPayload($booking->payment, [
@@ -1100,7 +1093,7 @@ test('VNPAY return status keeps booking pending when customer goes back', functi
     $this->getJson('/api/vnpay/return-status?'.http_build_query($payload))
         ->assertOk()
         ->assertJsonPath('data.status', 'pending')
-        ->assertJsonPath('data.booking_status', 'pending')
+        ->assertJsonPath('data.booking_status', 'awaiting_payment')
         ->assertJsonPath('data.payment_status', 'unpaid')
         ->assertJsonPath('data.cancel_reason', null)
         ->assertJsonPath('data.last_attempt_status', 'returned');
@@ -1213,7 +1206,7 @@ test('VNPAY failed attempt keeps the booking pending and accepts a later success
 
     $this->assertDatabaseHas('bookings', [
         'id' => $booking->id,
-        'status' => 'pending',
+        'status' => 'awaiting_payment',
         'payment_status' => 'unpaid',
     ]);
     $this->assertDatabaseHas('tour_departures', [
@@ -1436,7 +1429,9 @@ test('admin payment actions synchronize booking payment status', function () {
         'payment_status' => 'paid',
     ]);
 
-    $this->patchJson("/api/admin/payments/{$booking->payment->id}/refund")
+    $this->post("/api/admin/payments/{$booking->payment->id}/refund", [
+        'refund_proof' => UploadedFile::fake()->create('manual-refund.png', 10, 'image/png'),
+    ])
         ->assertOk()
         ->assertJsonPath('data.status', 'refunded');
 
@@ -1533,7 +1528,7 @@ test('cancel booking releases slots once then becomes read only', function () {
 
     $this->assertDatabaseHas('booking_status_histories', [
         'booking_id' => $booking->id,
-        'old_status' => 'pending',
+        'old_status' => 'awaiting_payment',
         'new_status' => 'cancelled',
     ]);
 
@@ -1552,19 +1547,21 @@ test('cancel booking releases slots once then becomes read only', function () {
     ]);
 });
 
-test('only cancelled booking can be permanently deleted with related payment', function () {
+test('only a trashed cancelled booking can be permanently deleted with audit history retained', function () {
     Sanctum::actingAs(paymentSafetyUser('admin'));
     $booking = paymentSafetyBooking();
 
     $this->deleteJson("/api/admin/bookings/{$booking->id}")
-        ->assertStatus(422)
-        ->assertJsonPath('message', 'Chỉ có thể xóa vĩnh viễn booking đã hủy.');
+        ->assertNotFound();
 
     $this->assertDatabaseHas('bookings', [
         'id' => $booking->id,
     ]);
 
-    $booking->update(['status' => 'cancelled']);
+    $this->patchJson("/api/admin/bookings/{$booking->id}/cancel")
+        ->assertOk();
+    $this->patchJson("/api/admin/bookings/{$booking->id}/trash")
+        ->assertOk();
 
     $this->deleteJson("/api/admin/bookings/{$booking->id}")
         ->assertOk()
@@ -1577,6 +1574,19 @@ test('only cancelled booking can be permanently deleted with related payment', f
     $this->assertDatabaseMissing('payments', [
         'booking_id' => $booking->id,
     ]);
+
+    $hardDeleteLog = BookingAuditLog::query()
+        ->where('booking_code', $booking->booking_code)
+        ->where('action', 'hard_deleted')
+        ->first();
+
+    expect($hardDeleteLog)->not->toBeNull()
+        ->and($hardDeleteLog->booking_id)->toBeNull();
+
+    $this->getJson('/api/admin/booking-refunds/timeline')
+        ->assertOk()
+        ->assertJsonPath('data.0.booking_code', $booking->booking_code)
+        ->assertJsonPath('data.0.action', 'hard_deleted');
 });
 
 function customerBookingSafetyPayload(TourDeparture $departure, string $contactPhone = '0900000000', ?string $participantPhone = null): array
@@ -1895,6 +1905,10 @@ test('customer can update allowed booking information and the change is audited'
         'birth_date' => now()->subYears(30)->toDateString(),
         'gender' => 'male',
         'participant_type' => 'adult',
+        'unit_price' => 1500000,
+        'pricing_rule_label' => 'Người lớn mặc định',
+        'pricing_type' => 'percentage',
+        'pricing_value' => 100,
     ]);
 
     Sanctum::actingAs($customer);
@@ -1911,6 +1925,7 @@ test('customer can update allowed booking information and the change is audited'
             'id' => $participant->id,
             'full_name' => 'Nguyễn Văn Bình',
             'phone' => '0901234567',
+            'birth_date' => now()->subYears(30)->toDateString(),
             'gender' => 'male',
             'identity_number' => '001234567890',
         ]],
@@ -1918,10 +1933,8 @@ test('customer can update allowed booking information and the change is audited'
         ->assertOk()
         ->assertJsonPath('data.contact.contact_phone', '0901234567');
 
-    $this->assertDatabaseHas('booking_participants', [
-        'id' => $participant->id,
-        'birth_date' => now()->subYears(30)->toDateString(),
-    ]);
+    expect($participant->fresh()->birth_date->toDateString())
+        ->toBe(now()->subYears(30)->toDateString());
 
     $this->assertDatabaseHas('booking_information_change_histories', [
         'booking_id' => $booking->id,
@@ -1959,6 +1972,7 @@ test('customer cannot update booking information in the final two days before de
         'participants' => [[
             'id' => $participant->id,
             'full_name' => 'Nguyễn Văn An',
+            'birth_date' => now()->subYears(30)->toDateString(),
             'gender' => 'male',
         ]],
     ])
@@ -2005,4 +2019,246 @@ test('legacy customer information endpoints keep the same final two day restrict
     ])
         ->assertUnprocessable()
         ->assertJsonValidationErrors('booking');
+});
+
+test('admin booking presentation separates confirmed from upcoming by the three day boundary', function () {
+    $confirmed = paymentSafetyBooking([
+        'status' => 'confirmed',
+        'payment_status' => 'paid',
+    ]);
+    $confirmed->tourDeparture()->update([
+        'departure_date' => today()->addDays(4)->toDateString(),
+        'return_date' => today()->addDays(5)->toDateString(),
+    ]);
+
+    $upcoming = paymentSafetyBooking([
+        'status' => 'confirmed',
+        'payment_status' => 'paid',
+    ]);
+    $upcoming->tourDeparture()->update([
+        'departure_date' => today()->addDays(3)->toDateString(),
+        'return_date' => today()->addDays(4)->toDateString(),
+    ]);
+
+    Sanctum::actingAs(paymentSafetyUser('admin'));
+
+    $response = $this->getJson('/api/admin/bookings');
+    $response->assertOk();
+    $rows = collect($response->json('data'))->keyBy('id');
+
+    expect($rows[$confirmed->id]['display_status'])->toBe('confirmed')
+        ->and($rows[$confirmed->id]['status_label'])->toBe('Đã xác nhận')
+        ->and($rows[$upcoming->id]['display_status'])->toBe('upcoming')
+        ->and($rows[$upcoming->id]['status_label'])->toBe('Sắp diễn ra');
+});
+
+test('admin can confirm a paid booking awaiting payment only when it still has capacity and an active tour', function () {
+    $booking = paymentSafetyBooking([
+        'status' => 'awaiting_payment',
+        'payment_status' => 'paid',
+    ]);
+
+    Sanctum::actingAs(paymentSafetyUser('admin'));
+
+    $this->putJson("/api/admin/bookings/{$booking->id}", [
+        'status' => 'confirmed',
+    ])->assertOk()
+        ->assertJsonPath('data.status', 'confirmed')
+        ->assertJsonPath('data.display_status', 'confirmed');
+
+    expect($booking->fresh()->slot_committed_at)->not->toBeNull();
+});
+
+test('upcoming, ongoing and completed bookings cannot be refunded or manually moved', function () {
+    config(['filesystems.disks.public.root' => sys_get_temp_dir().'/vivugo-payment-safety-tests']);
+    $upcoming = paymentSafetyBooking([
+        'status' => 'confirmed',
+        'payment_status' => 'paid',
+    ]);
+    $upcoming->tourDeparture()->update([
+        'departure_date' => today()->addDays(2)->toDateString(),
+        'return_date' => today()->addDays(3)->toDateString(),
+    ]);
+    $upcoming->payment()->update(['status' => 'success', 'paid_at' => now()]);
+
+    $ongoing = paymentSafetyBooking([
+        'status' => 'confirmed',
+        'payment_status' => 'paid',
+    ]);
+    $ongoing->tourDeparture()->update([
+        'departure_date' => today()->toDateString(),
+        'return_date' => today()->addDay()->toDateString(),
+    ]);
+    $ongoing->payment()->update(['status' => 'success', 'paid_at' => now()]);
+
+    $completed = paymentSafetyBooking([
+        'status' => 'completed',
+        'payment_status' => 'paid',
+    ]);
+    $completed->tourDeparture()->update([
+        'departure_date' => today()->subDays(3)->toDateString(),
+        'return_date' => today()->subDay()->toDateString(),
+        'status' => 'completed',
+    ]);
+    $completed->payment()->update(['status' => 'success', 'paid_at' => now()]);
+
+    Sanctum::actingAs(paymentSafetyUser('admin'));
+
+    foreach ([$upcoming, $ongoing, $completed] as $booking) {
+        $this->withHeaders(['Accept' => 'application/json'])
+            ->post("/api/admin/payments/{$booking->payment->id}/refund", [
+                'refund_proof' => UploadedFile::fake()->create("proof-{$booking->id}.png", 10, 'image/png'),
+            ])->assertUnprocessable();
+    }
+
+    $this->putJson("/api/admin/bookings/{$upcoming->id}", ['status' => 'awaiting_payment'])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('status');
+    $this->putJson("/api/admin/bookings/{$ongoing->id}", ['status' => 'completed'])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('status');
+});
+
+test('restoring a trashed booking keeps its cancellation and refund state', function () {
+    $unrefunded = paymentSafetyBooking([
+        'status' => 'cancelled',
+        'payment_status' => 'refund_pending',
+        'slot_committed_at' => null,
+    ]);
+    $unrefunded->payment()->update([
+        'status' => 'success',
+        'paid_at' => now(),
+    ]);
+    $unrefunded->delete();
+
+    $refunded = paymentSafetyBooking([
+        'status' => 'cancelled',
+        'payment_status' => 'refunded',
+        'slot_committed_at' => null,
+    ]);
+    config(['filesystems.disks.public.root' => sys_get_temp_dir().'/vivugo-payment-safety-tests']);
+    $proof = UploadedFile::fake()->create('refunded.png', 10, 'image/png');
+    $proofPath = $proof->store('refund-proofs', 'public');
+    $refunded->payment()->update([
+        'status' => 'refunded',
+        'refund_proof_path' => $proofPath,
+        'refunded_at' => now(),
+    ]);
+    $refunded->delete();
+
+    Sanctum::actingAs(paymentSafetyUser('admin'));
+
+    $this->patchJson("/api/admin/bookings/{$unrefunded->id}/restore")
+        ->assertOk()
+        ->assertJsonPath('data.status', 'cancelled')
+        ->assertJsonPath('data.payment_status', 'refund_pending');
+
+    $this->patchJson("/api/admin/bookings/{$refunded->id}/restore")
+        ->assertOk()
+        ->assertJsonPath('data.payment_status', 'refunded');
+});
+
+test('approved refund requests use the disruption refund endpoint', function () {
+    config(['filesystems.disks.public.root' => sys_get_temp_dir().'/vivugo-payment-safety-tests']);
+    $booking = paymentSafetyBooking([
+        'status' => 'cancelled',
+        'payment_status' => 'refund_pending',
+        'slot_committed_at' => null,
+    ]);
+    $booking->payment()->update([
+        'status' => 'success',
+        'paid_at' => now(),
+    ]);
+    $request = $booking->disruptionRequests()->create([
+        'type' => 'refund',
+        'status' => 'approved',
+        'reason' => 'Đã được duyệt hoàn tiền.',
+        'processed_by' => paymentSafetyUser('admin')->id,
+        'processed_at' => now(),
+    ]);
+
+    Sanctum::actingAs(paymentSafetyUser('admin'));
+
+    $this->withHeaders(['Accept' => 'application/json'])
+        ->post("/api/admin/booking-disruption-requests/{$request->id}/refund", [
+            'refund_proof' => UploadedFile::fake()->create('approved-refund.png', 10, 'image/png'),
+        ])->assertOk()
+        ->assertJsonPath('data.display_status', 'refunded');
+
+    expect($booking->fresh()->payment_status)->toBe('refunded')
+        ->and($booking->payment->fresh()->status)->toBe('refunded');
+});
+
+test('admin cancellation sends a paid booking to the refund center', function () {
+    config(['filesystems.disks.public.root' => sys_get_temp_dir().'/vivugo-payment-safety-tests']);
+    $booking = paymentSafetyBooking([
+        'status' => 'awaiting_payment',
+        'payment_status' => 'paid',
+    ]);
+    $booking->payment()->update([
+        'status' => 'success',
+        'paid_at' => now(),
+    ]);
+
+    Sanctum::actingAs(paymentSafetyUser('admin'));
+
+    $this->patchJson("/api/admin/bookings/{$booking->id}/cancel")
+        ->assertOk()
+        ->assertJsonPath('message', 'Đã huỷ booking.');
+
+    expect($booking->fresh()->status)->toBe('cancelled')
+        ->and($booking->fresh()->payment_status)->toBe('refund_pending');
+    $this->assertDatabaseMissing('booking_disruption_requests', [
+        'booking_id' => $booking->id,
+        'type' => 'refund',
+    ]);
+
+    $this->getJson('/api/admin/booking-refunds?status=refund_pending')
+        ->assertOk()
+        ->assertJsonPath('data.0.id', $booking->id)
+        ->assertJsonPath('data.0.status', 'cancelled')
+        ->assertJsonPath('data.0.payment_status', 'refund_pending')
+        ->assertJsonPath('summary.refund_pending_count', 1)
+        ->assertJsonPath('summary.refunded_count', 0);
+
+    $this->getJson('/api/admin/booking-refunds?status=refund_pending&search='.urlencode($booking->booking_code))
+        ->assertOk()
+        ->assertJsonPath('meta.total', 1);
+
+    $this->withHeaders(['Accept' => 'application/json'])
+        ->post("/api/admin/booking-refunds/{$booking->id}/refund", [
+            'refund_proof' => UploadedFile::fake()->create('booking-refund.png', 10, 'image/png'),
+        ])->assertOk()
+        ->assertJsonPath('data.display_status', 'cancelled')
+        ->assertJsonPath('data.payment_status', 'refunded')
+        ->assertJsonPath('data.payment_status_label', 'Đã hoàn tiền')
+        ->assertJsonPath('timeline.0.action', 'refund_completed');
+
+    expect($booking->fresh()->payment_status)->toBe('refunded')
+        ->and($booking->payment->fresh()->status)->toBe('refunded')
+        ->and(BookingAuditLog::query()->where('booking_id', $booking->id)->where('action', 'admin_cancelled')->exists())->toBeTrue()
+        ->and(BookingAuditLog::query()->where('booking_id', $booking->id)->where('action', 'refund_completed')->exists())->toBeTrue();
+
+    $this->getJson('/api/admin/booking-refunds?status=refunded')
+        ->assertOk()
+        ->assertJsonPath('data.0.id', $booking->id)
+        ->assertJsonPath('data.0.payment_status', 'refunded')
+        ->assertJsonPath('summary.refund_pending_count', 0)
+        ->assertJsonPath('summary.refunded_count', 1);
+});
+
+test('scheduled booking status command synchronizes the automatic date state', function () {
+    $booking = paymentSafetyBooking([
+        'status' => 'confirmed',
+        'payment_status' => 'paid',
+    ]);
+    $booking->tourDeparture()->update([
+        'departure_date' => today()->subDays(3)->toDateString(),
+        'return_date' => today()->subDay()->toDateString(),
+    ]);
+
+    $this->artisan('bookings:mark-departed')
+        ->assertSuccessful();
+
+    expect($booking->fresh()->status)->toBe('completed');
 });

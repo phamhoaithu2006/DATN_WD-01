@@ -57,7 +57,7 @@ function VnpayPaymentResultPage() {
   const isCancelledByCustomer = payment?.cancel_reason === 'Khách hàng chủ động hủy thanh toán.'
     || payment?.cancel_reason === 'Khách hàng hủy thanh toán trên VNPAY.'
   const isExpired = payment?.cancel_reason?.toLowerCase().includes('hết hạn')
-  const canCancelPayment = payment?.status === 'pending' && payment?.booking_status === 'pending'
+  const canCancelPayment = payment?.status === 'pending' && payment?.booking_status === 'awaiting_payment'
   const displayError = missingPaymentId ? 'Không tìm thấy mã thanh toán VNPAY.' : error
   const isLoading = !missingPaymentId && loading
 
@@ -313,7 +313,7 @@ function VnpayPaymentResultPage() {
                    isExpired ? 'Hết hạn' :
                    didReturnFromGateway ? 'Chờ thanh toán' :
                    isFailed || isAttemptFailed || displayError ? 'Thất bại' :
-                   'Chờ xác nhận'}
+                   'Chờ thanh toán'}
                 </span>
               </div>
 

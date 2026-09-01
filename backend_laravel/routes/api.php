@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\Admin\AdminSupportStaffMonitoringController;
 use App\Http\Controllers\Api\Admin\AdminTourDepartureBookingController;
 use App\Http\Controllers\Api\Admin\BookingController;
 use App\Http\Controllers\Api\Admin\BookingDisruptionController as AdminBookingDisruptionController;
+use App\Http\Controllers\Api\Admin\BookingRefundController as AdminBookingRefundController;
 use App\Http\Controllers\Api\Admin\CategoryController;
 use App\Http\Controllers\Api\Admin\CertificateController;
 use App\Http\Controllers\Api\Admin\CustomerManagerController;
@@ -667,8 +668,18 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin'])->group(functi
         Route::get('/', [AdminBookingDisruptionController::class, 'index']);
         Route::get('/summary', [AdminBookingDisruptionController::class, 'summary']);
         Route::get('/{bookingDisruptionRequest}', [AdminBookingDisruptionController::class, 'show']);
+        Route::match(['patch', 'post'], '/{bookingDisruptionRequest}/refund', [AdminBookingDisruptionController::class, 'refund']);
         Route::patch('/{bookingDisruptionRequest}/approve', [AdminBookingDisruptionController::class, 'approve']);
         Route::patch('/{bookingDisruptionRequest}/reject', [AdminBookingDisruptionController::class, 'reject']);
+    });
+
+    // Trung tâm hoàn tiền booking đã hủy
+    Route::prefix('booking-refunds')->group(function () {
+        Route::get('/', [AdminBookingRefundController::class, 'index']);
+        Route::get('/summary', [AdminBookingRefundController::class, 'summary']);
+        Route::get('/timeline', [AdminBookingRefundController::class, 'timeline']);
+        Route::get('/{id}', [AdminBookingRefundController::class, 'show'])->whereNumber('id');
+        Route::match(['patch', 'post'], '/{id}/refund', [AdminBookingRefundController::class, 'refund'])->whereNumber('id');
     });
 
     // Gửi thông báo

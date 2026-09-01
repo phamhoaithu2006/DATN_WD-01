@@ -22,6 +22,7 @@ import {
   updateBooking,
 } from '../../services/bookingApi'
 import { confirmPayment, deleteRefundProof, failPayment, refundPayment } from '../../services/paymentApi'
+import { pickSingleFile } from '../../utils/filePicker'
 import '../../styles/booking-management.css'
 
 function BookingManagementPage() {
@@ -48,7 +49,7 @@ function BookingManagementPage() {
       page,
       per_page: perPage,
       search: search.trim() || undefined,
-      status: status || undefined,
+      display_status: status === 'cancelled_all' ? 'cancelled' : (status || undefined),
       payment_status: paymentStatus || undefined,
       from_date: date || undefined,
       to_date: date || undefined,
@@ -142,6 +143,9 @@ function BookingManagementPage() {
       setNotice({ type: 'success', text: response.message || 'Cập nhật booking thành công.' })
       await load()
       await refreshDetail(booking.id)
+      if (nextStatus === 'cancelled') {
+        window.dispatchEvent(new CustomEvent('admin-booking-refund:changed'))
+      }
     } catch (error) {
       setNotice({ type: 'error', text: messageFrom(error) })
     } finally {
@@ -168,19 +172,17 @@ function BookingManagementPage() {
         return
       }
 
-      const response = action === 'confirm'
-        ? await confirmPayment(paymentId, transactionCode ? { transaction_code: transactionCode } : {})
-        : action === 'fail'
-          ? await failPayment(paymentId)
-          : await new Promise((resolve, reject) => {
-              const input = document.createElement('input')
-              input.type = 'file'
-              input.accept = 'image/jpeg,image/png,image/webp'
-              input.onchange = () => input.files?.[0]
-                ? resolve(refundPayment(paymentId, input.files[0]))
-                : reject(new Error('Bạn chưa chọn ảnh chứng minh hoàn tiền.'))
-              input.click()
-            })
+      let response
+
+      if (action === 'confirm') {
+        response = await confirmPayment(paymentId, transactionCode ? { transaction_code: transactionCode } : {})
+      } else if (action === 'fail') {
+        response = await failPayment(paymentId)
+      } else {
+        const proofFile = await pickSingleFile({ accept: 'image/jpeg,image/png,image/webp' })
+        if (!proofFile) return
+        response = await refundPayment(paymentId, proofFile)
+      }
 
       setNotice({ type: 'success', text: response.message || 'Cập nhật thanh toán thành công.' })
       await load()
@@ -250,8 +252,9 @@ function BookingManagementPage() {
       refunded: 'Đã hoàn tiền',
     }[booking.payment_status] || '--'
     const bookingStatus = {
-      pending: 'Chờ xác nhận',
-      confirmed: 'Sắp diễn ra',
+      awaiting_payment: 'Chờ thanh toán',
+      confirmed: 'Đã xác nhận',
+      upcoming: 'Sắp diễn ra',
       departed: 'Đang diễn ra',
       completed: 'Đã kết thúc',
       cancelled: 'Đã hủy',
@@ -295,7 +298,9 @@ function BookingManagementPage() {
 
   const cards = [
     { key: 'total', label: 'Tổng', value: statistics.total || meta.total || bookings.length, className: 'total' },
-    { key: 'confirmed', label: 'Sắp diễn ra', value: statistics.confirmed || 0, className: 'confirmed' },
+    { key: 'awaiting_payment', label: 'Chờ thanh toán', value: statistics.awaiting_payment || 0, className: 'pending' },
+    { key: 'confirmed', label: 'Đã xác nhận', value: statistics.confirmed || 0, className: 'confirmed' },
+    { key: 'upcoming', label: 'Sắp diễn ra', value: statistics.upcoming || 0, className: 'upcoming' },
     { key: 'departed', label: 'Đang diễn ra', value: statistics.departed || 0, className: 'pending' },
     { key: 'completed', label: 'Đã kết thúc', value: statistics.completed || 0, className: 'completed' },
   ]
@@ -344,8 +349,8 @@ function BookingManagementPage() {
         busy={busy}
         loading={loading}
         onCancel={(booking) => updateStatus(booking, 'cancelled')}
+        onConfirm={(booking) => updateStatus(booking, 'confirmed')}
         onDelete={removeBooking}
-        onStart={(booking) => updateStatus(booking, 'departed')}
         onView={openDetail}
       />
 

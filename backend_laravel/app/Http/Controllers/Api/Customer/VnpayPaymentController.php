@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Payment;
 use App\Services\BookingCancellationEmailService;
 use App\Services\BookingConfirmationService;
+use App\Services\BookingStatusService;
 use App\Services\VnpayPaymentLifecycleService;
 use App\Services\VnpayService;
 use Illuminate\Http\JsonResponse;
@@ -20,6 +21,7 @@ class VnpayPaymentController extends Controller
         private readonly VnpayPaymentLifecycleService $paymentLifecycleService,
         private readonly BookingConfirmationService $bookingConfirmationService,
         private readonly BookingCancellationEmailService $bookingCancellationEmailService,
+        private readonly BookingStatusService $bookingStatusService,
     ) {}
 
     public function status(Request $request, Payment $payment): JsonResponse
@@ -56,7 +58,7 @@ class VnpayPaymentController extends Controller
             if (
                 $lockedPayment->status !== 'pending'
                 || ! $lockedPayment->booking
-                || $lockedPayment->booking->status !== 'pending'
+                || $lockedPayment->booking->status !== 'awaiting_payment'
             ) {
                 return null;
             }
@@ -186,6 +188,9 @@ class VnpayPaymentController extends Controller
     private function paymentStatusResponse(Payment $payment): JsonResponse
     {
         $payment->loadMissing(['booking.tour', 'booking.tourDeparture']);
+        $this->bookingStatusService->synchronize($payment->booking);
+        $payment->load(['booking.tour', 'booking.tourDeparture']);
+        $presentation = $this->bookingStatusService->presentation($payment->booking);
 
         return response()->json([
             'success' => true,
@@ -197,6 +202,8 @@ class VnpayPaymentController extends Controller
                 'expires_at' => $payment->expires_at?->toIso8601String(),
                 'booking_code' => $payment->booking->booking_code,
                 'booking_status' => $payment->booking->status,
+                'booking_display_status' => $presentation['display_status'],
+                'booking_status_label' => $presentation['display_status_label'],
                 'payment_status' => $payment->booking->payment_status,
                 'cancel_reason' => $payment->booking->cancel_reason,
                 'tour_title' => $payment->booking->tour?->title,
@@ -342,39 +349,19 @@ class VnpayPaymentController extends Controller
             ]);
 
             $oldBookingStatus = $payment->booking->status;
-            $hasCommittedSlots = $this->paymentLifecycleService
-                ->commitSlotsForPaidBooking($payment->booking);
-
-            if ($hasCommittedSlots) {
-                $payment->booking->update([
-                    'status' => 'confirmed',
-                    'payment_status' => 'paid',
-                ]);
-
-                if ($oldBookingStatus !== 'confirmed') {
-                    $payment->booking->statusHistories()->create([
-                        'changed_by' => null,
-                        'old_status' => $oldBookingStatus,
-                        'new_status' => 'confirmed',
-                        'note' => 'Booking được tự động xác nhận sau khi thanh toán đủ.',
-                    ]);
-                }
-
-                $this->bookingConfirmationService->enqueueForConfirmedBooking($payment->booking);
+            $payment->booking->update(['payment_status' => 'paid']);
+            if (! $this->paymentLifecycleService->commitSlotsForPaidBooking($payment->booking, false)) {
+                $this->paymentLifecycleService->markPaidBookingRefundPending(
+                    $payment->booking,
+                    VnpayPaymentLifecycleService::SOLD_OUT_AFTER_PAYMENT_REASON,
+                );
             } else {
-                $payment->booking->update([
-                    'status' => 'cancelled',
-                    'payment_status' => 'refund_pending',
-                    'cancel_reason' => VnpayPaymentLifecycleService::SOLD_OUT_AFTER_PAYMENT_REASON,
-                    'cancelled_at' => now(),
-                ]);
+                $this->bookingStatusService->synchronize($payment->booking);
+            }
+            $payment->booking->refresh();
 
-                $payment->booking->statusHistories()->create([
-                    'changed_by' => null,
-                    'old_status' => $oldBookingStatus,
-                    'new_status' => 'cancelled',
-                    'note' => VnpayPaymentLifecycleService::SOLD_OUT_AFTER_PAYMENT_REASON,
-                ]);
+            if ($payment->booking->status === 'confirmed' && $oldBookingStatus !== 'confirmed') {
+                $this->bookingConfirmationService->enqueueForConfirmedBooking($payment->booking);
             }
 
             return ['00', 'Confirm Success'];

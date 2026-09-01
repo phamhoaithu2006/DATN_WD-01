@@ -18,7 +18,7 @@ class BookingDisruptionController extends Controller
     public function index(Request $request): JsonResponse
     {
         $items = BookingDisruptionRequest::query()
-            ->whereHas('booking', fn($q) => $q->where('user_id', $request->user()->id))
+            ->whereHas('booking', fn ($q) => $q->where('user_id', $request->user()->id))
             ->with([
                 'booking:id,booking_code,status,payment_status,tour_id,tour_departure_id',
                 'booking.tour:id,title,slug',
@@ -45,7 +45,7 @@ class BookingDisruptionController extends Controller
 
         $canRequestRefund = in_array(
             $booking->status,
-            ['pending', 'confirmed', 'cancelled', 'cancelled_by_tour'],
+            ['awaiting_payment', 'confirmed', 'cancelled', 'cancelled_by_tour'],
             true,
         ) && in_array($booking->payment_status, ['paid', 'refund_pending'], true);
 

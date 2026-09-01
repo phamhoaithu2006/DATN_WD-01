@@ -1,0 +1,83 @@
+.vg-itinerary-card {
+  margin-top: 16px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.vg-itinerary-toggle {
+  display: grid;
+  width: 100%;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 11px;
+  padding: 16px 18px;
+  border: 0;
+  background: #fff;
+  color: #0f172a;
+  text-align: left;
+  cursor: pointer;
+}
+
+.vg-itinerary-toggle:hover { background: #f8fafc; }
+.vg-itinerary-toggle-icon { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 11px; background: #ecfdf5; color: #059669; }
+.vg-itinerary-toggle strong { display: block; font-size: 15px; font-weight: 900; }
+.vg-itinerary-toggle small { display: block; margin-top: 3px; color: #64748b; font-size: 12px; }
+.vg-itinerary-toggle-summary { color: #047857; font-size: 12px; font-weight: 900; }
+.vg-itinerary-chevron { color: #64748b; transition: transform .2s ease; }
+.vg-itinerary-card.is-open .vg-itinerary-chevron { transform: rotate(180deg); }
+.vg-itinerary-content { padding: 0 18px 18px; border-top: 1px solid #e2e8f0; }
+.vg-itinerary-admin-content { border-top: 0; }
+.vg-itinerary-days { display: flex; gap: 9px; padding: 14px 0; overflow-x: auto; }
+.vg-itinerary-days button { min-width: 118px; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; color: #64748b; text-align: left; cursor: pointer; }
+.vg-itinerary-days button.is-active { border-color: #0ea5e9; background: #f0f9ff; color: #0369a1; box-shadow: 0 5px 15px rgba(14, 165, 233, .12); }
+.vg-itinerary-days span, .vg-itinerary-days strong { display: block; font-size: 12px; }
+.vg-itinerary-days span { font-weight: 900; text-transform: uppercase; }
+.vg-itinerary-days strong { margin-top: 4px; }
+.vg-itinerary-visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.vg-itinerary-list { position: relative; display: grid; gap: 11px; padding-left: 38px; }
+.vg-itinerary-activity { position: relative; display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 11px; padding: 14px; border: 1px solid #e2e8f0; border-radius: 14px; background: #fff; }
+.vg-itinerary-activity::before { position: absolute; top: 15px; left: -38px; z-index: 2; display: grid; width: 25px; height: 25px; place-items: center; box-sizing: border-box; border: 4px solid #fff; border-radius: 50%; background: #fff; font-size: 12px; font-weight: 900; line-height: 1; box-shadow: 0 0 0 2px #bae6fd, 0 4px 10px rgba(14, 165, 233, .18); }
+.vg-itinerary-activity::after { position: absolute; top: 42px; bottom: -18px; left: -27px; width: 3px; border-radius: 999px; background: linear-gradient(180deg, #38bdf8, #bae6fd); content: ""; }
+.vg-itinerary-activity:last-child::after { display: none; }
+.vg-itinerary-activity.is-confirmed::before { background: #22c55e; color: #fff; content: "✓"; box-shadow: 0 0 0 2px #86efac, 0 4px 10px rgba(34, 197, 94, .22); }
+.vg-itinerary-activity.is-unconfirmed::before { background: #ef4444; color: #fff; content: "×"; box-shadow: 0 0 0 2px #fca5a5, 0 4px 10px rgba(239, 68, 68, .2); }
+.vg-itinerary-activity.is-upcoming::before,
+.vg-itinerary-activity.is-unknown::before { background: #cbd5e1; color: transparent; content: ""; box-shadow: 0 0 0 2px #e2e8f0; }
+.vg-itinerary-activity.is-in-progress::before { background: #3b82f6; color: #fff; content: "•"; box-shadow: 0 0 0 2px #93c5fd, 0 4px 10px rgba(59, 130, 246, .2); }
+.vg-itinerary-activity.is-pending::before { background: #f59e0b; color: transparent; content: ""; box-shadow: 0 0 0 2px #fcd34d, 0 4px 10px rgba(245, 158, 11, .18); }
+.vg-itinerary-activity.is-upcoming::after,
+.vg-itinerary-activity.is-unknown::after { background: #e2e8f0; }
+.vg-itinerary-activity.is-confirmed { border-color: #86efac; background: #f0fdf4; box-shadow: 0 4px 14px rgba(22, 163, 74, .08); }
+.vg-itinerary-activity.is-unconfirmed { border-color: #fb7185; background: #fff7f7; box-shadow: 0 4px 14px rgba(220, 38, 38, .07); }
+.vg-itinerary-activity.is-upcoming,
+.vg-itinerary-activity.is-unknown { border-color: #e2e8f0; background: #f8fafc; box-shadow: none; }
+.vg-itinerary-activity.is-in-progress { border-color: #93c5fd; background: #eff6ff; box-shadow: 0 4px 14px rgba(37, 99, 235, .08); }
+.vg-itinerary-activity.is-pending { border-color: #fcd34d; background: #fffbeb; box-shadow: 0 4px 14px rgba(217, 119, 6, .07); }
+.vg-itinerary-number { display: grid; width: 28px; height: 28px; place-items: center; border-radius: 9px; background: #e0f2fe; color: #0369a1; font-size: 12px; font-weight: 900; }
+.vg-itinerary-activity.is-confirmed .vg-itinerary-number { background: #dcfce7; color: #15803d; }
+.vg-itinerary-activity.is-unconfirmed .vg-itinerary-number { background: #fee2e2; color: #dc2626; }
+.vg-itinerary-activity.is-upcoming .vg-itinerary-number,
+.vg-itinerary-activity.is-unknown .vg-itinerary-number { background: #e2e8f0; color: #64748b; }
+.vg-itinerary-activity.is-in-progress .vg-itinerary-number { background: #dbeafe; color: #1d4ed8; }
+.vg-itinerary-activity.is-pending .vg-itinerary-number { background: #fef3c7; color: #b45309; }
+.vg-itinerary-activity-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.vg-itinerary-activity-head > strong { flex: 1 1 180px; color: #0f172a; font-size: 14px; }
+.vg-itinerary-time { display: inline-flex; align-items: center; gap: 4px; color: #0284c7; font-size: 12px; font-weight: 900; }
+.vg-itinerary-status { padding: 5px 9px; border-radius: 999px; font-size: 11px; font-weight: 900; }
+.vg-itinerary-status.is-completed { background: #dcfce7; color: #15803d; }
+.vg-itinerary-status.is-in-progress { background: #dbeafe; color: #1d4ed8; }
+.vg-itinerary-status.is-pending { background: #fef3c7; color: #b45309; }
+.vg-itinerary-status.is-skipped, .vg-itinerary-status.is-unknown { background: #f1f5f9; color: #64748b; }
+.vg-itinerary-status.is-confirmed { background: #dcfce7; color: #15803d; }
+.vg-itinerary-status.is-unconfirmed { background: #fee2e2; color: #dc2626; }
+.vg-itinerary-status.is-upcoming { background: #e2e8f0; color: #64748b; }
+.vg-itinerary-destination { display: flex; align-items: center; gap: 5px; margin: 10px 0 0; padding: 9px 10px; border-radius: 10px; background: #f0fdfa; color: #0f766e; font-size: 12px; }
+.vg-itinerary-description { margin: 9px 0 0; color: #64748b; font-size: 12.5px; line-height: 1.55; }
+.vg-itinerary-updated { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; color: #64748b; font-size: 11px; font-weight: 700; }
+.vg-itinerary-empty { padding: 24px; border-radius: 12px; background: #f8fafc; color: #64748b; text-align: center; font-size: 13px; font-weight: 700; }
+
+@media (max-width: 640px) {
+  .vg-itinerary-toggle { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .vg-itinerary-toggle-summary { display: none; }
+  .vg-itinerary-admin-content { padding-right: 14px; padding-left: 14px; }
+}

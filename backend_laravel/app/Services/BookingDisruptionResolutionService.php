@@ -13,6 +13,7 @@ class BookingDisruptionResolutionService
 {
     public function __construct(
         private readonly BookingCancellationEmailService $bookingCancellationEmailService,
+        private readonly BookingAuditService $bookingAuditService,
     ) {}
 
     public function approve(
@@ -111,6 +112,7 @@ class BookingDisruptionResolutionService
         string $resolution,
     ): void {
         $oldStatus = $booking->status;
+        $oldPaymentStatus = $booking->payment_status;
         $sourceDeparture = TourDeparture::query()
             ->lockForUpdate()
             ->find($booking->tour_departure_id);
@@ -144,6 +146,14 @@ class BookingDisruptionResolutionService
             'old_status' => $oldStatus,
             'new_status' => 'cancelled',
             'note' => $reason,
+        ]);
+        $this->bookingAuditService->record($booking, 'admin_disruption_approved', $adminId, [
+            'status_before' => $oldStatus,
+            'status_after' => 'cancelled',
+            'payment_status_before' => $oldPaymentStatus,
+            'payment_status_after' => $booking->payment_status,
+            'reason' => $reason,
+            'metadata' => ['disruption_type' => $type],
         ]);
 
         $this->bookingCancellationEmailService->enqueueForCancelledBooking(

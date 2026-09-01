@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { tourDepartureApi } from '../../services/tourDepartureApi'
 import adminBookingDisruptionApi from '../../services/adminBookingDisruptionApi'
+import adminBookingRefundApi from '../../services/adminBookingRefundApi'
 import adminGuideLeaveRequestApi from '../../services/adminGuideLeaveRequestApi'
 import { getAdminReceivedUnreadCount } from '../../services/supportWorkflowApi'
 
@@ -63,6 +64,7 @@ const menuItems = [
     children: [
       { label: 'Danh sách booking', path: '/admin/bookings' },
       { label: 'Yêu cầu hủy booking', path: '/admin/booking-cancellation-requests' },
+      { label: 'Hoàn tiền booking', path: '/admin/booking-refunds' },
     ],
     showBookingDisruptionBadge: true,
     icon: (
@@ -284,6 +286,7 @@ function AdminSidebar({
   const [guideLeavePendingCount, setGuideLeavePendingCount] = useState(0)
   const [receivedNotificationUnreadCount, setReceivedNotificationUnreadCount] = useState(0)
   const [bookingDisruptionPendingCount, setBookingDisruptionPendingCount] = useState(0)
+  const [bookingRefundPendingCount, setBookingRefundPendingCount] = useState(0)
   const isTourSuiteActive =
     location.pathname.startsWith('/admin/tours') ||
     location.pathname.startsWith('/admin/categories') ||
@@ -293,7 +296,8 @@ function AdminSidebar({
   const [isDepartureMenuOpen, setIsDepartureMenuOpen] = useState(isDepartureSuiteActive)
   const isBookingSuiteActive =
     location.pathname.startsWith('/admin/bookings') ||
-    location.pathname.startsWith('/admin/booking-cancellation-requests')
+    location.pathname.startsWith('/admin/booking-cancellation-requests') ||
+    location.pathname.startsWith('/admin/booking-refunds')
   const [isBookingMenuOpen, setIsBookingMenuOpen] = useState(isBookingSuiteActive)
   const isGuideSuiteActive =
     location.pathname.startsWith('/admin/guides') ||
@@ -396,12 +400,28 @@ function AdminSidebar({
     }
   }, [role])
 
+  const loadBookingRefundPendingCount = useCallback(async () => {
+    if (role !== 'admin') {
+      setBookingRefundPendingCount(0)
+      return
+    }
+
+    try {
+      const count = await adminBookingRefundApi.getPendingCount()
+      setBookingRefundPendingCount(Number(count || 0))
+    } catch (error) {
+      console.error(error)
+      setBookingRefundPendingCount(0)
+    }
+  }, [role])
+
   useEffect(() => {
     const loadTimeout = window.setTimeout(() => {
       void loadTourDepartureWarningCount()
       void loadGuideLeavePendingCount()
       void loadReceivedNotificationUnreadCount()
       void loadBookingDisruptionPendingCount()
+      void loadBookingRefundPendingCount()
     }, 0)
 
     return () => window.clearTimeout(loadTimeout)
@@ -410,6 +430,7 @@ function AdminSidebar({
     loadGuideLeavePendingCount,
     loadReceivedNotificationUnreadCount,
     loadBookingDisruptionPendingCount,
+    loadBookingRefundPendingCount,
   ])
 
   useEffect(() => {
@@ -418,6 +439,7 @@ function AdminSidebar({
       void loadGuideLeavePendingCount()
       void loadReceivedNotificationUnreadCount()
       void loadBookingDisruptionPendingCount()
+      void loadBookingRefundPendingCount()
     }
 
     window.addEventListener('focus', handleRefresh)
@@ -427,6 +449,7 @@ function AdminSidebar({
     window.addEventListener('admin-guide-leave-request:changed', handleRefresh)
     window.addEventListener('admin-notification:changed', handleRefresh)
     window.addEventListener('admin-booking-disruption:changed', handleRefresh)
+    window.addEventListener('admin-booking-refund:changed', handleRefresh)
 
     return () => {
       window.removeEventListener('focus', handleRefresh)
@@ -436,12 +459,14 @@ function AdminSidebar({
       window.removeEventListener('admin-guide-leave-request:changed', handleRefresh)
       window.removeEventListener('admin-notification:changed', handleRefresh)
       window.removeEventListener('admin-booking-disruption:changed', handleRefresh)
+      window.removeEventListener('admin-booking-refund:changed', handleRefresh)
     }
   }, [
     loadTourDepartureWarningCount,
     loadGuideLeavePendingCount,
     loadReceivedNotificationUnreadCount,
     loadBookingDisruptionPendingCount,
+    loadBookingRefundPendingCount,
   ])
 
   const assignmentWarningCount = Number(
@@ -563,27 +588,49 @@ function AdminSidebar({
 
                 {isGroupOpen && !collapsed ? (
                   <div className="admin-nav-submenu" id={submenuId}>
-                    {item.children.map((child) => (
-                      <NavLink
-                        key={child.path}
-                        to={child.path}
-                        end={child.path === '/admin/tours' || child.path === '/admin/tour-departures' || child.path === '/admin/bookings' || child.path === '/admin/notifications'}
-                        className={({ isActive }) => {
-                          const searchParams = new URLSearchParams(location.search)
-                          const matchesSearch = child.search
-                            ? location.search.includes(child.search)
-                            : child.excludeSearch
-                              ? !searchParams.has(child.excludeSearch)
-                              : true
+                    {item.children.map((child) => {
+                      const childBadgeCount =
+                        child.path === '/admin/booking-cancellation-requests'
+                          ? bookingDisruptionPendingCount
+                          : child.path === '/admin/booking-refunds'
+                            ? bookingRefundPendingCount
+                          : child.path === '/admin/guide-leave-requests'
+                            ? guideLeavePendingCount
+                            : child.path === `${ADMIN_RECEIVED_NOTIFICATIONS_PATH}?filter=support_admin_request`
+                              ? receivedNotificationUnreadCount
+                              : 0
 
-                          return isActive && matchesSearch
-                            ? 'admin-nav-sublink active'
-                            : 'admin-nav-sublink'
-                        }}
-                      >
-                        <span>{child.label}</span>
-                      </NavLink>
-                    ))}
+                      return (
+                        <NavLink
+                          key={child.path}
+                          to={child.path}
+                          end={child.path === '/admin/tours' || child.path === '/admin/tour-departures' || child.path === '/admin/bookings' || child.path === '/admin/notifications'}
+                          className={({ isActive }) => {
+                            const searchParams = new URLSearchParams(location.search)
+                            const matchesSearch = child.search
+                              ? location.search.includes(child.search)
+                              : child.excludeSearch
+                                ? !searchParams.has(child.excludeSearch)
+                                : true
+
+                            return isActive && matchesSearch
+                              ? 'admin-nav-sublink active'
+                              : 'admin-nav-sublink'
+                          }}
+                        >
+                          <span>{child.label}</span>
+                          {childBadgeCount > 0 ? (
+                            <span
+                              className="admin-nav-sublink-badge"
+                              aria-label={`${childBadgeCount} việc cần xử lý`}
+                              title={`${childBadgeCount} việc cần xử lý`}
+                            >
+                              {formatBadgeValue(childBadgeCount)}
+                            </span>
+                          ) : null}
+                        </NavLink>
+                      )
+                    })}
                   </div>
                 ) : null}
               </div>
