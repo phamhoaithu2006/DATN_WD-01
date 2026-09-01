@@ -62,6 +62,7 @@ const menuItems = [
     path: '/admin/bookings',
     children: [
       { label: 'Danh sách booking', path: '/admin/bookings' },
+      { label: 'Booking đã xóa mềm', path: '/admin/bookings/trash' },
       { label: 'Yêu cầu hủy', path: '/admin/booking-cancellation-requests' },
     ],
     showBookingDisruptionBadge: true,

@@ -11,6 +11,7 @@ const AdminLayout = lazy(() => import('../layouts/AdminLayout'))
 const GuideLayout = lazy(() => import('../layouts/GuideLayout'))
 const SupportLayout = lazy(() => import('../layouts/SupportLayout'))
 const BookingManagementPage = lazy(() => import('../pages/admin/BookingManagementPage'))
+const BookingTrashPage = lazy(() => import('../pages/admin/BookingTrashPage'))
 const BookingCancellationRequestsPage = lazy(() => import('../pages/admin/BookingCancellationRequestsPage'))
 const AdminDashboardPage = lazy(() => import('../pages/admin/AdminDashboardPage'))
 const GuideManagementPage = lazy(() => import('../pages/admin/GuideManagementPage'))
@@ -485,6 +486,7 @@ function AppRoutes() {
           <BookingManagementPage />,
         )}
       />
+      <Route path="/admin/bookings/trash" element={adminPage(<BookingTrashPage />)} />
 
       <Route
         path="/admin/booking-cancellation-requests"

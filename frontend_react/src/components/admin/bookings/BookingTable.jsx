@@ -1,5 +1,5 @@
 import BookingBadge from './BookingBadge'
-import { CheckIcon, CloseIcon, EyeIcon, TrashIcon } from './BookingIcons'
+import { EyeIcon, TrashIcon } from './BookingIcons'
 import {
   customerName,
   customerPhone,
@@ -7,7 +7,7 @@ import {
   formatMoney,
   initialsFor,
 } from './bookingFormatters'
-import { canDeleteBooking, isBookingReadOnly } from './bookingPermissions'
+import { canDeleteBooking } from './bookingPermissions'
 
 const avatarClasses = ['blue', 'violet', 'green', 'amber', 'red', 'pink']
 
@@ -35,31 +35,14 @@ const participantPreviewFor = (booking) => {
   return remaining > 0 ? `${names.join(', ')} +${remaining}` : names.join(', ')
 }
 
-function BookingActions({ booking, busy, onCancel, onComplete, onConfirm, onDelete, onView }) {
-  const isReadOnly = isBookingReadOnly(booking)
-
+function BookingActions({ booking, busy, onDelete, onView }) {
   return (
     <div className="booking-row-actions">
       <button type="button" title="Xem chi tiết" onClick={() => onView(booking)} disabled={!!busy}>
         <EyeIcon />
       </button>
-      {!isReadOnly && booking.status === 'pending' ? (
-        <button className="success" type="button" title="Xác nhận" onClick={() => onConfirm(booking)} disabled={!!busy}>
-          <CheckIcon />
-        </button>
-      ) : null}
-      {!isReadOnly && booking.status === 'confirmed' ? (
-        <button className="success" type="button" title="Hoàn thành" onClick={() => onComplete(booking)} disabled={!!busy}>
-          <CheckIcon />
-        </button>
-      ) : null}
-      {!isReadOnly ? (
-        <button className="danger" type="button" title="Hủy booking" onClick={() => onCancel(booking)} disabled={!!busy}>
-          <CloseIcon />
-        </button>
-      ) : null}
       {canDeleteBooking(booking) ? (
-        <button className="danger" type="button" title="Xóa vĩnh viễn" onClick={() => onDelete(booking)} disabled={!!busy}>
+        <button className="danger" type="button" title="Xóa mềm" onClick={() => onDelete(booking)} disabled={!!busy}>
           <TrashIcon />
         </button>
       ) : null}
@@ -71,9 +54,6 @@ function BookingTable({
   bookings,
   busy,
   loading,
-  onCancel,
-  onComplete,
-  onConfirm,
   onDelete,
   onView,
 }) {
@@ -133,9 +113,6 @@ function BookingTable({
                     <BookingActions
                       booking={booking}
                       busy={busy}
-                      onCancel={onCancel}
-                      onComplete={onComplete}
-                      onConfirm={onConfirm}
                       onDelete={onDelete}
                       onView={onView}
                     />

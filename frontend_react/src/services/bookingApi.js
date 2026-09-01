@@ -34,3 +34,15 @@ export const cancelBooking = async (id) =>
 
 export const deleteBooking = async (id) =>
   unwrap(await withBookingEndpointFallback((endpoint) => apiClient.delete(`${endpoint}/${id}`)))
+
+export const moveBookingToTrash = async (id) =>
+  unwrap(await withBookingEndpointFallback((endpoint) => apiClient.patch(`${endpoint}/${id}/trash`)))
+
+export const getTrashedBookings = async (params) =>
+  unwrap(await withBookingEndpointFallback((endpoint) => apiClient.get(`${endpoint}/trash`, { params })))
+
+export const getTrashedBooking = async (id) =>
+  unwrap(await withBookingEndpointFallback((endpoint) => apiClient.get(`${endpoint}/trash/${id}`)))
+
+export const restoreBooking = async (id) =>
+  unwrap(await withBookingEndpointFallback((endpoint) => apiClient.patch(`${endpoint}/${id}/restore`)))

@@ -13,6 +13,7 @@ use App\Services\VnpayPaymentLifecycleService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -132,6 +133,33 @@ class BookingController extends Controller
             'success' => true,
             'data' => $booking,
         ]);
+    }
+
+    public function trash(Request $request)
+    {
+        $request->validate(['per_page' => 'nullable|integer|min:5|max:100']);
+        $bookings = Booking::onlyTrashed()
+            ->with(['user:id,full_name,email', 'tour:id,title', 'contact', 'payment', 'participants'])
+            ->latest('deleted_at')
+            ->paginate($request->integer('per_page', 15));
+
+        return response()->json(['success' => true, 'data' => $bookings->items(), 'meta' => [
+            'current_page' => $bookings->currentPage(), 'last_page' => $bookings->lastPage(),
+            'per_page' => $bookings->perPage(), 'total' => $bookings->total(),
+        ]]);
+    }
+
+    public function showTrashed($id)
+    {
+        $booking = Booking::onlyTrashed()->with([
+            'user:id,full_name,email,phone', 'tour:id,title,summary',
+            'tourDeparture:id,departure_date,return_date,status', 'contact', 'participants', 'payment',
+            'statusHistories' => fn ($query) => $query->with('changedBy:id,full_name')->latest(),
+            'informationChangeHistories' => fn ($query) => $query->with('changedBy:id,full_name')->latest(),
+            'disruptionRequests' => fn ($query) => $query->with(['requestedDeparture:id,departure_date,return_date', 'processedBy:id,full_name'])->latest(),
+        ])->findOrFail($id);
+
+        return response()->json(['success' => true, 'data' => $booking]);
     }
 
     // ─── Thêm/Tạo booking ─────────────────────────────────────────
@@ -281,7 +309,7 @@ class BookingController extends Controller
             $originalNumberOfPeople = (int) $lockedBooking->number_of_people;
             $updatedNumberOfPeople = (int) ($data['number_of_people'] ?? $originalNumberOfPeople);
 
-            if (in_array($lockedBooking->status, ['departed', 'completed', 'cancelled', 'cancelled_by_tour'], true)) {
+            if (in_array($lockedBooking->status, ['departed', 'completed'], true)) {
                 throw ValidationException::withMessages([
                     'status' => 'Booking đang diễn ra, đã hủy hoặc đã hoàn thành chỉ có thể xem chi tiết.',
                 ]);
@@ -320,6 +348,17 @@ class BookingController extends Controller
                 && $lockedBooking->status !== 'cancelled';
 
             $oldStatus = $lockedBooking->status;
+
+            if ($requestedStatus === 'confirmed') {
+                if ($lockedBooking->payment_status !== 'paid') {
+                    throw ValidationException::withMessages(['status' => 'Booking chỉ được xác nhận sau khi đã thanh toán.']);
+                }
+                if (! $this->paymentLifecycleService->commitSlotsForPaidBooking($lockedBooking)) {
+                    $data['status'] = 'pending';
+                    $requestedStatus = 'pending';
+                    throw ValidationException::withMessages(['status' => 'Booking đang chờ xác nhận vì tour/lịch không hoạt động hoặc không còn đủ chỗ.']);
+                }
+            }
 
             if ($lockedBooking->slot_committed_at && $updatedNumberOfPeople !== $originalNumberOfPeople) {
                 $lockedDeparture = TourDeparture::query()
@@ -375,9 +414,9 @@ class BookingController extends Controller
     }
 
     // ─── Xóa mềm ──────────────────────────────────────────────────
-    public function softDelete($id)
+    public function softDelete(Request $request, $id)
     {
-        DB::transaction(function () use ($id): void {
+        DB::transaction(function () use ($id, $request): void {
             $booking = Booking::query()
                 ->with('tourDeparture')
                 ->lockForUpdate()
@@ -390,7 +429,12 @@ class BookingController extends Controller
             }
 
             $oldStatus = $booking->status;
-            $booking->update(['status' => 'cancelled', 'cancelled_at' => Carbon::now()]);
+            $paymentStatus = $booking->payment_status === 'paid' ? 'refund_pending' : $booking->payment_status;
+            $booking->update([
+                'status' => 'cancelled', 'payment_status' => $paymentStatus,
+                'cancel_reason' => $request->input('reason', 'Admin hủy booking.'),
+                'cancelled_at' => Carbon::now(),
+            ]);
             $booking->statusHistories()->create([
                 'changed_by' => request()->user()?->id,
                 'old_status' => $oldStatus,
@@ -406,23 +450,59 @@ class BookingController extends Controller
         ]);
     }
 
+    public function moveToTrash($id)
+    {
+        $booking = Booking::query()->with('payment')->findOrFail($id);
+        if (! in_array($booking->status, ['cancelled', 'cancelled_by_tour'], true)) {
+            throw ValidationException::withMessages(['status' => 'Cần hủy booking trước khi xóa mềm.']);
+        }
+        if (in_array($booking->payment_status, ['paid', 'refund_pending'], true)) {
+            throw ValidationException::withMessages(['payment_status' => 'Booking đã thanh toán phải hoàn tiền trước khi xóa.']);
+        }
+        if ($booking->payment_status === 'refunded' && ! $booking->payment?->refund_proof_path) {
+            throw ValidationException::withMessages(['refund_proof' => 'Vui lòng tải ảnh chứng minh hoàn tiền trước khi xóa.']);
+        }
+
+        $booking->delete();
+        return response()->json(['success' => true, 'message' => 'Đã chuyển booking vào thùng rác.']);
+    }
+
+    public function restore($id)
+    {
+        $booking = Booking::onlyTrashed()->findOrFail($id);
+        $oldStatus = $booking->status;
+        $booking->restore();
+        $booking->update(['status' => 'pending', 'cancelled_at' => null]);
+        $booking->statusHistories()->create([
+            'changed_by' => request()->user()?->id, 'old_status' => $oldStatus,
+            'new_status' => 'pending', 'note' => 'Admin hoàn tác booking từ thùng rác; trạng thái tự động về Chờ xác nhận.',
+        ]);
+
+        return response()->json(['success' => true, 'message' => 'Đã hoàn tác booking về Chờ xác nhận.', 'data' => $booking->fresh()]);
+    }
+
     // ─── Xóa vĩnh viễn ────────────────────────────────────────────
     public function destroy($id)
     {
-        $booking = Booking::findOrFail($id);
+        $booking = Booking::onlyTrashed()->with('payment')->findOrFail($id);
 
-        if (! in_array($booking->status, ['cancelled', 'cancelled_by_tour'], true)) {
+        if (in_array($booking->payment_status, ['paid', 'refund_pending'], true)
+            || ($booking->payment_status === 'refunded' && ! $booking->payment?->refund_proof_path)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Chỉ có thể xóa vĩnh viễn booking đã hủy.',
+                'message' => 'Booking phải hoàn tiền và có ảnh chứng minh trước khi xóa vĩnh viễn.',
             ], 422);
         }
 
         DB::transaction(function () use ($booking): void {
+            $proofPath = $booking->payment?->refund_proof_path;
             DB::table('tour_refund_outbox')->where('booking_id', $booking->id)->delete();
             DB::table('refund_requests')->where('booking_id', $booking->id)->delete();
             DB::table('payments')->where('booking_id', $booking->id)->delete();
-            $booking->delete();
+            $booking->forceDelete();
+            if ($proofPath) {
+                Storage::disk('public')->delete($proofPath);
+            }
         });
 
         return response()->json([
@@ -534,7 +614,7 @@ class BookingController extends Controller
     private function synchronizeBookingStatusesWithDepartures(): void
     {
         Booking::query()
-            ->with('tourDeparture:id,status,departure_date,return_date')
+            ->with(['tourDeparture:id,tour_id,status,departure_date,return_date', 'tour:id,status'])
             ->where('payment_status', 'paid')
             ->whereIn('status', ['pending', 'confirmed', 'departed', 'completed'])
             ->whereHas('tourDeparture')
@@ -552,7 +632,10 @@ class BookingController extends Controller
                     } elseif ($departureDate && $departureDate->lte($today) && $returnDate?->gte($today)) {
                         $newStatus = 'departed';
                     } elseif ($departureDate?->gt($today)) {
-                        $newStatus = 'confirmed';
+                        $isEligibleForConfirmation = $booking->slot_committed_at !== null
+                            && $booking->tour?->status === 'published'
+                            && $departureStatus === 'open';
+                        $newStatus = $isEligibleForConfirmation ? 'confirmed' : 'pending';
                     } else {
                         $newStatus = null;
                     }

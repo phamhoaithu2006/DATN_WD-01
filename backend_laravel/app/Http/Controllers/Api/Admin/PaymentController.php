@@ -9,6 +9,7 @@ use App\Services\VnpayPaymentLifecycleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class PaymentController extends Controller
@@ -73,9 +74,43 @@ class PaymentController extends Controller
         ], 'Cập nhật thanh toán thất bại thành công');
     }
 
-    public function refund(int $id): JsonResponse
+    public function refund(Request $request, int $id): JsonResponse
     {
-        return $this->updateStatus($id, 'refunded', 'refunded', [], 'Cập nhật hoàn tiền thành công');
+        $validated = $request->validate([
+            'refund_proof' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+        ]);
+        $path = $validated['refund_proof']->store('refund-proofs', 'public');
+
+        $existingPayment = Payment::query()->find($id);
+        if ($existingPayment?->status === 'refunded') {
+            $oldPath = $existingPayment->refund_proof_path;
+            $existingPayment->update(['refund_proof_path' => $path, 'refunded_at' => $existingPayment->refunded_at ?? now()]);
+            if ($oldPath) {
+                Storage::disk('public')->delete($oldPath);
+            }
+            return response()->json(['status' => 'success', 'message' => 'Đã thay ảnh chứng minh hoàn tiền.', 'data' => $existingPayment->fresh(['booking.user'])]);
+        }
+
+        try {
+            return $this->updateStatus($id, 'refunded', 'refunded', [
+                'refund_proof_path' => $path,
+                'refunded_at' => now(),
+            ], 'Cập nhật hoàn tiền thành công');
+        } catch (\Throwable $exception) {
+            Storage::disk('public')->delete($path);
+            throw $exception;
+        }
+    }
+
+    public function deleteRefundProof(int $id): JsonResponse
+    {
+        $payment = Payment::query()->findOrFail($id);
+        if ($payment->refund_proof_path) {
+            Storage::disk('public')->delete($payment->refund_proof_path);
+            $payment->update(['refund_proof_path' => null]);
+        }
+
+        return response()->json(['status' => 'success', 'message' => 'Đã xóa ảnh chứng minh hoàn tiền.', 'data' => $payment->fresh()]);
     }
 
     private function updateStatus(int $id, string $paymentStatus, string $bookingPaymentStatus, array $extraData, string $message): JsonResponse
@@ -109,6 +144,8 @@ class PaymentController extends Controller
                 'transaction_code' => $extraData['transaction_code'] ?? $payment->transaction_code,
                 'gateway_response' => $extraData['gateway_response'] ?? $payment->gateway_response,
                 'paid_at' => array_key_exists('paid_at', $extraData) ? $extraData['paid_at'] : $payment->paid_at,
+                'refund_proof_path' => $extraData['refund_proof_path'] ?? $payment->refund_proof_path,
+                'refunded_at' => $extraData['refunded_at'] ?? $payment->refunded_at,
             ], fn ($value) => $value !== null);
 
             if (array_key_exists('paid_at', $extraData) && $extraData['paid_at'] === null) {

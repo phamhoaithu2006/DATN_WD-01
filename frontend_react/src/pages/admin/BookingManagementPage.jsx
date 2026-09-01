@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import BookingDetailModal from '../../components/admin/bookings/BookingDetailModal'
 import BookingFilters from '../../components/admin/bookings/BookingFilters'
 import BookingPagination from '../../components/admin/bookings/BookingPagination'
@@ -13,17 +14,17 @@ import {
   messageFrom,
 } from '../../components/admin/bookings/bookingFormatters'
 import {
-  cancelBooking,
-  deleteBooking,
+  moveBookingToTrash,
   getBooking,
   getBookings,
   getBookingStatistics,
   updateBooking,
 } from '../../services/bookingApi'
-import { confirmPayment, failPayment, refundPayment } from '../../services/paymentApi'
+import { confirmPayment, deleteRefundProof, failPayment, refundPayment } from '../../services/paymentApi'
 import '../../styles/booking-management.css'
 
 function BookingManagementPage() {
+  const navigate = useNavigate()
   const [bookings, setBookings] = useState([])
   const [statistics, setStatistics] = useState({})
   const [meta, setMeta] = useState({})
@@ -170,7 +171,15 @@ function BookingManagementPage() {
         ? await confirmPayment(paymentId, transactionCode ? { transaction_code: transactionCode } : {})
         : action === 'fail'
           ? await failPayment(paymentId)
-          : await refundPayment(paymentId)
+          : await new Promise((resolve, reject) => {
+              const input = document.createElement('input')
+              input.type = 'file'
+              input.accept = 'image/jpeg,image/png,image/webp'
+              input.onchange = () => input.files?.[0]
+                ? resolve(refundPayment(paymentId, input.files[0]))
+                : reject(new Error('Bạn chưa chọn ảnh chứng minh hoàn tiền.'))
+              input.click()
+            })
 
       setNotice({ type: 'success', text: response.message || 'Cập nhật thanh toán thành công.' })
       await load()
@@ -187,6 +196,20 @@ function BookingManagementPage() {
     try {
       const payload = await getBooking(booking.id)
       setDetail(payload.data || payload)
+    } catch (error) {
+      setNotice({ type: 'error', text: messageFrom(error) })
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const removeRefundProof = async (booking) => {
+    if (!booking.payment?.id || !await confirmAction('Xóa ảnh chứng minh hoàn tiền này?', { title: 'Xóa ảnh', confirmLabel: 'Xóa', tone: 'danger' })) return
+    setBusy(`${booking.id}-delete-proof`)
+    try {
+      const response = await deleteRefundProof(booking.payment.id)
+      setNotice({ type: 'success', text: response.message || 'Đã xóa ảnh.' })
+      await refreshDetail(booking.id)
     } catch (error) {
       setNotice({ type: 'error', text: messageFrom(error) })
     } finally {
@@ -255,11 +278,11 @@ function BookingManagementPage() {
   }
 
   const removeBooking = async (booking) => {
-    if (!await confirmAction('Xóa vĩnh viễn booking đã hủy này? Hành động này không thể khôi phục.', { title: 'Xóa booking', confirmLabel: 'Xóa', tone: 'danger' })) return
+    if (!await confirmAction('Chuyển booking này vào thùng rác?', { title: 'Xóa mềm booking', confirmLabel: 'Xóa mềm', tone: 'danger' })) return
 
     setBusy(`delete-${booking.id}`)
     try {
-      const response = await deleteBooking(booking.id)
+      const response = await moveBookingToTrash(booking.id)
       setNotice({ type: 'success', text: response.message || 'Đã xóa booking.' })
       await load()
     } catch (error) {
@@ -283,11 +306,10 @@ function BookingManagementPage() {
         title="Quản Lý Booking"
         description="Theo dõi và quản lý tất cả đặt tour."
         actions={
-          <BookingStats
-            activeStatus={status}
-            cards={cards}
-            onStatusChange={changeFilter(setStatus)}
-          />
+          <div className="booking-header-actions">
+            <button type="button" className="booking-trash-page-button" onClick={() => navigate('/admin/bookings/trash')}>Thùng rác</button>
+            <BookingStats activeStatus={status} cards={cards} onStatusChange={changeFilter(setStatus)} />
+          </div>
         }
       />
 
@@ -320,9 +342,6 @@ function BookingManagementPage() {
         bookings={bookings}
         busy={busy}
         loading={loading}
-        onCancel={(booking) => updateStatus(booking, 'cancelled')}
-        onComplete={(booking) => updateStatus(booking, 'completed')}
-        onConfirm={(booking) => updateStatus(booking, 'confirmed')}
         onDelete={removeBooking}
         onView={openDetail}
       />
@@ -345,6 +364,7 @@ function BookingManagementPage() {
           busy={!!busy}
           onClose={() => setDetail(null)}
           onInvoice={printInvoice}
+          onDeleteRefundProof={removeRefundProof}
           onPaymentChange={updatePayment}
           onStatusChange={updateStatus}
         />
