@@ -6,6 +6,7 @@ use App\Models\Guide;
 use App\Models\Province;
 use App\Models\Role;
 use App\Models\Tour;
+use App\Models\TourAgePricingRule;
 use App\Models\TourDeparture;
 use App\Models\User;
 use App\Services\TourPricingService;
@@ -170,6 +171,52 @@ test('admin can create tour without duration_nights and backend calculates it', 
         'title' => 'Tour Auto Duration Nights',
         'duration_days' => 4,
         'duration_nights' => 3,
+    ]);
+
+    expect(TourAgePricingRule::query()
+        ->where('tour_id', $response->json('data.id'))
+        ->where('is_active', true)
+        ->orderBy('sort_order')
+        ->pluck('price_value')
+        ->map(fn ($value) => (float) $value)
+        ->all())->toBe([0.0, 70.0, 100.0]);
+});
+
+test('age pricing migration backfills the fixed rules and deactivates legacy rules', function () {
+    $tour = createTestTour();
+    $legacyRule = $tour->agePricingRules()->create([
+        'label' => 'Nhóm cũ',
+        'min_age' => 0,
+        'max_age' => 5,
+        'pricing_type' => 'fixed',
+        'price_value' => 500000,
+        'sort_order' => 0,
+        'is_active' => true,
+    ]);
+
+    $migration = require database_path(
+        'migrations/2026_09_01_000001_standardize_tour_age_pricing_rules.php'
+    );
+    $migration->up();
+
+    $activeRules = TourAgePricingRule::query()
+        ->where('tour_id', $tour->id)
+        ->where('is_active', true)
+        ->orderBy('sort_order')
+        ->get();
+
+    expect($activeRules->count())->toBe(3)
+        ->and($activeRules->pluck('label')->all())->toBe([
+            'Em bé dưới 2 tuổi',
+            'Trẻ em 2-11',
+            'Người lớn từ 12 tuổi',
+        ])
+        ->and($activeRules->pluck('price_value')->map(fn ($value) => (float) $value)->all())
+        ->toBe([0.0, 70.0, 100.0]);
+
+    $this->assertDatabaseHas('tour_age_pricing_rules', [
+        'id' => $legacyRule->id,
+        'is_active' => false,
     ]);
 });
 
@@ -698,6 +745,56 @@ test('admin stores percentage age pricing rules from base price', function () {
     );
 
     expect($pricing['unit_price'])->toBe(700000.0);
+});
+
+test('admin rejects custom age pricing rules on create and update', function () {
+    $admin = createAdminUser();
+    Sanctum::actingAs($admin);
+
+    $customRules = TourAgePricingRule::standardDefinitions();
+    $customRules[1]['price_value'] = 60;
+
+    $this->postJson('/api/admin/tours', [
+        'category_id' => 1,
+        'province_id' => 1,
+        'title' => 'Tour không nhận nhóm tuổi tùy biến',
+        'duration_days' => 2,
+        'base_price' => 1000000,
+        'max_slots' => 10,
+        'status' => 'draft',
+        'age_pricing_rules' => $customRules,
+    ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('age_pricing_rules.1');
+
+    expect(Tour::query()->where('title', 'Tour không nhận nhóm tuổi tùy biến')->exists())
+        ->toBeFalse();
+
+    $createResponse = $this->postJson('/api/admin/tours', [
+        'category_id' => 1,
+        'province_id' => 1,
+        'title' => 'Tour kiểm tra khóa nhóm tuổi khi sửa',
+        'duration_days' => 2,
+        'base_price' => 1000000,
+        'max_slots' => 10,
+        'status' => 'draft',
+    ])->assertCreated();
+
+    $customRules = TourAgePricingRule::standardDefinitions();
+    $customRules[0]['label'] = 'Em bé tùy biến';
+
+    $this->putJson('/api/admin/tours/'.$createResponse->json('data.id'), [
+        'age_pricing_rules' => $customRules,
+    ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('age_pricing_rules.0');
+
+    $this->assertDatabaseHas('tour_age_pricing_rules', [
+        'tour_id' => $createResponse->json('data.id'),
+        'label' => 'Em bé dưới 2 tuổi',
+        'price_value' => 0,
+        'is_active' => true,
+    ]);
 });
 
 test('store tour validates detailed itinerary structure', function () {
