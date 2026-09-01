@@ -8783,7 +8783,21 @@ textarea.vg-checkout-input {
   font-weight: 800;
   color: #0f172a;
 }
+.vg-participant-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 
+.vg-participant-ticket-type {
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  padding: 4px 9px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  white-space: nowrap;
+}
 .vg-participant-status {
   border-radius: 999px;
   font-size: 0.74rem;
