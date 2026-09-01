@@ -7,6 +7,7 @@ import {
   TOUR_ACTIVITY_OPTIONS,
   TOUR_ACTIVITY_TYPE_LABELS,
 } from '../../../constants/tourActivityTypes'
+import { STANDARD_AGE_PRICING_RULES } from '../../../constants/tourPricing'
 
 const API_BASE_URL = (
   import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api'
@@ -585,25 +586,15 @@ const findOptionIdByName = (options = [], name = '') => {
   return matched ? getOptionId(matched) : ''
 }
 
-const DEFAULT_AGE_PRICING_RULES = [
-  { age_label: 'Em bé dưới 2 tuổi', price_value: 0 },
-  { age_label: 'Trẻ em 2-11', price_value: 70 },
-  { age_label: 'Người lớn từ 12 tuổi', price_value: 100 },
-]
-
 const createAgePricingRule = (rule = {}, index = 0) => ({
-  client_id: `age-price-${Date.now()}-${index}`,
-  age_label: rule.age_label ?? '',
+  ...rule,
+  client_id:
+    rule.client_id ||
+    rule.id ||
+    `age-price-${Date.now()}-${index}`,
+  age_label: rule.age_label ?? rule.label ?? '',
   price_value: rule.price_value ?? '',
 })
-
-const createEmptyAgePricingRule = (index = 0) =>
-  createAgePricingRule({}, index)
-
-const createDefaultAgePricingRules = () =>
-  DEFAULT_AGE_PRICING_RULES.map((rule, index) =>
-    createAgePricingRule(rule, index),
-  )
 
 const normalizePositivePriceForForm = (value) => {
   const amount = Number(value)
@@ -632,104 +623,6 @@ const getAgePricingReferencePrice = (source = {}) => {
   return 0
 }
 
-const normalizeAgeRulePercentForForm = ({
-  pricingType,
-  priceValue,
-  referencePrice,
-}) => {
-  if (pricingType === 'free') {
-    return 0
-  }
-
-  const amount = Number(priceValue)
-
-  if (!Number.isFinite(amount) || amount < 0) {
-    return ''
-  }
-
-  if (pricingType === 'fixed') {
-    if (!Number.isFinite(referencePrice) || referencePrice <= 0) {
-      return ''
-    }
-
-    return Math.round((amount / referencePrice) * 10000) / 100
-  }
-
-  return Math.round(amount * 100) / 100
-}
-
-const parseAgeRange = (value) => {
-  const raw = String(value ?? '').trim()
-
-  if (!raw) return null
-
-  const match = raw.match(/(\d+)\s*(?:[-–—]|đến|den|to)\s*(\d+)/i)
-
-  if (!match) return null
-
-  const minAge = Number(match[1])
-  const maxAge = Number(match[2])
-
-  if (
-    !Number.isInteger(minAge) ||
-    !Number.isInteger(maxAge) ||
-    minAge < 0 ||
-    maxAge < minAge
-  ) {
-    return null
-  }
-
-  return { minAge, maxAge }
-}
-
-const parseFlexibleAgeRange = (value) => {
-  const raw = String(value ?? '').trim()
-  if (!raw) return null
-
-  const explicitRange = parseAgeRange(raw)
-  if (explicitRange) return explicitRange
-
-  const normalized = normalizeTextForOptionMatch(raw)
-
-  const underMatch = normalized.match(/(?:duoi|nho hon)\s*(\d+)/)
-  if (underMatch) {
-    const maxAge = Number(underMatch[1]) - 1
-    return maxAge >= 0 ? { minAge: 0, maxAge } : null
-  }
-
-  const fromMatch = normalized.match(/(?:tu|tren|lon hon)\s*(\d+)/)
-  if (fromMatch) {
-    const statedAge = Number(fromMatch[1])
-    const minAge = normalized.includes('tren') || normalized.includes('lon hon')
-      ? statedAge + 1
-      : statedAge
-
-    return minAge <= 120 ? { minAge, maxAge: 120 } : null
-  }
-
-  if (/(so sinh|em be|infant)/.test(normalized)) {
-    return { minAge: 0, maxAge: 1 }
-  }
-
-  if (/(tre em|child)/.test(normalized)) {
-    return { minAge: 2, maxAge: 11 }
-  }
-
-  if (/(thieu nien|teen)/.test(normalized)) {
-    return { minAge: 12, maxAge: 17 }
-  }
-
-  if (/(nguoi lon|adult)/.test(normalized)) {
-    return { minAge: 18, maxAge: 59 }
-  }
-
-  if (/(cao tuoi|nguoi gia|senior)/.test(normalized)) {
-    return { minAge: 60, maxAge: 120 }
-  }
-
-  return null
-}
-
 const normalizeAgePricingRulesForForm = (initialData = {}) => {
   const source = resolveTourInitialData(initialData)
   const rules = findNestedCollection(source, [
@@ -743,135 +636,40 @@ const normalizeAgePricingRulesForForm = (initialData = {}) => {
     'tourAgePrices',
   ])
 
-  if (rules.length === 0) {
-    return createDefaultAgePricingRules()
-  }
+  return STANDARD_AGE_PRICING_RULES.map((definition, index) => {
+    const sourceRule = rules.find((candidate) => {
+      if (!isPlainObject(candidate)) return false
 
-  const referencePrice = getAgePricingReferencePrice(source)
+      const candidateLabel = candidate.label ?? candidate.age_label
 
-  return rules.map((rule, index) => {
-    const sourceRule = isPlainObject(rule) ? rule : {}
-    const rawMinAge = getDirectValue(sourceRule, [
-      'min_age',
-      'minAge',
-      'age_from',
-      'ageFrom',
-      'from_age',
-      'fromAge',
-      'start_age',
-      'startAge',
-      'age_min',
-      'ageStart',
-    ])
-    const rawMaxAge = getDirectValue(sourceRule, [
-      'max_age',
-      'maxAge',
-      'age_to',
-      'ageTo',
-      'to_age',
-      'toAge',
-      'end_age',
-      'endAge',
-      'age_max',
-      'ageEnd',
-    ])
-    const rangeText = String(
-      getDirectValue(sourceRule, [
-        'age_range',
-        'ageRange',
-        'age_group',
-        'ageGroup',
-        'range',
-      ]) ?? '',
-    ).trim()
-    const parsedRange = parseAgeRange(rangeText)
-    const minAgeValue = rawMinAge ?? parsedRange?.minAge
-    const maxAgeValue = rawMaxAge ?? parsedRange?.maxAge ?? minAgeValue
-    const minAge = minAgeValue === undefined || minAgeValue === null || minAgeValue === ''
-      ? null
-      : Number(minAgeValue)
-    const maxAge = maxAgeValue === undefined || maxAgeValue === null || maxAgeValue === ''
-      ? null
-      : Number(maxAgeValue)
-    const existingLabel = String(
-      getDirectValue(sourceRule, [
-        'age_label',
-        'ageLabel',
-        'label',
-        'name',
-        'title',
-        'description',
-      ]) ?? '',
-    ).trim()
-    const fallbackLabel =
-      Number.isInteger(minAge) && Number.isInteger(maxAge)
-        ? `Độ tuổi ${minAge}-${maxAge}`
-        : rangeText
-    const pricingType = String(
-      sourceRule.pricing_type ?? sourceRule.pricingType ?? sourceRule.type ?? '',
-    ).toLowerCase()
-    const priceValue = getDirectValue(sourceRule, [
-      'price_value',
-      'priceValue',
-      'price',
-      'amount',
-      'fixed_price',
-      'fixedPrice',
-      'ticket_price',
-      'ticketPrice',
-    ])
+      return (
+        Number(candidate.min_age) === definition.min_age &&
+        Number(candidate.max_age) === definition.max_age
+      ) || normalizeTextForOptionMatch(candidateLabel) ===
+        normalizeTextForOptionMatch(definition.label)
+    }) || (isPlainObject(rules[index]) ? rules[index] : {})
 
-    return {
-      ...sourceRule,
-      client_id:
-        sourceRule.client_id ||
-        sourceRule.id ||
-        `age-price-${index}`,
-      age_label: existingLabel || fallbackLabel,
-      price_value: normalizeAgeRulePercentForForm({
-        pricingType,
-        priceValue,
-        referencePrice,
-      }),
-    }
+    return createAgePricingRule(
+      {
+        ...sourceRule,
+        label: definition.label,
+        age_label: definition.label,
+        min_age: definition.min_age,
+        max_age: definition.max_age,
+        pricing_type: definition.pricing_type,
+        price_value: definition.price_value,
+        sort_order: definition.sort_order,
+        is_active: true,
+      },
+      index,
+    )
   })
 }
 
-const normalizeAgePricingRulesForSubmit = (rules = []) => {
-  if (!Array.isArray(rules)) return []
-
-  return rules
-    .map((rule, index) => {
-      const ageLabelText = String(rule.age_label ?? '').trim()
-      const percentText = String(rule.price_value ?? '').trim()
-
-      if (ageLabelText === '' && percentText === '') {
-        return null
-      }
-
-      const parsedRange = parseFlexibleAgeRange(ageLabelText)
-      const percentValue = Number(percentText)
-
-      if (
-        !parsedRange ||
-        !Number.isFinite(percentValue) ||
-        percentValue < 0 ||
-        percentValue > 100
-      ) {
-        return null
-      }
-
-      return {
-        label: ageLabelText,
-        min_age: parsedRange.minAge,
-        max_age: parsedRange.maxAge,
-        pricing_type: 'percentage',
-        price_value: Math.round(percentValue * 100) / 100,
-        sort_order: index,
-        is_active: true,
-      }
-    })
-    .filter(Boolean)
+const normalizeAgePricingRulesForSubmit = () => {
+  return STANDARD_AGE_PRICING_RULES.map((rule) => ({
+    ...rule,
+  }))
 }
 
 const MAX_SUMMARY_LENGTH = 300
@@ -1030,83 +828,29 @@ const validateImageFile = (file, label) => {
 const validateAgePricingRules = (rules = []) => {
   const errors = {}
 
-  if (!Array.isArray(rules)) {
-    errors.age_pricing_rules = 'Danh sách giá vé theo độ tuổi không hợp lệ.'
+  if (!Array.isArray(rules) || rules.length !== STANDARD_AGE_PRICING_RULES.length) {
+    errors.age_pricing_rules = 'Hệ thống chỉ sử dụng đúng 3 nhóm tuổi cố định.'
     return errors
   }
 
-  const usedRanges = []
-  const usedLabels = new Map()
-
-  rules.forEach((rule, index) => {
-    const rowNumber = index + 1
+  STANDARD_AGE_PRICING_RULES.forEach((standardRule, index) => {
+    const rule = rules[index] || {}
     const labelKey = `age_pricing_rules.${index}.age_label`
     const priceKey = `age_pricing_rules.${index}.price_value`
-    const ruleData = rule || {}
-    const ageLabelText = String(ruleData.age_label ?? '').trim()
-    const percentText = String(ruleData.price_value ?? '').trim()
+    const isMatchingLabel = normalizeTextForOptionMatch(
+      rule.age_label ?? rule.label,
+    ) === normalizeTextForOptionMatch(standardRule.label)
+    const isMatchingAgeRange =
+      Number(rule.min_age) === standardRule.min_age &&
+      Number(rule.max_age) === standardRule.max_age
+    const isMatchingPercent = Number(rule.price_value) === standardRule.price_value
 
-    // Dòng trống hoàn toàn được bỏ qua.
-    if (ageLabelText === '' && percentText === '') return
-
-    if (ageLabelText === '') {
-      errors[labelKey] = `Vui lòng nhập đối tượng hoặc độ tuổi ở dòng #${rowNumber}.`
+    if (!isMatchingLabel || !isMatchingAgeRange) {
+      errors[labelKey] = 'Đối tượng và khoảng tuổi của nhóm này đã được cố định.'
     }
 
-    const normalizedLabel = normalizeTextForOptionMatch(ageLabelText)
-    if (normalizedLabel) {
-      if (usedLabels.has(normalizedLabel)) {
-        errors[labelKey] = `Đối tượng “${ageLabelText}” bị trùng với dòng #${usedLabels.get(normalizedLabel)}.`
-      } else {
-        usedLabels.set(normalizedLabel, rowNumber)
-      }
-    }
-
-    const parsedRange = ageLabelText
-      ? parseFlexibleAgeRange(ageLabelText)
-      : null
-
-    if (ageLabelText && !parsedRange) {
-      errors[labelKey] =
-        'Nhập khoảng tuổi như “1-5”, “từ 18 tuổi”, hoặc tên nhóm như “Người lớn”.'
-    }
-
-    if (parsedRange) {
-      if (
-        parsedRange.minAge < 0 ||
-        parsedRange.maxAge > 120 ||
-        parsedRange.maxAge < parsedRange.minAge
-      ) {
-        errors[labelKey] = 'Độ tuổi phải nằm trong khoảng từ 0 đến 120.'
-      } else {
-        const overlapping = usedRanges.find(
-          (item) =>
-            parsedRange.minAge <= item.maxAge &&
-            parsedRange.maxAge >= item.minAge,
-        )
-
-        if (overlapping) {
-          errors[labelKey] =
-            `Khoảng tuổi ${parsedRange.minAge}-${parsedRange.maxAge} bị trùng với dòng #${overlapping.rowNumber}.`
-        } else {
-          usedRanges.push({
-            ...parsedRange,
-            rowNumber,
-          })
-        }
-      }
-    }
-
-    if (percentText === '') {
-      errors[priceKey] = `Vui lòng nhập tỷ lệ giá ở dòng #${rowNumber}.`
-    } else {
-      const percentValue = Number(percentText)
-
-      if (!Number.isFinite(percentValue) || percentValue < 0) {
-        errors[priceKey] = 'Tỷ lệ giá phải là số lớn hơn hoặc bằng 0.'
-      } else if (percentValue > 100) {
-        errors[priceKey] = 'Tỷ lệ giá không được vượt quá 100%.'
-      }
+    if (!isMatchingPercent) {
+      errors[priceKey] = 'Tỷ lệ giá của nhóm này đã được cố định.'
     }
   })
 
@@ -1175,6 +919,8 @@ const validateTourForm = ({
   const summary = String(formData.summary || '').trim()
   const description = String(formData.description || '').trim()
   const basePrice = Number(formData.base_price)
+  const discountPriceInput = String(formData.discount_price ?? '').trim()
+  const discountPrice = discountPriceInput === '' ? null : Number(discountPriceInput)
   const durationDays = Number(formData.duration_days)
   const durationNights = getDurationNightsFromDays(formData.duration_days)
   const durationLimit = getTourDurationLimit(selectedCategory)
@@ -1227,6 +973,15 @@ const validateTourForm = ({
     errors.base_price = 'Giá gốc tour phải lớn hơn 0 trước khi hiển thị tour.'
   } else if (basePrice > MAX_BASE_PRICE) {
     errors.base_price = `Giá gốc tour không được vượt quá ${MAX_BASE_PRICE.toLocaleString('vi-VN')} đ.`
+  }
+
+  if (
+    discountPrice !== null &&
+    (!Number.isFinite(discountPrice) || discountPrice < 0)
+  ) {
+    errors.discount_price = 'Giá bán/giá giảm không hợp lệ.'
+  } else if (discountPrice !== null && discountPrice > MAX_BASE_PRICE) {
+    errors.discount_price = `Giá bán/giá giảm không được vượt quá ${MAX_BASE_PRICE.toLocaleString('vi-VN')} đ.`
   }
 
   if (!Number.isInteger(maxSlots) || maxSlots < 1) {
@@ -1318,6 +1073,11 @@ const getInitialFormData = (initialData = {}) => {
       '',
   }
 }
+
+const normalizeFormDataAgePricing = (data = {}) => ({
+  ...data,
+  age_pricing_rules: normalizeAgePricingRulesForForm(data),
+})
 
 const getInitialThumbnailPreview = (initialData = {}) => {
   const source = resolveTourInitialData(initialData)
@@ -1514,7 +1274,9 @@ function TourForm({
 
   const [savedDraft] = useState(() => readTourFormDraft(draftStorageKey))
   const [formData, setFormData] = useState(() =>
-    savedDraft?.formData || getInitialFormData(resolvedInitialData),
+    normalizeFormDataAgePricing(
+      savedDraft?.formData || getInitialFormData(resolvedInitialData),
+    ),
   )
 
   const [categories, setCategories] = useState([])
@@ -1579,7 +1341,11 @@ function TourForm({
 
     // Khi bấm Sửa: đổ toàn bộ tour vào form.
     // Khi chuyển sang Thêm (initialData null/{}): reset về form trống.
-    setFormData(savedDraft?.formData || getInitialFormData(resolvedInitialData))
+    setFormData(
+      normalizeFormDataAgePricing(
+        savedDraft?.formData || getInitialFormData(resolvedInitialData),
+      ),
+    )
     setThumbnailImage(savedDraft?.thumbnailImage || null)
     setThumbnailPreview(savedDraft?.thumbnailPreview || getInitialThumbnailPreview(resolvedInitialData))
     setGalleryImages(savedDraft?.galleryImages || [])
@@ -1849,40 +1615,6 @@ function TourForm({
       ...prev,
       [name]: value,
     }))
-  }
-
-  const handleAgePricingRuleChange = (ruleIndex, field, value) => {
-    clearFieldError('age_pricing_rules')
-    clearFieldError(`age_pricing_rules.${ruleIndex}.${field}`)
-    setFormData((prev) => ({
-      ...prev,
-      age_pricing_rules: (prev.age_pricing_rules || []).map((rule, index) =>
-        index === ruleIndex ? { ...rule, [field]: value } : rule,
-      ),
-    }))
-  }
-
-  const handleAddAgePricingRule = () => {
-    setFormData((prev) => ({
-      ...prev,
-      age_pricing_rules: [
-        ...(prev.age_pricing_rules || []),
-        createEmptyAgePricingRule((prev.age_pricing_rules || []).length),
-      ],
-    }))
-  }
-
-  const handleRemoveAgePricingRule = (ruleIndex) => {
-    setFormData((prev) => {
-      const currentRules = prev.age_pricing_rules || []
-      const nextRules = currentRules.filter((_, index) => index !== ruleIndex)
-
-      return {
-        ...prev,
-        age_pricing_rules:
-          nextRules.length > 0 ? nextRules : [createEmptyAgePricingRule()],
-      }
-    })
   }
 
   const showConfirmToast = ({
@@ -3148,25 +2880,49 @@ function TourForm({
                 </div>
               </div>
 
-              <div>
-                <FieldLabel required>Giá gốc tour</FieldLabel>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  name="base_price"
-                  min="0"
-                  max={MAX_BASE_PRICE}
-                  step="1"
-                  value={formData.base_price}
-                  onChange={handleChange}
-                  className={fieldClass(inputClass, 'base_price')}
-                  data-invalid={hasError('base_price')}
-                  aria-invalid={hasError('base_price')}
-                />
-                {errorText('base_price')}
-                <p className="mt-1.5 text-[12px] font-semibold text-slate-500">
-                  Giá hiển thị: <span className="font-black text-[#0575f9]">{formatVnd(formData.base_price)}</span>
-                </p>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div>
+                  <FieldLabel required>Giá gốc tour</FieldLabel>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    name="base_price"
+                    min="0"
+                    max={MAX_BASE_PRICE}
+                    step="1"
+                    value={formData.base_price}
+                    onChange={handleChange}
+                    className={fieldClass(inputClass, 'base_price')}
+                    data-invalid={hasError('base_price')}
+                    aria-invalid={hasError('base_price')}
+                  />
+                  {errorText('base_price')}
+                  <p className="mt-1.5 text-[12px] font-semibold text-slate-500">
+                    Giá gốc: <span className="font-black text-[#0575f9]">{formatVnd(formData.base_price)}</span>
+                  </p>
+                </div>
+
+                <div>
+                  <FieldLabel>Giá bán / giá giảm</FieldLabel>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    name="discount_price"
+                    min="0"
+                    max={MAX_BASE_PRICE}
+                    step="1"
+                    value={formData.discount_price}
+                    onChange={handleChange}
+                    placeholder="Để trống nếu không giảm"
+                    className={fieldClass(inputClass, 'discount_price')}
+                    data-invalid={hasError('discount_price')}
+                    aria-invalid={hasError('discount_price')}
+                  />
+                  {errorText('discount_price')}
+                  <p className="mt-1.5 text-[12px] font-semibold text-slate-500">
+                    Giá áp dụng: <span className="font-black text-[#0575f9]">{formatVnd(getAgePricingReferencePrice(formData))}</span>
+                  </p>
+                </div>
               </div>
 
               <div className="border-t border-slate-100 pt-4">
@@ -3174,117 +2930,65 @@ function TourForm({
                   <div>
                     <FieldLabel>Giá vé theo độ tuổi</FieldLabel>
                     <p className="mt-1 text-[11px] font-medium leading-5 text-slate-400">
-                      Nhập tỷ lệ so với giá gốc, hệ thống sẽ tự tính giá vé.
+                      Ba nhóm tuổi và tỷ lệ đã được cố định. Giá tự tính theo giá bán áp dụng.
                     </p>
                   </div>
 
                   <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-blue-600">
-                    {(formData.age_pricing_rules || []).filter(
-                      (rule) =>
-                        String(rule.age_label ?? '').trim() !== '' ||
-                        String(rule.price_value ?? '').trim() !== '',
-                    ).length}{' '}
-                    mức giá
+                    {STANDARD_AGE_PRICING_RULES.length} mức giá
                   </span>
                 </div>
 
                 {errorText('age_pricing_rules')}
 
                 <div className="space-y-3">
-                  {(formData.age_pricing_rules || []).map((rule, ruleIndex) => (
+                  {STANDARD_AGE_PRICING_RULES.map((standardRule) => (
                     <div
-                      key={rule.client_id || rule.id || ruleIndex}
+                      key={standardRule.sort_order}
                       className="rounded-xl border border-slate-200 bg-slate-50/60 p-3"
                     >
-                      <div className="grid grid-cols-[minmax(0,1fr)_130px_36px] items-end gap-2">
+                      <div className="grid grid-cols-[minmax(0,1fr)_130px] items-end gap-2">
                         <div>
                           <FieldLabel>Đối tượng / độ tuổi</FieldLabel>
-                          <input
-                            type="text"
-                            value={rule.age_label ?? ''}
-                            onChange={(e) =>
-                              handleAgePricingRuleChange(
-                                ruleIndex,
-                                'age_label',
-                                e.target.value,
-                              )
-                            }
-                            placeholder="Ví dụ: 1-5 hoặc Người lớn"
-                            className={fieldClass(
-                              'mt-1.5 h-10 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100',
-                              `age_pricing_rules.${ruleIndex}.age_label`,
-                            )}
-                            aria-invalid={hasError(`age_pricing_rules.${ruleIndex}.age_label`)}
-                          />
-                          {errorText(`age_pricing_rules.${ruleIndex}.age_label`)}
+                          <div
+                            className="mt-1.5 min-h-10 rounded-lg border border-slate-200 bg-slate-100 px-2.5 py-2 text-xs font-semibold text-slate-700"
+                            aria-readonly="true"
+                          >
+                            <div>{standardRule.label}</div>
+                            <div className="mt-0.5 text-[11px] font-medium text-slate-500">
+                              {Number(standardRule.min_age) >= 12 && Number(standardRule.max_age) >= 120
+                                ? "Người trưởng thành"
+                                : `Từ ${standardRule.min_age} đến ${standardRule.max_age} tuổi`}
+                            </div>
+                          </div>
                         </div>
 
                         <div>
                           <FieldLabel>Tỷ lệ giá</FieldLabel>
-                          <div className="relative mt-1.5">
-                            <input
-                              type="number"
-                              inputMode="numeric"
-                              min="0"
-                              max="100"
-                              step="0.01"
-                              value={rule.price_value ?? ''}
-                              onChange={(e) =>
-                                handleAgePricingRuleChange(
-                                  ruleIndex,
-                                  'price_value',
-                                  e.target.value,
-                                )
-                              }
-                              placeholder="70"
-                              className={fieldClass(
-                                'h-10 w-full rounded-lg border border-slate-200 bg-white px-2.5 pr-7 text-xs font-semibold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100',
-                                `age_pricing_rules.${ruleIndex}.price_value`,
-                              )}
-                              aria-invalid={hasError(`age_pricing_rules.${ruleIndex}.price_value`)}
-                            />
-                            <span className="pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-xs font-black text-slate-400">
-                              %
-                            </span>
+                          <div
+                            className="mt-1.5 flex h-10 items-center justify-between rounded-lg border border-slate-200 bg-slate-100 px-2.5 text-xs font-black text-slate-700"
+                            aria-readonly="true"
+                          >
+                            <span>{formatPercent(standardRule.price_value)}</span>
+                            <span className="text-slate-400">Cố định</span>
                           </div>
-                          {errorText(`age_pricing_rules.${ruleIndex}.price_value`)}
                         </div>
-
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveAgePricingRule(ruleIndex)}
-                          className="flex h-10 w-9 items-center justify-center rounded-lg border border-rose-100 bg-white text-lg font-bold text-rose-500 transition hover:bg-rose-50 hover:text-rose-700"
-                          aria-label={`Xóa mức giá #${ruleIndex + 1}`}
-                          title="Xóa dòng"
-                        >
-                          ×
-                        </button>
                       </div>
 
-                      {String(rule.price_value ?? '').trim() !== '' ? (
-                        <p className="mt-2 text-right text-[11px] font-semibold text-slate-500">
-                          {formatPercent(rule.price_value)} của giá gốc:{' '}
-                          <span className="font-black text-blue-600">
-                            {formatVnd(
-                              calculatePriceFromPercent(
-                                formData.base_price,
-                                rule.price_value,
-                              ),
-                            )}
-                          </span>
-                        </p>
-                      ) : null}
+                      <p className="mt-2 text-right text-[11px] font-semibold text-slate-500">
+                        {formatPercent(standardRule.price_value)} của giá bán áp dụng:{' '}
+                        <span className="font-black text-blue-600">
+                          {formatVnd(
+                            calculatePriceFromPercent(
+                              getAgePricingReferencePrice(formData),
+                              standardRule.price_value,
+                            ),
+                          )}
+                        </span>
+                      </p>
                     </div>
                   ))}
                 </div>
-
-                <button
-                  type="button"
-                  onClick={handleAddAgePricingRule}
-                  className="mt-3 inline-flex h-10 w-full items-center justify-center rounded-xl border border-dashed border-blue-300 bg-blue-50/40 px-4 text-xs font-black text-blue-600 transition hover:border-blue-500 hover:bg-blue-50"
-                >
-                  + Thêm giá và tuổi
-                </button>
               </div>
               </div>
             </div>

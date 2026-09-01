@@ -5,6 +5,7 @@ use App\Models\BookingConfirmationOutbox;
 use App\Models\Payment;
 use App\Models\Role;
 use App\Models\Tour;
+use App\Models\TourAgePricingRule;
 use App\Models\TourDeparture;
 use App\Models\User;
 use App\Jobs\DeliverBookingConfirmationEmail;
@@ -90,6 +91,12 @@ function paymentSafetyDeparture(?Tour $tour = null, array $attributes = []): Tou
         'booked_slots' => 0,
         'status' => 'open',
     ], $attributes));
+}
+
+function paymentSafetyStandardAgePricingRules(Tour $tour)
+{
+    return collect(TourAgePricingRule::standardDefinitions())
+        ->map(fn (array $definition) => $tour->agePricingRules()->create($definition));
 }
 
 function paymentSafetyBooking(array $attributes = []): Booking
@@ -381,16 +388,7 @@ test('customer booking with only free participants is rejected before reaching V
     $customer = paymentSafetyUser('customer');
     $tour = paymentSafetyTour();
     $departure = paymentSafetyDeparture($tour);
-
-    $infantRule = $tour->agePricingRules()->create([
-        'label' => 'Em bé',
-        'min_age' => 0,
-        'max_age' => 4,
-        'pricing_type' => 'free',
-        'price_value' => 0,
-        'sort_order' => 1,
-        'is_active' => true,
-    ]);
+    $infantRule = paymentSafetyStandardAgePricingRules($tour)->first();
 
     Sanctum::actingAs($customer);
 
@@ -460,6 +458,35 @@ test('customer booking preview rejects a departure that ran out of slots before 
 
     $this->assertDatabaseCount('bookings', 0);
     $this->assertDatabaseCount('payments', 0);
+});
+
+test('customer booking preview applies fixed age prices to the selected departure', function () {
+    $customer = paymentSafetyUser('customer');
+    $tour = paymentSafetyTour();
+    $rules = paymentSafetyStandardAgePricingRules($tour);
+    $departure = paymentSafetyDeparture($tour, [
+        'base_price' => 6490000,
+        'discount_price' => 6190000,
+    ]);
+
+    Sanctum::actingAs($customer);
+
+    $response = $this->postJson('/api/customer/bookings/preview', [
+        'tour_departure_id' => $departure->id,
+        'quantity_summary' => [
+            ['rule_id' => $rules[0]->id, 'quantity' => 1],
+            ['rule_id' => $rules[1]->id, 'quantity' => 1],
+            ['rule_id' => $rules[2]->id, 'quantity' => 1],
+        ],
+    ])
+        ->assertOk();
+
+    expect((float) $response->json('data.adult_price'))->toBe(6190000.0)
+        ->and((float) $response->json('data.pricing_groups.0.unit_price'))->toBe(0.0)
+        ->and((float) $response->json('data.pricing_groups.1.unit_price'))->toBe(4333000.0)
+        ->and((float) $response->json('data.pricing_groups.2.unit_price'))->toBe(6190000.0)
+        ->and($response->json('data.total_people'))->toBe(3)
+        ->and((float) $response->json('data.total_amount'))->toBe(10523000.0);
 });
 
 test('customer booking list includes payment and departure needed for pending actions', function () {
@@ -1681,14 +1708,9 @@ test('customer booking derives participant type and price from age at departure'
     $customer = paymentSafetyUser('customer');
     $tour = paymentSafetyTour();
     $departure = paymentSafetyDeparture($tour);
-    $infantRule = $tour->agePricingRules()->create([
-        'label' => 'Trẻ em dưới 5 tuổi',
-        'min_age' => 0,
-        'max_age' => 4,
-        'pricing_type' => 'free',
-        'price_value' => 0,
-        'is_active' => true,
-    ]);
+    $rules = paymentSafetyStandardAgePricingRules($tour);
+    $infantRule = $rules[0];
+    $adultRule = $rules[2];
 
     Sanctum::actingAs($customer);
 
@@ -1697,7 +1719,7 @@ test('customer booking derives participant type and price from age at departure'
         'number_of_people' => 2,
         'quantity_summary' => [
             ['rule_id' => $infantRule->id, 'quantity' => 1],
-            ['rule_id' => null, 'quantity' => 1],
+            ['rule_id' => $adultRule->id, 'quantity' => 1],
         ],
         'contact' => [
             'contact_name' => 'Nguyễn Văn An',
@@ -1707,12 +1729,12 @@ test('customer booking derives participant type and price from age at departure'
         'participants' => [
             [
                 'full_name' => 'Bé An',
-                'birth_date' => $departure->departure_date->copy()->subYears(4)->toDateString(),
+                'birth_date' => $departure->departure_date->copy()->subYears(1)->toDateString(),
                 'gender' => 'male',
             ],
             [
                 'full_name' => 'Người lớn An',
-                'birth_date' => $departure->departure_date->copy()->subYears(5)->toDateString(),
+                'birth_date' => $departure->departure_date->copy()->subYears(30)->toDateString(),
                 'gender' => 'male',
             ],
         ],
@@ -1726,6 +1748,8 @@ test('customer booking derives participant type and price from age at departure'
         ->toBe('adult')
         ->and((float) $participants->get('Người lớn An')->unit_price)
         ->toBe(1500000.0)
+        ->and((float) $participants->get('Người lớn An')->pricing_value)
+        ->toBe(100.0)
         ->and($participants->get('Bé An')->participant_type)
         ->toBe('infant')
         ->and((float) $participants->get('Bé An')->unit_price)
@@ -1737,14 +1761,9 @@ test('customer booking rejects participants whose age groups exceed the selected
     $customer = paymentSafetyUser('customer');
     $tour = paymentSafetyTour();
     $departure = paymentSafetyDeparture($tour);
-    $childRule = $tour->agePricingRules()->create([
-        'label' => 'Trẻ em từ 2 đến 11 tuổi',
-        'min_age' => 2,
-        'max_age' => 11,
-        'pricing_type' => 'percentage',
-        'price_value' => 70,
-        'is_active' => true,
-    ]);
+    $rules = paymentSafetyStandardAgePricingRules($tour);
+    $childRule = $rules[1];
+    $adultRule = $rules[2];
 
     Sanctum::actingAs($customer);
 
@@ -1753,7 +1772,7 @@ test('customer booking rejects participants whose age groups exceed the selected
         'number_of_people' => 3,
         'quantity_summary' => [
             ['rule_id' => $childRule->id, 'quantity' => 1],
-            ['rule_id' => null, 'quantity' => 2],
+            ['rule_id' => $adultRule->id, 'quantity' => 2],
         ],
         'contact' => [
             'contact_name' => 'Nguyễn Văn An',

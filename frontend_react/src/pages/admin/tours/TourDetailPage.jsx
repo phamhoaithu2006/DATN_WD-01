@@ -175,6 +175,10 @@ function formatAgePricingLabel(rule) {
   const minAge = rule?.min_age
   const maxAge = rule?.max_age
 
+  if (Number(minAge) >= 12 && (maxAge === undefined || maxAge === null || Number(maxAge) >= 120)) {
+    return 'Người trưởng thành'
+  }
+
   if (minAge !== undefined && minAge !== null && maxAge !== undefined && maxAge !== null) {
     return `${minAge} - ${maxAge} tuổi`
   }

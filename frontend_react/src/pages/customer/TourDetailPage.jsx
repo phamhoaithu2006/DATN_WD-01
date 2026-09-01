@@ -16,6 +16,7 @@ import LoadingState from "../../components/common/LoadingState";
 import { formatVndCurrency } from "../../utils/currencyFormat";
 import { mediaUrl } from "../../utils/mediaUrl";
 import { formatDestinationPlace, formatDestinationPlaceAddress } from '../../utils/destinationPlaceFormat'
+import { STANDARD_AGE_PRICING_RULES } from "../../constants/tourPricing";
 
 function normalizeTourDetail(tour, fallback = {}) {
   if (!tour) return fallback;
@@ -48,13 +49,16 @@ function getTourPath(tour) {
 
 function getRuleAgeHint(rule) {
   if (rule.min_age === null || rule.min_age === undefined) return "Nhóm giá theo quy định tour";
+  if (Number(rule.min_age) >= 12 && (rule.max_age === null || rule.max_age === undefined || Number(rule.max_age) >= 120)) {
+    return "Người trưởng thành";
+  }
   if (rule.max_age === null || rule.max_age === undefined) return `Từ ${rule.min_age} tuổi trở lên`;
   return `Từ ${rule.min_age} đến ${rule.max_age} tuổi`;
 }
 
 function getPricingRuleText(rule) {
   if (rule.pricing_type === "free") return "miễn phí";
-  if (rule.pricing_type === "fixed") return formatVndCurrency(rule.price_value || 0);
+  if (rule.pricing_type === "fixed") return formatVndCurrency(rule.price_value ?? 0);
   return `${rule.price_value}% giá người lớn`;
 }
 
@@ -310,6 +314,8 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [reviewsError, setReviewsError] = useState("");
   const [reviewFeedback, setReviewFeedback] = useState({});
+  const [isExpandedReviews, setIsExpandedReviews] = useState(false);
+  const INITIAL_REVIEW_COUNT = 3;
 
   // Find tour
   const listTour = tours.find((t) => String(t.id) === String(tourId) || String(t.slug) === String(tourId)) || null;
@@ -644,18 +650,13 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
   const firstOpenDeparture = departures.find((departure) => departure.status === "open" && Number(departure.available_slots) > 0);
   const effectiveSelectedDepartureId = selectedDepartureId || (firstOpenDeparture ? String(firstOpenDeparture.id) : "");
   const selectedDeparture = departures.find((departure) => String(departure.id) === String(effectiveSelectedDepartureId)) || null;
-  const adultPrice = Number(selectedDeparture?.price || displayBasePrice || 0);
+  const adultPrice = Number(selectedDeparture?.price ?? displayBasePrice ?? 0);
   const activePricingRules = Array.isArray(tour.age_pricing_rules)
     ? tour.age_pricing_rules.filter((rule) => rule.is_active !== false)
     : [];
   const adultBookingGroup = {
     id: "adult_default",
-    label: "Người lớn",
-    min_age: 12,
-    max_age: 120,
-    pricing_type: "percentage",
-    price_value: 100,
-    is_active: true,
+    ...STANDARD_AGE_PRICING_RULES[2],
   };
   const isDefaultAdultRule = (rule) => rule.id === adultBookingGroup.id;
   const isAdultPricingRule = (rule) => {
@@ -679,8 +680,8 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
   const getRuleQuantity = (rule) => Number(effectiveQuantities[rule.id] || 0);
   const getRuleUnitPrice = (rule) => {
     if (rule.pricing_type === "free") return 0;
-    if (rule.pricing_type === "fixed") return Number(rule.price_value || 0);
-    return Math.round(adultPrice * Number(rule.price_value || 100) / 100);
+    if (rule.pricing_type === "fixed") return Number(rule.price_value ?? 0);
+    return Math.round(adultPrice * Number(rule.price_value ?? 100) / 100);
   };
   const totalGuests = bookingGroups.reduce((sum, rule) => sum + getRuleQuantity(rule), 0);
   const localTotal = bookingGroups.reduce((sum, rule) => sum + getRuleQuantity(rule) * getRuleUnitPrice(rule), 0);
@@ -1428,18 +1429,25 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
             </div>
           </div>
 
-          {/* Tour Highlights Description */}
+          {/* Tour Highlights / Description */}
           <div className="vg-tour-description-block vg-tour-description-card">
             <div className="vg-tour-description-heading">
-              <span className="vg-tour-description-icon"><Icon name="sparkle" size={21} /></span>
-              <h3>Điểm nhấn nổi bật của hành trình</h3>
+              <div className="vg-tour-heading-left">
+                <span className="vg-tour-description-icon">
+                  <Icon name="compass" size={19} />
+                </span>
+                <h3>Điểm nổi bật của chuyến đi</h3>
+              </div>
             </div>
+
             {tour.description ? (
               <p className="vg-detail-summary-text">{tour.description}</p>
             ) : tour.summary ? (
               <p className="vg-detail-summary-text">{tour.summary}</p>
             ) : (
-              <p className="vg-detail-summary-text">Tour này chưa cập nhật phần mô tả chi tiết.</p>
+              <p className="vg-detail-summary-text vg-empty-summary">
+                Tour này chưa cập nhật phần mô tả chi tiết.
+              </p>
             )}
           </div>
 
@@ -2146,127 +2154,91 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                   </div>
                 </div>
               ) : (
-                tourReviews.map((review) => {
-                  const reviewRating = Number(review?.rating || 0);
+                <>
+                  {(isExpandedReviews ? tourReviews : tourReviews.slice(0, INITIAL_REVIEW_COUNT)).map((review) => {
+                    const reviewRating = Number(review?.rating || 0);
 
-                  const reviewTitle =
-                    reviewRating >= 5
-                      ? "Tuyệt hảo"
-                      : reviewRating >= 4
-                        ? "Rất tốt"
-                        : reviewRating >= 3
-                          ? "Khá tốt"
-                          : reviewRating >= 2
-                            ? "Chưa hài lòng"
-                            : "Cần cải thiện";
-
-                  return (
-                    <article
-                      key={review.id}
-                      className="mb-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-                    >
-                      <div className="p-5 sm:p-6">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="min-w-0">
-                            <p className="text-xs font-medium text-slate-500">
-                              Ngày đánh giá: {formatReviewDate(review?.created_at) || "Chưa cập nhật"}
-                            </p>
-                            <h3 className="mt-1 text-xl font-extrabold text-slate-950">
-                              {reviewTitle}
-                            </h3>
+                    return (
+                      <article key={review.id} className="vg-review-card-premium">
+                        <div className="vg-review-header">
+                          <div className="vg-review-user-info">
+                            <div className="vg-review-avatar">
+                              {review?.user?.avatar ? (
+                                <img src={mediaUrl(review.user.avatar)} alt={getReviewUserName(review)} />
+                              ) : (
+                                <span>{getReviewUserName(review).charAt(0).toUpperCase()}</span>
+                              )}
+                            </div>
+                            <div className="vg-review-meta">
+                              <strong className="vg-review-author">{getReviewUserName(review)}</strong>
+                              <span className="vg-review-date">
+                                Đánh giá ngày {formatReviewDate(review?.created_at) || "gần đây"}
+                              </span>
+                            </div>
                           </div>
 
-                          <span className="grid h-11 min-w-12 shrink-0 place-items-center rounded-lg bg-blue-700 px-2 text-lg font-black text-white shadow-sm">
-                            {reviewRating.toFixed(1).replace(".0", ",0")}
-                          </span>
-                        </div>
-
-                        <div
-                          className="mt-4 flex items-center gap-1 text-amber-400"
-                          aria-label={`${reviewRating} trên 5 sao`}
-                        >
-                          {Array.from({ length: 5 }).map((_, index) => (
-                            <span
-                              key={index}
-                              className={index < reviewRating ? "text-amber-400" : "text-slate-200"}
-                            >
-                              ★
+                          <div className="vg-review-rating-pill" aria-label={`${reviewRating} trên 5 sao`}>
+                            <span className="pill-star">★</span>
+                            <span className="pill-score">{reviewRating.toFixed(1).replace(".0", ",0")}</span>
+                            <span className="pill-divider">•</span>
+                            <span className="pill-label">
+                              {reviewRating >= 4.5 ? "Tuyệt hảo" : reviewRating >= 4 ? "Rất tốt" : reviewRating >= 3 ? "Hài lòng" : "Tạm ổn"}
                             </span>
-                          ))}
+                          </div>
                         </div>
 
-                        <div className="mt-5 flex items-start gap-3">
-                          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-emerald-50 text-lg text-emerald-600">
-                            ☺
-                          </span>
-                          <p className="min-w-0 text-sm leading-7 text-slate-700 sm:text-[15px]">
-                            {review?.comment || "Khách hàng không để lại nhận xét."}
+                        <div className="vg-review-body">
+                          <p className="vg-review-comment">
+                            {review?.comment || "Khách hàng không để lại nhận xét chi tiết."}
                           </p>
                         </div>
 
-                        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
-                          <div className="flex items-center gap-3">
-                            <span className="grid h-9 w-9 place-items-center rounded-full bg-slate-100 text-sm font-extrabold text-slate-600">
-                              {getReviewUserName(review).charAt(0).toUpperCase()}
+                        <div className="vg-review-footer">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setReviewFeedback((current) => ({
+                                ...current,
+                                [review.id]: current[review.id] === "helpful" ? null : "helpful",
+                              }))
+                            }
+                            className={`vg-review-helpful-btn ${
+                              reviewFeedback[review.id] === "helpful" ? "is-active" : ""
+                            }`}
+                            aria-pressed={reviewFeedback[review.id] === "helpful"}
+                          >
+                            <Icon name="heart" size={13} />
+                            <span>
+                              {reviewFeedback[review.id] === "helpful" ? "Đã cảm ơn" : "Hữu ích"}
                             </span>
-                            <div>
-                              <strong className="block text-sm text-slate-900">
-                                {getReviewUserName(review)}
-                              </strong>
-                              <span className="text-xs text-slate-400">Khách hàng đã trải nghiệm tour</span>
-                            </div>
-                          </div>
-
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700">
-                              Đã xác thực đặt tour
-                            </span>
-
-                            <div className="flex items-center gap-1.5 border-l border-slate-200 pl-2 sm:pl-3">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setReviewFeedback((current) => ({
-                                    ...current,
-                                    [review.id]: current[review.id] === "helpful" ? null : "helpful",
-                                  }))
-                                }
-                                className={`inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-xs font-bold transition ${
-                                  reviewFeedback[review.id] === "helpful"
-                                    ? "border-blue-600 bg-blue-600 text-white shadow-sm"
-                                    : "border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
-                                }`}
-                                aria-pressed={reviewFeedback[review.id] === "helpful"}
-                              >
-                                <span className="text-base leading-none">♡</span>
-                                Hữu ích
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setReviewFeedback((current) => ({
-                                    ...current,
-                                    [review.id]: current[review.id] === "not-helpful" ? null : "not-helpful",
-                                  }))
-                                }
-                                className={`inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-xs font-bold transition ${
-                                  reviewFeedback[review.id] === "not-helpful"
-                                    ? "border-slate-700 bg-slate-700 text-white shadow-sm"
-                                    : "border-slate-200 bg-white text-slate-600 hover:border-slate-400 hover:bg-slate-50 hover:text-slate-900"
-                                }`}
-                                aria-pressed={reviewFeedback[review.id] === "not-helpful"}
-                              >
-                                <span className="text-base leading-none">♡</span>
-                                Không hữu ích
-                              </button>
-                            </div>
-                          </div>
+                          </button>
                         </div>
-                      </div>
-                    </article>
-                  );
-                })
+                      </article>
+                    );
+                  })}
+
+                  {tourReviews.length > INITIAL_REVIEW_COUNT && (
+                    <div className="vg-reviews-expand-wrapper">
+                      <button
+                        type="button"
+                        className="vg-reviews-expand-btn"
+                        onClick={() => setIsExpandedReviews((prev) => !prev)}
+                      >
+                        {isExpandedReviews ? (
+                          <>
+                            <span>Thu gọn bớt đánh giá</span>
+                            <span className="expand-arrow">↑</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>Xem thêm {tourReviews.length - INITIAL_REVIEW_COUNT} đánh giá khác</span>
+                            <span className="expand-arrow">↓</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </section>
