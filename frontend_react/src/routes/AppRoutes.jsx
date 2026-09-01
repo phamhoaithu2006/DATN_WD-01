@@ -261,7 +261,6 @@ function AppRoutes() {
           <GuideAttendancePage />,
         )}
       />
-
       <Route
         path="/guide/history"
         element={guidePage(

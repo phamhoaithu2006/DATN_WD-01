@@ -103,6 +103,19 @@ function getGuideName(assignment) {
   )
 }
 
+function getGuideEmail(assignment) {
+  if (!assignment) return ''
+
+  return (
+    assignment?.guide?.user?.email ||
+    assignment?.guide?.email ||
+    assignment?.guide_email ||
+    assignment?.user?.email ||
+    assignment?.email ||
+    ''
+  )
+}
+
 function getDetailDeparture(propDeparture, payload) {
   return (
     propDeparture ||
@@ -474,6 +487,11 @@ function TourDepartureBookingModal({
                       leadAssignment?.guide_code ||
                       `HDV #${leadAssignment?.guide_id || ''}`}
                   </p>
+                  {getGuideEmail(leadAssignment) ? (
+                    <p className="mt-1 break-all text-xs font-semibold text-slate-600">
+                      {getGuideEmail(leadAssignment)}
+                    </p>
+                  ) : null}
                 </div>
               ) : (
                 <div className="mt-3 rounded-xl border border-rose-200 bg-white p-3 text-sm font-bold text-rose-700">
