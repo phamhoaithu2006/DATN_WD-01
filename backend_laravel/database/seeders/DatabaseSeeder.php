@@ -14,6 +14,7 @@ use App\Models\Review;
 use App\Models\Role;
 use App\Models\SupportStaff;
 use App\Models\Tour;
+use App\Models\TourAgePricingRule;
 use App\Models\TourDeparture;
 use App\Models\TourGuideAssignment;
 use App\Models\TourImage;
@@ -263,6 +264,8 @@ class DatabaseSeeder extends Seeder
                 ]
             );
 
+            $this->syncStandardAgePricingRules($tour);
+
             TourImage::updateOrCreate(
                 ['tour_id' => $tour->id, 'is_thumbnail' => true],
                 [
@@ -279,6 +282,38 @@ class DatabaseSeeder extends Seeder
         $this->seedTourDepartures($seededTours, $admin);
         $this->seedTourBookings();
         $this->seedCompletedBookingReviews();
+    }
+
+    private function syncStandardAgePricingRules(Tour $tour): void
+    {
+        $canonicalRuleIds = [];
+
+        foreach (TourAgePricingRule::standardDefinitions() as $definition) {
+            $rule = TourAgePricingRule::query()->updateOrCreate(
+                [
+                    'tour_id' => $tour->id,
+                    'min_age' => $definition['min_age'],
+                    'max_age' => $definition['max_age'],
+                ],
+                [
+                    'label' => $definition['label'],
+                    'pricing_type' => $definition['pricing_type'],
+                    'price_value' => $definition['price_value'],
+                    'sort_order' => $definition['sort_order'],
+                    'is_active' => true,
+                ]
+            );
+
+            $canonicalRuleIds[] = $rule->id;
+        }
+
+        TourAgePricingRule::query()
+            ->where('tour_id', $tour->id)
+            ->whereNotIn('id', $canonicalRuleIds)
+            ->update([
+                'is_active' => false,
+                'updated_at' => now(),
+            ]);
     }
 
     private function seedCompletedBookingReviews(): void

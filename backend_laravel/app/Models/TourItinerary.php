@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class TourItinerary extends Model
 {
+    protected $with = ['province'];
+
     public const ACTIVITY_DEPARTURE = 'departure';
 
     public const ACTIVITY_TRANSPORT = 'transport';
@@ -34,6 +36,7 @@ class TourItinerary extends Model
         'day_number',
         'sort_order',
         'type',
+        'province_id',
         'destination_place_id',
         'title',
         'start_time',
@@ -46,6 +49,7 @@ class TourItinerary extends Model
     protected $casts = [
         'day_number' => 'integer',
         'sort_order' => 'integer',
+        'province_id' => 'integer',
         'destination_place_id' => 'integer',
     ];
 
@@ -57,6 +61,11 @@ class TourItinerary extends Model
     public function destinationPlace(): BelongsTo
     {
         return $this->belongsTo(DestinationPlace::class);
+    }
+
+    public function province(): BelongsTo
+    {
+        return $this->belongsTo(Province::class);
     }
 
     public function images(): HasMany

@@ -202,7 +202,9 @@ test('cập nhật hồ sơ chấp nhận số điện thoại đúng giới h�
 
     $this->putJson('/api/profile/update', [
         'full_name' => $customer->full_name,
+        'email' => $customer->email,
         'phone' => str_repeat('1', 20),
+        'current_password' => 'password',
     ])->assertOk();
 
     $this->assertDatabaseHas('users', [
@@ -220,6 +222,62 @@ test('cập nhật hồ sơ từ chối số điện thoại dài hơn giới h�
     ])
         ->assertUnprocessable()
         ->assertJsonValidationErrors('phone');
+});
+
+test('cập nhật tên không yêu cầu mật khẩu khi thông tin liên hệ không đổi', function () {
+    $customer = abRegressionUser('customer');
+    Sanctum::actingAs($customer);
+
+    $this->putJson('/api/profile/update', [
+        'full_name' => 'Tên mới',
+        'email' => $customer->email,
+        'phone' => $customer->phone,
+    ])->assertOk();
+
+    $this->assertDatabaseHas('users', [
+        'id' => $customer->id,
+        'full_name' => 'Tên mới',
+    ]);
+});
+
+test('đổi email hoặc số điện thoại từ chối khi mật khẩu hiện tại không đúng', function () {
+    $customer = abRegressionUser('customer');
+    $originalEmail = $customer->email;
+    $originalPhone = $customer->phone;
+    Sanctum::actingAs($customer);
+
+    $this->putJson('/api/profile/update', [
+        'full_name' => 'Tên không được lưu',
+        'email' => 'email-moi@example.com',
+        'phone' => '0912345678',
+        'current_password' => 'mat-khau-sai',
+    ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('current_password');
+
+    $this->assertDatabaseHas('users', [
+        'id' => $customer->id,
+        'email' => $originalEmail,
+        'phone' => $originalPhone,
+    ]);
+});
+
+test('đổi email và số điện thoại thành công khi mật khẩu hiện tại đúng', function () {
+    $customer = abRegressionUser('customer');
+    Sanctum::actingAs($customer);
+
+    $this->putJson('/api/profile/update', [
+        'full_name' => $customer->full_name,
+        'email' => 'email-moi@example.com',
+        'phone' => '0912345678',
+        'current_password' => 'password',
+    ])->assertOk();
+
+    $this->assertDatabaseHas('users', [
+        'id' => $customer->id,
+        'email' => 'email-moi@example.com',
+        'phone' => '0912345678',
+    ]);
 });
 
 test('đặt tour từ chối chuỗi dài hơn giới hạn cột booking', function (string $field, string $value) {

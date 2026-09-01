@@ -7,6 +7,7 @@ use App\Http\Resources\TourResource;
 use App\Models\DestinationPlace;
 use App\Models\Tour;
 use App\Models\TourActivityLog;
+use App\Models\TourAgePricingRule;
 use App\Models\TourItinerary;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -227,15 +228,19 @@ class TourManagerController extends Controller
             'discount_price' => 'nullable|numeric',
             'max_slots' => 'required|integer',
             'status' => 'required|in:draft,published,hidden,cancelled',
-            'age_pricing_rules' => 'nullable|array',
-            'age_pricing_rules.*.label' => 'required_with:age_pricing_rules|string|max:150',
-            'age_pricing_rules.*.min_age' => 'required_with:age_pricing_rules|integer|min:0',
+            'age_pricing_rules' => 'sometimes|array|size:3',
+            'age_pricing_rules.*.label' => 'required|string|max:150',
+            'age_pricing_rules.*.min_age' => 'required|integer|min:0',
             'age_pricing_rules.*.max_age' => 'nullable|integer|min:0',
-            'age_pricing_rules.*.pricing_type' => 'required_with:age_pricing_rules|in:percentage,fixed,free',
-            'age_pricing_rules.*.price_value' => 'nullable|numeric|min:0',
+            'age_pricing_rules.*.pricing_type' => 'required|in:percentage',
+            'age_pricing_rules.*.price_value' => 'required|numeric|min:0|max:100',
             'age_pricing_rules.*.sort_order' => 'nullable|integer|min:0',
             'age_pricing_rules.*.is_active' => 'nullable|boolean',
         ]);
+
+        if (array_key_exists('age_pricing_rules', $validatedData)) {
+            $this->validateStandardAgePricingRules($validatedData['age_pricing_rules']);
+        }
 
         $this->normalizeDiscountPriceData($validatedData);
         $validatedData['duration_nights'] = max((int) $validatedData['duration_days'] - 1, 0);
@@ -261,11 +266,8 @@ class TourManagerController extends Controller
             ?? $validatedData['max_slots'];
 
         $itineraryData = $validatedData['itinerary'] ?? [];
-        $agePricingRules = $validatedData['age_pricing_rules'] ?? [];
         unset($validatedData['itinerary']);
         unset($validatedData['age_pricing_rules']);
-
-        $this->validateAgePricingRules($agePricingRules);
 
         $thumbnailFile = $request->file('thumbnail_image');
         $galleryFiles = $request->file('gallery_images', []);
@@ -284,7 +286,6 @@ class TourManagerController extends Controller
         $tour = DB::transaction(function () use (
             $validatedData,
             $itineraryData,
-            $agePricingRules,
             $thumbnailFile,
             $thumbnailAltText,
             $galleryFiles
@@ -320,7 +321,7 @@ class TourManagerController extends Controller
             }
 
             $this->syncItineraries($tour, $itineraryData);
-            $this->syncAgePricingRules($tour, $agePricingRules);
+            $this->syncStandardAgePricingRules($tour);
 
             return $tour;
         });
@@ -390,16 +391,20 @@ class TourManagerController extends Controller
             'max_slots' => 'sometimes|required|integer',
             'available_slots' => 'nullable|integer',
             'status' => 'sometimes|required|in:draft,published,hidden,cancelled',
-            'age_pricing_rules' => 'nullable|array',
-            'age_pricing_rules.*.label' => 'required_with:age_pricing_rules|string|max:150',
-            'age_pricing_rules.*.min_age' => 'required_with:age_pricing_rules|integer|min:0',
+            'age_pricing_rules' => 'sometimes|array|size:3',
+            'age_pricing_rules.*.label' => 'required|string|max:150',
+            'age_pricing_rules.*.min_age' => 'required|integer|min:0',
             'age_pricing_rules.*.max_age' => 'nullable|integer|min:0',
-            'age_pricing_rules.*.pricing_type' => 'required_with:age_pricing_rules|in:percentage,fixed,free',
-            'age_pricing_rules.*.price_value' => 'nullable|numeric|min:0',
+            'age_pricing_rules.*.pricing_type' => 'required|in:percentage',
+            'age_pricing_rules.*.price_value' => 'required|numeric|min:0|max:100',
             'age_pricing_rules.*.sort_order' => 'nullable|integer|min:0',
             'age_pricing_rules.*.is_active' => 'nullable|boolean',
             'confirm_itinerary_change' => 'nullable|boolean',
         ]);
+
+        if (array_key_exists('age_pricing_rules', $validatedData)) {
+            $this->validateStandardAgePricingRules($validatedData['age_pricing_rules']);
+        }
 
         if (
             array_key_exists('duration_days', $validatedData)
@@ -448,9 +453,7 @@ class TourManagerController extends Controller
         }
 
         $itineraryData = $validatedData['itinerary'] ?? [];
-        $agePricingRules = $validatedData['age_pricing_rules'] ?? [];
         $shouldSyncItinerary = $request->exists('itinerary');
-        $shouldSyncAgePricingRules = $request->exists('age_pricing_rules');
 
         $thumbnailFile = $request->file('thumbnail_image');
         $galleryFiles = $request->file('gallery_images', []);
@@ -469,17 +472,11 @@ class TourManagerController extends Controller
             $validatedData['confirm_itinerary_change']
         );
 
-        if ($shouldSyncAgePricingRules) {
-            $this->validateAgePricingRules($agePricingRules);
-        }
-
         DB::transaction(function () use (
             $tour,
             $validatedData,
             $itineraryData,
-            $agePricingRules,
             $shouldSyncItinerary,
-            $shouldSyncAgePricingRules,
             $thumbnailFile,
             $thumbnailAltText,
             $galleryFiles
@@ -542,9 +539,7 @@ class TourManagerController extends Controller
                 $this->syncItineraries($tour, $itineraryData);
             }
 
-            if ($shouldSyncAgePricingRules) {
-                $this->syncAgePricingRules($tour, $agePricingRules);
-            }
+            $this->syncStandardAgePricingRules($tour);
 
         });
 
@@ -907,7 +902,6 @@ class TourManagerController extends Controller
             unset(
                 $item['images'],
                 $item['day'],
-                $item['province_id'],
                 $item['destination_place_name'],
                 $item['destination_place_address'],
                 $item['itinerary_destination_id'],
@@ -917,6 +911,9 @@ class TourManagerController extends Controller
                 'day_number' => $item['day_number'],
                 'sort_order' => $item['sort_order'] ?? $index,
                 'type' => $item['type'],
+                'province_id' => $destinationPlace?->province_id
+                    ?? $destinationPlace?->district?->province_id
+                    ?? ($item['province_id'] ?? $tour->province_id),
                 'destination_place_id' => $destinationPlace?->id,
                 'title' => $item['title'],
                 'start_time' => $item['start_time'] ?? null,
@@ -1111,22 +1108,79 @@ class TourManagerController extends Controller
         $data['discount_price'] = $discountPrice > 0 ? $discountPrice : null;
     }
 
-    private function syncAgePricingRules(Tour $tour, array $rules): void
+    private function syncStandardAgePricingRules(Tour $tour): void
     {
-        $tour->agePricingRules()->delete();
+        $now = now();
+        $existingRules = $tour->agePricingRules()->orderBy('id')->get();
+        $keptRuleIds = [];
 
-        foreach ($rules as $index => $rule) {
-            $tour->agePricingRules()->create([
-                'label' => $rule['label'],
-                'min_age' => $rule['min_age'],
-                'max_age' => $rule['max_age'] ?? null,
-                'pricing_type' => $rule['pricing_type'],
-                'price_value' => $rule['pricing_type'] === 'free'
-                    ? 0
-                    : ($rule['price_value'] ?? 0),
-                'sort_order' => $rule['sort_order'] ?? $index,
-                'is_active' => $rule['is_active'] ?? true,
+        foreach (TourAgePricingRule::standardDefinitions() as $definition) {
+            $existingRule = $existingRules->first(function (TourAgePricingRule $rule) use ($definition, $keptRuleIds): bool {
+                return ! in_array((int) $rule->id, $keptRuleIds, true)
+                    && (int) $rule->min_age === (int) $definition['min_age']
+                    && (int) $rule->max_age === (int) $definition['max_age'];
+            });
+
+            $ruleData = [
+                'label' => $definition['label'],
+                'min_age' => $definition['min_age'],
+                'max_age' => $definition['max_age'],
+                'pricing_type' => $definition['pricing_type'],
+                'price_value' => $definition['price_value'],
+                'sort_order' => $definition['sort_order'],
+                'is_active' => true,
+                'updated_at' => $now,
+            ];
+
+            if ($existingRule) {
+                $existingRule->update($ruleData);
+                $keptRuleIds[] = (int) $existingRule->id;
+
+                continue;
+            }
+
+            $createdRule = $tour->agePricingRules()->create($ruleData);
+            $keptRuleIds[] = (int) $createdRule->id;
+        }
+
+        $tour->agePricingRules()
+            ->whereNotIn('id', $keptRuleIds)
+            ->update([
+                'is_active' => false,
+                'updated_at' => $now,
             ]);
+    }
+
+    private function validateStandardAgePricingRules(array $rules): void
+    {
+        $expectedRules = TourAgePricingRule::standardDefinitions();
+
+        if (count($rules) !== count($expectedRules)) {
+            throw ValidationException::withMessages([
+                'age_pricing_rules' => 'Chỉ được phép sử dụng đúng 3 nhóm tuổi cố định của hệ thống.',
+            ]);
+        }
+
+        foreach ($expectedRules as $index => $expectedRule) {
+            $rule = $rules[$index] ?? null;
+            $priceValueMatches = is_array($rule)
+                && is_numeric($rule['price_value'] ?? null)
+                && abs((float) $rule['price_value'] - (float) $expectedRule['price_value']) < 0.00001;
+
+            $isStandardRule = is_array($rule)
+                && ($rule['label'] ?? null) === $expectedRule['label']
+                && (int) ($rule['min_age'] ?? -1) === (int) $expectedRule['min_age']
+                && (int) ($rule['max_age'] ?? -1) === (int) $expectedRule['max_age']
+                && ($rule['pricing_type'] ?? null) === $expectedRule['pricing_type']
+                && $priceValueMatches
+                && (int) ($rule['sort_order'] ?? -1) === (int) $expectedRule['sort_order']
+                && (bool) ($rule['is_active'] ?? false);
+
+            if (! $isStandardRule) {
+                throw ValidationException::withMessages([
+                    "age_pricing_rules.{$index}" => 'Nhóm tuổi, khoảng tuổi và tỷ lệ giá phải đúng theo cấu hình cố định của hệ thống.',
+                ]);
+            }
         }
     }
 
@@ -1175,49 +1229,4 @@ class TourManagerController extends Controller
         ]);
     }
 
-    private function validateAgePricingRules(array $rules): void
-    {
-        if ($rules === []) {
-            return;
-        }
-
-        $sortedRules = collect($rules)
-            ->map(function ($rule, $index) {
-                return [
-                    'index' => $index,
-                    'min_age' => (int) ($rule['min_age'] ?? 0),
-                    'max_age' => isset($rule['max_age']) ? (int) $rule['max_age'] : null,
-                    'pricing_type' => $rule['pricing_type'] ?? null,
-                    'price_value' => (float) ($rule['price_value'] ?? 0),
-                    'is_active' => (bool) ($rule['is_active'] ?? true),
-                ];
-            })
-            ->sortBy('min_age')
-            ->values();
-
-        foreach ($sortedRules as $position => $rule) {
-            if ($rule['max_age'] !== null && $rule['max_age'] < $rule['min_age']) {
-                throw ValidationException::withMessages([
-                    "age_pricing_rules.{$rule['index']}.max_age" => 'Tuổi tối đa phải lớn hơn hoặc bằng tuổi tối thiểu.',
-                ]);
-            }
-
-            if ($rule['pricing_type'] === 'percentage' && $rule['price_value'] > 100) {
-                throw ValidationException::withMessages([
-                    "age_pricing_rules.{$rule['index']}.price_value" => 'Phần trăm giá phải nằm trong khoảng từ 0 đến 100.',
-                ]);
-            }
-
-            if ($position > 0) {
-                $previous = $sortedRules[$position - 1];
-                $previousMaxAge = $previous['max_age'] ?? PHP_INT_MAX;
-
-                if ($rule['min_age'] <= $previousMaxAge) {
-                    throw ValidationException::withMessages([
-                        "age_pricing_rules.{$rule['index']}.min_age" => 'Khoảng tuổi đang bị chồng lấn với quy tắc trước đó.',
-                    ]);
-                }
-            }
-        }
-    }
 }

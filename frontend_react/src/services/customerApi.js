@@ -327,7 +327,12 @@ export async function updateProfile(payload) {
   // POST + _method=PUT để Laravel nhận được cả file avatar.
   formData.append("_method", "PUT");
   formData.append("full_name", String(payload.full_name || "").trim());
+  formData.append("email", String(payload.email || "").trim());
   formData.append("phone", String(payload.phone || "").trim());
+
+  if (payload.current_password) {
+    formData.append("current_password", payload.current_password);
+  }
 
   if (payload.avatar instanceof File) {
     formData.append("avatar", payload.avatar);

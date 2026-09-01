@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Models\TourAgePricingRule;
 use App\Services\TourPricingService;
 use DateTimeInterface;
 use Illuminate\Http\Request;
@@ -35,8 +36,24 @@ class TourResource extends JsonResource
             ? $this->departures
             : collect();
 
+        $standardPricingRules = collect(TourAgePricingRule::standardDefinitions());
         $pricingRules = $this->relationLoaded('agePricingRules')
             ? $this->agePricingRules
+                ->filter(function ($rule) use ($standardPricingRules): bool {
+                    if (! $rule->is_active) {
+                        return false;
+                    }
+
+                    return $standardPricingRules->contains(function (array $definition) use ($rule): bool {
+                        return $rule->label === $definition['label']
+                            && (int) $rule->min_age === (int) $definition['min_age']
+                            && (int) $rule->max_age === (int) $definition['max_age']
+                            && $rule->pricing_type === $definition['pricing_type']
+                            && abs((float) $rule->price_value - (float) $definition['price_value']) < 0.00001;
+                    });
+                })
+                ->sortBy('sort_order')
+                ->values()
             : collect();
         $pricingService = new TourPricingService;
 
@@ -73,11 +90,23 @@ class TourResource extends JsonResource
                 $destinationPlaceDistrict = $destinationPlace?->relationLoaded('district')
                     ? $destinationPlace->district
                     : null;
+                $itineraryProvince = $itinerary->province;
+                $province = $itineraryProvince
+                    ?? $destinationPlaceProvince
+                    ?? $destinationPlaceDistrict?->province
+                    ?? $this->province;
+
                 return [
                     'id' => $itinerary->id,
                     'day_number' => (int) $itinerary->day_number,
                     'sort_order' => (int) $itinerary->sort_order,
                     'type' => $itinerary->type,
+                    'province_id' => $province?->id,
+                    'province_name' => $province?->name,
+                    'province' => $province ? [
+                        'id' => $province->id,
+                        'name' => $province->name,
+                    ] : null,
                     'destination_place_id' => $itinerary->destination_place_id,
                     'destination_place' => $destinationPlace ? [
                         'id' => $destinationPlace->id,

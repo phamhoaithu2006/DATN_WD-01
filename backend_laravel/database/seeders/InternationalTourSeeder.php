@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\Category;
 use App\Models\Province;
 use App\Models\Tour;
+use App\Models\TourAgePricingRule;
 use App\Models\TourImage;
 use App\Models\TourItinerary;
 use App\Models\User;
@@ -66,6 +67,8 @@ class InternationalTourSeeder extends Seeder
                 );
                 $tour->restore();
 
+                $this->syncStandardAgePricingRules($tour);
+
                 TourImage::updateOrCreate(
                     ['tour_id' => $tour->id, 'is_thumbnail' => true],
                     [
@@ -99,6 +102,38 @@ class InternationalTourSeeder extends Seeder
 
         // Tạo lịch mỗi ngày trong tháng 9, booking mẫu và phân công HDV không trùng lịch.
         $this->call(SeptemberTourScheduleSeeder::class);
+    }
+
+    private function syncStandardAgePricingRules(Tour $tour): void
+    {
+        $canonicalRuleIds = [];
+
+        foreach (TourAgePricingRule::standardDefinitions() as $definition) {
+            $rule = TourAgePricingRule::query()->updateOrCreate(
+                [
+                    'tour_id' => $tour->id,
+                    'min_age' => $definition['min_age'],
+                    'max_age' => $definition['max_age'],
+                ],
+                [
+                    'label' => $definition['label'],
+                    'pricing_type' => $definition['pricing_type'],
+                    'price_value' => $definition['price_value'],
+                    'sort_order' => $definition['sort_order'],
+                    'is_active' => true,
+                ]
+            );
+
+            $canonicalRuleIds[] = $rule->id;
+        }
+
+        TourAgePricingRule::query()
+            ->where('tour_id', $tour->id)
+            ->whereNotIn('id', $canonicalRuleIds)
+            ->update([
+                'is_active' => false,
+                'updated_at' => now(),
+            ]);
     }
 
     private function tourData(): array
