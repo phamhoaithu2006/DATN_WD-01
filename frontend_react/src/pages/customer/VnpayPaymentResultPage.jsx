@@ -46,11 +46,12 @@ function VnpayPaymentResultPage() {
   }, [paymentId, returnQuery])
 
   const isRefundPending = payment?.status === 'success' && payment?.payment_status === 'refund_pending'
+  const isRefunded = payment?.status === 'refunded' || payment?.payment_status === 'refunded'
   const isSuccessful = payment?.status === 'success'
     && payment?.payment_status === 'paid'
     && payment?.booking_status !== 'cancelled'
-  const isFailed = payment?.status === 'failed'
-    || (payment?.booking_status === 'cancelled' && !isRefundPending)
+  const isFailed = !isRefunded && (payment?.status === 'failed'
+    || (payment?.booking_status === 'cancelled' && !isRefundPending))
   const isAttemptFailed = !isFailed && payment?.last_attempt_status === 'failed'
   const didReturnFromGateway = !isFailed && payment?.last_attempt_status === 'returned'
   const isCancelledByCustomer = payment?.cancel_reason === 'Khách hàng chủ động hủy thanh toán.'
@@ -294,18 +295,19 @@ function VnpayPaymentResultPage() {
               <div className="flex justify-between items-center text-sm">
                 <span className="text-slate-500">Trạng thái</span>
                 <span className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-full uppercase tracking-wider border
-                  ${isSuccessful ? 'text-emerald-800 bg-emerald-100/70 border-emerald-200' :
+                   ${isSuccessful || isRefunded ? 'text-emerald-800 bg-emerald-100/70 border-emerald-200' :
                     isRefundPending ? 'text-amber-800 bg-amber-100/70 border-amber-200' :
                     isFailed || isAttemptFailed || displayError ? 'text-rose-800 bg-rose-100/70 border-rose-200' :
                     'text-amber-800 bg-amber-100/70 border-amber-200'}`}
                 >
                   <span className={`w-1.5 h-1.5 rounded-full ${
-                    isSuccessful ? 'bg-emerald-500 animate-pulse' :
+                     isSuccessful || isRefunded ? 'bg-emerald-500 animate-pulse' :
                     isRefundPending ? 'bg-amber-500' :
                     isFailed || isAttemptFailed || displayError ? 'bg-rose-500' :
                     'bg-amber-500 animate-pulse'
                   }`} />
-                  {isSuccessful ? 'Đã thanh toán' :
+                   {isSuccessful ? 'Đã thanh toán' :
+                    isRefunded ? 'Đã hoàn tiền' :
                    isRefundPending ? 'Chờ hoàn tiền' :
                    isCancelledByCustomer ? 'Đã hủy' :
                    isExpired ? 'Hết hạn' :

@@ -1515,6 +1515,13 @@
   box-shadow: 0 2px 8px rgba(202, 138, 4, 0.14);
 }
 
+.vg-status-badge.is-refunded {
+  background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+  color: #6d28d9;
+  border-color: #c4b5fd;
+  box-shadow: 0 2px 8px rgba(109, 40, 217, 0.14);
+}
+
 .vg-status-badge.is-paid {
   background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
   color: #15803d;
@@ -15008,6 +15015,36 @@ textarea.vg-checkout-input {
   font-weight: 900;
 }
 
+.vg-customer-trip-cancelled.is-refund_pending {
+  border-color: #fed7aa;
+}
+
+.vg-customer-trip-cancelled.is-refund_pending::before,
+.vg-customer-trip-cancelled.is-refund_pending::after {
+  background: #f59e0b;
+}
+
+.vg-customer-trip-cancelled.is-refund_pending > div {
+  border-color: #f59e0b;
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+.vg-customer-trip-cancelled.is-refunded {
+  border-color: #c4b5fd;
+}
+
+.vg-customer-trip-cancelled.is-refunded::before,
+.vg-customer-trip-cancelled.is-refunded::after {
+  background: #8b5cf6;
+}
+
+.vg-customer-trip-cancelled.is-refunded > div {
+  border-color: #8b5cf6;
+  background: #ede9fe;
+  color: #6d28d9;
+}
+
 .vg-customer-tour-summary h3 {
   margin: 5px 0 4px;
   color: #0f172a;
@@ -15141,6 +15178,30 @@ textarea.vg-checkout-input {
 
 .vg-customer-detail-card.is-cancelled .vg-customer-status-panel strong {
   color: #be123c;
+}
+
+.vg-customer-detail-card.is-refund_pending .vg-customer-status-panel {
+  background: #ffedd5;
+}
+
+.vg-customer-detail-card.is-refund_pending .vg-customer-status-panel strong {
+  color: #c2410c;
+}
+
+.vg-customer-detail-card.is-refunded .vg-customer-status-panel {
+  background: #ede9fe;
+}
+
+.vg-customer-detail-card.is-refunded .vg-customer-status-panel strong {
+  color: #6d28d9;
+}
+
+.vg-customer-detail-card.is-refund_pending .vg-customer-detail-card-title {
+  color: #c2410c;
+}
+
+.vg-customer-detail-card.is-refunded .vg-customer-detail-card-title {
+  color: #6d28d9;
 }
 
 .vg-customer-cancellation-info {
