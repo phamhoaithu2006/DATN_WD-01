@@ -1053,7 +1053,6 @@ function GuideManagementPage() {
 
   function selectStatistic(status) {
     setStatusFilter(status)
-    setDestinationFilter('all')
     setLeaveStatusFilter('all')
 
     setPagination((current) => ({
@@ -1071,7 +1070,7 @@ function GuideManagementPage() {
   return (
     <section className="guide-page">
       <AdminPageHeader
-        breadcrumb={['ViVuGo', 'Quản Lý Hướng Dẫn Viên']}
+        breadcrumb={['ViVuGo', 'Hướng Dẫn Viên', 'Quản Lý Hướng Dẫn Viên']}
         title="Quản Lý Hướng Dẫn Viên"
         description="Quản lý thông tin, khu vực phụ trách và phân công hướng dẫn viên."
         showNotificationBell={false}

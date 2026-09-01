@@ -303,7 +303,7 @@ function BookingManagementPage() {
   return (
     <section className="booking-management-page">
       <AdminPageHeader
-        breadcrumb={['ViVuGo', 'Quản Lý Booking']}
+        breadcrumb={['ViVuGo', 'Booking', 'Quản Lý Booking']}
         title="Quản Lý Booking"
         description="Theo dõi và quản lý tất cả đặt tour."
         actions={

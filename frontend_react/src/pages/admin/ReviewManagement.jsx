@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import AdminPageHeader from '../../components/admin/AdminPageHeader'
 import {
   getAdminGuideReviews,
   getAdminTourReviews,
@@ -492,14 +493,41 @@ export default function ReviewManagement() {
       style={{
         minHeight: '100%',
         padding: 24,
-        background:
-          'linear-gradient(180deg, #f8fbff 0%, #f8fafc 48%, #f1f5f9 100%)',
+        background: '#f8fafc',
         color: BLUE.navy,
       }}
     >
+      <AdminPageHeader
+        breadcrumb={['ViVuGo', 'Quản Lý Đánh Giá']}
+        title="Quản lý đánh giá"
+        description="Theo dõi và quản lý đánh giá của khách hàng theo từng tour."
+        actions={
+          <Link
+            to="/admin/reviews/hidden"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 9,
+              padding: '12px 17px',
+              border: '1px solid rgba(255,255,255,.25)',
+              borderRadius: 13,
+              background: 'linear-gradient(135deg, #2563eb, #4f46e5)',
+              color: '#fff',
+              fontSize: 13,
+              fontWeight: 900,
+              textDecoration: 'none',
+              boxShadow: '0 12px 28px rgba(37, 99, 235, 0.24)',
+            }}
+          >
+            Đánh giá đã ẩn
+          </Link>
+        }
+      />
+
       <section
         style={{
           position: 'relative',
+          display: 'none',
           overflow: 'hidden',
           marginBottom: 22,
           padding: '28px 30px',

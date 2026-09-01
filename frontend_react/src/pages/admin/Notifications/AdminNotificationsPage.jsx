@@ -573,8 +573,8 @@ const openDraftDetail = async (id) => {
   return (
     <div className="w-full max-w-none space-y-6 px-2 py-4 lg:px-4">
       <AdminPageHeader
-        breadcrumb={['ViVuGo', 'Thông báo người dùng']}
-        title="Thông báo người dùng"
+        breadcrumb={['ViVuGo', 'Thông báo', 'Gửi thông báo']}
+        title="Gửi thông báo"
         description="Tạo chiến dịch, lưu bản nháp, chọn người nhận và quản lý lịch sử gửi thông báo."
         showNotificationBell
       />

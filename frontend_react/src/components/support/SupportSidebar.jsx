@@ -14,7 +14,7 @@ const supportMenuItems = [
     ),
   },
   {
-    label: 'Yêu cầu hỗ trợ',
+    label: 'Form hỗ trợ',
     icon: (
       <>
         <path d="M12 2a10 10 0 1 0 10 10" />

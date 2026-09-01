@@ -788,8 +788,6 @@ function DestinationPlaceManagementPage() {
                     <p className="mt-1 text-xs font-medium text-slate-500">Dữ liệu trong thùng rác sẽ tự động bị xóa vĩnh viễn sau 30 ngày.</p>
                   </div>
                 ) : null}
-                {renderPagination()}
-
                 {/* PLACES CARD LIST AREA */}
                 <div className="max-h-[calc(100vh-390px)] min-h-[260px] space-y-4 overflow-y-auto overscroll-contain pr-2">
             {/* STATE 1: No Province Selected */}
@@ -863,11 +861,11 @@ function DestinationPlaceManagementPage() {
                   </svg>
                 </div>
                 <h3 className="mt-4 text-base font-black text-slate-900">Chưa có địa điểm nào</h3>
-                <p className="mt-1 text-xs font-medium text-slate-500">
-                  {hasFilter
-                    ? 'Không tìm thấy địa điểm phù hợp với bộ lọc hiện tại.'
-                    : 'Hãy thêm địa điểm du lịch đầu tiên cho tỉnh/thành này.'}
-                </p>
+                {hasFilter && (
+                  <p className="mt-1 text-xs font-medium text-slate-500">
+                    Không tìm thấy địa điểm phù hợp với bộ lọc hiện tại.
+                  </p>
+                )}
                 <div className="mt-5 flex justify-center gap-3">
                   {hasFilter ? (
                     <button

@@ -642,7 +642,7 @@ function BookingCancellationRequestsPage({ embedded = false }) {
   return (
     <div className={`booking-cancellation-page${embedded ? ' booking-cancellation-page--embedded' : ''}`}>
       {!embedded ? <AdminPageHeader
-        breadcrumb={['ViVuGo', 'Yêu cầu hủy booking']}
+        breadcrumb={['ViVuGo', 'Booking', 'Yêu cầu hủy booking']}
         title="Quản lý yêu cầu hủy booking"
         description="Tiếp nhận, kiểm tra và xử lý các yêu cầu hoàn tiền, bảo lưu hoặc đổi lịch khởi hành của khách."
         showNotificationBell

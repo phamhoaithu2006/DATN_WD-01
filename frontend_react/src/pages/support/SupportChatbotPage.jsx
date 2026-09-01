@@ -325,7 +325,7 @@ function SupportChatbotPage() {
   return (
     <section className="support-chat-page space-y-5">
       <AdminPageHeader
-        breadcrumb={['ViVuGo', 'Nhân viên hỗ trợ', 'Chatbot AI']}
+        breadcrumb={['ViVuGo', 'Nhân viên hỗ trợ', 'Chatbot AI hỗ trợ']}
         title="Chat trực tiếp với khách hàng"
         description="Tiếp nhận và trả lời các yêu cầu khách hàng chuyển giao từ AI."
       />
