@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Customer;
 
 use App\Http\Controllers\Controller;
 use App\Models\Payment;
+use App\Services\BookingCancellationEmailService;
 use App\Services\BookingConfirmationService;
 use App\Services\VnpayPaymentLifecycleService;
 use App\Services\VnpayService;
@@ -18,6 +19,7 @@ class VnpayPaymentController extends Controller
         private readonly VnpayService $vnpayService,
         private readonly VnpayPaymentLifecycleService $paymentLifecycleService,
         private readonly BookingConfirmationService $bookingConfirmationService,
+        private readonly BookingCancellationEmailService $bookingCancellationEmailService,
     ) {}
 
     public function status(Request $request, Payment $payment): JsonResponse
@@ -64,6 +66,11 @@ class VnpayPaymentController extends Controller
                 'Khách hàng chủ động hủy thanh toán.',
                 null,
                 $request->user()->id,
+            );
+
+            $this->bookingCancellationEmailService->enqueueForCancelledBooking(
+                $lockedPayment->booking,
+                BookingCancellationEmailService::SOURCE_CUSTOMER_DIRECT,
             );
 
             return $lockedPayment->fresh(['booking']);

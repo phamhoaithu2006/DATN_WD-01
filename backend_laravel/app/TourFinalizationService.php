@@ -10,12 +10,17 @@ use App\Models\TourFinalizationOutbox;
 use App\Models\TourGuideAssignment;
 use App\Models\Notification;
 use App\Models\User;
+use App\Services\BookingCancellationEmailService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class TourFinalizationService
 {
     public const MINIMUM_PARTICIPANTS = 10;
+
+    public function __construct(
+        private readonly BookingCancellationEmailService $bookingCancellationEmailService,
+    ) {}
 
     /**
      * Finalize a departure exactly once. The caller may safely retry this method.
@@ -301,6 +306,11 @@ class TourFinalizationService
                 'note' => $customerMessage
                     ?: 'Tour bị hủy bởi hệ thống/Admin. Khách không chịu phí hủy.',
             ]);
+
+            $this->bookingCancellationEmailService->enqueueForCancelledBooking(
+                $booking,
+                BookingCancellationEmailService::SOURCE_ADMIN_DEPARTURE,
+            );
         }
 
         /* Giải phóng toàn bộ HDV đang được phân công khỏi lịch đã hủy. */

@@ -13,6 +13,7 @@ use App\Models\TourDeparture;
 use App\Models\TourRefundOutbox;
 use App\Models\User;
 use App\Services\AdminNotificationService;
+use App\Services\BookingCancellationEmailService;
 use App\Services\BookingPhoneDuplicateGuard;
 use App\Services\TourPricingService;
 use App\Services\VnpayPaymentLifecycleService;
@@ -34,6 +35,7 @@ class CustomerBookingController extends Controller
         private readonly VnpayService $vnpayService,
         private readonly VnpayPaymentLifecycleService $paymentLifecycleService,
         private readonly AdminNotificationService $adminNotificationService,
+        private readonly BookingCancellationEmailService $bookingCancellationEmailService,
     ) {}
 
     public function preview(Request $request): JsonResponse
@@ -606,6 +608,11 @@ class CustomerBookingController extends Controller
                     'Khách hàng chủ động hủy đơn chờ thanh toán.'
                 );
 
+                $this->bookingCancellationEmailService->enqueueForCancelledBooking(
+                    $lockedBooking,
+                    BookingCancellationEmailService::SOURCE_CUSTOMER_DIRECT,
+                );
+
                 // Service đã cập nhật booking và ghi lịch sử.
                 // Không tạo thêm một lịch sử hủy lần nữa ở phía dưới.
                 return ['booking' => $lockedBooking->fresh(['payment'])];
@@ -632,6 +639,11 @@ class CustomerBookingController extends Controller
                 'new_status' => 'cancelled',
                 'note' => $reason,
             ]);
+
+            $this->bookingCancellationEmailService->enqueueForCancelledBooking(
+                $lockedBooking,
+                BookingCancellationEmailService::SOURCE_CUSTOMER_DIRECT,
+            );
 
             return ['booking' => $lockedBooking->fresh(['payment'])];
         }, 3);

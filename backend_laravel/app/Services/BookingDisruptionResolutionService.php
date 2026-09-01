@@ -11,6 +11,10 @@ use Illuminate\Validation\ValidationException;
 
 class BookingDisruptionResolutionService
 {
+    public function __construct(
+        private readonly BookingCancellationEmailService $bookingCancellationEmailService,
+    ) {}
+
     public function approve(
         BookingDisruptionRequest $request,
         int $adminId,
@@ -141,6 +145,11 @@ class BookingDisruptionResolutionService
             'new_status' => 'cancelled',
             'note' => $reason,
         ]);
+
+        $this->bookingCancellationEmailService->enqueueForCancelledBooking(
+            $booking,
+            BookingCancellationEmailService::SOURCE_CUSTOMER_REQUEST_APPROVED,
+        );
     }
 
     private function transferBooking(Booking $booking, int $targetDepartureId, int $adminId): void
