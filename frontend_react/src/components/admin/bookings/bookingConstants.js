@@ -23,6 +23,7 @@ export const statusMeta = {
   completed: { label: 'Đã kết thúc', className: 'completed' },
   cancelled: { label: 'Đã hủy', className: 'cancelled' },
   cancelled_by_tour: { label: 'Đã hủy', className: 'cancelled' },
+  cancelled_all: { label: 'Đã hủy', className: 'cancelled' },
 }
 
 export const paymentMeta = {

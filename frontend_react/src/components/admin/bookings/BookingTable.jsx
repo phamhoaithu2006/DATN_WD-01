@@ -36,16 +36,22 @@ const participantPreviewFor = (booking) => {
 }
 
 function BookingActions({ booking, busy, onDelete, onView }) {
+  const canDelete = canDeleteBooking(booking)
+
   return (
     <div className="booking-row-actions">
       <button type="button" title="Xem chi tiết" onClick={() => onView(booking)} disabled={!!busy}>
         <EyeIcon />
       </button>
-      {canDeleteBooking(booking) ? (
-        <button className="danger" type="button" title="Xóa mềm" onClick={() => onDelete(booking)} disabled={!!busy}>
-          <TrashIcon />
-        </button>
-      ) : null}
+      <button
+        className="danger"
+        type="button"
+        title={canDelete ? 'Xóa mềm' : 'Booking đang diễn ra hoặc đã kết thúc, không thể xóa'}
+        onClick={() => onDelete(booking)}
+        disabled={!!busy || !canDelete}
+      >
+        <TrashIcon />
+      </button>
     </div>
   )
 }

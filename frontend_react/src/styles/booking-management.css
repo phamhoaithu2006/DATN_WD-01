@@ -451,6 +451,11 @@
   opacity: 0.45;
 }
 
+.booking-row-actions button:disabled.danger {
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
 .booking-row-actions .success {
   color: #10b981;
 }

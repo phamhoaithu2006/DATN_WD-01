@@ -422,12 +422,6 @@ class BookingController extends Controller
                 ->lockForUpdate()
                 ->findOrFail($id);
 
-            if (in_array($booking->status, ['departed', 'completed', 'cancelled', 'cancelled_by_tour'], true)) {
-                throw ValidationException::withMessages([
-                    'status' => 'Booking đang diễn ra, đã hủy hoặc đã hoàn thành chỉ có thể xem chi tiết.',
-                ]);
-            }
-
             $oldStatus = $booking->status;
             $paymentStatus = $booking->payment_status === 'paid' ? 'refund_pending' : $booking->payment_status;
             $booking->update([

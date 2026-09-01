@@ -9,6 +9,4 @@ export const isBookingReadOnly = (booking) => (
   READ_ONLY_BOOKING_STATUSES.includes(booking?.status)
 )
 
-export const canDeleteBooking = (booking) => (
-  ['cancelled', 'cancelled_by_tour'].includes(booking?.status)
-)
+export const canDeleteBooking = () => true
