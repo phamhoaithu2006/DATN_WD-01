@@ -43,6 +43,8 @@ const REQUEST_TYPE_LABELS = {
 const REQUEST_STATUS_LABELS = {
   pending: 'Chờ xử lý',
   approved: 'Đã duyệt',
+  refund_pending: 'Chưa hoàn tiền',
+  refunded: 'Đã hoàn tiền',
   rejected: 'Đã từ chối',
 }
 
@@ -125,6 +127,11 @@ function BookingDetailModal({ booking, busy, onClose, onDeleteRefundProof, onInv
   const paymentMethodLabel = payment?.payment_method === 'cod'
     ? 'Thanh toán thủ công'
     : payment?.payment_method || '--'
+  const refundDisplayStatus = booking.payment_status === 'refund_pending'
+    ? 'refund_pending'
+    : booking.payment_status === 'refunded'
+      ? 'refunded'
+      : null
   const cannotReturnToPending = booking.payment_status === 'paid'
     || booking.status === 'completed'
     || booking.status === 'cancelled_by_tour'
@@ -247,7 +254,9 @@ function BookingDetailModal({ booking, busy, onClose, onDeleteRefundProof, onInv
                       disabled={busy || !['success', 'refunded'].includes(payment.status)}
                       onClick={() => onPaymentChange(booking, 'refund')}
                     >
-                      {payment.status === 'refunded' ? 'Thay ảnh hoàn tiền' : 'Hoàn tiền'}
+                      {payment.status === 'refunded'
+                        ? 'Thay ảnh hoàn tiền'
+                        : booking.payment_status === 'refund_pending' ? 'Đã hoàn tiền' : 'Hoàn tiền'}
                     </button>
                   </div>
                 ) : (
@@ -403,7 +412,9 @@ function BookingDetailModal({ booking, busy, onClose, onDeleteRefundProof, onInv
                   <div>
                     <strong>{REQUEST_TYPE_LABELS[request.type] || request.type}</strong>
                     <span className={`booking-request-inline-status ${request.status}`}>
-                      {REQUEST_STATUS_LABELS[request.status] || request.status}
+                      {REQUEST_STATUS_LABELS[request.type === 'refund' && request.status === 'approved'
+                        ? (refundDisplayStatus || request.status)
+                        : request.status] || request.status}
                     </span>
                   </div>
                   <small>Gửi lúc {formatDate(request.created_at)}</small>

@@ -10,6 +10,8 @@ const STATUS_LABELS = {
   completed: "Đã hoàn thành",
   cancelled: "Đã hủy đơn",
   cancelled_by_tour: "Tour bị hủy",
+  refund_pending: "Chờ hoàn tiền",
+  refunded: "Đã hoàn tiền",
 };
 
 function formatDateTime(value) {
@@ -70,6 +72,9 @@ function CustomerBookingDetailModal({
     || departure.status === "cancelled";
   const isCancelledByTour = booking.status === "cancelled_by_tour"
     || departure.status === "cancelled";
+  const refundStatus = ["refund_pending", "refunded"].includes(booking.payment_status)
+    ? booking.payment_status
+    : null;
   const approvedCustomerCancellation = (booking.disruption_requests || [])
     .filter((request) => request.status === "approved" && ["refund", "retain"].includes(request.type))
     .sort((a, b) => Number(b.id || 0) - Number(a.id || 0))[0];
@@ -169,7 +174,7 @@ function CustomerBookingDetailModal({
 
           {isCancelled ? (
             <section className="vg-customer-trip-cancelled" aria-label="Trạng thái tour">
-              <div><Icon name="xCircle" size={17} /> Tour đã hủy</div>
+              <div><Icon name="xCircle" size={17} /> Đã hủy</div>
             </section>
           ) : (
             <section className="vg-customer-trip-progress" aria-label="Tiến độ chuyến đi">
@@ -213,14 +218,14 @@ function CustomerBookingDetailModal({
               </dl>
             </section>
 
-            <section className={isCancelled ? "vg-customer-detail-card is-cancelled" : "vg-customer-detail-card"}>
+            <section className={`${isCancelled ? "vg-customer-detail-card is-cancelled" : "vg-customer-detail-card"}${refundStatus ? ` is-${refundStatus}` : ""}`}>
               <div className="vg-customer-detail-card-title">
                 <Icon name={isCancelled ? "alertCircle" : "checkCircle"} size={17} />
-                <h3>Trạng thái tour</h3>
+                <h3>{refundStatus ? "Trạng thái hoàn tiền" : "Trạng thái tour"}</h3>
               </div>
               <div className="vg-customer-status-panel">
-                <span className="vg-customer-status-label">Trạng thái hiện tại</span>
-                <strong>{isCancelled ? "Tour đã hủy" : getStatusLabel(booking.status)}</strong>
+                <span className="vg-customer-status-label">{refundStatus ? "Trạng thái hoàn tiền" : "Trạng thái hiện tại"}</span>
+                <strong>{refundStatus ? getStatusLabel(refundStatus) : isCancelled ? "Tour đã hủy" : getStatusLabel(booking.status)}</strong>
               </div>
               {isCancelled ? (
                 <div className="vg-customer-cancellation-info">

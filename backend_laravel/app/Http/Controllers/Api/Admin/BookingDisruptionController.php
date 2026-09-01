@@ -20,7 +20,11 @@ class BookingDisruptionController extends Controller
     public function index(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'status' => ['nullable', Rule::in(BookingDisruptionRequest::STATUSES)],
+            'status' => ['nullable', Rule::in([
+                ...BookingDisruptionRequest::STATUSES,
+                'refund_pending',
+                'refunded',
+            ])],
             'type' => ['nullable', Rule::in(BookingDisruptionRequest::TYPES)],
             'search' => ['nullable', 'string', 'max:100'],
             'from_date' => ['nullable', 'date'],
@@ -30,7 +34,16 @@ class BookingDisruptionController extends Controller
 
         $query = BookingDisruptionRequest::query()
             ->with($this->relations())
-            ->when($data['status'] ?? null, fn ($q, $status) => $q->where('status', $status))
+            ->when($data['status'] ?? null, function ($q, $status): void {
+                if ($status === 'refund_pending' || $status === 'refunded') {
+                    $q->where('status', 'approved')
+                        ->where('type', 'refund')
+                        ->whereHas('booking', fn ($booking) => $booking->where('payment_status', $status));
+                    return;
+                }
+
+                $q->where('status', $status);
+            })
             ->when($data['type'] ?? null, fn ($q, $type) => $q->where('type', $type))
             ->when($data['from_date'] ?? null, fn ($q, $date) => $q->whereDate('created_at', '>=', $date))
             ->when($data['to_date'] ?? null, fn ($q, $date) => $q->whereDate('created_at', '<=', $date))
@@ -231,7 +244,9 @@ class BookingDisruptionController extends Controller
             'type' => $item->type,
             'type_label' => $this->typeLabel($item->type),
             'status' => $item->status,
-            'status_label' => $this->statusLabel($item->status),
+            'status_label' => $this->statusLabel($this->displayStatus($item)),
+            'display_status' => $this->displayStatus($item),
+            'display_status_label' => $this->statusLabel($this->displayStatus($item)),
             'reason' => $item->reason,
             'admin_note' => $item->admin_note,
             'requested_tour_departure_id' => $item->requested_tour_departure_id,
@@ -271,8 +286,23 @@ class BookingDisruptionController extends Controller
         return match ($status) {
             'pending' => 'Chờ xử lý',
             'approved' => 'Đã duyệt',
+            'refund_pending' => 'Chưa hoàn tiền',
+            'refunded' => 'Đã hoàn tiền',
             'rejected' => 'Đã từ chối',
             default => $status,
+        };
+    }
+
+    private function displayStatus(BookingDisruptionRequest $item): string
+    {
+        if ($item->type !== 'refund' || $item->status !== 'approved') {
+            return $item->status;
+        }
+
+        return match ($item->booking?->payment_status) {
+            'refund_pending' => 'refund_pending',
+            'refunded' => 'refunded',
+            default => 'approved',
         };
     }
 }

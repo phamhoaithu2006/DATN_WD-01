@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import AdminPageHeader from '../../components/admin/AdminPageHeader'
 import adminBookingDisruptionApi from '../../services/adminBookingDisruptionApi'
+import { refundPayment } from '../../services/paymentApi'
 import { tourDepartureApi } from '../../services/tourDepartureApi'
+import { mediaUrl } from '../../utils/mediaUrl'
 import '../../styles/booking-cancellation-requests.css'
 
 const TYPE_LABELS = {
@@ -13,7 +15,20 @@ const TYPE_LABELS = {
 const STATUS_LABELS = {
   pending: 'Chờ xử lý',
   approved: 'Đã duyệt',
+  refund_pending: 'Chưa hoàn tiền',
+  refunded: 'Đã hoàn tiền',
   rejected: 'Đã từ chối',
+}
+
+function getDisplayStatus(request) {
+  if (request?.display_status) return request.display_status
+
+  if (request?.type === 'refund' && request?.status === 'approved') {
+    if (request.booking?.payment_status === 'refund_pending') return 'refund_pending'
+    if (request.booking?.payment_status === 'refunded') return 'refunded'
+  }
+
+  return request?.status || 'pending'
 }
 
 function unwrapItems(response) {
@@ -149,6 +164,16 @@ function StatusBadge({ status }) {
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
       </svg>
     ),
+    refund_pending: (
+      <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+    refunded: (
+      <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+      </svg>
+    ),
     rejected: (
       <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
@@ -164,12 +189,24 @@ function StatusBadge({ status }) {
   )
 }
 
-function RequestDetail({ request }) {
+function RequestDetail({
+  request,
+  refundProofFile = null,
+  refundProofPreviewUrl = '',
+  onRefundProofChange = null,
+  refundBusy = false,
+}) {
   if (!request) return null
 
   const booking = request.booking
   const currentDeparture = booking?.tour_departure
   const contact = booking?.contact
+  const payment = booking?.payment
+  const displayStatus = getDisplayStatus(request)
+  const canUploadRefundProof = request.type === 'refund'
+    && request.status === 'approved'
+    && displayStatus === 'refund_pending'
+    && typeof onRefundProofChange === 'function'
   const participants = Array.isArray(booking?.participants) ? booking.participants : []
   const genderLabel = { male: 'Nam', female: 'Nữ', other: 'Khác' }
   const participantTypeLabel = { adult: 'Người lớn', child: 'Trẻ em', infant: 'Em bé' }
@@ -202,6 +239,42 @@ function RequestDetail({ request }) {
           <strong>{booking?.number_of_people || 0} khách</strong>
         </div>
       </div>
+
+      {request.type === 'refund' ? (
+        <div className="booking-request-detail-block booking-request-refund-block">
+          <div className="booking-request-refund-content">
+            <span>Trạng thái hoàn tiền</span>
+            <strong className={`booking-request-refund-state booking-request-refund-state--${displayStatus}`}>
+              {STATUS_LABELS[displayStatus] || displayStatus}
+            </strong>
+            {canUploadRefundProof ? (
+              <div className="booking-request-refund-upload">
+                <label className="booking-request-proof-picker">
+                  <span>{refundProofFile ? refundProofFile.name : 'Chọn ảnh chứng minh'}</span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={(event) => onRefundProofChange(event.target.files?.[0] || null)}
+                    disabled={refundBusy}
+                  />
+                </label>
+                <small>Ảnh JPG, PNG hoặc WebP, tối đa 5MB.</small>
+              </div>
+            ) : null}
+          </div>
+          {refundProofPreviewUrl ? (
+            <div className="booking-request-refund-preview">
+              <img src={refundProofPreviewUrl} alt="Ảnh chứng minh hoàn tiền đã chọn" />
+            </div>
+          ) : null}
+          {payment?.refund_proof_url ? (
+            <a className="booking-request-refund-proof" href={mediaUrl(payment.refund_proof_url)} target="_blank" rel="noreferrer">
+              <img src={mediaUrl(payment.refund_proof_url)} alt="Ảnh chứng minh đã hoàn tiền" />
+              <span>Xem ảnh chứng minh hoàn tiền</span>
+            </a>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="booking-request-detail-block">
         <span>Thông tin người đặt và liên hệ</span>
@@ -366,6 +439,8 @@ function BookingCancellationRequestsPage({ embedded = false }) {
   const [targetDepartures, setTargetDepartures] = useState([])
   const [loadingTargets, setLoadingTargets] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [refundProofFile, setRefundProofFile] = useState(null)
+  const [refundProofPreviewUrl, setRefundProofPreviewUrl] = useState('')
 
   const params = useMemo(() => ({
     page,
@@ -402,6 +477,17 @@ function BookingCancellationRequestsPage({ embedded = false }) {
     const timer = window.setTimeout(() => setNotice(null), 5000)
     return () => window.clearTimeout(timer)
   }, [notice])
+
+  useEffect(() => {
+    if (!refundProofFile) {
+      setRefundProofPreviewUrl('')
+      return undefined
+    }
+
+    const objectUrl = URL.createObjectURL(refundProofFile)
+    setRefundProofPreviewUrl(objectUrl)
+    return () => URL.revokeObjectURL(objectUrl)
+  }, [refundProofFile])
 
   const updateFilter = (key, value) => {
     setPage(1)
@@ -491,6 +577,36 @@ function BookingCancellationRequestsPage({ embedded = false }) {
     if (busy && !force) return
     setDecision(null)
     setSelectedRequest(null)
+    setRefundProofFile(null)
+  }
+
+  const submitRefund = async () => {
+    const paymentId = selectedRequest?.booking?.payment?.id
+
+    if (!selectedRequest || selectedRequest.type !== 'refund' || selectedRequest.status !== 'approved') return
+    if (!paymentId) {
+      setNotice({ type: 'error', text: 'Booking này chưa có bản ghi thanh toán để xác nhận hoàn tiền.' })
+      return
+    }
+    if (!refundProofFile) {
+      setNotice({ type: 'error', text: 'Vui lòng chọn ảnh chứng minh đã hoàn tiền.' })
+      return
+    }
+
+    setBusy(true)
+    try {
+      const response = await refundPayment(paymentId, refundProofFile)
+      const detailResponse = await adminBookingDisruptionApi.show(selectedRequest.id)
+      setSelectedRequest(detailResponse?.data || selectedRequest)
+      setRefundProofFile(null)
+      setNotice({ type: 'success', text: response?.message || 'Đã xác nhận hoàn tiền cho khách.' })
+      window.dispatchEvent(new CustomEvent('admin-booking-disruption:changed'))
+      await load()
+    } catch (error) {
+      setNotice({ type: 'error', text: getErrorMessage(error) })
+    } finally {
+      setBusy(false)
+    }
   }
 
   const submitDecision = async () => {
@@ -671,7 +787,7 @@ function BookingCancellationRequestsPage({ embedded = false }) {
                   </td>
                   <td>{formatDate(request.created_at, true)}</td>
                   <td>
-                    <StatusBadge status={request.status} />
+                    <StatusBadge status={getDisplayStatus(request)} />
                   </td>
                   <td className="booking-request-table__actions">
                     <button type="button" className="booking-request-action booking-request-action--view" onClick={() => setSelectedRequest(request)}>
@@ -784,7 +900,10 @@ function BookingCancellationRequestsPage({ embedded = false }) {
 
       {selectedRequest && !decision ? (
         <div className="booking-request-modal-backdrop" role="presentation" onMouseDown={(event) => {
-          if (event.target === event.currentTarget) setSelectedRequest(null)
+          if (event.target === event.currentTarget) {
+            setSelectedRequest(null)
+            setRefundProofFile(null)
+          }
         }}>
           <div className="booking-request-modal" role="dialog" aria-modal="true" aria-labelledby="booking-request-detail-title">
             <div className="booking-request-modal__header">
@@ -792,15 +911,33 @@ function BookingCancellationRequestsPage({ embedded = false }) {
                 <span className="booking-request-eyebrow">Chi tiết yêu cầu</span>
                 <h2 id="booking-request-detail-title">{TYPE_LABELS[selectedRequest.type] || 'Yêu cầu booking'}</h2>
               </div>
-              <button type="button" className="booking-request-icon-button" onClick={() => setSelectedRequest(null)} aria-label="Đóng">
+              <button type="button" className="booking-request-icon-button" onClick={() => { setSelectedRequest(null); setRefundProofFile(null) }} aria-label="Đóng">
                 ✕
               </button>
             </div>
-            <RequestDetail request={selectedRequest} />
+            <RequestDetail
+              request={selectedRequest}
+              refundProofFile={refundProofFile}
+              refundProofPreviewUrl={refundProofPreviewUrl}
+              onRefundProofChange={setRefundProofFile}
+              refundBusy={busy}
+            />
             <div className="booking-request-modal__actions">
-              <button type="button" className="booking-request-button booking-request-button--secondary" onClick={() => setSelectedRequest(null)}>
+              <button type="button" className="booking-request-button booking-request-button--secondary" onClick={() => { setSelectedRequest(null); setRefundProofFile(null) }}>
                 Đóng
               </button>
+              {selectedRequest.type === 'refund'
+                && selectedRequest.status === 'approved'
+                && getDisplayStatus(selectedRequest) === 'refund_pending' ? (
+                  <button
+                    type="button"
+                    className="booking-request-button booking-request-button--primary"
+                    onClick={() => void submitRefund()}
+                    disabled={busy || !refundProofFile}
+                  >
+                    {busy ? 'Đang lưu…' : 'Đã hoàn tiền'}
+                  </button>
+                ) : null}
               {selectedRequest.status === 'pending' ? (
                 <>
                   <button type="button" className="booking-request-button booking-request-button--danger" onClick={() => void openDecision(selectedRequest, 'reject')}>

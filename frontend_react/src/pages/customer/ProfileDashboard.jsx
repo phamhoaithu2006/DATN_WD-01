@@ -1070,6 +1070,7 @@ function ProfileDashboard({
 
   const getBookingTripState = useCallback((booking) => {
     if (booking.payment_status === "refund_pending") return "refund_pending";
+    if (booking.payment_status === "refunded") return "refunded";
 
     const hasPendingCancellation = booking.has_pending_disruption
       || booking.pending_disruption_request
@@ -1116,6 +1117,7 @@ function ProfileDashboard({
       completed: 0,
       cancellation_pending: 0,
       refund_pending: 0,
+      refunded: 0,
       cancelled: 0,
     };
 
@@ -1127,6 +1129,7 @@ function ProfileDashboard({
       if (state === "completed") result.completed++;
       if (state === "cancellation_pending") result.cancellation_pending++;
       if (state === "refund_pending") result.refund_pending++;
+      if (state === "refunded") result.refunded++;
       if (state === "cancelled") result.cancelled++;
     });
 
@@ -1139,7 +1142,7 @@ function ProfileDashboard({
 
       if (
         bookingFilter === "cancelled_tours"
-        && !["cancellation_pending", "refund_pending", "cancelled"].includes(state)
+        && !["cancellation_pending", "refund_pending", "refunded", "cancelled"].includes(state)
       ) return false;
 
       if (
@@ -1162,10 +1165,11 @@ function ProfileDashboard({
         const stateOrder = {
           cancellation_pending: 0,
           refund_pending: 1,
-          upcoming: 2,
-          ongoing: 3,
-          completed: 4,
-          cancelled: 5,
+          refunded: 2,
+          upcoming: 3,
+          ongoing: 4,
+          completed: 5,
+          cancelled: 6,
         };
         const priorityDifference =
           (stateOrder[getBookingTripState(a)] ?? 5) -
@@ -1194,6 +1198,14 @@ function ProfileDashboard({
       return (
         <span className="vg-status-badge is-refund-pending">
           <Icon name="clock" size={13} /> Chờ hoàn tiền
+        </span>
+      );
+    }
+
+    if (state === "refunded") {
+      return (
+        <span className="vg-status-badge is-refunded">
+          <Icon name="checkCircle" size={13} /> Đã hoàn tiền
         </span>
       );
     }
@@ -1515,7 +1527,7 @@ function ProfileDashboard({
                   className={`vg-filter-btn ${bookingFilter === "cancelled_tours" ? "active" : ""}`}
                   onClick={() => selectBookingFilter("cancelled_tours")}
                 >
-                  Tour đã hủy <span className="vg-filter-count">{stats.cancellation_pending + stats.refund_pending + stats.cancelled}</span>
+                  Tour đã hủy <span className="vg-filter-count">{stats.cancellation_pending + stats.refund_pending + stats.refunded + stats.cancelled}</span>
                 </button>
               </div>
 
