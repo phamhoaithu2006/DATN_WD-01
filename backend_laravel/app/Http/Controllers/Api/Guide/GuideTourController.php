@@ -327,10 +327,9 @@ class GuideTourController extends Controller
             return 'upcoming';
         }
 
-        // Chỉ tour đã chốt đủ khách (CONFIRMED) mới được coi là đang diễn ra.
-        // Không suy trạng thái "đang diễn ra" chỉ dựa vào ngày, vì tour OPEN có thể
-        // chưa được cron chốt và tuyệt đối không được để HDV thao tác.
-        if (! in_array($departure->status, ['confirmed', 'in_progress'], true)) {
+        // The travel dates are the source of truth once an assigned departure has
+        // started. OPEN/CLOSED are still present on legacy and manually-created data.
+        if (! in_array($departure->status, ['open', 'closed', 'confirmed', 'in_progress'], true)) {
             return 'not_finalized';
         }
 
@@ -506,7 +505,7 @@ class GuideTourController extends Controller
                 $q->whereNull('tour_departures.return_date')
                     ->orWhere('tour_departures.return_date', '>=', $today);
             })
-            ->whereIn('tour_departures.status', ['confirmed', 'in_progress']);
+            ->whereIn('tour_departures.status', ['open', 'closed', 'confirmed', 'in_progress']);
 
         $query = $this->applyFilters($query, $request);
         $this->sortForGuide($query, $request);
