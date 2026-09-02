@@ -23,7 +23,12 @@
                     <tr>
                         <td style="padding:30px 32px;">
                             <p style="margin:0 0 16px;">Xin chào <strong>{{ $cancellation['recipient_name'] ?? 'Quý khách' }}</strong>,</p>
-                            <p style="margin:0 0 22px;">{{ $cancellation['headline'] ?? 'Thông tin hủy tour của quý khách đã được cập nhật.' }}</p>
+                            <p style="margin:0 0 8px;">{{ $cancellation['headline'] ?? 'Thông tin hủy tour của quý khách đã được cập nhật.' }}</p>
+                            @if (!empty($cancellation['follow_up_message']))
+                                <p style="margin:0 0 22px;">{{ $cancellation['follow_up_message'] }}</p>
+                            @else
+                                <div style="height:14px;line-height:14px;">&nbsp;</div>
+                            @endif
 
                             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #cbd5e1;border-radius:12px;overflow:hidden;margin-bottom:22px;">
                                 <tr>

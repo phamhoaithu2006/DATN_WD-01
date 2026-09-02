@@ -80,8 +80,12 @@ function getAssignments(departure = {}) {
 }
 
 function getLeadAssignment(departure = {}) {
-  const activeAssignments = getAssignments(departure).filter(
-    (assignment) => !assignment.status || assignment.status === 'assigned',
+  const isCancelled = ['cancelled', 'canceled'].includes(String(departure?.status || '').toLowerCase())
+    || String(departure?.schedule_group || '').toLowerCase() === 'cancelled'
+  const activeAssignments = getAssignments(departure).filter((assignment) =>
+    isCancelled
+      ? assignment.status === 'cancelled'
+      : !assignment.status || ['assigned', 'confirmed'].includes(assignment.status),
   )
 
   return (
@@ -203,10 +207,15 @@ function getBookingCode(item) {
 function getStatusText(status) {
   const value = String(status || '').toLowerCase()
 
+  if (value === 'awaiting_payment') return 'Chờ thanh toán'
   if (value === 'paid') return 'Đã thanh toán'
-  if (value === 'confirmed') return 'Đã xác nhận'
+  if (value === 'confirmed') return 'Sắp diễn ra'
+  if (value === 'upcoming') return 'Sắp diễn ra'
+  if (value === 'departed') return 'Đang diễn ra'
+  if (value === 'completed') return 'Đã kết thúc'
   if (value === 'pending') return 'Chờ xử lý'
   if (value === 'cancelled' || value === 'canceled') return 'Đã hủy'
+  if (value === 'cancelled_by_tour') return 'Đã hủy'
 
   return status || '—'
 }
@@ -214,11 +223,19 @@ function getStatusText(status) {
 function getStatusClass(status) {
   const value = String(status || '').toLowerCase()
 
-  if (['paid', 'confirmed'].includes(value)) {
+  if (['paid', 'confirmed', 'completed'].includes(value)) {
     return 'bg-emerald-50 text-emerald-700 ring-emerald-100'
   }
 
-  if (['cancelled', 'canceled'].includes(value)) {
+  if (value === 'upcoming') {
+    return 'bg-indigo-50 text-indigo-700 ring-indigo-100'
+  }
+
+  if (value === 'departed') {
+    return 'bg-amber-50 text-amber-700 ring-amber-100'
+  }
+
+  if (['cancelled', 'canceled', 'cancelled_by_tour'].includes(value)) {
     return 'bg-rose-50 text-rose-700 ring-rose-100'
   }
 
@@ -630,6 +647,8 @@ function TourDepartureBookingModal({
                   <tbody className="divide-y divide-slate-100">
                     {customers.map((item, index) => {
                       const status =
+                        item?.booking?.display_status ||
+                        item?.display_status ||
                         item?.booking?.status ||
                         item?.status ||
                         item?.payment_status ||
@@ -662,7 +681,7 @@ function TourDepartureBookingModal({
                             <span
                               className={`inline-flex rounded-full px-3 py-1 text-xs font-black ring-1 ${getStatusClass(status)}`}
                             >
-                              {getStatusText(status)}
+                              {item?.display_status_label || item?.booking?.display_status_label || getStatusText(status)}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-right">
