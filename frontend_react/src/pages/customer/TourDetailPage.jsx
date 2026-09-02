@@ -819,13 +819,24 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
   );
 
   // Gắn nhãn cố định theo loại vé và thứ tự khách đã chọn ở bước 1.
-  const expectedTicketLabelsByPosition = bookingGroups.reduce((list, rule) => {
+  const expectedTicketRulesByPosition = bookingGroups.reduce((list, rule) => {
     const quantity = getRuleQuantity(rule);
-    for (let i = 0; i < quantity; i += 1) list.push(rule.label);
+    for (let i = 0; i < quantity; i += 1) list.push(rule);
     return list;
   }, []);
 
-  const getParticipantTicketLabel = (index) => expectedTicketLabelsByPosition[index] || null;
+  const getParticipantTicketLabel = (index) => expectedTicketRulesByPosition[index]?.label || null;
+
+  const isAgeInTicketRule = (age, rule) => {
+    if (!rule) return true;
+
+    const minAge = Number(rule.min_age ?? 0);
+    const maxAge = rule.max_age === null || rule.max_age === undefined
+      ? null
+      : Number(rule.max_age);
+
+    return age >= minAge && (maxAge === null || age <= maxAge);
+  };
 
   const getParticipantBirthDateErrors = (
     participantList,
@@ -851,6 +862,12 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
 
       if (age === null || age < 0 || age > 120) {
         errors[index] = "Ngày sinh không hợp lệ.";
+        return;
+      }
+
+      const expectedRule = expectedTicketRulesByPosition[index];
+      if (!isAgeInTicketRule(age, expectedRule)) {
+        errors[index] = `Ngày sinh không đúng độ tuổi của vé ${expectedRule.label}.`;
         return;
       }
 
