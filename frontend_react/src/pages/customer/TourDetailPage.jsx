@@ -66,6 +66,19 @@ function isValidPhone(value) {
   const phone = String(value || "").replace(/\D/g, "");
   return phone.length === 10 && phone.charAt(0) === "0";
 }
+
+function formatItineraryTime(value) {
+  if (!value) return "";
+
+  return String(value)
+    .split("-")
+    .map((part) => {
+      const match = part.trim().match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+      return match ? `${match[1].padStart(2, "0")}:${match[2]}` : part.trim();
+    })
+    .join(" - ");
+}
+
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const IDENTITY_REGEX = /^[A-Za-z0-9-]{6,20}$/;
 const MAX_BOOKING_GUESTS = 20;
@@ -1981,7 +1994,8 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
 
                 {/* Collapsible detailed itinerary */}
                 <div className="summary-itinerary-collapsible">
-                  <div
+                  <button
+                    type="button"
                     className={`vg-itinerary-timeline-title-row ${itineraryCollapsed ? "is-collapsed" : ""}`}
                     onClick={() => setItineraryCollapsed(!itineraryCollapsed)}
                   >
@@ -1990,7 +2004,7 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                       Xem lịch trình chi tiết
                     </h4>
                     <Icon name="chevronDown" size={16} />
-                  </div>
+                  </button>
 
                   <div className={`vg-itinerary-list-traveloka ${itineraryCollapsed ? "is-collapsed" : ""}`}>
                     {itinerarySteps.length ? (
@@ -1999,8 +2013,9 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                           key={step.id || idx}
                           className={`vg-itinerary-step-traveloka ${step.isGreen ? "is-green" : ""}`}
                         >
+                          <span className="vg-step-day-traveloka">Ngày {step.day}</span>
                           <span className={`vg-step-time-traveloka ${step.isGreen ? "is-green" : ""}`}>
-                            {step.time}
+                            {formatItineraryTime(step.time)}
                           </span>
                           <span className="vg-step-title-traveloka">{step.title}</span>
                           {step.destinationPlace?.name ? (

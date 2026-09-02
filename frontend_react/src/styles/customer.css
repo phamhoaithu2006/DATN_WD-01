@@ -9089,6 +9089,9 @@ textarea.vg-checkout-input {
 }
 
 .vg-booking-summary-card .vg-itinerary-timeline-title-row {
+  width: 100%;
+  font: inherit;
+  text-align: left;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -9124,11 +9127,90 @@ textarea.vg-checkout-input {
 }
 
 .vg-booking-summary-card .vg-itinerary-list-traveloka {
+  position: relative;
   margin-top: 14px;
-  padding: 0 4px;
-  max-height: 380px;
+  padding: 4px 12px 4px 30px;
+  max-height: 370px;
   overflow-y: auto;
+  border-left: 0;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.vg-booking-summary-card .vg-itinerary-list-traveloka::before {
+  position: absolute;
+  top: 12px;
+  bottom: 12px;
+  left: 11px;
+  width: 2px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #bae6fd, #e2e8f0);
+  content: "";
+}
+
+.vg-booking-summary-card .vg-itinerary-list-traveloka::-webkit-scrollbar {
+  width: 7px;
+}
+
+.vg-booking-summary-card .vg-itinerary-list-traveloka::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: #cbd5e1;
+  background-clip: content-box;
+}
+
+.vg-booking-summary-card .vg-itinerary-step-traveloka {
+  padding: 0 0 18px;
+}
+
+.vg-booking-summary-card .vg-itinerary-step-traveloka:last-child {
+  padding-bottom: 4px;
+}
+
+.vg-booking-summary-card .vg-itinerary-step-traveloka::before {
+  left: -24px;
+  top: 7px;
+  width: 9px;
+  height: 9px;
+  border-width: 3px;
+  box-shadow: 0 0 0 2px #0194f3, 0 2px 5px rgba(1, 148, 243, .2);
+}
+
+.vg-booking-summary-card .vg-step-day-traveloka {
+  display: inline-flex;
+  margin-bottom: 5px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .02em;
+}
+
+.vg-booking-summary-card .vg-step-time-traveloka {
+  margin-bottom: 7px;
+  font-size: .88rem;
+  letter-spacing: .01em;
+}
+
+.vg-booking-summary-card .vg-step-title-traveloka {
+  margin-bottom: 8px;
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.vg-booking-summary-card .vg-step-desc-traveloka {
+  margin-bottom: 7px;
+  font-size: .9rem;
+  line-height: 1.55;
+}
+
+.vg-booking-summary-card .vg-step-images-grid-traveloka img {
+  width: 100px;
+  height: 64px;
+  border-radius: 8px;
 }
 
 .vg-booking-summary-card .vg-itinerary-list-traveloka.is-collapsed {
