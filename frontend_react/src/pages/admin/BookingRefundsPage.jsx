@@ -71,6 +71,7 @@ function BookingRefundsPage() {
   const [bookings, setBookings] = useState([])
   const [summary, setSummary] = useState({})
   const [timeline, setTimeline] = useState([])
+  const [timelineOpen, setTimelineOpen] = useState(false)
   const [meta, setMeta] = useState({ current_page: 1, last_page: 1, total: 0 })
   const [selectedBooking, setSelectedBooking] = useState(null)
   const [proofFile, setProofFile] = useState(null)
@@ -254,6 +255,14 @@ function BookingRefundsPage() {
             <input type="date" value={toDate} onChange={(event) => { setToDate(event.target.value); setPage(1) }} />
           </label>
           <button type="button" className="booking-refund-clear-button" onClick={clearFilters}>Đặt lại</button>
+          <button type="button" className="booking-refund-timeline-button" onClick={() => setTimelineOpen(true)}>
+            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 7v5l3 2" />
+            </svg>
+            Timeline
+            <span>{timeline.length}</span>
+          </button>
         </div>
 
         <div className="booking-refund-workspace">
@@ -331,7 +340,7 @@ function BookingRefundsPage() {
                 <dl className="booking-refund-detail-grid">
                   <div><dt>Khách hàng</dt><dd>{customerName(selectedBooking)}</dd></div>
                   <div><dt>Số điện thoại</dt><dd>{customerPhone(selectedBooking)}</dd></div>
-                  <div><dt>Email</dt><dd>{selectedBooking.contact?.contact_email || selectedBooking.user?.email || '—'}</dd></div>
+                  <div><dt>Email nhận hoàn tiền</dt><dd>{selectedBooking.user?.email || selectedBooking.contact?.contact_email || '—'}</dd></div>
                   <div><dt>Tour</dt><dd>{selectedBooking.tour?.title || '—'}</dd></div>
                   <div><dt>Ngày hủy</dt><dd>{formatDate(selectedBooking.cancelled_at, true)}</dd></div>
                   <div><dt>Thanh toán</dt><dd>{selectedBooking.payment?.status === 'refunded' ? 'Đã hoàn tiền' : selectedBooking.payment?.status === 'success' ? 'Đã thanh toán' : selectedBooking.payment?.status || '—'}</dd></div>
@@ -346,49 +355,62 @@ function BookingRefundsPage() {
                     <span>Ảnh chứng minh hiện tại · Mở ảnh</span>
                   </a>
                 ) : null}
-                <div className="booking-refund-proof-box">
-                  <div>
-                    <strong>{selectedBooking.payment_status === 'refunded' ? 'Thay ảnh chứng minh' : 'Ảnh chứng minh hoàn tiền'}</strong>
-                    <small>JPG, PNG hoặc WebP · tối đa 5MB</small>
-                  </div>
-                  <button type="button" onClick={() => void chooseProof()} disabled={busy}>
-                    {proofFile ? 'Chọn ảnh khác' : 'Chọn ảnh'}
-                  </button>
-                  {proofFile ? <span className="booking-refund-file-name">{proofFile.name}</span> : null}
-                  {proofPreviewUrl ? <img className="booking-refund-proof-preview" src={proofPreviewUrl} alt="Ảnh chứng minh hoàn tiền đã chọn" /> : null}
-                </div>
-                <button type="button" className="booking-refund-submit" onClick={() => void submitRefund()} disabled={busy || !proofFile}>
-                  {busy ? 'Đang lưu…' : selectedBooking.payment_status === 'refunded' ? 'Lưu ảnh thay thế' : 'Xác nhận đã hoàn tiền'}
-                </button>
+                {selectedBooking.payment_status === 'refund_pending' ? (
+                  <>
+                    <div className="booking-refund-proof-box">
+                      <div>
+                        <strong>Ảnh chứng minh hoàn tiền</strong>
+                        <small>JPG, PNG hoặc WebP · tối đa 5MB</small>
+                      </div>
+                      <button type="button" onClick={() => void chooseProof()} disabled={busy}>
+                        {proofFile ? 'Chọn ảnh khác' : 'Chọn ảnh'}
+                      </button>
+                      {proofFile ? <span className="booking-refund-file-name">{proofFile.name}</span> : null}
+                      {proofPreviewUrl ? <img className="booking-refund-proof-preview" src={proofPreviewUrl} alt="Ảnh chứng minh hoàn tiền đã chọn" /> : null}
+                    </div>
+                    <button type="button" className="booking-refund-submit" onClick={() => void submitRefund()} disabled={busy || !proofFile}>
+                      {busy ? 'Đang xác nhận…' : 'Xác nhận đã hoàn tiền'}
+                    </button>
+                  </>
+                ) : null}
               </>
             ) : null}
           </aside>
         </div>
       </section>
 
-      <section className="booking-refund-timeline-card">
-        <div className="booking-refund-timeline-heading">
-          <div>
-            <span>Nhật ký đối soát</span>
-            <h2>Timeline hoàn tiền và xóa booking</h2>
-          </div>
-          <strong>{timeline.length} hoạt động gần nhất</strong>
+      {timelineOpen ? (
+        <div className="booking-refund-timeline-backdrop" role="presentation" onMouseDown={() => setTimelineOpen(false)}>
+          <section className="booking-refund-timeline-dialog" role="dialog" aria-modal="true" aria-labelledby="booking-refund-timeline-title" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="booking-refund-timeline-heading">
+              <div>
+                <span>Nhật ký đối soát</span>
+                <h2 id="booking-refund-timeline-title">Timeline hoàn tiền và xóa booking</h2>
+              </div>
+              <div className="booking-refund-timeline-heading-actions">
+                <strong>{timeline.length} hoạt động gần nhất</strong>
+                <button type="button" onClick={() => setTimelineOpen(false)} aria-label="Đóng timeline">×</button>
+              </div>
+            </div>
+            <div className="booking-refund-timeline-content">
+              {timeline.length ? (
+                <ol className="booking-refund-timeline">
+                  {timeline.map((event) => (
+                    <li key={event.id}>
+                      <span className={`booking-refund-timeline-dot is-${event.action}`} aria-hidden="true" />
+                      <div>
+                        <div className="booking-refund-timeline-title"><strong>{event.title}</strong><em>{event.booking_code}</em></div>
+                        <p>{event.detail}</p>
+                        <small>{formatDate(event.created_at, true)} · {event.actor}</small>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              ) : <p className="booking-refund-timeline-empty">Chưa có hoạt động hoàn tiền hoặc xóa booking nào.</p>}
+            </div>
+          </section>
         </div>
-        {timeline.length ? (
-          <ol className="booking-refund-timeline">
-            {timeline.map((event) => (
-              <li key={event.id}>
-                <span className={`booking-refund-timeline-dot is-${event.action}`} aria-hidden="true" />
-                <div>
-                  <div className="booking-refund-timeline-title"><strong>{event.title}</strong><em>{event.booking_code}</em></div>
-                  <p>{event.detail}</p>
-                  <small>{formatDate(event.created_at, true)} · {event.actor}</small>
-                </div>
-              </li>
-            ))}
-          </ol>
-        ) : <p className="booking-refund-timeline-empty">Chưa có hoạt động hoàn tiền hoặc xóa booking nào.</p>}
-      </section>
+      ) : null}
     </section>
   )
 }

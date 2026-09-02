@@ -1170,18 +1170,32 @@ function ProfileDashboard({
     }).sort((a, b) => {
       if (bookingFilter === "all") {
         const stateOrder = {
-          cancellation_pending: 0,
-          refund_pending: 1,
-          refunded: 2,
-          upcoming: 3,
-          ongoing: 4,
-          awaiting_payment: 5,
-          completed: 6,
-          cancelled: 7,
+          ongoing: 0,
+          upcoming: 1,
+          awaiting_payment: 1,
+          completed: 2,
+          cancellation_pending: 3,
+          refund_pending: 3,
+          refunded: 3,
+          cancelled: 3,
         };
         const priorityDifference =
           (stateOrder[getBookingTripState(a)] ?? 5) -
           (stateOrder[getBookingTripState(b)] ?? 5);
+
+        if (priorityDifference !== 0) return priorityDifference;
+      }
+
+      if (bookingFilter === "cancelled_tours") {
+        const cancellationStateOrder = {
+          cancellation_pending: 0,
+          refund_pending: 1,
+          cancelled: 2,
+          refunded: 3,
+        };
+        const priorityDifference =
+          (cancellationStateOrder[getBookingTripState(a)] ?? 2) -
+          (cancellationStateOrder[getBookingTripState(b)] ?? 2);
 
         if (priorityDifference !== 0) return priorityDifference;
       }

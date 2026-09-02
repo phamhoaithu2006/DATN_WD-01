@@ -142,10 +142,14 @@ function getAssignments(departure) {
 
 function getLeadAssignment(departure) {
   const assignments = getAssignments(departure)
+  const isCancelled = ['cancelled', 'canceled'].includes(String(departure?.status || '').toLowerCase())
+    || String(departure?.schedule_group || '').toLowerCase() === 'cancelled'
 
   const activeAssignments = assignments.filter(
     (assignment) =>
-      !assignment.status || assignment.status === 'assigned'
+      isCancelled
+        ? assignment.status === 'cancelled'
+        : !assignment.status || ['assigned', 'confirmed'].includes(assignment.status)
   )
 
   return (
@@ -254,46 +258,17 @@ function isMinimumGuestWarning(departure) {
   return getBookedGuestCount(departure) < 10
 }
 
-function getStatusMeta(status) {
-  const normalizedStatus = String(status || '').toLowerCase()
+function getStatusMeta(departure) {
+  const status = String(departure?.status || '').toLowerCase()
+  const daysUntilDeparture = getDaysUntilDeparture(departure)
+  const isOpen = status === 'open'
+    && getDepartureTimeGroup(departure) === 'upcoming'
+    && daysUntilDeparture !== null
+    && daysUntilDeparture > 3
 
-  const map = {
-    open: {
-      text: 'Mở',
-      badge: 'text-emerald-700',
-    },
-    closed: {
-      text: 'Đóng',
-      badge: 'text-slate-600',
-    },
-    confirmed: {
-      text: 'Đóng',
-      badge: 'text-slate-600',
-    },
-    completed: {
-      text: 'Đóng',
-      badge: 'text-slate-600',
-    },
-    cancelled: {
-      text: 'Đóng',
-      badge: 'text-slate-600',
-    },
-    canceled: {
-      text: 'Đóng',
-      badge: 'text-slate-600',
-    },
-    in_progress: {
-      text: 'Đang diễn ra',
-      badge: 'text-slate-600',
-    },
-  }
-
-  return (
-    map[normalizedStatus] || {
-      text: status || 'Không rõ',
-      badge: 'text-gray-700',
-    }
-  )
+  return isOpen
+    ? { text: 'Mở', badge: 'text-emerald-700' }
+    : { text: 'Đóng', badge: 'text-slate-600' }
 }
 
 function getDateKey(value) {
@@ -369,6 +344,7 @@ function hasActiveBookings(departure) {
 }
 
 function hasAssignedGuide(departure) {
+  if (getDepartureTimeGroup(departure) === 'cancelled') return false
   const leadAssignment = getLeadAssignment(departure)
 
   return Boolean(leadAssignment || departure?.assignment_state === 'assigned')
@@ -1078,7 +1054,7 @@ export default function TourDepartureTable({
                       const daysUntilDeparture = getDaysUntilDeparture(item)
                       const tourTitle = getTourTitle(item)
                       const missingGuideWarning = isAssignmentWarningTarget(item) && !hasAssignedGuide(item)
-                      const statusMeta = getStatusMeta(item.status)
+                      const statusMeta = getStatusMeta(item)
                       const leadAssignment = getLeadAssignment(item)
 
                       const locked = isLockedDeparture(item)
@@ -1175,9 +1151,14 @@ export default function TourDepartureTable({
                                 leadAssignment ? 'text-emerald-700' : 'text-rose-600'
                               }`}
                             >
-                              {leadAssignment
-                                ? getGuideName(leadAssignment)
-                                : 'Chưa có HDV'}
+                              {leadAssignment ? (
+                                <span className="inline-flex flex-col items-center gap-1">
+                                  <span>{getGuideName(leadAssignment)}</span>
+                                  {getDepartureTimeGroup(item) === 'cancelled' ? (
+                                    <span className="text-[10px] font-semibold text-slate-400">HDV trước khi hủy</span>
+                                  ) : null}
+                                </span>
+                              ) : 'Chưa có HDV'}
                             </span>
                           </td>
 

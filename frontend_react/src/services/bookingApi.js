@@ -23,14 +23,17 @@ export const getBookings = async (params) =>
 export const getBookingStatistics = async () =>
   unwrap(await withBookingEndpointFallback((endpoint) => apiClient.get(`${endpoint}/statistics`)))
 
+export const getBookingTimeline = async () =>
+  unwrap(await withBookingEndpointFallback((endpoint) => apiClient.get(`${endpoint}/timeline`)))
+
 export const getBooking = async (id) =>
   unwrap(await withBookingEndpointFallback((endpoint) => apiClient.get(`${endpoint}/${id}`)))
 
 export const updateBooking = async (id, payload) =>
   unwrap(await withBookingEndpointFallback((endpoint) => apiClient.put(`${endpoint}/${id}`, payload)))
 
-export const cancelBooking = async (id) =>
-  unwrap(await withBookingEndpointFallback((endpoint) => apiClient.patch(`${endpoint}/${id}/cancel`)))
+export const cancelBooking = async (id, reason) =>
+  unwrap(await withBookingEndpointFallback((endpoint) => apiClient.patch(`${endpoint}/${id}/cancel`, { reason })))
 
 export const deleteBooking = async (id) =>
   unwrap(await withBookingEndpointFallback((endpoint) => apiClient.delete(`${endpoint}/${id}`)))

@@ -85,7 +85,7 @@
 
 .booking-refund-filters {
   display: grid;
-  grid-template-columns: minmax(300px, 1.6fr) minmax(145px, .55fr) minmax(145px, .55fr) auto;
+  grid-template-columns: minmax(300px, 1.6fr) minmax(145px, .55fr) minmax(145px, .55fr) auto auto;
   align-items: end;
   gap: 14px;
   padding: 18px 20px;
@@ -102,6 +102,10 @@
 .booking-refund-search input { padding-left: 38px; }
 .booking-refund-clear-button { min-height: 42px; padding: 0 15px; border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; color: #334155; font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; }
 .booking-refund-clear-button:hover { border-color: #0284c7; color: #0369a1; }
+.booking-refund-timeline-button { display: inline-flex; min-height: 42px; align-items: center; justify-content: center; gap: 7px; padding: 0 14px; border: 1px solid #bae6fd; border-radius: 10px; background: #f0f9ff; color: #0369a1; font: inherit; font-size: 13px; font-weight: 900; cursor: pointer; }
+.booking-refund-timeline-button:hover { border-color: #0284c7; background: #e0f2fe; }
+.booking-refund-timeline-button svg { stroke-width: 1.8; }
+.booking-refund-timeline-button span { min-width: 20px; padding: 2px 6px; border-radius: 999px; background: #0284c7; color: #fff; font-size: 10px; text-align: center; }
 
 .booking-refund-workspace { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(320px, .75fr); align-items: stretch; }
 .booking-refund-table-wrap { min-width: 0; overflow-x: auto; }
@@ -162,10 +166,16 @@
 .booking-refund-submit:hover { background: #0369a1; }
 .booking-refund-submit:disabled { cursor: not-allowed; opacity: .5; }
 
-.booking-refund-timeline-card { margin-top: 24px; padding: 20px 24px 24px; }
+.booking-refund-timeline-backdrop { position: fixed; z-index: 1200; inset: 0; display: grid; place-items: center; padding: 24px; background: rgba(15, 23, 42, .5); backdrop-filter: blur(2px); }
+.booking-refund-timeline-dialog { width: min(680px, 100%); max-height: min(720px, calc(100vh - 48px)); overflow: hidden; border: 1px solid #dbeafe; border-radius: 18px; background: #fff; box-shadow: 0 24px 70px rgba(15, 23, 42, .25); }
 .booking-refund-timeline-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0; }
+.booking-refund-timeline-dialog .booking-refund-timeline-heading { align-items: center; padding: 20px 22px 16px; }
 .booking-refund-timeline-heading h2 { margin: 5px 0 0; color: #0f172a; font-size: 19px; }
 .booking-refund-timeline-heading > strong { color: #64748b; font-size: 12px; }
+.booking-refund-timeline-heading-actions { display: flex; align-items: center; gap: 12px; color: #64748b; font-size: 12px; }
+.booking-refund-timeline-heading-actions button { display: grid; width: 34px; height: 34px; place-items: center; border: 1px solid #e2e8f0; border-radius: 50%; background: #fff; color: #64748b; font-size: 22px; line-height: 1; cursor: pointer; }
+.booking-refund-timeline-heading-actions button:hover { border-color: #bae6fd; background: #f0f9ff; color: #0369a1; }
+.booking-refund-timeline-content { max-height: calc(min(720px, 100vh - 48px) - 86px); overflow-y: auto; padding: 4px 22px 22px; }
 .booking-refund-timeline { position: relative; display: grid; gap: 0; margin: 18px 0 0; padding: 0; list-style: none; }
 .booking-refund-timeline::before { position: absolute; top: 9px; bottom: 9px; left: 6px; width: 1px; background: #cbd5e1; content: ''; }
 .booking-refund-timeline li { position: relative; display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 14px; padding-bottom: 18px; }
@@ -192,5 +202,6 @@
   .booking-refund-filters { grid-template-columns: 1fr 1fr; }
   .booking-refund-search { grid-column: 1 / -1; }
   .booking-refund-clear-button { width: 100%; }
+  .booking-refund-timeline-button { width: 100%; }
   .booking-refund-timeline-heading { align-items: flex-start; flex-direction: column; }
 }

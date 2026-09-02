@@ -106,6 +106,10 @@ class BookingCancellationEmailService
                 ?: 'Quý khách',
             'mail_subject' => $sourceContent['mail_subject'],
             'headline' => $sourceContent['headline'],
+            'follow_up_message' => $source === self::SOURCE_ADMIN_BOOKING
+                && $refundStatus['code'] === 'refund_pending'
+                    ? 'Vui lòng giữ liên lạc; nhân viên ViVuGo sẽ liên hệ và hoàn lại số tiền quý khách đã thanh toán trong vòng 24 giờ.'
+                    : null,
             'cancellation_source' => $source,
             'booking_code' => $booking->booking_code,
             'tour_title' => $booking->tour?->title ?: 'Tour đã đặt',

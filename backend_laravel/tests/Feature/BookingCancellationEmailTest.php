@@ -408,7 +408,9 @@ test('admin cancelling an individual booking queues one cancellation email', fun
 
     Mail::assertSent(BookingCancellationMail::class, fn (BookingCancellationMail $mail): bool => $mail->hasTo($customer->email)
         && $mail->cancellation['mail_subject'] === 'Thông báo booking bị hủy'
+        && $mail->cancellation['follow_up_message'] === 'Vui lòng giữ liên lạc; nhân viên ViVuGo sẽ liên hệ và hoàn lại số tiền quý khách đã thanh toán trong vòng 24 giờ.'
         && str_contains($mail->render(), 'Booking của quý khách đã bị hủy bởi quản trị viên.')
+        && str_contains($mail->render(), 'nhân viên ViVuGo sẽ liên hệ và hoàn lại số tiền quý khách đã thanh toán trong vòng 24 giờ.')
         && str_contains($mail->render(), $reason));
     Mail::assertSentCount(1);
 });

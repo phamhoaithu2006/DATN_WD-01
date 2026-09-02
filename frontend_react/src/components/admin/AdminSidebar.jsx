@@ -78,6 +78,12 @@ const menuItems = [
   {
     label: 'Người Dùng',
     path: '/admin/users',
+    children: [
+      { label: 'Khách hàng', path: '/admin/users/customers' },
+      { label: 'Quản trị viên', path: '/admin/users/admins' },
+      { label: 'Nhân viên hỗ trợ', path: '/admin/users/support-staff' },
+      { label: 'Hướng dẫn viên', path: '/admin/users/tour-guides' },
+    ],
     icon: (
       <>
         <path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
@@ -292,6 +298,8 @@ function AdminSidebar({
     location.pathname.startsWith('/admin/categories') ||
     location.pathname.startsWith('/admin/destination-places')
   const [isTourMenuOpen, setIsTourMenuOpen] = useState(isTourSuiteActive)
+  const isUserSuiteActive = location.pathname.startsWith('/admin/users')
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(isUserSuiteActive)
   const isDepartureSuiteActive = location.pathname.startsWith('/admin/tour-departures')
   const [isDepartureMenuOpen, setIsDepartureMenuOpen] = useState(isDepartureSuiteActive)
   const isBookingSuiteActive =
@@ -315,6 +323,10 @@ function AdminSidebar({
   useEffect(() => {
     setIsTourMenuOpen(isTourSuiteActive)
   }, [isTourSuiteActive])
+
+  useEffect(() => {
+    setIsUserMenuOpen(isUserSuiteActive)
+  }, [isUserSuiteActive])
 
   useEffect(() => {
     setIsDepartureMenuOpen(isDepartureSuiteActive)
@@ -507,7 +519,9 @@ function AdminSidebar({
 
       <nav className="admin-nav" aria-label="Điều hướng quản trị">
         {visibleMenuItems.map((item) => {
-          const badgeCount = item.showUnassignedDepartureBadge
+          const badgeCount = item.path === '/admin/bookings'
+            ? bookingDisruptionPendingCount + bookingRefundPendingCount
+            : item.showUnassignedDepartureBadge
             ? assignmentWarningCount
             : item.showGuideLeaveBadge
               ? guideLeavePendingCount
@@ -520,12 +534,15 @@ function AdminSidebar({
           if (item.children) {
             const isDepartureGroup = item.path === '/admin/tour-departures'
             const isBookingGroup = item.path === '/admin/bookings'
+            const isUserGroup = item.path === '/admin/users'
             const isGuideGroup = item.path === '/admin/guides'
             const isNotificationGroup = item.path === ADMIN_RECEIVED_NOTIFICATIONS_PATH
             const isGroupActive = isDepartureGroup
               ? isDepartureSuiteActive
               : isBookingGroup
                 ? isBookingSuiteActive
+                : isUserGroup
+                  ? isUserSuiteActive
                 : isGuideGroup
                   ? isGuideSuiteActive
                   : isNotificationGroup
@@ -535,6 +552,8 @@ function AdminSidebar({
               ? isDepartureMenuOpen
               : isBookingGroup
                 ? isBookingMenuOpen
+                : isUserGroup
+                  ? isUserMenuOpen
                 : isGuideGroup
                   ? isGuideMenuOpen
                   : isNotificationGroup
@@ -544,6 +563,8 @@ function AdminSidebar({
               ? setIsDepartureMenuOpen
               : isBookingGroup
                 ? setIsBookingMenuOpen
+                : isUserGroup
+                  ? setIsUserMenuOpen
                 : isGuideGroup
                   ? setIsGuideMenuOpen
                   : isNotificationGroup
@@ -553,6 +574,8 @@ function AdminSidebar({
               ? 'admin-departure-submenu'
               : isBookingGroup
                 ? 'admin-booking-submenu'
+                : isUserGroup
+                  ? 'admin-user-submenu'
                 : isGuideGroup
                   ? 'admin-guide-submenu'
                   : isNotificationGroup

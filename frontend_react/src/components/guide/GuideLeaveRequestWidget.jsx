@@ -387,9 +387,6 @@ function GuideLeaveRequestWidget() {
           <path d="m9 16 2 2 4-5" />
         </svg>
         <span>Xin nghỉ</span>
-        {Number(summary?.pending_count || 0) > 0 ? (
-          <strong>{summary.pending_count > 99 ? '99+' : summary.pending_count}</strong>
-        ) : null}
       </button>
 
       {open ? (
@@ -551,9 +548,10 @@ function GuideLeaveRequestWidget() {
                 {fieldErrors.reason ? <small>{fieldErrors.reason}</small> : null}
               </label>
 
-              <label>
-                Ảnh/PDF bằng chứng nếu có
+              <label className="guide-leave-file-upload">
+                <span className="guide-leave-file-upload-title">Ảnh/PDF bằng chứng nếu có</span>
                 <input
+                  className="guide-leave-file-input"
                   type="file"
                   multiple
                   accept="image/*,application/pdf"
@@ -561,6 +559,7 @@ function GuideLeaveRequestWidget() {
                     updateForm('evidence', Array.from(event.target.files || []))
                   }
                 />
+                <small>PNG, JPG, WEBP hoặc PDF · Có thể chọn nhiều tệp</small>
               </label>
 
               {form.evidence.length > 0 ? (

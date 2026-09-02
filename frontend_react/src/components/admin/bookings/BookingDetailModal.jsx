@@ -29,13 +29,18 @@ function cancellationReasonLabel(booking) {
 
 const STATUS_LABELS = {
   awaiting_payment: 'Chờ thanh toán',
-  confirmed: 'Đã xác nhận',
+  confirmed: 'Sắp diễn ra',
   upcoming: 'Sắp diễn ra',
   departed: 'Đang diễn ra',
   completed: 'Đã kết thúc',
   cancelled: 'Đã hủy',
   cancelled_by_tour: 'Đã hủy bởi tour',
   retained: 'Đang bảo lưu',
+  unpaid: 'Chưa thanh toán',
+  paid: 'Đã thanh toán',
+  failed: 'Thất bại',
+  refund_pending: 'Chờ hoàn tiền',
+  refunded: 'Đã hoàn tiền',
 }
 
 const REQUEST_TYPE_LABELS = {
@@ -234,6 +239,9 @@ function BookingDetailModal({ booking, busy, onClose, onDeleteRefundProof, onInv
   const [expandedParticipant, setExpandedParticipant] = useState(null)
   const [itineraryOpen, setItineraryOpen] = useState(false)
   const [selectedItineraryDay, setSelectedItineraryDay] = useState(1)
+  const [cancellationOpen, setCancellationOpen] = useState(false)
+  const [cancellationReason, setCancellationReason] = useState('')
+  const [cancellationError, setCancellationError] = useState('')
 
   if (!booking) return null
 
@@ -249,7 +257,8 @@ function BookingDetailModal({ booking, busy, onClose, onDeleteRefundProof, onInv
     ? booking.information_change_histories
     : []
   const disruptionRequests = Array.isArray(booking.disruption_requests) ? booking.disruption_requests : []
-  const cancellationHistories = statusHistories.filter((history) => history.new_status === 'cancelled')
+  const auditLogs = Array.isArray(booking.audit_logs) ? booking.audit_logs : []
+  const cancellationHistories = statusHistories.filter((history) => ['cancelled', 'cancelled_by_tour'].includes(history.new_status))
   const displayStatus = booking.display_status || booking.status
   const capabilities = booking.capabilities || {}
   const isReadOnly = isBookingReadOnly(booking)
@@ -258,6 +267,24 @@ function BookingDetailModal({ booking, busy, onClose, onDeleteRefundProof, onInv
   const refundStatus = ['refund_pending', 'refunded'].includes(booking.payment_status)
     ? booking.payment_status
     : null
+  const approvedCustomerCancellation = disruptionRequests
+    .filter((request) => request.status === 'approved' && ['refund', 'retain'].includes(request.type))
+    .sort((a, b) => Number(b.id || 0) - Number(a.id || 0))[0]
+  const isCancelledAtCustomerRequest = Boolean(approvedCustomerCancellation)
+  const isCancelledByAdmin = auditLogs.some((event) => event.action === 'admin_cancelled')
+    || booking.status === 'cancelled_by_tour'
+    || ['cancelled', 'canceled'].includes(String(departure.status || '').toLowerCase())
+  const cancellationActor = isCancelledAtCustomerRequest
+    ? 'Yêu cầu của khách hàng'
+    : isCancelledByAdmin
+      ? 'Quản trị viên'
+      : 'Khách hàng'
+  const recordedCancellationReason = approvedCustomerCancellation?.reason
+    || cancellationReasonLabel(booking)
+    || cancellationHistories[0]?.note
+  const cancellationTime = booking.cancelled_at
+    || approvedCustomerCancellation?.processed_at
+    || cancellationHistories[0]?.created_at
   const departureDate = departure.departure_date ? formatDate(departure.departure_date) : 'Chưa cập nhật'
   const returnDate = departure.return_date ? formatDate(departure.return_date) : 'Chưa cập nhật'
   const departureLocation = departure.departure_location || departure.meeting_point || 'Chưa cập nhật'
@@ -290,6 +317,9 @@ function BookingDetailModal({ booking, busy, onClose, onDeleteRefundProof, onInv
     ?? (booking.status === 'awaiting_payment' && isEligible)
   const canRefund = capabilities.can_refund
     ?? (booking.status === 'confirmed' && displayStatus === 'confirmed')
+  const canAdminCancel = !isCancelled
+    && !['departed', 'completed'].includes(booking.status)
+    && !['departed', 'completed'].includes(displayStatus)
   const statusValue = booking.status || ''
   const detailStatusOptions = [
     { value: 'awaiting_payment', label: 'Chờ thanh toán', disabled: booking.status !== 'awaiting_payment' && !canSetAwaitingPayment },
@@ -362,7 +392,14 @@ function BookingDetailModal({ booking, busy, onClose, onDeleteRefundProof, onInv
 
           {isCancelled ? (
             <section className={`booking-trip-cancelled${refundStatus ? ` is-${refundStatus}` : ''}`} aria-label="Trạng thái tour">
-              <div><Icon name="xCircle" size={17} /> {STATUS_LABELS[booking.status] || 'Đã hủy'}</div>
+              <div>
+                <Icon name="xCircle" size={17} />
+                {isCancelledAtCustomerRequest
+                  ? 'Đã hủy theo yêu cầu của khách hàng'
+                  : isCancelledByAdmin
+                    ? 'Đã hủy bởi quản trị viên'
+                    : STATUS_LABELS[booking.status] || 'Đã hủy'}
+              </div>
             </section>
           ) : (
             <section className="booking-trip-progress" aria-label="Tiến độ chuyến đi">
@@ -402,25 +439,25 @@ function BookingDetailModal({ booking, busy, onClose, onDeleteRefundProof, onInv
             <section className={`booking-trip-card${isCancelled ? ' is-cancelled' : ''}${refundStatus ? ` is-${refundStatus}` : ''}`}>
               <div className="booking-trip-card-title">
                 <Icon name={isCancelled ? 'alertCircle' : 'checkCircle'} size={17} />
-                <h3>{refundStatus ? 'Trạng thái hoàn tiền' : 'Trạng thái tour'}</h3>
+                <h3>Trạng thái</h3>
               </div>
               <div className="booking-trip-status-panel">
-                <span>Trạng thái hiện tại</span>
+                <span>{refundStatus ? 'Trạng thái thanh toán' : 'Trạng thái hiện tại'}</span>
                 <strong>{refundStatus ? STATUS_LABELS[refundStatus] || refundStatus : isCancelled ? 'Tour đã hủy' : STATUS_LABELS[displayStatus] || displayStatus || 'Chưa cập nhật'}</strong>
               </div>
               {isCancelled ? (
                 <div className="booking-trip-cancellation-info">
                   <div>
                     <span>Người đã hủy tour</span>
-                    <strong>{booking.status === 'cancelled_by_tour' ? 'Quản trị viên' : 'Khách hàng'}</strong>
+                    <strong>{cancellationActor}</strong>
                   </div>
                   <div>
                     <span>Thời gian hủy</span>
-                    <strong>{formatDateTime(booking.cancelled_at || cancellationHistories[0]?.created_at)}</strong>
+                    <strong>{formatDateTime(cancellationTime)}</strong>
                   </div>
                   <div>
                     <span>Lý do</span>
-                    <p>{cancellationReasonLabel(booking)}</p>
+                    <p>{recordedCancellationReason}</p>
                   </div>
                 </div>
               ) : (
@@ -729,8 +766,71 @@ function BookingDetailModal({ booking, busy, onClose, onDeleteRefundProof, onInv
         </div>
 
         <footer className="booking-trip-footer">
+          {canAdminCancel ? (
+            <button
+              type="button"
+              className="booking-trip-cancel-button"
+              disabled={busy}
+              onClick={() => {
+                setCancellationOpen(true)
+                setCancellationError('')
+              }}
+            >
+              <Icon name="xCircle" size={17} />
+              Hủy booking
+            </button>
+          ) : null}
           <button type="button" onClick={onClose}>Đóng</button>
         </footer>
+
+        {cancellationOpen ? (
+          <div className="booking-cancel-confirm-backdrop" role="presentation" onMouseDown={() => !busy && setCancellationOpen(false)}>
+            <section className="booking-cancel-confirm-card" role="alertdialog" aria-modal="true" aria-labelledby="booking-cancel-confirm-title" onMouseDown={(event) => event.stopPropagation()}>
+              <div className="booking-cancel-confirm-icon"><Icon name="alertCircle" size={23} /></div>
+              <div>
+                <span>Xác nhận thao tác</span>
+                <h3 id="booking-cancel-confirm-title">Hủy booking {booking.booking_code}</h3>
+                <p>Khách hàng sẽ nhận thông báo trên hệ thống và email. Thao tác này được lưu vào timeline booking.</p>
+              </div>
+              <label htmlFor="booking-cancel-reason">Lý do hủy <b>*</b></label>
+              <textarea
+                id="booking-cancel-reason"
+                rows={4}
+                maxLength={1000}
+                autoFocus
+                value={cancellationReason}
+                placeholder="Nhập lý do rõ ràng để thông báo cho khách hàng..."
+                onChange={(event) => {
+                  setCancellationReason(event.target.value)
+                  if (event.target.value.trim()) setCancellationError('')
+                }}
+              />
+              <div className="booking-cancel-confirm-meta">
+                <small className={cancellationError ? 'is-error' : ''}>{cancellationError || 'Tối đa 1.000 ký tự'}</small>
+                <small>{cancellationReason.length}/1000</small>
+              </div>
+              <div className="booking-cancel-confirm-actions">
+                <button type="button" disabled={busy} onClick={() => setCancellationOpen(false)}>Quay lại</button>
+                <button
+                  type="button"
+                  className="is-danger"
+                  disabled={busy}
+                  onClick={async () => {
+                    const reason = cancellationReason.trim()
+                    if (!reason) {
+                      setCancellationError('Vui lòng nhập lý do hủy booking.')
+                      return
+                    }
+                    const cancelled = await onStatusChange(booking, 'cancelled', { reason })
+                    if (cancelled) setCancellationOpen(false)
+                  }}
+                >
+                  {busy ? 'Đang hủy...' : 'Xác nhận hủy booking'}
+                </button>
+              </div>
+            </section>
+          </div>
+        ) : null}
       </article>
     </div>
   )
