@@ -1,7 +1,6 @@
 export const statusOptions = [
   { value: '', label: 'Tất cả trạng thái' },
   { value: 'awaiting_payment', label: 'Chờ thanh toán' },
-  { value: 'confirmed', label: 'Đã xác nhận' },
   { value: 'upcoming', label: 'Sắp diễn ra' },
   { value: 'departed', label: 'Đang diễn ra' },
   { value: 'completed', label: 'Đã kết thúc' },
@@ -14,12 +13,12 @@ export const paymentOptions = [
   { value: 'paid', label: 'Đã thanh toán' },
   { value: 'failed', label: 'Thất bại' },
   { value: 'refund_pending', label: 'Chờ hoàn tiền' },
-  { value: 'refunded', label: 'Hoàn tiền' },
+  { value: 'refunded', label: 'Đã hoàn tiền' },
 ]
 
 export const statusMeta = {
   awaiting_payment: { label: 'Chờ thanh toán', className: 'waiting' },
-  confirmed: { label: 'Đã xác nhận', className: 'confirmed' },
+  confirmed: { label: 'Sắp diễn ra', className: 'upcoming' },
   upcoming: { label: 'Sắp diễn ra', className: 'upcoming' },
   departed: { label: 'Đang diễn ra', className: 'departed' },
   completed: { label: 'Đã kết thúc', className: 'completed' },
@@ -33,5 +32,5 @@ export const paymentMeta = {
   paid: { label: 'Đã thanh toán', className: 'paid' },
   failed: { label: 'Thất bại', className: 'failed' },
   refund_pending: { label: 'Chờ hoàn tiền', className: 'failed' },
-  refunded: { label: 'Hoàn tiền', className: 'refunded' },
+  refunded: { label: 'Đã hoàn tiền', className: 'refunded' },
 }

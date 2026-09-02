@@ -1,5 +1,5 @@
 import BookingBadge from './BookingBadge'
-import { CheckIcon, CloseIcon, EyeIcon, TrashIcon } from './BookingIcons'
+import { EyeIcon, TrashIcon } from './BookingIcons'
 import {
   customerName,
   customerPhone,
@@ -35,32 +35,14 @@ const participantPreviewFor = (booking) => {
   return remaining > 0 ? `${names.join(', ')} +${remaining}` : names.join(', ')
 }
 
-function BookingActions({ booking, busy, onCancel, onConfirm, onDelete, onView }) {
+function BookingActions({ booking, busy, onDelete, onView }) {
   const canDelete = canDeleteBooking(booking)
-  const displayStatus = booking.display_status || booking.status
-  const isAwaitingPayment = displayStatus === 'awaiting_payment' && booking.status === 'awaiting_payment'
-  const canConfirm = booking.capabilities?.can_confirm ?? isAwaitingPayment
-  const canCancel = booking.capabilities?.can_cancel ?? isAwaitingPayment
 
   return (
     <div className="booking-row-actions">
       <button type="button" title="Xem chi tiết" onClick={() => onView(booking)} disabled={!!busy}>
         <EyeIcon />
       </button>
-      {canConfirm || canCancel ? (
-        <>
-          {canConfirm ? (
-            <button className="success" type="button" title="Xác nhận booking" onClick={() => onConfirm(booking)} disabled={!!busy || !canConfirm}>
-              <CheckIcon />
-            </button>
-          ) : null}
-          {canCancel ? (
-            <button className="danger" type="button" title="Hủy booking" onClick={() => onCancel(booking)} disabled={!!busy || !canCancel}>
-              <CloseIcon />
-            </button>
-          ) : null}
-        </>
-      ) : null}
       {canDelete ? (
         <button className="danger" type="button" title="Xóa mềm" onClick={() => onDelete(booking)} disabled={!!busy}>
           <TrashIcon />

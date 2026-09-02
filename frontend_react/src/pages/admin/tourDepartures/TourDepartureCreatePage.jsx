@@ -102,7 +102,7 @@ function validateTourDepartureForm(formData, selectedTourId) {
 
   if (isBlank(formData.status)) {
     errors.status = 'Vui lòng chọn trạng thái.'
-  } else if (!['open', 'closed', 'completed', 'cancelled'].includes(formData.status)) {
+  } else if (!['open', 'closed'].includes(formData.status)) {
     errors.status = 'Trạng thái lịch khởi hành không hợp lệ.'
   }
 

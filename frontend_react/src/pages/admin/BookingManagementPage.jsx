@@ -19,6 +19,7 @@ import {
   getBooking,
   getBookings,
   getBookingStatistics,
+  getBookingTimeline,
   updateBooking,
 } from '../../services/bookingApi'
 import { confirmPayment, deleteRefundProof, failPayment, refundPayment } from '../../services/paymentApi'
@@ -43,6 +44,9 @@ function BookingManagementPage() {
   const [busy, setBusy] = useState(null)
   const [detail, setDetail] = useState(null)
   const [notice, setNotice] = useState(null)
+  const [timelineOpen, setTimelineOpen] = useState(false)
+  const [timelineLoading, setTimelineLoading] = useState(false)
+  const [timelineEvents, setTimelineEvents] = useState([])
 
   const params = useMemo(
     () => ({
@@ -112,6 +116,36 @@ function BookingManagementPage() {
     setPage(1)
   }
 
+  const openTimeline = async () => {
+    setTimelineOpen(true)
+    setTimelineLoading(true)
+    try {
+      const response = await getBookingTimeline()
+      setTimelineEvents(Array.isArray(response?.data) ? response.data : [])
+    } catch (error) {
+      setTimelineEvents([])
+      setNotice({ type: 'error', text: messageFrom(error) })
+    } finally {
+      setTimelineLoading(false)
+    }
+  }
+
+  const timelineActionLabel = (action) => ({
+    booking_viewed: 'Xem chi tiết',
+    booking_created: 'Tạo booking',
+    booking_information_updated: 'Cập nhật thông tin',
+    booking_status_updated: 'Cập nhật trạng thái',
+    admin_cancelled: 'Admin hủy booking',
+    customer_cancelled: 'Khách hủy booking',
+    admin_disruption_approved: 'Duyệt yêu cầu hủy',
+    payment_failed: 'Thanh toán thất bại',
+    payment_refund_pending: 'Chờ hoàn tiền',
+    refund_completed: 'Đã hoàn tiền',
+    moved_to_trash: 'Chuyển vào thùng rác',
+    restored: 'Khôi phục booking',
+    hard_deleted: 'Xóa vĩnh viễn',
+  }[action] || String(action || '').replaceAll('_', ' '))
+
   const refreshDetail = async (bookingId) => {
     if (!detail || Number(detail.id) !== Number(bookingId)) return
 
@@ -119,12 +153,12 @@ function BookingManagementPage() {
     setDetail(payload.data || payload)
   }
 
-  const updateStatus = async (booking, nextStatus) => {
+  const updateStatus = async (booking, nextStatus, options = {}) => {
     setBusy(`${booking.id}-${nextStatus}`)
     try {
       const response =
         nextStatus === 'cancelled'
-          ? await cancelBooking(booking.id)
+          ? await cancelBooking(booking.id, options.reason)
           : await updateBooking(booking.id, { status: nextStatus })
 
       setNotice({ type: 'success', text: response.message || 'Cập nhật booking thành công.' })
@@ -133,8 +167,10 @@ function BookingManagementPage() {
       if (nextStatus === 'cancelled') {
         window.dispatchEvent(new CustomEvent('admin-booking-refund:changed'))
       }
+      return true
     } catch (error) {
       setNotice({ type: 'error', text: messageFrom(error) })
+      return false
     } finally {
       setBusy(null)
     }
@@ -286,7 +322,6 @@ function BookingManagementPage() {
   const cards = [
     { key: 'total', label: 'Tổng', value: statistics.total || meta.total || bookings.length, className: 'total' },
     { key: 'awaiting_payment', label: 'Chờ thanh toán', value: statistics.awaiting_payment || 0, className: 'pending' },
-    { key: 'confirmed', label: 'Đã xác nhận', value: statistics.confirmed || 0, className: 'confirmed' },
     { key: 'upcoming', label: 'Sắp diễn ra', value: statistics.upcoming || 0, className: 'upcoming' },
     { key: 'departed', label: 'Đang diễn ra', value: statistics.departed || 0, className: 'pending' },
     { key: 'completed', label: 'Đã kết thúc', value: statistics.completed || 0, className: 'completed' },
@@ -329,6 +364,7 @@ function BookingManagementPage() {
         onSortByChange={setSortBy}
         onSortDirChange={setSortDir}
         onStatusChange={changeFilter(setStatus)}
+        onTimelineOpen={() => void openTimeline()}
       />
 
       <BookingTable
@@ -352,6 +388,35 @@ function BookingManagementPage() {
           setPerPage(value)
         }}
       />
+
+      {timelineOpen ? (
+        <div className="booking-timeline-backdrop" role="presentation" onMouseDown={() => setTimelineOpen(false)}>
+          <section className="booking-timeline-dialog" role="dialog" aria-modal="true" aria-labelledby="booking-timeline-title" onMouseDown={(event) => event.stopPropagation()}>
+            <header>
+              <div><span>Nhật ký booking</span><h2 id="booking-timeline-title">Timeline hoạt động booking</h2></div>
+              <button type="button" onClick={() => setTimelineOpen(false)} aria-label="Đóng timeline">×</button>
+            </header>
+            <div className="booking-timeline-content">
+              {timelineLoading ? <p className="booking-timeline-empty">Đang tải timeline...</p> : null}
+              {!timelineLoading && !timelineEvents.length ? <p className="booking-timeline-empty">Chưa có hoạt động booking nào.</p> : null}
+              {!timelineLoading && timelineEvents.length ? (
+                <ol className="booking-timeline-list">
+                  {timelineEvents.map((event) => (
+                    <li key={event.id}>
+                      <i aria-hidden="true" />
+                      <div>
+                        <div className="booking-timeline-event-title"><strong>{event.booking_code || `#${event.booking_id}`}</strong><span>{timelineActionLabel(event.action)}</span></div>
+                        {event.reason ? <p>{event.reason}</p> : null}
+                        <small>{event.actor} · {event.created_at ? new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(event.created_at.replace(' ', 'T'))) : '--'}</small>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              ) : null}
+            </div>
+          </section>
+        </div>
+      ) : null}
 
       {detail ? (
         <BookingDetailModal

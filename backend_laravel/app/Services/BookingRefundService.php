@@ -17,15 +17,17 @@ class BookingRefundService
         private readonly BookingStatusService $bookingStatusService,
         private readonly VnpayPaymentLifecycleService $paymentLifecycleService,
         private readonly BookingAuditService $bookingAuditService,
+        private readonly BookingRefundEmailService $bookingRefundEmailService,
     ) {}
 
     public function refundDirect(int $paymentId, UploadedFile $proof): Payment
     {
         $storedPath = null;
         $oldPath = null;
+        $wasAlreadyRefunded = false;
 
         try {
-            [$payment, $oldPath] = DB::transaction(function () use ($paymentId, $proof, &$storedPath): array {
+            [$payment, $oldPath] = DB::transaction(function () use ($paymentId, $proof, &$storedPath, &$wasAlreadyRefunded): array {
                 $payment = Payment::query()
                     ->with(['booking.tour', 'booking.tourDeparture'])
                     ->lockForUpdate()
@@ -43,6 +45,7 @@ class BookingRefundService
                 $oldPaymentStatus = $booking->payment_status;
 
                 if ($payment->status === 'refunded') {
+                    $wasAlreadyRefunded = true;
                     $storedPath = $proof->store('refund-proofs', 'public');
                     $oldPath = $payment->refund_proof_path;
                     $payment->update([
@@ -94,6 +97,10 @@ class BookingRefundService
             Storage::disk('public')->delete($oldPath);
         }
 
+        if (! $wasAlreadyRefunded) {
+            $this->bookingRefundEmailService->enqueue($payment);
+        }
+
         return $payment;
     }
 
@@ -102,7 +109,7 @@ class BookingRefundService
         $storedPath = null;
 
         try {
-            return DB::transaction(function () use ($requestId, $proof, &$storedPath): Payment {
+            $payment = DB::transaction(function () use ($requestId, $proof, &$storedPath): Payment {
                 $refundRequest = BookingDisruptionRequest::query()
                     ->lockForUpdate()
                     ->findOrFail($requestId);
@@ -160,6 +167,10 @@ class BookingRefundService
 
             throw $exception;
         }
+
+        $this->bookingRefundEmailService->enqueue($payment);
+
+        return $payment;
     }
 
     /**
@@ -170,9 +181,10 @@ class BookingRefundService
     {
         $storedPath = null;
         $oldPath = null;
+        $wasAlreadyRefunded = false;
 
         try {
-            [$payment, $oldPath] = DB::transaction(function () use ($bookingId, $proof, $actorId, &$storedPath): array {
+            [$payment, $oldPath] = DB::transaction(function () use ($bookingId, $proof, $actorId, &$storedPath, &$wasAlreadyRefunded): array {
                 $booking = Booking::query()
                     ->with(['tour', 'tourDeparture'])
                     ->lockForUpdate()
@@ -234,6 +246,10 @@ class BookingRefundService
 
         if ($oldPath && $oldPath !== $payment->refund_proof_path) {
             Storage::disk('public')->delete($oldPath);
+        }
+
+        if (! $wasAlreadyRefunded) {
+            $this->bookingRefundEmailService->enqueue($payment);
         }
 
         return $payment;
