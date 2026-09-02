@@ -1348,28 +1348,6 @@ function AdminReceivedNotificationsPage() {
     selectedNotification,
   ])
 
-  useEffect(() => {
-    const handleFocus = () => {
-      void loadNotifications()
-      void loadUnreadCount()
-    }
-
-    window.addEventListener(
-      'focus',
-      handleFocus,
-    )
-
-    return () => {
-      window.removeEventListener(
-        'focus',
-        handleFocus,
-      )
-    }
-  }, [
-    loadNotifications,
-    loadUnreadCount,
-  ])
-
   async function processSupportRequest() {
     if (
       !selectedRequestId ||

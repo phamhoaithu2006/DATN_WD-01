@@ -55,11 +55,20 @@
 }
 
 .booking-stat-card.total {
-  background: #eef5ff;
+  background: #dbeafe;
+  border: 1px solid #bfdbfe;
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.12);
+  min-width: 90px;
+  padding: 12px 18px;
 }
 
 .booking-stat-card.total strong {
   color: #061633;
+  font-size: 30px;
+}
+
+.booking-stat-card.total span {
+  font-size: 14px;
 }
 
 .booking-stat-card.pending {

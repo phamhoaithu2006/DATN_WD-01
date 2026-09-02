@@ -84,19 +84,6 @@ function BookingManagementPage() {
   }, [load])
 
   useEffect(() => {
-    const refreshLatestBookings = () => {
-      if (page === 1) {
-        void load()
-      } else {
-        setPage(1)
-      }
-    }
-
-    window.addEventListener('focus', refreshLatestBookings)
-    return () => window.removeEventListener('focus', refreshLatestBookings)
-  }, [load, page])
-
-  useEffect(() => {
     if (!notice) return undefined
 
     const timer = setTimeout(() => {
@@ -314,7 +301,7 @@ function BookingManagementPage() {
         actions={
           <div className="booking-header-actions">
             <button type="button" className="booking-trash-page-button" onClick={() => navigate('/admin/bookings/trash')}>Thùng rác</button>
-            <BookingStats activeStatus={status} cards={cards} onStatusChange={changeFilter(setStatus)} />
+            <BookingStats activeStatus={status} cards={[cards[0]]} onStatusChange={changeFilter(setStatus)} />
           </div>
         }
       />
