@@ -15,6 +15,7 @@ use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -24,9 +25,9 @@ class PublicCatalogController extends Controller
     {
         $categories = Category::query()
             ->where('status', 'active')
-            ->whereHas('tours', fn (Builder $query) => $this->applyAvailableTourConstraints($query))
+            ->whereHas('tours', fn(Builder $query) => $this->applyAvailableTourConstraints($query))
             ->withCount([
-                'tours as tour_count' => fn (Builder $query) => $this->applyAvailableTourConstraints($query),
+                'tours as tour_count' => fn(Builder $query) => $this->applyAvailableTourConstraints($query),
             ])
             ->orderByDesc('tour_count')
             ->orderBy('name')
@@ -34,9 +35,9 @@ class PublicCatalogController extends Controller
             ->get(['id', 'name', 'slug', 'description', 'thumbnail_url']);
 
         $destinationProvinces = Province::query()
-            ->whereHas('tours', fn (Builder $query) => $this->applyAvailableTourConstraints($query))
+            ->whereHas('tours', fn(Builder $query) => $this->applyAvailableTourConstraints($query))
             ->withCount([
-                'tours as tour_count' => fn (Builder $query) => $this->applyAvailableTourConstraints($query),
+                'tours as tour_count' => fn(Builder $query) => $this->applyAvailableTourConstraints($query),
             ])
             ->orderByDesc('tour_count')
             ->orderBy('name')
@@ -46,7 +47,7 @@ class PublicCatalogController extends Controller
         $destinationImages = $this->destinationImages($destinationProvinces);
 
         $destinations = $destinationProvinces
-            ->map(fn (Province $province): array => [
+            ->map(fn(Province $province): array => [
                 'id' => $province->id,
                 'name' => $province->name,
                 'slug' => $province->slug,
@@ -54,7 +55,7 @@ class PublicCatalogController extends Controller
                 'country' => 'Việt Nam',
                 'thumbnail_url' => $destinationImages->get($province->id)?->thumbnail_url,
                 'thumbnail_alt_text' => $destinationImages->get($province->id)?->alt_text
-                    ?: 'Ảnh điểm đến '.$province->name,
+                    ?: 'Ảnh điểm đến ' . $province->name,
                 'place_name' => $destinationImages->get($province->id)?->place_name,
                 'tour_count' => (int) $province->tour_count,
             ])
@@ -65,7 +66,7 @@ class PublicCatalogController extends Controller
                 'category:id,name,slug',
                 'province:id,name,code',
                 'thumbnail:id,tour_id,image_url,alt_text,is_thumbnail,sort_order',
-                'departures' => fn (Builder|HasMany $query) => $this->applyAvailableDepartureConstraints($query)
+                'departures' => fn(Builder|HasMany $query) => $this->applyAvailableDepartureConstraints($query)
                     ->select([
                         'id',
                         'tour_id',
@@ -82,10 +83,10 @@ class PublicCatalogController extends Controller
                     ->orderBy('departure_date'),
             ])
             ->withCount([
-                'bookings as bookings_count' => fn (Builder $query) => $query->where('status', '!=', 'cancelled'),
+                'bookings as bookings_count' => fn(Builder $query) => $query->where('status', '!=', 'cancelled'),
             ])
             ->withMin([
-                'departures as next_departure_date' => fn (Builder|HasMany $query) => $this->applyAvailableDepartureConstraints($query),
+                'departures as next_departure_date' => fn(Builder|HasMany $query) => $this->applyAvailableDepartureConstraints($query),
             ], 'departure_date')
             ->orderByDesc('tours.created_at')
             ->orderByDesc('tours.id')
@@ -94,7 +95,7 @@ class PublicCatalogController extends Controller
 
         $reviews = TourReview::query()
             ->visible()
-            ->whereHas('tour', fn (Builder $query) => $query->where('status', 'published'))
+            ->whereHas('tour', fn(Builder $query) => $query->where('status', 'published'))
             ->where('rating', '>=', 4)
             ->whereNotNull('comment')
             ->where('comment', '!=', '')
@@ -103,8 +104,9 @@ class PublicCatalogController extends Controller
                 'user:id,full_name,avatar_url',
             ])
             ->latest('created_at')
+            ->limit(10)
             ->get()
-            ->map(fn (TourReview $review): array => [
+            ->map(fn(TourReview $review): array => [
                 'id' => $review->id,
                 'rating' => (int) $review->rating,
                 'comment' => trim((string) $review->comment),
@@ -119,10 +121,10 @@ class PublicCatalogController extends Controller
         $availableTours = $this->availableToursQuery()->count();
         $availableCategories = Category::query()
             ->where('status', 'active')
-            ->whereHas('tours', fn (Builder $query) => $this->applyAvailableTourConstraints($query))
+            ->whereHas('tours', fn(Builder $query) => $this->applyAvailableTourConstraints($query))
             ->count();
         $availableDestinations = Province::query()
-            ->whereHas('tours', fn (Builder $query) => $this->applyAvailableTourConstraints($query))
+            ->whereHas('tours', fn(Builder $query) => $this->applyAvailableTourConstraints($query))
             ->count();
 
         return response()->json([
@@ -143,10 +145,13 @@ class PublicCatalogController extends Controller
 
     public function categories(): JsonResponse
     {
-        $categories = Category::query()
-            ->where('status', 'active')
-            ->orderBy('name')
-            ->get(['id', 'name', 'slug', 'description', 'status']);
+        // Cache categories for 1 hour as they change infrequently
+        $categories = Cache::remember('categories:active', 3600, function () {
+            return Category::query()
+                ->where('status', 'active')
+                ->orderBy('name')
+                ->get(['id', 'name', 'slug', 'description', 'status']);
+        });
 
         return response()->json([
             'status' => 'success',
@@ -156,25 +161,30 @@ class PublicCatalogController extends Controller
 
     public function destinations(Request $request): JsonResponse
     {
-        $query = Province::query();
+        $cacheKey = $request->boolean('with_tours') ? 'destinations:with_tours' : 'destinations:all';
 
-        if ($request->boolean('with_tours')) {
-            $query->whereHas('tours', fn (Builder $q) => $this->applyAvailableTourConstraints($q));
-        }
+        // Cache destinations for 1 hour as they change infrequently
+        $destinations = Cache::remember($cacheKey, 3600, function () use ($request) {
+            $query = Province::query();
 
-        $destinations = $query
-            ->orderBy('name')
-            ->get(['id', 'name', 'code'])
-            ->map(fn (Province $province): array => [
-                'id' => $province->id,
-                'name' => $province->name,
-                'slug' => $province->slug,
-                'province_city' => $province->name,
-                'country' => 'Việt Nam',
-                'thumbnail_url' => null,
-                'status' => 'active',
-            ])
-            ->values();
+            if ($request->boolean('with_tours')) {
+                $query->whereHas('tours', fn(Builder $q) => $this->applyAvailableTourConstraints($q));
+            }
+
+            return $query
+                ->orderBy('name')
+                ->get(['id', 'name', 'code', 'slug'])
+                ->map(fn(Province $province): array => [
+                    'id' => $province->id,
+                    'name' => $province->name,
+                    'slug' => $province->slug,
+                    'province_city' => $province->name,
+                    'country' => 'Việt Nam',
+                    'thumbnail_url' => null,
+                    'status' => 'active',
+                ])
+                ->values();
+        });
 
         return response()->json([
             'status' => 'success',
@@ -186,20 +196,20 @@ class PublicCatalogController extends Controller
     {
         return Tour::query()
             ->where('status', 'published')
-            ->whereHas('departures', fn (Builder $query) => $this->applyAvailableDepartureConstraints($query));
+            ->whereHas('departures', fn(Builder $query) => $this->applyAvailableDepartureConstraints($query));
     }
 
     private function applyAvailableTourConstraints(Builder $query): void
     {
         $query->where('status', 'published')
-            ->whereHas('departures', fn (Builder $departureQuery) => $this->applyAvailableDepartureConstraints($departureQuery));
+            ->whereHas('departures', fn(Builder $departureQuery) => $this->applyAvailableDepartureConstraints($departureQuery));
     }
 
     private function destinationImages(Collection $provinces): Collection
     {
         $provinceIds = $provinces
             ->pluck('id')
-            ->map(fn ($id): int => (int) $id)
+            ->map(fn($id): int => (int) $id)
             ->all();
 
         if ($provinceIds === []) {
@@ -259,12 +269,12 @@ class PublicCatalogController extends Controller
             ->unionAll($placeImages)
             ->unionAll($tourImages)
             ->get()
-            ->groupBy(fn ($image) => (int) $image->province_id)
+            ->groupBy(fn($image) => (int) $image->province_id)
             ->map(function (Collection $images) {
                 $priority = (int) $images->min('source_priority');
 
                 return $images
-                    ->filter(fn ($image) => (int) $image->source_priority === $priority)
+                    ->filter(fn($image) => (int) $image->source_priority === $priority)
                     ->random();
             });
     }
@@ -272,13 +282,13 @@ class PublicCatalogController extends Controller
     private function applyAvailableImageTourConstraints(QueryBuilder $query, string $tourAlias): void
     {
         $query
-            ->where($tourAlias.'.status', 'published')
-            ->whereNull($tourAlias.'.deleted_at')
+            ->where($tourAlias . '.status', 'published')
+            ->whereNull($tourAlias . '.deleted_at')
             ->whereExists(function (QueryBuilder $departureQuery) use ($tourAlias): void {
                 $departureQuery
                     ->selectRaw('1')
                     ->from('tour_departures')
-                    ->whereColumn('tour_departures.tour_id', $tourAlias.'.id');
+                    ->whereColumn('tour_departures.tour_id', $tourAlias . '.id');
 
                 $this->applyAvailableDepartureConstraints($departureQuery);
             });
@@ -301,11 +311,11 @@ class PublicCatalogController extends Controller
         }
 
         if (count($parts) === 1) {
-            return Str::substr($parts[0], 0, 1).'.';
+            return Str::substr($parts[0], 0, 1) . '.';
         }
 
         return collect($parts)
-            ->map(fn (string $part): string => Str::substr($part, 0, 1).'.')
+            ->map(fn(string $part): string => Str::substr($part, 0, 1) . '.')
             ->implode(' ');
     }
 }
