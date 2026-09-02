@@ -134,19 +134,6 @@ const menuItems = [
   ),
 },
   {
-    label: 'Báo Cáo & Thống Kê',
-    path: '/admin/reports',
-    icon: (
-      <>
-        <path d="M4 19V5" />
-        <path d="M4 19h16" />
-        <path d="M8 16v-5" />
-        <path d="M12 16V8" />
-        <path d="M16 16v-3" />
-      </>
-    ),
-  },
-  {
     label: 'Thông báo',
     path: ADMIN_RECEIVED_NOTIFICATIONS_PATH,
     children: [
@@ -170,6 +157,19 @@ const menuItems = [
       <>
         <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
         <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+      </>
+    ),
+  },
+  {
+    label: 'Báo Cáo & Thống Kê',
+    path: '/admin/reports',
+    icon: (
+      <>
+        <path d="M4 19V5" />
+        <path d="M4 19h16" />
+        <path d="M8 16v-5" />
+        <path d="M12 16V8" />
+        <path d="M16 16v-3" />
       </>
     ),
   },
