@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -11,27 +12,16 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('tours', function (Blueprint $table) {
-            $table->index('status');
-            $table->index('category_id');
-            $table->index('province_id');
-        });
-
-        Schema::table('tour_departures', function (Blueprint $table) {
-            $table->index('tour_id');
-            $table->index('departure_date');
-            $table->index('status');
-        });
-
-        Schema::table('tour_reviews', function (Blueprint $table) {
-            $table->index('tour_id');
-            $table->index('rating');
-        });
-
-        Schema::table('bookings', function (Blueprint $table) {
-            $table->index('tour_id');
-            $table->index('status');
-        });
+        $this->addIndexIfMissing('tours', 'status');
+        $this->addIndexIfMissing('tours', 'category_id');
+        $this->addIndexIfMissing('tours', 'province_id');
+        $this->addIndexIfMissing('tour_departures', 'tour_id');
+        $this->addIndexIfMissing('tour_departures', 'departure_date');
+        $this->addIndexIfMissing('tour_departures', 'status');
+        $this->addIndexIfMissing('tour_reviews', 'tour_id');
+        $this->addIndexIfMissing('tour_reviews', 'rating');
+        $this->addIndexIfMissing('bookings', 'tour_id');
+        $this->addIndexIfMissing('bookings', 'status');
     }
 
     /**
@@ -39,26 +29,39 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('tours', function (Blueprint $table) {
-            $table->dropIndex('tours_status_index');
-            $table->dropIndex('tours_category_id_index');
-            $table->dropIndex('tours_province_id_index');
-        });
+        foreach ([
+            'tours' => ['status', 'category_id', 'province_id'],
+            'tour_departures' => ['tour_id', 'departure_date', 'status'],
+            'tour_reviews' => ['tour_id', 'rating'],
+            'bookings' => ['tour_id', 'status'],
+        ] as $table => $columns) {
+            if (!Schema::hasTable($table)) {
+                continue;
+            }
 
-        Schema::table('tour_departures', function (Blueprint $table) {
-            $table->dropIndex('tour_departures_tour_id_index');
-            $table->dropIndex('tour_departures_departure_date_index');
-            $table->dropIndex('tour_departures_status_index');
-        });
+            foreach ($columns as $column) {
+                $index = "{$table}_{$column}_index";
+                if ($this->indexExists($table, $index)) {
+                    Schema::table($table, fn (Blueprint $blueprint) => $blueprint->dropIndex($index));
+                }
+            }
+        }
+    }
 
-        Schema::table('tour_reviews', function (Blueprint $table) {
-            $table->dropIndex('tour_reviews_tour_id_index');
-            $table->dropIndex('tour_reviews_rating_index');
-        });
+    private function addIndexIfMissing(string $table, string $column): void
+    {
+        if (!Schema::hasTable($table)) {
+            return;
+        }
 
-        Schema::table('bookings', function (Blueprint $table) {
-            $table->dropIndex('bookings_tour_id_index');
-            $table->dropIndex('bookings_status_index');
-        });
+        $index = "{$table}_{$column}_index";
+        if (!$this->indexExists($table, $index)) {
+            Schema::table($table, fn (Blueprint $blueprint) => $blueprint->index($column));
+        }
+    }
+
+    private function indexExists(string $table, string $indexName): bool
+    {
+        return DB::select("SHOW INDEXES FROM `{$table}` WHERE Key_name = ?", [$indexName]) !== [];
     }
 };

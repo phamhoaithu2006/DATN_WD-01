@@ -12,6 +12,13 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // This migration predates the domain-table migrations. On a fresh
+        // install those tables do not exist yet, so defer these indexes to
+        // the later performance-index migration.
+        if (!Schema::hasTable('tours')) {
+            return;
+        }
+
         // Add indexes only if they don't exist
         // Tours table indexes
         if (!$this->indexExists('tours', 'tours_status_index')) {
@@ -83,6 +90,10 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (!Schema::hasTable('tours')) {
+            return;
+        }
+
         Schema::table('tours', function (Blueprint $table) {
             if ($this->indexExists('tours', 'tours_status_index')) {
                 $table->dropIndex('tours_status_index');
