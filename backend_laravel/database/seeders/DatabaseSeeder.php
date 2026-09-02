@@ -159,6 +159,7 @@ class DatabaseSeeder extends Seeder
                 );
             }
 
+            $this->call(SupportRequestSeeder::class);
             $this->seedTourData($admin);
         });
     }
