@@ -29,12 +29,12 @@ class TourManagerController extends Controller
             ->with('actor:id,full_name,email')
             ->when(
                 $validated['entity_type'] ?? null,
-                fn ($query, $entityType) => $query->where('metadata->entity_type', $entityType)
+                fn($query, $entityType) => $query->where('metadata->entity_type', $entityType)
             )
             ->latest()
             ->limit(100)
             ->get()
-            ->map(fn (TourActivityLog $activity) => [
+            ->map(fn(TourActivityLog $activity) => [
                 'id' => $activity->id,
                 'tour_id' => $activity->tour_id,
                 'tour_title' => $activity->tour_title,
@@ -61,19 +61,40 @@ class TourManagerController extends Controller
      */
     public function index(Request $request)
     {
-        // Loại trừ tour bị ẩn
-        $query = Tour::with(['category', 'province', 'thumbnail', 'images', 'itineraries.images', 'itineraries.destinationPlace.province', 'itineraries.destinationPlace.district.province', 'itineraries.destinationPlace.activityTypeLinks', 'agePricingRules'])
+        // Loại trừ tour bị ẩn - LỰA CHỌN CHỈ NHỮNG CỘT CẦN THIẾT cho list view
+        // KHÔNG tải: images, itineraries, agePricingRules (để dành cho detail view)
+        $query = Tour::select([
+            'id',
+            'category_id',
+            'province_id',
+            'title',
+            'slug',
+            'summary',
+            'description',
+            'base_price',
+            'discount_price',
+            'duration_days',
+            'duration_nights',
+            'status',
+            'created_at',
+            'updated_at'
+        ])
+            ->with(['category:id,name,slug', 'province:id,name,code', 'thumbnail:id,tour_id,image_url,alt_text'])
             ->where('status', '!=', 'hidden');
 
         //  1. ADMIN TÌM KIẾM: Theo tiêu đề tour (title)
         if ($request->has('search') && $request->search != '') {
             $search = $request->search;
             $query->where(function ($searchQuery) use ($search) {
-                $searchQuery->where('title', 'LIKE', '%'.$search.'%')
-                    ->orWhere('summary', 'LIKE', '%'.$search.'%')
-                    ->orWhereHas('category', fn ($categoryQuery) => $categoryQuery->where('name', 'LIKE', '%'.$search.'%')
+                $searchQuery->where('title', 'LIKE', '%' . $search . '%')
+                    ->orWhere('summary', 'LIKE', '%' . $search . '%')
+                    ->orWhereHas(
+                        'category',
+                        fn($categoryQuery) => $categoryQuery->where('name', 'LIKE', '%' . $search . '%')
                     )
-                    ->orWhereHas('province', fn ($provinceQuery) => $provinceQuery->where('name', 'LIKE', '%'.$search.'%')
+                    ->orWhereHas(
+                        'province',
+                        fn($provinceQuery) => $provinceQuery->where('name', 'LIKE', '%' . $search . '%')
                     );
             });
         }
@@ -84,12 +105,16 @@ class TourManagerController extends Controller
         }
 
         if ($request->filled('category')) {
-            $query->whereHas('category', fn ($categoryQuery) => $categoryQuery->where('name', $request->string('category')->toString())
+            $query->whereHas(
+                'category',
+                fn($categoryQuery) => $categoryQuery->where('name', $request->string('category')->toString())
             );
         }
 
         if ($request->filled('province')) {
-            $query->whereHas('province', fn ($provinceQuery) => $provinceQuery->where('name', $request->string('province')->toString())
+            $query->whereHas(
+                'province',
+                fn($provinceQuery) => $provinceQuery->where('name', $request->string('province')->toString())
             );
         }
 
@@ -116,12 +141,36 @@ class TourManagerController extends Controller
 
         // Sắp xếp theo ID tăng dần để STT hiển thị từ bé đến lớn
         $tours = $query->latest('updated_at')->orderByDesc('id')->paginate($perPage);
-        $tours->getCollection()->transform(fn ($tour) => (new TourResource($tour))->resolve($request));
+        // KHÔNG transform với TourResource ở list view - nó quá nặng
+        // Chỉ format dữ liệu cơ bản để gửi về FE
 
         return response()->json([
             'status' => 'success',
             'message' => 'Lấy danh sách quản lý tour thành công',
-            'data' => $tours,
+            'data' => $tours->through(function ($tour) {
+                return [
+                    'id' => $tour->id,
+                    'title' => $tour->title,
+                    'slug' => $tour->slug,
+                    'summary' => $tour->summary,
+                    'category' => $tour->category ? [
+                        'id' => $tour->category->id,
+                        'name' => $tour->category->name,
+                    ] : null,
+                    'province' => $tour->province ? [
+                        'id' => $tour->province->id,
+                        'name' => $tour->province->name,
+                    ] : null,
+                    'base_price' => $tour->base_price,
+                    'discount_price' => $tour->discount_price,
+                    'duration_days' => $tour->duration_days,
+                    'duration_nights' => $tour->duration_nights,
+                    'status' => $tour->status,
+                    'thumbnail_url' => $tour->thumbnail?->image_url,
+                    'created_at' => $tour->created_at?->toIso8601String(),
+                    'updated_at' => $tour->updated_at?->toIso8601String(),
+                ];
+            }),
         ]);
     }
 
@@ -136,7 +185,7 @@ class TourManagerController extends Controller
     {
         $tour = Tour::with(['category', 'province', 'thumbnail', 'images', 'itineraries.images', 'itineraries.destinationPlace.province', 'itineraries.destinationPlace.district.province', 'itineraries.destinationPlace.activityTypeLinks', 'departures', 'agePricingRules'])
             ->withCount([
-                'bookings as active_bookings_count' => fn ($query) => $query
+                'bookings as active_bookings_count' => fn($query) => $query
                     ->whereNotIn('status', ['cancelled', 'cancelled_by_tour']),
             ])
             ->findOrFail($id);
@@ -156,7 +205,7 @@ class TourManagerController extends Controller
 
         //  1. USER TÌM KIẾM: Tìm theo tiêu đề tour
         if ($request->has('search') && $request->search != '') {
-            $query->where('title', 'LIKE', '%'.$request->search.'%');
+            $query->where('title', 'LIKE', '%' . $request->search . '%');
         }
 
         //  2. USER LỌC KHOẢNG GIÁ: Tìm theo ngân sách của khách
@@ -169,7 +218,7 @@ class TourManagerController extends Controller
 
         // Sắp xếp theo ID tăng dần để STT hiển thị từ bé đến lớn
         $tours = $query->orderBy('id', 'asc')->paginate(10);
-        $tours->getCollection()->transform(fn ($tour) => (new TourResource($tour))->resolve($request));
+        $tours->getCollection()->transform(fn($tour) => (new TourResource($tour))->resolve($request));
 
         return response()->json([
             'status' => 'success',
@@ -420,8 +469,8 @@ class TourManagerController extends Controller
             $request->exists('itinerary')
             && ! $request->boolean('confirm_itinerary_change')
             && $tour->bookings()
-                ->whereNotIn('status', ['cancelled', 'cancelled_by_tour'])
-                ->exists()
+            ->whereNotIn('status', ['cancelled', 'cancelled_by_tour'])
+            ->exists()
         ) {
             return response()->json([
                 'status' => 'warning',
@@ -540,7 +589,6 @@ class TourManagerController extends Controller
             }
 
             $this->syncStandardAgePricingRules($tour);
-
         });
 
         $this->logActivity(
@@ -634,7 +682,7 @@ class TourManagerController extends Controller
             ->where('status', 'hidden')
             ->orderBy('id', 'asc')
             ->paginate(10);
-        $tours->getCollection()->transform(fn ($tour) => (new TourResource($tour))->resolve(request()));
+        $tours->getCollection()->transform(fn($tour) => (new TourResource($tour))->resolve(request()));
 
         return response()->json([
             'status' => 'success',
@@ -652,15 +700,15 @@ class TourManagerController extends Controller
             ->with(['category', 'province', 'thumbnail'])
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($searchQuery) use ($search) {
-                    $searchQuery->where('title', 'like', '%'.$search.'%')
-                        ->orWhere('slug', 'like', '%'.$search.'%');
+                    $searchQuery->where('title', 'like', '%' . $search . '%')
+                        ->orWhere('slug', 'like', '%' . $search . '%');
                 });
             })
             ->latest('deleted_at')
             ->paginate($perPage);
 
         $tours->getCollection()->transform(
-            fn ($tour) => (new TourResource($tour))->resolve($request)
+            fn($tour) => (new TourResource($tour))->resolve($request)
         );
 
         return response()->json([
@@ -1002,11 +1050,11 @@ class TourManagerController extends Controller
     private function generateUniqueDestinationPlaceSlug(string $name, int $provinceId): string
     {
         $baseSlug = Str::slug($name) ?: 'dia-diem';
-        $slug = $baseSlug.'-'.$provinceId;
+        $slug = $baseSlug . '-' . $provinceId;
         $index = 1;
 
         while (DestinationPlace::withTrashed()->where('slug', $slug)->exists()) {
-            $slug = $baseSlug.'-'.$provinceId.'-'.$index++;
+            $slug = $baseSlug . '-' . $provinceId . '-' . $index++;
         }
 
         return $slug;
@@ -1020,12 +1068,12 @@ class TourManagerController extends Controller
 
         while (
             Tour::withTrashed()
-                ->where('slug', $slug)
-                ->when($exceptTourId, fn ($query) => $query->whereKeyNot($exceptTourId))
-                ->exists()
+            ->where('slug', $slug)
+            ->when($exceptTourId, fn($query) => $query->whereKeyNot($exceptTourId))
+            ->exists()
         ) {
-            $suffixText = '-'.$suffix++;
-            $slug = Str::limit($baseSlug, 280 - strlen($suffixText), '').$suffixText;
+            $suffixText = '-' . $suffix++;
+            $slug = Str::limit($baseSlug, 280 - strlen($suffixText), '') . $suffixText;
         }
 
         return $slug;
@@ -1057,7 +1105,7 @@ class TourManagerController extends Controller
                 $label = trim((string) ($rule['label'] ?? ''));
 
                 if ($label === '') {
-                    $label = 'Mức giá '.($index + 1);
+                    $label = 'Mức giá ' . ($index + 1);
                 }
 
                 $pricingType = $rule['pricing_type'] ?? 'fixed';
@@ -1228,5 +1276,4 @@ class TourManagerController extends Controller
             ]),
         ]);
     }
-
 }
