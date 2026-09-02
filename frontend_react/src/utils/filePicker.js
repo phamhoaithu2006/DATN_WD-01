@@ -6,7 +6,6 @@ export function pickSingleFile({ accept = '' } = {}) {
     let settled = false
 
     const cleanup = () => {
-      window.removeEventListener('focus', handleWindowFocus)
       input.removeEventListener('change', handleChange)
       input.removeEventListener('cancel', handleCancel)
       input.remove()
@@ -21,18 +20,12 @@ export function pickSingleFile({ accept = '' } = {}) {
 
     const handleChange = () => finish(input.files?.[0] || null)
     const handleCancel = () => finish(null)
-    const handleWindowFocus = () => {
-      window.setTimeout(() => {
-        if (!input.files?.length) finish(null)
-      }, 0)
-    }
 
     input.type = 'file'
     input.accept = accept
     input.style.display = 'none'
     input.addEventListener('change', handleChange, { once: true })
     input.addEventListener('cancel', handleCancel, { once: true })
-    window.addEventListener('focus', handleWindowFocus, { once: true })
     document.body.appendChild(input)
     input.click()
   })

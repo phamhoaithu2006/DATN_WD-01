@@ -507,7 +507,9 @@ function AdminSidebar({
 
       <nav className="admin-nav" aria-label="Điều hướng quản trị">
         {visibleMenuItems.map((item) => {
-          const badgeCount = item.showUnassignedDepartureBadge
+          const badgeCount = item.path === '/admin/bookings'
+            ? bookingDisruptionPendingCount + bookingRefundPendingCount
+            : item.showUnassignedDepartureBadge
             ? assignmentWarningCount
             : item.showGuideLeaveBadge
               ? guideLeavePendingCount

@@ -243,11 +243,10 @@ class BookingStatusService
         $displayStatus = $evaluation['display_status'];
 
         if ($targetStatus === 'cancelled') {
-            $canCancelUnpaidConfirmedBooking = $booking->status === 'confirmed'
-                && ! $evaluation['is_paid']
-                && $displayStatus === self::DISPLAY_AWAITING_PAYMENT;
+            $canAdminCancelBeforeDeparture = in_array($booking->status, ['awaiting_payment', 'confirmed'], true)
+                && ! in_array($displayStatus, [self::DISPLAY_DEPARTED, self::DISPLAY_COMPLETED, self::DISPLAY_CANCELLED], true);
 
-            if ($canCancelUnpaidConfirmedBooking) {
+            if ($canAdminCancelBeforeDeparture) {
                 return;
             }
         }

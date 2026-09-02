@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\BookingAuditLog;
+use App\Models\Notification;
 use App\Models\Tour;
 use App\Models\TourDeparture;
 use App\Services\BookingAuditService;
@@ -507,7 +508,12 @@ class BookingController extends Controller
     // ─── Xóa mềm ──────────────────────────────────────────────────
     public function softDelete(Request $request, $id)
     {
-        DB::transaction(function () use ($id, $request): void {
+        $validated = $request->validate([
+            'reason' => ['nullable', 'string', 'max:1000'],
+        ]);
+        $reason = trim((string) ($validated['reason'] ?? '')) ?: 'Quản trị viên hủy booking.';
+
+        DB::transaction(function () use ($id, $request, $reason): void {
             $booking = Booking::query()
                 ->with(['tour', 'tourDeparture', 'payment'])
                 ->lockForUpdate()
@@ -517,7 +523,6 @@ class BookingController extends Controller
 
             $oldStatus = $booking->status;
             $oldPaymentStatus = $booking->payment_status;
-            $reason = $request->input('reason', 'Admin hủy booking.');
             $paymentStatus = $booking->payment_status === 'paid' ? 'refund_pending' : $booking->payment_status;
             $booking->update([
                 'status' => 'cancelled', 'payment_status' => $paymentStatus,
@@ -543,6 +548,20 @@ class BookingController extends Controller
                 $booking,
                 BookingCancellationEmailService::SOURCE_ADMIN_BOOKING,
             );
+
+            Notification::query()->create([
+                'user_id' => $booking->user_id,
+                'title' => 'Booking đã bị hủy',
+                'message' => "Booking {$booking->booking_code} đã bị quản trị viên hủy. Lý do: {$reason}",
+                'type' => 'booking',
+                'status' => 'unread',
+                'data' => json_encode([
+                    'booking_id' => $booking->id,
+                    'booking_code' => $booking->booking_code,
+                    'action' => 'admin_cancelled',
+                    'reason' => $reason,
+                ], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+            ]);
         });
 
         return response()->json([
