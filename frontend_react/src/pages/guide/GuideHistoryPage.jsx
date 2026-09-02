@@ -45,16 +45,6 @@ function stripHtml(value) {
   return String(value || '').replace(/<[^>]*>/g, '').trim()
 }
 
-function getAssignmentNote(item) {
-  const note = String(item?.assignment_note || item?.assignment?.note || item?.notes || '').trim()
-
-  if (/databaseseeder/i.test(note)) {
-    return 'Tour được hệ thống tự động phân công.'
-  }
-
-  return note || 'Không có ghi chú phân công.'
-}
-
 function groupItinerariesByDay(itineraries) {
   const grouped = new Map()
 
@@ -253,15 +243,6 @@ function TourHistoryModal({ open, item, detailLoading, extras, onClose }) {
         </div>
 
         <div className="guide-tour-modal-section">
-          <h4>Thông tin phân công</h4>
-          <div className="guide-tour-modal-content-box">
-            <p className="guide-tour-modal-note">
-              {getAssignmentNote(item)}
-            </p>
-          </div>
-        </div>
-
-        <div className="guide-tour-modal-section">
           <div className="guide-tour-modal-section-head">
             <div>
               <h4>Khách hàng và điểm danh</h4>
@@ -277,7 +258,6 @@ function TourHistoryModal({ open, item, detailLoading, extras, onClose }) {
           ) : customers.length ? (
             <div className="guide-tour-history-customers">
               {customers.map((customer) => {
-                const note = customer.special_request || customer.customer_note || customer.health_note
                 const attendance = customer.attendance || {}
                 const isExpanded = expandedCustomerId === customer.id
 
@@ -305,7 +285,6 @@ function TourHistoryModal({ open, item, detailLoading, extras, onClose }) {
                           </span>
                           {attendance.checked_in_at ? <small>Check-in: {formatDateTime(attendance.checked_in_at)}</small> : <small>Chưa có thời gian check-in</small>}
                         </div>
-                        {note ? <p className="guide-tour-history-customer-note">Lưu ý: {note}</p> : <p className="guide-tour-history-customer-note is-empty">Không có lưu ý từ khách hàng.</p>}
                       </div>
                     ) : null}
                   </article>
