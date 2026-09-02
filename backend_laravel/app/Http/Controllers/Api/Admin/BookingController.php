@@ -82,7 +82,7 @@ class BookingController extends Controller
         }
 
         $bookings = $bookingQuery
-            ->orderBy($request->sort_by ?? 'updated_at', $request->sort_dir ?? 'desc')
+            ->orderBy($request->sort_by ?? 'created_at', $request->sort_dir ?? 'desc')
             ->orderByDesc('id')
             ->paginate($request->per_page ?? 15);
 

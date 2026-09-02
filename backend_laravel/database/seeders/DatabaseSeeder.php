@@ -160,7 +160,14 @@ class DatabaseSeeder extends Seeder
             }
 
             $this->call(SupportRequestSeeder::class);
+            $this->call(SupportNotificationSeeder::class);
             $this->seedTourData($admin);
+            $this->call([
+                CancelledTourSeeder::class,
+                BookingRefundSeeder::class,
+                GuideReplacementRequestSeeder::class,
+                AdminSystemNotificationSeeder::class,
+            ]);
         });
     }
 
