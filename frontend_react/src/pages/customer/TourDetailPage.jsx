@@ -805,33 +805,14 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
     String(birthDate || "").replace(/\D/g, "").length === 8
   );
 
-  const getTicketLabelFromBirthDate = (birthDate) => {
-    if (!isCompleteBirthDate(birthDate)) return null;
-
-    const referenceDate = selectedDeparture?.departure_date
-      || new Date().toISOString().split("T")[0];
-    const age = getAgeFromBirthDate(birthDate, referenceDate);
-
-    if (age === null || age < 0 || age > 120) return null;
-
-    const groupKey = getPricingGroupKeyForAge(age);
-    const matchedRule = bookingGroups.find((rule) => getBookingGroupKey(rule) === groupKey);
-
-    return matchedRule?.label || null;
-  };
-
-  // Trước khi khách nhập ngày sinh, tạm gán loại vé theo đúng thứ tự số lượng
-  // đã chọn ở bước 1 (vd: chọn 1 người lớn, 1 trẻ em => khách 1 = người lớn,
-  // khách 2 = trẻ em). Sau khi khách nhập ngày sinh, nhãn sẽ đổi theo tuổi thật.
+  // Gắn nhãn cố định theo loại vé và thứ tự khách đã chọn ở bước 1.
   const expectedTicketLabelsByPosition = bookingGroups.reduce((list, rule) => {
     const quantity = getRuleQuantity(rule);
     for (let i = 0; i < quantity; i += 1) list.push(rule.label);
     return list;
   }, []);
 
-  const getParticipantTicketLabel = (index, birthDate) => (
-    getTicketLabelFromBirthDate(birthDate) || expectedTicketLabelsByPosition[index] || null
-  );
+  const getParticipantTicketLabel = (index) => expectedTicketLabelsByPosition[index] || null;
 
   const getParticipantBirthDateErrors = (
     participantList,
@@ -1747,9 +1728,9 @@ function TourDetailPage({ tourId, tours = [], hasLiveTours = false, favorites = 
                           <div className="vg-participant-card-header">
                             <h5>Hành khách {index + 1}</h5>
                             <div className="vg-participant-header-right">
-                              {getParticipantTicketLabel(index, p.birth_date) && (
+                              {getParticipantTicketLabel(index) && (
                                 <span className="vg-participant-ticket-type">
-                                  {getParticipantTicketLabel(index, p.birth_date)}
+                                  {getParticipantTicketLabel(index)}
                                 </span>
                               )}
                               <span className={`vg-participant-status ${p.full_name && p.birth_date && p.gender ? 'is-complete' : 'is-missing'}`}>
