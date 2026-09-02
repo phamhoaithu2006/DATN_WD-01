@@ -1412,6 +1412,23 @@ test('admin booking list shows newest booking first when timestamps are equal', 
         ->assertJsonPath('data.1.id', $olderId->id);
 });
 
+test('admin booking list orders newest booking by creation time by default', function () {
+    Sanctum::actingAs(paymentSafetyUser('admin'));
+    $olderBooking = paymentSafetyBooking([
+        'created_at' => now()->subDays(2)->startOfSecond(),
+        'updated_at' => now()->subMinutes(2)->startOfSecond(),
+    ]);
+    $newerBooking = paymentSafetyBooking([
+        'created_at' => now()->subDay()->startOfSecond(),
+        'updated_at' => now()->subDays(3)->startOfSecond(),
+    ]);
+
+    $this->getJson('/api/admin/bookings')
+        ->assertOk()
+        ->assertJsonPath('data.0.id', $newerBooking->id)
+        ->assertJsonPath('data.1.id', $olderBooking->id);
+});
+
 test('admin payment actions synchronize booking payment status', function () {
     Sanctum::actingAs(paymentSafetyUser('admin'));
     $booking = paymentSafetyBooking();
