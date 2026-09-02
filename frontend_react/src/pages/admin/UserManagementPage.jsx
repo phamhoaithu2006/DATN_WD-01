@@ -1,5 +1,4 @@
 ﻿import { useCallback, useEffect, useMemo, useState } from "react";
-import { NavLink } from "react-router-dom";
 import UserDetailModal from "../../components/admin/users/UserDetailModal";
 import UserFilters from "../../components/admin/users/UserFilters";
 import UserFormModal from "../../components/admin/users/UserFormModal";
@@ -197,6 +196,9 @@ function UserManagementPage({ roleName = "customer" }) {
 
   const load = useCallback(async () => {
     setLoading(true);
+    setCustomers([]);
+    setPresenceMap({});
+    setCurrentPage(1);
     try {
       const roleList = await getAccountRoles().catch(() => []);
       const selectedRole =
@@ -279,6 +281,11 @@ function UserManagementPage({ roleName = "customer" }) {
   }, [notice]);
 
   useEffect(() => {
+    setCustomers([]);
+    setPresenceMap({});
+    setCurrentPage(1);
+    setLoading(true);
+
     const timer = setTimeout(() => {
       setSearch("");
       setStatus("");
@@ -374,7 +381,7 @@ function UserManagementPage({ roleName = "customer" }) {
   return (
     <section className="user-management-page">
       <AdminPageHeader
-        breadcrumb={["ViVuGo", "Quản Lý Người Dùng", rolePage.breadcrumb]}
+        breadcrumb={["ViVuGo", "Người Dùng", rolePage.breadcrumb]}
         title={rolePage.title}
         description={rolePage.description}
         actions={
@@ -395,22 +402,6 @@ function UserManagementPage({ roleName = "customer" }) {
           <button onClick={() => setNotice(null)}>×</button>
         </div>
       ) : null}
-
-      <nav className="user-role-tabs" aria-label="Nhóm tài khoản người dùng">
-        {USER_ROLE_PAGES.map((page) => (
-          <NavLink
-            className={({ isActive }) =>
-              isActive || page.name === rolePage.name
-                ? "user-role-tab active"
-                : "user-role-tab"
-            }
-            key={page.name}
-            to={page.path}
-          >
-            {page.breadcrumb}
-          </NavLink>
-        ))}
-      </nav>
 
       <UserFilters
         search={search}
